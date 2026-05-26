@@ -1,0 +1,21 @@
+repos:
+  - repo: https://github.com/swiftlang/swift-format
+    rev: 602.0.0
+    hooks:
+      - id: swift-format
+        language: system
+      - id: swift-format-lint
+        language: system
+
+  - repo: https://github.com/realm/SwiftLint
+    rev: 0.54.0
+    hooks:
+      - id: swiftlint
+        language: system
+
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.0.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: []
