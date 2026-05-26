@@ -1,0 +1,23 @@
+{
+  "MD007": {
+    "indent": 2
+  },
+  "MD013": {
+    "code_blocks": false,
+    "headings": false,
+    "line_length": 90,
+    "tables": false
+  },
+  "MD024": {
+    "siblings_only": true
+  },
+  "MD033": {
+    "allowed_elements": [
+      "br",
+      "img",
+      "a"
+    ]
+  },
+  "MD041": false,
+  "default": true
+}

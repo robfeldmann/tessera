@@ -1,0 +1,13 @@
+# Swift Package Index configuration
+# https://swiftpackageindex.com/SwiftPackageIndex/SPIManifest/main/documentation/spimanifest
+
+version: 1
+builder:
+  configs:
+    - platform: macos-spm
+      documentation_targets:
+        - Tessera
+        - TesseraTerminal
+      custom_documentation_parameters:
+        - "--enable-experimental-combined-documentation"
+    - platform: linux

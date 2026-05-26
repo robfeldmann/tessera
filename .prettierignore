@@ -1,0 +1,6 @@
+# DocC documentation files
+**/*.docc/**/*.md
+Sources/**/Documentation.docc/**/*.md
+
+# Build artifacts
+.build/
