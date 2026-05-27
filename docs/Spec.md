@@ -195,6 +195,22 @@ real implementation.
 
 ### PlatformIO — minimum viable
 
+> [!note] Ratatui References
+>
+> - Ratatui separates terminal I/O into a `Backend` trait (`ratatui-core/src/backend.rs`,
+>   line 158) and concrete backend implementations.
+> - The crossterm backend (`ratatui-crossterm/src/lib.rs`, line 123) wraps a `Write` and
+>   delegates to crossterm for raw mode, alt screen, cursor, and size.
+> - The `init` module (`ratatui/src/init.rs`, lines 396–404 for `try_init`, lines 554–559
+>   for `try_restore`) shows the setup/teardown order: `enable_raw_mode` →
+>   `EnterAlternateScreen` → backend → `Terminal`. Restore reverses: `disable_raw_mode` →
+>   `LeaveAlternateScreen`.
+> - The `Backend::size()` trait method (`ratatui-core/src/backend.rs`, line 315) maps to
+>   `terminal::size()` in crossterm (line 337) or `termion::terminal_size()` in termion
+>   (`ratatui-termion/src/lib.rs`, line 259), both ultimately `TIOCGWINSZ`. Input events
+>   in examples use `crossterm::event::read()` — in Phase 1 we bypass that library and
+>   read raw bytes from stdin directly.
+
 - **POSIX only.** No Windows yet. (`#if os(macOS) || os(Linux)`.)
 - Raw mode via `termios`: save current, set `ICANON`/`ECHO` off, apply. Restore on exit.
 - Alt screen enter/exit via hardcoded byte strings (`\x1b[?1049h` / `\x1b[?1049l`). The
@@ -222,6 +238,26 @@ shape it wants. Phase 2 builds it for real, informed by the bytes you actually e
 Phase 1.
 
 ### Buffer — real, but minimal
+
+> [!note] Ratatui References
+>
+> - `Buffer` is a flat `Vec<Cell>` backed by a `Rect` area
+>   (`ratatui-core/src/buffer/buffer.rs`, line 48). `Index`/`IndexMut` impls (lines
+>   279–296) provide subscript-style access via `Position`. `set_string` (line 220)
+>   iterates graphemes with width clamping.
+> - `Cell` stores `symbol: Option<CompactString>` to support grapheme clusters, plus `fg`,
+>   `bg`, and `modifier` fields (`ratatui-core/src/buffer/cell.rs`, line 44).
+>   `Cell::EMPTY` is the blank default (line 74). `PartialEq` treats `None` and
+>   `Some(" ")` as equal (line 196).
+> - `CellWidth` trait on `str` and `Cell` (`ratatui-core/src/buffer/cell_width.rs`,
+>   line 16) uses the `unicode_width` crate. For Phase 1, naive `width = 1` is sufficient.
+> - `Size` is a simple `width: u16`, `height: u16` struct with `area()` method
+>   (`ratatui-core/src/layout/size.rs`, line 42).
+> - `Position` is `x: u16`, `y: u16` — maps to the spec's `Point` type
+>   (`ratatui-core/src/layout/position.rs`, line 46).
+> - `Style` is a full struct with `fg: Option<Color>`, `bg: Option<Color>`,
+>   `add_modifier`, `sub_modifier` (`ratatui-core/src/style.rs`, line 157). For Phase 1
+>   the spec calls for an empty struct — just the type shell.
 
 This one I think you should build _properly_ in Phase 1, because the buffer is the central
 abstraction everything else hangs off, and a half-built buffer will warp every layer above
@@ -259,6 +295,22 @@ semantics, `subscript`, `write(at:)` — should be right.
 
 ### Renderer — naive, no diff
 
+> [!note] Ratatui References
+>
+> - `Terminal::try_draw` (`ratatui-core/src/terminal/render.rs`, line 118) is the full
+>   render pipeline: autoresize → render callback → flush → cursor → swap buffers →
+>   backend flush. Phase 1 skips all of this and writes bytes directly.
+> - `Terminal::flush` (`ratatui-core/src/terminal/buffers.rs`, line 96) computes the diff
+>   between previous and current buffer via `Buffer::diff_iter`, then passes changed cells
+>   to `Backend::draw`. Phase 1 does no diffing — it repaints every cell.
+> - `BufferDiff` iterator (`ratatui-core/src/buffer/diff.rs`, line 10) yields
+>   `(x, y, &Cell)` for changed cells. Phase 2 replaces the naive renderer with this
+>   diff-based approach.
+> - `CrosstermBackend::draw` (`ratatui-crossterm/src/lib.rs`, line 213) iterates
+>   `(x, y, &Cell)` tuples, queues `MoveTo(x, y)` + style attrs + `Print(symbol)` for
+>   each. Shows the pattern of cursor movement + character output that Phase 1 mimics with
+>   raw `\x1b[H` and CR/LF.
+
 The Phase 1 renderer is dead simple:
 
 ```swift
@@ -283,6 +335,18 @@ flicker. That's _fine_ — Phase 2 fixes it. The point of Phase 1's renderer is 
 that "buffer in, bytes out" works end-to-end.
 
 ### InputParser — only `q` and one other key
+
+> [!note] Ratatui References
+>
+> - Ratatui has no input layer of its own — it delegates entirely to crossterm's `event`
+>   module. The demo app (`examples/apps/demo/src/crossterm.rs`, line 45) shows the
+>   canonical event loop: `event::poll(timeout)` → `event::read()` → match on `KeyCode`.
+>   Phase 1 replaces all of this with raw byte reads from stdin.
+> - `crossterm::event::Event` and `KeyCode::Char` are the types used in the demo. Phase
+>   1's `Phase1Event` is a minimal analog — just `.quit` and `.char(Character)`.
+> - Raw mode via `enable_raw_mode()` (`ratatui/src/init.rs`, line 396) puts stdin into
+>   character-at-a-time mode so `read()` returns immediately. Phase 1 does this manually
+>   with `termios` (see the Mode section), which is what makes single-byte reads possible.
 
 You need exactly two things working:
 
@@ -584,6 +648,19 @@ through five layers forever.
 
 #### What the encoder is, in one sentence
 
+> [!note] Ratatui References
+>
+> - The `Backend` trait (`ratatui-core/src/backend.rs`, line 157) defines the contract for
+>   drawing, cursor movement, and clearing — the encoder is what fulfills this contract by
+>   producing the bytes that each backend method emits.
+> - `CrosstermBackend` (`ratatui-crossterm/src/lib.rs`, line 160) wraps a `Write` and
+>   delegates to crossterm's `queue!`/`execute!` macros (line 85) to emit sequences. The
+>   Tessera encoder replaces this delegation: instead of calling into crossterm, we
+>   produce the bytes ourselves.
+> - The `Backend::draw` method (`ratatui-crossterm/src/lib.rs`, line 232) iterates cells
+>   and emits `MoveTo`, `SetColors`, and `Print` — exactly the kind of "semantic operation
+>   → bytes" mapping the encoder encapsulates.
+
 A pure, synchronous, zero-I/O module that turns semantic terminal operations
 (`moveCursor(row:5, col:10)`, `setForeground(.red)`, `enterAltScreen`) into the exact
 bytes that produce them. **It does not write anywhere. It does not allocate file handles.
@@ -595,6 +672,21 @@ the snapshot harness exist: every byte your program emits flows through this mod
 testing this module covers everything downstream.
 
 #### The shape question: enum vs. free functions vs. builder
+
+> [!note] Ratatui References
+>
+> - Ratatui delegates to crossterm's `Command` trait (`crossterm` crate) which is an
+>   enum-like set of types (`MoveTo`, `Hide`, `Show`, `SetColors`, `Clear`, `Print`) that
+>   implement a common `queue`/`execute` interface. This is the closest analogue to Option
+>   A (enum with associated values).
+> - The `CrosstermBackend::draw` method (`ratatui-crossterm/src/lib.rs`, lines 232–292)
+>   builds a sequence of commands per cell — `MoveTo`, modifier diffs, color changes,
+>   `Print` — and queues them into a single buffer. This is exactly the "compose sequences
+>   as data" pattern Option A enables.
+> - `ModifierDiff` (`ratatui-crossterm/src/lib.rs`, line 535) computes the minimal set of
+>   attribute changes between two `Modifier` states and queues only the deltas. The
+>   Tessera renderer (slice 4) will need equivalent diffing logic, which is natural when
+>   sequences are data (Option A) rather than side effects.
 
 There are three reasonable Swift idioms here, and the choice matters because every other
 layer of the stack will be calling into this one.
@@ -656,6 +748,19 @@ matters, you can add a streaming fast-path alongside without breaking the enum A
 
 #### The encoding interface
 
+> [!note] Ratatui References
+>
+> - The `Backend::draw` signature (`ratatui-core/src/backend.rs`, line 183) takes an
+>   iterator of `(u16, u16, &Cell)` — the crossterm backend consumes this and queues
+>   commands into the writer's internal buffer via `queue!`
+>   (`ratatui-crossterm/src/lib.rs`, line 85). The `encode(into: inout [UInt8])` pattern
+>   mirrors this: accumulate into a shared buffer rather than return new allocations per
+>   call.
+> - `crossterm::queue!` vs `crossterm::execute!` (`ratatui-crossterm/src/lib.rs`, line
+>   85): `queue!` buffers without flushing (used in `draw`), `execute!` flushes
+>   immediately (used in `hide_cursor`, `clear`). The Tessera encoder's `inout [UInt8]` is
+>   the queue! side — flush is the caller's responsibility.
+
 ```swift
 public enum ControlSequence: Sendable, Equatable {
     // ... cases ...
@@ -680,6 +785,26 @@ frame and `encode(into:)` many sequences into it. Returning fresh `[UInt8]` per 
 mean N small allocations per frame. This shape costs nothing and scales.
 
 #### The Phase 2 sequence catalog
+
+> [!note] Ratatui References
+>
+> - Cursor control maps to `Backend::set_cursor_position` (`ratatui-core/src/backend.rs`,
+>   line 229) and `hide_cursor`/`show_cursor` (lines 188, 202). The crossterm backend uses
+>   `MoveTo(x, y)` (`ratatui-crossterm/src/lib.rs`, line 245), `Hide` (line 295), and
+>   `Show` (line 299) — all crossterm `Command` impls that emit CSI sequences.
+> - Erase maps to `Backend::clear` (`ratatui-core/src/backend.rs`, line 259) and
+>   `clear_region` with `ClearType` (`ratatui-core/src/backend.rs`, line 121). The
+>   crossterm backend uses `Clear` from crossterm (`ratatui-crossterm/src/lib.rs`, lines
+>   313–322).
+> - SGR styling maps to the `Color` enum (`ratatui-core/src/style/color.rs`, line 69) and
+>   `Modifier` bitflags (`ratatui-core/src/style.rs`, line 104). The crossterm backend
+>   emits `SetColors` (line 259), `SetForegroundColor`/`SetBackgroundColor` (lines
+>   280–289), and `SetAttribute` via `ModifierDiff` (line 535).
+> - Alt screen is handled by crossterm's `EnterAlternateScreen`/`LeaveAlternateScreen`
+>   (`ratatui-crossterm/src/lib.rs`, lines 127, 145) — the backend itself doesn't expose
+>   these as `Backend` trait methods; they're applied at the application level.
+> - `Print` (`ratatui-crossterm/src/lib.rs`, line 274) is crossterm's command for literal
+>   text output — the analogue of `text(String)` as a `ControlSequence` case.
 
 Concrete list of cases the encoder needs for Phase 2 (informed by the layer-by-layer Phase
 1 work; nothing speculative):
@@ -725,6 +850,21 @@ paste, focus, mouse, Kitty, OSC 8 as their own cases — that's the right time.
 
 #### The `Color` type
 
+> [!note] Ratatui References
+>
+> - Ratatui's `Color` enum (`ratatui-core/src/style/color.rs`, line 69) has cases:
+>   `Reset`, 16 named ANSI colors (`Black` through `White`, lines 75–112),
+>   `Rgb(u8, u8, u8)` (line 118), and `Indexed(u8)` (line 124). This closely matches the
+>   spec's four-case design (`default` → `Reset`, `ansi` → named cases, `rgb`, `indexed`).
+> - The `IntoCrossterm<CrosstermColor>` impl (`ratatui-crossterm/src/lib.rs`, line 408)
+>   shows the encoding mapping: `Reset` → `CrosstermColor::Reset`, named colors →
+>   crossterm's `DarkRed`/`Red` etc., `Indexed(i)` → `AnsiValue(i)`, `Rgb(r,g,b)` →
+>   `Rgb { r, g, b }`.
+> - The `anstyle` conversion module (`ratatui-core/src/style/anstyle.rs`, line 1) provides
+>   bidirectional conversion between Ratatui's `Color` and `anstyle`'s
+>   `AnsiColor`/`Ansi256Color`/ `RgbColor`, confirming the three color spaces (16-color,
+>   256-color, truecolor) are a standard split.
+
 This is the one place where modeling decisions get fiddly. ANSI has three color spaces and
 they're not unified:
 
@@ -760,6 +900,24 @@ A few decisions baked in here worth flagging:
 
 #### What the encoder does _not_ do
 
+> [!note] Ratatui References
+>
+> - The crossterm backend's `draw` method (`ratatui-crossterm/src/lib.rs`, lines 232–292)
+>   tracks state across the loop (`fg`, `bg`, `modifier`, `last_pos`) to minimize
+>   redundant SGR emissions. This is the "buffering of state" that the Tessera encoder
+>   deliberately pushes to the renderer layer — the encoder itself is stateless, the
+>   renderer decides what to emit.
+> - `ModifierDiff` (`ratatui-crossterm/src/lib.rs`, line 535) computes minimal attribute
+>   deltas between frames. Tessera's renderer will need equivalent logic, not the encoder.
+> - `BufferDiff` (`ratatui-core/src/buffer/diff.rs`, line 10) and `Buffer::diff_iter`
+>   (`ratatui-core/src/buffer/buffer.rs`, line 506) compute which cells changed between
+>   frames. This is the "no batching" / "no clamping" boundary: the diff layer decides
+>   what changed, the encoder just produces bytes for what it's told.
+> - `TestBackend` (`ratatui-core/src/backend/test.rs`, line 32) is Ratatui's in-memory
+>   backend for golden-byte-style testing — it records what was drawn and lets you assert
+>   on the resulting `Buffer`. The Tessera `VirtualTerminal` (libghostty) plays a similar
+>   role but at a lower level (byte → terminal state, not cell → buffer).
+
 This list matters as much as the catalog:
 
 - **No buffering of state.** The encoder doesn't remember "the current foreground is red,
@@ -777,6 +935,22 @@ This list matters as much as the catalog:
   is not its concern.
 
 #### Testing strategy for the encoder
+
+> [!note] Ratatui References
+>
+> - `TestBackend` (`ratatui-core/src/backend/test.rs`, line 32) provides an in-memory
+>   implementation of `Backend` that records all draw operations into a `Buffer`.
+>   Ratatui's widget tests use it for golden-buffer assertions: draw a widget, compare the
+>   resulting buffer to expected output. This is the "golden byte fixture" pattern at the
+>   cell level.
+> - The buffer diff tests (`ratatui-core/src/buffer/buffer.rs`, lines 1094–1121) test
+>   `diff_iter` against known inputs — `diff_empty_empty`, `diff_empty_filled`, etc. This
+>   is the structural analogue of Tessera's golden-byte tests: known input → known output,
+>   no terminal involved.
+> - Ratatui does not have a byte-level encoder test suite because encoding is delegated to
+>   crossterm. Tessera's encoder _is_ the encoding layer, so the golden-byte +
+>   VirtualTerminal round-trip strategy fills the gap that Ratatui's delegation model
+>   sidesteps.
 
 This is the part that pays the harness back. For every `ControlSequence` case, two tests:
 
@@ -813,6 +987,14 @@ Roughly another couple of evenings of work. Most of it is mechanical; the design
 are all up front, which is why we're spending so much time on them now.
 
 #### Three things to flag
+
+> [!note] Ratatui References
+>
+> - Ratatui does not currently emit synchronized output (DEC 2026) sequences. The
+>   `CrosstermBackend::draw` method (`ratatui-crossterm/src/lib.rs`, line 232) queues
+>   commands directly without wrapping in `DEC private mode 2026`. This is a known gap —
+>   crossterm itself has `EnableLineWrap`/`DisableLineWrap` but no sync output command in
+>   the versions Ratatui supports.
 
 1. **Synchronized Output (DEC 2026) is in the Phase 2 catalog.** This is a relatively new
    mode — not all terminals support it, but the ones that do (Ghostty, iTerm2, Kitty,
@@ -869,6 +1051,18 @@ Each problem has a tidy solution; the work is in getting them to compose.
 
 #### The `ModeLifecycle` type
 
+> [!note] Ratatui References
+>
+> - Ratatui's `init` module (`ratatui/src/init.rs`) provides `try_init` (line 397) and
+>   `try_restore` (line 554) which encode the enter/exit ordering: `enable_raw_mode` →
+>   `EnterAlternateScreen` on enter, `disable_raw_mode` → `LeaveAlternateScreen` on exit.
+> - The `run` function (`ratatui/src/init.rs`, line 318) wraps a closure with setup and
+>   guaranteed cleanup — the closest Rust analogue to Tessera's `enter`/`exit` contract.
+> - Unlike Tessera's all-or-nothing set semantics, Ratatui's `try_init` enables modes
+>   sequentially without rollback; a failure midway leaves the terminal partially
+>   modified. Tessera's `ModeLifecycle.enter` improves on this by rolling back on partial
+>   failure.
+
 This is the user-facing entry point. The shape:
 
 ```swift
@@ -915,6 +1109,18 @@ A few load-bearing properties of this design:
 
 #### The teardown discipline (the spicy part)
 
+> [!note] Ratatui References
+>
+> - Ratatui installs a panic hook via `set_panic_hook()` (`ratatui/src/init.rs`, line 566)
+>   that calls `restore()` before delegating to the previous hook. This covers panics but
+>   not signal-induced termination — Tessera's layered approach (defer + signal handlers +
+>   atexit) goes further.
+> - The `Terminal` struct implements `Drop` (`ratatui-core/src/terminal.rs`, line 473) to
+>   restore cursor visibility on scope exit, analogous to Tessera's `defer` layer.
+> - Ratatui's `restore()` (`ratatui/src/init.rs`, line 524) and `try_restore()` (line 554)
+>   perform the actual teardown (`disable_raw_mode` → `LeaveAlternateScreen`). Tessera's
+>   signal handler must replicate this logic using only signal-safe syscalls.
+
 `defer` is not enough. Here's the layered approach:
 
 **Layer 1: Swift `defer` for normal and thrown exits.**
@@ -960,6 +1166,26 @@ terminal" byte string. Document this prominently. You can't catch every failure 
 can make recovery a one-command operation.
 
 #### The real `PlatformIO`
+
+> [!note] Ratatui References
+>
+> - The `Backend` trait (`ratatui-core/src/backend.rs`, line 157) defines the contract for
+>   terminal I/O: `draw`, `flush`, `size`, `window_size`, cursor ops. Tessera's
+>   `PlatformIO` combines this with input — Ratatui splits input into the crossterm event
+>   system.
+> - `CrosstermBackend` (`ratatui-crossterm/src/lib.rs`, line 160) wraps a `Write` and
+>   implements `Backend`. Its `flush` (line 358) delegates to `self.writer.flush()` —
+>   analogous to Tessera's explicit `flush()` after buffered writes.
+> - `Backend::size()` (`ratatui-core/src/backend.rs`, line 315) and
+>   `Backend::window_size()` (line 322) map to `terminal::size()` in crossterm, ultimately
+>   `TIOCGWINSZ`. Tessera's `PlatformIO.size()` and `sizeChanges` stream serve the same
+>   purpose.
+> - `WindowSize` (`ratatui-core/src/backend.rs`, line 139) carries both character
+>   dimensions (`columns_rows: Size`) and pixel dimensions (`pixels: Size`). Tessera's
+>   `TerminalSize` starts with just columns/rows.
+> - Input events in Ratatui use `crossterm::event::poll()` and `event::read()` (see
+>   `examples/apps/demo/src/crossterm.rs`, lines 57, 62). Tessera replaces this with a
+>   non-blocking `AsyncStream<UInt8>` backed by `poll` + `read(2)`.
 
 Phase 1's `PlatformIO` was a stub. Slice 3 is where it becomes real.
 
@@ -1009,6 +1235,19 @@ Design notes:
 
 #### The non-blocking read loop
 
+> [!note] Ratatui References
+>
+> - Ratatui delegates input to crossterm's event system: `crossterm::event::poll(timeout)`
+>   followed by `event::read()` (`examples/apps/demo/src/crossterm.rs`, lines 57, 62).
+>   Crossterm internally uses `poll`/`epoll`/`kqueue` depending on platform — Tessera
+>   re-implements this directly with POSIX `poll` for full control.
+> - The crossterm event loop is synchronous and blocking within `poll`'s timeout.
+>   Tessera's `AsyncStream<UInt8>` approach is async-native, yielding individual bytes via
+>   a `AsyncStreamContinuation` from a detached task.
+> - Crossterm's cancellation is implicit (the `poll` timeout bounds the block). Tessera
+>   uses an explicit self-pipe trick so cancellation returns immediately without waiting
+>   for the timeout.
+
 This is the one place where the implementation details genuinely matter, because getting
 it wrong leads to either CPU-spinning or dropped keystrokes. The shape:
 
@@ -1057,6 +1296,20 @@ Three details worth pinning down here:
    for the timeout. Worth implementing properly.
 
 #### The `Cleanup` registration mechanism
+
+> [!note] Ratatui References
+>
+> - Ratatui's `set_panic_hook()` (`ratatui/src/init.rs`, line 566) captures the cleanup
+>   logic in a closure via `std::panic::take_hook` / `set_hook`. Tessera's
+>   `CleanupRegistry` uses a global atomic pointer instead, because POSIX signal handlers
+>   cannot invoke Swift closures or the Swift runtime.
+> - Ratatui's `restore()` (`ratatui/src/init.rs`, line 524) calls `try_restore()`
+>   (line 554) which runs `disable_raw_mode()` then `LeaveAlternateScreen`. Tessera's
+>   `performEmergencyCleanup` must replicate this with only `tcsetattr` + `write(2)` — no
+>   crossterm library calls, no allocation.
+> - The `Terminal::drop` impl (`ratatui-core/src/terminal.rs`, line 473) restores cursor
+>   visibility as a best-effort cleanup. Tessera has no equivalent in its signal handler;
+>   cursor state is restored as part of the broader termios restoration.
 
 To support layer 2 (signal handlers) and layer 3 (`atexit`), `ModeLifecycle` needs to
 publish the current "if we die right now, what bytes should we emit" to a global location.
@@ -1190,6 +1443,27 @@ synchronized-output discipline.
 
 #### The width-aware `Buffer`
 
+> [!note] Ratatui References
+>
+> - `Buffer` (`ratatui-core/src/buffer/buffer.rs`, line 67) is a flat `Vec<Cell>` keyed by
+>   `row * width + col` over a `Rect` area — the same layout choice Tessera bakes into its
+>   design. `set_stringn` (line 336) iterates graphemes via `unicode_segmentation`,
+>   advances by each grapheme's `cell_width()`, and resets trailing cells for multi-width
+>   graphemes (line 356) — the "continuation cell" pattern Tessera makes explicit with
+>   `.continuation`.
+> - `Cell` (`ratatui-core/src/buffer/cell.rs`, line 37) stores
+>   `symbol: Option<CompactString>` (a grapheme cluster), `fg`, `bg`, `modifier`, and
+>   `diff_option`. Ratatui resets trailing cells to `Cell::EMPTY` (blank + Reset style)
+>   rather than using a dedicated continuation enum case — Tessera's `.continuation`
+>   variant is a stricter invariant that the type system enforces.
+> - `CellWidth` trait (`ratatui-core/src/buffer/cell_width.rs`, line 19) computes display
+>   width via `unicode-width` with a correction for halfwidth katakana dakuten/handakuten
+>   (U+FF9E/U+FF9F) — Ratatui's answer to the "width is not 1" problem. Tessera uses
+>   `swift-displaywidth` for the same purpose.
+> - `StyledGrapheme` (`ratatui-core/src/text/grapheme.rs`, line 12) pairs a `&str` symbol
+>   with a `Style` — Ratatui's intermediate representation between text and buffer,
+>   analogous to Tessera's `Cell.Content.grapheme(String)` + `Style`.
+
 Building on Phase 1's `Buffer` skeleton, we add width awareness at the _cell_ level, not
 the buffer level.
 
@@ -1254,6 +1528,15 @@ two means `HStack` and `VStack` can do their work without fighting the buffer.
 
 ##### The edge cases that will bite you
 
+> [!note] Ratatui References
+>
+> - `Buffer::set_stringn` (`ratatui-core/src/buffer/buffer.rs`, line 336) handles clipping
+>   at the row boundary by checking `remaining_width` before each grapheme (line 348) —
+>   wide graphemes that don't fit are silently dropped. The orphan rule is implicit:
+>   trailing cells of a previous wide grapheme are `Cell::EMPTY` (reset by `set_stringn`,
+>   line 356), so overwriting half a wide grapheme leaves the other half as blank — which
+>   is correct, but not enforced by the type system the way Tessera's `.continuation` is.
+
 These are worth pinning down in the spec because they're where bugs hide:
 
 1. **Writing a wide grapheme at the last column.** No room for the continuation cell. The
@@ -1281,6 +1564,19 @@ These are worth pinning down in the spec because they're where bugs hide:
 
 #### The damage-tracking renderer
 
+> [!note] Ratatui References
+>
+> - `Terminal` (`ratatui-core/src/terminal.rs`, line 398) maintains a double-buffered pair
+>   of `Buffer`s. `flush()` (`ratatui-core/src/terminal/buffers.rs`, line 97) runs
+>   `diff_iter` and passes the resulting iterator to `Backend::draw()`. `swap_buffers()`
+>   (line 121) resets the inactive buffer — the same invalidate-and-redraw discipline
+>   Tessera's `Renderer.invalidate()` implements.
+> - `Backend::draw()` (`ratatui-core/src/backend.rs`, line 166) takes an iterator of
+>   `(u16, u16, &'a Cell)` triples — the backend receives exactly the changed cells, not a
+>   full buffer. In Ratatui the concrete backend (crossterm, termion) is responsible for
+>   cursor moves, SGR emission, and character output; in Tessera this logic lives in the
+>   `Renderer` itself since there is no separate backend abstraction.
+
 The renderer's job: given a previous `Buffer` and a current `Buffer`, emit the minimum
 bytes that transform the terminal's display from the previous state to the current one.
 
@@ -1306,6 +1602,19 @@ Three pieces of internal state:
   emitting).
 
 ##### The diff algorithm
+
+> [!note] Ratatui References
+>
+> - `BufferDiff` (`ratatui-core/src/buffer/diff.rs`, line 10) is a zero-allocation
+>   iterator that yields `(x, y, &Cell)` for changed cells. It handles multi-width skip
+>   (line 78), VS16 trailing-cell explicit clears (line 88), and `CellDiffOption`
+>   directives — the same row-by-row, multi-width-aware diff strategy Tessera describes in
+>   its pseudocode.
+> - `CellDiffOption` (`ratatui-core/src/buffer/cell.rs`, line 12) provides `Skip`,
+>   `AlwaysUpdate`, and `ForcedWidth` — Ratatui's mechanism for telling the diff iterator
+>   how to treat cells covered by escape sequences (images, links). `ForcedWidth` is how
+>   Ratatui handles wide-grapheme trailing cells during diffing without a continuation
+>   enum.
 
 Row-by-row, with run coalescing. Pseudocode:
 
@@ -1338,6 +1647,14 @@ This is roughly the algorithm Ratatui uses, and it's well-trodden territory.
 
 ##### SGR delta emission
 
+> [!note] Ratatui References
+>
+> - `Style` (`ratatui-core/src/style.rs`, line 239) is an incremental style with `fg`,
+>   `bg`, `add_modifier`, and `sub_modifier` fields — styles compose via patch, not
+>   replace. `Modifier` (line 104) is a bitflag enum (BOLD, DIM, ITALIC, UNDERLINED,
+>   SLOW_BLINK, RAPID_BLINK, REVERSED, HIDDEN, CROSSED_OUT). This matches Tessera's SGR
+>   delta approach where only changed attributes are emitted.
+
 The naive approach is "if styles differ, reset and re-set everything." Better: emit only
 the SGR codes for the attributes that actually changed. Concretely:
 
@@ -1360,6 +1677,14 @@ default." Costs a few bytes per frame; eliminates a whole class of bugs.
 
 ##### Cursor positioning optimization
 
+> [!note] Ratatui References
+>
+> - `Terminal` tracks `last_known_cursor_pos` (`ratatui-core/src/terminal.rs`, line 434)
+>   as a best-effort record of where it last wrote. `flush()`
+>   (`ratatui-core/src/terminal/buffers.rs`, line 104) updates it from the last diffed
+>   cell. Ratatui doesn't use this to skip cursor moves during diff emission — that
+>   optimization lives in the backend's `draw()` implementation, not in the diff layer.
+
 After emitting the bytes for cell `[r, c]`, the terminal cursor is at `[r, c+width]`. If
 the next cell to emit is exactly there, no cursor-position emission is needed. The
 renderer tracks "believed cursor position" and only emits `cursorPosition` when it doesn't
@@ -1370,6 +1695,12 @@ last write left the cursor at the start of the next row, you may not need a curs
 Modest byte savings, but free if you're already tracking position.
 
 ##### Synchronized Output wrapping
+
+> [!note] Ratatui References
+>
+> - Synchronized Output (DEC 2026) is not implemented in Ratatui — no
+>   `enter_sync`/`exit_sync` methods exist on any backend. Tessera's unconditional
+>   sync-output wrapping is a design decision without a Ratatui precedent.
 
 Every frame:
 
@@ -1389,6 +1720,17 @@ Two notes:
   here.
 
 #### Resize handling
+
+> [!note] Ratatui References
+>
+> - `Terminal::resize()` (`ratatui-core/src/terminal/resize.rs`, line 23) updates buffer
+>   sizes, clears the viewport, and resets the previous buffer so the next draw is a full
+>   repaint — matching Tessera's "discard last-drawn buffer" discipline. `autoresize()`
+>   (line 64) checks the backend size during every render pass and calls `resize()` when
+>   it changes.
+> - `Terminal::clear()` (`ratatui-core/src/terminal/buffers.rs`, line 136) emits
+>   `ClearType::All` for fullscreen viewports — the same "eraseInDisplay(.all)" Tessera
+>   emits after resize.
 
 When `PlatformIO.sizeChanges` yields a new size, the renderer needs to:
 
@@ -1431,6 +1773,14 @@ Roughly 30-40 tests for slice 4, weighted toward the snapshot end. The library's
 reliability rests on these.
 
 #### Performance posture
+
+> [!note] Ratatui References
+>
+> - `Buffer` stores cells as a flat `Vec<Cell>` (`ratatui-core/src/buffer/buffer.rs`,
+>   line 73) indexed by `row * width + col` — the same cache-friendly layout Tessera
+>   chooses. `CellWidth` (`ratatui-core/src/buffer/cell_width.rs`, line 19) computes width
+>   on access from the stored symbol string, matching Tessera's "width is computed, not
+>   stored" principle.
 
 For Phase 2, the target is "good enough that you can't see the difference." Concretely:
 
@@ -1523,6 +1873,22 @@ replace most of it — but only on terminals that support it.
 
 #### The four problems this slice solves
 
+> [!note] Ratatui References
+>
+> - Ratatui itself has no input layer — it delegates entirely to crossterm. The `Event`
+>   enum (`crossterm` `src/event.rs`, line 550) is the top-level type: `Key(KeyEvent)`,
+>   `Mouse(MouseEvent)`, `Resize(u16, u16)`, `Paste(String)`, `FocusGained`/`FocusLost`.
+> - The four problems map directly to crossterm's design: (1) byte-by-byte buffering is
+>   handled by the `Parser` struct (`src/event/source/unix/mio.rs`, line 168) which
+>   accumulates bytes in a `Vec<u8>` buffer until `parse_event` succeeds; (2) ESC
+>   ambiguity is resolved by the `input_available` parameter to `parse_event`
+>   (`src/event/sys/unix/parse.rs`, line 26) — when no more bytes are pending, bare ESC
+>   emits `KeyCode::Esc`; (3) irregular modifier encoding is handled by `parse_modifiers`
+>   (`src/event/sys/unix/parse.rs`, line 313) which decodes the semicolon-separated
+>   modifier mask; (4) UTF-8 assembly is in `parse_utf8_char`
+>   (`src/event/sys/unix/parse.rs`, line 825) which validates continuation bytes against
+>   the expected sequence length.
+
 1. **Multi-byte sequences arrive byte-by-byte.** A press of the up arrow generates the
    three bytes `\e [ A`. They may arrive in one `read(2)` call or three separate ones
    depending on buffering, network conditions (ssh), and terminal implementation. The
@@ -1547,6 +1913,21 @@ replace most of it — but only on terminals that support it.
    ASCII-only) but worth being explicit about.
 
 #### The shape: a streaming state machine
+
+> [!note] Ratatui References
+>
+> - crossterm's parser is not exposed as a public type — it's a private `Parser` struct
+>   (`src/event/source/unix/mio.rs`, line 168) with a `buffer: Vec<u8>` and
+>   `internal_events: VecDeque<InternalEvent>`. It implements `Iterator`, yielding
+>   `InternalEvent` items. This is the Rust equivalent of Tessera's `InputParser`.
+> - The `advance` method (`src/event/source/unix/mio.rs`, line 198) feeds bytes one at a
+>   time into `parse_event`, clearing the buffer on success or keeping it on `Ok(None)`
+>   (partial sequence). This is the same byte-by-byte streaming pattern Tessera uses with
+>   `feed(_:)`.
+> - Unlike Tessera's pull-model `feed` returning `[InputEvent]`, crossterm's parser pushes
+>   completed events into a `VecDeque` and yields them via `Iterator::next()`. Tessera's
+>   design is cleaner for async — the caller drives the stream, the parser doesn't own
+>   time.
 
 The parser is a struct with mutable state that consumes bytes one at a time and yields
 events when sequences complete. Concretely:
@@ -1578,6 +1959,24 @@ A few load-bearing properties:
   data, not errors.
 
 #### The `InputEvent` type
+
+> [!note] Ratatui References
+>
+> - crossterm's `KeyEvent` struct (`src/event.rs`, line 937) is the direct analog of
+>   Tessera's `Key`: it carries `code: KeyCode`, `modifiers: KeyModifiers`,
+>   `kind: KeyEventKind` (Press/Repeat/Release), and `state: KeyEventState` (keypad,
+>   caps-lock, num-lock). Tessera's Phase 2 drops `kind` and `state` — those are Phase 3
+>   (Kitty protocol).
+> - `KeyCode` enum (`src/event.rs`, line 1226) covers: `Char(char)`, `Backspace`, `Enter`,
+>   `Left`/`Right`/`Up`/`Down`, `Home`, `End`, `PageUp`, `PageDown`, `Tab`, `BackTab`,
+>   `Delete`, `Insert`, `F(u8)`, `Esc`, `Null`, plus Kitty-only keys (`CapsLock`, `Media`,
+>   `Modifier`). Tessera's Phase 2 `KeyCode` is a subset of this.
+> - `KeyModifiers` (`src/event.rs`, line 840) is a `bitflags` OptionSet with `SHIFT`,
+>   `CONTROL`, `ALT`, `SUPER`, `HYPER`, `META`. Tessera's Phase 2 uses only `shift`,
+>   `alt`, `control` — matching what legacy protocols can report.
+> - `KeyEvent::normalize_case()` (`src/event.rs`, line 973) encodes the same "shift only
+>   for non-character keys" convention Tessera documents: uppercase chars get SHIFT added,
+>   lowercase with SHIFT get uppercased.
 
 This is the slice's other load-bearing public API. For Phase 2 (legacy only):
 
@@ -1632,6 +2031,23 @@ Design notes:
 
 #### The state machine
 
+> [!note] Ratatui References
+>
+> - crossterm doesn't use an explicit enum for parser states — the state machine is
+>   implemented as a series of match branches in `parse_event`
+>   (`src/event/sys/unix/parse.rs`, line 26). The `.ground` state is the top-level
+>   `match buffer[0]`; `.escape` is the `b'\x1B'` branch (line 31); `.csi` is the
+>   `parse_csi` function (line 137); `.ss3` is the `b'O'` sub-branch inside escape (line
+>   48). The implicit state is carried by which function is called and the remaining
+>   buffer slice.
+> - The `.utf8` state is handled by `parse_utf8_char` (`src/event/sys/unix/parse.rs`,
+>   line 825) which validates continuation bytes against expected sequence lengths (2, 3,
+>   or 4 bytes based on leading byte). Returns `Ok(None)` when more bytes needed — the
+>   caller's buffer retains the partial sequence.
+> - Tessera's explicit state enum (`.ground`, `.utf8`, `.escape`, `.csi`, `.ss3`) is a
+>   cleaner design than crossterm's implicit state-in-the-call-stack, making it easier to
+>   reason about and test.
+
 Conceptually, the parser is in one of these states:
 
 - **`.ground`** — waiting for a fresh byte. ASCII control char → emit. Printable ASCII →
@@ -1653,6 +2069,23 @@ trick is to keep the state machine _small_ — handle only what real terminals a
 send, fall through to `.unknown` for everything else, and refine over time.
 
 #### The legacy sequence catalog
+
+> [!note] Ratatui References
+>
+> - ASCII control range: `parse_event` handles `b'\x01'..=b'\x1A'` as Ctrl+letter (line
+>   97), `b'\x1C'..=b'\x1F'` as Ctrl+4..Ctrl+/ (line 101), `b'\r'`/`b'\n'` as Enter (lines
+>   82–88), `b'\t'` as Tab (line 90), `b'\x7F'` as Backspace (line 92), and `b'\0'` as
+>   Ctrl+Space (line 105). Matches Tessera's catalog exactly.
+> - CSI arrows: `parse_csi` handles `\e[A`/`B`/`C`/`D` as Up/Down/Right/Left (line 146),
+>   `\e[H`/`\e[F` as Home/End (line 150), `\e[Z` as Shift+Tab/BackTab (line 155).
+> - CSI tilde keys: `parse_csi_special_key_code` (line 619) maps `1~`/`7~`→Home,
+>   `2~`→Insert, `3~`→Delete, `4~`/`8~`→End, `5~`→PageUp, `6~`→PageDown, and ranges
+>   `11~`–`26~` to F1–F12. Matches Tessera's vt220-style catalog.
+> - SS3 function keys: the `b'O'` branch in `parse_event` (line 48) handles `\eOP`–`\eOS`
+>   as F1–F4 and `\eOA`–`\eOD` as arrows in application mode (lines 51–68).
+> - CSI modifier keys: `parse_csi_modifier_key_code` (line 348) parses `\e[1;<mods>A` etc.
+>   with `parse_modifiers` (line 313) decoding the mask. Matches Tessera's modifier
+>   scheme.
 
 The concrete set of sequences the parser needs to recognize for Phase 2:
 
@@ -1705,6 +2138,24 @@ bracketed paste (`\e[200~ ... \e[201~`), SGR mouse (`\e[<...M` / `m`), focus (`\
 
 #### The ESC ambiguity, in detail
 
+> [!note] Ratatui References
+>
+> - crossterm resolves ESC ambiguity in `parse_event` (`src/event/sys/unix/parse.rs`,
+>   lines 31–35): when the buffer is exactly `[0x1B]` (length 1), it checks the
+>   `input_available` boolean — `false` (no more bytes pending) emits `KeyCode::Esc`,
+>   `true` (more bytes may arrive) returns `Ok(None)` to wait. The timeout that determines
+>   "are more bytes coming?" is the `poll` timeout in `UnixInternalEventSource::try_read`
+>   (`src/event/source/unix/mio.rs`, line 68) which uses `PollTimeout`
+>   (`src/event/timeout.rs`, line 5).
+> - Unlike Tessera's explicit 25ms configurable timeout in the input task, crossterm's
+>   timeout is whatever the caller passes to `poll()` — there's no built-in ESC-specific
+>   timeout. The `EventStream` async type (`src/event/stream.rs`, line 33) polls with zero
+>   timeout and relies on mio's readiness notification, which means ESC latency depends on
+>   when the next byte arrives (no explicit timeout flush).
+> - `KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES` (`src/event.rs`, line 292) is
+>   the Phase 3 escape hatch: when enabled, Escape sends `\e[27u` which is unambiguous.
+>   Tessera mirrors this with Kitty protocol support.
+
 The standard solution is a timeout: after receiving a bare ESC, wait some number of
 milliseconds for more bytes. If something arrives within the window, it's an escape
 sequence; if not, it's a literal Escape keypress.
@@ -1751,6 +2202,22 @@ because the parser's escape-sequence handling already extends cleanly.
 
 #### Wiring into `PlatformIO`
 
+> [!note] Ratatui References
+>
+> - crossterm's `InternalEventReader` (`src/event/read.rs`, line 12) is the singleton that
+>   wraps the platform-specific `EventSource` and provides `poll()` and `read()` methods.
+>   It's held behind a `parking_lot::Mutex` as a static (`src/event.rs`, line 149) — only
+>   one event reader exists per process.
+> - `UnixInternalEventSource` (`src/event/source/unix/mio.rs`, line 24) uses mio's `Poll`
+>   to multiplex stdin (TTY_TOKEN), SIGWINCH signals (SIGNAL_TOKEN), and an optional waker
+>   (WAKE_TOKEN). On SIGWINCH, it calls `crate::terminal::size()` and yields
+>   `Event::Resize(columns, rows)` (line 123). This is the same pattern Tessera uses:
+>   unify keyboard input and resize events into one stream.
+> - The `EventStream` async type (`src/event/stream.rs`, line 33) implements
+>   `futures_core::stream::Stream` and spawns a background thread that blocks on
+>   `poll_internal` and wakes the async task when events arrive. This is the closest
+>   analog to Tessera's `AsyncStream<InputEvent>`.
+
 Slice 3 gave you `PlatformIO.bytes: AsyncStream<UInt8>`. Slice 5 layers on top:
 
 ```swift
@@ -1768,6 +2235,22 @@ A `SIGWINCH` arriving via the cleanup-registry mechanism also yields an
 "terminal state changes" into one event channel — exactly what application code wants.
 
 #### Testing strategy
+
+> [!note] Ratatui References
+>
+> - crossterm's parser tests live in the `#[cfg(test)] mod tests` block at the bottom of
+>   `src/event/sys/unix/parse.rs` (line 1183). They cover: `test_esc_key` (bare ESC),
+>   `test_possible_esc_sequence` (ESC with more bytes pending), `test_alt_key`
+>   (Alt+letter), `test_parse_csi` (arrow keys), `test_parse_csi_modifier_key_code`
+>   (modified arrows), `test_parse_csi_special_key_code` (tilde keys),
+>   `test_parse_csi_focus` (focus events), `test_utf8` (multi-byte UTF-8 validation),
+>   `test_parse_char_event_uppercase` (shift convention), and CSI-u encoded key tests
+>   (Kitty protocol).
+> - The `test_parse_event_subsequent_calls` test (line 1205) feeds complete byte sequences
+>   and asserts the parsed event — the golden-test pattern Tessera describes.
+> - crossterm lacks explicit multi-byte split tests (feeding `[0x1b]`, then
+>   `[0x5b, 0x31]`, then `[0x35, 0x41]` separately). Tessera's spec calls these out
+>   explicitly as a test category — a worthwhile addition over crossterm's coverage.
 
 The parser is the most fixture-heavy module in the library. The shape of the tests:
 
@@ -1806,6 +2289,19 @@ facto specification of what Tessera accepts as input.
 
 #### What's not in this slice
 
+> [!note] Ratatui References
+>
+> - crossterm's bracketed paste is behind the `bracketed-paste` feature flag.
+>   `EnableBracketedPaste` (`src/event.rs`, line 421) emits `\e[?2004h`;
+>   `DisableBracketedPaste` emits `\e[?2004l`.
+> - The parser function `parse_csi_bracketed_paste` (`src/event/sys/unix/parse.rs`,
+>   line 813) looks for `\e[200~` prefix and `\e[201~` suffix, extracting the pasted
+>   string between them. Returns `Ok(None)` if the closing marker hasn't arrived yet
+>   (partial paste).
+> - The `Event::Paste(String)` variant is conditionally compiled with
+>   `#[cfg(feature = "bracketed-paste")]` on the `Event` enum (line 550). Tessera's design
+>   of deferring this to Phase 3 mirrors crossterm's feature-gated approach.
+
 - **Bracketed paste.** Phase 3.
 - **SGR mouse events.** Phase 3.
 - **Focus events.** Phase 3.
@@ -1820,6 +2316,24 @@ facto specification of what Tessera accepts as input.
   it bytes.
 
 #### Three things to flag
+
+> [!note] Ratatui References
+>
+> - ESC timeout: crossterm has no configurable ESC timeout — the resolution depends
+>   entirely on the caller's `poll` timeout. `EventStream` uses zero-timeout polling with
+>   mio readiness, so ESC latency is unbounded (waits for next byte forever). This is a
+>   known limitation; crossterm relies on Kitty protocol (`DISAMBIGUATE_ESCAPE_CODES`,
+>   line 292) as the proper fix rather than tuning a timeout.
+> - Shift modifier convention: `KeyEvent::normalize_case()` (`src/event.rs`, line 973) and
+>   `char_code_to_event()` (`src/event/sys/unix/parse.rs`, line 112) both implement the
+>   "uppercase char implies SHIFT" convention. crossterm's `PartialEq` for `KeyEvent`
+>   (line 1003) normalizes before comparison, so `KeyEvent(Char('A'), SHIFT)` equals
+>   `KeyEvent(Char('A'), NONE)` — the equivalence Tessera's spec describes.
+> - Unknown events: crossterm does not have an equivalent to `InputEvent.unknown(bytes:)`.
+>   Unrecognized sequences cause `parse_event` to return `Err` (line 26), which propagates
+>   as an `io::Error` from `read()`. The `Parser::advance` method (line 198) silently
+>   clears the buffer on error and moves on. Tessera's choice to surface unknown bytes is
+>   a deliberate improvement over this behavior.
 
 1. **The 25ms ESC timeout is the single most user-visible knob in the library**, and the
    default matters. 25ms is responsive but can cause false positives on slow ssh; 100ms is
@@ -1850,6 +2364,21 @@ signal-equivalent layer. The bad news: Windows console programming is its own wo
 its own footguns, and "confined to one file" is still a meaningful amount of work.
 
 #### The strategic decision: VT mode everywhere
+
+> [!note] Ratatui References
+>
+> - Ratatui's `CrosstermBackend` (`ratatui-crossterm/src/lib.rs`, line 160) wraps a
+>   `Write` and delegates all terminal manipulation to crossterm, which internally selects
+>   between ANSI (VT) output and `winapi` fallback on Windows.
+> - The `ScrollUpInRegion` and `ScrollDownInRegion` commands
+>   (`ratatui-crossterm/src/lib.rs`, lines 737, 785) implement `execute_winapi` returning
+>   `Unsupported` — Ratatui explicitly does not support the legacy Windows console API for
+>   scrolling, reinforcing the VT-mode-only strategy.
+> - `TermionBackend` (`ratatui-termion/src/lib.rs`, line 97) is POSIX-only and provides no
+>   Windows path — another signal that the ecosystem treats VT mode as the cross-platform
+>   baseline.
+> - This aligns with Tessera's decision: require `ENABLE_VIRTUAL_TERMINAL_PROCESSING` on
+>   Windows, don't maintain a legacy `INPUT_RECORD` / `WriteConsoleOutput` code path.
 
 Modern Windows (10 build 1809+ and all of 11) supports ANSI escape sequences natively when
 you enable two console mode flags: `ENABLE_VIRTUAL_TERMINAL_PROCESSING` on the output
@@ -1885,6 +2414,26 @@ conditional code in the encoder, renderer, or parser. The whole Windows port liv
    read available bytes, yield — but the API is foreign.
 
 #### The Windows `PlatformIO`
+
+> [!note] Ratatui References
+>
+> - The `Backend` trait (`ratatui-core/src/backend.rs`, line 157) defines the platform
+>   abstraction: `draw`, `clear`, `size`, `window_size`, `flush`, cursor manipulation.
+>   Tessera's `PlatformIO` mirrors this split — one trait/actor with platform-specific
+>   implementations behind `#if os(Windows)`.
+> - `CrosstermBackend` (`ratatui-crossterm/src/lib.rs`, line 160, `Backend` impl at
+>   line 226) shows the pattern: wrap a writer, implement `Backend` methods by queuing
+>   crossterm commands. On Windows, crossterm's `Command::execute_winapi` is the fallback;
+>   with VT mode enabled, `write_ansi` is used instead.
+> - `TermionBackend` (`ratatui-termion/src/lib.rs`, line 97, `Backend` impl at line 162)
+>   is Unix-only — its `size()` at line 259 uses `termion::terminal_size()` which maps to
+>   `TIOCGWINSZ`. The contrast with Windows' `GetConsoleScreenBufferInfo` is instructive.
+> - `TestBackend` (`ratatui-core/src/backend/test.rs`, line 32) renders to an in-memory
+>   `Buffer` and provides `resize()` (line 138) and `assert_buffer_lines()` (line 199) —
+>   the model for Tessera's platform-independent encoder/parser tests.
+> - `WindowSize` struct (`ratatui-core/src/backend.rs`, line 139) carries both character
+>   dimensions (`columns_rows: Size`) and pixel dimensions — Tessera's `TerminalSize` is
+>   the character-only equivalent.
 
 The public API stays identical to slice 3's POSIX version. The whole point of the
 abstraction is that callers don't know which platform they're on:
@@ -2017,6 +2566,25 @@ size directly. No need to re-query.
 
 #### Signal-equivalent handling on Windows
 
+> [!note] Ratatui References
+>
+> - The `init` module (`ratatui/src/init.rs`) installs a panic hook via `set_panic_hook()`
+>   (line 566) that calls `restore()` before re-invoking the original hook. This is the
+>   Ratatui equivalent of Tessera's cleanup registry: ensure terminal state is restored on
+>   any exit path.
+> - `try_restore()` (`ratatui/src/init.rs`, lines 554–560) performs `disable_raw_mode()`
+>   then `LeaveAlternateScreen` — the teardown order. On Windows, Tessera's
+>   `tesseraCtrlHandler` does the analogous work: `SetConsoleMode` restore + teardown
+>   bytes via `WriteFile`.
+> - `try_init()` (`ratatui/src/init.rs`, lines 397–404) shows the setup order:
+>   `set_panic_hook` → `enable_raw_mode` → `EnterAlternateScreen` → backend → `Terminal`.
+>   Tessera's `PlatformIO.init` follows the same discipline: register cleanup before
+>   modifying terminal state.
+> - Windows `SetConsoleCtrlHandler` runs on a dedicated thread (not the interrupted
+>   thread), which is simpler than POSIX signal handlers where async-signal-safety
+>   constraints apply. Ratatui avoids this complexity entirely by delegating to
+>   crossterm's platform layer.
+
 Windows has `SetConsoleCtrlHandler`, which lets you register a callback for these events:
 
 - `CTRL_C_EVENT` — user pressed Ctrl-C (sort of equivalent to SIGINT)
@@ -2072,6 +2640,22 @@ terminal-reset bytes, which work on any VT-capable Windows console. The escape h
 identical.
 
 #### The cleanup registry, generalized
+
+> [!note] Ratatui References
+>
+> - Ratatui's cleanup is orchestrated by `restore()` (`ratatui/src/init.rs`, lines
+>   524–532) and `try_restore()` (lines 554–560), which call `disable_raw_mode()` followed
+>   by `LeaveAlternateScreen`. The panic hook (`set_panic_hook`, line 566) wraps
+>   `restore()` to cover the panic path.
+> - Tessera's `CleanupRegistry` is the Swift analog: a single atomic reference holding
+>   `CleanupState` (platform-specific saved modes), with `performEmergencyCleanup` as the
+>   restore function. The `#if os(Windows)` conditional in `CleanupState` parallels how
+>   crossterm internally branches between `termios` restore on POSIX and `SetConsoleMode`
+>   restore on Windows.
+> - The `DefaultTerminal` type alias (`ratatui/src/init.rs`, line 213) binds
+>   `Terminal<CrosstermBackend<Stdout>>` — a single concrete type that works on all
+>   platforms because crossterm handles the platform divergence internally. Tessera
+>   achieves the same with `PlatformIO`'s `#if os(Windows)` split.
 
 Slice 3 introduced `CleanupRegistry` with a POSIX-shaped `CleanupState` holding `termios`.
 Slice 6 generalizes it:
