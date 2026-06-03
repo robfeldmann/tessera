@@ -2872,18 +2872,1303 @@ from any exit.
 
 ---
 
-## Phase 3: Modern terminal protocols (bracketed paste, focus events, SGR mouse, Kitty keyboard, OSC 8)
+## Phase 3: Modern terminal protocols
 
-A single phase, probably 4-5 slices, each adding one modern protocol layer to
-`TesseraTerminal`. None of these change existing APIs; they extend the encoder, parser,
-and lifecycle.
+Phase 2 made `TesseraTerminal` a solid legacy terminal foundation: raw mode, alternate
+screen, cell-accurate rendering, cross-platform IO, and a parser for the input sequences
+that terminal apps have depended on for decades.
 
-- Bracketed paste mode (distinguishing typed input from pasted text)
-- Focus events (terminal-gained-focus / terminal-lost-focus)
-- SGR mouse tracking (clicks, drags, scroll, with modifier keys)
-- Kitty keyboard protocol (disambiguated keys, all-modifier reporting)
-- OSC 8 hyperlinks
-- Possibly: terminal capability detection (DA1, XTGETTCAP) so views can adapt
+Phase 3 is where Tessera stops being merely compatible and becomes _modern-terminal
+native_. These protocols are not part of the original ANSI/VT baseline, but they are what
+real contemporary TUIs rely on for correctness and polish: pasted text should not look
+like a thousand typed keypresses, focus changes should be observable, mouse events should
+carry position and modifiers, keyboard input should be disambiguated, and rendered text
+should be able to expose hyperlinks.
+
+The important framing: Phase 3 is still `TesseraTerminal`, not the view library. Nothing
+here introduces `View`, layout, widgets, or application architecture. Each slice extends
+the terminal substrate by adding one protocol to the encoder, parser, lifecycle, and test
+harness. The public API should grow only where the protocol creates genuinely new semantic
+events or rendering capabilities.
+
+By the end of Phase 3, `TesseraTerminal` should be feature-complete enough that Phase 4
+can build the view layer without stopping to redesign terminal IO.
+
+The slice order is intentional:
+
+1. Bracketed paste mode — smallest modern parser mode; establishes the Phase 3 pattern.
+2. Focus events — another small opt-in mode; adds lifecycle symmetry and simple events.
+3. SGR mouse tracking — larger event surface, but still independent of keyboard protocol.
+4. Kitty keyboard protocol — largest parser/API change; do it after the smaller modes are
+   proven.
+5. OSC 8 hyperlinks — output-side rendering capability, best after input protocols settle.
+6. Terminal capability detection — optional final slice, because it may reshape how the
+   earlier protocols are enabled but should not block implementing them.
+
+### Slice 1: Bracketed paste mode
+
+Slice 1 teaches Tessera the difference between text the user typed and text the terminal
+pasted.
+
+Without bracketed paste, a paste arrives as ordinary bytes. Pasting `rm -rf /` looks the
+same as the user typing `r`, then `m`, then space, then `-`, and so on. That is acceptable
+for a dumb terminal, but not for an application framework. A text editor, shell prompt,
+chat input, command palette, or form field needs to know whether input arrived as one
+paste operation so it can make policy decisions: preserve newlines, disable auto-submit,
+avoid per-character validation, batch undo, sanitize content, or display paste
+confirmation.
+
+Bracketed paste mode is small but load-bearing:
+
+- Enable with `ESC [ ? 2004 h`
+- Disable with `ESC [ ? 2004 l`
+- Pasted content starts with `ESC [ 200 ~`
+- Pasted content ends with `ESC [ 201 ~`
+
+> [!note] Ratatui References
+>
+> - Ratatui itself still delegates input protocols to crossterm, but the shapes line up
+>   directly: crossterm's top-level `Event` enum includes `Paste(String)` behind its
+>   `bracketed-paste` feature (`crossterm` `src/event.rs`, line 550).
+> - crossterm's bracketed paste commands encode the same mode toggles Tessera should
+>   encode: `EnableBracketedPaste` writes `CSI ? 2004 h`, and `DisableBracketedPaste`
+>   writes `CSI ? 2004 l` (`crossterm` `src/event.rs`, lines 410 and 433).
+> - crossterm parses bracketed paste as a parser mode spanning `ESC [ 200 ~` through
+>   `ESC [ 201 ~`, returning one `Event::Paste(String)` and using lossy UTF-8 conversion
+>   for the payload (`crossterm` `src/event/sys/unix/parse.rs`, line 804).
+>
+> Tessera should copy the event-level idea, not the exact feature-gating: paste is part of
+> `TesseraTerminal`'s modern baseline once Phase 3 starts.
+
+This slice should add a new semantic event:
+
+```swift
+public enum InputEvent: Sendable, Equatable {
+    case key(Key)
+    case resize(TerminalSize)
+    case paste(String)
+    case unknown(bytes: [UInt8])
+}
+```
+
+#### Lifecycle behavior
+
+Bracketed paste is a terminal mode, so it belongs in the same lifecycle discipline as raw
+mode and alternate screen:
+
+- Enable bracketed paste when Tessera enters application terminal mode.
+- Disable bracketed paste during normal teardown.
+- Disable bracketed paste from cleanup handlers after abnormal exit.
+- Keep the disable sequence idempotent and safe to emit even if enable failed partway
+  through startup.
+
+The cleanup rule matters more than the feature itself. Leaving a user's shell in bracketed
+paste mode is one of those small terminal footguns that makes a library feel sloppy.
+
+#### Parser behavior
+
+The parser needs one additional state: “currently inside bracketed paste.”
+
+When it sees the exact start marker `ESC [ 200 ~`, it should stop emitting ordinary
+`key(.char(...))` events and begin accumulating bytes as paste payload. When it later sees
+the exact end marker `ESC [ 201 ~`, it should UTF-8 decode the accumulated payload and
+emit one `InputEvent.paste(String)`.
+
+Important edge cases:
+
+- Pasted content may contain newlines, tabs, escape bytes, ANSI-looking sequences, and
+  arbitrary UTF-8.
+- Bytes inside paste mode are payload unless they are the exact paste-end marker.
+- A paste may be split across many reads.
+- The start marker itself may be split across reads.
+- The end marker itself may be split across reads.
+- Invalid UTF-8 should not crash the parser. Pick one policy and test it: either emit
+  replacement characters or surface `.unknown(bytes:)`.
+
+The key design point is that bracketed paste is a _parser mode_, not just another escape
+sequence. Once inside paste mode, the normal key parser is suspended until the closing
+marker arrives.
+
+#### Encoder behavior
+
+Add semantic encoder operations for enabling and disabling bracketed paste, rather than
+sprinkling raw escape strings through lifecycle code.
+
+Suggested shape:
+
+```swift
+extension ANSIEncoder {
+    public mutating func enableBracketedPaste()
+    public mutating func disableBracketedPaste()
+}
+```
+
+Whether these are methods, enum cases, or lower-level writer helpers should follow the
+shape chosen in Phase 2's encoder. The important part is that tests assert the exact
+bytes:
+
+- enable: `\u{1B}[?2004h`
+- disable: `\u{1B}[?2004l`
+
+#### Tests
+
+Add parser tests for:
+
+- complete paste in one feed
+- paste split byte-by-byte
+- start marker split across feeds
+- end marker split across feeds
+- pasted multiline text
+- pasted UTF-8 text
+- ANSI-looking bytes inside paste payload
+- ordinary key parsing still works before and after paste
+- incomplete paste does not emit partial key events
+
+Add lifecycle/encoder tests for:
+
+- startup emits bracketed paste enable
+- teardown emits bracketed paste disable
+- cleanup path emits bracketed paste disable
+- disable ordering is compatible with the existing alternate-screen/raw-mode teardown
+
+#### Non-goals
+
+Do not add paste handling to the view layer yet. There is no `TextInput`, no command
+palette, no form component, and no application runtime in this phase. The only job is to
+surface pasted text as a distinct terminal event.
+
+Do not try to auto-detect support yet. Bracketed paste is widely supported by modern
+terminals, harmless when unsupported, and easy to disable. Capability detection can wait
+until the later Phase 3 slice if it still feels necessary.
+
+#### End of Slice 1
+
+`TesseraTerminal` can enable bracketed paste mode, reliably restore the terminal on exit,
+and emit a single `.paste(String)` event for pasted content instead of pretending the user
+typed every character by hand.
+
+### Slice 2: Focus events
+
+Slice 2 teaches Tessera when the terminal application gains and loses focus.
+
+Focus events are not about keyboard focus _inside_ the app. They are about whether the
+terminal emulator considers the application active: the user switched to another window,
+changed tabs, clicked back into the terminal, or otherwise moved attention away from and
+back to the running TUI. That signal is small, but useful. A terminal app may pause cursor
+blinking while unfocused, dim presence indicators, defer expensive refresh work, mark data
+as stale, or avoid treating background key delivery as active user interaction.
+
+This is the right second modern protocol because it has the same basic lifecycle shape as
+bracketed paste but a simpler parser shape. It reinforces the Phase 3 pattern — opt in on
+startup, opt out during teardown, decode a small set of escape sequences into semantic
+events — before the larger SGR mouse and Kitty keyboard slices add broader event surfaces.
+
+Focus tracking mode uses these sequences:
+
+- Enable with `ESC [ ? 1004 h`
+- Disable with `ESC [ ? 1004 l`
+- Focus gained event: `ESC [ I`
+- Focus lost event: `ESC [ O`
+
+> [!note] Ratatui References
+>
+> - crossterm's top-level `Event` enum includes `FocusGained` and `FocusLost` as sibling
+>   events to `Key`, `Mouse`, `Paste`, and `Resize` (`crossterm` `src/event.rs`, line
+>   550). Tessera's `.focusGained` / `.focusLost` should use the same top-level shape.
+> - crossterm's `EnableFocusChange` / `DisableFocusChange` commands write `CSI ? 1004 h`
+>   and `CSI ? 1004 l` respectively (`crossterm` `src/event.rs`, lines 379 and 400).
+> - crossterm's Unix CSI parser maps `ESC [ I` to `Event::FocusGained` and `ESC [ O` to
+>   `Event::FocusLost` alongside other CSI inputs (`crossterm`
+>   `src/event/sys/unix/parse.rs`, lines 171-172).
+
+This slice should extend `InputEvent` again:
+
+```swift
+public enum InputEvent: Sendable, Equatable {
+    case key(Key)
+    case resize(TerminalSize)
+    case paste(String)
+    case focusGained
+    case focusLost
+    case unknown(bytes: [UInt8])
+}
+```
+
+#### Lifecycle behavior
+
+Focus tracking is a terminal mode and should be managed with the same cleanup discipline
+as bracketed paste:
+
+- Enable focus tracking when Tessera enters application terminal mode.
+- Disable focus tracking during normal teardown.
+- Disable focus tracking from cleanup handlers after abnormal exit.
+- Keep the disable sequence idempotent and safe to emit even if startup fails halfway.
+
+The teardown ordering should be boring and explicit. Disable optional application modes
+before restoring the user's terminal state. A reasonable ordering is:
+
+1. Disable focus tracking.
+2. Disable bracketed paste.
+3. Leave alternate screen / restore cursor / restore styles, according to the existing
+   Phase 2 lifecycle ordering.
+4. Restore raw mode / console mode through `PlatformIO`.
+
+The exact order can follow whatever Phase 2 already established, but the invariant should
+be: no modern opt-in mode is left enabled after Tessera exits.
+
+#### Parser behavior
+
+Focus events are ordinary CSI sequences from the parser's point of view:
+
+- `ESC [ I` emits `.focusGained`
+- `ESC [ O` emits `.focusLost`
+
+They should be recognized wherever the normal escape-sequence parser recognizes CSI input,
+including when bytes arrive split across reads. They should not be recognized while the
+parser is inside bracketed paste mode; inside paste mode, those bytes are payload unless
+they are part of the exact bracketed-paste end marker.
+
+This interaction is the main edge case for the slice. `ESC [ I` can mean “focus gained”
+when the parser is in normal mode, but it can also be literal pasted bytes when a user
+pastes text containing that sequence. Parser mode determines which interpretation wins.
+
+Design notes:
+
+- Focus gained/lost are top-level input events, not keys.
+- They carry no payload. The terminal protocol does not report which window, tab, pane, or
+  application focus moved to.
+- Do not attempt to maintain an `isFocused` boolean inside `InputParser`. The parser
+  should decode events, not own terminal state. Application/runtime code can derive focus
+  state by observing the event stream.
+- Duplicate events should be surfaced as received. If a terminal sends two focus-gained
+  events in a row, Tessera should not silently coalesce them at the parser layer.
+
+#### Encoder behavior
+
+Add semantic encoder operations for focus tracking, mirroring bracketed paste:
+
+```swift
+extension ANSIEncoder {
+    public mutating func enableFocusTracking()
+    public mutating func disableFocusTracking()
+}
+```
+
+Tests should assert the exact bytes:
+
+- enable: `\u{1B}[?1004h`
+- disable: `\u{1B}[?1004l`
+
+Keep these as explicit encoder operations rather than generic “set private mode” calls in
+lifecycle code. A lower-level CSI helper is fine internally, but public or call-site code
+should read in terminal concepts: enable focus tracking, disable focus tracking.
+
+#### Platform notes
+
+On POSIX terminals this is just bytes in and bytes out. On Windows Terminal and other
+ConPTY-backed environments, VT input mode from Phase 2 is what allows these escape
+sequences to flow through the same parser path as macOS and Linux.
+
+There should not be a separate Windows focus-event implementation using Win32 console
+focus records. Those records describe the console window/input buffer model, not the same
+modern terminal protocol Tessera is standardizing around. Phase 2 deliberately put Windows
+behind the same public `PlatformIO` API; Phase 3 should continue paying the cross-platform
+tax only at the byte transport layer, not by inventing a second event semantics.
+
+#### Tests
+
+Add parser tests for:
+
+- focus gained in one feed
+- focus lost in one feed
+- focus gained split byte-by-byte
+- focus lost split byte-by-byte
+- focus event between ordinary key events
+- repeated focus events are emitted repeatedly
+- unknown or malformed `ESC [` sequences still follow the existing unknown-sequence policy
+- `ESC [ I` inside bracketed paste payload does not emit `.focusGained`
+- `ESC [ O` inside bracketed paste payload does not emit `.focusLost`
+
+Add lifecycle/encoder tests for:
+
+- startup emits focus tracking enable
+- teardown emits focus tracking disable
+- cleanup path emits focus tracking disable
+- focus tracking disable is emitted along with bracketed paste disable
+- teardown leaves no optional Phase 3 modes enabled even when startup fails partway
+  through
+
+#### Non-goals
+
+Do not build application-level focus management yet. Phase 4 will decide which view owns
+keyboard focus, how focus moves between widgets, and how focus styling works. This slice
+only reports terminal focus events.
+
+Do not add focus-based rendering policy yet. No automatic dimming, no frame throttling, no
+cursor blinking behavior, and no runtime-level pause/resume semantics. Those are consumers
+of `.focusGained` / `.focusLost`, not part of the terminal parser.
+
+Do not add capability detection yet. As with bracketed paste, focus tracking is cheap to
+enable and safe to disable. If a terminal ignores `?1004`, the only consequence is that no
+focus events arrive.
+
+#### End of Slice 2
+
+`TesseraTerminal` can enable focus tracking, reliably disable it on every exit path, and
+surface terminal focus changes as `.focusGained` and `.focusLost` events without confusing
+those sequences with pasted content.
+
+### Slice 3: SGR mouse tracking
+
+Slice 3 teaches Tessera to understand mouse input in terminal coordinates.
+
+Mouse support is where terminal input stops looking like “keyboard, but with more escape
+sequences” and starts looking like an event system. Clicks, releases, drags, and scrolls
+carry position, button identity, and modifier keys. They are essential for many modern TUI
+interactions — selectable lists, scroll views, text selection, split panes, buttons,
+inspectors, command palettes, and any app that wants to feel native to users who expect a
+mouse to work.
+
+This slice should use **SGR mouse mode** (`?1006`) rather than older X10 / normal tracking
+formats. The older encodings pack coordinates and button bits into bytes, have awkward
+coordinate limits, and are not worth building a public API around. SGR mouse reports
+events as readable CSI sequences and is the modern baseline for serious terminal apps.
+
+Use button-event tracking, not any-event tracking:
+
+- Enable button-event mouse tracking with `ESC [ ? 1002 h`
+- Enable SGR mouse encoding with `ESC [ ? 1006 h`
+- Disable button-event mouse tracking with `ESC [ ? 1002 l`
+- Disable SGR mouse encoding with `ESC [ ? 1006 l`
+
+Button-event tracking reports button presses, button releases, scroll-wheel events, and
+movement while a button is pressed. It does _not_ report every mouse movement. That is the
+right default for TesseraTerminal: useful enough for real apps, much less noisy than
+any-event mode (`?1003`), and compatible with the view-layer focus/layout work that comes
+later.
+
+SGR mouse event sequences have this shape:
+
+```text
+ESC [ < button ; column ; row M   // press, drag, or scroll
+ESC [ < button ; column ; row m   // release
+```
+
+> [!note] Ratatui References
+>
+> - Ratatui's `examples/apps/mouse-drawing/src/main.rs` is the practical reference for the
+>   app-facing shape: it enables crossterm mouse capture before the loop, disables it
+>   after the loop, receives `Event::Mouse(MouseEvent)`, and reacts to
+>   `MouseEventKind::Down` / `MouseEventKind::Drag`
+>   (`examples/apps/mouse-drawing/src/main.rs`, lines 13, 41, 47, and 73-80).
+> - Ratatui's demo crossterm runner enables mouse capture together with alternate screen
+>   and disables it during terminal restore (`examples/apps/demo/src/crossterm.rs`, lines
+>   18 and 27-31). Tessera should keep this lifecycle concern inside terminal
+>   startup/teardown rather than forcing every example to remember it.
+> - crossterm's `EnableMouseCapture` enables several modes at once: normal tracking
+>   (`?1000`), button-event tracking (`?1002`), any-event tracking (`?1003`), RXVT
+>   (`?1015`), and SGR (`?1006`) (`crossterm` `src/event.rs`, lines 315-323). Tessera's
+>   narrower default — `?1002` + `?1006` — is intentionally less noisy.
+> - crossterm's SGR parser is the closest decoding reference: it parses
+>   `ESC [ < Cb ; Cx ; Cy M/m`, subtracts 1 from coordinates, and uses lowercase `m` to
+>   turn a button-down decode into a release event (`crossterm`
+>   `src/event/sys/unix/parse.rs`, lines 714-755).
+> - crossterm's `parse_cb` documents the packed mouse button bits and maps them to down,
+>   drag, scroll, and modifier values (`crossterm` `src/event/sys/unix/parse.rs`, lines
+>   762-799).
+
+The terminal reports `column` and `row` as 1-based coordinates. Tessera should expose them
+as 0-based buffer coordinates, matching the rest of the renderer and buffer API.
+
+This slice should extend `InputEvent` with a mouse case:
+
+```swift
+public enum InputEvent: Sendable, Equatable {
+    case key(Key)
+    case resize(TerminalSize)
+    case paste(String)
+    case focusGained
+    case focusLost
+    case mouse(MouseEvent)
+    case unknown(bytes: [UInt8])
+}
+```
+
+Suggested event model:
+
+```swift
+public struct MouseEvent: Sendable, Equatable {
+    public let kind: MouseEventKind
+    public let position: TerminalPosition
+    public let modifiers: Modifiers
+}
+
+public enum MouseEventKind: Sendable, Equatable {
+    case press(MouseButton)
+    case release(MouseButton?)
+    case drag(MouseButton)
+    case scroll(MouseScrollDirection)
+}
+
+public enum MouseButton: Sendable, Equatable {
+    case left
+    case middle
+    case right
+}
+
+public enum MouseScrollDirection: Sendable, Equatable {
+    case up
+    case down
+    case left
+    case right
+}
+```
+
+`TerminalPosition` can be whatever coordinate type Phase 2 already established, but the
+important invariant is: mouse positions use the same coordinate origin as buffers and
+rendering. If the terminal sends row 1 / column 1, Tessera reports position `(0, 0)`.
+
+#### Button and modifier decoding
+
+SGR mouse's `button` parameter is a bit-packed integer. Decode only the pieces Tessera can
+represent clearly:
+
+- Low button code `0` = left button
+- Low button code `1` = middle button
+- Low button code `2` = right button
+- Modifier bit `4` = shift
+- Modifier bit `8` = alt
+- Modifier bit `16` = control
+- Motion bit `32` = drag/move with button down
+- Wheel bit `64` = scroll wheel event
+
+Wheel events should decode to scroll directions. At minimum support:
+
+- `64` = scroll up
+- `65` = scroll down
+
+If horizontal wheel events are supported by the terminals you test against, map the common
+codes too:
+
+- `66` = scroll left
+- `67` = scroll right
+
+For release events (`m` final byte), prefer `.release(button)` when the button code still
+identifies a button and `.release(nil)` when the sequence only says “some button was
+released.” SGR mode usually preserves enough information to identify the released button,
+but the optional payload avoids pretending certainty when a terminal sends less specific
+data.
+
+Malformed, out-of-range, or semantically impossible button codes should follow the
+parser's existing unknown-sequence policy. Do not invent `.unknownMouse`; unknown input
+remains an `InputEvent.unknown(bytes:)` because the parser failed to decode the whole
+sequence into a semantic event.
+
+#### Lifecycle behavior
+
+Mouse tracking is another opt-in terminal mode and must follow the same cleanup discipline
+as bracketed paste and focus tracking:
+
+- Enable mouse tracking when Tessera enters application terminal mode.
+- Disable mouse tracking during normal teardown.
+- Disable mouse tracking from cleanup handlers after abnormal exit.
+- Keep all disable sequences idempotent and safe to emit even if enable failed partway
+  through startup.
+
+Because mouse mode visibly changes terminal behavior, cleanup matters. Leaving mouse
+tracking enabled can make a user's shell appear broken: clicks may stop selecting text,
+and scrolling may send escape sequences instead of moving the scrollback.
+
+A reasonable teardown ordering for Phase 3 modes is:
+
+1. Disable mouse tracking (`?1002`, `?1006`; optionally also defensively disable `?1000`
+   and `?1003` if lifecycle code might ever enable them).
+2. Disable focus tracking.
+3. Disable bracketed paste.
+4. Continue with the existing alternate-screen, cursor/style reset, and raw-mode restore
+   sequence from Phase 2.
+
+The exact order is less important than the invariant: no opt-in application protocol stays
+enabled after Tessera exits.
+
+#### Parser behavior
+
+The parser should recognize SGR mouse CSI sequences in normal input mode:
+
+```text
+ESC [ < b ; x ; y M
+ESC [ < b ; x ; y m
+```
+
+Parsing requirements:
+
+- Accept multi-digit `button`, `column`, and `row` parameters.
+- Handle sequences split across reads.
+- Convert terminal coordinates from 1-based to 0-based.
+- Reject coordinates less than 1 as malformed.
+- Decode modifier bits into the existing `Modifiers` option set.
+- Decode press, release, drag, and scroll into `MouseEventKind`.
+- Preserve ordinary keyboard/focus/paste behavior before and after mouse events.
+
+As with focus events, SGR mouse sequences must not be interpreted while inside bracketed
+paste mode. A paste payload containing `ESC [ < 0 ; 1 ; 1 M` is pasted text, not a mouse
+click.
+
+#### Encoder behavior
+
+Add semantic encoder operations rather than writing raw private-mode escapes at lifecycle
+call sites:
+
+```swift
+extension ANSIEncoder {
+    public mutating func enableMouseTracking()
+    public mutating func disableMouseTracking()
+}
+```
+
+The encoder may implement these as multiple CSI private-mode operations internally. Tests
+should assert the exact bytes and ordering Tessera chooses. Suggested enable sequence:
+
+```text
+ESC [ ? 1002 h
+ESC [ ? 1006 h
+```
+
+Suggested disable sequence:
+
+```text
+ESC [ ? 1002 l
+ESC [ ? 1006 l
+```
+
+If you choose to defensively disable `?1000` or `?1003`, document it in the test names so
+future maintainers know those bytes are deliberate, not accidental noise.
+
+#### Platform notes
+
+Mouse tracking should remain a VT protocol feature across all platforms. On macOS and
+Linux, the terminal emulator sends SGR mouse sequences through the normal input file
+descriptor. On Windows, Windows Terminal / ConPTY should do the same when virtual terminal
+input is enabled.
+
+Do not add a separate Win32 `MOUSE_EVENT_RECORD` public path. It does not have the same
+semantics as SGR mouse mode, it would create platform-specific behavior in the public
+event stream, and it would undermine the Phase 2 decision to keep OS differences inside
+`PlatformIO`.
+
+#### Tests
+
+Add parser tests for:
+
+- left/middle/right press events
+- button release events
+- drag events for each button
+- scroll up and scroll down
+- horizontal scroll if supported by the chosen decoding table
+- shift/alt/control modifiers
+- combined modifiers
+- multi-digit row and column values
+- coordinate conversion from 1-based terminal coordinates to 0-based Tessera coordinates
+- coordinates less than 1 are rejected as malformed/unknown
+- mouse sequences split byte-by-byte
+- mouse event between ordinary key events
+- mouse event between focus events
+- mouse-looking sequence inside bracketed paste payload does not emit `.mouse`
+- malformed SGR mouse sequences follow the existing unknown-sequence policy
+
+Add lifecycle/encoder tests for:
+
+- startup emits mouse tracking enable sequences
+- teardown emits mouse tracking disable sequences
+- cleanup path emits mouse tracking disable sequences
+- mouse tracking disable is emitted before focus/bracketed-paste disable, or whatever
+  explicit teardown ordering the implementation chooses
+- teardown leaves no optional Phase 3 modes enabled even when startup fails partway
+  through
+
+#### Non-goals
+
+Do not implement any-event mouse tracking (`?1003`) in this slice. It sends a stream of
+movement events even when no button is pressed, which is useful for some advanced apps but
+too noisy as the default terminal substrate. If Tessera later needs hover interactions,
+make it an explicit opt-in mode rather than part of baseline startup.
+
+Do not implement the old X10, VT200, UTF-8 extended, or urxvt mouse encodings unless tests
+prove a real compatibility need. SGR mouse is the modern target.
+
+Do not add view-layer hit testing yet. This slice only reports mouse events in terminal
+coordinates. Phase 4 will decide how those coordinates map to views, widgets, focus, and
+scroll regions.
+
+Do not add selection policy yet. Mouse drag events are just input events; they should not
+automatically select text, scroll panes, or intercept terminal selection behavior beyond
+what enabling mouse tracking inherently does.
+
+#### End of Slice 3
+
+`TesseraTerminal` can enable SGR mouse tracking, reliably disable it on every exit path,
+and surface clicks, releases, drags, scrolls, positions, and modifiers as semantic mouse
+events without confusing mouse-looking escape sequences for pasted content.
+
+### Slice 4: Kitty keyboard protocol
+
+Slice 4 teaches Tessera to read modern keyboard input without the historical ambiguities
+of legacy terminal sequences.
+
+The legacy parser from Phase 2 is necessary, but it cannot represent the keyboard
+reliably. Some keys collapse into the same bytes. Some modifiers are invisible. Some
+combinations are impossible to distinguish from control characters. `Escape` conflicts
+with Alt-prefixed input. Shift only appears for some non-character keys. Super/Meta/Hyper
+are generally not available at all. This is fine for traditional terminal programs, but it
+is not enough for a modern application framework that wants predictable shortcuts and
+editor-quality input.
+
+The Kitty keyboard protocol is the most practical modern answer to that problem. It is an
+opt-in protocol that reports keys using unambiguous CSI `u` sequences and can
+progressively enable richer features such as disambiguated escape codes, alternate keys,
+event types, and all-modifier reporting. The protocol is documented by Kitty and
+implemented, in whole or in useful part, by multiple modern terminals and terminal
+libraries.
+
+> [!note] Ratatui References
+>
+> - crossterm exposes Kitty keyboard as `PushKeyboardEnhancementFlags` /
+>   `PopKeyboardEnhancementFlags`, explicitly pairing push with pop for cleanup
+>   (`crossterm` `src/event.rs`, lines 445-528). Tessera should follow the same
+>   stack-shaped lifecycle rather than using a blind reset if the protocol level supports
+>   it.
+> - crossterm's enhancement flags map to the same decisions Tessera needs to make:
+>   `DISAMBIGUATE_ESCAPE_CODES`, `REPORT_EVENT_TYPES`, `REPORT_ALTERNATE_KEYS`, and
+>   `REPORT_ALL_KEYS_AS_ESCAPE_CODES` (`crossterm` `src/event.rs`, lines 300-304).
+> - crossterm's key model already contains the richer pieces Tessera is adding here:
+>   `KeyModifiers` includes Shift/Control/Alt/Super/Hyper/Meta, `KeyEventKind` includes
+>   Press/Repeat/Release, and `KeyEvent` stores `code`, `modifiers`, `kind`, and `state`
+>   (`crossterm` `src/event.rs`, lines 840-949).
+> - crossterm's `KeyCode` enum shows which extra key categories become representable once
+>   keyboard enhancement is enabled: CapsLock, ScrollLock, NumLock, PrintScreen, Pause,
+>   Menu, KeypadBegin, media keys, and modifier-only keys (`crossterm` `src/event.rs`,
+>   lines 1221-1318). Tessera should add these deliberately, not all at once.
+> - crossterm parses keyboard-enhancement query responses and primary device attributes as
+>   internal events, not public input events (`crossterm` `src/event/sys/unix/parse.rs`,
+>   lines 258-292). That separation is relevant again in slice 6.
+
+This is deliberately slice 4, not slice 1. Kitty keyboard changes the shape of keyboard
+semantics more than bracketed paste, focus, or mouse. By this point, Phase 3 has already
+established the pattern for optional protocol modes, parser-mode interactions, lifecycle
+cleanup, and cross-platform byte transport. Now Tessera can apply that pattern to the
+largest input upgrade.
+
+#### Public API shape
+
+The existing Phase 2 `Key` model should evolve rather than be replaced. Applications
+should still receive `InputEvent.key(Key)`, but `Key` needs enough room to represent
+information that legacy protocols could not report.
+
+Suggested direction:
+
+```swift
+public struct Key: Sendable, Equatable {
+    public let code: KeyCode
+    public let modifiers: Modifiers
+    public let kind: KeyEventKind
+}
+
+public enum KeyEventKind: Sendable, Equatable {
+    case press
+    case repeat
+    case release
+}
+
+public struct Modifiers: OptionSet, Sendable {
+    public let rawValue: UInt16
+    public static let shift   = Modifiers(rawValue: 1 << 0)
+    public static let alt     = Modifiers(rawValue: 1 << 1)
+    public static let control = Modifiers(rawValue: 1 << 2)
+    public static let super   = Modifiers(rawValue: 1 << 3)
+    public static let hyper   = Modifiers(rawValue: 1 << 4)
+    public static let meta    = Modifiers(rawValue: 1 << 5)
+}
+```
+
+`kind` should default to `.press` for all legacy input, so existing keyboard behavior
+stays source-compatible if possible and behavior-compatible regardless. If adding `kind`
+to `Key` is too disruptive, an alternative is to add it as an optional/defaulted
+initializer parameter while preserving existing construction sites.
+
+The `KeyCode` enum may also need to grow. Kitty can report keys that legacy terminal input
+cannot represent cleanly: keypad keys, caps lock, media keys, modifier-only keys, and
+more. Do not add the whole universe on day one. Add only the cases needed to decode the
+protocol cleanly and surface unknown-but-well-formed reports through `.unknown(bytes:)`
+until the public API has a real use case for them.
+
+#### Protocol level
+
+Kitty keyboard mode is enabled with CSI `> ... u` progressive-enhancement flags and reset
+with CSI `< u` / protocol-pop behavior. The exact flag set should be chosen during
+implementation against the current Kitty spec, but Tessera's baseline target should be:
+
+- disambiguate escape codes
+- report event types where available
+- report alternate keys where useful
+- report all modifiers, including Super/Hyper/Meta where available
+
+Keep the enable operation explicit and semantic:
+
+```swift
+extension ANSIEncoder {
+    public mutating func enableKittyKeyboard()
+    public mutating func disableKittyKeyboard()
+}
+```
+
+Do not scatter raw `CSI > ... u` strings through lifecycle code. The protocol is subtle
+enough that all flag choices and reset behavior should live in one encoder implementation
+with byte-level tests.
+
+The important lifecycle invariant: if Tessera enables Kitty keyboard mode, it must restore
+the prior keyboard protocol state on every exit path. Prefer the protocol's stack/push-pop
+mechanism if available, because it composes better with nested terminal applications than
+a blind global reset. If the chosen implementation uses a reset sequence instead, document
+why that is acceptable.
+
+#### Parser behavior
+
+The parser should recognize Kitty keyboard reports in normal input mode while preserving
+the legacy parser as fallback.
+
+Parsing requirements:
+
+- Decode basic `CSI number ; modifiers u` key reports.
+- Decode richer progressive reports according to the enabled feature flags.
+- Map modifier fields into Tessera's `Modifiers` option set.
+- Map event-type fields into `KeyEventKind`.
+- Preserve legacy decoding for terminals that ignore Kitty keyboard enablement.
+- Preserve ordinary text input as `.key(.char(...))`.
+- Continue to handle bytes split across reads.
+- Continue to resolve bare ESC / Alt-prefix ambiguity for legacy input.
+- Do not interpret Kitty-looking sequences while inside bracketed paste mode.
+
+The parser should not require proof that Kitty mode is enabled before decoding a valid
+Kitty keyboard sequence. The input stream is the source of truth: if a terminal sends a
+well-formed Kitty report, decode it. Lifecycle state can decide what Tessera asks the
+terminal to send; parser state should decide what bytes mean.
+
+#### Fallback behavior
+
+Kitty keyboard support must be opportunistic. If a terminal ignores the enable sequence,
+Tessera still has the Phase 2 legacy keyboard parser. That fallback path is not a degraded
+implementation detail; it is a first-class compatibility story.
+
+This also means the public event model must tolerate mixed input. A terminal might support
+some Kitty features but not all of them, or a multiplexer might pass through some
+sequences and rewrite others. Tessera should decode the best semantic event it can from
+each sequence, not assume an all-or-nothing mode.
+
+#### Lifecycle behavior
+
+Kitty keyboard mode joins the optional Phase 3 protocol stack:
+
+- Enable Kitty keyboard mode when Tessera enters application terminal mode.
+- Disable or pop Kitty keyboard mode during normal teardown.
+- Disable or pop Kitty keyboard mode from cleanup handlers after abnormal exit.
+- Keep cleanup safe if startup fails after enabling the protocol but before the terminal
+  fully starts.
+
+A reasonable teardown order is:
+
+1. Restore Kitty keyboard protocol state.
+2. Disable mouse tracking.
+3. Disable focus tracking.
+4. Disable bracketed paste.
+5. Continue with the existing alternate-screen, cursor/style reset, and raw-mode restore
+   sequence from Phase 2.
+
+Keyboard protocol cleanup comes first because it affects how subsequent typed input would
+be encoded if teardown stalls or the process drops into a debugger.
+
+#### Tests
+
+Add encoder/lifecycle tests for:
+
+- Kitty keyboard enable emits the exact chosen progressive-enhancement sequence
+- Kitty keyboard disable/pop emits the exact chosen restoration sequence
+- startup emits Kitty keyboard enable in the documented ordering
+- teardown emits Kitty keyboard restore in the documented ordering
+- cleanup path restores Kitty keyboard state
+- partial startup failure still restores Kitty keyboard state
+
+Add parser tests for:
+
+- plain character key report
+- modified character key report
+- arrow/function/navigation key reports
+- shift/alt/control/super/hyper/meta modifiers where representable
+- press/repeat/release event kinds where supported by the chosen flags
+- mixed legacy and Kitty input in the same parser stream
+- Kitty sequences split byte-by-byte
+- malformed Kitty sequences follow the existing unknown-sequence policy
+- Kitty-looking bytes inside bracketed paste payload do not emit key events
+
+#### Non-goals
+
+Do not delete or de-prioritize the legacy parser. Kitty keyboard is opt-in and not
+universal. The legacy path remains the compatibility baseline.
+
+Do not build application shortcut routing yet. This slice reports better key events; Phase
+4 and Phase 5 can decide how shortcuts are matched, propagated, or intercepted.
+
+Do not attempt a full global keyboard taxonomy unless the implementation needs it. Add
+public key cases deliberately, with tests and motivating sequences.
+
+Do not make startup depend on a successful capability query. Capability detection is
+slice 6. This slice should work by enabling the protocol, decoding it if it appears, and
+falling back gracefully if it does not.
+
+#### End of Slice 4
+
+`TesseraTerminal` can opt into Kitty keyboard reporting, restore the previous keyboard
+protocol state on exit, decode modern keyboard reports into richer `Key` values, and keep
+the legacy parser as a reliable fallback for terminals that do not participate.
+
+### Slice 5: OSC 8 hyperlinks
+
+Slice 5 teaches Tessera to render clickable hyperlinks in terminals that support them.
+
+Everything in Phase 3 so far has been input-side protocol work. OSC 8 is output-side: it
+lets an application associate a URI with a span of terminal text. Modern terminals render
+that span as clickable or hoverable, often without changing the visible characters. This
+is useful for logs, build output, documentation browsers, issue lists, package managers,
+trace viewers, chat clients, and any TUI that wants to expose a URL without forcing users
+to copy raw text.
+
+OSC 8 hyperlinks use Operating System Command escape sequences. The common shape is:
+
+```text
+OSC 8 ; params ; URI ST
+visible linked text
+OSC 8 ; ; ST
+```
+
+where `OSC` is `ESC ]` and `ST` is usually either `ESC \\` or BEL depending on terminal
+convention. Tessera should choose one terminator for output and test it consistently. OSC
+8 adoption notes and terminal documentation describe this general `OSC 8 ; params ; URI`
+form.
+
+> [!note] Ratatui References
+>
+> - Ratatui has a hyperlink example, but it is intentionally a workaround rather than a
+>   first-class style feature: `examples/apps/hyperlink/src/main.rs` builds raw OSC 8
+>   strings into buffer symbols (`examples/apps/hyperlink/src/main.rs`, lines 22, 37-48,
+>   and 51-68). Tessera should avoid this by making hyperlinks real cell/span metadata.
+> - Ratatui's hyperlink example also documents the current pitfall: ANSI/OSC bytes confuse
+>   width calculation, so the example chunks visible text and uses forced-width behavior
+>   (`examples/apps/hyperlink/src/main.rs`, lines 53-68). Tessera's design should keep OSC
+>   bytes out of symbols so width remains a property of graphemes, not escape strings.
+> - Ratatui's buffer tests include `merge_diff_link` and `merge_diff_split_link`, which
+>   squeeze raw OSC 8 sequences into cells with `CellDiffOption::ForcedWidth` so diffing
+>   stays stable (`ratatui-core/src/buffer/buffer.rs`, lines 1214-1249). This is a useful
+>   warning sign: raw escape sequences in cells are workable but leaky.
+> - Ratatui's crossterm backend tracks terminal output state for modifiers/colors while
+>   drawing only changed cells, then resets styles at the end of `draw`
+>   (`ratatui-crossterm/src/lib.rs`, lines 236-291). Tessera's renderer should include
+>   hyperlink state in the same kind of state machine instead of treating OSC 8 as
+>   printable content.
+
+This slice belongs after the input protocol work because it touches the renderer rather
+than the input parser. The terminal substrate should already have a stable model for
+modern protocol lifecycle by the time hyperlink state is added to cells, spans, or render
+operations.
+
+#### Public API shape
+
+Hyperlinks are style-like metadata. They affect how a cell or text span behaves in the
+terminal, but they do not consume layout space and they should not change the visible
+characters in the buffer.
+
+The cleanest Phase 3 shape is to add hyperlink metadata to the terminal styling layer that
+Phase 2's buffer/renderer already uses:
+
+```swift
+public struct Style: Sendable, Equatable {
+    public var foreground: ANSIColor?
+    public var background: ANSIColor?
+    public var attributes: TextAttributes
+    public var hyperlink: Hyperlink?
+}
+
+public struct Hyperlink: Sendable, Equatable, Hashable {
+    public let uri: String
+    public let id: String?
+}
+```
+
+If Phase 2 named this type something other than `Style`, adapt the design to the existing
+model. The important decision is that hyperlinks live with rendered cell/span attributes,
+not inside `String`, not as a separate overlay, and not as a view-layer concept yet.
+
+`id` should be optional. OSC 8 supports parameters, and the most common useful parameter
+is an identifier that lets terminals treat separate spans as the same hyperlink. Tessera
+does not need a large parameter bag in the first version. `uri` plus optional `id` is
+enough.
+
+#### Renderer behavior
+
+The renderer must treat hyperlink state like foreground color, background color, bold, and
+other attributes: it is part of the current terminal output state, and transitions must be
+encoded when the desired state changes.
+
+Rendering requirements:
+
+- Opening a hyperlink emits an OSC 8 open sequence before the linked text.
+- Leaving a hyperlink emits an OSC 8 close sequence.
+- Changing from one hyperlink to another closes or replaces the previous hyperlink without
+  leaking the old URI.
+- Resetting style at end-of-frame or teardown closes any active hyperlink.
+- Damage rendering must still work when a changed cell begins or ends inside a hyperlink
+  span.
+- Hyperlink metadata must not affect cell width, grapheme handling, or layout.
+
+The subtle part is damage tracking. A partial redraw may start in the middle of a row
+where the terminal's _current_ hyperlink state is unknown or stale relative to the damaged
+span. The renderer already has to handle color/style state for damaged regions; hyperlink
+state must be included in the same state machine. Do not assume links only open at the
+beginning of a full frame.
+
+At minimum, before drawing a damaged run, the renderer should establish the complete style
+state needed for the first cell in that run, including hyperlink. After drawing the run,
+it should leave the terminal in a safe neutral state if the existing renderer does that
+for other styles.
+
+#### Encoder behavior
+
+Add semantic encoder operations for hyperlinks:
+
+```swift
+extension ANSIEncoder {
+    public mutating func openHyperlink(_ hyperlink: Hyperlink)
+    public mutating func closeHyperlink()
+}
+```
+
+The exact bytes should be centralized and tested. Suggested output form:
+
+```text
+ESC ] 8 ; id=<escaped-id> ; <escaped-uri> ESC \\
+...
+ESC ] 8 ; ; ESC \\
+```
+
+If `id` is nil, emit an empty params field:
+
+```text
+ESC ] 8 ; ; <escaped-uri> ESC \\
+```
+
+The implementation must define escaping/validation rules for `uri` and `id`. At minimum,
+reject or sanitize control characters so user-provided strings cannot smuggle arbitrary
+OSC or CSI sequences into terminal output.
+
+#### Security and correctness
+
+Hyperlinks are a terminal escape feature that can make visible text point somewhere else.
+That is useful, but it has spoofing implications. Tessera's job is not to police every
+app, but the terminal layer should avoid making unsafe output easy by accident.
+
+Rules for this slice:
+
+- Do not allow raw OSC terminators inside hyperlink URI or ID fields.
+- Do not allow C0 control characters in URI or ID fields unless there is a deliberate,
+  tested escaping strategy.
+- Prefer a `Hyperlink` initializer that can fail or sanitize over blindly storing
+  arbitrary strings.
+- Tests should include malicious-looking URI/ID inputs containing BEL, ESC, and newline.
+
+Do not overreach into URL policy. TesseraTerminal does not need to decide whether
+`https://`, `file:`, `mailto:`, or custom schemes are acceptable. That is application
+policy. The terminal layer only needs to ensure its escape sequences remain syntactically
+safe.
+
+#### Snapshot behavior
+
+Snapshot tests need a clear hyperlink story. The cell buffer snapshot should be able to
+assert hyperlink metadata without embedding raw OSC bytes in every expected output string.
+For renderer byte tests, assert the actual OSC 8 bytes directly.
+
+Suggested split:
+
+- Buffer/style tests compare `Hyperlink` values structurally.
+- Renderer tests compare exact encoded bytes.
+- Higher-level snapshots, once the view layer exists, may render hyperlinks in a readable
+  annotation form if raw escape bytes make tests hard to review.
+
+#### Tests
+
+Add encoder tests for:
+
+- open hyperlink without ID
+- open hyperlink with ID
+- close hyperlink
+- URI/ID escaping or rejection
+- malicious control-character inputs cannot inject terminal escapes
+
+Add renderer tests for:
+
+- linked text opens and closes OSC 8 around the correct cells
+- adjacent cells with the same hyperlink do not repeatedly reopen it
+- changing hyperlink closes/replaces the previous one
+- changing from linked to unlinked text closes the hyperlink
+- damage rendering establishes hyperlink state at the start of a damaged run
+- end-of-frame/style reset closes any active hyperlink
+- hyperlink metadata does not affect measured width or cell positions
+
+#### Non-goals
+
+Do not add Markdown/link parsing. This slice does not turn URLs in text into hyperlinks
+automatically.
+
+Do not add view-layer link widgets yet. Phase 4 can expose ergonomic APIs like
+`Text("docs").link("https://...")`; Phase 3 only gives the terminal renderer a hyperlink
+attribute it can encode.
+
+Do not add hyperlink click handling. OSC 8 lets the terminal handle clicks on links; it
+does not report link-click events back to the application.
+
+Do not attempt capability detection yet. If a terminal ignores OSC 8, the visible text
+still renders normally.
+
+#### End of Slice 5
+
+`TesseraTerminal` can attach safe hyperlink metadata to rendered cells/spans and encode
+OSC 8 open/close sequences during rendering without affecting layout, corrupting damage
+tracking, or leaking hyperlink state into unrelated output.
+
+### Slice 6: Terminal capability detection
+
+Slice 6 decides whether Tessera needs active terminal capability detection, and if so,
+implements the smallest reliable version.
+
+The first five Phase 3 slices intentionally avoid making startup depend on terminal
+introspection. Tessera enables modern protocols, decodes what arrives, and falls back when
+a terminal ignores an opt-in sequence. That is the right default. Capability detection is
+last because it is easy to overbuild, easy to make fragile, and easy to confuse with a
+promise that terminal behavior can be known perfectly in advance.
+
+But some questions eventually matter:
+
+- Should Tessera enable Kitty keyboard by default in this terminal?
+- Should it prefer one keyboard protocol level over another?
+- Should examples or docs warn that the current terminal lacks focus, mouse, or hyperlink
+  support?
+- Should the future view/runtime layer adapt features based on known terminal behavior?
+- Should Windows Terminal, tmux, SSH, and nested terminals get different defaults?
+
+This slice should answer those questions pragmatically. It is optional in the sense that
+Tessera can be useful without it, but if implemented it should be conservative, bounded,
+and observable.
+
+#### Design principle: hints, not truth
+
+Terminal capability detection should produce hints, not hard guarantees.
+
+Terminals, multiplexers, SSH sessions, shells, and environment variables all sit between
+Tessera and the emulator. A query can time out. A multiplexer can rewrite responses. A
+terminal can support a protocol but not advertise it. Another terminal can advertise a
+feature but implement it incompletely. The only truly reliable evidence is the byte stream
+Tessera actually receives and the rendering behavior the user actually sees.
+
+So the public model should avoid names like `supportsMouse == true` if that implies a
+promise. Prefer a report that communicates confidence and source:
+
+```swift
+public struct TerminalCapabilities: Sendable, Equatable {
+    public var identity: TerminalIdentity?
+    public var keyboardProtocol: CapabilityStatus
+    public var focusEvents: CapabilityStatus
+    public var mouseTracking: CapabilityStatus
+    public var hyperlinks: CapabilityStatus
+}
+
+public enum CapabilityStatus: Sendable, Equatable {
+    case unknown
+    case assumed
+    case detected
+    case unavailable
+}
+
+public struct TerminalIdentity: Sendable, Equatable {
+    public var name: String?
+    public var version: String?
+    public var source: TerminalIdentitySource
+}
+```
+
+This is only a suggested shape. The important API decision is that detection results are
+advisory and inspectable, not hidden global switches that make behavior mysterious.
+
+#### Information sources
+
+Use the least invasive sources first:
+
+1. Environment variables: `TERM`, `TERM_PROGRAM`, `TERM_PROGRAM_VERSION`, `COLORTERM`,
+   `WT_SESSION`, `VTE_VERSION`, `KONSOLE_VERSION`, `TMUX`, `STY`, and similar.
+2. Existing platform information from `PlatformIO`, especially whether VT input/output is
+   active on Windows.
+3. Passive observation: if Tessera receives a Kitty keyboard report, SGR mouse event,
+   focus event, or bracketed paste markers, it knows that path is working.
+4. Active terminal queries only if they provide value beyond the above.
+
+> [!note] Ratatui References
+>
+> - Ratatui's `init` helpers are intentionally conservative: they enable raw mode, enter
+>   the alternate screen, install a panic hook, and restore on exit
+>   (`ratatui/src/init.rs`, lines 318-325 and 397-404). They do not attempt capability
+>   negotiation during normal startup, which supports Tessera's “do not make startup
+>   fragile” stance.
+> - Ratatui's `try_restore` disables raw mode and leaves the alternate screen, and the
+>   panic hook calls `restore()` before delegating to the previous hook
+>   (`ratatui/src/init.rs`, lines 543-559). Tessera's capability queries must not
+>   interfere with this cleanup path.
+> - crossterm has a narrow internal capability-query precedent: it parses keyboard
+>   enhancement flag responses and primary device attributes into `InternalEvent`s
+>   (`crossterm` `src/event/sys/unix/parse.rs`, lines 258-292), and filters for those
+>   internal responses separately from public input (`crossterm` `src/event/filter.rs`,
+>   lines 22-35). Tessera should use the same separation if it adds active queries.
+> - Ratatui's flex demo reads `TERM_PROGRAM` / `TERM_PROGRAM_VERSION` only as local
+>   example behavior, not as core terminal policy (`examples/apps/flex/src/main.rs`, lines
+>   602-607). Tessera can centralize that kind of passive hinting in
+>   `TerminalCapabilities`.
+
+Active query candidates include primary/secondary device attributes and terminfo-style
+queries such as XTGETTCAP. XTGETTCAP is typically expressed as a DCS query for named
+terminfo capabilities; it can be useful, but it also introduces parsing complexity,
+timeouts, and multiplexer edge cases. Treat it as an implementation option, not a required
+badge of sophistication.
+
+#### Startup behavior
+
+Capability detection must not make terminal startup feel slow or brittle.
+
+Rules:
+
+- Startup should have a short, explicit timeout for any active query.
+- Timeout means `.unknown`, not failure.
+- Query responses must flow through a parser path that cannot steal ordinary user input
+  indefinitely.
+- Detection should not block raw-mode restoration or cleanup.
+- The app should be able to opt out of active queries entirely.
+
+A good first implementation may be entirely passive/environment-based. That is acceptable
+if it keeps the rest of the library predictable. The test for this slice is not “does
+Tessera know every terminal?” The test is “does Tessera expose useful capability hints
+without making startup worse?”
+
+#### Protocol enablement policy
+
+Do not let capability detection silently replace explicit protocol behavior.
+
+Suggested policy:
+
+- Bracketed paste: enable by default unless explicitly disabled.
+- Focus events: enable by default unless explicitly disabled.
+- SGR mouse: enable according to terminal/application configuration; many apps may want
+  it, but mouse tracking changes selection/scroll behavior enough that the runtime may
+  need a policy knob.
+- Kitty keyboard: enable by default only if the project is comfortable with the fallback
+  story and cleanup behavior; otherwise gate it behind configuration until slice 6 has
+  enough evidence.
+- OSC 8 hyperlinks: render when hyperlink metadata exists; unsupported terminals still
+  show visible text.
+
+The exact defaults can change, but they must be documented. Users should be able to ask:
+“what did Tessera enable, and why?”
+
+#### Public configuration
+
+If capability detection is implemented, add configuration rather than hidden behavior:
+
+```swift
+public struct TerminalOptions: Sendable, Equatable {
+    public var enableBracketedPaste: Bool
+    public var enableFocusEvents: Bool
+    public var mouseTracking: MouseTrackingMode
+    public var keyboardProtocol: KeyboardProtocolMode
+    public var hyperlinkRendering: HyperlinkRenderingMode
+    public var capabilityDetection: CapabilityDetectionMode
+}
+
+public enum CapabilityDetectionMode: Sendable, Equatable {
+    case disabled
+    case passive
+    case active(timeout: Duration)
+}
+```
+
+These names can adapt to the existing initialization API. The principle is more important
+than the exact shape: protocol enablement should be configurable, defaults should be
+visible, and detection should be something users can disable when it causes problems under
+SSH, tmux, CI, or unusual terminals.
+
+#### Parser behavior
+
+If active queries are added, their responses must be parsed without contaminating ordinary
+input events.
+
+Requirements:
+
+- Recognize expected query responses separately from user input where possible.
+- Time out incomplete responses.
+- Surface unexpected responses through the existing unknown/debug path only if useful.
+- Do not break bracketed paste, focus, mouse, or keyboard parsing.
+- Do not consume a user's real keypress because it happened while a capability query was
+  pending.
+
+This may require an internal event channel distinct from public `InputEvent`, or a parser
+result type that can carry both public input events and private protocol responses. Do not
+force capability-query responses into `InputEvent` just because they arrive on stdin.
+
+#### Tests
+
+Add environment/passive detection tests for:
+
+- common terminal environment variables produce expected advisory identity hints
+- tmux/screen presence is represented without pretending to know the underlying terminal
+- Windows Terminal environment is recognized when relevant variables are present
+- missing environment produces `.unknown`, not failure
+
+If active queries are implemented, add tests for:
+
+- query bytes are encoded exactly
+- valid responses update `TerminalCapabilities`
+- malformed responses are ignored or reported according to policy
+- query timeout produces `.unknown`
+- user input interleaved with query handling is not lost
+- cleanup still runs if detection times out
+
+Add configuration tests for:
+
+- active detection can be disabled
+- passive-only detection performs no terminal writes
+- protocol enablement follows explicit `TerminalOptions`
+- users can inspect what was enabled and what was merely detected/assumed
+
+#### Non-goals
+
+Do not build a complete terminal database. Tessera is not terminfo, ncurses, or a terminal
+compatibility registry.
+
+Do not make capability detection mandatory for normal operation. Modern protocol slices
+must continue to work opportunistically.
+
+Do not fail startup because a terminal does not answer a query.
+
+Do not promise perfect support detection. The result is an advisory report, not a
+contract.
+
+#### End of Slice 6
+
+`TesseraTerminal` exposes conservative, configurable capability hints and protocol
+enablement policy without making startup fragile, blocking cleanup, or undermining the
+opportunistic fallback behavior established by the rest of Phase 3.
 
 **End of Phase 3:** `TesseraTerminal` is feature-complete for a modern terminal app.
 Everything above this is the view library.
