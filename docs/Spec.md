@@ -11,6 +11,51 @@ primitives. Architecture-agnostic; bring your own state management.
 - Input parsing ✓
 - An optional runtime, architecture-agnostic ✓
 
+## How to use this spec
+
+This spec is both a design document and an implementation plan. It is intentionally more
+verbose than a normal roadmap because future-you and future agents need enough context to
+make local changes without re-litigating terminal architecture from scratch.
+
+Use it selectively:
+
+- **Implementing a slice:** read the current phase intro, the current slice, and any
+  referenced prior slices. Follow the Ratatui/crossterm callouts for comparable designs.
+- **Changing a public type:** search the whole spec for that type first. Many Phase 2
+  types are intentionally extended by Phase 3 and consumed by Phase 4.
+- **Debugging behavior:** start with the slice that introduced the behavior, then read its
+  tests section and references. Avoid loading unrelated phases unless the bug crosses a
+  boundary.
+- **Planning a phase boundary:** read the whole previous phase, the next phase intro, and
+  the risk/decision notes near the end of relevant slices.
+- **Using AI assistance:** give the model the smallest relevant slice plus referenced type
+  definitions. Do not ask it to ingest the whole spec unless the task is architectural.
+
+## Table of contents
+
+- [Framing](#framing)
+- [How to use this spec](#how-to-use-this-spec)
+- [Phase 0: Foundation](#phase-0-foundation)
+- [Phase 1: The Walking Skeleton](#phase-1-the-walking-skeleton)
+- [Phase 2: Real terminal foundation](#phase-2-real-terminal-foundation)
+  - [Slice 1: The snapshot harness](#slice-1-the-snapshot-harness)
+  - [Slice 2: ANSI Encoder](#slice-2-ansi-encoder)
+  - [Slice 3: Mode lifecycle + PlatformIO](#slice-3-mode-lifecycle--real-platformio--signal-handling)
+  - [Slice 4: Width-aware Buffer + renderer](#slice-4-width-aware-buffer--damage-tracking-renderer)
+  - [Slice 5: Legacy input parser](#slice-5-legacy-input-parser-escape-sequences-arrow-keys-function-keys-modifiers)
+  - [Slice 6: Windows support](#slice-6-windows-support-for-platformio-setconsolemode-readconsoleinput-windows-signal-equivalents)
+- [Phase 3: Modern terminal protocols](#phase-3-modern-terminal-protocols)
+  - [Slice 1: Bracketed paste mode](#slice-1-bracketed-paste-mode)
+  - [Slice 2: Focus events](#slice-2-focus-events)
+  - [Slice 3: SGR mouse tracking](#slice-3-sgr-mouse-tracking)
+  - [Slice 4: Kitty keyboard protocol](#slice-4-kitty-keyboard-protocol)
+  - [Slice 5: OSC 8 hyperlinks](#slice-5-osc-8-hyperlinks)
+  - [Slice 6: Terminal capability detection](#slice-6-terminal-capability-detection)
+- [Phase 4 — View layer](#phase-4--view-layer-the-tessera-module)
+- [Phase 5 — Runtime + polish](#phase-5--runtime--polish)
+- [Risk register](#risk-register)
+- [Proposed module and file layout](#proposed-module-and-file-layout)
+
 ## Phase 0: Foundation
 
 Phase 0 has exactly one job: **prove your development loop works before you write anything
@@ -4203,3 +4248,274 @@ This is the largest phase and where the Lip Gloss-flavored API actually shows up
 - 1.0 release prep
 
 **End of Phase 5:** Tessera 1.0.
+
+## Risk register
+
+This section is not a list of reasons to avoid the project. It is a list of places where
+terminal libraries commonly go wrong, plus the mitigation the spec expects. When a future
+implementation decision touches one of these risks, treat that as a signal to re-read the
+relevant slice before changing course.
+
+| Risk | Where it shows up | Mitigation |
+| --- | --- | --- |
+| Terminal not restored after exit | Phase 2 slice 3; Phase 3 mode slices | `ModeLifecycle`, `CleanupRegistry`, signal/ctrl handlers, and conservative over-cleanup. |
+| Encoder API leaks raw escape strings | Phase 2 slice 2; all Phase 3 protocol modes | Keep semantic `ControlSequence` cases and byte-level golden tests. |
+| Width bugs corrupt rendering | Phase 2 slice 4 | Use explicit cell content states, continuation cells, width tests, and snapshot tests. |
+| Damage renderer leaves stale style state | Phase 2 slice 4; Phase 3 OSC 8 | Treat style, hyperlink, and cursor state as renderer-owned state machines. |
+| Input parser swallows or mislabels bytes | Phase 2 slice 5; Phase 3 input protocols | Keep parser streaming, expose `.unknown(bytes:)`, and test split/partial sequences. |
+| ESC ambiguity makes Escape feel laggy | Phase 2 slice 5; Phase 3 Kitty keyboard | Put timeout policy in the input task; use Kitty keyboard as the modern escape hatch. |
+| Bracketed paste is parsed as typed input | Phase 3 slice 1 | Treat paste as a parser mode that suspends normal key parsing. |
+| Mouse tracking breaks the user's shell | Phase 3 slice 3 | Disable mouse modes on every teardown path; prefer button-event tracking over any-event mode. |
+| Kitty keyboard over-expands public API | Phase 3 slice 4 | Add key cases deliberately and keep legacy parsing as the compatibility baseline. |
+| OSC 8 enables escape injection | Phase 3 slice 5 | Validate/sanitize hyperlink URI/ID fields and keep OSC bytes out of cell symbols. |
+| Capability detection makes startup fragile | Phase 3 slice 6 | Treat capabilities as advisory hints with timeouts and user-visible configuration. |
+| Windows diverges semantically | Phase 2 slice 6; Phase 3 protocols | Require VT mode and keep OS differences inside `PlatformIO` and cleanup code. |
+| Modular targets create public API pressure | Package layout | Use `package` access for cross-target internals and thin re-export targets for users. |
+| Phase 4 view layer designs around missing substrate | Phase 4 | Finish terminal foundation first; keep Phase 4 provisional until its API is specified. |
+| No interactive UI hurts motivation | Cross-cutting | Consider low-level examples like `TerminalLab`, but do not let them drive the view API prematurely. |
+
+A risk becomes urgent when implementation pressure tempts the opposite mitigation: raw
+escape strings at call sites, parser special cases without tests, hidden capability
+switches, platform-specific public events, or Phase 4 convenience APIs before the terminal
+substrate is stable.
+
+## Proposed module and file layout
+
+This is a proposed landing shape for the package as the spec is implemented. It is not a
+promise that every file must exist on day one, and it should not prevent small files from
+being merged or split when the implementation reveals a better seam. Its purpose is to
+make ownership and dependency direction obvious before code starts accumulating.
+
+The package should use multiple SwiftPM targets, not just folders inside two large modules.
+That keeps builds focused, lets tests run against individual layers, and lets SwiftPM
+itself enforce architectural boundaries. The public user experience should still be simple:
+most users import `TesseraTerminal` or `Tessera`, while the package internally keeps ANSI,
+buffer, input, rendering, IO, layout, widgets, and runtime separate.
+
+Two rules matter more than the exact filenames:
+
+1. `TesseraTerminal`-level targets must not depend on `Tessera`-level targets. The
+   terminal substrate is the lower layer.
+2. Platform-specific code should stay behind narrow targets/files and public abstractions.
+   Most of the encoder, parser, buffer, renderer, and tests should be platform-independent.
+
+Recommended product/target shape:
+
+```text
+Products:
+  TesseraTerminal          // public terminal-foundation product
+  Tessera                  // public view/runtime product
+
+Targets:
+  TesseraTerminal          // re-export target for the terminal product
+  TesseraTerminalCore
+  TesseraTerminalANSI
+  TesseraTerminalBuffer
+  TesseraTerminalRendering
+  TesseraTerminalInput
+  TesseraTerminalIO
+  TesseraTerminalSnapshotSupport
+
+  Tessera                  // re-export target for the view/runtime product
+  TesseraCore
+  TesseraStyling
+  TesseraText
+  TesseraLayout
+  TesseraPrimitives
+  TesseraWidgets
+  TesseraRuntime
+```
+
+The `TesseraTerminal` targets are relatively concrete because Phases 1–3 define their
+responsibilities in detail. The `Tessera` targets are intentionally provisional because
+Phase 4 has not been specified yet: they capture the expected modular shape of the view
+layer, but Phase 4 should revise target names, boundaries, and file placement before
+implementation begins.
+
+The `TesseraTerminal` and `Tessera` targets are intentionally thin public import surfaces.
+They should contain little more than re-exports:
+
+```swift
+@_exported import TesseraTerminalCore
+@_exported import TesseraTerminalANSI
+@_exported import TesseraTerminalBuffer
+@_exported import TesseraTerminalRendering
+@_exported import TesseraTerminalInput
+@_exported import TesseraTerminalIO
+```
+
+Likewise, `Tessera` re-exports the view-layer targets and `TesseraTerminal` so app authors
+can usually write:
+
+```swift
+import Tessera
+```
+
+instead of importing a long list of implementation modules. Internal implementation code
+can still import the narrower target it actually needs.
+
+Proposed source layout:
+
+```text
+Sources/
+  TesseraTerminalCore/
+    TerminalGeometry.swift        // TerminalSize, TerminalPosition, Rect-like helpers
+    PackageInternals.swift        // shared package-level helpers, if needed
+
+  TesseraTerminalANSI/          // Phase 2 encoder; Phase 3 protocol toggles
+    ANSIEncoder.swift
+    ControlSequence.swift
+    EraseMode.swift
+    Color.swift
+    TextAttributes.swift
+
+  TesseraTerminalBuffer/        // Phase 2 buffer/style; Phase 3 hyperlinks
+    Buffer.swift
+    Cell.swift
+    CellWidth.swift
+    Style.swift
+    Hyperlink.swift
+
+  TesseraTerminalRendering/     // Phase 2 damage renderer; Phase 3 OSC 8 output
+    Renderer.swift
+    Damage.swift
+    RenderFrame.swift
+    StyleDiff.swift
+
+  TesseraTerminalInput/         // Phase 2 legacy input; Phase 3 modern protocols
+    InputEvent.swift
+    InputParser.swift
+    Key.swift
+    KeyCode.swift
+    Modifiers.swift
+    MouseEvent.swift
+    TerminalCapabilities.swift
+
+  TesseraTerminalIO/            // Phase 2 platform/lifecycle; Phase 3 mode cleanup
+    PlatformIO.swift
+    PlatformIO+POSIX.swift
+    PlatformIO+Windows.swift
+    ModeLifecycle.swift
+    CleanupRegistry.swift
+    SignalHandling+POSIX.swift
+    SignalHandling+Windows.swift
+
+  TesseraTerminalSnapshotSupport/ // Phase 1+ test harness support
+    VirtualTerminal.swift
+    SnapshotRenderer.swift
+    SnapshotFixtures.swift
+
+  TesseraTerminal/
+    TesseraTerminal.swift         // @_exported imports only
+
+  TesseraCore/
+    View.swift                    // Phase 4 placeholder
+    ViewContext.swift             // Phase 4 placeholder
+    Environment.swift             // Phase 4 placeholder
+
+  TesseraStyling/
+    // Phase 4 placeholder: concrete files TBD
+
+  TesseraText/
+    // Phase 4 placeholder: concrete files TBD
+
+  TesseraLayout/
+    // Phase 4 placeholder: concrete files TBD
+
+  TesseraPrimitives/
+    // Phase 4 placeholder: concrete files TBD
+
+  TesseraWidgets/
+    // Phase 4 placeholder: concrete files TBD
+
+  TesseraRuntime/
+    // Phase 5 placeholder: concrete files TBD
+
+  Tessera/
+    Tessera.swift                 // @_exported imports only
+```
+
+Proposed test layout mirrors the targets so each layer can be built and tested directly:
+
+```text
+Tests/
+  TesseraTerminalANSITests/
+    ANSIEncoderTests.swift
+    ControlSequenceGoldenTests.swift
+
+  TesseraTerminalBufferTests/
+    BufferTests.swift
+    CellWidthTests.swift
+    StyleTests.swift
+    HyperlinkTests.swift
+
+  TesseraTerminalRenderingTests/
+    RendererTests.swift
+    DamageTests.swift
+    SnapshotTests.swift
+
+  TesseraTerminalInputTests/
+    InputParserLegacyTests.swift
+    InputParserBracketedPasteTests.swift
+    InputParserFocusTests.swift
+    InputParserMouseTests.swift
+    InputParserKittyKeyboardTests.swift
+
+  TesseraTerminalIOTests/
+    ModeLifecycleTests.swift
+    CleanupRegistryTests.swift
+    PlatformIOTests.swift
+
+  TesseraCoreTests/
+  TesseraLayoutTests/
+  TesseraStylingTests/
+  TesseraWidgetTests/
+  TesseraRuntimeTests/
+```
+
+Optional examples can sit outside the module graph and import the public products:
+
+```text
+Examples/
+  TerminalLab/                  // Low-level TesseraTerminal playground, optional
+  Counter/
+  FileBrowser/
+  ChatClient/
+```
+
+Suggested dependency direction inside `TesseraTerminal`:
+
+- `TesseraTerminalCore` should contain tiny shared value types and helpers with no
+  dependency on terminal IO.
+- `TesseraTerminalANSI` should be pure and depend only on core value types.
+- `TesseraTerminalBuffer` may depend on core geometry and style values, but not on IO.
+- `TesseraTerminalRendering` may depend on buffer and ANSI targets, but not on
+  platform-specific files.
+- `TesseraTerminalInput` should be pure parser/event code; it should not own file
+  descriptors or tasks.
+- `TesseraTerminalIO` owns file descriptors, console handles, lifecycle, cleanup, and
+  async streams. It may depend on ANSI and Input but should keep OS-specific code local.
+- `TesseraTerminalSnapshotSupport` may depend on ANSI, Buffer, and Rendering, but
+  production targets should not depend on snapshot helpers.
+
+Provisional dependency direction inside `Tessera`:
+
+- `TesseraCore` likely defines the `View` protocol and shared render context.
+- `TesseraStyling`, `TesseraText`, and `TesseraLayout` likely build on `TesseraCore`.
+- `TesseraPrimitives` and `TesseraWidgets` likely build on core/layout/styling/text.
+- `TesseraRuntime` may depend on the whole view layer plus `TesseraTerminal`.
+- The `Tessera` target re-exports the public view-layer modules for app authors.
+
+This is intentionally less prescriptive than the `TesseraTerminal` layout. Phase 4 should
+turn these placeholders into a real target/file plan once the view-layer API is designed.
+
+Prefer Swift's access control to model intent:
+
+- `public` for API that app authors should use.
+- `package` for cross-target implementation details inside the Tessera package.
+- `internal` for details local to one target.
+- `private` / `fileprivate` for ordinary implementation hiding.
+
+This modular target structure is more ceremony in `Package.swift`, but that ceremony buys
+faster focused tests, clearer compiler-enforced boundaries, and better context control for
+future implementation work.
