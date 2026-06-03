@@ -205,11 +205,17 @@ real implementation.
 >   for `try_restore`) shows the setup/teardown order: `enable_raw_mode` →
 >   `EnterAlternateScreen` → backend → `Terminal`. Restore reverses: `disable_raw_mode` →
 >   `LeaveAlternateScreen`.
+> - The crossterm commands behind those calls are useful byte-level references:
+>   `enable_raw_mode()` / `disable_raw_mode()` delegate to platform sys modules
+>   (`crossterm` `src/terminal.rs`, lines 122–130), and `EnterAlternateScreen` /
+>   `LeaveAlternateScreen` write `CSI ? 1049 h/l` (`crossterm` `src/terminal.rs`, lines
+>   218–262).
 > - The `Backend::size()` trait method (`ratatui-core/src/backend.rs`, line 315) maps to
->   `terminal::size()` in crossterm (line 337) or `termion::terminal_size()` in termion
->   (`ratatui-termion/src/lib.rs`, line 259), both ultimately `TIOCGWINSZ`. Input events
->   in examples use `crossterm::event::read()` — in Phase 1 we bypass that library and
->   read raw bytes from stdin directly.
+>   `terminal::size()` in crossterm (`crossterm` `src/terminal.rs`, line 136) or
+>   `termion::terminal_size()` in termion (`ratatui-termion/src/lib.rs`, line 259), both
+>   ultimately platform terminal-size calls. Input events in examples use
+>   `crossterm::event::read()` — in Phase 1 we bypass that library and read raw bytes from
+>   stdin directly.
 
 - **POSIX only.** No Windows yet. (`#if os(macOS) || os(Linux)`.)
 - Raw mode via `termios`: save current, set `ICANON`/`ECHO` off, apply. Restore on exit.
@@ -342,11 +348,16 @@ that "buffer in, bytes out" works end-to-end.
 >   module. The demo app (`examples/apps/demo/src/crossterm.rs`, line 45) shows the
 >   canonical event loop: `event::poll(timeout)` → `event::read()` → match on `KeyCode`.
 >   Phase 1 replaces all of this with raw byte reads from stdin.
-> - `crossterm::event::Event` and `KeyCode::Char` are the types used in the demo. Phase
->   1's `Phase1Event` is a minimal analog — just `.quit` and `.char(Character)`.
+> - `crossterm::event::Event` and `KeyCode::Char` are the types used in the demo; the
+>   source definitions are in crossterm's public event model (`crossterm` `src/event.rs`,
+>   lines 550 and 1221). Phase 1's `Phase1Event` is a minimal analog — just `.quit` and
+>   `.char(Character)`.
 > - Raw mode via `enable_raw_mode()` (`ratatui/src/init.rs`, line 396) puts stdin into
 >   character-at-a-time mode so `read()` returns immediately. Phase 1 does this manually
 >   with `termios` (see the Mode section), which is what makes single-byte reads possible.
+> - crossterm's real Unix parser starts at `parse_event(buffer, input_available)`
+>   (`crossterm` `src/event/sys/unix/parse.rs`, line 26). Phase 1 intentionally avoids
+>   that whole state machine and handles only printable bytes plus `q`.
 
 You need exactly two things working:
 
@@ -675,10 +686,11 @@ testing this module covers everything downstream.
 
 > [!note] Ratatui References
 >
-> - Ratatui delegates to crossterm's `Command` trait (`crossterm` crate) which is an
->   enum-like set of types (`MoveTo`, `Hide`, `Show`, `SetColors`, `Clear`, `Print`) that
->   implement a common `queue`/`execute` interface. This is the closest analogue to Option
->   A (enum with associated values).
+> - Ratatui delegates to crossterm's `Command` trait, whose load-bearing API is
+>   `write_ansi(&self, ...)` plus a Windows-only `execute_winapi` fallback (`crossterm`
+>   `src/command.rs`, lines 12–27). Concrete command types like `MoveTo`, `Hide`, `Show`,
+>   `SetColors`, `Clear`, and `Print` are the closest analogue to Option A (enum with
+>   associated values): each is semantic data that knows how to encode itself.
 > - The `CrosstermBackend::draw` method (`ratatui-crossterm/src/lib.rs`, lines 232–292)
 >   builds a sequence of commands per cell — `MoveTo`, modifier diffs, color changes,
 >   `Print` — and queues them into a single buffer. This is exactly the "compose sequences
@@ -791,20 +803,27 @@ mean N small allocations per frame. This shape costs nothing and scales.
 > - Cursor control maps to `Backend::set_cursor_position` (`ratatui-core/src/backend.rs`,
 >   line 229) and `hide_cursor`/`show_cursor` (lines 188, 202). The crossterm backend uses
 >   `MoveTo(x, y)` (`ratatui-crossterm/src/lib.rs`, line 245), `Hide` (line 295), and
->   `Show` (line 299) — all crossterm `Command` impls that emit CSI sequences.
+>   `Show` (line 299). The exact coordinate conversion lives in crossterm: `MoveTo` writes
+>   `CSI row;col H` and adds 1 to both zero-based fields (`crossterm` `src/cursor.rs`,
+>   lines 60–65).
 > - Erase maps to `Backend::clear` (`ratatui-core/src/backend.rs`, line 259) and
 >   `clear_region` with `ClearType` (`ratatui-core/src/backend.rs`, line 121). The
 >   crossterm backend uses `Clear` from crossterm (`ratatui-crossterm/src/lib.rs`, lines
->   313–322).
+>   313–322); crossterm's `Clear` command maps clear types to `CSI 2J`, `CSI 3J`, `CSI J`,
+>   `CSI 1J`, `CSI 2K`, and `CSI K` (`crossterm` `src/terminal.rs`, lines 341–352).
 > - SGR styling maps to the `Color` enum (`ratatui-core/src/style/color.rs`, line 69) and
 >   `Modifier` bitflags (`ratatui-core/src/style.rs`, line 104). The crossterm backend
 >   emits `SetColors` (line 259), `SetForegroundColor`/`SetBackgroundColor` (lines
->   280–289), and `SetAttribute` via `ModifierDiff` (line 535).
+>   280–289), and `SetAttribute` via `ModifierDiff` (line 535). The underlying crossterm
+>   commands encode colors and attributes as SGR (`crossterm` `src/style.rs`, lines
+>   206–339).
 > - Alt screen is handled by crossterm's `EnterAlternateScreen`/`LeaveAlternateScreen`
 >   (`ratatui-crossterm/src/lib.rs`, lines 127, 145) — the backend itself doesn't expose
->   these as `Backend` trait methods; they're applied at the application level.
+>   these as `Backend` trait methods; they're applied at the application level. The actual
+>   bytes are `CSI ? 1049 h/l` (`crossterm` `src/terminal.rs`, lines 218–262).
 > - `Print` (`ratatui-crossterm/src/lib.rs`, line 274) is crossterm's command for literal
->   text output — the analogue of `text(String)` as a `ControlSequence` case.
+>   text output — the analogue of `text(String)` as a `ControlSequence` case. Its command
+>   impl writes the display value directly (`crossterm` `src/style.rs`, line 501).
 
 Concrete list of cases the encoder needs for Phase 2 (informed by the layer-by-layer Phase
 1 work; nothing speculative):
@@ -1056,6 +1075,10 @@ Each problem has a tidy solution; the work is in getting them to compose.
 > - Ratatui's `init` module (`ratatui/src/init.rs`) provides `try_init` (line 397) and
 >   `try_restore` (line 554) which encode the enter/exit ordering: `enable_raw_mode` →
 >   `EnterAlternateScreen` on enter, `disable_raw_mode` → `LeaveAlternateScreen` on exit.
+> - The crossterm pieces underneath are the same mode primitives Tessera will encode or
+>   implement directly: raw mode delegates through `crossterm` `src/terminal.rs`, lines
+>   122–130; alternate screen writes `CSI ? 1049 h/l` in `crossterm` `src/terminal.rs`,
+>   lines 218–262.
 > - The `run` function (`ratatui/src/init.rs`, line 318) wraps a closure with setup and
 >   guaranteed cleanup — the closest Rust analogue to Tessera's `enter`/`exit` contract.
 > - Unlike Tessera's all-or-nothing set semantics, Ratatui's `try_init` enables modes
@@ -2368,8 +2391,13 @@ its own footguns, and "confined to one file" is still a meaningful amount of wor
 > [!note] Ratatui References
 >
 > - Ratatui's `CrosstermBackend` (`ratatui-crossterm/src/lib.rs`, line 160) wraps a
->   `Write` and delegates all terminal manipulation to crossterm, which internally selects
->   between ANSI (VT) output and `winapi` fallback on Windows.
+>   `Write` and delegates all terminal manipulation to crossterm, whose `Command` trait has
+>   an ANSI `write_ansi` path and a Windows-only `execute_winapi` fallback (`crossterm`
+>   `src/command.rs`, lines 12–27).
+> - crossterm's Windows raw-mode implementation shows the flag-dance baseline: it clears
+>   `ENABLE_LINE_INPUT`, `ENABLE_ECHO_INPUT`, and `ENABLE_PROCESSED_INPUT` through console
+>   mode APIs (`crossterm` `src/terminal/sys/windows.rs`, lines 9–38). Tessera adds VT
+>   input/output flags on top of that and treats failure as unsupported.
 > - The `ScrollUpInRegion` and `ScrollDownInRegion` commands
 >   (`ratatui-crossterm/src/lib.rs`, lines 737, 785) implement `execute_winapi` returning
 >   `Unsupported` — Ratatui explicitly does not support the legacy Windows console API for
