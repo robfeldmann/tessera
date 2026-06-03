@@ -304,7 +304,7 @@ Phase 1.
 >   line 16) uses the `unicode_width` crate. For Phase 1, naive `width = 1` is sufficient.
 > - `Size` is a simple `width: u16`, `height: u16` struct with `area()` method
 >   (`ratatui-core/src/layout/size.rs`, line 42).
-> - `Position` is `x: u16`, `y: u16` — maps to the spec's `Point` type
+> - `Position` is `x: u16`, `y: u16` — maps to the spec's `TerminalPosition` type
 >   (`ratatui-core/src/layout/position.rs`, line 46).
 > - `Style` is a full struct with `fg: Option<Color>`, `bg: Option<Color>`,
 >   `add_modifier`, `sub_modifier` (`ratatui-core/src/style.rs`, line 157). For Phase 1
@@ -317,26 +317,40 @@ it.
 Minimum viable but real:
 
 ```swift
+public struct TerminalSize: Sendable, Equatable, Hashable {
+    public let columns: Int
+    public let rows: Int
+
+    public init(columns: Int, rows: Int)
+}
+
+public struct TerminalPosition: Sendable, Equatable, Hashable {
+    public let column: Int
+    public let row: Int
+
+    public init(column: Int, row: Int)
+}
+
 public struct Buffer: Sendable, Equatable {
-    public struct Size: Sendable, Equatable {
-        public let cols, rows: Int
-    }
-    public let size: Size
+    public let size: TerminalSize
     private var cells: [Cell]
 
-    public init(size: Size, fill: Cell = .blank)
-    public subscript(row: Int, col: Int) -> Cell { get set }
-    public mutating func write(_ string: String, at: Point, style: Style)
+    public init(size: TerminalSize, fill: Cell = .blank)
+    public subscript(row: Int, column: Int) -> Cell { get set }
+    public mutating func write(_ string: String, at position: TerminalPosition, style: Style)
 }
 
 public struct Cell: Sendable, Equatable {
     public var character: Character
     public var style: Style
     public var width: Int  // 1 for now; CJK/emoji is Phase 2
+
+    public init(character: Character, style: Style = Style(), width: Int = 1)
 }
 
 public struct Style: Sendable, Equatable {
     // Empty for Phase 1; just the type exists.
+    public init()
 }
 ```
 
@@ -365,7 +379,7 @@ semantics, `subscript`, `write(at:)` — should be right.
 The Phase 1 renderer is dead simple:
 
 ```swift
-func render(_ buffer: Buffer, to io: PlatformIO) async {
+private func render(_ buffer: Buffer, to io: PlatformIO) async {
     var bytes: [UInt8] = []
     bytes.append(contentsOf: "\x1b[H".utf8)  // home
     for row in 0..<buffer.size.rows {
@@ -415,12 +429,12 @@ raw `\x1b[A` bytes). That's _fine_. Phase 2 builds the real parser.
 
 ```swift
 // Phase 1 "parser":
-enum Phase1Event {
+private enum Phase1Event {
     case quit
     case char(Character)
 }
 
-func parsePhase1(_ byte: UInt8) -> Phase1Event? {
+private func parsePhase1(_ byte: UInt8) -> Phase1Event? {
     if byte == 0x71 { return .quit }
     if let scalar = Unicode.Scalar(byte), scalar.isASCII {
         return .char(Character(scalar))
@@ -443,8 +457,12 @@ directly into the buffer:
 ```swift
 // HelloTessera/main.swift
 var buffer = Buffer(size: terminalSize)
-buffer.write("Hello, Tessera. Press q to quit.", at: Point(0, 0), style: Style())
-buffer.write("You pressed: \(lastKey)", at: Point(0, 1), style: Style())
+buffer.write(
+    "Hello, Tessera. Press q to quit.",
+    at: TerminalPosition(column: 0, row: 0),
+    style: Style()
+)
+buffer.write("You pressed: \(lastKey)", at: TerminalPosition(column: 0, row: 1), style: Style())
 await renderer.render(buffer)
 ```
 
@@ -466,8 +484,16 @@ var buffer = Buffer(size: try await io.size)
 
 renderLoop: while true {
     buffer.clear()
-    buffer.write("Hello, Tessera. Press q to quit.", at: Point(0, 0), style: Style())
-    buffer.write("You pressed: \(lastKey)", at: Point(0, 1), style: Style())
+    buffer.write(
+        "Hello, Tessera. Press q to quit.",
+        at: TerminalPosition(column: 0, row: 0),
+        style: Style()
+    )
+    buffer.write(
+        "You pressed: \(lastKey)",
+        at: TerminalPosition(column: 0, row: 1),
+        style: Style()
+    )
     await renderer.render(buffer, to: io)
 
     for await byte in io.bytes {
@@ -569,8 +595,8 @@ public final class VirtualTerminal {
 
     // Inspection
     public func text(row: Int) -> String
-    public func cell(row: Int, col: Int) -> RenderedCell
-    public func cursorPosition() -> Point
+    public func cell(row: Int, column: Int) -> RenderedCell
+    public func cursorPosition() -> TerminalPosition
     public func snapshot() -> ScreenSnapshot  // whole-screen value
 }
 
@@ -579,11 +605,29 @@ public struct RenderedCell: Sendable, Equatable {
     public let foreground: RenderedColor
     public let background: RenderedColor
     public let bold, italic, underline, reverse: Bool
+
+    public init(
+        character: Character,
+        foreground: RenderedColor,
+        background: RenderedColor,
+        bold: Bool,
+        italic: Bool,
+        underline: Bool,
+        reverse: Bool
+    )
+}
+
+public enum RenderedColor: Sendable, Equatable {
+    case `default`
+    case indexed(UInt8)
+    case rgb(UInt8, UInt8, UInt8)
 }
 
 public struct ScreenSnapshot: Sendable, Equatable {
     public let cells: [[RenderedCell]]
-    public let cursor: Point
+    public let cursor: TerminalPosition
+
+    public init(cells: [[RenderedCell]], cursor: TerminalPosition)
     // Equality + a nice debug description for failing tests
 }
 ```
@@ -634,7 +678,7 @@ Ghostty dependency at all.
 1. `libghostty-spm` added as a package dependency, `GhosttyKit` product wired only into
    `TesseraSnapshotTests` target.
 2. `VirtualTerminal` Swift class with the same API as before (`feed`, `text(row:)`,
-   `cell(row:col:)`, `cursorPosition()`, `snapshot()`), now backed by libghostty's
+   `cell(row:column:)`, `cursorPosition()`, `snapshot()`), now backed by libghostty's
    Parser+Terminal API rather than a hand-rolled VT.
 3. ~5-10 tests proving the harness itself works: feed known sequences (cursor move, SGR,
    character write), assert the inspected state matches.
@@ -718,9 +762,10 @@ through five layers forever.
 >   → bytes" mapping the encoder encapsulates.
 
 A pure, synchronous, zero-I/O module that turns semantic terminal operations
-(`moveCursor(row:5, col:10)`, `setForeground(.red)`, `enterAltScreen`) into the exact
-bytes that produce them. **It does not write anywhere. It does not allocate file handles.
-It does not know what a `PlatformIO` is.** Bytes in, bytes out — that's the whole
+(`cursorPosition(TerminalPosition(column: 10, row: 5))`, `setForeground(.red)`,
+`enterAltScreen`) into the exact bytes that produce them. **It does not write anywhere.
+It does not allocate file handles. It does not know what a `PlatformIO` is.** Bytes in,
+bytes out — that's the whole
 interface to the rest of the system.
 
 This isolation is what makes the encoder testable against golden fixtures and what lets
@@ -751,8 +796,15 @@ layer of the stack will be calling into this one.
 **Option A: enum with associated values + a single `encode` function.**
 
 ```swift
+public enum EraseMode: Sendable, Equatable {
+    case toEnd
+    case toBeginning
+    case all
+    case allAndScrollback
+}
+
 public enum ControlSequence: Sendable, Equatable {
-    case cursorPosition(row: Int, col: Int)
+    case cursorPosition(TerminalPosition)
     case cursorVisible(Bool)
     case eraseInDisplay(EraseMode)
     case setForeground(Color)
@@ -760,14 +812,16 @@ public enum ControlSequence: Sendable, Equatable {
     // ... ~30 cases total for Phase 2
 }
 
-public func encode(_ sequence: ControlSequence, into buffer: inout [UInt8])
+public enum ANSIEncoder {
+    public static func encode(_ sequence: ControlSequence, into buffer: inout [UInt8])
+}
 ```
 
 **Option B: free functions returning bytes.**
 
 ```swift
 public enum ControlSequence {
-    public static func cursorPosition(row: Int, col: Int, into: inout [UInt8])
+    public static func cursorPosition(_ position: TerminalPosition, into: inout [UInt8])
     public static func enterAltScreen(into: inout [UInt8])
     // ...
 }
@@ -777,7 +831,7 @@ public enum ControlSequence {
 
 ```swift
 public struct SequenceWriter {
-    public mutating func cursorPosition(row: Int, col: Int)
+    public mutating func cursorPosition(_ position: TerminalPosition)
     public mutating func enterAltScreen()
     public func finish() -> [UInt8]
 }
@@ -793,7 +847,7 @@ public struct SequenceWriter {
 
    ```swift
    #expect(sequences == [
-       .cursorPosition(row: 0, col: 0),
+       .cursorPosition(TerminalPosition(column: 0, row: 0)),
        .setForeground(.red),
        .text("hi"),
    ])
@@ -832,7 +886,7 @@ public enum ControlSequence: Sendable, Equatable {
     // ... cases ...
 }
 
-extension ControlSequence {
+public extension ControlSequence {
     /// Appends the bytes for this sequence to `buffer`.
     /// Pure function. Does not allocate beyond growing `buffer`.
     public func encode(into buffer: inout [UInt8])
@@ -884,7 +938,7 @@ Concrete list of cases the encoder needs for Phase 2 (informed by the layer-by-l
 
 ##### Cursor control
 
-- `cursorPosition(row: Int, col: Int)` — CSI `row;colH` (1-indexed in the wire format;
+- `cursorPosition(TerminalPosition)` — CSI `row;colH` (1-indexed in the wire format;
   convert from 0-indexed at the boundary)
 - `cursorUp(Int)`, `cursorDown(Int)`, `cursorForward(Int)`, `cursorBack(Int)`
 - `cursorVisible(Bool)` — DEC private modes 25
@@ -953,6 +1007,19 @@ public enum ANSIColor: Sendable, Equatable, CaseIterable {
     case black, red, green, yellow, blue, magenta, cyan, white
     case brightBlack, brightRed, ..., brightWhite
 }
+
+public struct TextAttributes: OptionSet, Sendable {
+    public let rawValue: UInt16
+
+    public init(rawValue: UInt16)
+
+    public static let bold = TextAttributes(rawValue: 1 << 0)
+    public static let dim = TextAttributes(rawValue: 1 << 1)
+    public static let italic = TextAttributes(rawValue: 1 << 2)
+    public static let underline = TextAttributes(rawValue: 1 << 3)
+    public static let reverse = TextAttributes(rawValue: 1 << 4)
+    public static let strikethrough = TextAttributes(rawValue: 1 << 5)
+}
 ```
 
 A few decisions baked in here worth flagging:
@@ -998,7 +1065,7 @@ This list matters as much as the catalog:
   carefully to minimize bytes). The encoder is stateless.
 - **No batching.** `encode(into:)` produces exactly the bytes for the one sequence it's
   called with. Sequencing is the caller's problem.
-- **No clamping.** If you ask for `cursorPosition(row: -5, col: 9999)` the encoder emits
+- **No clamping.** If you ask for an out-of-range cursor position, the encoder emits
   exactly those bytes. Validation belongs at a higher layer if it belongs anywhere.
 - **No querying.** Sequences that request a response from the terminal (DA1, cursor
   position report) are not Phase 2. They need a response-parsing infrastructure that's
@@ -1031,7 +1098,7 @@ This is the part that pays the harness back. For every `ControlSequence` case, t
 
    ```swift
    #expect(
-       ControlSequence.cursorPosition(row: 0, col: 0).bytes ==
+       ControlSequence.cursorPosition(TerminalPosition(column: 0, row: 0)).bytes ==
            [0x1b, 0x5b, 0x31, 0x3b, 0x31, 0x48]
    )
    ```
@@ -1155,10 +1222,10 @@ public actor ModeLifecycle {
     public enum Mode: Sendable {
         case rawMode
         case altScreen
-        case mouseTracking(MouseMode)       // Phase 3
+        case mouseTracking                  // Phase 3
         case bracketedPaste                 // Phase 3
         case focusEvents                    // Phase 3
-        case kittyKeyboard(KittyFlags)      // Phase 3
+        case kittyKeyboard                  // Phase 3
     }
 
     public init(io: PlatformIO)
@@ -1402,17 +1469,17 @@ Sketch:
 
 ```swift
 // Internal to TesseraTerminal.
-enum CleanupRegistry {
-    static let current = AtomicReference<CleanupState?>(nil)
+internal enum CleanupRegistry {
+    internal static let current = AtomicReference<CleanupState?>(nil)
 
-    struct CleanupState {
-        let teardownBytes: [UInt8]    // pre-encoded mode-exit sequences
-        let savedTermios: termios     // for tcsetattr restoration
+    internal struct CleanupState {
+        internal let teardownBytes: [UInt8]  // pre-encoded mode-exit sequences
+        internal let savedTermios: termios   // for tcsetattr restoration
     }
 
-    static func install(_ state: CleanupState)
-    static func clear()
-    static func performEmergencyCleanup()  // called from signal handler
+    internal static func install(_ state: CleanupState)
+    internal static func clear()
+    internal static func performEmergencyCleanup()  // called from signal handler
 }
 ```
 
@@ -1563,6 +1630,8 @@ public struct Cell: Sendable, Equatable {
     public var content: Content
     public var style: Style
 
+    public init(content: Content = .blank, style: Style = Style())
+
     public var width: Int {
         switch content {
         case .grapheme(let g): return g.terminalWidth  // from swift-displaywidth
@@ -1595,15 +1664,19 @@ The buffer mutation API gets one new responsibility: maintaining the cell/contin
 invariant.
 
 ```swift
-extension Buffer {
+public extension Buffer {
     /// Writes a string starting at `point`, advancing by each grapheme's width.
     /// Wide graphemes write both the grapheme cell and the continuation cell.
     /// Writes past the right edge are clipped at the row boundary (no wrap).
-    public mutating func write(_ string: String, at point: Point, style: Style)
+    public mutating func write(_ string: String, at position: TerminalPosition, style: Style)
 
     /// Writes a single grapheme at `point`, returning the next column.
     /// Returns `nil` if the grapheme doesn't fit.
-    public mutating func write(grapheme: String, at point: Point, style: Style) -> Int?
+    public mutating func write(
+        grapheme: String,
+        at position: TerminalPosition,
+        style: Style
+    ) -> Int?
 }
 ```
 
@@ -1744,7 +1817,7 @@ The naive approach is "if styles differ, reset and re-set everything." Better: e
 the SGR codes for the attributes that actually changed. Concretely:
 
 ```swift
-func sgrDelta(from old: Style, to new: Style, into bytes: inout [UInt8]) {
+package func sgrDelta(from old: Style, to new: Style, into bytes: inout [UInt8]) {
     // If the new style strictly *adds* attributes, emit just the additions.
     // If anything was *removed*, emit reset (SGR 0) then full new style.
     // This is the right tradeoff: removal is rare, reset+set is short anyway.
@@ -2075,6 +2148,8 @@ public enum InputEvent: Sendable, Equatable {
 public struct Key: Sendable, Equatable {
     public let code: KeyCode
     public let modifiers: Modifiers
+
+    public init(code: KeyCode, modifiers: Modifiers = [])
 }
 
 public enum KeyCode: Sendable, Equatable {
@@ -2092,6 +2167,9 @@ public enum KeyCode: Sendable, Equatable {
 
 public struct Modifiers: OptionSet, Sendable {
     public let rawValue: UInt8
+
+    public init(rawValue: UInt8)
+
     public static let shift   = Modifiers(rawValue: 1 << 0)
     public static let alt     = Modifiers(rawValue: 1 << 1)
     public static let control = Modifiers(rawValue: 1 << 2)
@@ -2306,8 +2384,8 @@ because the parser's escape-sequence handling already extends cleanly.
 Slice 3 gave you `PlatformIO.bytes: AsyncStream<UInt8>`. Slice 5 layers on top:
 
 ```swift
-extension PlatformIO {
-    public var events: AsyncStream<InputEvent> { get }
+public extension PlatformIO {
+    var events: AsyncStream<InputEvent> { get }
 }
 ```
 
@@ -3036,21 +3114,20 @@ marker arrives.
 
 #### Encoder behavior
 
-Add semantic encoder operations for enabling and disabling bracketed paste, rather than
+Add semantic control sequences for enabling and disabling bracketed paste, rather than
 sprinkling raw escape strings through lifecycle code.
 
-Suggested shape:
+Phase 3 should add these cases to `ControlSequence`:
 
 ```swift
-extension ANSIEncoder {
-    public mutating func enableBracketedPaste()
-    public mutating func disableBracketedPaste()
+public enum ControlSequence: Sendable, Equatable {
+    // Phase 2 cases...
+    case enableBracketedPaste
+    case disableBracketedPaste
 }
 ```
 
-Whether these are methods, enum cases, or lower-level writer helpers should follow the
-shape chosen in Phase 2's encoder. The important part is that tests assert the exact
-bytes:
+The important part is that tests assert the exact bytes:
 
 - enable: `\u{1B}[?2004h`
 - disable: `\u{1B}[?2004l`
@@ -3190,12 +3267,13 @@ Design notes:
 
 #### Encoder behavior
 
-Add semantic encoder operations for focus tracking, mirroring bracketed paste:
+Add semantic control sequences for focus tracking, mirroring bracketed paste:
 
 ```swift
-extension ANSIEncoder {
-    public mutating func enableFocusTracking()
-    public mutating func disableFocusTracking()
+public enum ControlSequence: Sendable, Equatable {
+    // Existing cases...
+    case enableFocusTracking
+    case disableFocusTracking
 }
 ```
 
@@ -3346,6 +3424,8 @@ public struct MouseEvent: Sendable, Equatable {
     public let kind: MouseEventKind
     public let position: TerminalPosition
     public let modifiers: Modifiers
+
+    public init(kind: MouseEventKind, position: TerminalPosition, modifiers: Modifiers = [])
 }
 
 public enum MouseEventKind: Sendable, Equatable {
@@ -3461,13 +3541,14 @@ click.
 
 #### Encoder behavior
 
-Add semantic encoder operations rather than writing raw private-mode escapes at lifecycle
+Add semantic control sequences rather than writing raw private-mode escapes at lifecycle
 call sites:
 
 ```swift
-extension ANSIEncoder {
-    public mutating func enableMouseTracking()
-    public mutating func disableMouseTracking()
+public enum ControlSequence: Sendable, Equatable {
+    // Existing cases...
+    case enableMouseTracking
+    case disableMouseTracking
 }
 ```
 
@@ -3616,6 +3697,8 @@ public struct Key: Sendable, Equatable {
     public let code: KeyCode
     public let modifiers: Modifiers
     public let kind: KeyEventKind
+
+    public init(code: KeyCode, modifiers: Modifiers = [], kind: KeyEventKind = .press)
 }
 
 public enum KeyEventKind: Sendable, Equatable {
@@ -3626,6 +3709,9 @@ public enum KeyEventKind: Sendable, Equatable {
 
 public struct Modifiers: OptionSet, Sendable {
     public let rawValue: UInt16
+
+    public init(rawValue: UInt16)
+
     public static let shift   = Modifiers(rawValue: 1 << 0)
     public static let alt     = Modifiers(rawValue: 1 << 1)
     public static let control = Modifiers(rawValue: 1 << 2)
@@ -3660,9 +3746,10 @@ implementation against the current Kitty spec, but Tessera's baseline target sho
 Keep the enable operation explicit and semantic:
 
 ```swift
-extension ANSIEncoder {
-    public mutating func enableKittyKeyboard()
-    public mutating func disableKittyKeyboard()
+public enum ControlSequence: Sendable, Equatable {
+    // Existing cases...
+    case enableKittyKeyboard
+    case disableKittyKeyboard
 }
 ```
 
@@ -3835,15 +3922,24 @@ Phase 2's buffer/renderer already uses:
 
 ```swift
 public struct Style: Sendable, Equatable {
-    public var foreground: ANSIColor?
-    public var background: ANSIColor?
+    public var foreground: Color?
+    public var background: Color?
     public var attributes: TextAttributes
     public var hyperlink: Hyperlink?
+
+    public init(
+        foreground: Color? = nil,
+        background: Color? = nil,
+        attributes: TextAttributes = [],
+        hyperlink: Hyperlink? = nil
+    )
 }
 
 public struct Hyperlink: Sendable, Equatable, Hashable {
     public let uri: String
     public let id: String?
+
+    public init(uri: String, id: String? = nil) throws
 }
 ```
 
@@ -3886,12 +3982,13 @@ for other styles.
 
 #### Encoder behavior
 
-Add semantic encoder operations for hyperlinks:
+Add semantic control sequences for hyperlinks:
 
 ```swift
-extension ANSIEncoder {
-    public mutating func openHyperlink(_ hyperlink: Hyperlink)
-    public mutating func closeHyperlink()
+public enum ControlSequence: Sendable, Equatable {
+    // Existing cases...
+    case openHyperlink(Hyperlink)
+    case closeHyperlink
 }
 ```
 
@@ -4031,6 +4128,14 @@ public struct TerminalCapabilities: Sendable, Equatable {
     public var focusEvents: CapabilityStatus
     public var mouseTracking: CapabilityStatus
     public var hyperlinks: CapabilityStatus
+
+    public init(
+        identity: TerminalIdentity? = nil,
+        keyboardProtocol: CapabilityStatus = .unknown,
+        focusEvents: CapabilityStatus = .unknown,
+        mouseTracking: CapabilityStatus = .unknown,
+        hyperlinks: CapabilityStatus = .unknown
+    )
 }
 
 public enum CapabilityStatus: Sendable, Equatable {
@@ -4044,6 +4149,15 @@ public struct TerminalIdentity: Sendable, Equatable {
     public var name: String?
     public var version: String?
     public var source: TerminalIdentitySource
+
+    public init(name: String?, version: String?, source: TerminalIdentitySource)
+}
+
+public enum TerminalIdentitySource: Sendable, Equatable {
+    case environment
+    case deviceAttributes
+    case queryResponse
+    case userOverride
 }
 ```
 
@@ -4139,6 +4253,32 @@ public struct TerminalOptions: Sendable, Equatable {
     public var keyboardProtocol: KeyboardProtocolMode
     public var hyperlinkRendering: HyperlinkRenderingMode
     public var capabilityDetection: CapabilityDetectionMode
+
+    public init(
+        enableBracketedPaste: Bool = true,
+        enableFocusEvents: Bool = true,
+        mouseTracking: MouseTrackingMode = .buttonEvents,
+        keyboardProtocol: KeyboardProtocolMode = .kittyIfAvailable,
+        hyperlinkRendering: HyperlinkRenderingMode = .enabled,
+        capabilityDetection: CapabilityDetectionMode = .passive
+    )
+}
+
+public enum MouseTrackingMode: Sendable, Equatable {
+    case disabled
+    case buttonEvents
+    case applicationControlled
+}
+
+public enum KeyboardProtocolMode: Sendable, Equatable {
+    case legacyOnly
+    case kittyIfAvailable
+    case kittyRequired
+}
+
+public enum HyperlinkRenderingMode: Sendable, Equatable {
+    case disabled
+    case enabled
 }
 
 public enum CapabilityDetectionMode: Sendable, Equatable {
