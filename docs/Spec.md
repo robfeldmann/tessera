@@ -745,8 +745,17 @@ public struct SequenceWriter {
    frame" before emitting bytes. That's natural with an enum, awkward with free functions,
    and a category error with a builder.
 2. **Equatable enum cases make tests legible.**
-   `#expect(sequences == [.cursorPosition(row: 0, col: 0), .setForeground(.red), .text("hi")])`
-   reads beautifully. Comparing byte arrays in tests is much worse.
+
+   ```swift
+   #expect(sequences == [
+       .cursorPosition(row: 0, col: 0),
+       .setForeground(.red),
+       .text("hi"),
+   ])
+   ```
+
+   That reads beautifully. Comparing byte arrays in tests is much worse.
+
 3. **Exhaustive `switch` in the encoder.** When you add a new sequence in Phase 3 (Kitty
    keyboard, say), the compiler tells you exactly where to handle it. Free functions
    silently let you forget.
@@ -828,7 +837,7 @@ mean N small allocations per frame. This shape costs nothing and scales.
 Concrete list of cases the encoder needs for Phase 2 (informed by the layer-by-layer Phase
 1 work; nothing speculative):
 
-**Cursor control**
+##### Cursor control
 
 - `cursorPosition(row: Int, col: Int)` — CSI `row;colH` (1-indexed in the wire format;
   convert from 0-indexed at the boundary)
@@ -836,13 +845,13 @@ Concrete list of cases the encoder needs for Phase 2 (informed by the layer-by-l
 - `cursorVisible(Bool)` — DEC private modes 25
 - `cursorSave`, `cursorRestore` — DECSC/DECRC
 
-**Erase**
+##### Erase
 
 - `eraseInDisplay(EraseMode)` where `EraseMode` is
   `.toEnd | .toBeginning | .all | .allAndScrollback`
 - `eraseInLine(EraseMode)` (same enum, sans scrollback)
 
-**SGR (styling)**
+##### SGR (styling)
 
 - `resetAttributes` — SGR 0 (worth a dedicated case; emitted constantly)
 - `setForeground(Color)`, `setBackground(Color)` — 16-color, 256-color, and truecolor
@@ -850,14 +859,14 @@ Concrete list of cases the encoder needs for Phase 2 (informed by the layer-by-l
 - `setBold(Bool)`, `setItalic(Bool)`, `setUnderline(Bool)`, `setReverse(Bool)`,
   `setDim(Bool)`, `setStrikethrough(Bool)`
 
-**Modes**
+##### Modes
 
 - `enterAltScreen`, `exitAltScreen` — DEC private mode 1049
 - `enterSynchronizedOutput`, `exitSynchronizedOutput` — DEC private mode 2026 (critical
   for flicker-free updates; we'll lean on this hard in the renderer)
 - `enableLineWrap(Bool)` — DECAWM
 
-**Misc**
+##### Misc
 
 - `setWindowTitle(String)` — OSC 0/2
 - `text(String)` — literal text (just appends UTF-8 bytes; included as a case so a
@@ -974,9 +983,17 @@ This list matters as much as the catalog:
 This is the part that pays the harness back. For every `ControlSequence` case, two tests:
 
 1. **Golden byte fixture.**
-   `#expect(ControlSequence.cursorPosition(row: 0, col: 0).bytes == [0x1b, 0x5b, 0x31, 0x3b, 0x31, 0x48])`
-   — i.e., `\e[1;1H`. Tedious to write the first time; immortal regression coverage
+
+   ```swift
+   #expect(
+       ControlSequence.cursorPosition(row: 0, col: 0).bytes ==
+           [0x1b, 0x5b, 0x31, 0x3b, 0x31, 0x48]
+   )
+   ```
+
+   That is `\e[1;1H`: tedious to write the first time, immortal regression coverage
    forever.
+
 2. **Round-trip through `VirtualTerminal`.** Feed the bytes to libghostty, assert the
    terminal state changed as expected. This catches "I emitted bytes that _look_ right but
    the actual escape sequence does something else."
@@ -1641,7 +1658,7 @@ Three pieces of internal state:
 
 Row-by-row, with run coalescing. Pseudocode:
 
-```
+```text
 for each row r:
     if rows are equal: skip
     find the first column c0 where cells differ
@@ -1727,7 +1744,7 @@ Modest byte savings, but free if you're already tracking position.
 
 Every frame:
 
-```
+```text
 enter synchronized output
 ... diff bytes ...
 exit synchronized output
@@ -2112,7 +2129,7 @@ send, fall through to `.unknown` for everything else, and refine over time.
 
 The concrete set of sequences the parser needs to recognize for Phase 2:
 
-**ASCII control range (single bytes)**
+##### ASCII control range (single bytes)
 
 - `0x00..0x1F` (except 0x09 Tab, 0x0A/0x0D Enter, 0x1B ESC, 0x7F Backspace): Ctrl+letter.
   `Ctrl+A` = `0x01`, `Ctrl+B` = `0x02`, ..., `Ctrl+Z` = `0x1A`. Compute as `byte + 0x40`
@@ -2126,13 +2143,13 @@ The concrete set of sequences the parser needs to recognize for Phase 2:
   decide.
 - `0x1B` (ESC) alone: handled via the `.escape` state and timer.
 
-**ESC + letter (Alt+letter)**
+##### ESC + letter (Alt+letter)
 
 - `\e<letter>`: Alt+letter. `\ea` = Alt+a.
 - This is the source of the ESC ambiguity. Distinguishing "Alt+a" from "Escape then a"
   requires the timer.
 
-**CSI sequences (\e[ ...)**
+##### CSI sequences (\e[ ...)
 
 - `\e[A` / `B` / `C` / `D`: Up / Down / Right / Left.
 - `\e[H` and `\e[F`: Home and End (xterm style).
@@ -2146,12 +2163,12 @@ The concrete set of sequences the parser needs to recognize for Phase 2:
   `\e[1;5A` is Ctrl+Up.
 - `\e[<N>;<mods>~`: same modifier scheme for tilde-style keys. `\e[3;5~` is Ctrl+Delete.
 
-**SS3 sequences (\eO ...)**
+##### SS3 sequences (\eO ...)
 
 - `\eOP`, `\eOQ`, `\eOR`, `\eOS`: F1-F4 (xterm application-mode style).
 - `\eOA`/`B`/`C`/`D`: arrows in application keypad mode. Rare but worth handling.
 
-**UTF-8 multi-byte**
+##### UTF-8 multi-byte
 
 - Leading byte `0xC2..0xF4` → 2-, 3-, or 4-byte sequence. Standard UTF-8 decoding.
 
@@ -2190,7 +2207,7 @@ connections (ssh over a bad link). Higher than ~50ms and the Escape key feels la
 Where the timer lives matters. It can't live in `InputParser` because the parser is
 synchronous and doesn't own time. It lives in the _input task_ in `PlatformIO`:
 
-```
+```text
 inputLoop:
     poll(stdin, timeout: parserHasPendingEscape ? 25ms : 100ms)
     if readable:
@@ -2391,9 +2408,9 @@ its own footguns, and "confined to one file" is still a meaningful amount of wor
 > [!note] Ratatui References
 >
 > - Ratatui's `CrosstermBackend` (`ratatui-crossterm/src/lib.rs`, line 160) wraps a
->   `Write` and delegates all terminal manipulation to crossterm, whose `Command` trait has
->   an ANSI `write_ansi` path and a Windows-only `execute_winapi` fallback (`crossterm`
->   `src/command.rs`, lines 12–27).
+>   `Write` and delegates all terminal manipulation to crossterm, whose `Command` trait
+>   has an ANSI `write_ansi` path and a Windows-only `execute_winapi` fallback
+>   (`crossterm` `src/command.rs`, lines 12–27).
 > - crossterm's Windows raw-mode implementation shows the flag-dance baseline: it clears
 >   `ENABLE_LINE_INPUT`, `ENABLE_ECHO_INPUT`, and `ENABLE_PROCESSED_INPUT` through console
 >   mode APIs (`crossterm` `src/terminal/sys/windows.rs`, lines 9–38). Tessera adds VT
