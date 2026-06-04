@@ -20,8 +20,49 @@ test:
 test-coverage:
     swift test --enable-code-coverage
 
+swift-version:
+    @cat .swift-version
+
+install-swift:
+    swiftly install
+
 clean:
     rm -rf .build
+
+# ── Linux ────────────────────────────────────────────────────────────────────
+
+linux-sdk-id:
+    @scripts/linux-sdk-id.sh
+
+build-linux: install-linux-sdk
+    swift build --swift-sdk $(scripts/linux-sdk-id.sh)
+
+linux-vm-start:
+    @if ! command -v limactl &> /dev/null; then \
+        echo "⚠️  limactl not found — run 'brew bundle install'"; \
+        exit 1; \
+    fi
+    limactl --yes start --name=tessera-linux --mount-only "$PWD:w" --param ProjectDir="$PWD" scripts/config/lima/tessera-linux.yaml
+
+linux-vm-shell:
+    @if ! command -v limactl &> /dev/null; then \
+        echo "⚠️  limactl not found — run 'brew bundle install'"; \
+        exit 1; \
+    fi
+    limactl shell tessera-linux
+
+linux-vm-stop:
+    limactl stop tessera-linux
+
+linux-vm-delete:
+    limactl delete tessera-linux
+
+test-linux-vm:
+    @if ! command -v limactl &> /dev/null; then \
+        echo "⚠️  limactl not found — run 'brew bundle install'"; \
+        exit 1; \
+    fi
+    limactl shell tessera-linux -- bash -lc "source ~/.local/share/swiftly/env.sh && cd '$PWD' && swift test --jobs 2"
 
 # ── Formatting ───────────────────────────────────────────────────────────────
 
@@ -100,6 +141,9 @@ docs-preview: docs
     fi
 
 # ── Setup ────────────────────────────────────────────────────────────────────
+
+install-linux-sdk:
+    scripts/install-linux-sdk.sh
 
 install-hooks:
     pre-commit install
