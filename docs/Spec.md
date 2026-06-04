@@ -134,9 +134,8 @@ does literally nothing yet.
 - [x] DocC generation configured
 - [x] `README.md` with the pitch
 - [x] A `CONTRIBUTING.md` or equivalent if you want one, though this can wait
-- [ ] GitHub Actions matrix running `swift build` and `swift test` on macOS, Ubuntu, and
+- [x] GitHub Actions matrix running `swift build` and `swift test` on macOS, Ubuntu, and
       Windows
-- [ ] `DESIGN.md` (live decisions log)
 
 ### Setup Github CI
 

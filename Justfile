@@ -88,7 +88,7 @@ _format-markdown:
 
 # ── Linting ──────────────────────────────────────────────────────────────────
 
-lint: format lint-swift lint-markdown lint-docs
+lint: lint-swift lint-markdown lint-docs
     @echo "✅ All lint checks passed"
 
 lint-swift:
@@ -118,7 +118,13 @@ lint-docs:
 
 # ── CI ───────────────────────────────────────────────────────────────────────
 
-ci: lint test
+check: lint test
+
+ci: ci-build-test
+
+ci-build-test: build test
+
+ci-lint: lint
 
 # ── Documentation ────────────────────────────────────────────────────────────
 
