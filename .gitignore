@@ -7,6 +7,10 @@ Brewfile.lock.json
 # pre-commit
 .pre-commit/
 
+# Python
+__pycache__/
+*.py[cod]
+
 # SwiftLint cache
 .swiftlint.yml.cache
 

@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  conventional-commits:
+    name: conventional commits
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate commit subjects
+        if: github.event_name == 'push'
+        run: python3 scripts/conventional_commits.py --range "${{ github.event.before }}..${{ github.event.after }}"
+
+      - name: Validate PR title
+        if: github.event_name == 'pull_request'
+        run: python3 scripts/conventional_commits.py "${{ github.event.pull_request.title }}"
+
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Swift
+        uses: ./.github/actions/setup-swift
+
+      - name: Install just
+        uses: taiki-e/install-action@v2
+        with:
+          tool: just
+
+      - name: Build and test
+        run: just ci

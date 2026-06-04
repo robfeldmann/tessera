@@ -1,0 +1,42 @@
+name: Documentation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docc:
+    name: DocC validation
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Swift
+        uses: ./.github/actions/setup-swift
+
+      - name: Validate Tessera docs
+        run: |
+          swift package generate-documentation \
+            --target Tessera \
+            --disable-indexing \
+            --warnings-as-errors
+
+      - name: Validate TesseraTerminal docs
+        run: |
+          swift package generate-documentation \
+            --target TesseraTerminal \
+            --disable-indexing \
+            --warnings-as-errors

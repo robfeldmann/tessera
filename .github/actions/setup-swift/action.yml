@@ -1,0 +1,19 @@
+name: Set up Swift
+description: Read .swift-version and install the matching Swift toolchain.
+
+runs:
+  using: composite
+  steps:
+    - name: Read Swift version
+      id: swift-version
+      shell: bash
+      run: echo "version=$(tr -d '[:space:]' < .swift-version)" >> "$GITHUB_OUTPUT"
+
+    - name: Set up Swift
+      uses: SwiftyLab/setup-swift@latest
+      with:
+        swift-version: ${{ steps.swift-version.outputs.version }}
+
+    - name: Show Swift version
+      shell: bash
+      run: swift --version
