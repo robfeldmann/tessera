@@ -64,6 +64,7 @@ This will install the following tools:
   formatting.
 - **[pre-commit](https://pre-commit.com/)**: For managing git hooks.
 - **[just](https://github.com/casey/just)**: For running project tasks.
+- **[Lima](https://lima-vm.io/)**: For optional Docker-free Linux test runs.
 - **[Prettier](https://prettier.io/)**: For Markdown and config file formatting.
 - **[Python 3](https://www.python.org/)**: For local documentation previews
   (`just docs-preview`).
@@ -82,16 +83,80 @@ If you prefer not to use Homebrew, you can install these tools individually usin
 respective installation guides linked above. Ensure they are available in your system
 `PATH`.
 
-### Building
+## Local Development Loop
+
+Use `just` for the normal macOS development loop:
 
 ```sh
-swift build
+just build
+just test
+just lint
+just docs
 ```
 
-### Testing
+`just build` and `just test` are the fastest checks while editing. `just lint` runs
+formatting, Swift formatting checks, Markdown checks, and DocC warnings-as-errors checks.
+`just docs` generates the combined DocC archive for local inspection.
+
+### Linux Cross-Build from macOS
+
+For a lightweight Linux compatibility check without Docker or a VM, install the Static
+Linux SDK that matches the local Swift toolchain and build with it:
 
 ```sh
+just install-linux-sdk
+just build-linux
+```
+
+The supported Swift toolchain version lives in `.swift-version`. Matching Static Linux SDK
+metadata lives in `scripts/config/swift-sdks.json`, and the `just` recipes read that
+metadata for the SDK URL, checksum, and identifier.
+
+`swift sdk install` installs a specific artifact bundle; it does not discover SDKs from a
+catalog. The SDK version must match the local Swift toolchain. If the package moves to a
+new Swift toolchain, update `.swift-version` and `scripts/config/swift-sdks.json`
+together.
+
+This proves the package compiles for Linux from macOS. It does not run the Linux test
+suite; tests need a Linux runtime such as Lima or CI.
+
+### Linux Test Runs with Lima
+
+Use [Lima](https://lima-vm.io/) when you want to run `swift test` on Linux without Docker.
+Create and start an Ubuntu 24.04 instance:
+
+```sh
+just linux-vm-start
+```
+
+The checked-in Lima config creates an Ubuntu 24.04 VM with 4 CPUs and 8 GiB of memory,
+mounts this repository into the VM, installs Linux build tools, and installs Swift from
+`.swift-version` using Swiftly. Once the VM is ready, run the Linux test suite from macOS:
+
+```sh
+just test-linux-vm
+```
+
+You can also open a shell in the VM for debugging:
+
+```sh
+just linux-vm-shell
+cd /path/to/tessera
 swift test
+```
+
+When finished, stop the VM (_you may need to `exit` the VM to return to macOS_):
+
+```sh
+just linux-vm-stop
+```
+
+Remove it entirely when you want a fresh environment next time. Stop the VM before
+deleting it:
+
+```sh
+just linux-vm-stop
+just linux-vm-delete
 ```
 
 ### Pre-commit Hooks

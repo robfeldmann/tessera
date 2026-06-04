@@ -4,6 +4,7 @@ brew "swiftlint"
 
 # General Development Tools
 brew "just"
+brew "lima" # Linux virtual machines
 brew "pre-commit"
 
 # Formatting Tools

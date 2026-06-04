@@ -1,0 +1,42 @@
+minimumLimaVersion: 2.0.0
+
+base:
+  - template:ubuntu-24.04
+
+cpus: 4
+memory: 8GiB
+
+mounts: []
+
+param:
+  ProjectDir: "."
+
+provision:
+  - mode: system
+    script: |
+      #!/usr/bin/env bash
+      set -euxo pipefail
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update
+      apt-get install -y build-essential ca-certificates curl git
+
+  - mode: user
+    script: |
+      #!/usr/bin/env bash
+      set -euxo pipefail
+
+      project_dir="$PARAM_ProjectDir"
+      swift_version="$(tr -d '[:space:]' < "$project_dir/.swift-version")"
+      arch="$(uname -m)"
+
+      if [[ ! -x "$HOME/.local/share/swiftly/bin/swiftly" ]]; then
+        curl -fsSLO "https://download.swift.org/swiftly/linux/swiftly-${arch}.tar.gz"
+        tar -xzf "swiftly-${arch}.tar.gz"
+        ./swiftly init --skip-install --quiet-shell-followup --assume-yes
+      fi
+
+      # shellcheck disable=SC1091
+      source "$HOME/.local/share/swiftly/env.sh"
+
+      swiftly install "$swift_version" --use --assume-yes || swiftly use "$swift_version"
+      swift --version
