@@ -59,369 +59,53 @@ Use it selectively:
 
 ## Ownership and isolation thesis: illegal terminal operations should be unrepresentable
 
-Treat the terminal like a SQLite connection with stricter social consequences. A database
-API should not leak a raw connection pointer or let a transaction escape its scope; a
-terminal API should not leak a file descriptor, allow writes outside a frame transaction,
-or allow two tasks to render concurrently. The public API should encode those rules.
+Tessera's safety goal is to make invalid terminal operations unrepresentable in ordinary
+API use. A terminal UI framework should not rely on documentation to prevent writes
+outside a render transaction, concurrent rendering, leaked file descriptors, escaped frame
+contexts, or app-state mutation from the wrong isolation domain. The public API should
+make safe usage the natural usage.
 
-The core analogy for this spec:
+The guiding analogy is a SQLite wrapper that never leaks its raw connection pointer and
+only lends transaction-local capabilities inside scoped closures:
 
 - `Database` owns a connection pool; `TerminalSession` owns terminal mode, raw handles,
   input production, and output serialization.
-- An actor-backed database writer serializes writes; a `TerminalOutput` actor serializes
-  all terminal bytes.
+- An actor-backed database writer serializes writes; terminal output is serialized by the
+  session/output actors.
 - Scoped database read/write closures lend a `Reader` or `Writer`; scoped terminal
-  draw/update/event closures lend a `Frame`, `Screen`, or `EventContext`.
-- `Reader: ~Copyable, ~Escapable` cannot be stored or escaped;
-  `Frame: ~Copyable, ~Escapable` cannot outlive `draw {}`.
+  operations lend a `Frame`, `Screen`, event context, or responder context.
+- `Reader: ~Copyable, ~Escapable` cannot be stored or escaped; borrowed terminal
+  capabilities should have the same shape.
 - Raw `OpaquePointer` values are private; raw file descriptors and platform handles are
   private and never public API.
-- Database observations are delivered after writes on a chosen isolation domain;
-  input/event delivery and render invalidation happen on an explicit runtime isolation
-  domain.
 
-### Terminal ownership model
-
-Tessera's core API is immediate-mode and architecture-agnostic. Callers own their app
-loop, state management, and business logic. Optional runtime-driven APIs may be layered on
-top, but they must use the same scoped terminal primitives and cannot bypass
-terminal-session ownership rules.
-
-The canonical terminal isolation primitive is the render transaction:
-
-```swift
-try await session.draw { frame in
-    frame.render(view, in: frame.area)
-}
-```
-
-`draw` is `async` because entering the session/renderer actor may suspend. The closure
-passed to `draw` is synchronous and non-suspending. It batches related frame work into one
-actor job and avoids actor-reentrancy windows while a borrowed frame is live.
-
-```swift
-try await session.draw { frame in
-    frame.clear()
-    frame.render(view)
-    frame.setCursor(position)
-}
-```
-
-Async work updates state and invalidates rendering; it does not happen inside the render
-transaction.
-
-```swift
-let data = await client.fetchData()
-state.title = data.title
-await session.setNeedsDisplay()
-try await session.draw { frame in
-    frame.render(Text(state.title))
-}
-```
-
-These operations should be impossible:
-
-```swift
-let leaked = try await session.draw { frame in frame }        // cannot return frame
-try await session.draw { frame in Task { frame } }            // cannot escape frame
-struct Stored { let frame: Frame }                            // cannot store frame
-```
-
-### Actor isolation surfaces
-
-Terminal output is serialized by ownership, not by broad locks or global singletons.
-Actors own the mutable terminal state that must not be accessed concurrently:
-
-- `TerminalSession` owns the public live-terminal capability and render transaction entry
-  point.
-- `TerminalOutput` is the only owner allowed to flush bytes to stdout/stderr/Windows
-  console. Its write APIs are package/internal, not public arbitrary writes.
-- `Renderer` owns previous buffers, damage state, cursor position, style state, hyperlink
-  state, and renderer-state invalidation.
-- `ModeLifecycle` serializes terminal mode transitions and teardown ordering.
-- `TerminalInput` owns polling, parser state, continuations, and backpressure policy.
-
-The core immediate-mode API has no global actor requirement. A future optional runtime is
-isolated to `@MainActor` for familiarity with Apple's UI ecosystem, but this is an
-ergonomics choice for UI delivery, not a terminal I/O requirement.
-
-### Scoped capabilities
-
-Anything valid only during a transaction is modeled as a borrowed scoped capability.
-
-```swift
-public struct Frame: ~Copyable, ~Escapable {
-    private let screen: BorrowedScreen
-    public borrowing func render<V: View>(_ view: borrowing V, in area: Rect)
-    public borrowing func write(_ text: String, at position: TerminalPosition, style: Style)
-}
-
-public struct Screen: ~Copyable, ~Escapable {
-    public borrowing subscript(_ row: Int, _ column: Int) -> Cell { get }
-}
-
-public struct EventContext: ~Copyable, ~Escapable {
-    public borrowing var event: InputEvent { get }
-    public borrowing func setNeedsDisplay()
-}
-```
-
-No public initializer hands out a raw file descriptor or raw Windows handle. If a
-platform-specific handle wrapper exists internally, it is noncopyable, keeps the raw value
-private, and moves only into the owning actor/task.
-
-```swift
-internal struct FileDescriptor: ~Copyable {
-    private let rawValue: CInt
-}
-
-internal struct PlatformHandles: ~Copyable {
-    private let stdin: FileDescriptor
-    private let stdout: FileDescriptor
-}
-```
-
-### Runtime UI isolation
-
-The optional runtime owns UI delivery, not application business state. It may provide
-UIKit- or SwiftUI-shaped affordances: scenes, responder routing, focus, display/layout
-invalidation, and a framework-owned event loop. It does not define or require a
-Tessera-specific `State`/`Action`/`Effect` architecture. Users can bring TCA or any other
-state-management system.
-
-```swift
-@MainActor
-public protocol ApplicationScene {
-    associatedtype Body: View
-    borrowing var body: Body { get }
-}
-
-@MainActor
-public protocol EventResponder {
-    mutating func handle(_ event: InputEvent, context: borrowing ResponderContext) -> EventRouting
-}
-```
-
-Runtime contexts expose UI-scoped capabilities only. They can route events, request focus,
-invalidate UI work, or schedule UI work; they cannot expose a `Frame`, raw terminal
-handle, arbitrary byte writer, or mutable application state.
-
-```swift
-public struct ResponderContext: ~Copyable, ~Escapable {
-    public borrowing func setNeedsDisplay()
-    public borrowing func setNeedsLayout()
-    public borrowing func focus(_ id: FocusID?)
-    public borrowing func route(_ event: InputEvent, to responder: ResponderID)
-}
-```
-
-Async work belongs to the user's architecture. It must not hold a borrowed runtime context
-or frame. When async work needs the UI to update, it re-enters through explicit
-`@MainActor` APIs such as display/layout invalidation or event delivery.
-
-### Invalidation model
-
-Invalidation is requestable; rendering is owned. Only `TerminalSession` or the optional
-runtime performs rendering. Runtime contexts and external integration points may request
-invalidation, but they cannot render directly.
-
-Tessera uses three invalidation levels:
-
-1. **Display invalidation.** Something about what should be shown changed. This is the
-   terminal UI equivalent of Apple's `setNeedsDisplay()`. Examples: app state changed,
-   text changed, selection changed, cursor position changed, or focus styling changed. It
-   means: schedule a render pass.
-2. **Layout invalidation.** Something affects measurement or placement. This is the
-   terminal UI equivalent of Apple's `setNeedsLayout()`. Examples: terminal resized, view
-   hierarchy changed, content size changed, width rules changed, or wrapping changed. It
-   means: recompute layout before the next render.
-3. **Renderer-state invalidation.** The renderer's belief about the terminal may be stale.
-   Examples: terminal resized, alt screen re-entered, focus regained after possible
-   external terminal mutation, renderer synchronization was lost, the previous buffer is
-   no longer trustworthy, or the user explicitly requested a conservative repaint. It
-   means: discard cached terminal assumptions and make the next draw repaint
-   conservatively.
-
-Display and layout invalidations are runtime-level UI requests and are coalesced before
-the next render pass. Renderer-state invalidation is a lower-level session/renderer
-operation:
-
-```swift
-public actor TerminalSession {
-    public func invalidateRendererState()
-}
-```
-
-### Input backpressure
-
-Tessera preserves semantic input, coalesces state-like events, and bounds noisy streams.
-It does not use one unbounded FIFO for every input source.
-
-1. **Ordered semantic input is preserved.** Keyboard events, focus gained/lost, explicit
-   app events, and bracketed paste represent user intent. Tessera must not silently drop
-   them. Bracketed paste is parsed as a semantic paste event or bounded paste chunks,
-   never as a flood of fake keypresses.
-2. **Latest-value events are coalesced.** Terminal resize, capability updates, and
-   display/layout invalidation are state-like: if several arrive before the app processes
-   them, only the latest meaningful value needs to be delivered.
-3. **Noisy streams are bounded and usually opt-in.** Mouse move and high-frequency drag
-   streams can overwhelm an app. Button events are preserved, movement is coalesced by
-   default, and any-event/high-fidelity mouse tracking is opt-in.
-
-If an ordered semantic queue reaches its bound, Tessera reports overflow explicitly rather
-than silently dropping user intent. Depending on the layer, that may be an input error, an
-explicit overflow event, or backpressure to the input producer. The runtime may coalesce
-before delivering events on `@MainActor`; the core immediate-mode API still avoids
-unbounded internal memory growth.
-
-### Capability visibility
-
-Public API exposes safe values and scoped operations, not raw authority.
-
-- `TerminalSession.draw {}` is public and is the only public way to commit a render
-  transaction to a live terminal.
-- `Frame` is public because users receive it in `draw {}`, but it is not publicly
-  constructible.
-- `Buffer`, `Cell`, `Style`, geometry types, `InputEvent`, and `ControlSequence` are
-  public semantic values. Constructing or mutating them does not write to the terminal.
-- `PlatformIO`, `TerminalOutput`, raw file descriptors, Windows handles, cleanup registry
-  internals, and arbitrary live-terminal byte writes are package/internal.
-- Renderer commit escape hatches such as `drawBuffer(_:)` are package, SPI, or
-  test-support APIs; they are not ordinary public API.
-
-Test support lives in a dedicated support target rather than production escape hatches:
-
-```swift
-import TesseraTerminalTestSupport
-
-let terminal = TestTerminal(size: .init(columns: 80, rows: 24))
-try await terminal.draw { frame in
-    frame.render(Text("Hello"))
-}
-#expect(terminal.snapshot == expected)
-```
-
-Swift SPI may be used sparingly when SwiftPM visibility is not expressive enough:
-
-```swift
-@_spi(TestSupport) public func rendererDiagnostics() -> RendererDiagnostics
-```
-
-SPI is an explicit opt-in for diagnostics, test hooks, and narrow cross-target seams. It
-must not become a production-facing way to bypass terminal ownership, leak raw handles, or
-write arbitrary bytes to a live terminal.
-
-### Terminal modes
-
-Terminal modes are controlled by the session/runtime, not by direct widget mutation. Views
-and widgets may declare terminal capabilities they require, but they do not directly
-enable, disable, or write terminal mode sequences.
-
-```swift
-public protocol View {
-    var terminalRequirements: TerminalRequirements { get }
-}
-```
-
-This requirement is dynamic declarative state, not a static type property and not an
-imperative side effect. A canvas might request all-motion mouse tracking only while
-drawing; a list might request button-event mouse tracking only while visible; a text
-editor might request paste support only while active. The runtime/session collects current
-requirements, checks them against application configuration, computes the effective mode
-set, and applies changes through `ModeLifecycle`.
-
-Do not let widgets do this:
-
-```swift
-func render(in frame: borrowing Frame) {
-    terminal.enableMouseTracking(.allMotion)  // not allowed
-    frame.render(canvas)
-}
-```
-
-Mode categories:
-
-1. **Lifecycle/session modes.** Raw mode, alt screen, saved terminal state, and Windows VT
-   flags are owned by `TerminalSession` and established for the session lifetime. Widgets
-   cannot request or toggle them.
-2. **Application protocol modes.** Bracketed paste, focus events, mouse tracking, and
-   Kitty keyboard affect input semantics. They are controlled by application configuration
-   and, where appropriate, declarative dynamic requirements. High-noise modes such as
-   all-motion mouse tracking require explicit application permission.
-3. **Frame/render-scoped terminal state.** Synchronized output, cursor placement, cursor
-   visibility, style state, hyperlinks, and damage-tracking state are renderer-owned.
-   Widgets may express desired cursor or style state through `Frame`, but they do not emit
-   raw mode bytes.
-
-This keeps mode changes deterministic: conflicts are arbitrated in one place, teardown
-ordering remains centralized, and render/event handlers cannot leave the terminal in a
-partially modified state.
-
-### Sendability policy
-
-Do not start by making everything `Sendable`. Use `Sendable` for semantic values that
-naturally cross isolation domains: `InputEvent`, `KeyEvent`, `MouseEvent`, `TerminalSize`,
-`TerminalPosition`, `Rect`, `Cell`, `Style`, `ControlSequence`, `TerminalRequirements`,
-parser results, invalidation requests, and snapshot/test fixtures.
-
-`Buffer` may be `Sendable` only while it remains pure value storage. If it grows borrowed
-storage, non-sendable caches, or renderer/session references, revisit that conformance.
-
-Scoped capabilities and raw handles are intentionally not broadly sendable:
-
-```swift
-public struct Frame: ~Copyable, ~Escapable { ... }
-public struct Screen: ~Copyable, ~Escapable { ... }
-public struct ViewContext: ~Copyable, ~Escapable { ... }
-public struct ResponderContext: ~Copyable, ~Escapable { ... }
-internal struct PlatformHandles: ~Copyable { ... }
-```
-
-Do not make these protocols globally `Sendable`:
-
-```swift
-public protocol View { ... }
-public protocol Widget { ... }
-@MainActor public protocol ApplicationScene { ... }
-@MainActor public protocol EventResponder { ... }
-```
-
-The optional runtime's `@MainActor` isolation lets user UI values remain local to one
-isolation domain instead of forcing viral `Sendable` constraints. If user code sends
-values to detached tasks or other actors, that boundary belongs to the user's
-architecture. Non-sendability is not a missing conformance when it prevents invalid
-cross-domain use.
-
-### Deterministic testing
-
-Tessera tests are deterministic by construction. A `draw {}` call returning means the test
-terminal snapshot has been updated. Test input sources inject exact events. Optional
-runtime tests expose precise stepping APIs: deliver one event, process synchronous UI
-work, coalesce invalidations, perform at most one render pass if needed, then return.
-
-```swift
-let terminal = TestTerminal()
-let runtime = TestRuntime(scene: CounterScene(), terminal: terminal)
-
-await runtime.step(.key(.character("+")))
-#expect(terminal.snapshot == expected)
-```
-
-A runtime may also expose a bounded drain for cases where one action schedules additional
-work:
-
-```swift
-try await runtime.drain(maxSteps: 100)
-```
-
-Unbounded "drain until idle" is a smell because work can schedule more work forever. A
-bounded drain should fail loudly if the runtime does not become idle by the limit.
-
-Timers, animations, debounce, and delayed work use injected clocks, not wall-clock sleeps.
-Point-Free's `swift-clocks`/`TestClock` and `swift-dependencies` integration are good fits
-for this layer. Snapshot assertions should use explicit terminal snapshots and can lean on
-Point-Free's SnapshotTesting library where useful. Tests should not use `Task.yield()` or
-wall-clock sleeps to let the UI "catch up".
+This thesis shows up throughout the spec:
+
+1. **Terminal lifecycle owns raw authority.** Phase 2's terminal foundation owns raw
+   handles, terminal modes, cleanup, input production, output serialization, and the
+   public session capability. Public users get scoped operations, not file descriptors or
+   arbitrary live-terminal writes.
+2. **Rendering is a scoped transaction.** Phase 2's renderer opens synchronous borrowed
+   frame transactions. `draw` may be async to enter the actor, but the render body does
+   not suspend while a borrowed frame is live.
+3. **Input is semantic and bounded.** Phase 2/3 input design preserves ordered semantic
+   input, coalesces latest-value events such as resize, and bounds noisy streams such as
+   mouse movement.
+4. **Views declare requirements; they do not mutate terminal modes.** Phase 4 view APIs
+   can express focus, layout/display invalidation, and terminal requirements
+   declaratively. The session/runtime arbitrates and applies mode changes centrally.
+5. **Optional runtime isolation is UI-oriented, not business-state ownership.** Phase 5
+   may provide an `@MainActor` runtime for event delivery, responder routing,
+   invalidation, and render scheduling, but users remain free to bring TCA or any other
+   state architecture.
+6. **Tests are deterministic by construction.** Test support should provide explicit input
+   sources, test terminals, snapshots, stepping, bounded drains, and injected clocks
+   rather than relying on `Task.yield()` or wall-clock sleeps.
+
+Do not solve concurrency warnings by making everything `Sendable`. Use `Sendable` for
+semantic values that cross isolation domains. Keep views, widgets, app state, dependency
+containers, caches, and scoped capabilities inside the isolation domain where they are
+valid. Non-sendability is a feature when it prevents invalid cross-domain use.
 
 ## Phase 0: Foundation
 
@@ -1746,6 +1430,30 @@ internal struct PlatformHandles: ~Copyable {
 
 The public facade should be `TerminalSession`, not `PlatformIO`. `PlatformIO` is the owned
 low-level capability; `TerminalSession.draw { frame in ... }` is the operation users get.
+Public code must not be able to write arbitrary bytes to a live terminal, flush output,
+read raw file descriptors, or construct platform handles.
+
+`TerminalSession` is the live-terminal capability users receive from the scoped
+application entry point:
+
+```swift
+public actor TerminalSession {
+    public static func withApplicationTerminal<R>(
+        configuration: TerminalApplicationConfiguration,
+        _ body: (isolated TerminalSession) async throws -> sending R
+    ) async throws -> sending R
+
+    public func draw<R>(
+        _ body: (borrowing Frame) throws -> sending R
+    ) async throws -> sending R
+
+    public func nextEvent() async throws -> InputEvent
+}
+```
+
+`TerminalOutput` remains internal/package-level. It is the only owner allowed to flush
+bytes to stdout/stderr/Windows console; renderers and mode lifecycle code reach it through
+scoped package APIs, not public byte-writing APIs.
 
 Design notes:
 
@@ -1877,18 +1585,20 @@ what's safe to do in a signal handler context and why.
 
 1. `ModeLifecycle` actor with `enter`/`exit`/`activeModes` for `rawMode` and `altScreen`.
    (Other modes deferred to Phase 3.)
-2. Real `PlatformIO` actor: buffered writes, `AsyncStream<UInt8>` input, `size()` query,
-   `sizeChanges` stream.
+2. Real internal `PlatformIO` actor: buffered writes, `AsyncStream<UInt8>` input, `size()`
+   query, `sizeChanges` stream, and noncopyable platform handles.
 3. Signal handlers installed for SIGINT, SIGTERM, SIGHUP, SIGQUIT that restore the
    terminal and re-raise.
 4. `atexit` backstop installed.
 5. `tessera-reset` executable target that emits the universal terminal-reset byte string.
-6. The Phase 1 walking skeleton is rewritten to use `ModeLifecycle` and the real
-   `PlatformIO`. Manually verifying: `Ctrl-C` mid-run leaves the terminal sane. Sending
-   `SIGTERM` from another shell leaves the terminal sane. Closing the terminal tab while
-   the program runs leaves... nothing, because the terminal is gone, but the process exits
-   cleanly.
-7. Tests:
+6. Public `TerminalSession.withApplicationTerminal(configuration:)` entry point that owns
+   structured setup/teardown and exposes no arbitrary live-terminal write API.
+7. The Phase 1 walking skeleton is rewritten to use `ModeLifecycle`, `TerminalSession`,
+   and the real `PlatformIO`. Manually verifying: `Ctrl-C` mid-run leaves the terminal
+   sane. Sending `SIGTERM` from another shell leaves the terminal sane. Closing the
+   terminal tab while the program runs leaves... nothing, because the terminal is gone,
+   but the process exits cleanly.
+8. Tests:
    - Unit test for `ModeLifecycle`'s rollback: inject a `PlatformIO` that fails on the
      second mode-enable, assert that the first mode is rolled back.
    - Unit test for the buffered-write semantics: many writes, one flush, one underlying
@@ -2111,7 +1821,7 @@ These are worth pinning down in the spec because they're where bugs hide:
 >   of `Buffer`s. `flush()` (`ratatui-core/src/terminal/buffers.rs`, line 97) runs
 >   `diff_iter` and passes the resulting iterator to `Backend::draw()`. `swap_buffers()`
 >   (line 121) resets the inactive buffer — the same invalidate-and-redraw discipline
->   Tessera's `Renderer.invalidate()` implements.
+>   Tessera's `Renderer.invalidateRendererState()` implements.
 > - `Backend::draw()` (`ratatui-core/src/backend.rs`, line 166) takes an iterator of
 >   `(u16, u16, &'a Cell)` triples — the backend receives exactly the changed cells, not a
 >   full buffer. In Ratatui the concrete backend (crossterm, termion) is responsible for
@@ -2134,9 +1844,9 @@ public actor Renderer {
     /// Test/package escape hatch for asserting the diff algorithm directly.
     package func drawBuffer(_ buffer: Buffer) async throws
 
-    /// Forces the next `draw` to emit a full repaint, ignoring history.
-    /// Used after resize, after losing/regaining focus, on demand.
-    public func invalidate() async
+    /// Discards cached terminal assumptions so the next draw repaints conservatively.
+    /// Used after resize, after alt-screen reentry, after losing synchronization, or on demand.
+    public func invalidateRendererState() async
 }
 
 public struct Frame: ~Copyable, ~Escapable {
@@ -2146,8 +1856,19 @@ public struct Frame: ~Copyable, ~Escapable {
 }
 ```
 
-The render body is intentionally synchronous. It batches related frame mutations in one
-actor job and avoids actor-reentrancy windows while a borrowed frame is live.
+The render body is intentionally synchronous. `draw` may suspend to enter the renderer or
+session actor, but the borrowed-frame closure itself is not `async`. It batches related
+frame mutations in one actor job and avoids actor-reentrancy windows while a borrowed
+frame is live. Async work updates app state and requests display/layout invalidation
+before or after a render transaction; it does not happen while holding `Frame`.
+
+These operations should be impossible:
+
+```swift
+let leaked = try await session.draw { frame in frame }        // cannot return frame
+try await session.draw { frame in Task { frame } }            // cannot escape frame
+struct Stored { let frame: Frame }                            // cannot store frame
+```
 
 Three pieces of internal state:
 
@@ -2221,8 +1942,9 @@ package func sgrDelta(from old: Style, to new: Style, into bytes: inout [UInt8])
 }
 ```
 
-For the first frame and after `invalidate()`, the "previous style" is `nil` and we emit a
-reset followed by the full style. This handles startup correctly without special-casing.
+For the first frame and after `invalidateRendererState()`, the "previous style" is `nil`
+and we emit a reset followed by the full style. This handles startup correctly without
+special-casing.
 
 There's a subtle invariant: **after `draw` returns, the terminal's SGR state must match a
 known value, and the renderer must remember that value.** If you let the terminal end a
@@ -2299,8 +2021,8 @@ that's fine; Phase 4 makes it elegant.
 
 One sharp edge: **after resize, the terminal's screen may contain garbage from the old
 size.** The renderer's first post-resize frame should emit `eraseInDisplay(.all)` before
-drawing. Build this into `invalidate()` — invalidating means "assume the screen is
-unknown, paint everything, including erasing first."
+drawing. Build this into `invalidateRendererState()` — invalidating renderer state means
+"assume the screen is unknown, paint everything, including erasing first."
 
 #### Testing strategy for the renderer
 
@@ -2322,7 +2044,8 @@ Plus targeted unit tests:
   expect.
 - **Orphan-rule tests.** Overwriting half a wide grapheme blanks the other half; rendered
   bytes reflect this.
-- **Invalidate test.** After `invalidate()`, next frame is a full repaint including erase.
+- **Invalidate test.** After `invalidateRendererState()`, next frame is a full repaint
+  including erase.
 
 Roughly 30-40 tests for slice 4, weighted toward the snapshot end. The library's
 reliability rests on these.
@@ -2360,8 +2083,9 @@ strings.
 2. `Buffer.write(_:at:style:)` correctly handles wide graphemes, continuation cells, the
    orphan rule, and clipping at row boundaries.
 3. `swift-displaywidth` added as a dependency and used for all width queries.
-4. `Renderer` actor with `draw(_:)`, `invalidate()`, internal SGR/cursor state tracking,
-   row-by-row diff with run coalescing, synchronized output wrapping.
+4. `Renderer` actor with scoped `draw {}` transactions, `invalidateRendererState()`,
+   internal SGR/cursor state tracking, row-by-row diff with run coalescing, and
+   synchronized output wrapping.
 5. Renderer integrates with `PlatformIO`: buffered writes per frame, one `flush` at end of
    frame.
 6. Phase 1 walking skeleton is updated to use the real renderer. Visible result: no more
@@ -2588,6 +2312,26 @@ Design notes:
   is set _only_ for non-character keys (Shift+Tab, Shift+Arrow). For letters, the case
   carries the shift information. This is what legacy protocols actually report, and trying
   to normalize is a losing battle.
+
+#### Input backpressure policy
+
+The input layer must not treat every source as one unbounded FIFO. Classify events by
+pressure policy:
+
+1. **Ordered semantic input is preserved.** Key events, focus gained/lost, explicit app
+   events, and bracketed paste represent user intent. Tessera must not silently drop them.
+   If an ordered semantic queue reaches its bound, surface overflow explicitly rather than
+   losing input.
+2. **Latest-value events are coalesced.** Resize and capability updates are state-like: if
+   several arrive before the app processes them, only the latest meaningful value needs to
+   be delivered.
+3. **Noisy streams are bounded and usually opt-in.** Mouse movement and high-frequency
+   drag streams can overwhelm an app. Preserve button events, coalesce movement by
+   default, and make any-event/high-fidelity mouse tracking opt-in.
+
+Bracketed paste is parsed as a semantic paste event or bounded paste chunks in Phase 3,
+never as a flood of fake keypresses. Phase 2 only documents the policy because bracketed
+paste and mouse protocols land in Phase 3.
 
 #### The state machine
 
@@ -3424,6 +3168,25 @@ The slice order is intentional:
 5. OSC 8 hyperlinks — output-side rendering capability, best after input protocols settle.
 6. Terminal capability detection — optional final slice, because it may reshape how the
    earlier protocols are enabled but should not block implementing them.
+
+Terminal protocol modes are controlled by the session/runtime, not by direct widget
+mutation. Views and widgets may declare capabilities they require, but they do not
+directly enable, disable, or write terminal mode sequences. The runtime/session collects
+current requirements, checks them against application configuration, computes the
+effective mode set, and applies changes through `ModeLifecycle`.
+
+Mode categories for Phase 3:
+
+1. **Lifecycle/session modes.** Raw mode, alt screen, saved terminal state, and Windows VT
+   flags are owned by `TerminalSession` and established for the session lifetime.
+2. **Application protocol modes.** Bracketed paste, focus events, mouse tracking, and
+   Kitty keyboard affect input semantics. They are controlled by application configuration
+   and, where appropriate, declarative dynamic requirements. High-noise modes such as
+   all-motion mouse tracking require explicit application permission.
+3. **Frame/render-scoped terminal state.** Synchronized output, cursor placement, cursor
+   visibility, style state, hyperlinks, and damage-tracking state are renderer-owned.
+   Widgets may express desired cursor or style state through `Frame`, but they do not emit
+   raw mode bytes.
 
 ### Slice 1: Bracketed paste mode
 
@@ -4763,7 +4526,8 @@ This is the largest phase and where the Lip Gloss-flavored API actually shows up
 The load-bearing rule: **views render into a borrowed frame; views do not own terminal
 capabilities.** A widget can be non-`Sendable`, can borrow local layout/cache state, and
 can render synchronously inside the runtime isolation domain. Do not make `View: Sendable`
-just to satisfy concurrency diagnostics.
+just to satisfy concurrency diagnostics. Non-sendability is a feature when it prevents
+invalid cross-domain use.
 
 - `View` protocol + the rendering pipeline (view → borrowed `Frame` → buffer)
 - Style values (`Style.bold.foreground(.red).padding(2)` chains)
@@ -4780,6 +4544,9 @@ Provisional shape to pressure-test before implementation:
 public protocol View {
     associatedtype Body: View = Never
 
+    /// Dynamic declarative terminal requirements for this view's current state.
+    var terminalRequirements: TerminalRequirements { get }
+
     /// Synchronous and scoped. No async suspension while holding a frame.
     borrowing func render(in frame: borrowing Frame, context: borrowing ViewContext)
 }
@@ -4789,12 +4556,32 @@ public struct ViewContext: ~Copyable, ~Escapable {
     public borrowing var focus: FocusContext { get }
     public borrowing var proposedSize: ProposedSize { get }
 }
+
+public struct ResponderContext: ~Copyable, ~Escapable {
+    public borrowing func setNeedsDisplay()
+    public borrowing func setNeedsLayout()
+    public borrowing func focus(_ id: FocusID?)
+    public borrowing func route(_ event: InputEvent, to responder: ResponderID)
+}
 ```
 
 Rendering is synchronous while holding `Frame`. Async work happens before invalidating or
 after the render transaction completes, not inside `View.render`. This preserves the frame
 as a borrowed, nonescaping capability and avoids actor-reentrancy windows during a render
 batch.
+
+Views and widgets may declare terminal capabilities they require, but they do not directly
+enable, disable, or write terminal mode sequences. `terminalRequirements` is dynamic
+declarative state, not a static type property and not an imperative side effect. The
+runtime/session collects current requirements, checks them against application
+configuration, computes the effective mode set, and applies changes through
+`ModeLifecycle`.
+
+Display/layout invalidation is also declarative. `setNeedsDisplay()` means something about
+what should be shown changed and a render pass should be scheduled. `setNeedsLayout()`
+means measurement or placement changed and layout should be recomputed before the next
+render. Runtime contexts can request these invalidations, but they cannot render directly
+or expose a `Frame`, raw terminal handle, arbitrary byte writer, or mutable app state.
 
 **End of Phase 4:** the library does what it says on the tin. You can build real TUI apps.
 
@@ -4837,6 +4624,29 @@ in `draw {}` with a borrowed `Frame`.
 Tests should drive the runtime with explicit events and explicit render steps. Do not make
 snapshot tests depend on `Task.yield()` or sleeps to "let the UI catch up." Use injected
 clocks for delayed work and explicit terminal snapshots for render assertions.
+
+A runtime test harness should define precise units of work:
+
+```swift
+let terminal = TestTerminal()
+let runtime = TestRuntime(scene: CounterScene(), terminal: terminal)
+
+await runtime.step(.key(.character("+")))
+#expect(terminal.snapshot == expected)
+```
+
+`step` should deliver one event, process resulting synchronous UI work, coalesce
+invalidations, perform at most one render pass if needed, then return. A bounded drain is
+acceptable for work that schedules more work, but an unbounded "drain until idle" is a
+smell because work can schedule more work forever:
+
+```swift
+try await runtime.drain(maxSteps: 100)
+```
+
+Timers, animations, debounce, and delayed work use injected clocks, not wall-clock sleeps.
+Point-Free's `swift-clocks`/`TestClock`, `swift-dependencies`, and SnapshotTesting are
+good fits for this layer.
 
 **End of Phase 5:** Tessera 1.0.
 
@@ -4920,10 +4730,22 @@ Targets:
 ```
 
 The `TesseraTerminal` targets are relatively concrete because Phases 1–3 define their
-responsibilities in detail. The `Tessera` targets are intentionally provisional because
-Phase 4 has not been specified yet: they capture the expected modular shape of the view
-layer, but Phase 4 should revise target names, boundaries, and file placement before
-implementation begins.
+responsibilities in detail. The `TesseraTerminalTestSupport` target exposes safe testing
+affordances such as `TestTerminal`, test input sources, virtual-terminal snapshot helpers,
+and renderer diagnostics without making live-terminal escape hatches public. The `Tessera`
+targets are intentionally provisional because Phase 4 has not been specified yet: they
+capture the expected modular shape of the view layer, but Phase 4 should revise target
+names, boundaries, and file placement before implementation begins.
+
+Swift SPI may be used sparingly when SwiftPM visibility is not expressive enough:
+
+```swift
+@_spi(TestSupport) public func rendererDiagnostics() -> RendererDiagnostics
+```
+
+SPI is an explicit opt-in for diagnostics, test hooks, and narrow cross-target seams. It
+must not become a production-facing way to bypass terminal ownership, leak raw handles, or
+write arbitrary bytes to a live terminal.
 
 The `TesseraTerminal` and `Tessera` targets are intentionally thin public import surfaces.
 They should contain little more than re-exports:
