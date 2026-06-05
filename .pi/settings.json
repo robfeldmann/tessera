@@ -1,0 +1,33 @@
+{
+  "skillful": {
+    "hiddenSkills": [
+      "fish-cli",
+      "ios-simulator",
+      "lua",
+      "pfw-case-paths",
+      "pfw-composable-architecture",
+      "pfw-dependencies",
+      "pfw-identified-collections",
+      "pfw-issue-reporting",
+      "pfw-macro-testing",
+      "pfw-modern-swiftui",
+      "pfw-observable-models",
+      "pfw-perception",
+      "pfw-sharing",
+      "pfw-sqlite-data",
+      "pfw-structured-queries",
+      "pfw-swift-navigation",
+      "simulator-smoke-test",
+      "spm-build-analysis",
+      "swiftui-expert-skill",
+      "update-swiftui-apis",
+      "xcode-build-benchmark",
+      "xcode-build-fixer",
+      "xcode-build-orchestrator",
+      "xcode-compilation-analyzer",
+      "xcode-project-analyzer",
+      "xcode-project-setup"
+    ],
+    "toggleSlots": {}
+  }
+}
