@@ -449,6 +449,14 @@ Full repaint every frame. No diffing. No damage tracking. No synchronized output
 flicker. That's _fine_ — Phase 2 fixes it. The point of Phase 1's renderer is to prove
 that "buffer in, bytes out" works end-to-end.
 
+Renderer tests should stay split by surface area. Small renderer unit tests assert exact
+byte sequences and may snapshot a semantic byte dump with chunks like `[home]`, `[row 0]`,
+and `[row 1]`, showing both hex bytes and readable terminal text. Medium integration tests
+should feed bytes into a virtual terminal and snapshot final screen state rather than
+every emitted byte. Large app-like tests should avoid full-screen byte snapshots unless
+they are specifically valuable; prefer focused regions, semantic state, or golden fixtures
+that remain reviewable.
+
 ### InputParser — only `q` and one other key
 
 > [!note] Ratatui References
