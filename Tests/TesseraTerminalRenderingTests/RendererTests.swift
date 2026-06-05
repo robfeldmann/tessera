@@ -3,6 +3,6 @@ import Testing
 @testable import TesseraTerminalRendering
 
 @Test
-func renderingModuleBuilds() {
+func `rendering module builds`() {
   _ = Renderer.self
 }

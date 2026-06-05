@@ -88,7 +88,7 @@ _format-markdown:
 
 # ── Linting ──────────────────────────────────────────────────────────────────
 
-lint: lint-swift lint-markdown lint-docs
+lint: lint-swift lint-swiftlint lint-markdown lint-docs
     @echo "✅ All lint checks passed"
 
 lint-swift:

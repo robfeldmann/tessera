@@ -3,6 +3,6 @@ import Testing
 @testable import TesseraTerminalIO
 
 @Test
-func ioModuleBuilds() {
+func `io module builds`() {
   PlatformIO.self
 }

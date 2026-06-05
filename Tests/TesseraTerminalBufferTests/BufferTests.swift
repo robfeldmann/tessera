@@ -3,6 +3,6 @@ import Testing
 @testable import TesseraTerminalBuffer
 
 @Test
-func bufferModuleBuilds() {
+func `buffer module builds`() {
   _ = Buffer.self
 }

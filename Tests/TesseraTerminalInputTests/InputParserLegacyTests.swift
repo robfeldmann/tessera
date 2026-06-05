@@ -3,6 +3,6 @@ import Testing
 @testable import TesseraTerminalInput
 
 @Test
-func inputModuleBuilds() {
+func `input module builds`() {
   InputEvent.self
 }
