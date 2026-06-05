@@ -104,17 +104,8 @@ lint-markdown:
         echo "⚠️  prettier not found — skip markdown linting (pnpm add -g prettier)"; \
     fi
 
-lint-docs:
-    swift package generate-documentation \
-        --target Tessera \
-        --disable-indexing \
-        --warnings-as-errors \
-        && echo "✅ Tessera docs are clean"
-    swift package generate-documentation \
-        --target TesseraTerminal \
-        --disable-indexing \
-        --warnings-as-errors \
-        && echo "✅ TesseraTerminal docs are clean"
+lint-docs: docs-clean docs-targets docs-merge
+    @echo "✅ Documentation is clean"
 
 # ── CI ───────────────────────────────────────────────────────────────────────
 
@@ -128,22 +119,101 @@ ci-lint: lint
 
 # ── Documentation ────────────────────────────────────────────────────────────
 
-docs:
-    swift package --disable-sandbox generate-documentation \
-        --enable-experimental-combined-documentation \
-        --transform-for-static-hosting \
-        --hosting-base-path /tessera \
+docs: docs-clean docs-targets docs-merge docs-transform
+    @echo "✅ Documentation generated in .build/docs"
+
+docs-clean:
+    rm -rf .build/docs .build/doccarchives
+    mkdir -p .build/doccarchives/targets
+
+docs-targets:
+    @echo "▶ Building documentation for Tessera targets..."
+    @set -e; \
+    base_targets=( \
+        TesseraCore \
+        TesseraTerminalANSI \
+        TesseraTerminalBuffer \
+        TesseraTerminalCore \
+        TesseraTerminalInput \
+        TesseraTerminalIO \
+        TesseraTerminalRendering \
+        TesseraTerminalSnapshotSupport \
+        TesseraTerminalTestSupport \
+    ); \
+    for target in "${base_targets[@]}"; do \
+        swift package \
+            --allow-writing-to-directory .build/doccarchives/targets \
+            generate-documentation \
+            --target "$target" \
+            --disable-indexing \
+            --warnings-as-errors \
+            --enable-experimental-external-link-support \
+            --output-path ".build/doccarchives/targets/$target.doccarchive"; \
+    done; \
+    dependency_args=""; \
+    for archive in .build/doccarchives/targets/TesseraTerminal*.doccarchive; do \
+        if [[ "$archive" != *"/TesseraTerminal.doccarchive" ]]; then \
+            dependency_args="$dependency_args --dependency $archive"; \
+        fi; \
+    done; \
+    swift package \
+        --allow-writing-to-directory .build/doccarchives/targets \
+        generate-documentation \
+        --target TesseraTerminal \
+        --disable-indexing \
+        --warnings-as-errors \
+        --enable-experimental-external-link-support \
+        $dependency_args \
+        --output-path .build/doccarchives/targets/TesseraTerminal.doccarchive; \
+    dependency_args=""; \
+    for archive in .build/doccarchives/targets/*.doccarchive; do \
+        if [[ "$archive" != *"/Tessera.doccarchive" ]]; then \
+            dependency_args="$dependency_args --dependency $archive"; \
+        fi; \
+    done; \
+    swift package \
+        --allow-writing-to-directory .build/doccarchives/targets \
+        generate-documentation \
         --target Tessera \
-        --target TesseraTerminal
-    @mv .build/plugins/Swift-DocC/outputs/Tessera.doccarchive .build/plugins/Swift-DocC/outputs/tessera
-    @echo "✅ Documentation generated in .build/plugins/Swift-DocC/outputs/tessera"
+        --disable-indexing \
+        --warnings-as-errors \
+        --enable-experimental-external-link-support \
+        $dependency_args \
+        --output-path .build/doccarchives/targets/Tessera.doccarchive
+
+docs-merge:
+    @echo "▶ Merging documentation archives..."
+    rm -rf .build/doccarchives/tessera.doccarchive
+    xcrun docc merge \
+        .build/doccarchives/targets/Tessera.doccarchive \
+        .build/doccarchives/targets/TesseraCore.doccarchive \
+        .build/doccarchives/targets/TesseraTerminal.doccarchive \
+        .build/doccarchives/targets/TesseraTerminalANSI.doccarchive \
+        .build/doccarchives/targets/TesseraTerminalBuffer.doccarchive \
+        .build/doccarchives/targets/TesseraTerminalCore.doccarchive \
+        .build/doccarchives/targets/TesseraTerminalInput.doccarchive \
+        .build/doccarchives/targets/TesseraTerminalIO.doccarchive \
+        .build/doccarchives/targets/TesseraTerminalRendering.doccarchive \
+        .build/doccarchives/targets/TesseraTerminalSnapshotSupport.doccarchive \
+        .build/doccarchives/targets/TesseraTerminalTestSupport.doccarchive \
+        --output-path .build/doccarchives/tessera.doccarchive \
+        --synthesized-landing-page-kind "Swift Package" \
+        --synthesized-landing-page-name Tessera
+
+docs-transform:
+    @echo "▶ Transforming documentation for static hosting..."
+    mkdir -p .build/docs
+    xcrun docc process-archive \
+        transform-for-static-hosting .build/doccarchives/tessera.doccarchive \
+        --hosting-base-path / \
+        --output-path .build/docs
 
 docs-preview: docs
     @if ! command -v python3 &> /dev/null; then \
         echo "⚠️  python3 not found — cannot start preview server (brew install python@3)"; \
     else \
-        echo "🚀 Preview: http://localhost:8000/tessera/documentation/"; \
-        cd .build/plugins/Swift-DocC/outputs && python3 -m http.server 8000; \
+        echo "🚀 Preview: http://localhost:8000/documentation/"; \
+        python3 -m http.server --directory .build/docs 8000; \
     fi
 
 # ── Setup ────────────────────────────────────────────────────────────────────

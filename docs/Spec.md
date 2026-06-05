@@ -4704,28 +4704,22 @@ Recommended product/target shape:
 
 ```text
 Products:
-  TesseraTerminal          // public terminal-foundation product
   Tessera                  // public view/runtime product
+  TesseraTerminal          // public terminal-foundation product
 
 Targets:
-  TesseraTerminal          // re-export target for the terminal product
-  TesseraTerminalCore
-  TesseraTerminalANSI
-  TesseraTerminalBuffer
-  TesseraTerminalRendering
-  TesseraTerminalInput
-  TesseraTerminalIO
-  TesseraTerminalSnapshotSupport
-  TesseraTerminalTestSupport
-
   Tessera                  // re-export target for the view/runtime product
   TesseraCore
-  TesseraStyling
-  TesseraText
-  TesseraLayout
-  TesseraPrimitives
-  TesseraWidgets
-  TesseraRuntime
+
+  TesseraTerminal          // re-export target for the terminal product
+  TesseraTerminalANSI
+  TesseraTerminalBuffer
+  TesseraTerminalCore
+  TesseraTerminalIO
+  TesseraTerminalInput
+  TesseraTerminalRendering
+  TesseraTerminalSnapshotSupport
+  TesseraTerminalTestSupport
 ```
 
 The `TesseraTerminal` targets are relatively concrete because Phases 1–3 define their
@@ -4822,31 +4816,11 @@ Sources/
   TesseraTerminal/
     TesseraTerminal.swift         // @_exported imports only
 
-  TesseraCore/
-    View.swift                    // Phase 4 placeholder
-    ViewContext.swift             // Phase 4 placeholder
-    Environment.swift             // Phase 4 placeholder
-
-  TesseraStyling/
-    // Phase 4 placeholder: concrete files TBD
-
-  TesseraText/
-    // Phase 4 placeholder: concrete files TBD
-
-  TesseraLayout/
-    // Phase 4 placeholder: concrete files TBD
-
-  TesseraPrimitives/
-    // Phase 4 placeholder: concrete files TBD
-
-  TesseraWidgets/
-    // Phase 4 placeholder: concrete files TBD
-
-  TesseraRuntime/
-    // Phase 5 placeholder: concrete files TBD
-
   Tessera/
     Tessera.swift                 // @_exported imports only
+
+  TesseraCore/
+    View.swift                    // Phase 4 placeholder
 ```
 
 Proposed test layout mirrors the targets so each layer can be built and tested directly:
