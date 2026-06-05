@@ -8,10 +8,10 @@ updated: 2026-06-05
 
 ## Progress
 
-- [ ] **Phase 1 — Buffer and geometry primitives**
+- [x] **Phase 1 — Buffer and geometry primitives**
   - [x] 1.1 Replace placeholder geometry with Phase 1 terminal geometry types
   - [x] 1.2 Implement `Style`, `Cell`, and `Buffer`
-  - [ ] 1.3 Add buffer tests for init, indexing, writing, and clipping
+  - [x] 1.3 Add buffer tests for init, indexing, writing, and clipping
 - [ ] **Phase 2 — Naive render bytes**
   - [ ] 2.1 Implement the Phase 1 full-repaint renderer
   - [ ] 2.2 Add renderer golden-byte tests

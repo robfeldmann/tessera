@@ -91,6 +91,9 @@ _format-markdown:
 lint: lint-swift lint-swiftlint lint-markdown lint-docs
     @echo "✅ All lint checks passed"
 
+lint-changed:
+    scripts/lint-changed.sh
+
 lint-swift:
     swift-format lint -r Sources Tests Package.swift
 
