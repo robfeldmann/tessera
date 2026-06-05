@@ -3,7 +3,7 @@
     "spaces": 2
   },
   "lineBreakAroundMultilineExpressionChainComponents": true,
-  "lineBreakBeforeEachArgument": false,
+  "lineBreakBeforeEachArgument": true,
   "lineBreakBeforeEachGenericRequirement": false,
   "lineBreakBetweenDeclarationAttributes": true,
   "lineLength": 90,
