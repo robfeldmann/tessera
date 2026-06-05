@@ -1,6 +1,8 @@
 ---
 name: Terminal Ownership and Isolation Spec
-description: Convert ownership/isolation review notes into normative Tessera architecture and resolve open design questions.
+description:
+  Convert ownership/isolation review notes into normative Tessera architecture and resolve
+  open design questions.
 status: completed
 created: 2026-06-03
 updated: 2026-06-03
@@ -34,10 +36,10 @@ updated: 2026-06-03
 ## Overview
 
 The current ownership/isolation material is useful but mixes public-spec architecture with
-review notes. This plan converts the useful parts into normative API constraints, preserves
-or removes temporary audit language, and resolves the remaining design questions through a
-one-question-at-a-time discussion. The goal is a spec where illegal terminal operations are
-front-and-center and made unrepresentable by isolation and ownership.
+review notes. This plan converts the useful parts into normative API constraints,
+preserves or removes temporary audit language, and resolves the remaining design questions
+through a one-question-at-a-time discussion. The goal is a spec where illegal terminal
+operations are front-and-center and made unrepresentable by isolation and ownership.
 
 ## Phase 1 — Separate review notes from spec language
 
@@ -86,7 +88,8 @@ from sounding like final public architecture.
 ### Step 2.4 — Deterministic testing contract
 
 - File: `docs/Spec.md`
-- Define explicit event/render stepping and forbid tests relying on sleeps or `Task.yield`.
+- Define explicit event/render stepping and forbid tests relying on sleeps or
+  `Task.yield`.
 - Acceptance: The test model has a concrete deterministic shape.
 
 ## Phase 3 — Answer open questions one by one
@@ -116,8 +119,8 @@ from sounding like final public architecture.
 - File: `docs/Spec.md`
 - Decide whether rendering must be synchronous while holding a borrowed frame.
 - Decision: render transactions and `View.render` are synchronous and non-suspending. The
-  `draw` call may be async to enter the session/renderer actor, but the borrowed frame body
-  cannot suspend.
+  `draw` call may be async to enter the session/renderer actor, but the borrowed frame
+  body cannot suspend.
 - Acceptance: The spec states whether `View.render` may suspend.
 
 ### Step 3.4 — Effect/state mutation boundary
@@ -155,8 +158,8 @@ from sounding like final public architecture.
 - Decide test APIs for draining effects, stepping input, and rendering frames.
 - Decision: core tests use explicit test terminals and input sources; runtime tests use
   precise `step` and bounded `drain` APIs. Timers/animations use injected clocks such as
-  Point-Free's `TestClock`; snapshots use explicit terminal snapshots rather than sleeps or
-  `Task.yield()`.
+  Point-Free's `TestClock`; snapshots use explicit terminal snapshots rather than sleeps
+  or `Task.yield()`.
 - Acceptance: Tests do not require sleeps or scheduler guessing.
 
 ### Step 3.8 — Capability visibility

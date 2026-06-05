@@ -1,6 +1,8 @@
 ---
 name: Local Linux Dev Loop
-description: Establish a Docker-free local loop for macOS builds, Linux cross-builds, and optional Linux test execution.
+description:
+  Establish a Docker-free local loop for macOS builds, Linux cross-builds, and optional
+  Linux test execution.
 status: completed
 created: 2026-06-03
 updated: 2026-06-03
@@ -64,7 +66,8 @@ committing to a heavier virtualization workflow while leaving room to add one la
 ### Step 2.2 — Add Linux SDK helper scripts
 
 - Files: `scripts/install-linux-sdk.sh`, `scripts/linux-sdk-id.sh`
-- Add bash scripts that read `.swift-version` and `scripts/config/swift-sdks.json` with `jq`.
+- Add bash scripts that read `.swift-version` and `scripts/config/swift-sdks.json` with
+  `jq`.
 - Acceptance: Scripts fail clearly when metadata is missing or `jq` is unavailable.
 
 ### Step 2.3 — Add Just recipes
@@ -108,7 +111,8 @@ committing to a heavier virtualization workflow while leaving room to add one la
 
 - Files: none
 - Bring up the optional Linux VM and run tests inside it.
-- Acceptance: `swift test` passes inside Linux, or this remains explicitly documented as deferred.
+- Acceptance: `swift test` passes inside Linux, or this remains explicitly documented as
+  deferred.
 
 ## References
 

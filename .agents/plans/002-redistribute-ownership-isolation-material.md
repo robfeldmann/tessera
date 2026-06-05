@@ -1,6 +1,8 @@
 ---
 name: Redistribute Ownership and Isolation Material
-description: Move detailed ownership/isolation rules from the top thesis into their relevant spec phases and slices.
+description:
+  Move detailed ownership/isolation rules from the top thesis into their relevant spec
+  phases and slices.
 status: completed
 created: 2026-06-03
 updated: 2026-06-03
@@ -27,8 +29,8 @@ updated: 2026-06-03
 The ownership/isolation material currently captures the right architectural decisions but
 is too detailed near the top of the spec. This plan keeps the top section as a concise
 project thesis and redistributes concrete API rules to the phases where they are designed
-or implemented. The goal is a document that reads naturally phase-by-phase while preserving
-the safety model.
+or implemented. The goal is a document that reads naturally phase-by-phase while
+preserving the safety model.
 
 ## Phase 1 — Keep thesis concise
 

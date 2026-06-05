@@ -1,6 +1,7 @@
 ---
 name: GitHub Actions Phase 0
-description: Add minimal GitHub Actions workflows for Swift build/test matrix and DocC validation.
+description:
+  Add minimal GitHub Actions workflows for Swift build/test matrix and DocC validation.
 status: completed
 created: 2026-06-03
 updated: 2026-06-04
@@ -34,8 +35,8 @@ updated: 2026-06-04
 - First pushed CI run succeeded on macOS, Ubuntu, and Windows. Windows was slow but green.
 - No SwiftPM or `.build` cache was added for the baseline workflow. Add caching only after
   observing slow CI runs.
-- DocC archive artifact upload is deferred; the first documentation workflow only validates
-  warnings-as-errors.
+- DocC archive artifact upload is deferred; the first documentation workflow only
+  validates warnings-as-errors.
 - `test-linux-vm` remains local-only and is not part of GitHub CI.
 - GitHub recognized the Dependabot config and completed initial checks for Swift and
   GitHub Actions ecosystems.
@@ -46,12 +47,12 @@ updated: 2026-06-04
 
 ## Overview
 
-Phase 0 needs GitHub Actions proving `swift build` and `swift test` pass on macOS,
-Ubuntu, and Windows. The first workflow should be deliberately small to keep private-repo
-minutes and debugging cost low. Use Herdr's CI structure as inspiration: read-only
-permissions, concurrency cancellation, `fail-fast: false`, explicit checkout settings,
-and a single project command where possible. Add documentation validation separately so
-cross-platform build/test failures are easy to diagnose.
+Phase 0 needs GitHub Actions proving `swift build` and `swift test` pass on macOS, Ubuntu,
+and Windows. The first workflow should be deliberately small to keep private-repo minutes
+and debugging cost low. Use Herdr's CI structure as inspiration: read-only permissions,
+concurrency cancellation, `fail-fast: false`, explicit checkout settings, and a single
+project command where possible. Add documentation validation separately so cross-platform
+build/test failures are easy to diagnose.
 
 ## Phase 1 — Confirm constraints and repo settings
 

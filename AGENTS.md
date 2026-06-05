@@ -6,7 +6,8 @@
 - Local references before web searches:
   - Ratatui: `~/Developer/ratatui/ratatui/main/`
   - Ratatui crossterm backend: `~/Developer/ratatui/ratatui/main/ratatui-crossterm/`
-  - Crossterm sources: `~/.local/share/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/crossterm-0.29.0/`
+  - Crossterm sources:
+    `~/.local/share/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/crossterm-0.29.0/`
 - After editing Markdown, validate with:
 
   ```fish
