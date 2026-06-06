@@ -1,8 +1,24 @@
 import TesseraTerminalCore
 import TesseraTerminalIO
 
+/// An event recorded by an in-memory terminal device.
+public enum InMemoryTerminalDeviceEvent: Equatable, Sendable {
+  /// The terminal entered its alternate screen buffer.
+  case enterAltScreen
+
+  /// The terminal entered raw input mode.
+  case enterRawMode
+
+  /// The terminal left its alternate screen buffer.
+  case exitAltScreen
+
+  /// The terminal restored its previous input mode.
+  case exitRawMode
+}
+
 /// An in-memory terminal device for dependency-controlled tests.
 public actor InMemoryTerminalDevice {
+  private var recordedEvents: [InMemoryTerminalDeviceEvent] = []
   private var storedBytes: [UInt8] = []
   private var storedSize: TerminalSize
 
@@ -11,9 +27,18 @@ public actor InMemoryTerminalDevice {
     storedBytes
   }
 
+  /// The terminal lifecycle events recorded so far.
+  public var events: [InMemoryTerminalDeviceEvent] {
+    recordedEvents
+  }
+
   /// A terminal device dependency backed by this actor's in-memory state.
   public var terminalDevice: TerminalDevice {
     TerminalDevice(
+      enterAltScreen: { await self.enterAltScreen() },
+      enterRawMode: { await self.enterRawMode() },
+      exitAltScreen: { await self.exitAltScreen() },
+      exitRawMode: { await self.exitRawMode() },
       size: { await self.storedSize },
       write: { await self.write($0) }
     )
@@ -22,6 +47,24 @@ public actor InMemoryTerminalDevice {
   /// Creates an in-memory terminal device with an initial terminal size.
   public init(size: TerminalSize = TerminalSize(columns: 1, rows: 1)) {
     self.storedSize = size
+  }
+
+  private func enterAltScreen() {
+    recordedEvents.append(.enterAltScreen)
+    storedBytes.append(contentsOf: "\u{1B}[?1049h".utf8)
+  }
+
+  private func enterRawMode() {
+    recordedEvents.append(.enterRawMode)
+  }
+
+  private func exitAltScreen() {
+    recordedEvents.append(.exitAltScreen)
+    storedBytes.append(contentsOf: "\u{1B}[?1049l".utf8)
+  }
+
+  private func exitRawMode() {
+    recordedEvents.append(.exitRawMode)
   }
 
   private func write(_ bytes: [UInt8]) {

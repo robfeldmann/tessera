@@ -11,12 +11,22 @@ import TesseraTerminalCore
 extension TerminalDevice: DependencyKey {
   public static var liveValue: Self {
     #if os(macOS) || os(Linux)
-      Self(
+      let mode = LiveTerminalMode()
+
+      return Self(
+        enterAltScreen: { try writeToStdout(AlternateScreen.enter) },
+        enterRawMode: { try await mode.enterRawMode() },
+        exitAltScreen: { try writeToStdout(AlternateScreen.exit) },
+        exitRawMode: { try await mode.exitRawMode() },
         size: readTerminalSize,
         write: writeToStdout
       )
     #else
-      Self(
+      return Self(
+        enterAltScreen: { throw PlatformIOError.unsupportedPlatform },
+        enterRawMode: { throw PlatformIOError.unsupportedPlatform },
+        exitAltScreen: { throw PlatformIOError.unsupportedPlatform },
+        exitRawMode: { throw PlatformIOError.unsupportedPlatform },
         size: { throw PlatformIOError.unsupportedPlatform },
         write: { _ in throw PlatformIOError.unsupportedPlatform }
       )
@@ -25,6 +35,47 @@ extension TerminalDevice: DependencyKey {
 }
 
 #if os(macOS) || os(Linux)
+  private enum AlternateScreen {
+    static let enter = Array("\u{1B}[?1049h".utf8)
+    static let exit = Array("\u{1B}[?1049l".utf8)
+  }
+
+  private actor LiveTerminalMode {
+    private var originalTermios: termios?
+
+    func enterRawMode() throws {
+      if originalTermios != nil {
+        return
+      }
+
+      var original = termios()
+      guard tcgetattr(STDIN_FILENO, &original) == 0 else {
+        throw PlatformIOError.rawModeFailed(errno: Errno(rawValue: errno))
+      }
+
+      var raw = original
+      raw.c_lflag &= ~tcflag_t(ICANON | ECHO)
+
+      guard tcsetattr(STDIN_FILENO, TCSANOW, &raw) == 0 else {
+        throw PlatformIOError.rawModeFailed(errno: Errno(rawValue: errno))
+      }
+
+      originalTermios = original
+    }
+
+    func exitRawMode() throws {
+      guard var originalTermios else {
+        return
+      }
+
+      guard tcsetattr(STDIN_FILENO, TCSANOW, &originalTermios) == 0 else {
+        throw PlatformIOError.rawModeFailed(errno: Errno(rawValue: errno))
+      }
+
+      self.originalTermios = nil
+    }
+  }
+
   private func readTerminalSize() throws -> TerminalSize {
     var windowSize = winsize()
     let result = ioctl(STDOUT_FILENO, TIOCGWINSZ, &windowSize)

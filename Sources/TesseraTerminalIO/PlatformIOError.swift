@@ -2,6 +2,9 @@ import SystemPackage
 
 /// Errors thrown by platform terminal I/O operations.
 public enum PlatformIOError: Error, Equatable, Sendable {
+  /// Raw mode could not be enabled or restored.
+  case rawModeFailed(errno: Errno)
+
   /// The terminal size could not be read or decoded.
   case terminalSizeUnavailable(errno: Errno)
 

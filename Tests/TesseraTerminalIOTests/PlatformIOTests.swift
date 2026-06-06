@@ -40,6 +40,40 @@ func `write sends bytes to terminal device dependency`() async throws {
 }
 
 @Test
+func `alt screen methods emit alternate screen bytes`() async throws {
+  let terminalDevice = InMemoryTerminalDevice()
+
+  try await withDependencies {
+    $0.terminalDevice = await terminalDevice.terminalDevice
+  } operation: {
+    let io = PlatformIO()
+
+    try await io.enterAltScreen()
+    try await io.exitAltScreen()
+  }
+
+  let bytes = await terminalDevice.bytes
+  expectNoDifference(bytes, Array("\u{1B}[?1049h\u{1B}[?1049l".utf8))
+}
+
+@Test
+func `raw mode methods call terminal device dependency`() async throws {
+  let terminalDevice = InMemoryTerminalDevice()
+
+  try await withDependencies {
+    $0.terminalDevice = await terminalDevice.terminalDevice
+  } operation: {
+    let io = PlatformIO()
+
+    try await io.enterRawMode()
+    try await io.exitRawMode()
+  }
+
+  let events = await terminalDevice.events
+  expectNoDifference(events, [.enterRawMode, .exitRawMode])
+}
+
+@Test
 func `write propagates terminal device dependency errors`() async {
   await withDependencies {
     $0.terminalDevice = TerminalDevice(

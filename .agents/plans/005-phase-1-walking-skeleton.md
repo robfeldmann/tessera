@@ -20,7 +20,7 @@ updated: 2026-06-05
   - [x] 3.2 Add input parser tests
 - [ ] **Phase 4 — POSIX PlatformIO**
   - [x] 4.1 Implement terminal size detection and stdout writes with tests
-  - [ ] 4.2 Implement raw mode and alt-screen enter/exit with tests
+  - [x] 4.2 Implement raw mode and alt-screen enter/exit with tests
   - [ ] 4.3 Implement blocking stdin byte stream with tests
 - [ ] **Phase 5 — HelloTessera executable**
   - [ ] 5.1 Add the `HelloTessera` executable target and smoke-build it
