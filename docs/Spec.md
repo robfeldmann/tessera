@@ -324,8 +324,9 @@ phase-specific names only for private helpers with a clear migration path.
 - Alt screen enter/exit via hardcoded byte strings (`\x1b[?1049h` / `\x1b[?1049l`). The
   ANSI encoder isn't built yet, so these stay a scoped implementation detail rather than a
   public encoder API.
-- Stdin reads: blocking read of single bytes in a `Task`. No `AsyncStream` plumbing yet,
-  just enough to get bytes flowing.
+- Stdin reads: blocking read of single bytes in a task. This is a temporary bridge to get
+  bytes flowing; Phase 2 replaces it with poll/nonblocking input handling for real event
+  streams and ESC-timeout behavior.
 - Stdout writes: direct `write(2)` calls, no buffering.
 - Terminal size: one `TIOCGWINSZ` call at startup. No resize handling yet — if the user
   resizes mid-run, things look broken until restart.

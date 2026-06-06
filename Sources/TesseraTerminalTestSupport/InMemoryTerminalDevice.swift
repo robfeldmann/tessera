@@ -20,6 +20,7 @@ public enum InMemoryTerminalDeviceEvent: Equatable, Sendable {
 public actor InMemoryTerminalDevice {
   private var recordedEvents: [InMemoryTerminalDeviceEvent] = []
   private var storedBytes: [UInt8] = []
+  private var storedInputBytes: [UInt8]
   private var storedSize: TerminalSize
 
   /// The bytes written to the device so far.
@@ -35,6 +36,19 @@ public actor InMemoryTerminalDevice {
   /// A terminal device dependency backed by this actor's in-memory state.
   public var terminalDevice: TerminalDevice {
     TerminalDevice(
+      bytes: {
+        AsyncStream { continuation in
+          Task {
+            let bytes = await self.inputBytesSnapshot()
+
+            for byte in bytes {
+              continuation.yield(byte)
+            }
+
+            continuation.finish()
+          }
+        }
+      },
       enterAltScreen: { await self.enterAltScreen() },
       enterRawMode: { await self.enterRawMode() },
       exitAltScreen: { await self.exitAltScreen() },
@@ -44,8 +58,12 @@ public actor InMemoryTerminalDevice {
     )
   }
 
-  /// Creates an in-memory terminal device with an initial terminal size.
-  public init(size: TerminalSize = TerminalSize(columns: 1, rows: 1)) {
+  /// Creates an in-memory terminal device with an initial terminal size and input bytes.
+  public init(
+    size: TerminalSize = TerminalSize(columns: 1, rows: 1),
+    inputBytes: [UInt8] = []
+  ) {
+    self.storedInputBytes = inputBytes
     self.storedSize = size
   }
 
@@ -65,6 +83,10 @@ public actor InMemoryTerminalDevice {
 
   private func exitRawMode() {
     recordedEvents.append(.exitRawMode)
+  }
+
+  private func inputBytesSnapshot() -> [UInt8] {
+    storedInputBytes
   }
 
   private func write(_ bytes: [UInt8]) {

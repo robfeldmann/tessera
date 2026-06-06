@@ -14,6 +14,7 @@ extension TerminalDevice: DependencyKey {
       let mode = LiveTerminalMode()
 
       return Self(
+        bytes: readStdinBytes,
         enterAltScreen: { try writeToStdout(AlternateScreen.enter) },
         enterRawMode: { try await mode.enterRawMode() },
         exitAltScreen: { try writeToStdout(AlternateScreen.exit) },
@@ -23,6 +24,7 @@ extension TerminalDevice: DependencyKey {
       )
     #else
       return Self(
+        bytes: { AsyncStream { $0.finish() } },
         enterAltScreen: { throw PlatformIOError.unsupportedPlatform },
         enterRawMode: { throw PlatformIOError.unsupportedPlatform },
         exitAltScreen: { throw PlatformIOError.unsupportedPlatform },
@@ -76,6 +78,41 @@ extension TerminalDevice: DependencyKey {
     }
   }
 
+  private func readStdinBytes() -> AsyncStream<UInt8> {
+    AsyncStream { continuation in
+      // This bridges blocking `read(2)` into AsyncStream. Start the task concurrently so
+      // the blocking syscall cannot inherit and pin a caller's actor (for example, the
+      // main actor). Phase 2 replaces this with poll/nonblocking input handling.
+      let task = Task { @concurrent in
+        var byte: UInt8 = 0
+
+        while !Task.isCancelled {
+          let readCount = withUnsafeMutableBytes(of: &byte) { buffer in
+            guard let baseAddress = buffer.baseAddress else {
+              return 0
+            }
+
+            return systemRead(STDIN_FILENO, baseAddress, 1)
+          }
+
+          if readCount == 1 {
+            continuation.yield(byte)
+          } else if readCount == 0 {
+            continuation.finish()
+            break
+          } else if errno == EINTR {
+            continue
+          } else {
+            continuation.finish()
+            break
+          }
+        }
+      }
+
+      continuation.onTermination = { _ in task.cancel() }
+    }
+  }
+
   private func readTerminalSize() throws -> TerminalSize {
     var windowSize = winsize()
     let result = ioctl(STDOUT_FILENO, TIOCGWINSZ, &windowSize)
@@ -120,6 +157,18 @@ extension TerminalDevice: DependencyKey {
 
       offset += written
     }
+  }
+
+  private func systemRead(
+    _ fileDescriptor: Int32,
+    _ buffer: UnsafeMutableRawPointer,
+    _ count: Int
+  ) -> Int {
+    #if os(macOS)
+      Darwin.read(fileDescriptor, buffer, count)
+    #elseif os(Linux)
+      Glibc.read(fileDescriptor, buffer, count)
+    #endif
   }
 
   private func systemWrite(

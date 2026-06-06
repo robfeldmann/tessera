@@ -5,6 +5,11 @@ import TesseraTerminalCore
 public struct PlatformIO: Sendable {
   private let terminalDevice: TerminalDevice
 
+  /// Reads raw bytes from terminal input.
+  public var bytes: AsyncStream<UInt8> {
+    terminalDevice.bytes()
+  }
+
   /// Reads the terminal size from the output terminal.
   public var size: TerminalSize {
     get async throws {

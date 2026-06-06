@@ -3,6 +3,9 @@ import TesseraTerminalCore
 
 /// A dependency client for the current terminal device.
 public struct TerminalDevice: Sendable {
+  /// Reads raw bytes from terminal input.
+  public var bytes: @Sendable () -> AsyncStream<UInt8>
+
   /// Enters the terminal's alternate screen buffer.
   public var enterAltScreen: @Sendable () async throws -> Void
 
@@ -22,6 +25,7 @@ public struct TerminalDevice: Sendable {
   public var write: @Sendable ([UInt8]) async throws -> Void
 
   public init(
+    bytes: @escaping @Sendable () -> AsyncStream<UInt8> = { AsyncStream { $0.finish() } },
     enterAltScreen: @escaping @Sendable () async throws -> Void = {},
     enterRawMode: @escaping @Sendable () async throws -> Void = {},
     exitAltScreen: @escaping @Sendable () async throws -> Void = {},
@@ -29,6 +33,7 @@ public struct TerminalDevice: Sendable {
     size: @escaping @Sendable () async throws -> TerminalSize,
     write: @escaping @Sendable ([UInt8]) async throws -> Void
   ) {
+    self.bytes = bytes
     self.enterAltScreen = enterAltScreen
     self.enterRawMode = enterRawMode
     self.exitAltScreen = exitAltScreen

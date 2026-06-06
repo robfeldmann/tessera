@@ -40,6 +40,26 @@ func `write sends bytes to terminal device dependency`() async throws {
 }
 
 @Test
+func `bytes reads terminal device dependency input bytes`() async {
+  let terminalDevice = InMemoryTerminalDevice(inputBytes: [0x61, 0x62])
+
+  await withDependencies {
+    $0.terminalDevice = await terminalDevice.terminalDevice
+  } operation: {
+    let io = PlatformIO()
+    var iterator = io.bytes.makeAsyncIterator()
+
+    let first = await iterator.next()
+    let second = await iterator.next()
+    let end = await iterator.next()
+
+    expectNoDifference(first, 0x61)
+    expectNoDifference(second, 0x62)
+    expectNoDifference(end, nil)
+  }
+}
+
+@Test
 func `alt screen methods emit alternate screen bytes`() async throws {
   let terminalDevice = InMemoryTerminalDevice()
 
