@@ -15,9 +15,9 @@ updated: 2026-06-05
 - [x] **Phase 2 — Naive render bytes**
   - [x] 2.1 Implement the Phase 1 full-repaint renderer
   - [x] 2.2 Add renderer golden-byte tests
-- [ ] **Phase 3 — Minimal input parsing**
+- [x] **Phase 3 — Minimal input parsing**
   - [x] 3.1 Implement printable-byte and quit parsing
-  - [ ] 3.2 Add input parser tests
+  - [x] 3.2 Add input parser tests
 - [ ] **Phase 4 — POSIX PlatformIO**
   - [ ] 4.1 Implement terminal size detection and stdout writes
   - [ ] 4.2 Implement raw mode and alt-screen enter/exit
