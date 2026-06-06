@@ -286,7 +286,9 @@ Concretely, when Phase 1 is done you can:
 
 This is deliberately the _minimum viable version_ of each layer. The discipline is: build
 the crudest thing that works, prove it works, then in Phase 2 replace each piece with the
-real implementation.
+real implementation. Where feasible, the public API should still use names and shapes that
+can survive later phases; keep the implementation small, not artificially phase-named. Use
+phase-specific names only for private throwaway helpers.
 
 ### PlatformIO — minimum viable
 
@@ -486,18 +488,19 @@ modifiers. If the user presses an arrow key in Phase 1, they get garbage on scre
 raw `\x1b[A` bytes). That's _fine_. Phase 2 builds the real parser.
 
 ```swift
-// Phase 1 "parser":
-private enum Phase1Event {
+public enum InputEvent {
+    case character(Character)
     case quit
-    case char(Character)
 }
 
-private func parsePhase1(_ byte: UInt8) -> Phase1Event? {
-    if byte == 0x71 { return .quit }
-    if let scalar = Unicode.Scalar(byte), scalar.isASCII {
-        return .char(Character(scalar))
+public enum InputParser {
+    public static func parse(_ byte: UInt8) -> InputEvent? {
+        if byte == 0x71 { return .quit }
+        if let scalar = Unicode.Scalar(byte), scalar.isASCII {
+            return .character(Character(scalar))
+        }
+        return nil  // ignore everything else
     }
-    return nil  // ignore everything else
 }
 ```
 

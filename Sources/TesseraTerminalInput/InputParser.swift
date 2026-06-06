@@ -1,7 +1,7 @@
 /// Parses raw terminal input bytes.
 public enum InputParser {
-  /// Parses a single raw byte using Phase 1 input rules.
-  public static func parsePhase1(_ byte: UInt8) -> InputEvent? {
+  /// Parses a single raw byte using the current minimal input rules.
+  public static func parse(_ byte: UInt8) -> InputEvent? {
     if byte == 0x71 {
       return .quit
     }
