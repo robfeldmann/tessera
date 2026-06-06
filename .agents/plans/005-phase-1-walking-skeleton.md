@@ -16,7 +16,7 @@ updated: 2026-06-05
   - [x] 2.1 Implement the Phase 1 full-repaint renderer
   - [x] 2.2 Add renderer golden-byte tests
 - [ ] **Phase 3 — Minimal input parsing**
-  - [ ] 3.1 Implement printable-byte and quit parsing
+  - [x] 3.1 Implement printable-byte and quit parsing
   - [ ] 3.2 Add input parser tests
 - [ ] **Phase 4 — POSIX PlatformIO**
   - [ ] 4.1 Implement terminal size detection and stdout writes
