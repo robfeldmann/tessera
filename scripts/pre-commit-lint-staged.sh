@@ -28,7 +28,7 @@ for file in "${staged_files[@]}"; do
   [[ -f "$file" ]] || continue
 
   case "$file" in
-    Package.swift|Sources/*.swift|Sources/*/*.swift|Sources/*/*/*.swift|Tests/*.swift|Tests/*/*.swift|Tests/*/*/*.swift)
+    Package.swift|Examples/Package.swift|Sources/*.swift|Sources/*/*.swift|Sources/*/*/*.swift|Tests/*.swift|Tests/*/*.swift|Tests/*/*/*.swift|Examples/Sources/*.swift|Examples/Sources/*/*.swift|Examples/Sources/*/*/*.swift|Examples/Tests/*.swift|Examples/Tests/*/*.swift|Examples/Tests/*/*/*.swift)
       swift_files+=("$file")
       ;;
     *.md)

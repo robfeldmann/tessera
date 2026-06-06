@@ -44,7 +44,7 @@ markdown_files=()
 for file in "${changed_files[@]}"; do
   [[ -f "$file" ]] || continue
 
-  if [[ "$file" == "Package.swift" || "$file" =~ ^(Sources|Tests)/.*\.swift$ ]]; then
+  if [[ "$file" == "Package.swift" || "$file" == "Examples/Package.swift" || "$file" =~ ^(Sources|Tests|Examples/Sources|Examples/Tests)/.*\.swift$ ]]; then
     swift_files+=("$file")
   fi
 

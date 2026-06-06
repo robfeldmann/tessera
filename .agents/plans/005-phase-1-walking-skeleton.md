@@ -23,7 +23,7 @@ updated: 2026-06-05
   - [x] 4.2 Implement raw mode and alt-screen enter/exit with tests
   - [x] 4.3 Implement blocking stdin byte stream with tests
 - [ ] **Phase 5 — HelloTessera executable**
-  - [ ] 5.1 Add the `HelloTessera` executable target and smoke-build it
+  - [x] 5.1 Add the `HelloTessera` executable target and smoke-build it
   - [ ] 5.2 Wire and manually verify the walking-skeleton run loop
 
 ## Overview
@@ -158,22 +158,25 @@ example app.
 ### Step 5.1 — Add the `HelloTessera` executable target and smoke-build it
 
 - Files:
-  - `Package.swift`
-  - `Sources/HelloTessera/main.swift`
-- Add an executable target depending on `TesseraTerminalBuffer`, `TesseraTerminalCore`,
-  `TesseraTerminalInput`, `TesseraTerminalIO`, and `TesseraTerminalRendering`.
+  - `Examples/Package.swift`
+  - `Examples/Sources/HelloTessera/main.swift`
+  - `Justfile`
+- Add an examples package with a `HelloTessera` executable target depending on the root
+  package's public `TesseraTerminal` product.
+- Add convenience recipes for building/running examples.
 - Keep `main.swift` minimal until the run loop is wired in the next step.
-- Acceptance: `swift build --product HelloTessera` passes.
+- Acceptance: `swift build --package-path Examples --product HelloTessera` passes.
 
 ### Step 5.2 — Wire and manually verify the walking-skeleton run loop
 
-- File: `Sources/HelloTessera/main.swift`
+- File: `Examples/Sources/HelloTessera/main.swift`
 - Implement the loop from `docs/Spec.md`: enter raw mode, enter alt screen, render
   greeting and last key, read bytes, update on printable input, exit on `q`, and restore
   alt screen/raw mode with `defer`.
 - Use direct buffer writes; do not introduce a `View` protocol.
 - Verify in the same step:
-  - `swift run HelloTessera` shows `Hello, Tessera. Press q to quit.`
+  - `swift run --package-path Examples HelloTessera` shows
+    `Hello, Tessera. Press q to quit.`
   - typing letters updates the second line
   - pressing `q` exits cleanly
   - terminal returns from alt screen with prompt sane and scrollback intact

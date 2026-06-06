@@ -20,6 +20,12 @@ test:
 test-coverage:
     swift test --enable-code-coverage
 
+example name:
+    swift run --package-path Examples {{name}}
+
+examples:
+    swift build --package-path Examples
+
 swift-version:
     @cat .swift-version
 
