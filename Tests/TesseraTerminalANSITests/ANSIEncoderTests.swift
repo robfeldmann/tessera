@@ -3,6 +3,6 @@ import Testing
 @testable import TesseraTerminalANSI
 
 @Test
-func ansiModuleBuilds() {
+func `ansi module builds`() {
   _ = ANSIEncoder.self
 }

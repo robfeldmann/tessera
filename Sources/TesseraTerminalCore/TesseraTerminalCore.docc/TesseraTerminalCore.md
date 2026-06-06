@@ -6,4 +6,5 @@ Shared terminal foundation types.
 
 ### Geometry
 
-- ``TerminalGeometry``
+- ``TerminalSize``
+- ``TerminalPosition``

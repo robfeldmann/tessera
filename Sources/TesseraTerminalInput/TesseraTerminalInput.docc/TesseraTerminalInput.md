@@ -7,3 +7,4 @@ Terminal input events and parsing.
 ### Events
 
 - ``InputEvent``
+- ``InputParser``

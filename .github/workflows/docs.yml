@@ -16,7 +16,7 @@ concurrency:
 jobs:
   docc:
     name: DocC validation
-    runs-on: macos-latest
+    runs-on: macos-26
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -27,16 +27,10 @@ jobs:
       - name: Set up Swift
         uses: ./.github/actions/setup-swift
 
-      - name: Validate Tessera docs
-        run: |
-          swift package generate-documentation \
-            --target Tessera \
-            --disable-indexing \
-            --warnings-as-errors
+      - name: Install just
+        uses: taiki-e/install-action@v2
+        with:
+          tool: just
 
-      - name: Validate TesseraTerminal docs
-        run: |
-          swift package generate-documentation \
-            --target TesseraTerminal \
-            --disable-indexing \
-            --warnings-as-errors
+      - name: Validate docs
+        run: just lint-docs
