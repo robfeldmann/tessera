@@ -19,6 +19,25 @@ let package = Package(
 
 // MARK: - ⤵️ Dependencies
 
+// MARK: Dependencies
+
+package.dependencies.append(
+  .package(
+    url: "https://github.com/pointfreeco/swift-dependencies",
+    from: "1.13.0"
+  )
+)
+
+let Dependencies: Target.Dependency = .product(
+  name: "Dependencies",
+  package: "swift-dependencies"
+)
+
+let DependenciesTestSupport: Target.Dependency = .product(
+  name: "DependenciesTestSupport",
+  package: "swift-dependencies"
+)
+
 // MARK: DisplayWidth
 
 package.dependencies.append(
@@ -33,6 +52,20 @@ let DisplayWidth: Target.Dependency = .product(
   package: "swift-displaywidth"
 )
 
+// MARK: CustomDump
+
+package.dependencies.append(
+  .package(
+    url: "https://github.com/pointfreeco/swift-custom-dump",
+    from: "1.0.0"
+  )
+)
+
+let CustomDump: Target.Dependency = .product(
+  name: "CustomDump",
+  package: "swift-custom-dump"
+)
+
 // MARK: DocC
 
 package.dependencies.append(
@@ -40,6 +73,30 @@ package.dependencies.append(
     url: "https://github.com/apple/swift-docc-plugin",
     from: "1.0.0"
   )
+)
+
+// MARK: SnapshotTesting
+
+package.dependencies.append(
+  .package(
+    url: "https://github.com/pointfreeco/swift-snapshot-testing",
+    exact: "1.18.9"
+  )
+)
+
+let InlineSnapshotTesting: Target.Dependency = .product(
+  name: "InlineSnapshotTesting",
+  package: "swift-snapshot-testing"
+)
+
+let SnapshotTesting: Target.Dependency = .product(
+  name: "SnapshotTesting",
+  package: "swift-snapshot-testing"
+)
+
+let SnapshotTestingCustomDump: Target.Dependency = .product(
+  name: "SnapshotTestingCustomDump",
+  package: "swift-snapshot-testing"
 )
 
 // MARK: SystemPackage
@@ -113,7 +170,11 @@ package.targets.append(contentsOf: [
   .testTarget(
     name: "TesseraCoreTests",
     dependencies: [
-      TesseraCore
+      CustomDump,
+      InlineSnapshotTesting,
+      SnapshotTesting,
+      SnapshotTestingCustomDump,
+      TesseraCore,
     ]
   ),
 ])
@@ -148,7 +209,11 @@ package.targets.append(contentsOf: [
   .testTarget(
     name: "TesseraTerminalANSITests",
     dependencies: [
-      TesseraTerminalANSI
+      CustomDump,
+      InlineSnapshotTesting,
+      SnapshotTesting,
+      SnapshotTestingCustomDump,
+      TesseraTerminalANSI,
     ]
   ),
 ])
@@ -166,7 +231,12 @@ package.targets.append(contentsOf: [
   .testTarget(
     name: "TesseraTerminalBufferTests",
     dependencies: [
-      TesseraTerminalBuffer
+      CustomDump,
+      InlineSnapshotTesting,
+      SnapshotTesting,
+      SnapshotTestingCustomDump,
+      TesseraTerminalBuffer,
+      TesseraTerminalTestSupport,
     ]
   ),
 ])
@@ -180,7 +250,11 @@ package.targets.append(contentsOf: [
   .testTarget(
     name: "TesseraTerminalCoreTests",
     dependencies: [
-      TesseraTerminalCore
+      CustomDump,
+      InlineSnapshotTesting,
+      SnapshotTesting,
+      SnapshotTestingCustomDump,
+      TesseraTerminalCore,
     ]
   ),
 ])
@@ -197,7 +271,11 @@ package.targets.append(contentsOf: [
   .testTarget(
     name: "TesseraTerminalInputTests",
     dependencies: [
-      TesseraTerminalInput
+      CustomDump,
+      InlineSnapshotTesting,
+      SnapshotTesting,
+      SnapshotTestingCustomDump,
+      TesseraTerminalInput,
     ]
   ),
 ])
@@ -208,6 +286,7 @@ package.targets.append(contentsOf: [
   .target(
     name: "TesseraTerminalIO",
     dependencies: [
+      Dependencies,
       SystemPackage,
       TesseraTerminalANSI,
       TesseraTerminalCore,
@@ -217,7 +296,15 @@ package.targets.append(contentsOf: [
   .testTarget(
     name: "TesseraTerminalIOTests",
     dependencies: [
-      TesseraTerminalIO
+      CustomDump,
+      Dependencies,
+      DependenciesTestSupport,
+      InlineSnapshotTesting,
+      SnapshotTesting,
+      SnapshotTestingCustomDump,
+      SystemPackage,
+      TesseraTerminalIO,
+      TesseraTerminalTestSupport,
     ]
   ),
 ])
@@ -236,8 +323,13 @@ package.targets.append(contentsOf: [
   .testTarget(
     name: "TesseraTerminalRenderingTests",
     dependencies: [
+      CustomDump,
+      InlineSnapshotTesting,
+      SnapshotTesting,
+      SnapshotTestingCustomDump,
       TesseraTerminalRendering,
       TesseraTerminalSnapshotSupport,
+      TesseraTerminalTestSupport,
     ]
   ),
 ])
@@ -261,6 +353,8 @@ package.targets.append(
   .target(
     name: "TesseraTerminalTestSupport",
     dependencies: [
+      CustomDump,
+      TesseraTerminalBuffer,
       TesseraTerminalInput,
       TesseraTerminalIO,
       TesseraTerminalSnapshotSupport,

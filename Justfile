@@ -20,6 +20,29 @@ test:
 test-coverage:
     swift test --enable-code-coverage
 
+example name="":
+    @set -euo pipefail; \
+    example="{{name}}"; \
+    if [[ -z "$example" ]]; then \
+        if [[ -t 0 ]] && [[ "$(just examples-list | wc -l | tr -d ' ')" == "1" ]]; then \
+            example="$(just examples-list)"; \
+        elif [[ -t 0 ]] && command -v fzf &> /dev/null; then \
+            example="$(just examples-list | fzf --prompt='Example> ')"; \
+        else \
+            echo "Available examples:"; \
+            just examples-list | sed 's/^/  /'; \
+            echo "Run: just example <name>"; \
+            exit 1; \
+        fi; \
+    fi; \
+    swift run --package-path Examples "$example"
+
+examples:
+    swift build --package-path Examples
+
+examples-list:
+    @find Examples/Sources -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort
+
 swift-version:
     @cat .swift-version
 
@@ -88,8 +111,11 @@ _format-markdown:
 
 # ── Linting ──────────────────────────────────────────────────────────────────
 
-lint: lint-swift lint-markdown lint-docs
+lint: lint-swift lint-swiftlint lint-markdown lint-docs
     @echo "✅ All lint checks passed"
+
+lint-changed:
+    scripts/lint-changed.sh
 
 lint-swift:
     swift-format lint -r Sources Tests Package.swift

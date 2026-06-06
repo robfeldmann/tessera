@@ -7,3 +7,5 @@ Platform-specific terminal I/O and lifecycle management.
 ### Platform I/O
 
 - ``PlatformIO``
+- ``PlatformIOError``
+- ``TerminalDevice``

@@ -3,6 +3,6 @@ import Testing
 @testable import TesseraCore
 
 @Test
-func coreModuleBuilds() {
+func `core module builds`() {
   _ = View.self
 }

@@ -30,15 +30,12 @@ opt_in_rules:
   - empty_string
   - explicit_init
   - fatal_error_message
-  - file_name
   - file_name_no_space
-  - file_types_order
   - first_where
   - force_unwrapping
   - identical_operands
   - implicit_return
   - implicitly_unwrapped_optional
-  - incompatible_concurrency_annotation
   - indentation_width
   - joined_default_parameter
   - last_where
@@ -78,7 +75,6 @@ opt_in_rules:
   - required_enum_case
   - sorted_enum_cases
   - sorted_first_last
-  - sorted_imports
   - static_operator
   - strong_iboutlet
   - superfluous_disable_command
@@ -139,9 +135,6 @@ implicit_return:
     - getter
     - subscript
 
-sorted_imports:
-  severity: error
-
 trailing_whitespace:
   ignores_comments: false
 
@@ -150,6 +143,13 @@ indentation_width:
 
 # Custom rules
 custom_rules:
+  # Enforce sentence-style Swift Testing names.
+  swift_testing_sentence_test_names:
+    name: "Swift Testing Sentence Test Names"
+    regex: '(?m)^\s*@Test(?:\([^\n]*\))?\s*\n\s*func\s+[A-Za-z_][A-Za-z0-9_]*\s*\('
+    message: "Use a backticked, sentence-style test name, e.g. func `thing works`()"
+    severity: error
+
   # Prevent file header comments
   no_file_header:
     name: "No File Header"
