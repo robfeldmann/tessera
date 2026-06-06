@@ -649,17 +649,100 @@ renderer emitted a sequence of correct sequences that interact badly." Snapshot 
 catch all of these by feeding the bytes through a real VT and asserting on the resulting
 screen state.
 
-Building the harness first means **every renderer change in Phase 2 lands with a snapshot
-test**. That's the discipline the original spec was reaching for, and it's right — it was
-just mis-scheduled into Phase 0.
+Building the harness first means **every renderer change in Phase 2 lands with a screen
+snapshot or focused screen assertion**. That's the discipline the original spec was
+reaching for, and it's right — it was just mis-scheduled into Phase 0.
 
-#### What the harness needs to be, concretely
+#### Testing strategy: libghostty-vt as a rendering oracle
 
-A test-only target called `TesseraSnapshotTests` that exposes a small Swift API:
+Tessera's renderer contract is not "emit this exact byte sequence." Its contract is "emit
+bytes that a terminal interprets into the intended screen." Many byte streams can be
+visually equivalent: redundant SGR resets, different cursor paths, or a later
+minimal-damage renderer replacing a naive full repaint. Renderer tests that assert only on
+raw bytes are brittle because they lock in _how_ Tessera draws rather than _what_ the user
+sees.
+
+The harness closes the loop with Ghostty's standalone VT library:
+
+```text
+Buffer/view intent → Tessera renderer → terminal bytes → libghostty-vt → screen state
+```
+
+`libghostty-vt` parses terminal bytes and maintains terminal state: visible cells, styles,
+cursor position, modes, scrollback, and render-state metadata. Tessera encodes intent into
+bytes; Ghostty independently decodes those bytes into a screen. Agreement between the
+expected screen and Ghostty's reconstructed screen is strong evidence that Tessera's
+output is correct for the behavior being tested.
+
+Phrase the oracle carefully: Ghostty is not a proof that every terminal in existence will
+behave identically in every edge case. It is a high-quality, shipping terminal parser and
+a much better renderer oracle than byte equality for screen-level behavior.
+
+This strategy applies only to **output**. Input parsing is the opposite direction — bytes
+from the terminal to Tessera events — and remains plain byte-in/event-out tests for
+`InputParser`.
+
+Raw byte tests still have a place. The ANSI encoder should have exact byte tests for
+small, scalar API behavior:
+
+```text
+ControlSequence → ANSIEncoder → exact bytes
+```
+
+Renderer and view tests should prefer Ghostty-backed screen assertions unless the test is
+specifically about the byte-level encoder contract.
+
+#### Harness shape and package boundaries
+
+The durable Swift API is `VirtualTerminal`, not `GhosttyScreen` or another Ghostty-named
+public type. Ghostty is an implementation detail behind a test-support boundary:
+
+```text
+TesseraTerminalRenderingTests
+  └─ TesseraTerminalSnapshotSupport
+       └─ VirtualTerminal
+            └─ CGhosttyVT
+                 └─ libghostty-vt
+```
+
+`Tessera` and `TesseraTerminal` must not re-export the harness. App authors should never
+see `VirtualTerminal` from normal imports. The target may use `public` Swift access
+control because tests and helper targets need to import it, but it remains test/support
+API unless a deliberate `TesseraTerminalSnapshotSupport` product is added later for
+downstream test authors.
+
+The harness API should stay small, but separate **how tests request a terminal** from the
+**mutable terminal session** itself.
+
+Use a Point-Free Dependencies client as the factory seam so alternate engines can be
+plugged in later (Ghostty now; maybe Kitty, a platform-specific Windows engine, or another
+oracle later):
+
+```swift
+import Dependencies
+import DependenciesMacros
+
+@DependencyClient
+public struct VirtualTerminalClient {
+    public var make: @Sendable (_ cols: Int, _ rows: Int) throws -> VirtualTerminal
+}
+
+extension VirtualTerminalClient: TestDependencyKey {
+    public static let testValue = Self()
+}
+
+extension DependencyValues {
+    public var virtualTerminal: VirtualTerminalClient {
+        get { self[VirtualTerminalClient.self] }
+        set { self[VirtualTerminalClient.self] = newValue }
+    }
+}
+```
+
+Keep `VirtualTerminal` as the per-test mutable session returned by that dependency:
 
 ```swift
 public final class VirtualTerminal {
-    public init(cols: Int, rows: Int)
     public func feed(_ bytes: [UInt8])
     public func feed(_ string: String)   // convenience
 
@@ -667,7 +750,7 @@ public final class VirtualTerminal {
     public func text(row: Int) -> String
     public func cell(row: Int, column: Int) -> RenderedCell
     public func cursorPosition() -> TerminalPosition
-    public func snapshot() -> ScreenSnapshot  // whole-screen value
+    public func snapshot() -> ScreenSnapshot
 }
 
 public struct RenderedCell: Sendable, Equatable {
@@ -698,114 +781,212 @@ public struct ScreenSnapshot: Sendable, Equatable {
     public let cursor: TerminalPosition
 
     public init(cells: [[RenderedCell]], cursor: TerminalPosition)
-    // Equality + a nice debug description for failing tests
 }
 ```
 
-That's the _whole_ API your tests need. Whatever's behind it can be ugly C interop — tests
-don't care, they just want `feed → inspect`.
+Tests can still use a convenience initializer or helper when the live Ghostty oracle is
+the obvious default, but the dependency seam should exist early so the engine choice is
+not baked into every test:
 
-#### libghostty-vt via C interop
+```swift
+@Dependency(\.virtualTerminal) var virtualTerminal
+let terminal = try virtualTerminal.make(cols: 80, rows: 24)
+```
 
-##### One important caveat about libghostty-spm
+That is the whole API tests need. Whatever C interop or build machinery sits behind it
+should remain private to `TesseraTerminalSnapshotSupport`.
 
-[GhosttyKit - Swift Package Registry](https://swiftpackageregistry.com/Lakr233/libghostty-spm)
-is Apple-platforms only: macOS 13+, iOS 16+, Mac Catalyst 16+ — no Linux, no Windows [^1].
-The XCFramework is a pre-built libghostty static library trimmed for embedded Apple use.
+#### Direct libghostty-vt integration, not GhosttyKit
 
-This is **fine for Tessera's purposes**, but it requires being deliberate about the
-implications:
+The Phase 2 Slice 1 spike validated two approaches:
 
-- **The library itself remains cross-platform.** `TesseraTerminal` and `Tessera` have zero
-  dependency on GhosttyKit. They run on macOS, Linux, Windows as planned.
-- **`TesseraSnapshotTests` becomes macOS-only.** Conditional on `#if os(macOS)`, gated in
-  the GitHub Actions matrix to only run there.
-- **CI on Linux/Windows runs `TesseraTerminalTests` and `TesseraTests` only** — unit tests
-  of the encoder against golden byte fixtures, buffer/view tests against in-memory
-  buffers. These are sufficient to catch most regressions.
-- **Cross-platform parity is verified by:** (a) the encoder unit tests being identical
-  everywhere, (b) the snapshot tests on macOS proving the _bytes_ (which are
-  platform-independent) produce correct terminal state. If macOS snapshot tests pass,
-  Linux/Windows will too, because all three platforms emit the same bytes — only the I/O
-  layer differs.
+1. Existing SwiftPM wrappers such as `libghostty-spm` / `GhosttyKit`.
+2. A direct `libghostty-vt` build owned by Tessera.
 
-#### What you'll use from GhosttyKit
+Use the direct `libghostty-vt` path.
 
-For the snapshot harness you only need the **`GhosttyKit`** product (the raw C API
-re-export). You do _not_ need:
+The existing wrappers package the broader Ghostty app/surface embedding API and Apple
+binary artifacts. That API can write bytes and read viewport text, but it pulls in
+surface/rendering/platform concerns that are unnecessary for a headless test oracle. The
+harness needs the standalone VT API instead:
 
-- `GhosttyTerminal` — that's the SwiftUI/AppKit display layer; you don't render the
-  terminal, you inspect its state.
-- `GhosttyTheme` — color schemes; irrelevant for tests.
-- `ShellCraftKit` — shell emulation; way out of scope.
+- `ghostty_terminal_new`
+- `ghostty_terminal_resize`
+- `ghostty_terminal_vt_write`
+- `ghostty_render_state_update`
+- render-state row/cell iteration
+- cell graphemes, style flags, resolved colors, and cursor data
 
-So your `Package.swift` dependency is narrow: pull in libghostty-spm, depend on the
-`GhosttyKit` product from the `TesseraSnapshotTests` target only. The main library has no
-Ghostty dependency at all.
+A tiny `CGhosttyVT` system-library-style module should expose the C headers to Swift.
+Tessera can then implement `VirtualTerminal` in Swift on top of those C calls.
 
-#### Revised "snapshot harness" definition of done
+`libghostty-vt` is cross-platform in principle. Platform support for Tessera's snapshot
+tests should be based on the actual build path we wire into CI, not on SwiftPM's
+`platforms` array and not on assumptions from Apple-only wrapper packages. This slice must
+make the Ghostty harness work on both macOS and Linux. Windows snapshot coverage can wait
+until Phase 2 Slice 6 or until the libghostty-vt build path is proven there.
 
-1. `libghostty-spm` added as a package dependency, `GhosttyKit` product wired only into
-   `TesseraSnapshotTests` target.
-2. `VirtualTerminal` Swift class with the same API as before (`feed`, `text(row:)`,
-   `cell(row:column:)`, `cursorPosition()`, `snapshot()`), now backed by libghostty's
-   Parser+Terminal API rather than a hand-rolled VT.
-3. ~5-10 tests proving the harness itself works: feed known sequences (cursor move, SGR,
-   character write), assert the inspected state matches.
-4. One integration test: Phase 1 walking skeleton's output bytes → `VirtualTerminal` →
+#### Concurrency model
+
+Treat a `VirtualTerminal` instance as isolated mutable terminal state. Do not share one
+Ghostty terminal handle across concurrent tests or tasks.
+
+Preferred design:
+
+- Keep `VirtualTerminal` synchronous and non-`Sendable` if Swift accepts the usage.
+- Keep `VirtualTerminalClient` as a stateless dependency/factory; do not store a shared
+  Ghostty handle in the dependency value.
+- If isolation becomes necessary, wrap each Ghostty handle in an actor or provide an
+  actor-backed test helper.
+- Avoid `@unchecked Sendable` unless there is a documented invariant proving the handle is
+  never used concurrently.
+
+Swift Testing may run tests in parallel, but each test should create and own its own
+`VirtualTerminal`. That is enough isolation for the normal harness use case.
+
+#### Snapshot representations
+
+A terminal screen is a 2D text grid, which makes it unusually well suited to text
+snapshots. Use multiple readable representations rather than one giant dump for every
+test:
+
+| Strategy    | Captures                                | Use for                               |
+| ----------- | --------------------------------------- | ------------------------------------- |
+| text grid   | characters only                         | layout and everyday renderer behavior |
+| styled grid | characters + parallel style glyph grid  | color/bold/underline behavior         |
+| debug dump  | cells, cursor, modes, selected metadata | complex failures and diagnostics      |
+
+The text-grid strategy should have an explicit whitespace policy:
+
+```swift
+.terminalText(trim: .trailing)
+.terminalText(trim: .none)
+```
+
+Trailing trim is friendlier for layout snapshots. Exact rows are better when spaces are
+semantically important.
+
+A styled-grid snapshot should keep character and attribute positions aligned, for example:
+
+```text
+── chars ──
+OK
+── style ──
+GG....
+```
+
+where `G` could mean green + bold and `.` means default. For precise style checks, prefer
+focused scalar assertions against `cell(row:column:)`.
+
+Snapshot helpers belong in `TesseraTerminalTestSupport`, not ad hoc test files, when they
+are likely to be reused.
+
+#### Example test shapes
+
+Harness smoke tests should land before renderer integration tests. They prove the oracle
+itself works without depending on Tessera rendering code:
+
+```swift
+@Test
+func `plain text lands on row zero`() {
+    let terminal = VirtualTerminal(cols: 80, rows: 24)
+
+    terminal.feed("Hello, Tessera!")
+
+    #expect(terminal.text(row: 0) == "Hello, Tessera!")
+}
+
+@Test
+func `cursor movement is reflected in inspected cells`() {
+    let terminal = VirtualTerminal(cols: 80, rows: 24)
+
+    terminal.feed("\u{1B}[3;5HX")
+
+    #expect(terminal.cell(row: 2, column: 4).character == "X")
+}
+
+@Test
+func `sgr style is reflected in inspected cells`() {
+    let terminal = VirtualTerminal(cols: 8, rows: 2)
+
+    terminal.feed("\u{1B}[1;4;38;5;196;48;2;1;2;3mXY")
+    let x = terminal.cell(row: 0, column: 0)
+
+    #expect(x.character == "X")
+    #expect(x.bold)
+    #expect(x.underline)
+    #expect(x.foreground == .indexed(196))
+    #expect(x.background == .rgb(1, 2, 3))
+}
+```
+
+Renderer tests then feed real Tessera output through the same oracle:
+
+```swift
+@Test
+func `renderer output can be inspected as terminal state`() {
+    var buffer = Buffer(size: TerminalSize(columns: 4, rows: 2))
+    buffer.write("Hi", at: TerminalPosition(column: 1, row: 0))
+    buffer.write("q", at: TerminalPosition(column: 3, row: 1))
+
+    let terminal = VirtualTerminal(cols: 4, rows: 2)
+    terminal.feed(Renderer.render(buffer))
+
+    #expect(terminal.text(row: 0) == " Hi ")
+    #expect(terminal.text(row: 1) == "   q")
+}
+```
+
+The key Phase 2 damage-tracking test compares screens, not bytes:
+
+```swift
+@Test
+func `damage tracking is visually identical to a full repaint`() {
+    let full = VirtualTerminal(cols: 10, rows: 1)
+    full.feed(Renderer.renderFull(frame2))
+
+    let diffed = VirtualTerminal(cols: 10, rows: 1)
+    diffed.feed(Renderer.renderFull(frame1))
+    diffed.feed(Renderer.renderDiff(previous: frame1, current: frame2))
+
+    #expect(diffed.snapshot() == full.snapshot())
+}
+```
+
+The two byte streams are deliberately different. The final screen snapshots must be the
+same. This is the correctness property that justifies the oracle.
+
+#### Build order for this slice
+
+1. Add the direct `libghostty-vt` build/link path and `CGhosttyVT` module boundary for
+   macOS and Linux.
+2. Add `VirtualTerminalClient` as the Point-Free Dependencies factory seam, with a Ghostty
+   live implementation.
+3. Replace the `VirtualTerminal` placeholder with the durable per-terminal inspection API.
+4. Add harness smoke tests: text, cursor movement, erase behavior, SGR style/color.
+5. Add reusable text/styled/debug snapshot strategies in `TesseraTerminalTestSupport`.
+6. Add one renderer integration test: Phase 1 renderer bytes → `VirtualTerminal` →
    asserted screen state.
-5. CI matrix updated so `TesseraSnapshotTests` runs on macOS only; Linux and Windows CI
-   jobs skip it explicitly.
+7. Keep encoder byte tests separate for exact `ControlSequence` output.
+8. Prove the harness in local/CI macOS and Linux test runs; document Windows as future
+   work unless it is also proven.
 
-#### Future work: Linux snapshot test coverage
+#### Definition of done for the snapshot harness
 
-Linux snapshot test coverage requires building libghostty from source. Until then, Linux
-CI runs `TesseraTerminalTests` and `TesseraTests` only; cross-platform correctness is
-inferred from byte-level encoder unit tests being identical across platforms.
-
-Postponed because it's more work than dropping in a SwiftPM package. **libghostty itself
-is "a cross-platform, zero-dependency C and Zig library"** [^1], so the constraint is
-purely about how libghostty-spm distributes a pre-built Apple XCFramework, not about
-libghostty's portability.
-
-On Linux you'd build from source — CMake 3.19+, Ninja, a C compiler, Zig 0.15.x, and a
-handful of X11 dev packages [^3]. There's also an open discussion (#11730, March 2026)
-asking for libghostty-vt to be buildable as a static library — currently it's
-shared-library only [^2]. That static-build option would make CI integration much cleaner
-if/when it lands.
-
-So the practical Linux story is: **possible, but not as simple as adding a SwiftPM
-dependency.** You'd need a build step in CI that compiles libghostty from source, then a
-Swift system module that links against the resulting `.so`. Tracked-as-an-issue territory,
-not blocker territory.
-
-[^1]:
-    [Ghostty is a fast, feature-rich, and cross-platform terminal ... - GitHub](https://github.com/ghostty-org/ghostty)
-    (44%)
-
-[^2]:
-    [Allow building libghostty-vt as a static library #11730 - GitHub](https://github.com/ghostty-org/ghostty/discussions/11730)
-    (32%)
-
-[^3]:
-    [ghostty-org/ghostling: A minimum viable terminal emulator built on top...](https://github.com/ghostty-org/ghostling)
-    (24%)
-
-#### Definition of done for the snapshot harness (slice 1 of Phase 2)
-
-1. `VirtualTerminal` Swift class exists with the API above.
-2. Hand-rolled VT supports: cursor positioning (`CUP`, `CUH`), erase (`ED`, `EL`), SGR
-   (colors + bold/italic/underline/reverse), character writes, basic CR/LF behavior.
-   That's roughly it.
-3. ~20 tests covering each supported sequence: feed bytes, assert on resulting
-   cells/cursor.
-4. One _integration_ test that's the Phase 1 walking skeleton's bytes → `VirtualTerminal`
-   → asserted screen. This proves the harness works end-to-end against your real code.
-5. An open GitHub issue: "Migrate snapshot harness to libghostty-vt" with a link to
-   #11348.
-
-That's it. Resist the urge to make the mini-VT comprehensive. You only need to parse what
-your renderer emits.
+1. `CGhosttyVT` or equivalent C module exposes the direct `libghostty-vt` API to Swift.
+2. The direct `libghostty-vt` build path is documented, scripted, and validated on macOS
+   and Linux.
+3. `VirtualTerminalClient` exists as a `@DependencyClient` factory with a Ghostty live
+   implementation.
+4. `VirtualTerminal`, `RenderedCell`, `RenderedColor`, and `ScreenSnapshot` exist in
+   `TesseraTerminalSnapshotSupport` and are not exported by `Tessera` or
+   `TesseraTerminal`.
+5. Harness smoke tests prove plain text, cursor movement, erase behavior, SGR style/color,
+   and cursor inspection.
+6. Reusable SnapshotTesting strategies exist for text-grid, styled-grid, and debug output.
+7. At least one real renderer integration test feeds Tessera renderer bytes through
+   `VirtualTerminal` and asserts the resulting screen.
+8. CI runs the harness on macOS and Linux. Windows skips are documented as future work.
 
 ---
 
