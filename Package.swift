@@ -80,7 +80,7 @@ package.dependencies.append(
 package.dependencies.append(
   .package(
     url: "https://github.com/pointfreeco/swift-snapshot-testing",
-    from: "1.0.0"
+    exact: "1.18.9"
   )
 )
 
