@@ -50,6 +50,38 @@ jobs:
       - name: Set up Swift
         uses: ./.github/actions/setup-swift
 
+      - name: Set up Zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.15.2
+
+      - name: Install libghostty-vt prerequisites on macOS
+        if: runner.os == 'macOS'
+        run: brew install cmake ninja
+
+      - name: Install libghostty-vt prerequisites on Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            blueprint-compiler \
+            build-essential \
+            cmake \
+            gettext \
+            libadwaita-1-dev \
+            libgtk-4-dev \
+            libxml2-utils \
+            ninja-build \
+            pkg-config
+
+      - name: Restore libghostty-vt cache
+        uses: actions/cache@v4
+        with:
+          path: .build/libghostty-vt
+          key: libghostty-vt-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh') }}
+          restore-keys: |
+            libghostty-vt-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-
+
       - name: Install just
         uses: taiki-e/install-action@v2
         with:

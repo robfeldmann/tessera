@@ -13,10 +13,10 @@ updated: 2026-06-05
   - [x] 1.1 Create an isolated spike branch/worktree
   - [x] 1.2 Compare Ghostty integration paths and prove `feed → inspect`
   - [x] 1.3 Record the spike findings and recommendation
-- [ ] **Phase 2 — Correct the slice direction and build path**
+- [x] **Phase 2 — Correct the slice direction and build path**
   - [x] 2.1 Update `docs/Spec.md` based on the accepted spike result
-  - [ ] 2.2 Add pinned source build script and CI cache for libghostty-vt
-  - [ ] 2.3 Wire the selected direct libghostty-vt integration path on macOS and Linux
+  - [x] 2.2 Add pinned source build script and CI cache for libghostty-vt
+  - [x] 2.3 Wire the selected direct libghostty-vt integration path on macOS and Linux
 - [ ] **Phase 3 — Ghostty-backed inspection API**
   - [ ] 3.1 Add `VirtualTerminalClient` dependency and durable inspection types
   - [ ] 3.2 Implement `VirtualTerminal` on top of Ghostty with focused harness tests
@@ -121,6 +121,11 @@ the accepted spike result.
   - Linux packages required by the Ghostty/Ghostling build path, if any
 - Acceptance: the script can build `libghostty-vt` on macOS and Linux, reuses cached
   artifacts in CI when available, and leaves no generated artifacts tracked by Git.
+- Completed: added `scripts/ghostty-vt-version.txt` pinned to Ghostty commit
+  `ae52f97dcac558735cfa916ea3965f247e5c6e9e`, added `scripts/build-libghostty-vt.sh`, and
+  added a GitHub Actions cache for `.build/libghostty-vt` keyed by OS, architecture, Zig
+  version, pinned revision, and build script hash. The script was validated locally on
+  macOS arm64 and reuses the existing generated artifacts on a second run.
 
 ### Step 2.3 — Wire the selected direct libghostty-vt integration path on macOS and Linux
 
@@ -139,6 +144,11 @@ the accepted spike result.
   implementation. Windows may remain skipped/documented until Phase 2 Slice 6.
 - Acceptance: `swift package describe` succeeds, and the narrow snapshot-support build
   succeeds on macOS and Linux.
+- Completed: added the internal `CGhosttyVT` C target, linked
+  `TesseraTerminalSnapshotSupport` to the built `libghostty-vt` artifact directory, and
+  updated CI to install Zig/prerequisites, restore the libghostty-vt cache, and run the
+  source build before `just ci`. Local validation passed on macOS arm64 with
+  `swift package describe` and `swift build --target TesseraTerminalSnapshotSupport`.
 
 ## Phase 3 — Ghostty-backed inspection API
 

@@ -115,6 +115,7 @@ let SystemPackage: Target.Dependency = .product(
 
 // MARK: - 🚛 Forward Module Declarations
 
+let CGhosttyVT: Target.Dependency = .byName(name: "CGhosttyVT")
 let Tessera: Target.Dependency = .byName(name: "Tessera")
 let TesseraCore: Target.Dependency = .byName(name: "TesseraCore")
 let TesseraTerminal: Target.Dependency = .byName(name: "TesseraTerminal")
@@ -148,6 +149,16 @@ let AllTesseraTargetNames: Set<String> = [
 ]
 
 // MARK: - 🎯 Products & Targets
+
+// MARK: CGhosttyVT
+
+package.targets.append(
+  .target(
+    name: "CGhosttyVT",
+    path: "Sources/CGhosttyVT",
+    publicHeadersPath: "include"
+  )
+)
 
 // MARK: Tessera
 
@@ -340,6 +351,7 @@ package.targets.append(
   .target(
     name: "TesseraTerminalSnapshotSupport",
     dependencies: [
+      CGhosttyVT,
       TesseraTerminalANSI,
       TesseraTerminalBuffer,
       TesseraTerminalRendering,
@@ -361,6 +373,28 @@ package.targets.append(
     ]
   )
 )
+
+// MARK: - 👻 Ghostty VT Build Output
+
+let GhosttyVTInstallPath = ".build/libghostty-vt/current"
+let GhosttyVTIncludePath = "\(GhosttyVTInstallPath)/include"
+let GhosttyVTLibraryPath = "\(GhosttyVTInstallPath)/lib"
+let GhosttyVTUnsafeLinkerFlags = [
+  "-L\(GhosttyVTLibraryPath)",
+  "-lghostty-vt",
+  "-Xlinker",
+  "-rpath",
+  "-Xlinker",
+  GhosttyVTLibraryPath,
+]
+if let GhosttyVTTarget = package.targets.first(where: { $0.name == "CGhosttyVT" }) {
+  GhosttyVTTarget.cSettings = [
+    .unsafeFlags(["-I\(GhosttyVTIncludePath)"])
+  ]
+  GhosttyVTTarget.linkerSettings = [
+    .unsafeFlags(GhosttyVTUnsafeLinkerFlags)
+  ]
+}
 
 // MARK: - ⚙️ Shared Swift Settings
 

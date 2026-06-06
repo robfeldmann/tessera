@@ -11,13 +11,16 @@ default:
 
 # ── Lifecycle ────────────────────────────────────────────────────────────────
 
-build:
+build: build-libghostty-vt
     swift build
 
-test:
+build-libghostty-vt:
+    scripts/build-libghostty-vt.sh
+
+test: build-libghostty-vt
     swift test
 
-test-coverage:
+test-coverage: build-libghostty-vt
     swift test --enable-code-coverage
 
 example name="":
@@ -139,7 +142,9 @@ check: lint test
 
 ci: ci-build-test
 
-ci-build-test: build test
+ci-build-test: build-libghostty-vt
+    swift build
+    swift test
 
 ci-lint: lint
 
@@ -152,7 +157,7 @@ docs-clean:
     rm -rf .build/docs .build/doccarchives
     mkdir -p .build/doccarchives/targets
 
-docs-targets:
+docs-targets: build-libghostty-vt
     @echo "▶ Building documentation for Tessera targets..."
     @set -e; \
     base_targets=( \
