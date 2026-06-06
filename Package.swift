@@ -19,6 +19,25 @@ let package = Package(
 
 // MARK: - ⤵️ Dependencies
 
+// MARK: Dependencies
+
+package.dependencies.append(
+  .package(
+    url: "https://github.com/pointfreeco/swift-dependencies",
+    from: "1.13.0"
+  )
+)
+
+let Dependencies: Target.Dependency = .product(
+  name: "Dependencies",
+  package: "swift-dependencies"
+)
+
+let DependenciesTestSupport: Target.Dependency = .product(
+  name: "DependenciesTestSupport",
+  package: "swift-dependencies"
+)
+
 // MARK: DisplayWidth
 
 package.dependencies.append(
@@ -267,6 +286,7 @@ package.targets.append(contentsOf: [
   .target(
     name: "TesseraTerminalIO",
     dependencies: [
+      Dependencies,
       SystemPackage,
       TesseraTerminalANSI,
       TesseraTerminalCore,
@@ -277,10 +297,14 @@ package.targets.append(contentsOf: [
     name: "TesseraTerminalIOTests",
     dependencies: [
       CustomDump,
+      Dependencies,
+      DependenciesTestSupport,
       InlineSnapshotTesting,
       SnapshotTesting,
       SnapshotTestingCustomDump,
+      SystemPackage,
       TesseraTerminalIO,
+      TesseraTerminalTestSupport,
     ]
   ),
 ])

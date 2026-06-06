@@ -1,4 +1,4 @@
-/// A minimal Phase 1 input event parsed from a raw terminal byte.
+/// A terminal input event parsed from raw terminal bytes.
 public enum InputEvent: Equatable, Sendable {
   /// The user pressed a printable ASCII character.
   case character(Character)

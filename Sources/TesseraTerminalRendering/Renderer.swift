@@ -1,6 +1,6 @@
 import TesseraTerminalBuffer
 
-/// Renders terminal buffers into Phase 1 full-repaint byte streams.
+/// Renders terminal buffers into full-repaint byte streams.
 public enum Renderer {
   /// Returns bytes that move the cursor home and redraw every cell in the buffer.
   public static func render(_ buffer: Buffer) -> [UInt8] {
