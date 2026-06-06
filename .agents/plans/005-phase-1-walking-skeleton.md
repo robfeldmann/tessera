@@ -1,7 +1,7 @@
 ---
 name: Phase 1 Walking Skeleton
 description: Build the Phase 1 Tessera walking skeleton.
-status: in-progress
+status: completed
 created: 2026-06-05
 updated: 2026-06-05
 ---
@@ -22,9 +22,9 @@ updated: 2026-06-05
   - [x] 4.1 Implement terminal size detection and stdout writes with tests
   - [x] 4.2 Implement raw mode and alt-screen enter/exit with tests
   - [x] 4.3 Implement blocking stdin byte stream with tests
-- [ ] **Phase 5 — HelloTessera executable**
+- [x] **Phase 5 — HelloTessera executable**
   - [x] 5.1 Add the `HelloTessera` executable target and smoke-build it
-  - [ ] 5.2 Wire and manually verify the walking-skeleton run loop
+  - [x] 5.2 Wire and manually verify the walking-skeleton run loop
 
 ## Overview
 
@@ -182,6 +182,9 @@ example app.
   - terminal returns from alt screen with prompt sane and scrollback intact
 - Acceptance: document any platform caveats in the plan progress notes or a follow-up
   investigation if needed.
+- Verification: ran `swift run --package-path Examples HelloTessera` in a herdr pane;
+  confirmed greeting render, `a` updates `You pressed: a`, `q` exits, and prompt returns
+  sane.
 
 ## References
 
