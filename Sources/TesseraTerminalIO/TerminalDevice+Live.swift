@@ -115,7 +115,7 @@ extension TerminalDevice: DependencyKey {
 
   private func readTerminalSize() throws -> TerminalSize {
     var windowSize = winsize()
-    let result = ioctl(STDOUT_FILENO, TIOCGWINSZ, &windowSize)
+    let result = ioctl(STDOUT_FILENO, UInt(TIOCGWINSZ), &windowSize)
 
     guard result != -1, windowSize.ws_col > 0, windowSize.ws_row > 0 else {
       throw PlatformIOError.terminalSizeUnavailable(errno: Errno(rawValue: errno))
