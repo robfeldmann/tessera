@@ -30,6 +30,9 @@ Use it selectively:
   the risk/decision notes near the end of relevant slices.
 - **Using AI assistance:** give the model the smallest relevant slice plus referenced type
   definitions. Do not ask it to ingest the whole spec unless the task is architectural.
+- **Implementing early phases:** prefer the real public API shape as soon as it is
+  knowable. Keep behavior small and incomplete, but do not introduce placeholder,
+  temporary, or phase-named public API unless there is a specific bootstrap reason.
 
 ## Table of contents
 
@@ -125,10 +128,11 @@ does literally nothing yet.
 - [x] Git repo initialized
 - [x] `Package.swift` with two library products declared: `TesseraTerminal` and `Tessera`
       plus associated test targets.
-- [x] A _placeholder_ public symbol in each module so each product exports _something_ and
-      DocC has something to render
-- [x] A trivial test per target that imports the module and asserts on the placeholder,
-      proving the test target is wired correctly
+- [x] A Phase 0-only bootstrap public symbol in each module so each product exports
+      _something_ and DocC has something to render. This is the explicit bootstrap
+      exception: delete these as soon as a target has real API.
+- [x] A trivial test per target that imports the module and asserts on the bootstrap
+      symbol, proving the test target is wired correctly
 - [x] Swift 6 strict concurrency settings
 - [x] Formatting (swift-format?) and linting (SwiftLint?) configured
 - [x] DocC generation configured
@@ -205,7 +209,8 @@ of 2026.
 #### Things to consciously _not_ do in Phase 0 CI
 
 - **No release builds.** `swift build -c release` is slower and you don't need it yet.
-- **No code coverage.** Adds setup time, irrelevant when you have one placeholder test.
+- **No code coverage.** Adds setup time, irrelevant when you have one bootstrap wiring
+  test.
 - **No DocC _publishing_.** Generating in CI is fine (it catches broken doc comments
   early); deploying to Pages can wait until you have something worth documenting.
 - **No caching.** Tempting, but premature. The build is empty; there's nothing to cache.
@@ -219,7 +224,7 @@ When you can do all of the following without thinking, Phase 0 is done:
 
 1. `git push` to main, CI runs and goes green on macOS + Linux + Windows within ~5
    minutes.
-2. `swift test` locally produces a passing test (the placeholder).
+2. `swift test` locally produces a passing test (the bootstrap wiring test).
 3. `swift package generate-documentation` produces DocC output without warnings.
 4. `swift format lint` exits 0.
 5. A new contributor (or future-you on a new machine) can clone, run `swift test`, and
@@ -285,10 +290,10 @@ Concretely, when Phase 1 is done you can:
    until Phase 2 with proper signal handling). That's fine for now.
 
 This is deliberately the _minimum viable version_ of each layer. The discipline is: build
-the crudest thing that works, prove it works, then in Phase 2 replace each piece with the
-real implementation. Where feasible, the public API should still use names and shapes that
-can survive later phases; keep the implementation small, not artificially phase-named. Use
-phase-specific names only for private throwaway helpers.
+the smallest correct version that works, prove it works, then refine and extend it in
+later phases. Where feasible, the public API should still use names and shapes that can
+survive later phases; keep the implementation small, not artificially phase-named. Use
+phase-specific names only for private helpers with a clear migration path.
 
 ### PlatformIO — minimum viable
 
@@ -317,7 +322,8 @@ phase-specific names only for private throwaway helpers.
 - **POSIX only.** No Windows yet. (`#if os(macOS) || os(Linux)`.)
 - Raw mode via `termios`: save current, set `ICANON`/`ECHO` off, apply. Restore on exit.
 - Alt screen enter/exit via hardcoded byte strings (`\x1b[?1049h` / `\x1b[?1049l`). The
-  ANSI encoder isn't built yet, so we cheat.
+  ANSI encoder isn't built yet, so these stay a scoped implementation detail rather than a
+  public encoder API.
 - Stdin reads: blocking read of single bytes in a `Task`. No `AsyncStream` plumbing yet,
   just enough to get bytes flowing.
 - Stdout writes: direct `write(2)` calls, no buffering.
@@ -337,8 +343,8 @@ In Phase 1, you have maybe 4-5 ANSI sequences to emit, all hardcoded:
 - `\x1b[{row};{col}H` — move cursor (one `String(format:)` call)
 
 Resist the urge to start building the encoder enum yet. You don't know enough about what
-shape it wants. Phase 2 builds it for real, informed by the bytes you actually emitted in
-Phase 1.
+shape it wants. Phase 2 introduces the real public `ControlSequence` API, informed by the
+bytes you actually emitted in Phase 1.
 
 ### Buffer — real, but minimal
 
@@ -421,7 +427,7 @@ semantics, `subscript`, `write(at:)` — should be right.
 >   between previous and current buffer via `Buffer::diff_iter`, then passes changed cells
 >   to `Backend::draw`. Phase 1 does no diffing — it repaints every cell.
 > - `BufferDiff` iterator (`ratatui-core/src/buffer/diff.rs`, line 10) yields
->   `(x, y, &Cell)` for changed cells. Phase 2 replaces the naive renderer with this
+>   `(x, y, &Cell)` for changed cells. Phase 2 evolves the naive renderer toward this
 >   diff-based approach.
 > - `CrosstermBackend::draw` (`ratatui-crossterm/src/lib.rs`, line 213) iterates
 >   `(x, y, &Cell)` tuples, queues `MoveTo(x, y)` + style attrs + `Print(symbol)` for
@@ -469,8 +475,8 @@ that remain reviewable.
 >   Phase 1 replaces all of this with raw byte reads from stdin.
 > - `crossterm::event::Event` and `KeyCode::Char` are the types used in the demo; the
 >   source definitions are in crossterm's public event model (`crossterm` `src/event.rs`,
->   lines 550 and 1221). Phase 1's `Phase1Event` is a minimal analog — just `.quit` and
->   `.char(Character)`.
+>   lines 550 and 1221). Phase 1's `InputEvent` is a minimal subset — just `.quit` and
+>   `.character(Character)`.
 > - Raw mode via `enable_raw_mode()` (`ratatui/src/init.rs`, line 396) puts stdin into
 >   character-at-a-time mode so `read()` returns immediately. Phase 1 does this manually
 >   with `termios` (see the Mode section), which is what makes single-byte reads possible.
@@ -485,7 +491,8 @@ You need exactly two things working:
 
 Don't build a state machine yet. Don't handle escape sequences. Don't think about
 modifiers. If the user presses an arrow key in Phase 1, they get garbage on screen (the
-raw `\x1b[A` bytes). That's _fine_. Phase 2 builds the real parser.
+raw `\x1b[A` bytes). That's _fine_. Phase 2 extends `InputParser` into a real state
+machine.
 
 ```swift
 public enum InputEvent {
@@ -558,9 +565,9 @@ renderLoop: while true {
     await renderer.render(buffer, to: io)
 
     for await byte in io.bytes {
-        switch parsePhase1(byte) {
+        switch InputParser.parse(byte) {
         case .quit: break renderLoop
-        case .char(let c): lastKey = c; continue renderLoop
+        case .character(let c): lastKey = c; continue renderLoop
         case nil: continue
         }
     }
@@ -606,7 +613,8 @@ Phase 2's design decisions concrete instead of theoretical.
 1. **The "no `View` protocol yet" decision.** Some people will hate this — it feels
    backwards to build a view library by _not_ building the view abstraction. I think it's
    correct, but I want to check that you're comfortable with deferring it. The alternative
-   is a hand-wavy `View` protocol in Phase 1 that you immediately throw away in Phase 3.
+   is a hand-wavy `View` protocol in Phase 1 that churns heavily once real layout and
+   rendering needs are known.
 
 2. **The "no signal handling, terminal can be left broken" decision.** This is the
    spiciest call. The original spec was emphatic that this is _non-negotiable_. I'm
@@ -633,12 +641,12 @@ no mouse, no paste yet).
 #### Why this is first
 
 By the end of Phase 1 you have a naive renderer emitting raw bytes you wrote by hand.
-You're about to throw that away and replace it with a real damage-tracking renderer that
-emits _minimal_ bytes — exactly the situation where regression risk is highest. Unit tests
-on the buffer don't catch encoder bugs. Unit tests on the encoder catch
-individual-sequence bugs but not "the renderer emitted a sequence of correct sequences
-that interact badly." Snapshot tests catch all of these by feeding the bytes through a
-real VT and asserting on the resulting screen state.
+You're about to evolve that into a damage-tracking renderer that emits _minimal_ bytes —
+exactly the situation where regression risk is highest. Unit tests on the buffer don't
+catch encoder bugs. Unit tests on the encoder catch individual-sequence bugs but not "the
+renderer emitted a sequence of correct sequences that interact badly." Snapshot tests
+catch all of these by feeding the bytes through a real VT and asserting on the resulting
+screen state.
 
 Building the harness first means **every renderer change in Phase 2 lands with a snapshot
 test**. That's the discipline the original spec was reaching for, and it's right — it was
@@ -1229,8 +1237,8 @@ are all up front, which is why we're spending so much time on them now.
 ### Slice 3: mode lifecycle + real PlatformIO + signal handling
 
 This slice is where Tessera grows up. Phase 1's "main function turns alt screen on, hopes
-nothing goes wrong" gets replaced with a real lifecycle manager that **guarantees** the
-terminal is restored no matter how the program exits — clean exit, thrown error, `Ctrl-C`,
+nothing goes wrong" grows into a real lifecycle manager that **guarantees** the terminal
+is restored no matter how the program exits — clean exit, thrown error, `Ctrl-C`,
 `SIGTERM`, `SIGHUP` from a disconnected ssh session, panic, anything. The promise is: _if
 Tessera ever touches the terminal, Tessera puts it back._
 
@@ -1402,7 +1410,8 @@ can make recovery a one-command operation.
 >   `examples/apps/demo/src/crossterm.rs`, lines 57, 62). Tessera replaces this with a
 >   non-blocking `AsyncStream<UInt8>` backed by `poll` + `read(2)`.
 
-Phase 1's `PlatformIO` was a stub. Slice 3 is where it becomes real.
+Phase 1's `PlatformIO` was intentionally thin. Slice 3 is where it gains the full terminal
+I/O API.
 
 ```swift
 internal actor PlatformIO {
@@ -1719,7 +1728,7 @@ synchronized-output discipline.
 >   with a `Style` — Ratatui's intermediate representation between text and buffer,
 >   analogous to Tessera's `Cell.Content.grapheme(String)` + `Style`.
 
-Building on Phase 1's `Buffer` skeleton, we add width awareness at the _cell_ level, not
+Building on Phase 1's minimal `Buffer`, we add width awareness at the _cell_ level, not
 the buffer level.
 
 ```swift
@@ -2158,7 +2167,7 @@ This slice is also where you start hitting the historical sediment of the termin
 Input encoding is a mess of overlapping, contradictory, and ambiguous protocols
 accumulated over five decades. The discipline here is to handle the _legacy_ layer
 correctly and completely, knowing that Phase 3's Kitty keyboard protocol will eventually
-replace most of it — but only on terminals that support it.
+augment it — but only on terminals that support it.
 
 #### The four problems this slice solves
 
@@ -2596,7 +2605,7 @@ facto specification of what Tessera accepts as input.
 4. `SIGWINCH` yields `InputEvent.resize` through the same stream.
 5. ~60-80 tests covering: every catalog sequence, multi-byte splits, ESC ambiguity, UTF-8
    assembly, unknown sequences, end-to-end via `PlatformIO`.
-6. Phase 1 walking skeleton is updated: replace the Phase 1 byte-detection with
+6. Phase 1 walking skeleton is updated: evolve the minimal byte parser loop into
    `for await event in io.events`. Arrow keys now work. Ctrl-C still triggers SIGINT
    (handled by the signal handler, restoring the terminal). Escape-to-exit works without
    200ms lag.
@@ -4831,7 +4840,7 @@ Sources/
     Tessera.swift                 // @_exported imports only
 
   TesseraCore/
-    View.swift                    // Phase 4 placeholder
+    View.swift                    // Phase 4 view API, not designed yet
 ```
 
 Proposed test layout mirrors the targets so each layer can be built and tested directly:
@@ -4854,7 +4863,8 @@ Tests/
     SnapshotTests.swift
 
   TesseraTerminalInputTests/
-    InputParserLegacyTests.swift
+    InputParserTests.swift
+    InputParserLegacySequenceTests.swift
     InputParserBracketedPasteTests.swift
     InputParserFocusTests.swift
     InputParserMouseTests.swift
@@ -4906,7 +4916,8 @@ Provisional dependency direction inside `Tessera`:
 - The `Tessera` target re-exports the public view-layer modules for app authors.
 
 This is intentionally less prescriptive than the `TesseraTerminal` layout. Phase 4 should
-turn these placeholders into a real target/file plan once the view-layer API is designed.
+turn these provisional view-layer slots into a real target/file plan once the view-layer
+API is designed.
 
 Prefer Swift's access control to model intent:
 
