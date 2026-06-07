@@ -1,0 +1,4 @@
+module CGhosttyVT {
+  umbrella "ghostty"
+  export *
+}

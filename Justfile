@@ -11,13 +11,16 @@ default:
 
 # ── Lifecycle ────────────────────────────────────────────────────────────────
 
-build:
+build: build-libghostty-vt
     swift build
 
-test:
+build-libghostty-vt:
+    scripts/build-libghostty-vt.sh
+
+test: build-libghostty-vt
     swift test
 
-test-coverage:
+test-coverage: build-libghostty-vt
     swift test --enable-code-coverage
 
 example name="":
@@ -85,7 +88,7 @@ test-linux-vm:
         echo "⚠️  limactl not found — run 'brew bundle install'"; \
         exit 1; \
     fi
-    limactl shell tessera-linux -- bash -lc "source ~/.local/share/swiftly/env.sh && cd '$PWD' && swift test --jobs 2"
+    limactl shell tessera-linux -- bash -lc "source ~/.local/share/swiftly/env.sh && export PATH=~/.local/bin:\$PATH && cd '$PWD' && scripts/build-libghostty-vt.sh && swift test --jobs 2"
 
 # ── Formatting ───────────────────────────────────────────────────────────────
 
@@ -139,7 +142,9 @@ check: lint test
 
 ci: ci-build-test
 
-ci-build-test: build test
+ci-build-test: build-libghostty-vt
+    swift build
+    swift test
 
 ci-lint: lint
 
@@ -152,7 +157,7 @@ docs-clean:
     rm -rf .build/docs .build/doccarchives
     mkdir -p .build/doccarchives/targets
 
-docs-targets:
+docs-targets: build-libghostty-vt
     @echo "▶ Building documentation for Tessera targets..."
     @set -e; \
     base_targets=( \

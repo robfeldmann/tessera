@@ -15,6 +15,7 @@
 - After code changes, run the narrowest relevant validation first, e.g.
   `swift test --filter <TargetOrTestName>` or `swift build`.
 - During iteration, run `just lint-changed`; before committing, run `just lint`.
+- Pull request titles must use conventional commit style.
 - After editing Markdown, validate with:
 
   ```fish
