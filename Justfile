@@ -88,7 +88,7 @@ test-linux-vm:
         echo "⚠️  limactl not found — run 'brew bundle install'"; \
         exit 1; \
     fi
-    limactl shell tessera-linux -- bash -lc "source ~/.local/share/swiftly/env.sh && cd '$PWD' && swift test --jobs 2"
+    limactl shell tessera-linux -- bash -lc "source ~/.local/share/swiftly/env.sh && export PATH=~/.local/bin:\$PATH && cd '$PWD' && scripts/build-libghostty-vt.sh && swift test --jobs 2"
 
 # ── Formatting ───────────────────────────────────────────────────────────────
 

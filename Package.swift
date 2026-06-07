@@ -392,6 +392,7 @@ package.targets.append(
     name: "TesseraTerminalTestSupport",
     dependencies: [
       CustomDump,
+      SnapshotTesting,
       TesseraTerminalBuffer,
       TesseraTerminalInput,
       TesseraTerminalIO,

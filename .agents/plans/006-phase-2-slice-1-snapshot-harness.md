@@ -20,9 +20,9 @@ updated: 2026-06-05
 - [x] **Phase 3 — Ghostty-backed inspection API**
   - [x] 3.1 Add `VirtualTerminal` dependency and durable inspection types
   - [x] 3.2 Implement `VirtualTerminal` on top of Ghostty with focused harness tests
-- [ ] **Phase 4 — Renderer integration snapshots**
-  - [ ] 4.1 Add readable terminal snapshot/custom-dump helpers
-  - [ ] 4.2 Add an end-to-end renderer-to-Ghostty snapshot test
+- [x] **Phase 4 — Renderer integration snapshots**
+  - [x] 4.1 Add readable terminal snapshot/custom-dump helpers
+  - [x] 4.2 Add an end-to-end renderer-to-Ghostty snapshot test
 - [ ] **Phase 5 — Slice closeout**
   - [ ] 5.1 Document Ghostty integration limits and platform support
   - [ ] 5.2 Run slice validation and update progress
@@ -222,6 +222,10 @@ the accepted spike result.
   under test.
 - Acceptance: dependent targeted tests compile and renderer snapshot tests use the new
   strategies rather than one-off formatting.
+- Completed: added `VirtualTerminalSnapshotting.swift` with reusable SnapshotTesting
+  strategies for text grids, styled grids, and debug dumps, plus explicit trailing/none
+  whitespace trimming policy. `TesseraTerminalTestSupport` now depends on
+  `SnapshotTesting`, and `swift build --target TesseraTerminalTestSupport` passes.
 
 ### Step 4.2 — Add an end-to-end renderer-to-Ghostty snapshot test
 
@@ -232,6 +236,10 @@ the accepted spike result.
   bodies.
 - Acceptance: `swift test --filter TesseraTerminalRenderingTests` passes on macOS and
   Linux.
+- Completed: added renderer-to-Ghostty snapshot tests that feed `Renderer.render(_:)`
+  output into `VirtualTerminal.ghostty(cols:rows:)` and assert the resulting
+  `ScreenSnapshot` with the reusable `.terminalText(trim:)` and
+  `.terminalStyledGrid(trim:)` strategies.
 
 ## Phase 5 — Slice closeout
 
