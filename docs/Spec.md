@@ -653,7 +653,7 @@ Building the harness first means **every renderer change in Phase 2 lands with a
 snapshot or focused screen assertion**. That's the discipline the original spec was
 reaching for, and it's right — it was just mis-scheduled into Phase 0.
 
-#### Testing strategy: libghostty-vt as a rendering oracle
+#### Testing strategy: libghostty-vt for rendering tests
 
 Tessera's renderer contract is not "emit this exact byte sequence." Its contract is "emit
 bytes that a terminal interprets into the intended screen." Many byte streams can be
@@ -674,9 +674,9 @@ bytes; Ghostty independently decodes those bytes into a screen. Agreement betwee
 expected screen and Ghostty's reconstructed screen is strong evidence that Tessera's
 output is correct for the behavior being tested.
 
-Phrase the oracle carefully: Ghostty is not a proof that every terminal in existence will
+Phrase the role carefully: Ghostty is not a proof that every terminal in existence will
 behave identically in every edge case. It is a high-quality, shipping terminal parser and
-a much better renderer oracle than byte equality for screen-level behavior.
+a much better reference than byte equality for screen-level behavior.
 
 This strategy applies only to **output**. Input parsing is the opposite direction — bytes
 from the terminal to Tessera events — and remains plain byte-in/event-out tests for
@@ -714,60 +714,68 @@ downstream test authors.
 The harness API should stay small, but separate **how tests request a terminal** from the
 **mutable terminal session** itself.
 
-Use a Point-Free Dependencies client as the factory seam so alternate engines can be
-plugged in later (Ghostty now; maybe Kitty, a platform-specific Windows engine, or another
-oracle later):
+Use a Point-Free Dependencies client as the seam so alternate engines can be plugged in
+later (Ghostty now; maybe Kitty, a platform-specific Windows engine, or another engine
+later). Keep endpoint closures public so tests can override exactly the operations they
+exercise while unimplemented defaults report issues for unexpected calls:
 
 ```swift
 import Dependencies
-import DependenciesMacros
+import IssueReporting
 
-@DependencyClient
-public struct VirtualTerminalClient {
-    public var make: @Sendable (_ cols: Int, _ rows: Int) throws -> VirtualTerminal
+public struct VirtualTerminal: Sendable {
+    public var make: @Sendable (_ cols: Int, _ rows: Int) throws -> Self
+    public var feed: @Sendable ([UInt8]) -> Void
+    public var text: @Sendable (Int) -> String
+    public var cell: @Sendable (_ row: Int, _ column: Int) -> RenderedCell
+    public var cursor: @Sendable () -> TerminalPosition
+    public var snapshot: @Sendable () -> ScreenSnapshot
+
+    public init(
+        make: @escaping @Sendable (_ cols: Int, _ rows: Int) throws -> Self =
+            unimplemented("VirtualTerminal.make"),
+        feed: @escaping @Sendable ([UInt8]) -> Void =
+            unimplemented("VirtualTerminal.feed"),
+        text: @escaping @Sendable (Int) -> String =
+            unimplemented("VirtualTerminal.text", placeholder: ""),
+        cell: @escaping @Sendable (_ row: Int, _ column: Int) -> RenderedCell =
+            unimplemented("VirtualTerminal.cell", placeholder: .blank),
+        cursor: @escaping @Sendable () -> TerminalPosition =
+            unimplemented("VirtualTerminal.cursor", placeholder: .zero),
+        snapshot: @escaping @Sendable () -> ScreenSnapshot =
+            unimplemented("VirtualTerminal.snapshot", placeholder: .empty)
+    )
 }
 
-extension VirtualTerminalClient: TestDependencyKey {
-    public static let testValue = Self()
+extension VirtualTerminal: DependencyKey {
+    public static var liveValue: Self { Self.ghostty }
+    public static var testValue: Self { Self() }
 }
 
 extension DependencyValues {
-    public var virtualTerminal: VirtualTerminalClient {
-        get { self[VirtualTerminalClient.self] }
-        set { self[VirtualTerminalClient.self] = newValue }
+    public var virtualTerminal: VirtualTerminal {
+        get { self[VirtualTerminal.self] }
+        set { self[VirtualTerminal.self] = newValue }
     }
 }
 ```
 
-Keep `VirtualTerminal` as the per-test mutable session returned by that dependency:
+The dependency value itself is the per-test mutable session returned by `make`:
 
 ```swift
-public final class VirtualTerminal {
-    public func feed(_ bytes: [UInt8])
-    public func feed(_ string: String)   // convenience
+var terminal = try virtualTerminal.make(cols: 80, rows: 24)
+terminal.feed("Hello")
+#expect(terminal.text(row: 0) == "Hello")
+```
 
-    // Inspection
-    public func text(row: Int) -> String
-    public func cell(row: Int, column: Int) -> RenderedCell
-    public func cursorPosition() -> TerminalPosition
-    public func snapshot() -> ScreenSnapshot
-}
+The screen-state values remain plain data:
 
+```swift
 public struct RenderedCell: Sendable, Equatable {
     public let character: Character
     public let foreground: RenderedColor
     public let background: RenderedColor
     public let bold, italic, underline, reverse: Bool
-
-    public init(
-        character: Character,
-        foreground: RenderedColor,
-        background: RenderedColor,
-        bold: Bool,
-        italic: Bool,
-        underline: Bool,
-        reverse: Bool
-    )
 }
 
 public enum RenderedColor: Sendable, Equatable {
@@ -779,18 +787,7 @@ public enum RenderedColor: Sendable, Equatable {
 public struct ScreenSnapshot: Sendable, Equatable {
     public let cells: [[RenderedCell]]
     public let cursor: TerminalPosition
-
-    public init(cells: [[RenderedCell]], cursor: TerminalPosition)
 }
-```
-
-Tests can still use a convenience initializer or helper when the live Ghostty oracle is
-the obvious default, but the dependency seam should exist early so the engine choice is
-not baked into every test:
-
-```swift
-@Dependency(\.virtualTerminal) var virtualTerminal
-let terminal = try virtualTerminal.make(cols: 80, rows: 24)
 ```
 
 That is the whole API tests need. Whatever C interop or build machinery sits behind it
@@ -807,7 +804,7 @@ Use the direct `libghostty-vt` path.
 
 The existing wrappers package the broader Ghostty app/surface embedding API and Apple
 binary artifacts. That API can write bytes and read viewport text, but it pulls in
-surface/rendering/platform concerns that are unnecessary for a headless test oracle. The
+surface/rendering/platform concerns that are unnecessary for a headless test harness. The
 harness needs the standalone VT API instead:
 
 - `ghostty_terminal_new`
@@ -834,8 +831,8 @@ Ghostty terminal handle across concurrent tests or tasks.
 Preferred design:
 
 - Keep `VirtualTerminal` synchronous and non-`Sendable` if Swift accepts the usage.
-- Keep `VirtualTerminalClient` as a stateless dependency/factory; do not store a shared
-  Ghostty handle in the dependency value.
+- Keep `VirtualTerminal` as a stateless dependency/factory; do not store a shared Ghostty
+  handle in the dependency value.
 - If isolation becomes necessary, wrap each Ghostty handle in an actor or provide an
   actor-backed test helper.
 - Avoid `@unchecked Sendable` unless there is a documented invariant proving the handle is
@@ -883,7 +880,7 @@ are likely to be reused.
 
 #### Example test shapes
 
-Harness smoke tests should land before renderer integration tests. They prove the oracle
+Harness smoke tests should land before renderer integration tests. They prove the harness
 itself works without depending on Tessera rendering code:
 
 ```swift
@@ -920,7 +917,7 @@ func `sgr style is reflected in inspected cells`() {
 }
 ```
 
-Renderer tests then feed real Tessera output through the same oracle:
+Renderer tests then feed real Tessera output through the same harness:
 
 ```swift
 @Test
@@ -954,14 +951,14 @@ func `damage tracking is visually identical to a full repaint`() {
 ```
 
 The two byte streams are deliberately different. The final screen snapshots must be the
-same. This is the correctness property that justifies the oracle.
+same. This is the correctness property that justifies the test.
 
 #### Build order for this slice
 
 1. Add the direct `libghostty-vt` build/link path and `CGhosttyVT` module boundary for
    macOS and Linux.
-2. Add `VirtualTerminalClient` as the Point-Free Dependencies factory seam, with a Ghostty
-   live implementation.
+2. Add `VirtualTerminal` as the Point-Free Dependencies factory seam, with a Ghostty live
+   implementation.
 3. Replace the `VirtualTerminal` placeholder with the durable per-terminal inspection API.
 4. Add harness smoke tests: text, cursor movement, erase behavior, SGR style/color.
 5. Add reusable text/styled/debug snapshot strategies in `TesseraTerminalTestSupport`.
@@ -976,8 +973,8 @@ same. This is the correctness property that justifies the oracle.
 1. `CGhosttyVT` or equivalent C module exposes the direct `libghostty-vt` API to Swift.
 2. The direct `libghostty-vt` build path is documented, scripted, and validated on macOS
    and Linux.
-3. `VirtualTerminalClient` exists as a `@DependencyClient` factory with a Ghostty live
-   implementation.
+3. `VirtualTerminal` exists as a macro-free Point-Free Dependencies client with a Ghostty
+   live implementation.
 4. `VirtualTerminal`, `RenderedCell`, `RenderedColor`, and `ScreenSnapshot` exist in
    `TesseraTerminalSnapshotSupport` and are not exported by `Tessera` or
    `TesseraTerminal`.

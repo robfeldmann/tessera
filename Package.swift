@@ -38,6 +38,20 @@ let DependenciesTestSupport: Target.Dependency = .product(
   package: "swift-dependencies"
 )
 
+// MARK: IssueReporting
+
+package.dependencies.append(
+  .package(
+    url: "https://github.com/pointfreeco/xctest-dynamic-overlay",
+    from: "1.4.0"
+  )
+)
+
+let IssueReporting: Target.Dependency = .product(
+  name: "IssueReporting",
+  package: "xctest-dynamic-overlay"
+)
+
 // MARK: DisplayWidth
 
 package.dependencies.append(
@@ -352,8 +366,11 @@ package.targets.append(
     name: "TesseraTerminalSnapshotSupport",
     dependencies: [
       CGhosttyVT,
+      Dependencies,
+      IssueReporting,
       TesseraTerminalANSI,
       TesseraTerminalBuffer,
+      TesseraTerminalCore,
       TesseraTerminalRendering,
     ]
   )
