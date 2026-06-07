@@ -27,11 +27,14 @@ jobs:
 
       - name: Validate commit subjects
         if: github.event_name == 'push'
-        run: python3 scripts/conventional_commits.py --range "${{ github.event.before }}..${{ github.event.after }}"
+        run:
+          python3 scripts/conventional_commits.py --range "${{ github.event.before }}..${{
+          github.event.after }}"
 
       - name: Validate PR title
         if: github.event_name == 'pull_request'
-        run: python3 scripts/conventional_commits.py "${{ github.event.pull_request.title }}"
+        run:
+          python3 scripts/conventional_commits.py "${{ github.event.pull_request.title }}"
 
   test:
     name: test (${{ matrix.os }})
@@ -50,14 +53,15 @@ jobs:
       - name: Set up Swift
         uses: ./.github/actions/setup-swift
 
-      - name: Set up Zig
+      - name: Set up Zig on Linux
+        if: runner.os == 'Linux'
         uses: mlugg/setup-zig@v2
         with:
           version: 0.15.2
 
       - name: Install libghostty-vt prerequisites on macOS
         if: runner.os == 'macOS'
-        run: brew install cmake ninja
+        run: brew install cmake ninja zig@0.15
 
       - name: Install libghostty-vt prerequisites on Linux
         if: runner.os == 'Linux'
@@ -78,6 +82,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .build/libghostty-vt
+          # prettier-ignore
           key: libghostty-vt-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh') }}
           restore-keys: |
             libghostty-vt-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-

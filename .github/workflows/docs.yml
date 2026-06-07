@@ -27,6 +27,18 @@ jobs:
       - name: Set up Swift
         uses: ./.github/actions/setup-swift
 
+      - name: Install libghostty-vt prerequisites
+        run: brew install cmake ninja zig@0.15
+
+      - name: Restore libghostty-vt cache
+        uses: actions/cache@v4
+        with:
+          path: .build/libghostty-vt
+          # prettier-ignore
+          key: libghostty-vt-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh') }}
+          restore-keys: |
+            libghostty-vt-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-
+
       - name: Install just
         uses: taiki-e/install-action@v2
         with:
