@@ -415,18 +415,8 @@ let GhosttyVTUnsafeLinkerFlags = [
   GhosttyVTLibraryPath,
 ]
 if let GhosttyVTTarget = package.targets.first(where: { $0.name == "CGhosttyVT" }) {
-  GhosttyVTTarget.cSettings = [
-    .unsafeFlags(["-I\(GhosttyVTIncludePath)"])
-  ]
   GhosttyVTTarget.linkerSettings = [
     .unsafeFlags(GhosttyVTUnsafeLinkerFlags)
-  ]
-}
-if let SnapshotSupportTarget = package.targets.first(
-  where: { $0.name == "TesseraTerminalSnapshotSupport" }
-) {
-  SnapshotSupportTarget.swiftSettings = [
-    .unsafeFlags(["-Xcc", "-I\(GhosttyVTIncludePath)"])
   ]
 }
 

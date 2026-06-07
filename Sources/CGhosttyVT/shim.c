@@ -1,1 +1,1 @@
-#include "CGhosttyVT.h"
+#include <ghostty/vt.h>
