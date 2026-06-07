@@ -2,9 +2,9 @@
 name: Phase 2 Slice 1 Ghostty Snapshot Harness
 description:
   Build the Ghostty-backed virtual terminal harness for renderer snapshot coverage.
-status: in-progress
+status: completed
 created: 2026-06-05
-updated: 2026-06-05
+updated: 2026-06-06
 ---
 
 ## Progress
@@ -23,9 +23,9 @@ updated: 2026-06-05
 - [x] **Phase 4 — Renderer integration snapshots**
   - [x] 4.1 Add readable terminal snapshot/custom-dump helpers
   - [x] 4.2 Add an end-to-end renderer-to-Ghostty snapshot test
-- [ ] **Phase 5 — Slice closeout**
-  - [ ] 5.1 Document Ghostty integration limits and platform support
-  - [ ] 5.2 Run slice validation and update progress
+- [x] **Phase 5 — Slice closeout**
+  - [x] 5.1 Document Ghostty integration limits and platform support
+  - [x] 5.2 Run slice validation and update progress
 
 ## Overview
 
@@ -253,6 +253,9 @@ the accepted spike result.
   which platforms are actually covered by snapshot tests today.
 - Acceptance: future agents can tell how to update Ghostty, build it on Linux, or debug
   any intentional platform skips.
+- Completed: recorded `.agents/investigations/003-ghostty-vt-snapshot-harness-closeout.md`
+  with the chosen revision/build path, used Ghostty APIs, macOS/Linux validation status,
+  local prerequisites, and remaining Windows scope.
 
 ### Step 5.2 — Run slice validation and update progress
 
@@ -264,6 +267,11 @@ the accepted spike result.
 - Before requesting review, run `swift test --filter TesseraTerminalSnapshotSupportTests`
   and `swift test --filter TesseraTerminalRenderingTests` on macOS and Linux.
 - Acceptance: validation passes or any failures are documented with the next action.
+- Completed: validation passed on macOS with
+  `swift test --filter TesseraTerminalSnapshotSupportTests`,
+  `swift test --filter TesseraTerminalRenderingTests`, markdown lint for edited Markdown,
+  and `just lint-changed`. Local Linux VM validation passed with `just test-linux-vm`
+  after provisioning Ghostty build prerequisites and Zig 0.15.2.
 
 ## References
 
