@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, edited]
   workflow_dispatch:
 
 permissions:
@@ -38,6 +39,7 @@ jobs:
 
   test:
     name: test (${{ matrix.os }})
+    if: github.event_name != 'pull_request' || github.event.action != 'edited'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
