@@ -361,7 +361,7 @@ package.targets.append(contentsOf: [
 
 // MARK: TesseraTerminalSnapshotSupport
 
-package.targets.append(
+package.targets.append(contentsOf: [
   .target(
     name: "TesseraTerminalSnapshotSupport",
     dependencies: [
@@ -373,8 +373,17 @@ package.targets.append(
       TesseraTerminalCore,
       TesseraTerminalRendering,
     ]
-  )
-)
+  ),
+  .testTarget(
+    name: "TesseraTerminalSnapshotSupportTests",
+    dependencies: [
+      Dependencies,
+      DependenciesTestSupport,
+      TesseraTerminalCore,
+      TesseraTerminalSnapshotSupport,
+    ]
+  ),
+])
 
 // MARK: TesseraTerminalTestSupport
 
@@ -410,6 +419,13 @@ if let GhosttyVTTarget = package.targets.first(where: { $0.name == "CGhosttyVT" 
   ]
   GhosttyVTTarget.linkerSettings = [
     .unsafeFlags(GhosttyVTUnsafeLinkerFlags)
+  ]
+}
+if let SnapshotSupportTarget = package.targets.first(
+  where: { $0.name == "TesseraTerminalSnapshotSupport" }
+) {
+  SnapshotSupportTarget.swiftSettings = [
+    .unsafeFlags(["-Xcc", "-I\(GhosttyVTIncludePath)"])
   ]
 }
 

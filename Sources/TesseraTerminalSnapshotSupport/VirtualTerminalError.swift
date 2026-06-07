@@ -1,3 +1,6 @@
+import CGhosttyVT
+
 enum VirtualTerminalError: Error {
-  case ghosttyBackendUnavailable(cols: Int, rows: Int)
+  case ghostty(operation: String, result: GhosttyResult)
+  case invalidSize(cols: Int, rows: Int)
 }

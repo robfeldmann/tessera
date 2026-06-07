@@ -714,17 +714,17 @@ downstream test authors.
 The harness API should stay small, but separate **how tests request a terminal** from the
 **mutable terminal session** itself.
 
-Use a Point-Free Dependencies client as the seam so alternate engines can be plugged in
-later (Ghostty now; maybe Kitty, a platform-specific Windows engine, or another engine
-later). Keep endpoint closures public so tests can override exactly the operations they
-exercise while unimplemented defaults report issues for unexpected calls:
+Use a Point-Free Dependencies client as the seam. This support module is test-only, so
+`VirtualTerminal` conforms to `TestDependencyKey` rather than `DependencyKey`; the Ghostty
+backing is the default test value. Keep endpoint closures public so tests can override
+exactly the operations they exercise while unimplemented defaults report issues for
+unexpected calls:
 
 ```swift
 import Dependencies
 import IssueReporting
 
 public struct VirtualTerminal: Sendable {
-    public var make: @Sendable (_ cols: Int, _ rows: Int) throws -> Self
     public var feed: @Sendable ([UInt8]) -> Void
     public var text: @Sendable (Int) -> String
     public var cell: @Sendable (_ row: Int, _ column: Int) -> RenderedCell
@@ -732,8 +732,6 @@ public struct VirtualTerminal: Sendable {
     public var snapshot: @Sendable () -> ScreenSnapshot
 
     public init(
-        make: @escaping @Sendable (_ cols: Int, _ rows: Int) throws -> Self =
-            unimplemented("VirtualTerminal.make"),
         feed: @escaping @Sendable ([UInt8]) -> Void =
             unimplemented("VirtualTerminal.feed"),
         text: @escaping @Sendable (Int) -> String =
@@ -747,9 +745,8 @@ public struct VirtualTerminal: Sendable {
     )
 }
 
-extension VirtualTerminal: DependencyKey {
-    public static var liveValue: Self { Self.ghostty }
-    public static var testValue: Self { Self() }
+extension VirtualTerminal: TestDependencyKey {
+    public static var testValue: Self { Self.ghostty(cols: 80, rows: 24) }
 }
 
 extension DependencyValues {
@@ -760,12 +757,17 @@ extension DependencyValues {
 }
 ```
 
-The dependency value itself is the per-test mutable session returned by `make`:
+Tests that need a specific size override the dependency with a fresh Ghostty-backed
+session:
 
 ```swift
-var terminal = try virtualTerminal.make(cols: 80, rows: 24)
-terminal.feed("Hello")
-#expect(terminal.text(row: 0) == "Hello")
+withDependencies {
+    $0.virtualTerminal = .ghostty(cols: 80, rows: 24)
+} operation: {
+    @Dependency(\.virtualTerminal) var terminal
+    terminal.feed("Hello")
+    #expect(terminal.text(row: 0) == "Hello")
+}
 ```
 
 The screen-state values remain plain data:

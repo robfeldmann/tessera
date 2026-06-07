@@ -2,7 +2,7 @@ import Dependencies
 import IssueReporting
 import TesseraTerminalCore
 
-/// A dependency client for creating and inspecting a virtual terminal session.
+/// A dependency client for inspecting a virtual terminal session.
 public struct VirtualTerminal: Sendable {
   /// Returns the rendered cell at a zero-based row and column.
   public var cell: @Sendable (_ row: Int, _ column: Int) -> RenderedCell
@@ -13,9 +13,6 @@ public struct VirtualTerminal: Sendable {
   /// Feeds raw terminal bytes into the virtual terminal.
   public var feed: @Sendable ([UInt8]) -> Void
 
-  /// Creates a virtual terminal with the requested visible dimensions.
-  public var make: @Sendable (_ cols: Int, _ rows: Int) throws -> Self
-
   /// Returns the visible terminal screen.
   public var snapshot: @Sendable () -> ScreenSnapshot
 
@@ -23,9 +20,6 @@ public struct VirtualTerminal: Sendable {
   public var text: @Sendable (Int) -> String
 
   public init(
-    make: @escaping @Sendable (_ cols: Int, _ rows: Int) throws -> Self = unimplemented(
-      "VirtualTerminal.make"
-    ),
     feed: @escaping @Sendable ([UInt8]) -> Void = unimplemented(
       "VirtualTerminal.feed"
     ),
@@ -50,7 +44,6 @@ public struct VirtualTerminal: Sendable {
       placeholder: ScreenSnapshot.empty
     )
   ) {
-    self.make = make
     self.feed = feed
     self.text = text
     self.cell = cell
@@ -80,7 +73,7 @@ public struct VirtualTerminal: Sendable {
 }
 
 extension VirtualTerminal: TestDependencyKey {
-  public static var testValue: Self { Self() }
+  public static var testValue: Self { Self.ghostty(cols: 80, rows: 24) }
 }
 
 extension DependencyValues {

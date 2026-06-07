@@ -17,9 +17,9 @@ updated: 2026-06-05
   - [x] 2.1 Update `docs/Spec.md` based on the accepted spike result
   - [x] 2.2 Add pinned source build script and CI cache for libghostty-vt
   - [x] 2.3 Wire the selected direct libghostty-vt integration path on macOS and Linux
-- [ ] **Phase 3 — Ghostty-backed inspection API**
+- [x] **Phase 3 — Ghostty-backed inspection API**
   - [x] 3.1 Add `VirtualTerminal` dependency and durable inspection types
-  - [ ] 3.2 Implement `VirtualTerminal` on top of Ghostty with focused harness tests
+  - [x] 3.2 Implement `VirtualTerminal` on top of Ghostty with focused harness tests
 - [ ] **Phase 4 — Renderer integration snapshots**
   - [ ] 4.1 Add readable terminal snapshot/custom-dump helpers
   - [ ] 4.2 Add an end-to-end renderer-to-Ghostty snapshot test
@@ -157,13 +157,13 @@ the accepted spike result.
 ### Step 3.1 — Add `VirtualTerminal` dependency and durable inspection types
 
 - File: `Sources/TesseraTerminalSnapshotSupport/VirtualTerminal.swift`
-- Add `VirtualTerminal` as a Point-Free Dependencies factory seam, with a Ghostty live
-  implementation and an unimplemented/test default.
+- Add `VirtualTerminal` as a Point-Free Dependencies test seam, with a Ghostty-backed
+  computed test default and unimplemented endpoint defaults.
 - Add the needed `Dependencies` target dependency only to snapshot support, not to public
   Tessera products unless already required elsewhere.
-- Add `VirtualTerminal` as the per-test session interface returned by its own
-  `make(cols:rows:)` factory, with `feed(_ bytes:)`, `feed(_ string:)`, `text(row:)`,
-  `cell(row:column:)`, `cursorPosition()`, and `snapshot()`.
+- Add `VirtualTerminal` as the per-test session interface, with `feed(_ bytes:)`,
+  `feed(_ string:)`, `text(row:)`, `cell(row:column:)`, `cursorPosition()`, and
+  `snapshot()`.
 - Add `RenderedCell`, `RenderedColor`, and `ScreenSnapshot` with the public API from the
   spec.
 - Keep Ghostty-specific symbols private/internal so renderer tests depend on the stable
@@ -173,12 +173,13 @@ the accepted spike result.
 - Completed: added the macro-free `VirtualTerminal` Point-Free Dependencies seam, durable
   per-session client interface, `RenderedCell`, `RenderedColor`, and `ScreenSnapshot` API
   shapes, and the target dependencies on `Dependencies`, `IssueReporting`, and
-  `TesseraTerminalCore`. The live factory is wired through a Ghostty entry point that Step
-  3.2 will replace with the concrete `libghostty-vt` implementation.
+  `TesseraTerminalCore`. The Ghostty test default is wired through an entry point that
+  Step 3.2 will replace with the concrete `libghostty-vt` implementation.
 
 ### Step 3.2 — Implement `VirtualTerminal` on top of Ghostty with focused harness tests
 
 - Files:
+  - `Sources/TesseraTerminalSnapshotSupport/VirtualTerminal+Live.swift`
   - `Sources/TesseraTerminalSnapshotSupport/VirtualTerminal.swift`
   - `Tests/TesseraTerminalSnapshotSupportTests/VirtualTerminalTests.swift`
 - Bridge direct `libghostty-vt` terminal/render-state APIs into Tessera's
@@ -192,6 +193,11 @@ the accepted spike result.
 - Keep any API-discovery scratch code out of committed sources.
 - Acceptance: `swift test --filter TesseraTerminalSnapshotSupportTests` passes on macOS
   and Linux.
+- Completed: implemented the `VirtualTerminal.ghostty(cols:rows:)` session factory on top
+  of `ghostty_terminal_vt_write` and render-state row/cell APIs, using per-session Ghostty
+  handles protected by `Synchronization.Mutex` and no `@unchecked Sendable`. Added focused
+  Swift Testing coverage for blank screens, text writes, cursor movement, line erasing,
+  SGR style/color inspection, and cursor inspection.
 
 ## Phase 4 — Renderer integration snapshots
 
