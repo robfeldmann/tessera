@@ -18,7 +18,20 @@ provision:
       set -euxo pipefail
       export DEBIAN_FRONTEND=noninteractive
       apt-get update
-      apt-get install -y build-essential ca-certificates curl git
+      apt-get install -y \
+        blueprint-compiler \
+        build-essential \
+        ca-certificates \
+        cmake \
+        curl \
+        gettext \
+        git \
+        libadwaita-1-dev \
+        libgtk-4-dev \
+        libxml2-utils \
+        ninja-build \
+        pkg-config \
+        xz-utils
 
   - mode: user
     script: |
@@ -40,3 +53,26 @@ provision:
 
       swiftly install "$swift_version" --use --assume-yes || swiftly use "$swift_version"
       swift --version
+
+      zig_version="0.15.2"
+      case "$arch" in
+        aarch64|arm64)
+          zig_arch="aarch64"
+          ;;
+        x86_64|amd64)
+          zig_arch="x86_64"
+          ;;
+        *)
+          echo "unsupported Zig architecture: $arch" >&2
+          exit 1
+          ;;
+      esac
+
+      mkdir -p "$HOME/.local/zig" "$HOME/.local/bin"
+      cd "$HOME/.local/zig"
+      if [[ ! -x "zig-${zig_arch}-linux-${zig_version}/zig" ]]; then
+        curl -fsSLO "https://ziglang.org/download/${zig_version}/zig-${zig_arch}-linux-${zig_version}.tar.xz"
+        tar -xf "zig-${zig_arch}-linux-${zig_version}.tar.xz"
+      fi
+      ln -sfn "$HOME/.local/zig/zig-${zig_arch}-linux-${zig_version}/zig" "$HOME/.local/bin/zig"
+      "$HOME/.local/bin/zig" version

@@ -13,3 +13,8 @@ brew "prettier"
 
 # Documentation
 brew "python@3" # required for `just docs-preview`
+
+# Ghostty Test Harness
+brew "cmake"
+brew "ninja"
+brew "zig@0.15"
