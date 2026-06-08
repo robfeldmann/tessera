@@ -1,8 +1,8 @@
 ---
 name: Phase 2 Slice 2 ANSI Encoder
 description:
-  Implement the pure semantic ANSI control-sequence encoder with golden-byte and Ghostty
-  round-trip coverage.
+  Implement the pure semantic ANSI control-sequence encoder with exact byte fixtures and
+  Ghostty round-trip coverage.
 status: in-progress
 created: 2026-06-07
 updated: 2026-06-07
@@ -13,11 +13,11 @@ updated: 2026-06-07
 - [x] **Phase 1 — Lock the public shape**
   - [x] 1.1 Add semantic encoder model types
   - [x] 1.2 Add byte-building helpers and sequence dispatcher
-  - [x] 1.3 Add test helpers for readable golden bytes and Ghostty feeds
-- [ ] **Phase 2 — Cursor, erase, text, and raw sequences**
-  - [ ] 2.1 Implement cursor-control cases
-  - [ ] 2.2 Implement erase cases
-  - [ ] 2.3 Implement literal text, bell, and raw payload cases
+  - [x] 1.3 Add test helpers for readable exact byte fixtures and Ghostty feeds
+- [x] **Phase 2 — Cursor, erase, text, and raw sequences**
+  - [x] 2.1 Implement cursor-control cases
+  - [x] 2.2 Implement erase cases
+  - [x] 2.3 Implement literal text, bell, and raw payload cases
 - [ ] **Phase 3 — SGR color and attributes**
   - [ ] 3.1 Implement `Color` and `ANSIColor` foreground/background encoding
   - [ ] 3.2 Implement attribute reset and boolean attribute cases
@@ -38,7 +38,10 @@ Phase 2 slice 2 replaces ad-hoc escape strings with a pure `ControlSequence` mod
 stay intentionally dumb: no I/O, batching, diffing, clipping, or color capability policy.
 To keep review easy, this plan builds the encoder in semantic clusters and requires each
 cluster to include both byte-level fixtures and Ghostty-backed behavioral tests before
-moving on. The renderer is only refactored after the encoder is tested in isolation.
+moving on. The renderer is only refactored after the encoder is tested in isolation. For
+every concrete encoding mapping, keep a nearby source comment naming the relevant
+standard/control family (e.g. ECMA-48 SGR, DEC private mode, OSC) and the wire form being
+emitted; this makes byte choices reviewable without re-researching terminal lore.
 
 ## Phase 1 — Lock the public shape
 
@@ -74,7 +77,7 @@ the catalog.
 - Acceptance: tests can assert `.bytes`; implementation contains no terminal writes, async
   APIs, platform checks, or state caches.
 
-### Step 1.3 — Add test helpers for readable golden bytes and Ghostty feeds
+### Step 1.3 — Add test helpers for readable exact byte fixtures and Ghostty feeds
 
 - Files: `Tests/TesseraTerminalANSITests/ANSIEncoderTests.swift`, `Package.swift`.
 - Add `TesseraTerminalSnapshotSupport` as a test-only dependency of
@@ -84,8 +87,8 @@ the catalog.
   `feed(_ sequences: [ControlSequence], into:)`.
 - Organize tests by semantic area using Swift Testing suites or sentence-style backticked
   test names.
-- Acceptance: existing placeholder test is replaced by one failing/pending golden fixture
-  that proves helpers produce readable failures.
+- Acceptance: existing placeholder test is replaced by one failing/pending exact byte
+  fixture that proves helpers produce readable failures.
 
 ## Phase 2 — Cursor, erase, text, and raw sequences
 
@@ -101,7 +104,8 @@ conversion, literal UTF-8 output, and raw escape handling without style complexi
   `cursorRestore`.
 - Encode absolute positions as 0-based Swift model → 1-based wire format (`CSI row;colH`).
   Relative moves emit exactly the requested integer; do not clamp or special-case zero.
-- Golden tests: pin every byte sequence, including `cursorPosition(0,0) == ESC [ 1 ; 1 H`.
+- Exact byte tests: pin every byte sequence, including
+  `cursorPosition(0,0) == ESC [ 1 ; 1 H`.
 - Ghostty tests: assert cursor position changes for absolute/relative moves, save/restore
   restores a prior position, and visibility sequences are accepted without corrupting
   text/cursor.
@@ -117,7 +121,7 @@ conversion, literal UTF-8 output, and raw escape handling without style complexi
 - Line mapping: `.toEnd -> CSI K`, `.toBeginning -> CSI 1K`, `.all -> CSI 2K`. Decide
   explicitly whether `.allAndScrollback` preconditions, aliases `.all`, or is made
   unrepresentable for line erase before coding.
-- Golden tests: one fixture per mode.
+- Exact byte tests: one fixture per mode.
 - Ghostty tests: set up visible text, erase from known cursor positions, assert resulting
   screen text.
 - Acceptance: ambiguity around line scrollback is resolved in code and tests; focused ANSI
@@ -130,7 +134,7 @@ conversion, literal UTF-8 output, and raw escape handling without style complexi
 - Cases: `text(String)`, `bell`, `raw(RawTerminalPayload)`.
 - `text` appends UTF-8 bytes exactly; `bell` appends `0x07`; `raw` appends payload bytes
   exactly and preserves `declaredWidth` as metadata only.
-- Golden tests: ASCII, Unicode scalar/grapheme text, bell, raw OSC-like zero-width
+- Exact byte tests: ASCII, Unicode scalar/grapheme text, bell, raw OSC-like zero-width
   payload, raw visible payload.
 - Ghostty tests: text appears, bell and zero-width raw do not move cursor unexpectedly,
   visible raw payload affects cells according to terminal bytes.
@@ -153,12 +157,15 @@ likely.
   - `.ansi(.brightBlack ... .brightWhite)` → SGR 90–97 / 100–107
   - `.indexed(n)` → SGR `38;5;n` / `48;5;n`
   - `.rgb(r,g,b)` → SGR `38;2;r;g;b` / `48;2;r;g;b`
-- Golden tests: all 16 ANSI colors for foreground and background, default, representative
-  indexed values including 0/15/255, and RGB edge values.
+- Exact byte tests: all 16 ANSI colors for foreground and background, default,
+  representative indexed values including 0/15/255, and RGB edge values.
 - Negative tests: prove `.ansi(.red)` differs from `.indexed(1)`, and `.default` differs
   from black.
 - Ghostty tests: assert representative foreground/background colors via `RenderedColor`.
-- Acceptance: focused ANSI tests pass; color policy/downsampling is absent.
+- Add source comments near the mapping helpers naming ECMA-48 SGR and documenting why
+  default, 16-color, indexed, and truecolor use different parameter ranges.
+- Acceptance: focused ANSI tests pass; color policy/downsampling is absent, and SGR byte
+  choices are documented next to the encoding code.
 
 ### Step 3.2 — Implement attribute reset and boolean attribute cases
 
@@ -168,12 +175,13 @@ likely.
   `setUnderline(Bool)`, `setReverse(Bool)`, `setStrikethrough(Bool)`.
 - Mapping: reset `0`, bold `1`/`22`, dim `2`/`22`, italic `3`/`23`, underline `4`/`24`,
   reverse `7`/`27`, strikethrough `9`/`29`.
-- Document that bold and dim share `22` for disabling intensity; diff/reapply policy
-  belongs to the renderer, not the encoder.
-- Golden tests: on/off for every attribute and reset.
+- Document in source near the mapping that bold and dim share `22` for disabling
+  intensity; diff/reapply policy belongs to the renderer, not the encoder.
+- Exact byte tests: on/off for every attribute and reset.
 - Ghostty tests: assert representative attributes apply and reset; include the bold/dim
   shared-off behavior.
-- Acceptance: focused ANSI tests pass.
+- Acceptance: focused ANSI tests pass, and each attribute mapping has nearby source
+  documentation for its SGR parameter.
 
 ### Step 3.3 — Extend virtual-terminal style inspection for dim and strikethrough
 
@@ -199,11 +207,14 @@ Ghostty can and cannot observe.
   `exitSynchronizedOutput`, `enableLineWrap(Bool)`.
 - Mapping: alt screen `CSI ? 1049 h/l`, synchronized output `CSI ? 2026 h/l`, line wrap
   `CSI ? 7 h/l`.
-- Golden tests: exact bytes for every mode.
+- Add source comments near the mode mapping naming the DEC private modes (`1049`, `2026`,
+  `7`) and what each toggles.
+- Exact byte tests: exact bytes for every mode.
 - Ghostty tests: alt screen round-trip isolates/restores visible text; line wrap
   enabled/disabled changes wrapping behavior; synchronized output is accepted without
   mutating visible state.
-- Acceptance: focused ANSI tests pass.
+- Acceptance: focused ANSI tests pass, and DEC private-mode byte choices are documented
+  next to the encoding code.
 
 ### Step 4.2 — Implement window-title OSC encoding with string termination safety
 
@@ -211,11 +222,12 @@ Ghostty can and cannot observe.
   `Tests/TesseraTerminalANSITests/ANSIEncoderTests.swift`.
 - Case: `setWindowTitle(String)`.
 - Encode as OSC 2 (or document if choosing OSC 0) using `ESC ] 2 ; <title> BEL`.
+- Add a source comment near the encoder naming OSC 2 and the chosen string terminator.
 - Add tests for ordinary UTF-8 title bytes and an embedded BEL/ESC decision. Prefer a
   deliberate sanitizer or documented precondition over accidentally allowing malformed OSC
   termination.
 - Ghostty test: feed title sequence and assert visible text/cursor are unchanged.
-- Acceptance: title encoding policy is explicit in documentation and golden tests.
+- Acceptance: title encoding policy is explicit in documentation and exact byte tests.
 
 ## Phase 5 — Integrate, demonstrate, and document
 

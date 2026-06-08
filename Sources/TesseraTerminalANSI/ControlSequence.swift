@@ -41,15 +41,84 @@ public enum ControlSequence: Equatable, Sendable {
   /// Appends the bytes for this sequence to `buffer`.
   public func encode(into buffer: inout [UInt8]) {
     switch self {
-    case .bell,
-      .cursorBack,
+    case .bell, .raw, .text:
+      self.encodePayload(into: &buffer)
+
+    case .cursorBack,
       .cursorDown,
       .cursorForward,
       .cursorPosition,
       .cursorRestore,
       .cursorSave,
       .cursorUp,
-      .cursorVisible,
+      .cursorVisible:
+      self.encodeCursor(into: &buffer)
+
+    case .eraseInDisplay, .eraseInLine:
+      self.encodeErase(into: &buffer)
+
+    case .enableLineWrap,
+      .enterAltScreen,
+      .enterSynchronizedOutput,
+      .exitAltScreen,
+      .exitSynchronizedOutput,
+      .resetAttributes,
+      .setBackground,
+      .setBold,
+      .setDim,
+      .setForeground,
+      .setItalic,
+      .setReverse,
+      .setStrikethrough,
+      .setUnderline,
+      .setWindowTitle:
+      break
+    }
+  }
+
+  /// Encodes cursor sequences using ECMA-48 cursor movement, DEC save/restore,
+  /// and DEC private mode 25 for cursor visibility.
+  private func encodeCursor(into buffer: inout [UInt8]) {
+    switch self {
+    case .cursorBack(let columns):
+      // ECMA-48 CUB: cursor backward, `CSI Ps D`.
+      ANSIByteEncoding.appendCSI("\(columns)D", into: &buffer)
+
+    case .cursorDown(let rows):
+      // ECMA-48 CUD: cursor down, `CSI Ps B`.
+      ANSIByteEncoding.appendCSI("\(rows)B", into: &buffer)
+
+    case .cursorForward(let columns):
+      // ECMA-48 CUF: cursor forward, `CSI Ps C`.
+      ANSIByteEncoding.appendCSI("\(columns)C", into: &buffer)
+
+    case .cursorPosition(let position):
+      // ECMA-48 CUP: cursor position, `CSI row;column H`, with 1-based wire
+      // coordinates.
+      ANSIByteEncoding.appendCSI(
+        "\(position.row + 1);\(position.column + 1)H",
+        into: &buffer
+      )
+
+    case .cursorRestore:
+      // DEC private DECRC: restore cursor, `ESC 8`.
+      buffer.append(ANSIByteEncoding.escape)
+      buffer.append(0x38)
+
+    case .cursorSave:
+      // DEC private DECSC: save cursor, `ESC 7`.
+      buffer.append(ANSIByteEncoding.escape)
+      buffer.append(0x37)
+
+    case .cursorUp(let rows):
+      // ECMA-48 CUU: cursor up, `CSI Ps A`.
+      ANSIByteEncoding.appendCSI("\(rows)A", into: &buffer)
+
+    case .cursorVisible(let isVisible):
+      // DEC private mode 25: show/hide cursor, `CSI ? 25 h/l`.
+      ANSIByteEncoding.appendCSI(isVisible ? "?25h" : "?25l", into: &buffer)
+
+    case .bell,
       .enableLineWrap,
       .enterAltScreen,
       .enterSynchronizedOutput,
@@ -69,6 +138,91 @@ public enum ControlSequence: Equatable, Sendable {
       .setUnderline,
       .setWindowTitle,
       .text:
+      break
+    }
+  }
+
+  /// Encodes ECMA-48 erase sequences: erase-in-display (`CSI Ps J`) and
+  /// erase-in-line (`CSI Ps K`).
+  private func encodeErase(into buffer: inout [UInt8]) {
+    switch self {
+    case .eraseInDisplay(let mode):
+      ANSIByteEncoding.appendCSI(mode.displayEraseParameter + "J", into: &buffer)
+
+    case .eraseInLine(let mode):
+      ANSIByteEncoding.appendCSI(mode.lineEraseParameter + "K", into: &buffer)
+
+    case .bell,
+      .cursorBack,
+      .cursorDown,
+      .cursorForward,
+      .cursorPosition,
+      .cursorRestore,
+      .cursorSave,
+      .cursorUp,
+      .cursorVisible,
+      .enableLineWrap,
+      .enterAltScreen,
+      .enterSynchronizedOutput,
+      .exitAltScreen,
+      .exitSynchronizedOutput,
+      .raw,
+      .resetAttributes,
+      .setBackground,
+      .setBold,
+      .setDim,
+      .setForeground,
+      .setItalic,
+      .setReverse,
+      .setStrikethrough,
+      .setUnderline,
+      .setWindowTitle,
+      .text:
+      break
+    }
+  }
+
+  /// Encodes literal payloads. Text and raw payloads are appended exactly; the
+  /// encoder does not escape, sanitize, or interpret them.
+  private func encodePayload(into buffer: inout [UInt8]) {
+    switch self {
+    case .bell:
+      // C0 BEL control character.
+      buffer.append(ANSIByteEncoding.bell)
+
+    case .raw(let payload):
+      // Raw payloads are an explicit byte-for-byte escape hatch.
+      buffer.append(contentsOf: payload.bytes)
+
+    case .text(let text):
+      // Crossterm's Print analogue: append the string's UTF-8 bytes directly.
+      buffer.append(contentsOf: text.utf8)
+
+    case .cursorBack,
+      .cursorDown,
+      .cursorForward,
+      .cursorPosition,
+      .cursorRestore,
+      .cursorSave,
+      .cursorUp,
+      .cursorVisible,
+      .enableLineWrap,
+      .enterAltScreen,
+      .enterSynchronizedOutput,
+      .eraseInDisplay,
+      .eraseInLine,
+      .exitAltScreen,
+      .exitSynchronizedOutput,
+      .resetAttributes,
+      .setBackground,
+      .setBold,
+      .setDim,
+      .setForeground,
+      .setItalic,
+      .setReverse,
+      .setStrikethrough,
+      .setUnderline,
+      .setWindowTitle:
       break
     }
   }
