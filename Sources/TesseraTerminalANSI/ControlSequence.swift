@@ -72,9 +72,11 @@ public enum ControlSequence: Equatable, Sendable {
       .enterAltScreen,
       .enterSynchronizedOutput,
       .exitAltScreen,
-      .exitSynchronizedOutput,
-      .setWindowTitle:
-      break
+      .exitSynchronizedOutput:
+      self.encodeMode(into: &buffer)
+
+    case .setWindowTitle:
+      self.encodeOSC(into: &buffer)
     }
   }
 
@@ -184,8 +186,6 @@ public enum ControlSequence: Equatable, Sendable {
     }
   }
 
-  /// Encodes literal payloads. Text and raw payloads are appended exactly; the
-  /// encoder does not escape, sanitize, or interpret them.
   /// Encodes ECMA-48 Select Graphic Rendition (`CSI Ps ... m`) sequences for
   /// color and text attributes.
   private func encodeSGR(into buffer: inout [UInt8]) {
@@ -248,6 +248,98 @@ public enum ControlSequence: Equatable, Sendable {
     }
   }
 
+  /// Encodes terminal modes using DEC private mode set/reset (`CSI ? Ps h/l`).
+  private func encodeMode(into buffer: inout [UInt8]) {
+    switch self {
+    case .enableLineWrap(let isEnabled):
+      // DEC private mode 7 (DECAWM): automatic line wrap, `CSI ? 7 h/l`.
+      ANSIByteEncoding.appendCSI(isEnabled ? "?7h" : "?7l", into: &buffer)
+
+    case .enterAltScreen:
+      // DEC private mode 1049: enter alternate screen, `CSI ? 1049 h`.
+      ANSIByteEncoding.appendCSI("?1049h", into: &buffer)
+
+    case .enterSynchronizedOutput:
+      // DEC private mode 2026: begin synchronized output, `CSI ? 2026 h`.
+      ANSIByteEncoding.appendCSI("?2026h", into: &buffer)
+
+    case .exitAltScreen:
+      // DEC private mode 1049: leave alternate screen, `CSI ? 1049 l`.
+      ANSIByteEncoding.appendCSI("?1049l", into: &buffer)
+
+    case .exitSynchronizedOutput:
+      // DEC private mode 2026: end synchronized output, `CSI ? 2026 l`.
+      ANSIByteEncoding.appendCSI("?2026l", into: &buffer)
+
+    case .bell,
+      .cursorBack,
+      .cursorDown,
+      .cursorForward,
+      .cursorPosition,
+      .cursorRestore,
+      .cursorSave,
+      .cursorUp,
+      .cursorVisible,
+      .eraseInDisplay,
+      .eraseInLine,
+      .raw,
+      .resetAttributes,
+      .setBackground,
+      .setBold,
+      .setDim,
+      .setForeground,
+      .setItalic,
+      .setReverse,
+      .setStrikethrough,
+      .setUnderline,
+      .setWindowTitle,
+      .text:
+      break
+    }
+  }
+
+  /// Encodes operating system commands.
+  private func encodeOSC(into buffer: inout [UInt8]) {
+    switch self {
+    case .setWindowTitle(let title):
+      // OSC 2 sets the window title. BEL terminates the OSC; embedded BEL and
+      // ESC are stripped so title text cannot terminate or branch the sequence.
+      ANSIByteEncoding.appendOSC("2;" + title.oscSafeTitle, into: &buffer)
+      buffer.append(ANSIByteEncoding.bell)
+
+    case .bell,
+      .cursorBack,
+      .cursorDown,
+      .cursorForward,
+      .cursorPosition,
+      .cursorRestore,
+      .cursorSave,
+      .cursorUp,
+      .cursorVisible,
+      .enableLineWrap,
+      .enterAltScreen,
+      .enterSynchronizedOutput,
+      .eraseInDisplay,
+      .eraseInLine,
+      .exitAltScreen,
+      .exitSynchronizedOutput,
+      .raw,
+      .resetAttributes,
+      .setBackground,
+      .setBold,
+      .setDim,
+      .setForeground,
+      .setItalic,
+      .setReverse,
+      .setStrikethrough,
+      .setUnderline,
+      .text:
+      break
+    }
+  }
+
+  /// Encodes literal payloads. Text and raw payloads are appended exactly; the
+  /// encoder does not escape, sanitize, or interpret them.
   private func encodePayload(into buffer: inout [UInt8]) {
     switch self {
     case .bell:
@@ -289,5 +381,17 @@ public enum ControlSequence: Equatable, Sendable {
       .setWindowTitle:
       break
     }
+  }
+}
+
+extension String {
+  /// Returns an OSC-safe title by stripping bytes that can terminate or branch an OSC.
+  fileprivate var oscSafeTitle: String {
+    String(
+      unicodeScalars.filter { scalar in
+        scalar.value != UInt32(ANSIByteEncoding.bell)
+          && scalar.value != UInt32(ANSIByteEncoding.escape)
+      }
+    )
   }
 }

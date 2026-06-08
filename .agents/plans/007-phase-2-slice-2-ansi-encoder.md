@@ -22,9 +22,9 @@ updated: 2026-06-07
   - [x] 3.1 Implement `Color` and `ANSIColor` foreground/background encoding
   - [x] 3.2 Implement attribute reset and boolean attribute cases
   - [x] 3.3 Extend virtual-terminal style inspection for dim and strikethrough
-- [ ] **Phase 4 — Modes and OSC title**
-  - [ ] 4.1 Implement alternate screen, synchronized output, and line-wrap modes
-  - [ ] 4.2 Implement window-title OSC encoding with string termination safety
+- [x] **Phase 4 — Modes and OSC title**
+  - [x] 4.1 Implement alternate screen, synchronized output, and line-wrap modes
+  - [x] 4.2 Implement window-title OSC encoding with string termination safety
 - [ ] **Phase 5 — Integrate, demonstrate, and document**
   - [ ] 5.1 Rewrite renderer skeleton to use `ControlSequence`
   - [ ] 5.2 Add an ANSI encoder example app

@@ -401,6 +401,86 @@ func `normal intensity disables bold and dim`() {
 }
 
 @Test
+func `mode sequences encode exact bytes`() {
+  expectBytes(.enterAltScreen, esc("[?1049h"))
+  expectBytes(.exitAltScreen, esc("[?1049l"))
+  expectBytes(.enterSynchronizedOutput, esc("[?2026h"))
+  expectBytes(.exitSynchronizedOutput, esc("[?2026l"))
+  expectBytes(.enableLineWrap(true), esc("[?7h"))
+  expectBytes(.enableLineWrap(false), esc("[?7l"))
+}
+
+@Test(
+  .dependencies {
+    $0.virtualTerminal = .ghostty(cols: 5, rows: 1)
+  }
+)
+func `alternate screen round trips through virtual terminal`() {
+  @Dependency(\.virtualTerminal) var terminal
+
+  feed([.text("Main"), .enterAltScreen], into: terminal)
+  #expect(terminal.text(row: 0) == "     ")
+
+  feed([.text("Alt"), .exitAltScreen], into: terminal)
+  #expect(terminal.text(row: 0) == "Main ")
+}
+
+@Test(
+  .dependencies {
+    $0.virtualTerminal = .ghostty(cols: 4, rows: 2)
+  }
+)
+func `line wrap mode round trips through virtual terminal`() {
+  @Dependency(\.virtualTerminal) var terminal
+
+  feed([.enableLineWrap(true), .text("ABCDE")], into: terminal)
+  #expect(terminal.text(row: 0) == "ABCD")
+  #expect(terminal.text(row: 1) == "E   ")
+
+  feed(
+    [.eraseInDisplay(.all), .cursorPosition(TerminalPosition(column: 0, row: 0))],
+    into: terminal
+  )
+  feed([.enableLineWrap(false), .text("ABCDE")], into: terminal)
+  #expect(terminal.text(row: 0) == "ABCE")
+  #expect(terminal.text(row: 1) == "    ")
+}
+
+@Test(
+  .dependencies {
+    $0.virtualTerminal = .ghostty(cols: 6, rows: 1)
+  }
+)
+func `synchronized output mode is accepted by virtual terminal`() {
+  @Dependency(\.virtualTerminal) var terminal
+
+  feed([.enterSynchronizedOutput, .text("Sync"), .exitSynchronizedOutput], into: terminal)
+
+  #expect(terminal.text(row: 0) == "Sync  ")
+  #expect(terminal.cursorPosition() == TerminalPosition(column: 4, row: 0))
+}
+
+@Test
+func `window title encodes exact bytes`() {
+  expectBytes(.setWindowTitle("Tessera"), esc("]2;Tessera") + [0x07])
+  expectBytes(.setWindowTitle("A\u{07}B\u{1B}C"), esc("]2;ABC") + [0x07])
+}
+
+@Test(
+  .dependencies {
+    $0.virtualTerminal = .ghostty(cols: 4, rows: 1)
+  }
+)
+func `window title is accepted without changing visible state`() {
+  @Dependency(\.virtualTerminal) var terminal
+
+  feed([.text("A"), .setWindowTitle("Tessera"), .text("B")], into: terminal)
+
+  #expect(terminal.text(row: 0) == "AB  ")
+  #expect(terminal.cursorPosition() == TerminalPosition(column: 2, row: 0))
+}
+
+@Test
 func `text bell and raw payload sequences encode exact bytes`() {
   let oscPayload = RawTerminalPayload(bytes: esc("]2;Title") + [0x07])
   let visiblePayload = RawTerminalPayload(bytes: utf8("XY"), declaredWidth: 2)
