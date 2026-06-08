@@ -3,17 +3,17 @@ name: Phase 2 Slice 2 ANSI Encoder
 description:
   Implement the pure semantic ANSI control-sequence encoder with golden-byte and Ghostty
   round-trip coverage.
-status: pending
+status: in-progress
 created: 2026-06-07
 updated: 2026-06-07
 ---
 
 ## Progress
 
-- [ ] **Phase 1 — Lock the public shape**
-  - [ ] 1.1 Add semantic encoder model types
-  - [ ] 1.2 Add byte-building helpers and sequence dispatcher
-  - [ ] 1.3 Add test helpers for readable golden bytes and Ghostty feeds
+- [x] **Phase 1 — Lock the public shape**
+  - [x] 1.1 Add semantic encoder model types
+  - [x] 1.2 Add byte-building helpers and sequence dispatcher
+  - [x] 1.3 Add test helpers for readable golden bytes and Ghostty feeds
 - [ ] **Phase 2 — Cursor, erase, text, and raw sequences**
   - [ ] 2.1 Implement cursor-control cases
   - [ ] 2.2 Implement erase cases
