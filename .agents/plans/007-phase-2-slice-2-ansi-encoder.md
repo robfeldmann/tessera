@@ -18,10 +18,10 @@ updated: 2026-06-07
   - [x] 2.1 Implement cursor-control cases
   - [x] 2.2 Implement erase cases
   - [x] 2.3 Implement literal text, bell, and raw payload cases
-- [ ] **Phase 3 — SGR color and attributes**
-  - [ ] 3.1 Implement `Color` and `ANSIColor` foreground/background encoding
-  - [ ] 3.2 Implement attribute reset and boolean attribute cases
-  - [ ] 3.3 Extend virtual-terminal style inspection for dim and strikethrough
+- [x] **Phase 3 — SGR color and attributes**
+  - [x] 3.1 Implement `Color` and `ANSIColor` foreground/background encoding
+  - [x] 3.2 Implement attribute reset and boolean attribute cases
+  - [x] 3.3 Extend virtual-terminal style inspection for dim and strikethrough
 - [ ] **Phase 4 — Modes and OSC title**
   - [ ] 4.1 Implement alternate screen, synchronized output, and line-wrap modes
   - [ ] 4.2 Implement window-title OSC encoding with string termination safety

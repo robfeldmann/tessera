@@ -274,6 +274,133 @@ func `erase display all and scrollback is accepted by virtual terminal`() {
 }
 
 @Test
+func `foreground colors encode exact bytes`() {
+  for (color, parameter) in ansiForegroundParameters() {
+    expectBytes(.setForeground(.ansi(color)), sgr(parameter))
+  }
+
+  expectBytes(.setForeground(.default), sgr(39))
+  expectBytes(.setForeground(.indexed(0)), sgr(38, 5, 0))
+  expectBytes(.setForeground(.indexed(15)), sgr(38, 5, 15))
+  expectBytes(.setForeground(.indexed(255)), sgr(38, 5, 255))
+  expectBytes(.setForeground(.rgb(0, 127, 255)), sgr(38, 2, 0, 127, 255))
+}
+
+@Test
+func `background colors encode exact bytes`() {
+  for (color, parameter) in ansiBackgroundParameters() {
+    expectBytes(.setBackground(.ansi(color)), sgr(parameter))
+  }
+
+  expectBytes(.setBackground(.default), sgr(49))
+  expectBytes(.setBackground(.indexed(0)), sgr(48, 5, 0))
+  expectBytes(.setBackground(.indexed(15)), sgr(48, 5, 15))
+  expectBytes(.setBackground(.indexed(255)), sgr(48, 5, 255))
+  expectBytes(.setBackground(.rgb(255, 127, 0)), sgr(48, 2, 255, 127, 0))
+}
+
+@Test
+func `ansi colors and indexed colors stay distinct`() {
+  expectBytes(.setForeground(.ansi(.red)), sgr(31))
+  expectBytes(.setForeground(.indexed(1)), sgr(38, 5, 1))
+  expectBytes(.setBackground(.default), sgr(49))
+  expectBytes(.setBackground(.ansi(.black)), sgr(40))
+}
+
+@Test(
+  .dependencies {
+    $0.virtualTerminal = .ghostty(cols: 3, rows: 1)
+  }
+)
+func `colors round trip through virtual terminal`() {
+  @Dependency(\.virtualTerminal) var terminal
+
+  feed(
+    [
+      .setForeground(.indexed(196)),
+      .setBackground(.rgb(1, 2, 3)),
+      .text("X"),
+    ],
+    into: terminal
+  )
+  let cell = terminal.cell(row: 0, column: 0)
+
+  #expect(cell.foreground == .indexed(196))
+  #expect(cell.background == .rgb(1, 2, 3))
+}
+
+@Test
+func `attributes encode exact bytes`() {
+  expectBytes(.resetAttributes, sgr(0))
+  expectBytes(.setBold(true), sgr(1))
+  expectBytes(.setBold(false), sgr(22))
+  expectBytes(.setDim(true), sgr(2))
+  expectBytes(.setDim(false), sgr(22))
+  expectBytes(.setItalic(true), sgr(3))
+  expectBytes(.setItalic(false), sgr(23))
+  expectBytes(.setReverse(true), sgr(7))
+  expectBytes(.setReverse(false), sgr(27))
+  expectBytes(.setStrikethrough(true), sgr(9))
+  expectBytes(.setStrikethrough(false), sgr(29))
+  expectBytes(.setUnderline(true), sgr(4))
+  expectBytes(.setUnderline(false), sgr(24))
+}
+
+@Test(
+  .dependencies {
+    $0.virtualTerminal = .ghostty(cols: 8, rows: 1)
+  }
+)
+func `attributes round trip through virtual terminal`() {
+  @Dependency(\.virtualTerminal) var terminal
+
+  feed(
+    [
+      .setBold(true),
+      .setDim(true),
+      .setItalic(true),
+      .setReverse(true),
+      .setStrikethrough(true),
+      .setUnderline(true),
+      .text("X"),
+      .resetAttributes,
+      .text("Y"),
+    ],
+    into: terminal
+  )
+  let styledCell = terminal.cell(row: 0, column: 0)
+  let resetCell = terminal.cell(row: 0, column: 1)
+
+  #expect(styledCell.bold)
+  #expect(styledCell.dim)
+  #expect(styledCell.italic)
+  #expect(styledCell.reverse)
+  #expect(styledCell.strikethrough)
+  #expect(styledCell.underline)
+  #expect(!resetCell.bold)
+  #expect(!resetCell.dim)
+  #expect(!resetCell.italic)
+  #expect(!resetCell.reverse)
+  #expect(!resetCell.strikethrough)
+  #expect(!resetCell.underline)
+}
+
+@Test(
+  .dependencies {
+    $0.virtualTerminal = .ghostty(cols: 8, rows: 1)
+  }
+)
+func `normal intensity disables bold and dim`() {
+  @Dependency(\.virtualTerminal) var terminal
+
+  feed([.setBold(true), .setDim(true), .setBold(false), .text("X")], into: terminal)
+  let cell = terminal.cell(row: 0, column: 0)
+
+  #expect(!cell.bold)
+  #expect(!cell.dim)
+}
+
+@Test
 func `text bell and raw payload sequences encode exact bytes`() {
   let oscPayload = RawTerminalPayload(bytes: esc("]2;Title") + [0x07])
   let visiblePayload = RawTerminalPayload(bytes: utf8("XY"), declaredWidth: 2)
@@ -330,6 +457,10 @@ func esc(_ suffix: String) -> [UInt8] {
   [0x1B] + utf8(suffix)
 }
 
+func sgr(_ parameters: Int...) -> [UInt8] {
+  esc("[" + parameters.map(String.init).joined(separator: ";") + "m")
+}
+
 func utf8(_ string: String) -> [UInt8] {
   Array(string.utf8)
 }
@@ -339,6 +470,46 @@ func feed(
   into terminal: VirtualTerminal
 ) {
   terminal.feed(ANSIEncoder.encode(sequences))
+}
+
+private func ansiForegroundParameters() -> [(ANSIColor, Int)] {
+  [
+    (.black, 30),
+    (.blue, 34),
+    (.brightBlack, 90),
+    (.brightBlue, 94),
+    (.brightCyan, 96),
+    (.brightGreen, 92),
+    (.brightMagenta, 95),
+    (.brightRed, 91),
+    (.brightWhite, 97),
+    (.cyan, 36),
+    (.green, 32),
+    (.magenta, 35),
+    (.red, 31),
+    (.white, 37),
+    (.yellow, 33),
+  ]
+}
+
+private func ansiBackgroundParameters() -> [(ANSIColor, Int)] {
+  [
+    (.black, 40),
+    (.blue, 44),
+    (.brightBlack, 100),
+    (.brightBlue, 104),
+    (.brightCyan, 106),
+    (.brightGreen, 102),
+    (.brightMagenta, 105),
+    (.brightRed, 101),
+    (.brightWhite, 107),
+    (.cyan, 46),
+    (.green, 42),
+    (.magenta, 45),
+    (.red, 41),
+    (.white, 47),
+    (.yellow, 43),
+  ]
 }
 
 private func hex(_ bytes: [UInt8]) -> String {

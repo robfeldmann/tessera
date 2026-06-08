@@ -57,12 +57,7 @@ public enum ControlSequence: Equatable, Sendable {
     case .eraseInDisplay, .eraseInLine:
       self.encodeErase(into: &buffer)
 
-    case .enableLineWrap,
-      .enterAltScreen,
-      .enterSynchronizedOutput,
-      .exitAltScreen,
-      .exitSynchronizedOutput,
-      .resetAttributes,
+    case .resetAttributes,
       .setBackground,
       .setBold,
       .setDim,
@@ -70,7 +65,14 @@ public enum ControlSequence: Equatable, Sendable {
       .setItalic,
       .setReverse,
       .setStrikethrough,
-      .setUnderline,
+      .setUnderline:
+      self.encodeSGR(into: &buffer)
+
+    case .enableLineWrap,
+      .enterAltScreen,
+      .enterSynchronizedOutput,
+      .exitAltScreen,
+      .exitSynchronizedOutput,
       .setWindowTitle:
       break
     }
@@ -184,6 +186,68 @@ public enum ControlSequence: Equatable, Sendable {
 
   /// Encodes literal payloads. Text and raw payloads are appended exactly; the
   /// encoder does not escape, sanitize, or interpret them.
+  /// Encodes ECMA-48 Select Graphic Rendition (`CSI Ps ... m`) sequences for
+  /// color and text attributes.
+  private func encodeSGR(into buffer: inout [UInt8]) {
+    switch self {
+    case .resetAttributes:
+      // ECMA-48 SGR 0: reset all graphic rendition attributes.
+      ANSIByteEncoding.appendSGR([0], into: &buffer)
+
+    case .setBackground(let color):
+      ANSIByteEncoding.appendSGR(color.backgroundSGRParameters, into: &buffer)
+
+    case .setBold(let isEnabled):
+      // ECMA-48 SGR 1 enables bold/intense; SGR 22 returns to normal intensity.
+      ANSIByteEncoding.appendSGR([isEnabled ? 1 : 22], into: &buffer)
+
+    case .setDim(let isEnabled):
+      // ECMA-48 SGR 2 enables faint/dim; SGR 22 returns to normal intensity.
+      // Bold and dim share the same off code, so reapply policy belongs above.
+      ANSIByteEncoding.appendSGR([isEnabled ? 2 : 22], into: &buffer)
+
+    case .setForeground(let color):
+      ANSIByteEncoding.appendSGR(color.foregroundSGRParameters, into: &buffer)
+
+    case .setItalic(let isEnabled):
+      // ECMA-48 SGR 3 enables italic; SGR 23 disables italic/fraktur.
+      ANSIByteEncoding.appendSGR([isEnabled ? 3 : 23], into: &buffer)
+
+    case .setReverse(let isEnabled):
+      // ECMA-48 SGR 7 enables inverse video; SGR 27 disables it.
+      ANSIByteEncoding.appendSGR([isEnabled ? 7 : 27], into: &buffer)
+
+    case .setStrikethrough(let isEnabled):
+      // ECMA-48 SGR 9 enables crossed-out text; SGR 29 disables it.
+      ANSIByteEncoding.appendSGR([isEnabled ? 9 : 29], into: &buffer)
+
+    case .setUnderline(let isEnabled):
+      // ECMA-48 SGR 4 enables underline; SGR 24 disables underline.
+      ANSIByteEncoding.appendSGR([isEnabled ? 4 : 24], into: &buffer)
+
+    case .bell,
+      .cursorBack,
+      .cursorDown,
+      .cursorForward,
+      .cursorPosition,
+      .cursorRestore,
+      .cursorSave,
+      .cursorUp,
+      .cursorVisible,
+      .enableLineWrap,
+      .enterAltScreen,
+      .enterSynchronizedOutput,
+      .eraseInDisplay,
+      .eraseInLine,
+      .exitAltScreen,
+      .exitSynchronizedOutput,
+      .raw,
+      .setWindowTitle,
+      .text:
+      break
+    }
+  }
+
   private func encodePayload(into buffer: inout [UInt8]) {
     switch self {
     case .bell:
