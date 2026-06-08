@@ -2,33 +2,88 @@ import TesseraTerminalCore
 
 /// A semantic terminal operation that can be encoded as ANSI/VT bytes.
 public enum ControlSequence: Equatable, Sendable {
+  /// Ring the terminal bell using the C0 BEL control character.
   case bell
+
+  /// Move the cursor backward using ECMA-48 CUB (`CSI Ps D`).
   case cursorBack(Int)
+
+  /// Move the cursor down using ECMA-48 CUD (`CSI Ps B`).
   case cursorDown(Int)
+
+  /// Move the cursor forward using ECMA-48 CUF (`CSI Ps C`).
   case cursorForward(Int)
+
+  /// Move the cursor to a zero-based position using ECMA-48 CUP (`CSI row;column H`).
   case cursorPosition(TerminalPosition)
+
+  /// Restore the cursor with DEC DECRC (`ESC 8`).
   case cursorRestore
+
+  /// Save the cursor with DEC DECSC (`ESC 7`).
   case cursorSave
+
+  /// Move the cursor up using ECMA-48 CUU (`CSI Ps A`).
   case cursorUp(Int)
+
+  /// Show or hide the cursor using DEC private mode 25 (`CSI ? 25 h/l`).
   case cursorVisible(Bool)
+
+  /// Enable or disable automatic line wrap using DEC private mode 7.
   case enableLineWrap(Bool)
+
+  /// Enter the alternate screen buffer using DEC private mode 1049.
   case enterAltScreen
+
+  /// Begin synchronized output using DEC private mode 2026.
   case enterSynchronizedOutput
+
+  /// Erase part or all of the display using ECMA-48 ED (`CSI Ps J`).
   case eraseInDisplay(EraseMode)
+
+  /// Erase part or all of the current line using ECMA-48 EL (`CSI Ps K`).
   case eraseInLine(EraseMode)
+
+  /// Leave the alternate screen buffer using DEC private mode 1049.
   case exitAltScreen
+
+  /// End synchronized output using DEC private mode 2026.
   case exitSynchronizedOutput
+
+  /// Append explicit raw bytes Tessera does not semantically model yet.
   case raw(RawTerminalPayload)
+
+  /// Reset all graphic rendition attributes using ECMA-48 SGR 0.
   case resetAttributes
+
+  /// Set the background color using ECMA-48 SGR color parameters.
   case setBackground(Color)
+
+  /// Enable or disable bold/intense text using ECMA-48 SGR 1/22.
   case setBold(Bool)
+
+  /// Enable or disable dim/faint text using ECMA-48 SGR 2/22.
   case setDim(Bool)
+
+  /// Set the foreground color using ECMA-48 SGR color parameters.
   case setForeground(Color)
+
+  /// Enable or disable italic text using ECMA-48 SGR 3/23.
   case setItalic(Bool)
+
+  /// Enable or disable inverse video using ECMA-48 SGR 7/27.
   case setReverse(Bool)
+
+  /// Enable or disable crossed-out text using ECMA-48 SGR 9/29.
   case setStrikethrough(Bool)
+
+  /// Enable or disable underline using ECMA-48 SGR 4/24.
   case setUnderline(Bool)
+
+  /// Set the terminal window title using OSC 2 terminated by BEL.
   case setWindowTitle(String)
+
+  /// Append literal UTF-8 text bytes.
   case text(String)
 
   /// The bytes for this sequence.

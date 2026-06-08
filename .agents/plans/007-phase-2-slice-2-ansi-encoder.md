@@ -3,7 +3,7 @@ name: Phase 2 Slice 2 ANSI Encoder
 description:
   Implement the pure semantic ANSI control-sequence encoder with exact byte fixtures and
   Ghostty round-trip coverage.
-status: in-progress
+status: completed
 created: 2026-06-07
 updated: 2026-06-07
 ---
@@ -25,11 +25,11 @@ updated: 2026-06-07
 - [x] **Phase 4 — Modes and OSC title**
   - [x] 4.1 Implement alternate screen, synchronized output, and line-wrap modes
   - [x] 4.2 Implement window-title OSC encoding with string termination safety
-- [ ] **Phase 5 — Integrate, demonstrate, and document**
-  - [ ] 5.1 Rewrite renderer skeleton to use `ControlSequence`
-  - [ ] 5.2 Add an ANSI encoder example app
-  - [ ] 5.3 Update DocC and inline reference comments
-  - [ ] 5.4 Run focused validation and lint
+- [x] **Phase 5 — Integrate, demonstrate, and document**
+  - [x] 5.1 Rewrite renderer skeleton to use `ControlSequence`
+  - [x] 5.2 Add an ANSI encoder example app
+  - [x] 5.3 Update DocC and inline reference comments
+  - [x] 5.4 Run focused validation and lint
 
 ## Overview
 

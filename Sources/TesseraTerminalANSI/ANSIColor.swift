@@ -9,6 +9,7 @@ public enum ANSIColor: CaseIterable, Equatable, Sendable {
   case brightMagenta
   case brightRed
   case brightWhite
+  case brightYellow
   case cyan
   case green
   case magenta
@@ -37,6 +38,8 @@ public enum ANSIColor: CaseIterable, Equatable, Sendable {
       91
     case .brightWhite:
       97
+    case .brightYellow:
+      93
     case .cyan:
       36
     case .green:
@@ -73,6 +76,8 @@ public enum ANSIColor: CaseIterable, Equatable, Sendable {
       101
     case .brightWhite:
       107
+    case .brightYellow:
+      103
     case .cyan:
       46
     case .green:

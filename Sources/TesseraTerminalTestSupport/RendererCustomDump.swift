@@ -10,8 +10,8 @@ public struct RendererCustomDump: CustomDumpStringConvertible, Sendable {
   ///
   /// ```text
   /// [home]
-  /// bytes: 1B 5B 48
-  /// text:  ␛[H
+  /// bytes: 1B 5B 31 3B 31 48
+  /// text:  ␛[1;1H
   ///
   /// [row 0]
   /// bytes: 20 20 20 0D 0A
@@ -43,9 +43,10 @@ private func semanticChunks(from bytes: [UInt8]) -> [RendererChunk] {
   var chunks: [RendererChunk] = []
   var index = bytes.startIndex
 
-  if bytes.starts(with: [0x1B, 0x5B, 0x48]) {
-    chunks.append(RendererChunk(name: "home", bytes: Array(bytes[..<3])))
-    index = 3
+  let homeSequence: [UInt8] = [0x1B, 0x5B, 0x31, 0x3B, 0x31, 0x48]
+  if bytes.starts(with: homeSequence) {
+    chunks.append(RendererChunk(name: "home", bytes: Array(bytes[..<homeSequence.count])))
+    index = homeSequence.count
   }
 
   var row = 0
