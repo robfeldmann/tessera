@@ -17,10 +17,10 @@ updated: 2026-06-09
   - [x] 2.1 Implement ordered all-or-nothing `ModeLifecycle.enter`
   - [x] 2.2 Implement over-cleaning `ModeLifecycle.exit`
   - [x] 2.3 Add rollback and virtual-terminal lifecycle tests
-- [ ] **Phase 3 — Buffered output and POSIX handles**
-  - [ ] 3.1 Introduce noncopyable `FileDescriptor` and `PlatformHandles`
-  - [ ] 3.2 Implement buffered `PlatformIO.write`/`flush`
-  - [ ] 3.3 Add buffered-write tests with syscall counting
+- [x] **Phase 3 — Buffered output and POSIX handles**
+  - [x] 3.1 Introduce noncopyable `FileDescriptor` and `PlatformHandles`
+  - [x] 3.2 Implement buffered `PlatformIO.write`/`flush`
+  - [x] 3.3 Add buffered-write tests with syscall counting
 - [ ] **Phase 4 — Async input and terminal size streams**
   - [ ] 4.1 Implement non-blocking input byte stream with `poll` and self-pipe
         cancellation

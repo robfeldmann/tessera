@@ -221,11 +221,13 @@ private actor LifecycleTestDevice {
     }
   }
 
-  private func write(_ bytes: [UInt8]) throws {
+  private func write(_ bytes: ArraySlice<UInt8>) throws -> Int {
+    let bytes = Array(bytes)
     recordedEvents.append(.flush(bytes))
     if failure == .write {
       throw Failure.write
     }
     recordedBytes.append(contentsOf: bytes)
+    return bytes.count
   }
 }

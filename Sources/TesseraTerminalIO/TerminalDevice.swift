@@ -34,8 +34,8 @@ package struct TerminalDevice: Sendable {
   /// Streams terminal-size changes.
   package var sizeChanges: @Sendable () -> AsyncStream<TerminalSize>
 
-  /// Emits pending output bytes to the terminal device.
-  package var write: @Sendable ([UInt8]) async throws -> Void
+  /// Performs one output write operation and returns the number of bytes written.
+  package var write: @Sendable (ArraySlice<UInt8>) async throws -> Int
 
   package init(
     bytes: @escaping @Sendable () -> AsyncStream<UInt8> = { AsyncStream { $0.finish() } },
@@ -47,7 +47,7 @@ package struct TerminalDevice: Sendable {
     sizeChanges: @escaping @Sendable () -> AsyncStream<TerminalSize> = {
       AsyncStream { $0.finish() }
     },
-    write: @escaping @Sendable ([UInt8]) async throws -> Void
+    write: @escaping @Sendable (ArraySlice<UInt8>) async throws -> Int
   ) {
     self.bytes = bytes
     self.enterAltScreen = enterAltScreen

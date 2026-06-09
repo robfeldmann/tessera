@@ -92,8 +92,10 @@ public actor InMemoryTerminalDevice {
     storedInputBytes
   }
 
-  private func write(_ bytes: [UInt8]) throws {
+  private func write(_ bytes: ArraySlice<UInt8>) throws -> Int {
+    let bytes = Array(bytes)
     recordedEvents.append(.flush(bytes))
     storedBytes.append(contentsOf: bytes)
+    return bytes.count
   }
 }

@@ -48,6 +48,46 @@ func `array slice write buffers bytes until flush`() async throws {
 }
 
 @Test
+func `many writes flush with one underlying write`() async throws {
+  let output = CountingOutputWriter(results: [.success(3)])
+  let io = PlatformIO(terminalDevice: await output.terminalDevice)
+
+  await io.write([0x48])
+  await io.write([0x69])
+  await io.write([0x21])
+  try await io.flush()
+
+  let writes = await output.writes
+  expectNoDifference(writes, [[0x48, 0x69, 0x21]])
+}
+
+@Test
+func `flush retries remaining bytes after partial writes`() async throws {
+  let output = CountingOutputWriter(results: [.success(1), .success(2)])
+  let io = PlatformIO(terminalDevice: await output.terminalDevice)
+
+  await io.write([0x48, 0x69, 0x21])
+  try await io.flush()
+
+  let writes = await output.writes
+  expectNoDifference(writes, [[0x48, 0x69, 0x21], [0x69, 0x21]])
+}
+
+@Test
+func `flush retries interrupted writes without dropping bytes`() async throws {
+  let output = CountingOutputWriter(
+    results: [.failure(PlatformIOError.writeInterrupted), .success(3)]
+  )
+  let io = PlatformIO(terminalDevice: await output.terminalDevice)
+
+  await io.write([0x48, 0x69, 0x21])
+  try await io.flush()
+
+  let writes = await output.writes
+  expectNoDifference(writes, [[0x48, 0x69, 0x21], [0x48, 0x69, 0x21]])
+}
+
+@Test
 func `bytes reads terminal device seam input bytes`() async {
   let terminalDevice = InMemoryTerminalDevice(inputBytes: [0x61, 0x62])
   let io = PlatformIO(terminalDevice: await terminalDevice.terminalDevice)
@@ -87,7 +127,7 @@ func `raw mode methods call terminal device seam`() async throws {
 }
 
 @Test
-func `flush propagates terminal device seam errors and preserves buffered bytes`() async {
+func `flush preserves unwritten buffered bytes after errors`() async {
   let io = PlatformIO(
     terminalDevice: TerminalDevice(
       size: { TerminalSize(columns: 1, rows: 1) },
@@ -103,5 +143,41 @@ func `flush propagates terminal device seam errors and preserves buffered bytes`
 
   await #expect(throws: PlatformIOError.writeFailed(errno: .ioError)) {
     try await io.flush()
+  }
+}
+
+private actor CountingOutputWriter {
+  private var recordedWrites: [[UInt8]] = []
+  private var results: [Result<Int, any Error>]
+
+  var terminalDevice: TerminalDevice {
+    TerminalDevice(
+      size: { TerminalSize(columns: 1, rows: 1) },
+      write: { try await self.write($0) }
+    )
+  }
+
+  var writes: [[UInt8]] {
+    recordedWrites
+  }
+
+  init(results: [Result<Int, any Error>]) {
+    self.results = results
+  }
+
+  private func write(_ bytes: ArraySlice<UInt8>) throws -> Int {
+    recordedWrites.append(Array(bytes))
+
+    guard !results.isEmpty else {
+      return bytes.count
+    }
+
+    switch results.removeFirst() {
+    case .success(let count):
+      return count
+
+    case .failure(let error):
+      throw error
+    }
   }
 }

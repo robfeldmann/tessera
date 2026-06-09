@@ -13,4 +13,7 @@ public enum PlatformIOError: Error, Equatable, Sendable {
 
   /// A stdout write failed.
   case writeFailed(errno: Errno)
+
+  /// A stdout write was interrupted before writing bytes.
+  case writeInterrupted
 }

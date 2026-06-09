@@ -22,6 +22,11 @@ package actor PlatformIO {
     self.init(terminalDevice: .live)
   }
 
+  /// Creates platform I/O from owned platform handles.
+  package init(handles: consuming PlatformHandles) throws {
+    self.init(terminalDevice: .live(handles: handles))
+  }
+
   /// Creates platform I/O from an owned package-internal terminal device seam.
   package init(terminalDevice: TerminalDevice) {
     self.terminalDevice = terminalDevice
@@ -41,17 +46,29 @@ package actor PlatformIO {
 
   /// Flushes buffered output bytes to the terminal device.
   package func flush() async throws {
-    guard !outputBuffer.isEmpty else {
-      return
-    }
-
-    let bytes = outputBuffer
-    outputBuffer.removeAll(keepingCapacity: true)
+    var offset = 0
 
     do {
-      try await terminalDevice.write(bytes)
+      while offset < outputBuffer.count {
+        let written: Int
+        do {
+          written = try await terminalDevice.write(outputBuffer[offset...])
+        } catch PlatformIOError.writeInterrupted {
+          continue
+        }
+
+        guard written > 0 else {
+          throw PlatformIOError.writeFailed(errno: .init(rawValue: 0))
+        }
+
+        offset += written
+      }
+
+      outputBuffer.removeAll(keepingCapacity: true)
     } catch {
-      outputBuffer.insert(contentsOf: bytes, at: 0)
+      if offset > 0 {
+        outputBuffer.removeFirst(offset)
+      }
       throw error
     }
   }
