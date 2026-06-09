@@ -15,8 +15,8 @@ func `rendering an empty buffer emits a full repaint`() {
   assertInlineSnapshot(of: RendererCustomDump(bytes: bytes), as: .customDump) {
     """
     [home]
-    bytes: 1B 5B 48
-    text:  ␛[H
+    bytes: 1B 5B 31 3B 31 48
+    text:  ␛[1;1H
 
     [row 0]
     bytes: 20 20 20 0D 0A
@@ -40,8 +40,8 @@ func `rendering a buffer with text emits row major cell bytes`() {
   assertInlineSnapshot(of: RendererCustomDump(bytes: bytes), as: .customDump) {
     """
     [home]
-    bytes: 1B 5B 48
-    text:  ␛[H
+    bytes: 1B 5B 31 3B 31 48
+    text:  ␛[1;1H
 
     [row 0]
     bytes: 20 48 69 20 0D 0A

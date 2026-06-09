@@ -317,9 +317,11 @@ private struct GhosttyTerminalHandles: Sendable {
       foreground: RenderedColor(style.fg_color),
       background: RenderedColor(style.bg_color),
       bold: style.bold,
+      dim: style.faint,
       italic: style.italic,
-      underline: style.underline != 0,
-      reverse: style.inverse
+      reverse: style.inverse,
+      strikethrough: style.strikethrough,
+      underline: style.underline != 0
     )
   }
 

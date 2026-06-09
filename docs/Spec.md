@@ -38,6 +38,7 @@ Use it selectively:
 
 - [Framing](#framing)
 - [How to use this spec](#how-to-use-this-spec)
+- [Terminal citizenship thesis: be composable, not a compatibility ceiling](#terminal-citizenship-thesis-be-composable-not-a-compatibility-ceiling)
 - [Ownership and isolation thesis: illegal terminal operations should be unrepresentable](#ownership-and-isolation-thesis-illegal-terminal-operations-should-be-unrepresentable)
 - [Phase 0: Foundation](#phase-0-foundation)
 - [Phase 1: The Walking Skeleton](#phase-1-the-walking-skeleton)
@@ -59,6 +60,43 @@ Use it selectively:
 - [Phase 5 — Runtime + polish](#phase-5--runtime--polish)
 - [Risk register](#risk-register)
 - [Proposed module and file layout](#proposed-module-and-file-layout)
+
+## Terminal citizenship thesis: be composable, not a compatibility ceiling
+
+Tessera is a terminal **producer**: it turns application/view intent into bytes. It is not
+an emulator, a PTY host, or a tmux-class multiplexer. The goal is therefore not “support
+every terminal standard ever emitted by arbitrary guest programs.” That is the decoder and
+screen-model problem that belongs to terminal emulators and multiplexers.
+
+Tessera's citizenship goal is narrower and more important: **never be the layer that
+needlessly strips, blocks, or hides a terminal feature.** For a producer library, that
+means four design rules:
+
+1. **Restore the terminal on every exit path.** Raw mode, alternate screen, cursor
+   visibility, mouse tracking, bracketed paste, focus events, Kitty keyboard, synchronized
+   output, and future protocol modes must have symmetric teardown owned by the session.
+2. **Expose a scoped raw-output escape hatch.** Users need a way to emit a protocol
+   Tessera does not model yet — sixel, Kitty graphics, a future OSC, vendor extensions —
+   without forking the library. This must be rendered data inside a frame, paired with
+   explicit damage-tracking policy, not a public file descriptor or arbitrary live write.
+3. **Treat capabilities as advisory and degrade gracefully.** Respect environment and user
+   policy (`NO_COLOR`, color depth, `TERM`/`COLORTERM`, nested tmux/screen, Windows VT
+   mode), observe protocols that actually respond, and let apps inspect what Tessera
+   assumed or detected. Capability uncertainty should reduce feature use, not break
+   startup.
+4. **Coexist with the surrounding terminal session.** Support alternate-screen apps and
+   future inline rendering, keep signal/suspend/resume behavior polite, avoid hidden
+   global state, and make advanced protocol enablement explicit in session/runtime policy.
+
+The escape hatch is intentionally modeled after the lesson in Ratatui's current buffer
+layer: `CellDiffOption` exists because raw ANSI/OSC payloads can affect the screen without
+matching the bytes or width of a normal grapheme. Tessera should start with a richer
+per-cell/region diff policy instead of retrofitting a boolean later.
+
+If a future Tessera sibling project hosts guest applications in panes, that project is a
+terminal emulator/multiplexer. It should embed or delegate to a real VT engine for the
+per-pane decode/screen model and keep Tessera for producer-side chrome. Do not let that
+future scope leak into Tessera's Phase 1–3 terminal producer substrate.
 
 ## Ownership and isolation thesis: illegal terminal operations should be unrepresentable
 
@@ -94,14 +132,18 @@ This thesis shows up throughout the spec:
 3. **Input is semantic and bounded.** Phase 2/3 input design preserves ordered semantic
    input, coalesces latest-value events such as resize, and bounds noisy streams such as
    mouse movement.
-4. **Views declare requirements; they do not mutate terminal modes.** Phase 4 view APIs
+4. **Raw terminal output is scoped data, not raw authority.** The producer escape hatch is
+   a `RawTerminalPayload` rendered through a borrowed frame and paired with explicit
+   diff/opaque-region policy. It must not expose file descriptors, platform handles, or a
+   way to write arbitrary bytes outside a render transaction.
+5. **Views declare requirements; they do not mutate terminal modes.** Phase 4 view APIs
    can express focus, layout/display invalidation, and terminal requirements
    declaratively. The session/runtime arbitrates and applies mode changes centrally.
-5. **Optional runtime isolation is UI-oriented, not business-state ownership.** Phase 5
+6. **Optional runtime isolation is UI-oriented, not business-state ownership.** Phase 5
    may provide an `@MainActor` runtime for event delivery, responder routing,
    invalidation, and render scheduling, but users remain free to bring TCA or any other
    state architecture.
-6. **Tests are deterministic by construction.** Test support should provide explicit input
+7. **Tests are deterministic by construction.** Test support should provide explicit input
    sources, test terminals, snapshots, stepping, bounded drains, and injected clocks
    rather than relying on `Task.yield()` or wall-clock sleeps.
 
@@ -399,12 +441,24 @@ public struct Buffer: Sendable, Equatable {
     public mutating func write(_ string: String, at position: TerminalPosition, style: Style)
 }
 
+public enum CellDiffPolicy: Sendable, Equatable {
+    case normal
+    case opaque
+    case alwaysRepaint
+}
+
 public struct Cell: Sendable, Equatable {
     public var character: Character
     public var style: Style
     public var width: Int  // 1 for now; CJK/emoji is Phase 2
+    public var diffPolicy: CellDiffPolicy
 
-    public init(character: Character, style: Style = Style(), width: Int = 1)
+    public init(
+        character: Character,
+        style: Style = Style(),
+        width: Int = 1,
+        diffPolicy: CellDiffPolicy = .normal
+    )
 }
 
 public struct Style: Sendable, Equatable {
@@ -414,8 +468,10 @@ public struct Style: Sendable, Equatable {
 ```
 
 Width handling can be naive (assume 1 column per character — broken for CJK, fine for
-"Press q to quit"). Style can be an empty struct. But the _shape_ of the type — value
-semantics, `subscript`, `write(at:)` — should be right.
+"Press q to quit"). Style can be an empty struct. `CellDiffPolicy` is inert until Phase
+2's renderer, but the public shape should exist from day one so the raw-output escape
+hatch and damage tracker do not require a later cell migration. The _shape_ of the type —
+value semantics, `subscript`, `write(at:)`, and diff policy — should be right.
 
 ### Renderer — naive, no diff
 
@@ -1018,8 +1074,10 @@ does not allocate file handles. It does not know what a `PlatformIO` is.** Bytes
 out — that's the whole interface to the rest of the system.
 
 This isolation is what makes the encoder testable against golden fixtures and what lets
-the snapshot harness exist: every byte your program emits flows through this module, so
-testing this module covers everything downstream.
+the snapshot harness exist: every normal byte your program emits flows through this
+module, so testing this module covers everything downstream. The one deliberate exception
+is `RawTerminalPayload`, which still flows through the renderer/session but carries bytes
+Tessera does not semantically understand yet.
 
 #### The shape question: enum vs. free functions vs. builder
 
@@ -1219,10 +1277,14 @@ Concrete list of cases the encoder needs for Phase 2 (informed by the layer-by-l
 - `setWindowTitle(String)` — OSC 0/2
 - `text(String)` — literal text (just appends UTF-8 bytes; included as a case so a
   `[ControlSequence]` can fully represent a frame's output)
+- `raw(RawTerminalPayload)` — explicit escape hatch for bytes Tessera does not model yet;
+  only emitted from a render transaction and always paired with diff policy in the buffer
+  or frame API
 - `bell` — 0x07, occasionally useful
 
-That's roughly 25-30 cases. Resist adding more "just in case." Phase 3 will add bracketed
-paste, focus, mouse, Kitty, OSC 8 as their own cases — that's the right time.
+That's roughly 25-30 semantic cases plus the raw escape hatch. Resist adding more "just in
+case." Phase 3 will add bracketed paste, focus, mouse, Kitty, OSC 8 as their own cases —
+that's the right time.
 
 #### The `Color` type
 
@@ -1282,10 +1344,39 @@ A few decisions baked in here worth flagging:
   256-color cube), and being explicit matters.
 - **No 256-color named constants.** If a user wants `indexed(208)`, they pass 208. Naming
   256 colors is a job for a _theme_ library, not the encoder.
-- **No down-conversion.** If the user asks for `rgb(...)` on a terminal that doesn't
-  support truecolor, the encoder still emits the truecolor sequence — and that's correct.
-  Terminal capability detection is a separate concern (Phase 5+), and even then, the
-  encoder shouldn't silently lie about what bytes it produced.
+- **No silent down-conversion inside the encoder.** If the caller asks the encoder for
+  `rgb(...)`, the encoder emits the truecolor sequence. Capability policy belongs above
+  the encoder: the renderer/session can choose an already-downsampled `Color` based on
+  `NO_COLOR`, detected color depth, or user configuration before encoding.
+
+#### Raw payload escape hatch
+
+The raw escape hatch is how Tessera avoids becoming a compatibility ceiling. It exists for
+terminal protocols Tessera has not modeled yet and for application-specific extensions:
+Kitty graphics, sixel, future OSCs, vendor DCS payloads, or experiments.
+
+```swift
+public struct RawTerminalPayload: Sendable, Equatable {
+    public let bytes: [UInt8]
+    public let declaredWidth: Int?
+
+    public init(bytes: [UInt8], declaredWidth: Int? = nil)
+}
+```
+
+Rules:
+
+- `RawTerminalPayload` is bytes, not authority. It can be encoded only as part of a render
+  transaction; it does not expose `PlatformIO`, file descriptors, or immediate writes.
+- Callers that emit raw bytes must also declare the cells or region whose display is now
+  foreign/opaque to Tessera's normal cell model. Slice 4 defines the corresponding
+  `CellDiffPolicy` and `Frame.writeRaw` behavior.
+- Prefer a first-class semantic `ControlSequence` once Tessera intentionally supports a
+  protocol. For example, OSC 8 becomes `openHyperlink`/`closeHyperlink` in Phase 3 rather
+  than staying raw forever.
+- Tests should include at least one raw payload that has zero display width (an OSC-like
+  sequence) and one that claims visible width/area, proving the diff policy rather than
+  string width drives repaint behavior.
 
 #### What the encoder does _not_ do
 
@@ -1913,21 +2004,41 @@ Building on Phase 1's minimal `Buffer`, we add width awareness at the _cell_ lev
 the buffer level.
 
 ```swift
+public enum CellDiffPolicy: Sendable, Equatable {
+    /// Normal cell: diff by equality and emit when changed.
+    case normal
+
+    /// Foreign/opaque cell: skip during ordinary diffing because something outside
+    /// Tessera's grapheme model owns this screen region.
+    case opaque
+
+    /// Emit even when equal to the previous buffer. Use to reclaim or refresh regions
+    /// that may have been affected by raw terminal payloads or external drawing.
+    case alwaysRepaint
+}
+
 public struct Cell: Sendable, Equatable {
     public enum Content: Sendable, Equatable {
         case grapheme(String)       // 1- or 2-cell-wide grapheme cluster
-        case continuation           // right half of a wide grapheme
+        case raw(RawTerminalPayload) // bytes Tessera does not semantically model
+        case continuation           // right half of a wide grapheme/raw region
         case blank                  // empty cell, no styling baggage
     }
 
     public var content: Content
     public var style: Style
+    public var diffPolicy: CellDiffPolicy
 
-    public init(content: Content = .blank, style: Style = Style())
+    public init(
+        content: Content = .blank,
+        style: Style = Style(),
+        diffPolicy: CellDiffPolicy = .normal
+    )
 
     public var width: Int {
         switch content {
         case .grapheme(let g): return g.terminalWidth  // from swift-displaywidth
+        case .raw(let payload): return payload.declaredWidth ?? 0
         case .continuation: return 0                   // not "1" — it's a phantom
         case .blank: return 1
         }
@@ -1949,9 +2060,14 @@ A few design choices worth pinning down:
   terminal's notion of "one printable unit." Storing the raw grapheme `String` (e.g.,
   `"👨‍👩‍👧"` as a 5-scalar ZWJ sequence) preserves what we got. The encoder writes whatever
   bytes UTF-8 produces.
+- **`Content.raw` is the compatibility escape hatch, not the normal path.** It anchors raw
+  bytes in the grid so the renderer can emit them at a known cursor position and pair them
+  with `diffPolicy`. First-class Tessera features should graduate to semantic content or
+  control-sequence cases.
 - **Width is computed, not stored.** Recomputing on access is cheap and avoids "what if
   `style` changes but `width` doesn't update" bugs. `swift-displaywidth` is built for this
-  and is one of the spec's load-bearing dependencies.
+  and is one of the spec's load-bearing dependencies. Raw payload width comes from an
+  explicit declaration because byte length and display width are unrelated.
 
 The buffer mutation API gets one new responsibility: maintaining the cell/continuation
 invariant.
@@ -1970,6 +2086,21 @@ public extension Buffer {
         at position: TerminalPosition,
         style: Style
     ) -> Int?
+
+    /// Anchors raw terminal bytes at `position` and marks `occupied` as foreign to normal
+    /// diffing. The anchor cell stores `.raw(payload)`; the remaining occupied cells are
+    /// `.continuation`/`.blank` with `.opaque` policy.
+    public mutating func writeRaw(
+        _ payload: RawTerminalPayload,
+        at position: TerminalPosition,
+        occupying occupied: Rect,
+        repaintPolicy: CellDiffPolicy = .alwaysRepaint
+    )
+
+    /// Marks a region as foreign without emitting bytes in this buffer. Useful when an
+    /// app-level subsystem drew an image or protocol payload through `writeRaw` and wants
+    /// Tessera to leave the covered cells alone until explicitly reclaimed.
+    public mutating func markOpaque(_ region: Rect)
 }
 ```
 
@@ -2053,6 +2184,13 @@ public struct Frame: ~Copyable, ~Escapable {
     public borrowing var size: TerminalSize { get }
     public borrowing func render<V: View>(_ view: borrowing V, in area: Rect)
     public borrowing func write(_ string: String, at position: TerminalPosition, style: Style)
+    public borrowing func writeRaw(
+        _ payload: RawTerminalPayload,
+        at position: TerminalPosition,
+        occupying occupied: Rect,
+        repaintPolicy: CellDiffPolicy = .alwaysRepaint
+    )
+    public borrowing func markOpaque(_ region: Rect)
 }
 ```
 
@@ -2069,6 +2207,11 @@ let leaked = try await session.draw { frame in frame }        // cannot return f
 try await session.draw { frame in Task { frame } }            // cannot escape frame
 struct Stored { let frame: Frame }                            // cannot store frame
 ```
+
+`writeRaw` is intentionally inside the borrowed frame capability. It lets advanced users
+emit bytes Tessera does not understand, but it preserves render serialization, teardown,
+snapshot visibility, and damage-tracking policy. It is not equivalent to exposing
+`PlatformIO.write`.
 
 Three pieces of internal state:
 
@@ -2096,16 +2239,18 @@ Row-by-row, with run coalescing. Pseudocode:
 
 ```text
 for each row r:
-    if rows are equal: skip
-    find the first column c0 where cells differ
-    find the last column c1 where cells differ
+    if rows are equal and no cells are .alwaysRepaint: skip
+    find the first column c0 where cells differ or policy forces repaint
+    find the last column c1 where cells differ or policy forces repaint
     emit cursor-position(r, c0)
     for each column c in c0...c1:
+        if cell.diffPolicy == .opaque: continue
         if cell(r, c).style != currentTerminalStyle:
             emit SGR delta to reach cell.style
             currentTerminalStyle = cell.style
-        emit text bytes for cell.content
-        (continuation cells: emit nothing — the previous grapheme already drew them)
+        emit bytes for cell.content
+        (raw cells: emit RawTerminalPayload bytes)
+        (continuation cells: emit nothing — the previous grapheme/raw payload owns them)
 ```
 
 Properties of this approach:
@@ -2114,12 +2259,17 @@ Properties of this approach:
 - **SGR is only emitted when style changes**, so a row of cells in the same style emits a
   single SGR up front and then just text.
 - **Continuation cells emit nothing** — they're not "drawn," they're consumed by the wide
-  grapheme to their left.
-- **Equal rows skip entirely.** For a screen where one row changes per frame (e.g., a
-  status line update), one row's worth of work happens; everything else is a
-  row-comparison and a skip.
+  grapheme or raw payload to their left.
+- **Opaque cells are deliberately skipped.** This is the opt-in contract that lets raw
+  protocols own a region without Tessera immediately repainting over them.
+- **Always-repaint cells pierce equality.** This lets Tessera reclaim areas touched by raw
+  protocols or external drawing even when the structural buffer value looks unchanged.
+- **Equal rows skip entirely** unless a forced-repaint policy is present. For a screen
+  where one row changes per frame (e.g., a status line update), one row's worth of work
+  happens; everything else is a row-comparison and a skip.
 
-This is roughly the algorithm Ratatui uses, and it's well-trodden territory.
+This is roughly the algorithm Ratatui uses, extended with Tessera's explicit raw-payload
+and opaque-region policy.
 
 ##### SGR delta emission
 
@@ -2176,10 +2326,10 @@ Modest byte savings, but free if you're already tracking position.
 > [!note] Ratatui References
 >
 > - Synchronized Output (DEC 2026) is not implemented in Ratatui — no
->   `enter_sync`/`exit_sync` methods exist on any backend. Tessera's unconditional
->   sync-output wrapping is a design decision without a Ratatui precedent.
+>   `enter_sync`/`exit_sync` methods exist on any backend. Tessera supporting it is a
+>   design decision without a Ratatui precedent.
 
-Every frame:
+When synchronized output is enabled by session policy, every frame is wrapped:
 
 ```text
 enter synchronized output
@@ -2187,14 +2337,19 @@ enter synchronized output
 exit synchronized output
 ```
 
-Two notes:
+Policy notes:
 
-- **Always emit it, even when no cells changed.** A "no-op" frame should still bracket
-  itself; that's how terminals with synchronized output learn "the previous frame ended."
-  Sending just `enter; exit` is a few bytes and harmless.
-- **Terminals that don't support DEC 2026 ignore the sequences.** Documented xterm
-  behavior: unknown private modes are silently ignored. No need for capability detection
-  here.
+- **Phase 2 may use an optimistic default**, because unsupported DEC private modes are
+  generally ignored by terminals that do not implement them. Keep this configurable so a
+  user can disable sync output in a problematic environment.
+- **Phase 3 capability detection can refine the default** to enabled/detected,
+  enabled/assumed, or disabled by user policy. The renderer should ask session policy
+  rather than hardcoding unconditional wrapping.
+- **If wrapping is enabled, emit it even when no cells changed.** A "no-op" frame should
+  still bracket itself; that's how terminals with synchronized output learn "the previous
+  frame ended." Sending just `enter; exit` is a few bytes and harmless.
+- **If wrapping is disabled or unavailable, rendering still works.** It may flicker more,
+  but startup and drawing must not fail because DEC 2026 is unavailable.
 
 #### Resize handling
 
@@ -2246,6 +2401,11 @@ Plus targeted unit tests:
   bytes reflect this.
 - **Invalidate test.** After `invalidateRendererState()`, next frame is a full repaint
   including erase.
+- **Raw payload tests.** A raw payload emits exactly at its anchor position; opaque cells
+  are skipped by normal diffing; always-repaint cells emit even when equal; reclaiming an
+  opaque region with normal text repaints the covered cells.
+- **Synchronized-output policy tests.** Enabled policy brackets frames; disabled policy
+  emits no DEC 2026 bytes; no-op frames bracket only when the policy says they should.
 
 Roughly 30-40 tests for slice 4, weighted toward the snapshot end. The library's
 reliability rests on these.
@@ -2278,22 +2438,25 @@ strings.
 
 #### Definition of done for slice 4
 
-1. `Cell` redesigned with `Content` enum (`grapheme`/`continuation`/`blank`) and computed
-   `width`.
+1. `Cell` redesigned with `Content` enum (`grapheme`/`raw`/`continuation`/`blank`),
+   `CellDiffPolicy`, and computed `width`.
 2. `Buffer.write(_:at:style:)` correctly handles wide graphemes, continuation cells, the
    orphan rule, and clipping at row boundaries.
-3. `swift-displaywidth` added as a dependency and used for all width queries.
-4. `Renderer` actor with scoped `draw {}` transactions, `invalidateRendererState()`,
-   internal SGR/cursor state tracking, row-by-row diff with run coalescing, and
-   synchronized output wrapping.
-5. Renderer integrates with `PlatformIO`: buffered writes per frame, one `flush` at end of
+3. `Buffer.writeRaw` and `markOpaque` correctly anchor raw payloads, mark occupied
+   regions, and allow normal content to reclaim those regions later.
+4. `swift-displaywidth` added as a dependency and used for all normal grapheme width
+   queries.
+5. `Renderer` actor with scoped `draw {}` transactions, `invalidateRendererState()`,
+   internal SGR/cursor/raw state tracking, row-by-row diff with run coalescing, and
+   policy-controlled synchronized output wrapping.
+6. Renderer integrates with `PlatformIO`: buffered writes per frame, one `flush` at end of
    frame.
-6. Phase 1 walking skeleton is updated to use the real renderer. Visible result: no more
+7. Phase 1 walking skeleton is updated to use the real renderer. Visible result: no more
    flicker; typing feels instant.
-7. ~30-40 tests covering: width handling, orphan rule, diff correctness, SGR minimization,
-   cursor optimization, synchronized-output wrapping, invalidate behavior. Mix of unit
-   tests and snapshot tests through `VirtualTerminal`.
-8. The `tessera-reset` resilience story still holds: a `kill -INT` during a render leaves
+8. ~30-40 tests covering: width handling, orphan rule, diff correctness, SGR minimization,
+   cursor optimization, raw payload/opaque-region behavior, synchronized-output policy,
+   invalidate behavior. Mix of unit tests and snapshot tests through `VirtualTerminal`.
+9. The `tessera-reset` resilience story still holds: a `kill -INT` during a render leaves
    the terminal sane (verified manually).
 
 #### What's not in this slice
@@ -2308,11 +2471,11 @@ strings.
   it for TUI apps, which rarely scroll-shift the whole screen.
 - **Reflow on resize.** The renderer just invalidates and asks for a new buffer. The view
   layer handles re-layout.
-- **Color quantization.** If a user asks for truecolor on a terminal that only supports
-  256 colors, the encoder emits truecolor anyway. Capability-aware quantization is a Phase
-  5 concern.
+- **Full capability-aware color quantization.** The encoder remains pure and will emit the
+  color it is asked to emit. Phase 3 slice 6 owns the policy seam that resolves app colors
+  through `NO_COLOR`, environment hints, and user configuration before encoding.
 
-#### Three things to flag
+#### Four things to flag
 
 1. **The `Cell.Content` design with `.continuation` as a first-class case** is the most
    architecturally consequential decision in slice 4. The alternative — storing wide
@@ -2321,13 +2484,17 @@ strings.
    means the type system forces you to handle it explicitly, which is exactly what you
    want for a tricky invariant.
 
-2. **Synchronized output unconditionally** is the right call, but worth being explicit
-   that we're not detecting terminal capability. The bet is that the cost of emitting 8
-   bytes per frame to non-supporting terminals is dwarfed by the win on supporting ones.
-   If profiling ever shows otherwise, capability detection can be added without changing
-   the renderer's design.
+2. **Synchronized output belongs behind policy, not hidden renderer behavior.** An
+   optimistic default is reasonable in Phase 2, but the renderer should ask session policy
+   whether to wrap a frame so Phase 3 capability detection and user configuration can turn
+   DEC 2026 on or off without rewriting the diff algorithm.
 
-3. **The renderer is an actor, like `PlatformIO` and `ModeLifecycle`.** Three actors in
+3. **The raw payload escape hatch must stay scoped.** If raw bytes start appearing as
+   ad-hoc strings in view code, lifecycle code, or tests, the design has failed. Raw
+   payloads are anchored in frames, paired with opaque/repaint policy, and covered by
+   virtual-terminal tests.
+
+4. **The renderer is an actor, like `PlatformIO` and `ModeLifecycle`.** Three actors in
    `TesseraTerminal` is starting to feel like a lot, and you might wonder whether they
    should be merged. I think keeping them separate is right — each has a distinct
    concurrency boundary and a distinct testability story (you can mock `PlatformIO` to
@@ -3384,9 +3551,9 @@ Mode categories for Phase 3:
    and, where appropriate, declarative dynamic requirements. High-noise modes such as
    all-motion mouse tracking require explicit application permission.
 3. **Frame/render-scoped terminal state.** Synchronized output, cursor placement, cursor
-   visibility, style state, hyperlinks, and damage-tracking state are renderer-owned.
-   Widgets may express desired cursor or style state through `Frame`, but they do not emit
-   raw mode bytes.
+   visibility, style state, hyperlinks, raw payloads, and damage-tracking state are
+   renderer-owned. Widgets may express desired cursor/style state or call
+   `Frame.writeRaw`, but they do not emit raw mode bytes directly.
 
 ### Slice 1: Bracketed paste mode
 
@@ -4484,18 +4651,33 @@ promise. Prefer a report that communicates confidence and source:
 ```swift
 public struct TerminalCapabilities: Sendable, Equatable {
     public var identity: TerminalIdentity?
+    public var color: ColorCapability
+    public var synchronizedOutput: CapabilityStatus
     public var keyboardProtocol: CapabilityStatus
     public var focusEvents: CapabilityStatus
     public var mouseTracking: CapabilityStatus
     public var hyperlinks: CapabilityStatus
+    public var nestedEnvironment: NestedTerminalEnvironment?
 
     public init(
         identity: TerminalIdentity? = nil,
+        color: ColorCapability = .unknown,
+        synchronizedOutput: CapabilityStatus = .unknown,
         keyboardProtocol: CapabilityStatus = .unknown,
         focusEvents: CapabilityStatus = .unknown,
         mouseTracking: CapabilityStatus = .unknown,
-        hyperlinks: CapabilityStatus = .unknown
+        hyperlinks: CapabilityStatus = .unknown,
+        nestedEnvironment: NestedTerminalEnvironment? = nil
     )
+}
+
+public enum ColorCapability: Sendable, Equatable {
+    case unknown
+    case noColor
+    case monochrome
+    case ansi16
+    case indexed256
+    case truecolor
 }
 
 public enum CapabilityStatus: Sendable, Equatable {
@@ -4519,6 +4701,20 @@ public enum TerminalIdentitySource: Sendable, Equatable {
     case queryResponse
     case userOverride
 }
+
+public struct NestedTerminalEnvironment: Sendable, Equatable {
+    public var kind: NestedTerminalKind
+    public var outerIdentity: TerminalIdentity?
+
+    public init(kind: NestedTerminalKind, outerIdentity: TerminalIdentity? = nil)
+}
+
+public enum NestedTerminalKind: Sendable, Equatable {
+    case tmux
+    case screen
+    case ssh
+    case other(String)
+}
 ```
 
 This is only a suggested shape. The important API decision is that detection results are
@@ -4528,12 +4724,14 @@ advisory and inspectable, not hidden global switches that make behavior mysterio
 
 Use the least invasive sources first:
 
-1. Environment variables: `TERM`, `TERM_PROGRAM`, `TERM_PROGRAM_VERSION`, `COLORTERM`,
-   `WT_SESSION`, `VTE_VERSION`, `KONSOLE_VERSION`, `TMUX`, `STY`, and similar.
+1. Environment variables: `NO_COLOR`, `TERM`, `TERM_PROGRAM`, `TERM_PROGRAM_VERSION`,
+   `COLORTERM`, `WT_SESSION`, `VTE_VERSION`, `KONSOLE_VERSION`, `TMUX`, `STY`, `SSH_TTY`,
+   and similar.
 2. Existing platform information from `PlatformIO`, especially whether VT input/output is
    active on Windows.
 3. Passive observation: if Tessera receives a Kitty keyboard report, SGR mouse event,
-   focus event, or bracketed paste markers, it knows that path is working.
+   focus event, bracketed paste markers, or other protocol-specific response, it knows
+   that path is working.
 4. Active terminal queries only if they provide value beyond the above.
 
 > [!note] Ratatui References
@@ -4587,6 +4785,12 @@ Do not let capability detection silently replace explicit protocol behavior.
 
 Suggested policy:
 
+- Colors: start from user policy first (`NO_COLOR` wins), then environment/detection.
+  Downsample app-requested colors at the renderer/style-resolution layer before calling
+  the encoder: truecolor → 256 → 16 → monochrome as needed.
+- Synchronized output: enable when detected or explicitly configured; allow an optimistic
+  default for terminals where DEC private modes are known to be harmless; always provide a
+  disable knob for nested or buggy environments.
 - Bracketed paste: enable by default unless explicitly disabled.
 - Focus events: enable by default unless explicitly disabled.
 - SGR mouse: enable according to terminal/application configuration; many apps may want
@@ -4595,11 +4799,14 @@ Suggested policy:
 - Kitty keyboard: enable by default only if the project is comfortable with the fallback
   story and cleanup behavior; otherwise gate it behind configuration until slice 6 has
   enough evidence.
-- OSC 8 hyperlinks: render when hyperlink metadata exists; unsupported terminals still
-  show visible text.
+- OSC 8 hyperlinks: render when hyperlink metadata exists unless disabled; unsupported
+  terminals still show visible text.
+- Raw payloads: never enable or disable themselves. They are app-authored bytes; Tessera's
+  job is to serialize them safely through the renderer and honor their opaque/repaint
+  policy.
 
 The exact defaults can change, but they must be documented. Users should be able to ask:
-“what did Tessera enable, and why?”
+“what did Tessera enable, what did it merely assume, and why?”
 
 #### Public configuration
 
@@ -4607,6 +4814,8 @@ If capability detection is implemented, add configuration rather than hidden beh
 
 ```swift
 public struct TerminalOptions: Sendable, Equatable {
+    public var colorPolicy: ColorPolicy
+    public var synchronizedOutput: SynchronizedOutputMode
     public var enableBracketedPaste: Bool
     public var enableFocusEvents: Bool
     public var mouseTracking: MouseTrackingMode
@@ -4615,6 +4824,8 @@ public struct TerminalOptions: Sendable, Equatable {
     public var capabilityDetection: CapabilityDetectionMode
 
     public init(
+        colorPolicy: ColorPolicy = .automatic,
+        synchronizedOutput: SynchronizedOutputMode = .automatic,
         enableBracketedPaste: Bool = true,
         enableFocusEvents: Bool = true,
         mouseTracking: MouseTrackingMode = .buttonEvents,
@@ -4622,6 +4833,21 @@ public struct TerminalOptions: Sendable, Equatable {
         hyperlinkRendering: HyperlinkRenderingMode = .enabled,
         capabilityDetection: CapabilityDetectionMode = .passive
     )
+}
+
+public enum ColorPolicy: Sendable, Equatable {
+    case automatic
+    case noColor
+    case monochrome
+    case ansi16
+    case indexed256
+    case truecolor
+}
+
+public enum SynchronizedOutputMode: Sendable, Equatable {
+    case disabled
+    case automatic
+    case enabled
 }
 
 public enum MouseTrackingMode: Sendable, Equatable {
@@ -4676,7 +4902,9 @@ force capability-query responses into `InputEvent` just because they arrive on s
 Add environment/passive detection tests for:
 
 - common terminal environment variables produce expected advisory identity hints
-- tmux/screen presence is represented without pretending to know the underlying terminal
+- `NO_COLOR`, `COLORTERM`, and `TERM` produce conservative color hints
+- tmux/screen/SSH presence is represented without pretending to know the underlying
+  terminal
 - Windows Terminal environment is recognized when relevant variables are present
 - missing environment produces `.unknown`, not failure
 
@@ -4694,6 +4922,8 @@ Add configuration tests for:
 - active detection can be disabled
 - passive-only detection performs no terminal writes
 - protocol enablement follows explicit `TerminalOptions`
+- color policy downsampling happens before encoding, not inside `ANSIEncoder`
+- synchronized output policy controls DEC 2026 wrapping
 - users can inspect what was enabled and what was merely detected/assumed
 
 #### Non-goals
@@ -4860,9 +5090,10 @@ relevant slice before changing course.
 | Risk                                                | Where it shows up                           | Mitigation                                                                                          |
 | --------------------------------------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | Terminal not restored after exit                    | Phase 2 slice 3; Phase 3 mode slices        | `ModeLifecycle`, `CleanupRegistry`, signal/ctrl handlers, and conservative over-cleanup.            |
-| Encoder API leaks raw escape strings                | Phase 2 slice 2; all Phase 3 protocol modes | Keep semantic `ControlSequence` cases and byte-level golden tests.                                  |
+| Encoder API leaks raw escape strings                | Phase 2 slice 2; all Phase 3 protocol modes | Keep semantic `ControlSequence` cases, explicit `RawTerminalPayload`, and byte-level golden tests.  |
+| Raw escape hatch corrupts damage tracking           | Phase 2 slices 2/4; future protocols        | Pair raw payloads with `CellDiffPolicy`, opaque regions, reclaim tests, and virtual-terminal tests. |
 | Width bugs corrupt rendering                        | Phase 2 slice 4                             | Use explicit cell content states, continuation cells, width tests, and snapshot tests.              |
-| Damage renderer leaves stale style state            | Phase 2 slice 4; Phase 3 OSC 8              | Treat style, hyperlink, and cursor state as renderer-owned state machines.                          |
+| Damage renderer leaves stale style state            | Phase 2 slice 4; Phase 3 OSC 8              | Treat style, hyperlink, raw payload, and cursor state as renderer-owned state machines.             |
 | Input parser swallows or mislabels bytes            | Phase 2 slice 5; Phase 3 input protocols    | Keep parser streaming, expose `.unknown(bytes:)`, and test split/partial sequences.                 |
 | ESC ambiguity makes Escape feel laggy               | Phase 2 slice 5; Phase 3 Kitty keyboard     | Put timeout policy in the input task; use Kitty keyboard as the modern escape hatch.                |
 | Bracketed paste is parsed as typed input            | Phase 3 slice 1                             | Treat paste as a parser mode that suspends normal key parsing.                                      |
@@ -4870,15 +5101,16 @@ relevant slice before changing course.
 | Kitty keyboard over-expands public API              | Phase 3 slice 4                             | Add key cases deliberately and keep legacy parsing as the compatibility baseline.                   |
 | OSC 8 enables escape injection                      | Phase 3 slice 5                             | Validate/sanitize hyperlink URI/ID fields and keep OSC bytes out of cell symbols.                   |
 | Capability detection makes startup fragile          | Phase 3 slice 6                             | Treat capabilities as advisory hints with timeouts and user-visible configuration.                  |
+| Tessera becomes a compatibility ceiling             | Cross-cutting; raw protocols                | Stay a producer, expose scoped raw payloads, and avoid mux/emulator responsibilities in core.       |
 | Windows diverges semantically                       | Phase 2 slice 6; Phase 3 protocols          | Require VT mode and keep OS differences inside `PlatformIO` and cleanup code.                       |
 | Modular targets create public API pressure          | Package layout                              | Use `package` access for cross-target internals and thin re-export targets for users.               |
 | Phase 4 view layer designs around missing substrate | Phase 4                                     | Finish terminal foundation first; keep Phase 4 provisional until its API is specified.              |
 | No interactive UI hurts motivation                  | Cross-cutting                               | Consider low-level examples like `TerminalLab`, but do not let them drive the view API prematurely. |
 
 A risk becomes urgent when implementation pressure tempts the opposite mitigation: raw
-escape strings at call sites, parser special cases without tests, hidden capability
-switches, platform-specific public events, or Phase 4 convenience APIs before the terminal
-substrate is stable.
+escape strings at call sites, raw bytes outside render transactions, parser special cases
+without tests, hidden capability switches, platform-specific public events, or Phase 4
+convenience APIs before the terminal substrate is stable.
 
 ## Proposed module and file layout
 
@@ -4976,11 +5208,13 @@ Sources/
     ControlSequence.swift
     EraseMode.swift
     Color.swift
+    RawTerminalPayload.swift
     TextAttributes.swift
 
   TesseraTerminalBuffer/        // Phase 2 buffer/style; Phase 3 hyperlinks
     Buffer.swift
     Cell.swift
+    CellDiffPolicy.swift
     CellWidth.swift
     Style.swift
     Hyperlink.swift

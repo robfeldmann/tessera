@@ -1,4 +1,6 @@
+import TesseraTerminalANSI
 import TesseraTerminalBuffer
+import TesseraTerminalCore
 
 /// Renders terminal buffers into full-repaint byte streams.
 public enum Renderer {
@@ -6,16 +8,19 @@ public enum Renderer {
   public static func render(_ buffer: Buffer) -> [UInt8] {
     var bytes: [UInt8] = []
 
-    bytes.append(contentsOf: "\u{1B}[H".utf8)
+    ControlSequence
+      .cursorPosition(TerminalPosition(column: 0, row: 0))
+      .encode(into: &bytes)
 
     for row in 0..<buffer.size.rows {
       for column in 0..<buffer.size.columns {
-        bytes.append(contentsOf: String(buffer[row, column].character).utf8)
+        ControlSequence
+          .text(String(buffer[row, column].character))
+          .encode(into: &bytes)
       }
 
       if row < buffer.size.rows - 1 {
-        bytes.append(0x0D)
-        bytes.append(0x0A)
+        ControlSequence.text("\r\n").encode(into: &bytes)
       }
     }
 
