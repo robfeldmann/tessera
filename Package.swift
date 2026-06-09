@@ -312,7 +312,6 @@ package.targets.append(contentsOf: [
   .target(
     name: "TesseraTerminalIO",
     dependencies: [
-      Dependencies,
       SystemPackage,
       TesseraTerminalANSI,
       TesseraTerminalCore,
@@ -323,8 +322,6 @@ package.targets.append(contentsOf: [
     name: "TesseraTerminalIOTests",
     dependencies: [
       CustomDump,
-      Dependencies,
-      DependenciesTestSupport,
       InlineSnapshotTesting,
       SnapshotTesting,
       SnapshotTestingCustomDump,

@@ -1,4 +1,3 @@
-import Dependencies
 import SystemPackage
 import TesseraTerminalCore
 
@@ -8,16 +7,22 @@ import TesseraTerminalCore
   import Glibc
 #endif
 
-extension TerminalDevice: DependencyKey {
-  public static var liveValue: Self {
+extension TerminalDevice {
+  package static var live: Self {
     #if os(macOS) || os(Linux)
       let mode = LiveTerminalMode()
 
       return Self(
         bytes: readStdinBytes,
-        enterAltScreen: { try writeToStdout(AlternateScreen.enter) },
+        enterAltScreen: {
+          // DEC private mode 1049: enter alternate screen, `CSI ? 1049 h`.
+          try writeToStdout(Array("\u{1B}[?1049h".utf8))
+        },
         enterRawMode: { try await mode.enterRawMode() },
-        exitAltScreen: { try writeToStdout(AlternateScreen.exit) },
+        exitAltScreen: {
+          // DEC private mode 1049: leave alternate screen, `CSI ? 1049 l`.
+          try writeToStdout(Array("\u{1B}[?1049l".utf8))
+        },
         exitRawMode: { try await mode.exitRawMode() },
         size: readTerminalSize,
         write: writeToStdout
@@ -37,11 +42,6 @@ extension TerminalDevice: DependencyKey {
 }
 
 #if os(macOS) || os(Linux)
-  private enum AlternateScreen {
-    static let enter = Array("\u{1B}[?1049h".utf8)
-    static let exit = Array("\u{1B}[?1049l".utf8)
-  }
-
   private actor LiveTerminalMode {
     private var originalTermios: termios?
 

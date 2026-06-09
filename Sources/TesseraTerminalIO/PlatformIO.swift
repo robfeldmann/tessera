@@ -1,50 +1,90 @@
-import Dependencies
 import TesseraTerminalCore
 
-/// Minimal platform terminal I/O.
-public struct PlatformIO: Sendable {
+#if os(macOS)
+  import Darwin
+#elseif os(Linux)
+  import Glibc
+#endif
+
+/// Owned platform terminal I/O.
+package actor PlatformIO {
   private let terminalDevice: TerminalDevice
+  private var outputBuffer: [UInt8] = []
 
   /// Reads raw bytes from terminal input.
-  public var bytes: AsyncStream<UInt8> {
-    terminalDevice.bytes()
+  package nonisolated let bytes: AsyncStream<UInt8>
+
+  /// Streams terminal-size changes.
+  package nonisolated let sizeChanges: AsyncStream<TerminalSize>
+
+  /// Creates platform I/O from the live terminal device.
+  package init() {
+    self.init(terminalDevice: .live)
   }
 
-  /// Reads the terminal size from the output terminal.
-  public var size: TerminalSize {
-    get async throws {
-      try await terminalDevice.size()
+  /// Creates platform I/O from an owned package-internal terminal device seam.
+  package init(terminalDevice: TerminalDevice) {
+    self.terminalDevice = terminalDevice
+    self.bytes = terminalDevice.bytes()
+    self.sizeChanges = terminalDevice.sizeChanges()
+  }
+
+  /// Buffers bytes for terminal output.
+  package func write(_ bytes: [UInt8]) {
+    outputBuffer.append(contentsOf: bytes)
+  }
+
+  /// Buffers bytes for terminal output.
+  package func write(_ bytes: ArraySlice<UInt8>) {
+    outputBuffer.append(contentsOf: bytes)
+  }
+
+  /// Flushes buffered output bytes to the terminal device.
+  package func flush() async throws {
+    guard !outputBuffer.isEmpty else {
+      return
+    }
+
+    let bytes = outputBuffer
+    outputBuffer.removeAll(keepingCapacity: true)
+
+    do {
+      try await terminalDevice.write(bytes)
+    } catch {
+      outputBuffer.insert(contentsOf: bytes, at: 0)
+      throw error
     }
   }
 
-  /// Creates platform I/O using the current terminal device dependency.
-  public init() {
-    @Dependency(\.terminalDevice) var terminalDevice
-    self.terminalDevice = terminalDevice
+  /// Reads the terminal size from the output terminal.
+  package func size() async throws -> TerminalSize {
+    try await terminalDevice.size()
   }
 
   /// Enters the terminal's alternate screen buffer.
-  public func enterAltScreen() async throws {
+  package func enableAltScreen() async throws {
     try await terminalDevice.enterAltScreen()
   }
 
   /// Enables raw input mode.
-  public func enterRawMode() async throws {
+  package func enableRawMode() async throws {
     try await terminalDevice.enterRawMode()
   }
 
   /// Leaves the terminal's alternate screen buffer.
-  public func exitAltScreen() async throws {
+  package func disableAltScreen() async throws {
     try await terminalDevice.exitAltScreen()
   }
 
   /// Restores the terminal input mode captured before entering raw mode.
-  public func exitRawMode() async throws {
+  package func disableRawMode() async throws {
     try await terminalDevice.exitRawMode()
   }
 
-  /// Writes bytes directly to stdout.
-  public func write(_ bytes: [UInt8]) async throws {
-    try await terminalDevice.write(bytes)
-  }
+  /// Returns the terminal attributes captured before raw mode, if available.
+  #if os(macOS) || os(Linux)
+    package func savedTermios() -> termios? {
+      terminalDevice.savedTermios()
+    }
+  #endif
 }

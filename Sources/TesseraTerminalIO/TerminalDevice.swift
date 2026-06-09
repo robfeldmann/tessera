@@ -1,37 +1,53 @@
-import Dependencies
 import TesseraTerminalCore
 
-/// A dependency client for the current terminal device.
-public struct TerminalDevice: Sendable {
+#if os(macOS)
+  import Darwin
+#elseif os(Linux)
+  import Glibc
+#endif
+
+/// Package-internal terminal device operations used to build owned platform I/O seams.
+package struct TerminalDevice: Sendable {
   /// Reads raw bytes from terminal input.
-  public var bytes: @Sendable () -> AsyncStream<UInt8>
+  package var bytes: @Sendable () -> AsyncStream<UInt8>
 
   /// Enters the terminal's alternate screen buffer.
-  public var enterAltScreen: @Sendable () async throws -> Void
+  package var enterAltScreen: @Sendable () async throws -> Void
 
   /// Enables raw input mode.
-  public var enterRawMode: @Sendable () async throws -> Void
+  package var enterRawMode: @Sendable () async throws -> Void
 
   /// Leaves the terminal's alternate screen buffer.
-  public var exitAltScreen: @Sendable () async throws -> Void
+  package var exitAltScreen: @Sendable () async throws -> Void
 
   /// Restores the terminal input mode captured before entering raw mode.
-  public var exitRawMode: @Sendable () async throws -> Void
+  package var exitRawMode: @Sendable () async throws -> Void
 
   /// Reads the terminal's current size.
-  public var size: @Sendable () async throws -> TerminalSize
+  package var size: @Sendable () async throws -> TerminalSize
 
-  /// Writes bytes to terminal output.
-  public var write: @Sendable ([UInt8]) async throws -> Void
+  /// Emits pending output bytes to the terminal device.
+  package var write: @Sendable ([UInt8]) async throws -> Void
 
-  public init(
+  /// Returns the saved terminal attributes captured before raw mode, if available.
+  #if os(macOS) || os(Linux)
+    package var savedTermios: @Sendable () -> termios?
+  #endif
+
+  /// Streams terminal-size changes.
+  package var sizeChanges: @Sendable () -> AsyncStream<TerminalSize>
+
+  package init(
     bytes: @escaping @Sendable () -> AsyncStream<UInt8> = { AsyncStream { $0.finish() } },
     enterAltScreen: @escaping @Sendable () async throws -> Void = {},
     enterRawMode: @escaping @Sendable () async throws -> Void = {},
     exitAltScreen: @escaping @Sendable () async throws -> Void = {},
     exitRawMode: @escaping @Sendable () async throws -> Void = {},
     size: @escaping @Sendable () async throws -> TerminalSize,
-    write: @escaping @Sendable ([UInt8]) async throws -> Void
+    write: @escaping @Sendable ([UInt8]) async throws -> Void,
+    sizeChanges: @escaping @Sendable () -> AsyncStream<TerminalSize> = {
+      AsyncStream { $0.finish() }
+    }
   ) {
     self.bytes = bytes
     self.enterAltScreen = enterAltScreen
@@ -40,22 +56,9 @@ public struct TerminalDevice: Sendable {
     self.exitRawMode = exitRawMode
     self.size = size
     self.write = write
-  }
-}
-
-extension TerminalDevice: TestDependencyKey {
-  public static var testValue: Self {
-    Self(
-      size: { TerminalSize(columns: 1, rows: 1) },
-      write: { _ in }
-    )
-  }
-}
-
-extension DependencyValues {
-  /// The current terminal device dependency.
-  public var terminalDevice: TerminalDevice {
-    get { self[TerminalDevice.self] }
-    set { self[TerminalDevice.self] = newValue }
+    #if os(macOS) || os(Linux)
+      self.savedTermios = { nil }
+    #endif
+    self.sizeChanges = sizeChanges
   }
 }

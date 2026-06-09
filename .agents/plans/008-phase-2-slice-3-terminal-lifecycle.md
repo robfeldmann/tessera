@@ -3,16 +3,16 @@ name: Phase 2 Slice 3 Terminal Lifecycle
 description:
   Add scoped terminal sessions, real POSIX platform I/O, lifecycle rollback, emergency
   cleanup, and reset tooling.
-status: pending
+status: in-progress
 created: 2026-06-07
-updated: 2026-06-07
+updated: 2026-06-09
 ---
 
 ## Progress
 
-- [ ] **Phase 1 — API shape and test seams**
-  - [ ] 1.1 Add session/configuration/lifecycle public shape
-  - [ ] 1.2 Replace dependency-client I/O tests with owned-handle test seams
+- [x] **Phase 1 — API shape and test seams**
+  - [x] 1.1 Add session/configuration/lifecycle public shape
+  - [x] 1.2 Replace dependency-client I/O tests with owned-handle test seams
 - [ ] **Phase 2 — Mode lifecycle for raw mode and alternate screen**
   - [ ] 2.1 Implement ordered all-or-nothing `ModeLifecycle.enter`
   - [ ] 2.2 Implement over-cleaning `ModeLifecycle.exit`
