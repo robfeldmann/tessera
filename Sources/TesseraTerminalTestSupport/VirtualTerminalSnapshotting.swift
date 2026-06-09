@@ -122,8 +122,14 @@ private func styleGlyph(_ cell: RenderedCell) -> Character {
   if cell.bold {
     return "B"
   }
+  if cell.dim {
+    return "D"
+  }
   if cell.italic {
     return "I"
+  }
+  if cell.strikethrough {
+    return "S"
   }
   if cell.underline {
     return "U"
@@ -143,6 +149,9 @@ private func attributesDescription(_ cell: RenderedCell) -> String {
   if cell.bold {
     attributes.append("bold")
   }
+  if cell.dim {
+    attributes.append("dim")
+  }
   if cell.italic {
     attributes.append("italic")
   }
@@ -151,6 +160,9 @@ private func attributesDescription(_ cell: RenderedCell) -> String {
   }
   if cell.reverse {
     attributes.append("reverse")
+  }
+  if cell.strikethrough {
+    attributes.append("strikethrough")
   }
 
   return attributes.isEmpty ? "default" : attributes.joined(separator: ",")

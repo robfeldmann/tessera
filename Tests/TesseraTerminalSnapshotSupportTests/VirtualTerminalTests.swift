@@ -68,14 +68,16 @@ func `erase in line clears visible cells`() {
 func `sgr style and colors are inspectable`() {
   @Dependency(\.virtualTerminal) var terminal
 
-  terminal.feed("\u{1B}[1;3;4;7;38;5;196;48;2;1;2;3mX")
+  terminal.feed("\u{1B}[1;2;3;4;7;9;38;5;196;48;2;1;2;3mX")
   let cell = terminal.cell(row: 0, column: 0)
 
   #expect(cell.character == "X")
   #expect(cell.bold)
+  #expect(cell.dim)
   #expect(cell.italic)
   #expect(cell.underline)
   #expect(cell.reverse)
+  #expect(cell.strikethrough)
   #expect(cell.foreground == RenderedColor.indexed(196))
   #expect(cell.background == RenderedColor.rgb(1, 2, 3))
 }

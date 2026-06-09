@@ -37,13 +37,28 @@ let TesseraTerminal: Target.Dependency = .product(
 
 // MARK: - 🚛 Forward Module Declarations
 
+let ANSIEncoderDemo: Target.Dependency = .byName(name: "ANSIEncoderDemo")
 let HelloTessera: Target.Dependency = .byName(name: "HelloTessera")
 
 let AllTesseraExampleTargetNames: Set<String> = [
-  "HelloTessera"
+  "ANSIEncoderDemo",
+  "HelloTessera",
 ]
 
 // MARK: - 🎯 Products & Targets
+
+// MARK: ANSIEncoderDemo
+
+package.products.append(.executable(name: "ANSIEncoderDemo", targets: ["ANSIEncoderDemo"]))
+
+package.targets.append(
+  .executableTarget(
+    name: "ANSIEncoderDemo",
+    dependencies: [
+      TesseraTerminal
+    ]
+  )
+)
 
 // MARK: HelloTessera
 
