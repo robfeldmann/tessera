@@ -327,6 +327,7 @@ package.targets.append(contentsOf: [
       SnapshotTestingCustomDump,
       SystemPackage,
       TesseraTerminalIO,
+      TesseraTerminalSnapshotSupport,
       TesseraTerminalTestSupport,
     ]
   ),

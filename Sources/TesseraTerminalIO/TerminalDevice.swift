@@ -23,19 +23,19 @@ package struct TerminalDevice: Sendable {
   /// Restores the terminal input mode captured before entering raw mode.
   package var exitRawMode: @Sendable () async throws -> Void
 
-  /// Reads the terminal's current size.
-  package var size: @Sendable () async throws -> TerminalSize
-
-  /// Emits pending output bytes to the terminal device.
-  package var write: @Sendable ([UInt8]) async throws -> Void
-
   /// Returns the saved terminal attributes captured before raw mode, if available.
   #if os(macOS) || os(Linux)
     package var savedTermios: @Sendable () -> termios?
   #endif
 
+  /// Reads the terminal's current size.
+  package var size: @Sendable () async throws -> TerminalSize
+
   /// Streams terminal-size changes.
   package var sizeChanges: @Sendable () -> AsyncStream<TerminalSize>
+
+  /// Emits pending output bytes to the terminal device.
+  package var write: @Sendable ([UInt8]) async throws -> Void
 
   package init(
     bytes: @escaping @Sendable () -> AsyncStream<UInt8> = { AsyncStream { $0.finish() } },
@@ -44,21 +44,21 @@ package struct TerminalDevice: Sendable {
     exitAltScreen: @escaping @Sendable () async throws -> Void = {},
     exitRawMode: @escaping @Sendable () async throws -> Void = {},
     size: @escaping @Sendable () async throws -> TerminalSize,
-    write: @escaping @Sendable ([UInt8]) async throws -> Void,
     sizeChanges: @escaping @Sendable () -> AsyncStream<TerminalSize> = {
       AsyncStream { $0.finish() }
-    }
+    },
+    write: @escaping @Sendable ([UInt8]) async throws -> Void
   ) {
     self.bytes = bytes
     self.enterAltScreen = enterAltScreen
     self.enterRawMode = enterRawMode
     self.exitAltScreen = exitAltScreen
     self.exitRawMode = exitRawMode
-    self.size = size
-    self.write = write
     #if os(macOS) || os(Linux)
       self.savedTermios = { nil }
     #endif
+    self.size = size
     self.sizeChanges = sizeChanges
+    self.write = write
   }
 }

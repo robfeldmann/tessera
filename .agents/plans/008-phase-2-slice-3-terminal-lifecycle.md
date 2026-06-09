@@ -13,10 +13,10 @@ updated: 2026-06-09
 - [x] **Phase 1 — API shape and test seams**
   - [x] 1.1 Add session/configuration/lifecycle public shape
   - [x] 1.2 Replace dependency-client I/O tests with owned-handle test seams
-- [ ] **Phase 2 — Mode lifecycle for raw mode and alternate screen**
-  - [ ] 2.1 Implement ordered all-or-nothing `ModeLifecycle.enter`
-  - [ ] 2.2 Implement over-cleaning `ModeLifecycle.exit`
-  - [ ] 2.3 Add rollback and virtual-terminal lifecycle tests
+- [x] **Phase 2 — Mode lifecycle for raw mode and alternate screen**
+  - [x] 2.1 Implement ordered all-or-nothing `ModeLifecycle.enter`
+  - [x] 2.2 Implement over-cleaning `ModeLifecycle.exit`
+  - [x] 2.3 Add rollback and virtual-terminal lifecycle tests
 - [ ] **Phase 3 — Buffered output and POSIX handles**
   - [ ] 3.1 Introduce noncopyable `FileDescriptor` and `PlatformHandles`
   - [ ] 3.2 Implement buffered `PlatformIO.write`/`flush`
