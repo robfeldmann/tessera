@@ -292,6 +292,26 @@ behavior.
 - Keep tests deterministic with fake descriptors/syscalls rather than real terminal state.
 - Acceptance: `swift test --filter TesseraTerminalIOTests` passes.
 
+## Confidence checklist
+
+This slice cannot prove terminal lifecycle behavior exhaustively. Use risk-driven
+coverage: automate deterministic state machines, manually verify real terminal behavior,
+and keep unsafe signal/C surfaces small enough to audit.
+
+| Area            | Automated checks                                                             | Manual checks                                       | Remaining risk                            |
+| --------------- | ---------------------------------------------------------------------------- | --------------------------------------------------- | ----------------------------------------- |
+| `ModeLifecycle` | Order, rollback, overlap errors, idempotency, cleanup-after-error            | Kill during startup/mode transitions                | Mid-syscall crash or corrupted state      |
+| Buffered writes | One-flush behavior, partial writes, EINTR retry, unwritten-byte preservation | Large-frame/demo writes                             | Real TTY quirks and backpressure          |
+| Input loop      | Byte yield, EOF, cancellation, EAGAIN/EINTR where fakeable                   | Key spam, paste, Ctrl-C, quit path                  | Race around termination/cancellation      |
+| Resize stream   | Synthetic resize notifications and query errors                              | Resize-pane/window spam in demo                     | SIGWINCH coalescing and platform variance |
+| Signal cleanup  | Registry install/clear and fake emergency entry points                       | Ctrl-C, SIGTERM, SIGHUP/closed pane where practical | SIGKILL, hard hangs, true fatal crashes   |
+
+Phase 5 should explicitly keep the C shim dependency-free and tiny. Prefer self-pipe or
+Dispatch-style graceful notification paths for signals where the process can return to
+Swift, and reserve in-handler termios/teardown writes for die-now recovery only. If a
+subprocess integration test is practical without flakiness, add it as an opt-in/manual
+fixture rather than a required CI test.
+
 ## Phase 5 — Emergency cleanup and signal/exit hooks
 
 **Goal**: Restore terminal state even when structured Swift cleanup is bypassed.
