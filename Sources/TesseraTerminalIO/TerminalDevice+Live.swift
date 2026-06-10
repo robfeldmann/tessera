@@ -37,7 +37,7 @@ extension TerminalDevice {
         try readTerminalSize(fileDescriptor: stdout)
       }
       let write: @Sendable (ArraySlice<UInt8>) throws -> Int = { bytes in
-        try POSIXSyscalls.write(fileDescriptor: stdout, bytes: bytes)
+        try writeOnce(bytes, to: stdout)
       }
 
       return Self(
@@ -129,15 +129,27 @@ extension TerminalDevice {
     )
   }
 
+  private func writeOnce(
+    _ bytes: ArraySlice<UInt8>,
+    to fileDescriptor: CInt
+  ) throws -> Int {
+    while true {
+      do {
+        return try POSIXSyscalls.write(fileDescriptor: fileDescriptor, bytes: bytes)
+      } catch PlatformIOError.writeWouldBlock {
+        try POSIXSyscalls.waitUntilWritable(fileDescriptor: fileDescriptor)
+      } catch PlatformIOError.writeInterrupted {
+        continue
+      }
+    }
+  }
+
   private func writeAll(_ bytes: [UInt8], to fileDescriptor: CInt) throws {
     var offset = 0
 
     while offset < bytes.count {
       do {
-        let written = try POSIXSyscalls.write(
-          fileDescriptor: fileDescriptor,
-          bytes: bytes[offset...]
-        )
+        let written = try writeOnce(bytes[offset...], to: fileDescriptor)
 
         guard written > 0 else {
           throw PlatformIOError.writeFailed(errno: Errno(rawValue: 0))

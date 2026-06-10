@@ -30,9 +30,47 @@ package enum POSIXSyscalls {
         throw PlatformIOError.writeInterrupted
       }
 
+      if errno == EAGAIN || errno == EWOULDBLOCK {
+        throw PlatformIOError.writeWouldBlock
+      }
+
       throw PlatformIOError.writeFailed(errno: Errno(rawValue: errno))
     }
 
     return written
+  }
+
+  /// Waits until `fileDescriptor` is writable.
+  package static func waitUntilWritable(fileDescriptor: CInt) throws {
+    while true {
+      var descriptor = pollfd(fd: fileDescriptor, events: Int16(POLLOUT), revents: 0)
+      let result = systemPoll(&descriptor, 1, -1)
+
+      if result > 0 {
+        return
+      }
+
+      if result == 0 {
+        continue
+      }
+
+      if errno == EINTR {
+        throw PlatformIOError.writeInterrupted
+      }
+
+      throw PlatformIOError.writeFailed(errno: Errno(rawValue: errno))
+    }
+  }
+
+  private static func systemPoll(
+    _ descriptors: UnsafeMutablePointer<pollfd>?,
+    _ count: nfds_t,
+    _ timeout: CInt
+  ) -> CInt {
+    #if os(macOS)
+      Darwin.poll(descriptors, count, timeout)
+    #elseif os(Linux)
+      Glibc.poll(descriptors, count, timeout)
+    #endif
   }
 }

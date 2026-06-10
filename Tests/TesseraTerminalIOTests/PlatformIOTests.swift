@@ -88,6 +88,20 @@ func `flush retries interrupted writes without dropping bytes`() async throws {
 }
 
 @Test
+func `flush retries temporarily unavailable writes without dropping bytes`() async throws {
+  let output = CountingOutputWriter(
+    results: [.failure(PlatformIOError.writeWouldBlock), .success(3)]
+  )
+  let io = PlatformIO(terminalDevice: await output.terminalDevice)
+
+  await io.write([0x48, 0x69, 0x21])
+  try await io.flush()
+
+  let writes = await output.writes
+  expectNoDifference(writes, [[0x48, 0x69, 0x21], [0x48, 0x69, 0x21]])
+}
+
+@Test
 func `bytes reads terminal device seam input bytes`() async {
   let terminalDevice = InMemoryTerminalDevice(inputBytes: [0x61, 0x62])
   let io = PlatformIO(terminalDevice: await terminalDevice.terminalDevice)

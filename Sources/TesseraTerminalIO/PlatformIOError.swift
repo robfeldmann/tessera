@@ -19,4 +19,7 @@ public enum PlatformIOError: Error, Equatable, Sendable {
 
   /// A stdout write was interrupted before writing bytes.
   case writeInterrupted
+
+  /// A non-blocking stdout write would block.
+  case writeWouldBlock
 }

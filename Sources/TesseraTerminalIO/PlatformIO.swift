@@ -55,6 +55,9 @@ package actor PlatformIO {
           written = try await terminalDevice.write(outputBuffer[offset...])
         } catch PlatformIOError.writeInterrupted {
           continue
+        } catch PlatformIOError.writeWouldBlock {
+          await Task.yield()
+          continue
         }
 
         guard written > 0 else {
