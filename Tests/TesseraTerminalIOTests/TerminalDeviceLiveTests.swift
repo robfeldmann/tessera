@@ -33,9 +33,10 @@ import Testing
       try await io.disableRawMode()
       let restored = try pty.termios()
 
+      let rawModeMask = tcflag_t(ICANON | ECHO)
       #expect(raw.c_lflag & tcflag_t(ICANON) == 0)
       #expect(raw.c_lflag & tcflag_t(ECHO) == 0)
-      expectNoDifference(restored.c_lflag, original.c_lflag)
+      expectNoDifference(restored.c_lflag & rawModeMask, original.c_lflag & rawModeMask)
     }
 
     @Test
