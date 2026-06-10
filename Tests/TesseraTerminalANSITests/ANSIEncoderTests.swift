@@ -516,6 +516,35 @@ func `text bell and raw payloads round trip through virtual terminal`() {
   #expect(terminal.cursorPosition() == TerminalPosition(column: 3, row: 0))
 }
 
+@Test
+func `encode into appends without clearing existing bytes`() {
+  var bytes = utf8("prefix")
+
+  ControlSequence.cursorForward(2).encode(into: &bytes)
+
+  expectBytes(bytes, utf8("prefix") + esc("[2C"))
+}
+
+@Test
+func `multiple sequences compose in order and preserve utf8 text`() {
+  let bytes = ANSIEncoder.encode([
+    .cursorSave,
+    .text("é"),
+    .setWindowTitle("Tessera"),
+    .cursorRestore,
+  ])
+
+  expectBytes(bytes, esc("7") + utf8("é") + esc("]2;Tessera") + [0x07] + esc("8"))
+}
+
+@Test
+func `window title strips osc terminators and uses bel terminator`() {
+  expectBytes(
+    .setWindowTitle("A\u{07}B\u{1B}C"),
+    esc("]2;ABC") + [0x07]
+  )
+}
+
 func expectBytes(
   _ sequence: ControlSequence,
   _ expected: [UInt8]

@@ -8,21 +8,58 @@ import SystemPackage
 
 /// POSIX syscall wrappers used by platform I/O.
 package enum POSIXSyscalls {
+  package struct System: Sendable {
+    package var poll: @Sendable (UnsafeMutablePointer<pollfd>?, nfds_t, CInt) -> CInt
+    package var write: @Sendable (CInt, UnsafeRawPointer?, Int) -> Int
+
+    package init(
+      poll: @escaping @Sendable (UnsafeMutablePointer<pollfd>?, nfds_t, CInt) -> CInt,
+      write: @escaping @Sendable (CInt, UnsafeRawPointer?, Int) -> Int
+    ) {
+      self.poll = poll
+      self.write = write
+    }
+  }
+
+  @TaskLocal package static var systemOverride: System?
+
+  private static var currentSystem: System {
+    systemOverride ?? liveSystem
+  }
+
+  package static let liveSystem = System(
+    poll: { descriptors, count, timeout in
+      #if os(macOS)
+        Darwin.poll(descriptors, count, timeout)
+      #elseif os(Linux)
+        Glibc.poll(descriptors, count, timeout)
+      #endif
+    },
+    write: { fileDescriptor, buffer, count in
+      #if os(macOS)
+        Darwin.write(fileDescriptor, buffer, count)
+      #elseif os(Linux)
+        Glibc.write(fileDescriptor, buffer, count)
+      #endif
+    }
+  )
+
   /// Performs one `write(2)` syscall.
   package static func write(
     fileDescriptor: CInt,
     bytes: ArraySlice<UInt8>
   ) throws -> Int {
+    guard bytes.isEmpty == false else {
+      return 0
+    }
+
+    let system = currentSystem
     let written = bytes.withUnsafeBufferPointer { buffer in
       guard let baseAddress = buffer.baseAddress else {
         return 0
       }
 
-      #if os(macOS)
-        return Darwin.write(fileDescriptor, baseAddress, bytes.count)
-      #elseif os(Linux)
-        return Glibc.write(fileDescriptor, baseAddress, bytes.count)
-      #endif
+      return system.write(fileDescriptor, baseAddress, bytes.count)
     }
 
     if written < 0 {
@@ -44,7 +81,7 @@ package enum POSIXSyscalls {
   package static func waitUntilWritable(fileDescriptor: CInt) throws {
     while true {
       var descriptor = pollfd(fd: fileDescriptor, events: Int16(POLLOUT), revents: 0)
-      let result = systemPoll(&descriptor, 1, -1)
+      let result = currentSystem.poll(&descriptor, 1, -1)
 
       if result > 0 {
         return
@@ -60,17 +97,5 @@ package enum POSIXSyscalls {
 
       throw PlatformIOError.writeFailed(errno: Errno(rawValue: errno))
     }
-  }
-
-  private static func systemPoll(
-    _ descriptors: UnsafeMutablePointer<pollfd>?,
-    _ count: nfds_t,
-    _ timeout: CInt
-  ) -> CInt {
-    #if os(macOS)
-      Darwin.poll(descriptors, count, timeout)
-    #elseif os(Linux)
-      Glibc.poll(descriptors, count, timeout)
-    #endif
   }
 }
