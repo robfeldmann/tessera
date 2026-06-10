@@ -2,8 +2,8 @@ import TesseraTerminalBuffer
 import TesseraTerminalCore
 
 /// A minimal drawing frame for a scoped terminal session.
-public struct Frame: ~Copyable {
-  private var buffer: Buffer
+public final class Frame {
+  package var buffer: Buffer
 
   /// The visible terminal size for this frame.
   public var size: TerminalSize {
@@ -15,11 +15,12 @@ public struct Frame: ~Copyable {
     self.buffer = Buffer(size: size)
   }
 
-  /// Provides mutable access to the frame buffer.
-  public borrowing func withBuffer<R>(
-    _ body: (inout Buffer) throws -> sending R
-  ) throws -> sending R {
-    var buffer = self.buffer
-    return try body(&buffer)
+  /// Writes text into the frame buffer.
+  public func write(
+    _ string: String,
+    at position: TerminalPosition,
+    style: Style = Style()
+  ) {
+    buffer.write(string, at: position, style: style)
   }
 }

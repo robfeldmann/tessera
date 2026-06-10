@@ -30,10 +30,10 @@ updated: 2026-06-09
   - [x] 5.1 Add signal-safe cleanup registry
   - [x] 5.2 Install SIGINT/SIGTERM/SIGHUP/SIGQUIT handlers and `atexit`
   - [x] 5.3 Document manual signal verification in `CONTRIBUTING.md`
-- [ ] **Phase 6 — Scoped `TerminalSession` integration**
-  - [ ] 6.1 Implement `TerminalSession.withApplicationTerminal(configuration:)`
-  - [ ] 6.2 Route drawing and event reads through owned `PlatformIO`
-  - [ ] 6.3 Rewrite walking skeleton callers/tests to use `TerminalSession`
+- [x] **Phase 6 — Scoped `TerminalSession` integration**
+  - [x] 6.1 Implement `TerminalSession.withApplicationTerminal(configuration:)`
+  - [x] 6.2 Route drawing and event reads through owned `PlatformIO`
+  - [x] 6.3 Rewrite walking skeleton callers/tests to use `TerminalSession`
 - [ ] **Phase 7 — Recovery docs, demo, and validation**
   - [ ] 7.1 Document terminal recovery fallback
   - [ ] 7.2 Add a small runnable session demo in `Examples/`

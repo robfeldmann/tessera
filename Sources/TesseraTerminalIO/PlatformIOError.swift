@@ -2,6 +2,9 @@ import SystemPackage
 
 /// Errors thrown by platform terminal I/O operations.
 public enum PlatformIOError: Error, Equatable, Sendable {
+  /// Terminal input closed before an event was available.
+  case inputClosed
+
   /// Raw mode could not be enabled or restored.
   case rawModeFailed(errno: Errno)
 

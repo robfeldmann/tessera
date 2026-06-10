@@ -221,7 +221,7 @@ package.targets.append(contentsOf: [
 
 package.products.append(.library(name: "TesseraTerminal", targets: ["TesseraTerminal"]))
 
-package.targets.append(
+package.targets.append(contentsOf: [
   .target(
     name: "TesseraTerminal",
     dependencies: [
@@ -232,8 +232,17 @@ package.targets.append(
       TesseraTerminalIO,
       TesseraTerminalRendering,
     ]
-  )
-)
+  ),
+  .testTarget(
+    name: "TesseraTerminalTests",
+    dependencies: [
+      CustomDump,
+      TesseraTerminal,
+      TesseraTerminalIO,
+      TesseraTerminalTestSupport,
+    ]
+  ),
+])
 
 // MARK: TesseraTerminalANSI
 

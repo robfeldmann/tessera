@@ -1,6 +1,7 @@
 import TesseraTerminalCore
 import TesseraTerminalIO
 import TesseraTerminalInput
+import TesseraTerminalRendering
 
 /// A scoped live-terminal capability for Tessera applications.
 public actor TerminalSession {
@@ -15,21 +16,56 @@ public actor TerminalSession {
     configuration: TerminalApplicationConfiguration,
     _ body: (isolated TerminalSession) async throws -> sending R
   ) async throws -> sending R {
-    _ = configuration
-    throw PlatformIOError.unsupportedPlatform
+    let io = try PlatformIO(handles: PlatformHandles.standard())
+    return try await withApplicationTerminal(configuration: configuration, io: io, body)
   }
 
-  /// Draws one frame. Phase 6 wires this to buffered platform output.
+  /// Runs `body` inside a scoped terminal session using package-supplied I/O.
+  package static func withApplicationTerminal<R>(
+    configuration: TerminalApplicationConfiguration,
+    io: PlatformIO,
+    _ body: (isolated TerminalSession) async throws -> sending R
+  ) async throws -> sending R {
+    let lifecycle = ModeLifecycle(io: io)
+    try await lifecycle.enter(configuration.modes)
+
+    let session = TerminalSession(io: io)
+    do {
+      let result = try await body(session)
+      try await lifecycle.exit()
+      return result
+    } catch {
+      do {
+        try await lifecycle.exit()
+      } catch {
+        // Preserve the application body's error. Cleanup failures are surfaced when the
+        // body succeeds; when the body fails, emergency cleanup remains installed until
+        // the best-effort exit attempt clears it.
+      }
+      throw error
+    }
+  }
+
+  /// Draws one frame and flushes it to terminal output.
   public func draw<R>(
     _ body: (borrowing Frame) throws -> sending R
   ) async throws -> sending R {
     let size = try await io.size()
     let frame = Frame(size: size)
-    return try body(frame)
+    let result = try body(frame)
+    await io.write(Renderer.render(frame.buffer))
+    try await io.flush()
+    return result
   }
 
-  /// Reads the next parsed input event. Phase 6 wires this to session input.
+  /// Reads the next parsed input event.
   public func nextEvent() async throws -> InputEvent {
-    throw PlatformIOError.unsupportedPlatform
+    for await byte in io.bytes {
+      if let event = InputParser.parse(byte) {
+        return event
+      }
+    }
+
+    throw PlatformIOError.inputClosed
   }
 }
