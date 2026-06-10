@@ -1,4 +1,3 @@
-import Dependencies
 import SystemPackage
 import TesseraTerminalCore
 
@@ -8,114 +7,117 @@ import TesseraTerminalCore
   import Glibc
 #endif
 
-extension TerminalDevice: DependencyKey {
-  public static var liveValue: Self {
+extension TerminalDevice {
+  package static var live: Self {
     #if os(macOS) || os(Linux)
-      let mode = LiveTerminalMode()
-
-      return Self(
-        bytes: readStdinBytes,
-        enterAltScreen: { try writeToStdout(AlternateScreen.enter) },
-        enterRawMode: { try await mode.enterRawMode() },
-        exitAltScreen: { try writeToStdout(AlternateScreen.exit) },
-        exitRawMode: { try await mode.exitRawMode() },
-        size: readTerminalSize,
-        write: writeToStdout
-      )
+      return live(handles: PlatformHandles.standardUnchecked)
     #else
-      return Self(
-        bytes: { AsyncStream { $0.finish() } },
-        enterAltScreen: { throw PlatformIOError.unsupportedPlatform },
-        enterRawMode: { throw PlatformIOError.unsupportedPlatform },
-        exitAltScreen: { throw PlatformIOError.unsupportedPlatform },
-        exitRawMode: { throw PlatformIOError.unsupportedPlatform },
-        size: { throw PlatformIOError.unsupportedPlatform },
-        write: { _ in throw PlatformIOError.unsupportedPlatform }
-      )
+      return unsupported
     #endif
   }
+
+  private static var unsupported: Self {
+    Self(
+      bytes: { AsyncStream { $0.finish() } },
+      enterAltScreen: { throw PlatformIOError.unsupportedPlatform },
+      enterRawMode: { throw PlatformIOError.unsupportedPlatform },
+      exitAltScreen: { throw PlatformIOError.unsupportedPlatform },
+      exitRawMode: { throw PlatformIOError.unsupportedPlatform },
+      size: { throw PlatformIOError.unsupportedPlatform },
+      write: { _ in throw PlatformIOError.unsupportedPlatform }
+    )
+  }
+
+  package static func live(handles: consuming PlatformHandles) -> Self {
+    #if os(macOS) || os(Linux)
+      let mode = LiveTerminalMode()
+      let stdin = handles.stdin.rawValue
+      let stdout = handles.stdout.rawValue
+      let size: @Sendable () throws -> TerminalSize = {
+        try readTerminalSize(fileDescriptor: stdout)
+      }
+      let write: @Sendable (ArraySlice<UInt8>) throws -> Int = { bytes in
+        try writeOnce(bytes, to: stdout)
+      }
+
+      return Self(
+        bytes: { POSIXInputLoop.bytes(fileDescriptor: stdin) },
+        enterAltScreen: {
+          // DEC private mode 1049: enter alternate screen, `CSI ? 1049 h`.
+          try writeAll(Array("\u{1B}[?1049h".utf8), to: stdout)
+        },
+        enterRawMode: { try await mode.enterRawMode(fileDescriptor: stdin) },
+        exitAltScreen: {
+          // DEC private mode 1049: leave alternate screen, `CSI ? 1049 l`.
+          try writeAll(Array("\u{1B}[?1049l".utf8), to: stdout)
+        },
+        exitRawMode: { try await mode.exitRawMode(fileDescriptor: stdin) },
+        inputFileDescriptor: stdin,
+        outputFileDescriptor: stdout,
+        size: size,
+        sizeChanges: { TerminalResizeRegistry.sizeChanges { try size() } },
+        write: write
+      ).withSavedTermios { await mode.savedTermios() }
+    #else
+      return unsupported
+    #endif
+  }
+
+  #if os(macOS) || os(Linux)
+    private func withSavedTermios(
+      _ savedTermios: @escaping @Sendable () async -> termios?
+    ) -> Self {
+      var copy = self
+      copy.savedTermios = savedTermios
+      return copy
+    }
+  #endif
 }
 
 #if os(macOS) || os(Linux)
-  private enum AlternateScreen {
-    static let enter = Array("\u{1B}[?1049h".utf8)
-    static let exit = Array("\u{1B}[?1049l".utf8)
-  }
-
   private actor LiveTerminalMode {
     private var originalTermios: termios?
 
-    func enterRawMode() throws {
+    func enterRawMode(fileDescriptor: CInt) throws {
       if originalTermios != nil {
         return
       }
 
       var original = termios()
-      guard tcgetattr(STDIN_FILENO, &original) == 0 else {
+      guard tcgetattr(fileDescriptor, &original) == 0 else {
         throw PlatformIOError.rawModeFailed(errno: Errno(rawValue: errno))
       }
 
       var raw = original
       raw.c_lflag &= ~tcflag_t(ICANON | ECHO)
 
-      guard tcsetattr(STDIN_FILENO, TCSANOW, &raw) == 0 else {
+      guard tcsetattr(fileDescriptor, TCSANOW, &raw) == 0 else {
         throw PlatformIOError.rawModeFailed(errno: Errno(rawValue: errno))
       }
 
       originalTermios = original
     }
 
-    func exitRawMode() throws {
+    func exitRawMode(fileDescriptor: CInt) throws {
       guard var originalTermios else {
         return
       }
 
-      guard tcsetattr(STDIN_FILENO, TCSANOW, &originalTermios) == 0 else {
+      guard tcsetattr(fileDescriptor, TCSANOW, &originalTermios) == 0 else {
         throw PlatformIOError.rawModeFailed(errno: Errno(rawValue: errno))
       }
 
       self.originalTermios = nil
     }
-  }
 
-  private func readStdinBytes() -> AsyncStream<UInt8> {
-    AsyncStream { continuation in
-      // This bridges blocking `read(2)` into AsyncStream. Start the task concurrently so
-      // the blocking syscall cannot inherit and pin a caller's actor (for example, the
-      // main actor). Phase 2 replaces this with poll/nonblocking input handling.
-      let task = Task { @concurrent in
-        var byte: UInt8 = 0
-
-        while !Task.isCancelled {
-          let readCount = withUnsafeMutableBytes(of: &byte) { buffer in
-            guard let baseAddress = buffer.baseAddress else {
-              return 0
-            }
-
-            return systemRead(STDIN_FILENO, baseAddress, 1)
-          }
-
-          if readCount == 1 {
-            continuation.yield(byte)
-          } else if readCount == 0 {
-            continuation.finish()
-            break
-          } else if errno == EINTR {
-            continue
-          } else {
-            continuation.finish()
-            break
-          }
-        }
-      }
-
-      continuation.onTermination = { _ in task.cancel() }
+    func savedTermios() -> termios? {
+      originalTermios
     }
   }
 
-  private func readTerminalSize() throws -> TerminalSize {
+  private func readTerminalSize(fileDescriptor: CInt) throws -> TerminalSize {
     var windowSize = winsize()
-    let result = ioctl(STDOUT_FILENO, UInt(TIOCGWINSZ), &windowSize)
+    let result = ioctl(fileDescriptor, UInt(TIOCGWINSZ), &windowSize)
 
     guard result != -1, windowSize.ws_col > 0, windowSize.ws_row > 0 else {
       throw PlatformIOError.terminalSizeUnavailable(errno: Errno(rawValue: errno))
@@ -127,59 +129,47 @@ extension TerminalDevice: DependencyKey {
     )
   }
 
-  private func writeToStdout(_ bytes: [UInt8]) throws {
-    var offset = 0
-
-    while offset < bytes.count {
-      let written = bytes.withUnsafeBytes { buffer in
-        guard let baseAddress = buffer.baseAddress else {
-          return 0
-        }
-
-        return systemWrite(
-          STDOUT_FILENO,
-          baseAddress.advanced(by: offset),
-          bytes.count - offset
-        )
+  private func writeOnce(
+    _ bytes: ArraySlice<UInt8>,
+    to fileDescriptor: CInt
+  ) throws -> Int {
+    while true {
+      do {
+        return try POSIXSyscalls.write(fileDescriptor: fileDescriptor, bytes: bytes)
+      } catch PlatformIOError.writeWouldBlock {
+        try POSIXSyscalls.waitUntilWritable(fileDescriptor: fileDescriptor)
+      } catch PlatformIOError.writeInterrupted {
+        continue
       }
-
-      if written < 0 {
-        if errno == EINTR {
-          continue
-        }
-
-        throw PlatformIOError.writeFailed(errno: Errno(rawValue: errno))
-      }
-
-      guard written > 0 else {
-        throw PlatformIOError.writeFailed(errno: Errno(rawValue: 0))
-      }
-
-      offset += written
     }
   }
 
-  private func systemRead(
-    _ fileDescriptor: Int32,
-    _ buffer: UnsafeMutableRawPointer,
-    _ count: Int
-  ) -> Int {
-    #if os(macOS)
-      Darwin.read(fileDescriptor, buffer, count)
-    #elseif os(Linux)
-      Glibc.read(fileDescriptor, buffer, count)
-    #endif
-  }
+  private func writeAll(_ bytes: [UInt8], to fileDescriptor: CInt) throws {
+    var offset = 0
 
-  private func systemWrite(
-    _ fileDescriptor: Int32,
-    _ buffer: UnsafeRawPointer,
-    _ count: Int
-  ) -> Int {
-    #if os(macOS)
-      Darwin.write(fileDescriptor, buffer, count)
-    #elseif os(Linux)
-      Glibc.write(fileDescriptor, buffer, count)
-    #endif
+    while offset < bytes.count {
+      do {
+        let written = try writeOnce(bytes[offset...], to: fileDescriptor)
+
+        guard written > 0 else {
+          throw PlatformIOError.writeFailed(errno: Errno(rawValue: 0))
+        }
+
+        offset += written
+      } catch PlatformIOError.writeInterrupted {
+        continue
+      }
+    }
+  }
+#endif
+
+#if os(macOS) || os(Linux)
+  extension PlatformHandles {
+    fileprivate static var standardUnchecked: Self {
+      Self(
+        stdin: FileDescriptor(rawValue: STDIN_FILENO),
+        stdout: FileDescriptor(rawValue: STDOUT_FILENO)
+      )
+    }
   }
 #endif

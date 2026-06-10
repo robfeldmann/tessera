@@ -40,6 +40,7 @@ changed_files=("${unique_files[@]}")
 
 swift_files=()
 markdown_files=()
+docc_files=()
 
 for file in "${changed_files[@]}"; do
   [[ -f "$file" ]] || continue
@@ -50,6 +51,10 @@ for file in "${changed_files[@]}"; do
 
   if [[ "$file" == *.md ]]; then
     markdown_files+=("$file")
+  fi
+
+  if [[ "$file" =~ ^Sources/.+\.docc/ ]]; then
+    docc_files+=("$file")
   fi
 done
 
@@ -72,6 +77,11 @@ if [[ ${#markdown_files[@]} -gt 0 ]]; then
   else
     echo "⚠️  pnpx not found — skip markdownlint check"
   fi
+fi
+
+if [[ ${#docc_files[@]} -gt 0 ]]; then
+  echo "▶ Validating DocC documentation"
+  just lint-docs
 fi
 
 echo "✅ Changed-file lint passed"

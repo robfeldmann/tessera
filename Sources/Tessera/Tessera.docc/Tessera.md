@@ -28,7 +28,6 @@ foundation and view-layer modules intended for app authors.
 - ``/TesseraTerminalBuffer``
 - ``/TesseraTerminalInput``
 - ``/TesseraTerminalIO``
-- ``/TesseraTerminalIO/PlatformIO``
 - ``/TesseraTerminalRendering``
 - ``/TesseraTerminalSnapshotSupport``
 - ``/TesseraTerminalTestSupport``

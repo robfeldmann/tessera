@@ -14,9 +14,12 @@ public enum InMemoryTerminalDeviceEvent: Equatable, Sendable {
 
   /// The terminal restored its previous input mode.
   case exitRawMode
+
+  /// The terminal flushed bytes to output.
+  case flush([UInt8])
 }
 
-/// An in-memory terminal device for dependency-controlled tests.
+/// An in-memory terminal device for deterministic terminal I/O tests.
 public actor InMemoryTerminalDevice {
   private var recordedEvents: [InMemoryTerminalDeviceEvent] = []
   private var storedBytes: [UInt8] = []
@@ -33,8 +36,8 @@ public actor InMemoryTerminalDevice {
     recordedEvents
   }
 
-  /// A terminal device dependency backed by this actor's in-memory state.
-  public var terminalDevice: TerminalDevice {
+  /// A terminal device seam backed by this actor's in-memory state.
+  package var terminalDevice: TerminalDevice {
     TerminalDevice(
       bytes: {
         AsyncStream { continuation in
@@ -54,7 +57,7 @@ public actor InMemoryTerminalDevice {
       exitAltScreen: { await self.exitAltScreen() },
       exitRawMode: { await self.exitRawMode() },
       size: { await self.storedSize },
-      write: { await self.write($0) }
+      write: { try await self.write($0) }
     )
   }
 
@@ -89,7 +92,10 @@ public actor InMemoryTerminalDevice {
     storedInputBytes
   }
 
-  private func write(_ bytes: [UInt8]) {
+  private func write(_ bytes: ArraySlice<UInt8>) throws -> Int {
+    let bytes = Array(bytes)
+    recordedEvents.append(.flush(bytes))
     storedBytes.append(contentsOf: bytes)
+    return bytes.count
   }
 }

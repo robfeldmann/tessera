@@ -38,11 +38,15 @@ let TesseraTerminal: Target.Dependency = .product(
 // MARK: - 🚛 Forward Module Declarations
 
 let ANSIEncoderDemo: Target.Dependency = .byName(name: "ANSIEncoderDemo")
+let ExampleSupport: Target.Dependency = .byName(name: "ExampleSupport")
 let HelloTessera: Target.Dependency = .byName(name: "HelloTessera")
+let LifecycleModesDemo: Target.Dependency = .byName(name: "LifecycleModesDemo")
 
 let AllTesseraExampleTargetNames: Set<String> = [
   "ANSIEncoderDemo",
+  "ExampleSupport",
   "HelloTessera",
+  "LifecycleModesDemo",
 ]
 
 // MARK: - 🎯 Products & Targets
@@ -60,6 +64,12 @@ package.targets.append(
   )
 )
 
+// MARK: ExampleSupport
+
+package.targets.append(
+  .target(name: "ExampleSupport")
+)
+
 // MARK: HelloTessera
 
 package.products.append(.executable(name: "HelloTessera", targets: ["HelloTessera"]))
@@ -68,7 +78,24 @@ package.targets.append(
   .executableTarget(
     name: "HelloTessera",
     dependencies: [
-      TesseraTerminal
+      ExampleSupport,
+      TesseraTerminal,
+    ]
+  )
+)
+
+// MARK: LifecycleModesDemo
+
+package.products.append(
+  .executable(name: "LifecycleModesDemo", targets: ["LifecycleModesDemo"])
+)
+
+package.targets.append(
+  .executableTarget(
+    name: "LifecycleModesDemo",
+    dependencies: [
+      ExampleSupport,
+      TesseraTerminal,
     ]
   )
 )

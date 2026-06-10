@@ -1,0 +1,23 @@
+{
+  "configurations": [
+    {
+      "id": "00000000-0000-0000-0000-000000000001",
+      "name": "Default",
+      "options": {}
+    }
+  ],
+  "defaultOptions": {
+    "codeCoverage": false
+  },
+  "testTargets": [
+    {
+      "parallelizable": true,
+      "target": {
+        "containerPath": "container:",
+        "identifier": "TesseraCoreTests",
+        "name": "TesseraCoreTests"
+      }
+    }
+  ],
+  "version": 1
+}

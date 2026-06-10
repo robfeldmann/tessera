@@ -2,6 +2,7 @@
 
 // swift-format-ignore-file: AlwaysUseLowerCamelCase
 
+import Foundation
 import PackageDescription
 
 // MARK: - 📦 Manifest
@@ -130,6 +131,9 @@ let SystemPackage: Target.Dependency = .product(
 // MARK: - 🚛 Forward Module Declarations
 
 let CGhosttyVT: Target.Dependency = .byName(name: "CGhosttyVT")
+let CTesseraTerminalPlatform: Target.Dependency = .byName(
+  name: "CTesseraTerminalPlatform"
+)
 let Tessera: Target.Dependency = .byName(name: "Tessera")
 let TesseraCore: Target.Dependency = .byName(name: "TesseraCore")
 let TesseraTerminal: Target.Dependency = .byName(name: "TesseraTerminal")
@@ -174,6 +178,16 @@ package.targets.append(
   )
 )
 
+// MARK: CTesseraTerminalPlatform
+
+package.targets.append(
+  .target(
+    name: "CTesseraTerminalPlatform",
+    path: "Sources/CTesseraTerminalPlatform",
+    publicHeadersPath: "include"
+  )
+)
+
 // MARK: Tessera
 
 package.products.append(.library(name: "Tessera", targets: ["Tessera"]))
@@ -208,7 +222,7 @@ package.targets.append(contentsOf: [
 
 package.products.append(.library(name: "TesseraTerminal", targets: ["TesseraTerminal"]))
 
-package.targets.append(
+package.targets.append(contentsOf: [
   .target(
     name: "TesseraTerminal",
     dependencies: [
@@ -219,8 +233,17 @@ package.targets.append(
       TesseraTerminalIO,
       TesseraTerminalRendering,
     ]
-  )
-)
+  ),
+  .testTarget(
+    name: "TesseraTerminalTests",
+    dependencies: [
+      CustomDump,
+      TesseraTerminal,
+      TesseraTerminalIO,
+      TesseraTerminalTestSupport,
+    ]
+  ),
+])
 
 // MARK: TesseraTerminalANSI
 
@@ -235,6 +258,7 @@ package.targets.append(contentsOf: [
     name: "TesseraTerminalANSITests",
     dependencies: [
       CustomDump,
+      DependenciesTestSupport,
       InlineSnapshotTesting,
       SnapshotTesting,
       SnapshotTestingCustomDump,
@@ -312,7 +336,7 @@ package.targets.append(contentsOf: [
   .target(
     name: "TesseraTerminalIO",
     dependencies: [
-      Dependencies,
+      CTesseraTerminalPlatform,
       SystemPackage,
       TesseraTerminalANSI,
       TesseraTerminalCore,
@@ -323,13 +347,12 @@ package.targets.append(contentsOf: [
     name: "TesseraTerminalIOTests",
     dependencies: [
       CustomDump,
-      Dependencies,
-      DependenciesTestSupport,
       InlineSnapshotTesting,
       SnapshotTesting,
       SnapshotTestingCustomDump,
       SystemPackage,
       TesseraTerminalIO,
+      TesseraTerminalSnapshotSupport,
       TesseraTerminalTestSupport,
     ]
   ),
@@ -404,7 +427,8 @@ package.targets.append(
 
 // MARK: - 👻 Ghostty VT Build Output
 
-let GhosttyVTInstallPath = ".build/libghostty-vt/current"
+let PackageDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().path
+let GhosttyVTInstallPath = "\(PackageDirectory)/.build/libghostty-vt/current"
 let GhosttyVTIncludePath = "\(GhosttyVTInstallPath)/include"
 let GhosttyVTLibraryPath = "\(GhosttyVTInstallPath)/lib"
 let GhosttyVTUnsafeLinkerFlags = [
