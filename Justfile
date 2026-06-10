@@ -18,10 +18,10 @@ build-libghostty-vt:
     scripts/build-libghostty-vt.sh
 
 test: build-libghostty-vt
-    swift test
+    swift test --no-parallel
 
 test-coverage: build-libghostty-vt
-    swift test --enable-code-coverage
+    swift test --no-parallel --enable-code-coverage
 
 coverage-summary:
     scripts/coverage-summary.py $(swift test --show-codecov-path)
@@ -161,7 +161,7 @@ ci: ci-build-test
 
 ci-build-test: build-libghostty-vt
     swift build
-    swift test
+    swift test --no-parallel
 
 ci-lint: lint
 
