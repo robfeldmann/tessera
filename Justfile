@@ -84,10 +84,23 @@ linux-vm-delete:
     limactl delete tessera-linux
 
 test-linux-vm:
-    @if ! command -v limactl &> /dev/null; then \
+    @set -euo pipefail; \
+    if ! command -v limactl &> /dev/null; then \
         echo "⚠️  limactl not found — run 'brew bundle install'"; \
         exit 1; \
-    fi
+    fi; \
+    status="$(limactl list --json | python3 -c 'import json, sys; print(next((json.loads(line)["status"] for line in sys.stdin if json.loads(line)["name"] == "tessera-linux"), ""))')"; \
+    started_vm=0; \
+    if [[ "$status" != "Running" ]]; then \
+        limactl --yes start --name=tessera-linux --mount-only "$PWD:w" --param ProjectDir="$PWD" scripts/config/lima/tessera-linux.yaml; \
+        started_vm=1; \
+    fi; \
+    cleanup() { \
+        if [[ "$started_vm" == "1" ]]; then \
+            limactl stop tessera-linux; \
+        fi; \
+    }; \
+    trap cleanup EXIT; \
     limactl shell tessera-linux -- bash -lc "source ~/.local/share/swiftly/env.sh && export PATH=~/.local/bin:\$PATH && cd '$PWD' && scripts/build-libghostty-vt.sh && swift test --jobs 2"
 
 # ── Formatting ───────────────────────────────────────────────────────────────
