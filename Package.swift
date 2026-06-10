@@ -2,6 +2,7 @@
 
 // swift-format-ignore-file: AlwaysUseLowerCamelCase
 
+import Foundation
 import PackageDescription
 
 // MARK: - 📦 Manifest
@@ -257,6 +258,7 @@ package.targets.append(contentsOf: [
     name: "TesseraTerminalANSITests",
     dependencies: [
       CustomDump,
+      DependenciesTestSupport,
       InlineSnapshotTesting,
       SnapshotTesting,
       SnapshotTestingCustomDump,
@@ -425,7 +427,8 @@ package.targets.append(
 
 // MARK: - 👻 Ghostty VT Build Output
 
-let GhosttyVTInstallPath = ".build/libghostty-vt/current"
+let PackageDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().path
+let GhosttyVTInstallPath = "\(PackageDirectory)/.build/libghostty-vt/current"
 let GhosttyVTIncludePath = "\(GhosttyVTInstallPath)/include"
 let GhosttyVTLibraryPath = "\(GhosttyVTInstallPath)/lib"
 let GhosttyVTUnsafeLinkerFlags = [
