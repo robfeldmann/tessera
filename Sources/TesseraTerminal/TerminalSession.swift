@@ -7,8 +7,12 @@ import TesseraTerminalRendering
 public actor TerminalSession {
   private let io: PlatformIO
 
+  /// Terminal-size notifications for the live session.
+  nonisolated public let sizeChanges: AsyncStream<TerminalSize>
+
   package init(io: PlatformIO) {
     self.io = io
+    self.sizeChanges = io.sizeChanges
   }
 
   /// Runs `body` inside a scoped application terminal session.

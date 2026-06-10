@@ -61,6 +61,22 @@ import TesseraTerminal
 // Your code here
 ```
 
+## Terminal recovery
+
+Tessera applications install in-process cleanup handlers for normal exits, thrown errors,
+and supported termination signals. If a development build ever leaves your terminal in a
+bad state, type this even if input is not visible, then press Enter:
+
+```sh
+reset
+```
+
+If that does not restore normal input echo, try:
+
+```sh
+stty sane
+```
+
 ## Documentation
 
 Full documentation will be available soon.

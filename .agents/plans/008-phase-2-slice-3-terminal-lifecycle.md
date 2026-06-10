@@ -3,7 +3,7 @@ name: Phase 2 Slice 3 Terminal Lifecycle
 description:
   Add scoped terminal sessions, real POSIX platform I/O, lifecycle rollback, emergency
   cleanup, and reset tooling.
-status: in-progress
+status: completed
 created: 2026-06-07
 updated: 2026-06-09
 ---
@@ -34,10 +34,10 @@ updated: 2026-06-09
   - [x] 6.1 Implement `TerminalSession.withApplicationTerminal(configuration:)`
   - [x] 6.2 Route drawing and event reads through owned `PlatformIO`
   - [x] 6.3 Rewrite walking skeleton callers/tests to use `TerminalSession`
-- [ ] **Phase 7 — Recovery docs, demo, and validation**
-  - [ ] 7.1 Document terminal recovery fallback
-  - [ ] 7.2 Add a small runnable session demo in `Examples/`
-  - [ ] 7.3 Run focused validation, markdown lint, and `just lint-changed`
+- [x] **Phase 7 — Recovery docs, demo, and validation**
+  - [x] 7.1 Document terminal recovery fallback
+  - [x] 7.2 Add a small runnable session demo in `Examples/`
+  - [x] 7.3 Run focused validation, markdown lint, and `just lint-changed`
 
 ## Review process
 

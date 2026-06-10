@@ -128,12 +128,13 @@ signals.
 
 ```fish
 # Pane 1
-swift run <TesseraLifecycleFixture>
+cd Examples
+swift run LifecycleModesDemo
 ```
 
 ```fish
 # Pane 2: find and terminate the fixture
-pgrep -fl TesseraLifecycleFixture
+pgrep -fl LifecycleModesDemo
 kill -TERM <pid>
 ```
 
