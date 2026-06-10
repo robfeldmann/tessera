@@ -98,6 +98,14 @@ void tessera_cleanup_perform_and_reraise(int signal_number) {
   raise(signal_number);
 }
 
+int tessera_cleanup_has_saved_termios_for_testing(void) {
+  struct tessera_cleanup_state *state = atomic_load(&current_state);
+  if (state == NULL) {
+    return 0;
+  }
+  return state->has_saved_termios;
+}
+
 static void tessera_cleanup_signal_handler(int signal_number) {
   tessera_cleanup_perform_and_reraise(signal_number);
 }

@@ -35,6 +35,22 @@ import Testing
     }
 
     @Test
+    func `cleanup registry stores saved termios when installed`() async throws {
+      var saved = termios()
+      saved.c_lflag = tcflag_t(ICANON | ECHO)
+      defer { CleanupRegistry.clear() }
+
+      CleanupRegistry.install(
+        inputFileDescriptor: -1,
+        outputFileDescriptor: -1,
+        teardownBytes: [],
+        savedTermios: saved
+      )
+
+      #expect(CleanupRegistry.hasSavedTermiosForTesting())
+    }
+
+    @Test
     func `cleanup registry clear removes installed teardown bytes`() async throws {
       let pipe = try FileDescriptorPipe()
       defer {

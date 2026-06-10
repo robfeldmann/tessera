@@ -68,4 +68,9 @@ package enum CleanupRegistry {
   package static func performEmergencyCleanupForTesting() {
     tessera_cleanup_perform()
   }
+
+  /// Returns whether the C cleanup shim currently stores saved terminal attributes.
+  package static func hasSavedTermiosForTesting() -> Bool {
+    tessera_cleanup_has_saved_termios_for_testing() != 0
+  }
 }

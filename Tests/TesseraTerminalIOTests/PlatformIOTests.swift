@@ -160,6 +160,58 @@ func `flush preserves unwritten buffered bytes after errors`() async {
   }
 }
 
+@Test
+func `flush treats zero byte write as failure and preserves bytes`() async throws {
+  let output = CountingOutputWriter(results: [.success(0), .success(1)])
+  let io = PlatformIO(terminalDevice: await output.terminalDevice)
+
+  await io.write([0x41])
+
+  await #expect(throws: PlatformIOError.writeFailed(errno: Errno(rawValue: 0))) {
+    try await io.flush()
+  }
+  try await io.flush()
+
+  let writes = await output.writes
+  expectNoDifference(writes, [[0x41], [0x41]])
+}
+
+@Test
+func `flush removes only bytes written before a later failure`() async throws {
+  let output = CountingOutputWriter(
+    results: [.success(1), .failure(PlatformIOError.writeFailed(errno: .ioError)), .success(2)]
+  )
+  let io = PlatformIO(terminalDevice: await output.terminalDevice)
+
+  await io.write([0x41, 0x42, 0x43])
+
+  await #expect(throws: PlatformIOError.writeFailed(errno: .ioError)) {
+    try await io.flush()
+  }
+  try await io.flush()
+
+  let writes = await output.writes
+  expectNoDifference(writes, [[0x41, 0x42, 0x43], [0x42, 0x43], [0x42, 0x43]])
+}
+
+@Test
+func `flush retries buffered data after would block and interruption errors`() async throws {
+  let output = CountingOutputWriter(
+    results: [
+      .failure(PlatformIOError.writeWouldBlock),
+      .failure(PlatformIOError.writeInterrupted),
+      .success(2),
+    ]
+  )
+  let io = PlatformIO(terminalDevice: await output.terminalDevice)
+
+  await io.write([0x41, 0x42])
+  try await io.flush()
+
+  let writes = await output.writes
+  expectNoDifference(writes, [[0x41, 0x42], [0x41, 0x42], [0x41, 0x42]])
+}
+
 private actor CountingOutputWriter {
   private var recordedWrites: [[UInt8]] = []
   private var results: [Result<Int, any Error>]

@@ -42,6 +42,115 @@ import Testing
     expectNoDifference(end, nil)
   }
 
+  struct POSIXInputLoopSeamTests {
+    @Test
+    func `input loop finishes when cancellation pipe setup fails`() async {
+      let value = await nextValue(with: .stub(pipe: { _ in -1 }))
+      expectNoDifference(value, nil)
+    }
+
+    @Test
+    func `input loop ignores poll timeout then yields readable byte`() async {
+      final class State: @unchecked Sendable { var calls = 0 }
+      let state = State()
+      let value = await nextValue(with: .stub(
+        poll: { descriptors, _, _ in
+          defer { state.calls += 1 }
+          if state.calls == 0 { return 0 }
+          descriptors?[0].revents = Int16(POLLIN)
+          return 1
+        },
+        read: { _, buffer, _ in
+          buffer?.assumingMemoryBound(to: UInt8.self).pointee = 0x61
+          return 1
+        }
+      ))
+      expectNoDifference(value, 0x61)
+    }
+
+    @Test
+    func `input loop ignores interrupted poll before eof`() async {
+      final class State: @unchecked Sendable { var calls = 0 }
+      let state = State()
+      let value = await nextValue(with: .stub(
+        poll: { descriptors, _, _ in
+          defer { state.calls += 1 }
+          if state.calls == 0 { errno = EINTR; return -1 }
+          descriptors?[0].revents = Int16(POLLIN)
+          return 1
+        },
+        read: { _, _, _ in 0 }
+      ))
+      expectNoDifference(value, nil)
+    }
+
+    @Test
+    func `input loop finishes on fatal poll failure`() async {
+      let value = await nextValue(with: .stub(poll: { _, _, _ in errno = EIO; return -1 }))
+      expectNoDifference(value, nil)
+    }
+
+    @Test
+    func `input loop finishes when cancellation pipe wakes poll`() async {
+      let value = await nextValue(with: .stub(poll: { descriptors, _, _ in descriptors?[1].revents = Int16(POLLIN); return 1 }))
+      expectNoDifference(value, nil)
+    }
+
+    @Test(arguments: [EINTR, EAGAIN])
+    func `input loop retries transient read failures`(errorNumber: CInt) async {
+      final class State: @unchecked Sendable { var calls = 0 }
+      let state = State()
+      let value = await nextValue(with: .stub(
+        poll: { descriptors, _, _ in descriptors?[0].revents = Int16(POLLIN); return 1 },
+        read: { _, buffer, _ in
+          defer { state.calls += 1 }
+          if state.calls == 0 { errno = errorNumber; return -1 }
+          buffer?.assumingMemoryBound(to: UInt8.self).pointee = 0x62
+          return 1
+        }
+      ))
+      expectNoDifference(value, 0x62)
+    }
+
+    @Test
+    func `input loop finishes on fatal read failure`() async {
+      let value = await nextValue(with: .stub(
+        poll: { descriptors, _, _ in descriptors?[0].revents = Int16(POLLIN); return 1 },
+        read: { _, _, _ in errno = EIO; return -1 }
+      ))
+      expectNoDifference(value, nil)
+    }
+
+    @Test
+    func `input loop restores descriptor flags on termination`() async {
+      final class State: @unchecked Sendable { var setFlags: [CInt] = [] }
+      let state = State()
+      await POSIXInputLoop.$systemOverride.withValue(.stub(
+        fcntlGet: { _, _ in 0x04 },
+        fcntlSet: { _, _, flags in state.setFlags.append(flags); return 0 },
+        poll: { _, _, _ in 0 }
+      )) {
+        var stream: AsyncStream<UInt8>? = POSIXInputLoop.bytes(fileDescriptor: 0)
+        var iterator: AsyncStream<UInt8>.Iterator? = stream?.makeAsyncIterator()
+        _ = iterator
+        iterator = nil
+        stream = nil
+        for _ in 0..<20 where state.setFlags.count < 2 {
+          await Task.yield()
+        }
+      }
+      expectNoDifference(state.setFlags, [0x04 | O_NONBLOCK, 0x04])
+    }
+
+    private func nextValue(with system: POSIXInputLoop.System) async -> UInt8? {
+      await POSIXInputLoop.$systemOverride.withValue(system) {
+        let stream = POSIXInputLoop.bytes(fileDescriptor: 0)
+        var iterator = stream.makeAsyncIterator()
+        return await iterator.next()
+      }
+    }
+  }
+
   private final class FileDescriptorPipe: @unchecked Sendable {
     private var descriptors: [CInt] = [-1, -1]
 
@@ -78,6 +187,28 @@ import Testing
       guard written == bytes.count else {
         throw PlatformIOError.writeFailed(errno: .init(rawValue: errno))
       }
+    }
+  }
+
+  extension POSIXInputLoop.System {
+    fileprivate static func stub(
+      close: @escaping @Sendable (CInt) -> CInt = { _ in 0 },
+      fcntlGet: @escaping @Sendable (CInt, CInt) -> CInt = { _, _ in -1 },
+      fcntlSet: @escaping @Sendable (CInt, CInt, CInt) -> CInt = { _, _, _ in 0 },
+      pipe: @escaping @Sendable (UnsafeMutablePointer<CInt>) -> CInt = { descriptors in descriptors[0] = 100; descriptors[1] = 101; return 0 },
+      poll: @escaping @Sendable (UnsafeMutablePointer<pollfd>?, nfds_t, CInt) -> CInt = { _, _, _ in 0 },
+      read: @escaping @Sendable (CInt, UnsafeMutableRawPointer?, Int) -> Int = { _, _, _ in 0 },
+      write: @escaping @Sendable (CInt, UnsafeRawPointer?, Int) -> Int = { _, _, count in count }
+    ) -> Self {
+      Self(
+        close: close,
+        fcntlGet: fcntlGet,
+        fcntlSet: fcntlSet,
+        pipe: pipe,
+        poll: poll,
+        read: read,
+        write: write
+      )
     }
   }
 

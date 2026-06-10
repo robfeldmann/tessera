@@ -41,8 +41,7 @@
       buildConfiguration = "Debug"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
-      shouldUseLaunchSchemeArgsEnv = "YES"
-      shouldAutocreateTestPlan = "NO">
+      shouldUseLaunchSchemeArgsEnv = "YES">
       <TestPlans>
          <TestPlanReference
             reference = "container:.swiftpm/xcode/xcshareddata/xctestplans/tessera-Package.xctestplan"
@@ -161,13 +160,13 @@
       useCustomWorkingDirectory = "NO"
       debugDocumentVersioning = "YES">
       <MacroExpansion>
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "Tessera"
-               BuildableName = "Tessera"
-               BlueprintName = "Tessera"
-               ReferencedContainer = "container:">
-            </BuildableReference>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "Tessera"
+            BuildableName = "Tessera"
+            BlueprintName = "Tessera"
+            ReferencedContainer = "container:">
+         </BuildableReference>
       </MacroExpansion>
    </ProfileAction>
    <AnalyzeAction
