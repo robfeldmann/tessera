@@ -146,6 +146,7 @@ lint-markdown:
         echo "⚠️  prettier not found — skip markdown linting (pnpm add -g prettier)"; \
     fi
 
+# Matches the DocC validation command run by CI.
 lint-docs: docs-clean docs-targets docs-merge
     @echo "✅ Documentation is clean"
 
