@@ -1,0 +1,79 @@
+{
+  "configurations": [
+    {
+      "id": "00000000-0000-0000-0000-000000000001",
+      "name": "Default",
+      "options": {}
+    }
+  ],
+  "defaultOptions": {
+    "codeCoverage": false
+  },
+  "testTargets": [
+    {
+      "parallelizable": true,
+      "target": {
+        "containerPath": "container:",
+        "identifier": "TesseraTerminalANSITests",
+        "name": "TesseraTerminalANSITests"
+      }
+    },
+    {
+      "parallelizable": true,
+      "target": {
+        "containerPath": "container:",
+        "identifier": "TesseraTerminalBufferTests",
+        "name": "TesseraTerminalBufferTests"
+      }
+    },
+    {
+      "parallelizable": true,
+      "target": {
+        "containerPath": "container:",
+        "identifier": "TesseraTerminalCoreTests",
+        "name": "TesseraTerminalCoreTests"
+      }
+    },
+    {
+      "parallelizable": true,
+      "target": {
+        "containerPath": "container:",
+        "identifier": "TesseraTerminalInputTests",
+        "name": "TesseraTerminalInputTests"
+      }
+    },
+    {
+      "parallelizable": true,
+      "target": {
+        "containerPath": "container:",
+        "identifier": "TesseraTerminalIOTests",
+        "name": "TesseraTerminalIOTests"
+      }
+    },
+    {
+      "parallelizable": true,
+      "target": {
+        "containerPath": "container:",
+        "identifier": "TesseraTerminalRenderingTests",
+        "name": "TesseraTerminalRenderingTests"
+      }
+    },
+    {
+      "parallelizable": true,
+      "target": {
+        "containerPath": "container:",
+        "identifier": "TesseraTerminalSnapshotSupportTests",
+        "name": "TesseraTerminalSnapshotSupportTests"
+      }
+    },
+    {
+      "parallelizable": true,
+      "target": {
+        "containerPath": "container:",
+        "identifier": "TesseraTerminalTests",
+        "name": "TesseraTerminalTests"
+      }
+    }
+  ],
+  "version": 1
+}

@@ -19,7 +19,13 @@ __pycache__/
 
 # Swift Package Manager
 .build/
-.swiftpm/
+.swiftpm/*
+!.swiftpm/xcode/
+!.swiftpm/xcode/xcshareddata/
+!.swiftpm/xcode/xcshareddata/xcschemes/
+!.swiftpm/xcode/xcshareddata/xcschemes/*.xcscheme
+!.swiftpm/xcode/xcshareddata/xctestplans/
+!.swiftpm/xcode/xcshareddata/xctestplans/*.xctestplan
 Packages/
 *.xcodeproj/
 *.xcworkspace/
