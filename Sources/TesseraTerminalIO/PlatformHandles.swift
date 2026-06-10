@@ -4,7 +4,7 @@
   import Glibc
 #endif
 
-/// Owned POSIX terminal handles for standard input and output.
+/// POSIX terminal handles for standard input and output.
 package struct PlatformHandles: ~Copyable {
   package let stdin: FileDescriptor
   package let stdout: FileDescriptor

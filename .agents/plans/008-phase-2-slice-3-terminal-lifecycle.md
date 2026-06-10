@@ -21,11 +21,11 @@ updated: 2026-06-09
   - [x] 3.1 Introduce noncopyable `FileDescriptor` and `PlatformHandles`
   - [x] 3.2 Implement buffered `PlatformIO.write`/`flush`
   - [x] 3.3 Add buffered-write tests with syscall counting
-- [ ] **Phase 4 — Async input and terminal size streams**
-  - [ ] 4.1 Implement non-blocking input byte stream with `poll` and self-pipe
+- [x] **Phase 4 — Async input and terminal size streams**
+  - [x] 4.1 Implement non-blocking input byte stream with `poll` and self-pipe
         cancellation
-  - [ ] 4.2 Implement `size()` and SIGWINCH-driven `sizeChanges`
-  - [ ] 4.3 Add focused unit tests for stream lifecycle and size queries
+  - [x] 4.2 Implement `size()` and SIGWINCH-driven `sizeChanges`
+  - [x] 4.3 Add focused unit tests for stream lifecycle and size queries
 - [ ] **Phase 5 — Emergency cleanup and signal/exit hooks**
   - [ ] 5.1 Add signal-safe cleanup registry
   - [ ] 5.2 Install SIGINT/SIGTERM/SIGHUP/SIGQUIT handlers and `atexit`

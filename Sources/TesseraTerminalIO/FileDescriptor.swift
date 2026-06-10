@@ -4,7 +4,7 @@
   import Glibc
 #endif
 
-/// An owned POSIX file descriptor capability.
+/// A POSIX file descriptor capability.
 package struct FileDescriptor: ~Copyable {
   package let rawValue: CInt
 

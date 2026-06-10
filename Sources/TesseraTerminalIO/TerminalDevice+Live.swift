@@ -31,24 +31,29 @@ extension TerminalDevice {
   package static func live(handles: consuming PlatformHandles) -> Self {
     #if os(macOS) || os(Linux)
       let mode = LiveTerminalMode()
+      let stdin = handles.stdin.rawValue
       let stdout = handles.stdout.rawValue
+      let size: @Sendable () throws -> TerminalSize = {
+        try readTerminalSize(fileDescriptor: stdout)
+      }
       let write: @Sendable (ArraySlice<UInt8>) throws -> Int = { bytes in
         try POSIXSyscalls.write(fileDescriptor: stdout, bytes: bytes)
       }
 
       return Self(
-        bytes: readStdinBytes,
+        bytes: { POSIXInputLoop.bytes(fileDescriptor: stdin) },
         enterAltScreen: {
           // DEC private mode 1049: enter alternate screen, `CSI ? 1049 h`.
           try writeAll(Array("\u{1B}[?1049h".utf8), to: stdout)
         },
-        enterRawMode: { try await mode.enterRawMode() },
+        enterRawMode: { try await mode.enterRawMode(fileDescriptor: stdin) },
         exitAltScreen: {
           // DEC private mode 1049: leave alternate screen, `CSI ? 1049 l`.
           try writeAll(Array("\u{1B}[?1049l".utf8), to: stdout)
         },
-        exitRawMode: { try await mode.exitRawMode() },
-        size: readTerminalSize,
+        exitRawMode: { try await mode.exitRawMode(fileDescriptor: stdin) },
+        size: size,
+        sizeChanges: { TerminalResizeRegistry.sizeChanges { try size() } },
         write: write
       )
     #else
@@ -61,32 +66,32 @@ extension TerminalDevice {
   private actor LiveTerminalMode {
     private var originalTermios: termios?
 
-    func enterRawMode() throws {
+    func enterRawMode(fileDescriptor: CInt) throws {
       if originalTermios != nil {
         return
       }
 
       var original = termios()
-      guard tcgetattr(STDIN_FILENO, &original) == 0 else {
+      guard tcgetattr(fileDescriptor, &original) == 0 else {
         throw PlatformIOError.rawModeFailed(errno: Errno(rawValue: errno))
       }
 
       var raw = original
       raw.c_lflag &= ~tcflag_t(ICANON | ECHO)
 
-      guard tcsetattr(STDIN_FILENO, TCSANOW, &raw) == 0 else {
+      guard tcsetattr(fileDescriptor, TCSANOW, &raw) == 0 else {
         throw PlatformIOError.rawModeFailed(errno: Errno(rawValue: errno))
       }
 
       originalTermios = original
     }
 
-    func exitRawMode() throws {
+    func exitRawMode(fileDescriptor: CInt) throws {
       guard var originalTermios else {
         return
       }
 
-      guard tcsetattr(STDIN_FILENO, TCSANOW, &originalTermios) == 0 else {
+      guard tcsetattr(fileDescriptor, TCSANOW, &originalTermios) == 0 else {
         throw PlatformIOError.rawModeFailed(errno: Errno(rawValue: errno))
       }
 
@@ -94,44 +99,9 @@ extension TerminalDevice {
     }
   }
 
-  private func readStdinBytes() -> AsyncStream<UInt8> {
-    AsyncStream { continuation in
-      // This bridges blocking `read(2)` into AsyncStream. Start the task concurrently so
-      // the blocking syscall cannot inherit and pin a caller's actor (for example, the
-      // main actor). Phase 2 replaces this with poll/nonblocking input handling.
-      let task = Task { @concurrent in
-        var byte: UInt8 = 0
-
-        while !Task.isCancelled {
-          let readCount = withUnsafeMutableBytes(of: &byte) { buffer in
-            guard let baseAddress = buffer.baseAddress else {
-              return 0
-            }
-
-            return systemRead(STDIN_FILENO, baseAddress, 1)
-          }
-
-          if readCount == 1 {
-            continuation.yield(byte)
-          } else if readCount == 0 {
-            continuation.finish()
-            break
-          } else if errno == EINTR {
-            continue
-          } else {
-            continuation.finish()
-            break
-          }
-        }
-      }
-
-      continuation.onTermination = { _ in task.cancel() }
-    }
-  }
-
-  private func readTerminalSize() throws -> TerminalSize {
+  private func readTerminalSize(fileDescriptor: CInt) throws -> TerminalSize {
     var windowSize = winsize()
-    let result = ioctl(STDOUT_FILENO, UInt(TIOCGWINSZ), &windowSize)
+    let result = ioctl(fileDescriptor, UInt(TIOCGWINSZ), &windowSize)
 
     guard result != -1, windowSize.ws_col > 0, windowSize.ws_row > 0 else {
       throw PlatformIOError.terminalSizeUnavailable(errno: Errno(rawValue: errno))
@@ -162,18 +132,6 @@ extension TerminalDevice {
         continue
       }
     }
-  }
-
-  private func systemRead(
-    _ fileDescriptor: Int32,
-    _ buffer: UnsafeMutableRawPointer,
-    _ count: Int
-  ) -> Int {
-    #if os(macOS)
-      Darwin.read(fileDescriptor, buffer, count)
-    #elseif os(Linux)
-      Glibc.read(fileDescriptor, buffer, count)
-    #endif
   }
 #endif
 
