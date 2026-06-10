@@ -120,6 +120,45 @@ together.
 This proves the package compiles for Linux from macOS. It does not run the Linux test
 suite; tests need a Linux runtime such as Lima or CI.
 
+### Terminal Lifecycle Manual Verification
+
+Terminal lifecycle changes need manual checks in a real terminal in addition to unit
+tests. Use two terminal tabs or panes: one to run a Tessera demo/fixture and one to send
+signals.
+
+```fish
+# Pane 1
+swift run <TesseraLifecycleFixture>
+```
+
+```fish
+# Pane 2: find and terminate the fixture
+pgrep -fl TesseraLifecycleFixture
+kill -TERM <pid>
+```
+
+Verify these cases before merging lifecycle or signal-handling changes:
+
+- Press `Ctrl-C` while the fixture is running; the shell should return with normal echo
+  and the primary screen visible.
+- Send `SIGTERM` from another pane with `kill -TERM <pid>`; the terminal should be
+  restored.
+- If practical, close the pane/tab or disconnect the session to exercise `SIGHUP`.
+- Resize the pane repeatedly while the fixture is running; it should keep responding.
+
+If a development build ever leaves your terminal wedged, type this even if input is not
+visible, then press Enter:
+
+```fish
+reset
+```
+
+If that is not enough, try:
+
+```fish
+stty sane
+```
+
 ### Linux Test Runs with Lima
 
 Use [Lima](https://lima-vm.io/) when you want to run `swift test` on Linux without Docker.

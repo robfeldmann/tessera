@@ -1,3 +1,5 @@
+import TesseraTerminalANSI
+
 /// Coordinates terminal mode ownership for a live terminal session.
 public actor ModeLifecycle {
   /// Terminal modes Tessera can acquire for an application session.
@@ -37,6 +39,7 @@ public actor ModeLifecycle {
   /// Creates a lifecycle manager over owned package-internal terminal I/O.
   package init(io: PlatformIO) {
     self.io = io
+    CleanupRegistry.installHandlers()
   }
 
   /// Enters all requested modes in canonical acquisition order.
@@ -61,8 +64,10 @@ public actor ModeLifecycle {
         acquisitionStack.append(mode)
         self.modes.insert(mode)
       }
+      await installCleanup()
     } catch {
       await rollback(acquiredModes)
+      await io.clearCleanup()
       requestedModes = []
       throw error
     }
@@ -86,6 +91,7 @@ public actor ModeLifecycle {
     acquisitionStack = []
     modes = []
     requestedModes = []
+    await io.clearCleanup()
 
     if let firstError {
       throw firstError
@@ -116,6 +122,20 @@ public actor ModeLifecycle {
     case .mouseTracking, .bracketedPaste, .focusEvents, .kittyKeyboard:
       throw ModeLifecycleError.unsupportedModes([mode])
     }
+  }
+
+  private func installCleanup() async {
+    var teardownBytes: [UInt8] = []
+
+    // DEC private mode 1049: leave alternate screen, `CSI ? 1049 l`.
+    if modes.contains(.altScreen) || requestedModes.contains(.altScreen) {
+      ControlSequence.exitAltScreen.encode(into: &teardownBytes)
+    }
+
+    // DEC private mode 25: show cursor, `CSI ? 25 h`.
+    ControlSequence.cursorVisible(true).encode(into: &teardownBytes)
+
+    await io.installCleanup(teardownBytes: teardownBytes)
   }
 
   private func rollback(_ acquiredModes: [Mode]) async {

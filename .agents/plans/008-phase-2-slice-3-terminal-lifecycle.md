@@ -26,10 +26,10 @@ updated: 2026-06-09
         cancellation
   - [x] 4.2 Implement `size()` and SIGWINCH-driven `sizeChanges`
   - [x] 4.3 Add focused unit tests for stream lifecycle and size queries
-- [ ] **Phase 5 — Emergency cleanup and signal/exit hooks**
-  - [ ] 5.1 Add signal-safe cleanup registry
-  - [ ] 5.2 Install SIGINT/SIGTERM/SIGHUP/SIGQUIT handlers and `atexit`
-  - [ ] 5.3 Document manual signal verification in `CONTRIBUTING.md`
+- [x] **Phase 5 — Emergency cleanup and signal/exit hooks**
+  - [x] 5.1 Add signal-safe cleanup registry
+  - [x] 5.2 Install SIGINT/SIGTERM/SIGHUP/SIGQUIT handlers and `atexit`
+  - [x] 5.3 Document manual signal verification in `CONTRIBUTING.md`
 - [ ] **Phase 6 — Scoped `TerminalSession` integration**
   - [ ] 6.1 Implement `TerminalSession.withApplicationTerminal(configuration:)`
   - [ ] 6.2 Route drawing and event reads through owned `PlatformIO`

@@ -130,6 +130,9 @@ let SystemPackage: Target.Dependency = .product(
 // MARK: - 🚛 Forward Module Declarations
 
 let CGhosttyVT: Target.Dependency = .byName(name: "CGhosttyVT")
+let CTesseraTerminalPlatform: Target.Dependency = .byName(
+  name: "CTesseraTerminalPlatform"
+)
 let Tessera: Target.Dependency = .byName(name: "Tessera")
 let TesseraCore: Target.Dependency = .byName(name: "TesseraCore")
 let TesseraTerminal: Target.Dependency = .byName(name: "TesseraTerminal")
@@ -170,6 +173,16 @@ package.targets.append(
   .target(
     name: "CGhosttyVT",
     path: "Sources/CGhosttyVT",
+    publicHeadersPath: "include"
+  )
+)
+
+// MARK: CTesseraTerminalPlatform
+
+package.targets.append(
+  .target(
+    name: "CTesseraTerminalPlatform",
+    path: "Sources/CTesseraTerminalPlatform",
     publicHeadersPath: "include"
   )
 )
@@ -312,6 +325,7 @@ package.targets.append(contentsOf: [
   .target(
     name: "TesseraTerminalIO",
     dependencies: [
+      CTesseraTerminalPlatform,
       SystemPackage,
       TesseraTerminalANSI,
       TesseraTerminalCore,

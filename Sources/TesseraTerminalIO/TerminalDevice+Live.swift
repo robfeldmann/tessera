@@ -1,3 +1,4 @@
+import Foundation
 import SystemPackage
 import TesseraTerminalCore
 
@@ -46,27 +47,43 @@ extension TerminalDevice {
           // DEC private mode 1049: enter alternate screen, `CSI ? 1049 h`.
           try writeAll(Array("\u{1B}[?1049h".utf8), to: stdout)
         },
-        enterRawMode: { try await mode.enterRawMode(fileDescriptor: stdin) },
+        enterRawMode: { try mode.enterRawMode(fileDescriptor: stdin) },
         exitAltScreen: {
           // DEC private mode 1049: leave alternate screen, `CSI ? 1049 l`.
           try writeAll(Array("\u{1B}[?1049l".utf8), to: stdout)
         },
-        exitRawMode: { try await mode.exitRawMode(fileDescriptor: stdin) },
+        exitRawMode: { try mode.exitRawMode(fileDescriptor: stdin) },
+        inputFileDescriptor: stdin,
+        outputFileDescriptor: stdout,
         size: size,
         sizeChanges: { TerminalResizeRegistry.sizeChanges { try size() } },
         write: write
-      )
+      ).withSavedTermios { mode.savedTermios() }
     #else
       return unsupported
     #endif
   }
+
+  #if os(macOS) || os(Linux)
+    private func withSavedTermios(
+      _ savedTermios: @escaping @Sendable () -> termios?
+    ) -> Self {
+      var copy = self
+      copy.savedTermios = savedTermios
+      return copy
+    }
+  #endif
 }
 
 #if os(macOS) || os(Linux)
-  private actor LiveTerminalMode {
+  private final class LiveTerminalMode: @unchecked Sendable {
+    private let lock = NSLock()
     private var originalTermios: termios?
 
     func enterRawMode(fileDescriptor: CInt) throws {
+      lock.lock()
+      defer { lock.unlock() }
+
       if originalTermios != nil {
         return
       }
@@ -87,6 +104,9 @@ extension TerminalDevice {
     }
 
     func exitRawMode(fileDescriptor: CInt) throws {
+      lock.lock()
+      defer { lock.unlock() }
+
       guard var originalTermios else {
         return
       }
@@ -96,6 +116,12 @@ extension TerminalDevice {
       }
 
       self.originalTermios = nil
+    }
+
+    func savedTermios() -> termios? {
+      lock.lock()
+      defer { lock.unlock() }
+      return originalTermios
     }
   }
 

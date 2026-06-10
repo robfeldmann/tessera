@@ -73,6 +73,23 @@ package actor PlatformIO {
     }
   }
 
+  /// Installs emergency cleanup state for the current terminal modes.
+  package func installCleanup(teardownBytes: [UInt8]) {
+    #if os(macOS) || os(Linux)
+      CleanupRegistry.install(
+        inputFileDescriptor: terminalDevice.inputFileDescriptor,
+        outputFileDescriptor: terminalDevice.outputFileDescriptor,
+        teardownBytes: teardownBytes,
+        savedTermios: terminalDevice.savedTermios()
+      )
+    #endif
+  }
+
+  /// Clears emergency cleanup state for this terminal session.
+  package func clearCleanup() {
+    CleanupRegistry.clear()
+  }
+
   /// Reads the terminal size from the output terminal.
   package func size() async throws -> TerminalSize {
     try await terminalDevice.size()
