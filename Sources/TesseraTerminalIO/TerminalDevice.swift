@@ -31,7 +31,7 @@ package struct TerminalDevice: Sendable {
 
   /// Returns the saved terminal attributes captured before raw mode, if available.
   #if os(macOS) || os(Linux)
-    package var savedTermios: @Sendable () -> termios?
+    package var savedTermios: @Sendable () async -> termios?
   #endif
 
   /// Reads the terminal's current size.
