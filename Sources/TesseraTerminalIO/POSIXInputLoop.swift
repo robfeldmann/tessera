@@ -46,6 +46,8 @@
       }
     }
 
+    // swiftlint:disable cyclomatic_complexity
+    // POSIX polling handles several terminal events explicitly.
     private static func inputLoop(
       fileDescriptor: CInt,
       cancelReadDescriptor: CInt,
@@ -75,12 +77,17 @@
           continue
         }
 
-        if descriptors[1].revents & Int16(POLLIN) != 0 {
+        if hasAnyEvent(descriptors[1].revents, POLLIN, POLLHUP, POLLERR, POLLNVAL) {
           continuation.finish()
           return
         }
 
-        guard descriptors[0].revents & Int16(POLLIN) != 0 else {
+        if hasAnyEvent(descriptors[0].revents, POLLHUP, POLLERR, POLLNVAL) {
+          continuation.finish()
+          return
+        }
+
+        guard hasAnyEvent(descriptors[0].revents, POLLIN) else {
           continue
         }
 
@@ -104,6 +111,15 @@
       }
 
       continuation.finish()
+    }
+    // swiftlint:enable cyclomatic_complexity
+
+    private static func hasAnyEvent(_ revents: Int16, _ events: CInt...) -> Bool {
+      let mask = events.reduce(Int16(0)) { partialResult, event in
+        partialResult | Int16(event)
+      }
+
+      return revents & mask != 0
     }
 
     private static func systemPoll(
