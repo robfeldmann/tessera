@@ -4,8 +4,6 @@ Platform-specific terminal I/O and lifecycle management.
 
 ## Topics
 
-### Platform I/O
+### Errors
 
-- ``PlatformIO``
 - ``PlatformIOError``
-- ``TerminalDevice``

@@ -9,10 +9,6 @@ re-exports ANSI, buffer, input, I/O, and rendering modules.
 
 ## Topics
 
-### Platform
-
-- ``/TesseraTerminalIO/PlatformIO``
-
 ### Foundation modules
 
 - ``/TesseraTerminalANSI``

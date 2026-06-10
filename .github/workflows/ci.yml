@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    types: [opened, synchronize, reopened, edited]
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
   workflow_dispatch:
 
 permissions:
@@ -15,8 +15,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  ci-gate:
+    name: CI gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Block CI while skip-ci label is applied
+        if: >
+          ${{ github.event_name == 'pull_request' &&
+          contains(github.event.pull_request.labels.*.name, 'skip-ci') }}
+        run: |
+          echo "The skip-ci label is applied. Remove it to run CI checks."
+          exit 1
+
   conventional-commits:
     name: conventional commits
+    needs: ci-gate
+    if: >
+      ${{ github.event_name != 'pull_request' ||
+      !contains(github.event.pull_request.labels.*.name, 'skip-ci') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -39,7 +56,11 @@ jobs:
 
   test:
     name: test (${{ matrix.os }})
-    if: github.event_name != 'pull_request' || github.event.action != 'edited'
+    needs: ci-gate
+    if: >
+      ${{ (github.event_name != 'pull_request' ||
+      !contains(github.event.pull_request.labels.*.name, 'skip-ci')) &&
+      (github.event_name != 'pull_request' || github.event.action != 'edited') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
