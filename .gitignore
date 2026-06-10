@@ -26,9 +26,16 @@ __pycache__/
 !.swiftpm/xcode/xcshareddata/xcschemes/*.xcscheme
 !.swiftpm/xcode/xcshareddata/xctestplans/
 !.swiftpm/xcode/xcshareddata/xctestplans/*.xctestplan
+!Examples/.swiftpm/
+!Examples/.swiftpm/xcode/
+!Examples/.swiftpm/xcode/xcshareddata/
+!Examples/.swiftpm/xcode/xcshareddata/xcschemes/
+!Examples/.swiftpm/xcode/xcshareddata/xcschemes/*.xcscheme
 Packages/
 *.xcodeproj/
 *.xcworkspace/
+!Tessera.xcworkspace/
+!Tessera.xcworkspace/contents.xcworkspacedata
 
 # Xcode
 DerivedData/

@@ -1,9 +1,24 @@
+import ExampleSupport
 import TesseraTerminal
 
 /// A walking-skeleton example that exercises Tessera's scoped terminal session.
 @main
 enum HelloTessera {
   static func main() async throws {
+    guard TerminalExampleSupport.isRunningInInteractiveTerminal() else {
+      TerminalExampleSupport.printTerminalRequiredMessage(
+        applicationName: "HelloTessera",
+        features: [
+          "raw mode",
+          "terminal size queries",
+          "immediate keyboard input",
+        ],
+        runCommand: "swift run --package-path Examples HelloTessera",
+        attachSchemeName: "HelloTessera (Attach)"
+      )
+      return
+    }
+
     try await TerminalSession.withApplicationTerminal(
       configuration: .default
     ) { terminal in

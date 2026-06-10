@@ -44,7 +44,7 @@ examples:
     swift build --package-path Examples
 
 examples-list:
-    @find Examples/Sources -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort
+    @swift package --package-path Examples describe --type json | python3 -c 'import json, sys; package = json.load(sys.stdin); print("\n".join(sorted(product["name"] for product in package["products"] if "executable" in product["type"])))'
 
 swift-version:
     @cat .swift-version

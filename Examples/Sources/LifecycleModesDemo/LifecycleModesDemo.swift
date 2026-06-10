@@ -1,9 +1,25 @@
+import ExampleSupport
 import Foundation
 import TesseraTerminal
 
 @main
 enum LifecycleModesDemo {
   static func main() async throws {
+    guard TerminalExampleSupport.isRunningInInteractiveTerminal() else {
+      TerminalExampleSupport.printTerminalRequiredMessage(
+        applicationName: "LifecycleModesDemo",
+        features: [
+          "raw mode",
+          "alternate screen",
+          "terminal size queries",
+          "immediate keyboard input",
+        ],
+        runCommand: "swift run --package-path Examples LifecycleModesDemo",
+        attachSchemeName: "LifecycleModesDemo (Attach)"
+      )
+      return
+    }
+
     writeLine("Before Tessera: cooked mode on the primary screen.")
     writeLine("Typing should echo normally here. Press Enter to start.")
     _ = readLine()
@@ -102,5 +118,5 @@ private enum DemoEvent {
 }
 
 private func writeLine(_ line: String) {
-  FileHandle.standardOutput.write(Data("\(line)\n".utf8))
+  TerminalExampleSupport.writeLine(line)
 }
