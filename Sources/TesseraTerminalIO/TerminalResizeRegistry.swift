@@ -27,6 +27,30 @@ import TesseraTerminalCore
         signalSource.resume()
       }
     }
+
+    /// Creates a stream that yields sizes for deterministic notification streams.
+    package static func sizeChanges(
+      querySize: @escaping @Sendable () async throws -> TerminalSize,
+      notifications: AsyncStream<Void>
+    ) -> AsyncStream<TerminalSize> {
+      AsyncStream { continuation in
+        let task = Task {
+          for await _ in notifications {
+            do {
+              continuation.yield(try await querySize())
+            } catch {
+              // Resize streams are notifications; a failed size query is ignored so a
+              // later notification can still yield a valid size.
+            }
+          }
+          continuation.finish()
+        }
+
+        continuation.onTermination = { _ in
+          task.cancel()
+        }
+      }
+    }
   }
 
   /// Sendable wrapper around a Dispatch signal source.

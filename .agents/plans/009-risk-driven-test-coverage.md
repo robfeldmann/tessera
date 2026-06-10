@@ -3,37 +3,37 @@ name: Risk-Driven Test Coverage
 description:
   Improve coverage for terminal lifecycle, live POSIX I/O, ANSI encoding, and
   cancellation-sensitive code.
-status: pending
+status: completed
 created: 2026-06-10
 updated: 2026-06-10
 ---
 
 ## Progress
 
-- [ ] **Phase 1 — Coverage baseline and reporting**
-  - [ ] 1.1 Add a repeatable coverage summary command
-  - [ ] 1.2 Document the current baseline and target scope
-- [ ] **Phase 2 — Pure Swift low-risk coverage gaps**
-  - [ ] 2.1 Complete `AsyncEventBuffer` edge coverage
-  - [ ] 2.2 Complete `TerminalSession` edge coverage
-  - [ ] 2.3 Add direct `Frame` coverage
-  - [ ] 2.4 Cover trivial handle wrappers
-- [ ] **Phase 3 — ANSI encoder exhaustiveness**
-  - [ ] 3.1 Add exhaustive `ControlSequence` byte tests
-  - [ ] 3.2 Add append/composition and escaping regression tests
-- [ ] **Phase 4 — Platform I/O fault coverage**
-  - [ ] 4.1 Add deterministic POSIX syscall test seams
-  - [ ] 4.2 Cover `POSIXSyscalls` errno mapping and writable polling
-  - [ ] 4.3 Cover `PlatformIO.flush` failure retention paths
-  - [ ] 4.4 Cover additional `POSIXInputLoop` lifecycle/error paths
-- [ ] **Phase 5 — Live terminal and resize coverage**
-  - [ ] 5.1 Add PTY-backed live terminal test support
-  - [ ] 5.2 Cover `TerminalDevice.live(handles:)` raw/alt/size/write behavior
-  - [ ] 5.3 Refactor and cover resize stream notifications deterministically
-  - [ ] 5.4 Cover cleanup registry saved-termios path
-- [ ] **Phase 6 — Final validation and coverage closeout**
-  - [ ] 6.1 Run full tests, examples build, lint, and coverage report
-  - [ ] 6.2 Record final gaps and intentional exclusions
+- [x] **Phase 1 — Coverage baseline and reporting**
+  - [x] 1.1 Add a repeatable coverage summary command
+  - [x] 1.2 Document the current baseline and target scope
+- [x] **Phase 2 — Pure Swift low-risk coverage gaps**
+  - [x] 2.1 Complete `AsyncEventBuffer` edge coverage
+  - [x] 2.2 Complete `TerminalSession` edge coverage
+  - [x] 2.3 Add direct `Frame` coverage
+  - [x] 2.4 Cover trivial handle wrappers
+- [x] **Phase 3 — ANSI encoder exhaustiveness**
+  - [x] 3.1 Add exhaustive `ControlSequence` byte tests
+  - [x] 3.2 Add append/composition and escaping regression tests
+- [x] **Phase 4 — Platform I/O fault coverage**
+  - [x] 4.1 Add deterministic POSIX syscall test seams
+  - [x] 4.2 Cover `POSIXSyscalls` errno mapping and writable polling
+  - [x] 4.3 Cover `PlatformIO.flush` failure retention paths
+  - [x] 4.4 Cover additional `POSIXInputLoop` lifecycle/error paths
+- [x] **Phase 5 — Live terminal and resize coverage**
+  - [x] 5.1 Add PTY-backed live terminal test support
+  - [x] 5.2 Cover `TerminalDevice.live(handles:)` raw/alt/size/write behavior
+  - [x] 5.3 Refactor and cover resize stream notifications deterministically
+  - [x] 5.4 Cover cleanup registry saved-termios path
+- [x] **Phase 6 — Final validation and coverage closeout**
+  - [x] 6.1 Run full tests, examples build, lint, and coverage report
+  - [x] 6.2 Record final gaps and intentional exclusions
 
 ## Overview
 

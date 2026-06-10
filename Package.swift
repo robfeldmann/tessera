@@ -428,7 +428,26 @@ package.targets.append(
 // MARK: - 👻 Ghostty VT Build Output
 
 let PackageDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().path
-let GhosttyVTInstallPath = "\(PackageDirectory)/.build/libghostty-vt/current"
+let GhosttyVTRevisionFile = "\(PackageDirectory)/scripts/ghostty-vt-version.txt"
+let GhosttyVTRevision =
+  (try? String(contentsOfFile: GhosttyVTRevisionFile, encoding: .utf8))?
+  .trimmingCharacters(in: .whitespacesAndNewlines) ?? "unknown"
+#if os(macOS)
+  let GhosttyVTPlatform = "macos"
+#elseif os(Linux)
+  let GhosttyVTPlatform = "linux"
+#else
+  let GhosttyVTPlatform = "unsupported"
+#endif
+#if arch(arm64)
+  let GhosttyVTArch = "arm64"
+#elseif arch(x86_64)
+  let GhosttyVTArch = "x86_64"
+#else
+  let GhosttyVTArch = "unsupported"
+#endif
+let GhosttyVTInstallPath =
+  "\(PackageDirectory)/.build/libghostty-vt/\(GhosttyVTRevision)/\(GhosttyVTPlatform)-\(GhosttyVTArch)"
 let GhosttyVTIncludePath = "\(GhosttyVTInstallPath)/include"
 let GhosttyVTLibraryPath = "\(GhosttyVTInstallPath)/lib"
 let GhosttyVTUnsafeLinkerFlags = [

@@ -7,27 +7,97 @@
 #if os(macOS) || os(Linux)
   /// Async byte stream backed by non-blocking POSIX input.
   package enum POSIXInputLoop {
+    package struct System: Sendable {
+      package var close: @Sendable (CInt) -> CInt
+      package var fcntlGet: @Sendable (CInt, CInt) -> CInt
+      package var fcntlSet: @Sendable (CInt, CInt, CInt) -> CInt
+      package var pipe: @Sendable (UnsafeMutablePointer<CInt>) -> CInt
+      package var poll: @Sendable (UnsafeMutablePointer<pollfd>?, nfds_t, CInt) -> CInt
+      package var read: @Sendable (CInt, UnsafeMutableRawPointer?, Int) -> Int
+      package var write: @Sendable (CInt, UnsafeRawPointer?, Int) -> Int
+    }
+
+    @TaskLocal package static var systemOverride: System?
+
+    private static var currentSystem: System {
+      systemOverride ?? liveSystem
+    }
+
+    package static let liveSystem = System(
+      close: { descriptor in
+        #if os(macOS)
+          Darwin.close(descriptor)
+        #elseif os(Linux)
+          Glibc.close(descriptor)
+        #endif
+      },
+      fcntlGet: { descriptor, command in
+        #if os(macOS)
+          Darwin.fcntl(descriptor, command)
+        #elseif os(Linux)
+          Glibc.fcntl(descriptor, command)
+        #endif
+      },
+      fcntlSet: { descriptor, command, value in
+        #if os(macOS)
+          Darwin.fcntl(descriptor, command, value)
+        #elseif os(Linux)
+          Glibc.fcntl(descriptor, command, value)
+        #endif
+      },
+      pipe: { descriptors in
+        #if os(macOS)
+          Darwin.pipe(descriptors)
+        #elseif os(Linux)
+          Glibc.pipe(descriptors)
+        #endif
+      },
+      poll: { descriptors, count, timeout in
+        #if os(macOS)
+          Darwin.poll(descriptors, count, timeout)
+        #elseif os(Linux)
+          Glibc.poll(descriptors, count, timeout)
+        #endif
+      },
+      read: { descriptor, buffer, count in
+        #if os(macOS)
+          Darwin.read(descriptor, buffer, count)
+        #elseif os(Linux)
+          Glibc.read(descriptor, buffer, count)
+        #endif
+      },
+      write: { descriptor, buffer, count in
+        #if os(macOS)
+          Darwin.write(descriptor, buffer, count)
+        #elseif os(Linux)
+          Glibc.write(descriptor, buffer, count)
+        #endif
+      }
+    )
+
     /// Creates an input byte stream for `fileDescriptor`.
     package static func bytes(fileDescriptor: CInt) -> AsyncStream<UInt8> {
       AsyncStream { continuation in
+        let system = currentSystem
         var cancelPipe: [CInt] = [-1, -1]
-        guard pipe(&cancelPipe) == 0 else {
+        guard system.pipe(&cancelPipe) == 0 else {
           continuation.finish()
           return
         }
 
         let cancelReadDescriptor = cancelPipe[0]
         let cancelWriteDescriptor = cancelPipe[1]
-        let originalFlags = fcntl(fileDescriptor, F_GETFL)
+        let originalFlags = system.fcntlGet(fileDescriptor, F_GETFL)
         if originalFlags != -1 {
-          _ = fcntl(fileDescriptor, F_SETFL, originalFlags | O_NONBLOCK)
+          _ = system.fcntlSet(fileDescriptor, F_SETFL, originalFlags | O_NONBLOCK)
         }
 
         let task = Task { @concurrent in
           inputLoop(
             fileDescriptor: fileDescriptor,
             cancelReadDescriptor: cancelReadDescriptor,
-            continuation: continuation
+            continuation: continuation,
+            system: system
           )
         }
 
@@ -35,12 +105,12 @@
           task.cancel()
           var byte: UInt8 = 0
           _ = withUnsafeBytes(of: &byte) { buffer in
-            systemWrite(cancelWriteDescriptor, buffer.baseAddress, 1)
+            system.write(cancelWriteDescriptor, buffer.baseAddress, 1)
           }
-          _ = close(cancelReadDescriptor)
-          _ = close(cancelWriteDescriptor)
+          _ = system.close(cancelReadDescriptor)
+          _ = system.close(cancelWriteDescriptor)
           if originalFlags != -1 {
-            _ = fcntl(fileDescriptor, F_SETFL, originalFlags)
+            _ = system.fcntlSet(fileDescriptor, F_SETFL, originalFlags)
           }
         }
       }
@@ -51,7 +121,8 @@
     private static func inputLoop(
       fileDescriptor: CInt,
       cancelReadDescriptor: CInt,
-      continuation: AsyncStream<UInt8>.Continuation
+      continuation: AsyncStream<UInt8>.Continuation,
+      system: System
     ) {
       var buffer = [UInt8](repeating: 0, count: 256)
 
@@ -62,7 +133,7 @@
         ]
 
         let result = descriptors.withUnsafeMutableBufferPointer { pointer in
-          systemPoll(pointer.baseAddress, nfds_t(pointer.count), 100)
+          system.poll(pointer.baseAddress, nfds_t(pointer.count), 100)
         }
 
         if result < 0 {
@@ -92,7 +163,7 @@
         }
 
         let readCount = buffer.withUnsafeMutableBufferPointer { pointer in
-          systemRead(fileDescriptor, pointer.baseAddress, pointer.count)
+          system.read(fileDescriptor, pointer.baseAddress, pointer.count)
         }
 
         if readCount > 0 {
@@ -120,42 +191,6 @@
       }
 
       return revents & mask != 0
-    }
-
-    private static func systemPoll(
-      _ descriptors: UnsafeMutablePointer<pollfd>?,
-      _ count: nfds_t,
-      _ timeout: CInt
-    ) -> CInt {
-      #if os(macOS)
-        Darwin.poll(descriptors, count, timeout)
-      #elseif os(Linux)
-        Glibc.poll(descriptors, count, timeout)
-      #endif
-    }
-
-    private static func systemRead(
-      _ fileDescriptor: CInt,
-      _ buffer: UnsafeMutablePointer<UInt8>?,
-      _ count: Int
-    ) -> Int {
-      #if os(macOS)
-        Darwin.read(fileDescriptor, buffer, count)
-      #elseif os(Linux)
-        Glibc.read(fileDescriptor, buffer, count)
-      #endif
-    }
-
-    private static func systemWrite(
-      _ fileDescriptor: CInt,
-      _ buffer: UnsafeRawPointer?,
-      _ count: Int
-    ) -> Int {
-      #if os(macOS)
-        Darwin.write(fileDescriptor, buffer, count)
-      #elseif os(Linux)
-        Glibc.write(fileDescriptor, buffer, count)
-      #endif
     }
   }
 #endif
