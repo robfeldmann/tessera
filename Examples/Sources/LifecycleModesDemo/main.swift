@@ -16,25 +16,35 @@ enum LifecycleModesDemo {
 
       try await draw(terminal: terminal, lastEvent: lastEvent)
 
-      while !shouldQuit {
-        try await withThrowingTaskGroup(of: DemoEvent.self) { group in
-          group.addTask {
-            try await .input(terminal.nextEvent())
-          }
-          group.addTask {
-            var iterator = terminal.sizeChanges.makeAsyncIterator()
-            return await .resize(iterator.next())
-          }
+      try await withThrowingDiscardingTaskGroup { group in
+        let (events, continuation) = AsyncStream.makeStream(
+          of: DemoEvent.self,
+          bufferingPolicy: .bufferingNewest(32)
+        )
 
-          guard let event = try await group.next() else {
-            group.cancelAll()
-            return
+        group.addTask {
+          do {
+            while Task.isCancelled == false {
+              continuation.yield(.input(try await terminal.nextEvent()))
+            }
+          } catch is CancellationError {
+          } catch {
+            continuation.finish()
           }
-          group.cancelAll()
+        }
 
+        group.addTask {
+          for await size in terminal.sizeChanges {
+            continuation.yield(.resize(size))
+          }
+        }
+
+        for await event in events {
           switch event {
           case .input(.quit):
             shouldQuit = true
+            group.cancelAll()
+            continuation.finish()
 
           case .input(.character(let character)):
             lastEvent = "key: \(character)"
@@ -43,7 +53,13 @@ enum LifecycleModesDemo {
           case .resize:
             try await draw(terminal: terminal, lastEvent: lastEvent)
           }
+
+          if shouldQuit {
+            break
+          }
         }
+
+        group.cancelAll()
       }
     }
 

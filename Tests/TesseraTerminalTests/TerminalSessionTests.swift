@@ -88,6 +88,56 @@ func `next event can be called repeatedly on one input stream`() async throws {
   expectNoDifference(second, .character("b"))
 }
 
+@Test
+func `pending event read cancellation preserves the next input`() async throws {
+  let (bytes, continuation) = AsyncStream.makeStream(of: UInt8.self)
+  let session = TerminalSession(
+    io: PlatformIO(
+      terminalDevice: TerminalDevice(
+        bytes: { bytes },
+        size: { TerminalSize(columns: 1, rows: 1) },
+        write: { $0.count }
+      )
+    )
+  )
+  let pendingEvent = Task {
+    try await session.nextEvent()
+  }
+
+  await Task.yield()
+  pendingEvent.cancel()
+  await #expect(throws: CancellationError.self) {
+    try await pendingEvent.value
+  }
+
+  continuation.yield(0x61)
+  let event = try await session.nextEvent()
+
+  expectNoDifference(event, .character("a"))
+}
+
+@Test
+func `event buffer cancellation preserves later values`() async throws {
+  let buffer = AsyncEventBuffer<Int>()
+  let pendingValue = Task {
+    try await buffer.next()
+  }
+
+  while await buffer.waiterCount == 0 {
+    await Task.yield()
+  }
+
+  pendingValue.cancel()
+  await #expect(throws: CancellationError.self) {
+    try await pendingValue.value
+  }
+
+  await buffer.yield(42)
+  let value = try await buffer.next()
+
+  expectNoDifference(value, 42)
+}
+
 private func makeSession(_ device: InMemoryTerminalDevice) async -> TerminalSession {
   TerminalSession(io: PlatformIO(terminalDevice: await device.terminalDevice))
 }
