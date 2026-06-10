@@ -76,6 +76,18 @@ func `next event returns first parsed input event`() async throws {
   expectNoDifference(event, .character("a"))
 }
 
+@Test
+func `next event can be called repeatedly on one input stream`() async throws {
+  let device = InMemoryTerminalDevice(inputBytes: [0x61, 0x62])
+  let session = await makeSession(device)
+
+  let first = try await session.nextEvent()
+  let second = try await session.nextEvent()
+
+  expectNoDifference(first, .character("a"))
+  expectNoDifference(second, .character("b"))
+}
+
 private func makeSession(_ device: InMemoryTerminalDevice) async -> TerminalSession {
   TerminalSession(io: PlatformIO(terminalDevice: await device.terminalDevice))
 }

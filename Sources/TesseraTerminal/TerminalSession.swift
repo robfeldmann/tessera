@@ -5,12 +5,24 @@ import TesseraTerminalRendering
 
 /// A scoped live-terminal capability for Tessera applications.
 public actor TerminalSession {
+  private let inputEvents: InputEventBuffer
+  private let inputPump: Task<Void, Never>
   private let io: PlatformIO
 
   /// Terminal-size notifications for the live session.
   nonisolated public let sizeChanges: AsyncStream<TerminalSize>
 
   package init(io: PlatformIO) {
+    let inputEvents = InputEventBuffer()
+    self.inputEvents = inputEvents
+    self.inputPump = Task {
+      for await byte in io.bytes {
+        if let event = InputParser.parse(byte) {
+          await inputEvents.yield(event)
+        }
+      }
+      await inputEvents.finish()
+    }
     self.io = io
     self.sizeChanges = io.sizeChanges
   }
@@ -64,12 +76,53 @@ public actor TerminalSession {
 
   /// Reads the next parsed input event.
   public func nextEvent() async throws -> InputEvent {
-    for await byte in io.bytes {
-      if let event = InputParser.parse(byte) {
-        return event
-      }
+    guard let event = await inputEvents.next() else {
+      throw PlatformIOError.inputClosed
     }
 
-    throw PlatformIOError.inputClosed
+    return event
+  }
+
+  deinit {
+    inputPump.cancel()
+  }
+}
+
+private actor InputEventBuffer {
+  private var events: [InputEvent] = []
+  private var finished = false
+  private var waiters: [CheckedContinuation<InputEvent?, Never>] = []
+
+  func finish() {
+    finished = true
+    let waiters = waiters
+    self.waiters = []
+
+    for waiter in waiters {
+      waiter.resume(returning: nil)
+    }
+  }
+
+  func next() async -> InputEvent? {
+    if !events.isEmpty {
+      return events.removeFirst()
+    }
+
+    if finished {
+      return nil
+    }
+
+    return await withCheckedContinuation { continuation in
+      waiters.append(continuation)
+    }
+  }
+
+  func yield(_ event: InputEvent) {
+    if !waiters.isEmpty {
+      let waiter = waiters.removeFirst()
+      waiter.resume(returning: event)
+    } else {
+      events.append(event)
+    }
   }
 }
