@@ -275,6 +275,7 @@ package.targets.append(contentsOf: [
     name: "TesseraTerminalBuffer",
     dependencies: [
       DisplayWidth,
+      TesseraTerminalANSI,
       TesseraTerminalCore,
     ]
   ),

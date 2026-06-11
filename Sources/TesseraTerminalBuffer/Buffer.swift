@@ -1,27 +1,7 @@
 import TesseraTerminalCore
 
-/// Display attributes for a terminal cell.
-public struct Style: Sendable, Equatable {
-  public init() {}
-}
-
-/// A single terminal character cell.
-public struct Cell: Sendable, Equatable {
-  public static let blank = Self(character: " ")
-
-  public var character: Character
-  public var style: Style
-  public var width: Int
-
-  public init(character: Character, style: Style = Style(), width: Int = 1) {
-    self.character = character
-    self.style = style
-    self.width = width
-  }
-}
-
 /// A rectangular terminal buffer backed by flat row-major cell storage.
-public struct Buffer: Sendable, Equatable {
+public struct Buffer: Equatable, Sendable {
   public let size: TerminalSize
   private var cells: [Cell]
 
@@ -54,7 +34,11 @@ public struct Buffer: Sendable, Equatable {
         continue
       }
 
-      self[position.row, column] = Cell(character: character, style: style)
+      uncheckedSet(
+        Cell(character: character, style: style),
+        row: position.row,
+        column: column
+      )
     }
   }
 
@@ -62,12 +46,35 @@ public struct Buffer: Sendable, Equatable {
     row * size.columns + column
   }
 
+  private func contains(row: Int, column: Int) -> Bool {
+    row >= 0 && row < size.rows && column >= 0 && column < size.columns
+  }
+
+  private mutating func uncheckedSet(_ cell: Cell, row: Int, column: Int) {
+    cells[index(row: row, column: column)] = cell
+  }
+
+  public func cell(row: Int, column: Int) -> Cell? {
+    guard contains(row: row, column: column) else {
+      return nil
+    }
+
+    return cells[index(row: row, column: column)]
+  }
+
+  package mutating func set(_ cell: Cell, row: Int, column: Int) throws {
+    guard contains(row: row, column: column) else {
+      throw BufferBoundsError(row: row, column: column, size: size)
+    }
+
+    uncheckedSet(cell, row: row, column: column)
+  }
+
   public subscript(row: Int, column: Int) -> Cell {
-    get {
-      cells[index(row: row, column: column)]
+    guard let cell = cell(row: row, column: column) else {
+      preconditionFailure("Buffer cell position is out of bounds")
     }
-    set {
-      cells[index(row: row, column: column)] = newValue
-    }
+
+    return cell
   }
 }

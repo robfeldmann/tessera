@@ -14,9 +14,16 @@ public enum Renderer {
 
     for row in 0..<buffer.size.rows {
       for column in 0..<buffer.size.columns {
-        ControlSequence
-          .text(String(buffer[row, column].character))
-          .encode(into: &bytes)
+        switch buffer[row, column].content {
+        case .blank:
+          ControlSequence.text(" ").encode(into: &bytes)
+        case .continuation:
+          break
+        case .grapheme(let grapheme):
+          ControlSequence.text(grapheme).encode(into: &bytes)
+        case .raw(let payload):
+          ControlSequence.raw(payload).encode(into: &bytes)
+        }
       }
 
       if row < buffer.size.rows - 1 {

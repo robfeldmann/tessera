@@ -6,11 +6,19 @@ extension Buffer: CustomDumpStringConvertible {
   public var customDumpDescription: String {
     (0..<size.rows)
       .map { row in
-        String(
-          (0..<size.columns).map { column in
-            self[row, column].character == " " ? "·" : self[row, column].character
+        (0..<size.columns).map { column in
+          switch self[row, column].content {
+          case .blank:
+            "·"
+          case .continuation:
+            "◌"
+          case .grapheme(let grapheme):
+            grapheme
+          case .raw:
+            "◆"
           }
-        )
+        }
+        .joined()
       }
       .joined(separator: "\n")
   }

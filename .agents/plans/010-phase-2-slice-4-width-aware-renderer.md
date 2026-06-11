@@ -11,7 +11,7 @@ updated: 2026-06-10
 ## Progress
 
 - [ ] **Phase 1 — Buffer model and Unicode-width invariants**
-  - [ ] 1.1 Redesign `Cell` around explicit content and diff policy
+  - [x] 1.1 Redesign `Cell` around explicit content and diff policy
   - [ ] 1.2 Implement display-width and control-character classification helpers
   - [ ] 1.3 Rewrite `Buffer.write` for grapheme clusters, clipping, and orphan cleanup
   - [ ] 1.4 Add buffer tests for wide, zero-width, combining, clipping, and orphan cases
@@ -35,6 +35,7 @@ updated: 2026-06-10
   - [ ] 5.2 Update walking skeleton examples to use damage-tracked rendering behavior
   - [ ] 5.3 Document manual terminal sanity verification for interrupted renders
   - [ ] 5.4 Run full slice validation and update this plan
+  - [ ] 5.5 Review public documentation for release-facing language
 
 ## Review process
 
@@ -500,6 +501,16 @@ update runnable examples to exercise the real renderer.
 - Update this plan's progress and `updated` date as phases complete.
 - Acceptance: all commands pass or any platform-specific deferral is documented with a
   concrete follow-up.
+
+### Step 5.5 — Review public documentation for release-facing language
+
+- Files: public source doc comments touched by this slice.
+- Review public-facing docs and remove implementation-plan language such as phase/slice
+  numbers, internal review notes, or references that require knowledge of Tessera's
+  development process.
+- Keep internal comments that cite `docs/Spec.md` where the implementation plan explicitly
+  asks for them, but do not expose those details as public API documentation.
+- Acceptance: public API docs describe stable behavior for users, not project history.
 
 ## Risks and decisions to review before implementation
 
