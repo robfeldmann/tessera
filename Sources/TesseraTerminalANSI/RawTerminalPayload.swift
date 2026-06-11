@@ -4,9 +4,9 @@ public struct RawTerminalPayload: Equatable, Sendable {
   public let bytes: [UInt8]
 
   /// The caller-declared display width, if the payload affects visible cells.
-  public let declaredWidth: Int?
+  public let declaredWidth: UInt?
 
-  public init(bytes: [UInt8], declaredWidth: Int? = nil) {
+  public init(bytes: [UInt8], declaredWidth: UInt? = nil) {
     self.bytes = bytes
     self.declaredWidth = declaredWidth
   }

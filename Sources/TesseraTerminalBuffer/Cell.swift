@@ -45,7 +45,7 @@ public struct Cell: Equatable, Sendable {
     case .grapheme(let grapheme):
       terminalCellWidth(of: grapheme)
     case .raw(let payload):
-      payload.declaredWidth ?? 0
+      Int(payload.declaredWidth ?? 0)
     }
   }
 

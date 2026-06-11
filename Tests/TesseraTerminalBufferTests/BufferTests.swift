@@ -1,5 +1,6 @@
 import InlineSnapshotTesting
 import SnapshotTestingCustomDump
+import TesseraTerminalANSI
 import TesseraTerminalCore
 import TesseraTerminalTestSupport
 import Testing
@@ -277,6 +278,110 @@ func `write stores halfwidth katakana sound marks as one column graphemes`() {
   #expect(buffer[0, 0].content == .grapheme("\u{FF9E}"))
   #expect(buffer[0, 1].content == .grapheme("\u{FF9F}"))
   #expect(buffer[0, 2].content == .blank)
+}
+
+@Test
+func `raw payload stores anchor and occupied continuations`() {
+  var buffer = Buffer(size: TerminalSize(columns: 5, rows: 1))
+  let payload = RawTerminalPayload(bytes: [0x1B, 0x5D], declaredWidth: 2)
+
+  buffer.writeRaw(
+    payload,
+    at: TerminalPosition(column: 1, row: 0),
+    occupying: Rect(column: 1, row: 0, columns: 2, rows: 1)
+  )
+
+  assertInlineSnapshot(of: buffer, as: .bufferState) {
+    """
+    · R2! ◌! · ·
+    """
+  }
+}
+
+@Test
+func `raw payload clips occupied region`() {
+  var buffer = Buffer(size: TerminalSize(columns: 3, rows: 2))
+  let payload = RawTerminalPayload(bytes: [0x1B], declaredWidth: 4)
+
+  buffer.writeRaw(
+    payload,
+    at: TerminalPosition(column: 0, row: 0),
+    occupying: Rect(column: -1, row: 0, columns: 4, rows: 2),
+    repaintPolicy: .opaque
+  )
+
+  assertInlineSnapshot(of: buffer, as: .bufferState) {
+    """
+    R4? ◌? ◌?
+    ◌? ◌? ◌?
+    """
+  }
+}
+
+@Test(arguments: [UInt?.none, 0])
+func `zero width raw payload anchors without occupying trailing cells`(width: UInt?) {
+  var buffer = Buffer(size: TerminalSize(columns: 3, rows: 1))
+  buffer.write("abc", at: TerminalPosition(column: 0, row: 0))
+  let payload = RawTerminalPayload(bytes: [0x1B], declaredWidth: width)
+
+  buffer.writeRaw(
+    payload,
+    at: TerminalPosition(column: 1, row: 0),
+    occupying: Rect(column: 1, row: 0, columns: 0, rows: 0)
+  )
+
+  assertInlineSnapshot(of: buffer, as: .bufferState) {
+    """
+    a R0! c
+    """
+  }
+}
+
+@Test
+func `raw payload clears overlapping wide grapheme`() {
+  var buffer = Buffer(size: TerminalSize(columns: 4, rows: 1))
+  let payload = RawTerminalPayload(bytes: [0x1B], declaredWidth: 1)
+
+  buffer.write("你", at: TerminalPosition(column: 1, row: 0))
+  buffer.writeRaw(
+    payload,
+    at: TerminalPosition(column: 2, row: 0),
+    occupying: Rect(column: 2, row: 0, columns: 1, rows: 1)
+  )
+
+  assertInlineSnapshot(of: buffer, as: .bufferState) {
+    """
+    · · R1! ·
+    """
+  }
+}
+
+@Test
+func `mark opaque preserves one column visible content`() {
+  var buffer = Buffer(size: TerminalSize(columns: 4, rows: 1))
+
+  buffer.write("abcd", at: TerminalPosition(column: 0, row: 0))
+  buffer.markOpaque(Rect(column: 1, row: 0, columns: 2, rows: 1))
+
+  assertInlineSnapshot(of: buffer, as: .bufferState) {
+    """
+    a b? c? d
+    """
+  }
+}
+
+@Test
+func `normal write reclaims opaque region`() {
+  var buffer = Buffer(size: TerminalSize(columns: 3, rows: 1))
+
+  buffer.markOpaque(Rect(column: 1, row: 0, columns: 1, rows: 1))
+  buffer.write("x", at: TerminalPosition(column: 1, row: 0))
+
+  assertInlineSnapshot(of: buffer, as: .bufferState) {
+    """
+    · x ·
+    """
+  }
 }
 
 @Test

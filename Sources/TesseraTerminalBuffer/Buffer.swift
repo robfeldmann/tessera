@@ -1,3 +1,4 @@
+import TesseraTerminalANSI
 import TesseraTerminalCore
 
 /// A rectangular terminal buffer backed by flat row-major cell storage.
@@ -96,6 +97,72 @@ public struct Buffer: Equatable, Sendable {
     return .written(nextColumn: position.column + width)
   }
 
+  public mutating func writeRaw(
+    _ payload: RawTerminalPayload,
+    at position: TerminalPosition,
+    occupying occupied: Rect,
+    repaintPolicy: CellDiffPolicy = .alwaysRepaint
+  ) {
+    let clippedRegion = occupied.clipped(to: size)
+
+    if let clippedRegion {
+      clearClusters(in: clippedRegion)
+    }
+    clearCluster(atRow: position.row, column: position.column)
+
+    // docs/Spec.md Slice 4: zero-width raw payloads are anchored and emitted without
+    // advancing the cursor; anchoring replaces any previous visible content at the cell.
+    if contains(row: position.row, column: position.column) {
+      uncheckedSet(
+        Cell(content: .raw(payload), diffPolicy: repaintPolicy),
+        row: position.row,
+        column: position.column
+      )
+    }
+
+    guard let clippedRegion else {
+      return
+    }
+
+    for row in clippedRegion.rowRange {
+      for column in clippedRegion.columnRange
+      where row != position.row || column != position.column {
+        uncheckedSet(
+          Cell(content: .continuation, diffPolicy: repaintPolicy),
+          row: row,
+          column: column
+        )
+      }
+    }
+  }
+
+  public mutating func markOpaque(_ region: Rect) {
+    guard let clippedRegion = region.clipped(to: size) else {
+      return
+    }
+
+    for row in clippedRegion.rowRange {
+      for column in clippedRegion.columnRange {
+        let cell = self[row, column]
+        if cell.content == .continuation || cell.width != 1 {
+          clearCluster(atRow: row, column: column)
+        }
+
+        var opaqueCell = self[row, column]
+        opaqueCell.diffPolicy = .opaque
+        uncheckedSet(opaqueCell, row: row, column: column)
+      }
+    }
+  }
+
+  private mutating func clearClusters(in region: Rect) {
+    for row in region.rowRange {
+      for column in region.columnRange {
+        clearCluster(atRow: row, column: column)
+      }
+    }
+  }
+
   package mutating func clearCluster(atRow row: Int, column: Int) {
     guard contains(row: row, column: column),
       let leadingColumn = leadingColumnForCluster(atRow: row, column: column)
@@ -160,6 +227,7 @@ public struct Buffer: Equatable, Sendable {
       throw BufferBoundsError(row: row, column: column, size: size)
     }
 
+    clearCluster(atRow: row, column: column)
     uncheckedSet(cell, row: row, column: column)
   }
 

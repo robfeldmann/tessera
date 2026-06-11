@@ -17,7 +17,7 @@ updated: 2026-06-10
   - [x] 1.4 Add buffer tests for wide, zero-width, combining, clipping, and orphan cases
 - [ ] **Phase 2 — Raw/opaque buffer regions**
   - [x] 2.1 Add `Rect` geometry
-  - [ ] 2.2 Implement `Buffer.writeRaw` and `markOpaque`
+  - [x] 2.2 Implement `Buffer.writeRaw` and `markOpaque`
   - [ ] 2.3 Add raw payload and opaque-region buffer tests
 - [ ] **Phase 3 — Damage diff engine and byte encoding**
   - [ ] 3.1 Extract render operations and row damage scanning
