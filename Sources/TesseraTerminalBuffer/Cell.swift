@@ -1,4 +1,3 @@
-import DisplayWidth
 import TesseraTerminalANSI
 
 /// Controls how the renderer compares and repaints a cell.
@@ -44,7 +43,7 @@ public struct Cell: Equatable, Sendable {
     case .continuation:
       0
     case .grapheme(let grapheme):
-      min(DisplayWidth()(grapheme), 2)
+      terminalCellWidth(of: grapheme)
     case .raw(let payload):
       payload.declaredWidth ?? 0
     }

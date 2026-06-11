@@ -32,11 +32,11 @@ func `buffer initializes every cell with custom fill`() {
 }
 
 @Test
-func `subscript gets and sets cells by row and column`() {
+func `package set writes cells by row and column`() throws {
   var buffer = Buffer(size: TerminalSize(columns: 3, rows: 2))
-  let cell = Cell(character: "X", width: 1)
+  let cell = Cell(character: "X")
 
-  buffer[1, 2] = cell
+  try buffer.set(cell, row: 1, column: 2)
 
   assertInlineSnapshot(of: buffer, as: .customDump) {
     """
