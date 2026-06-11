@@ -384,6 +384,135 @@ func `normal write reclaims opaque region`() {
   }
 }
 
+@Test(arguments: [UInt?.none, 0, 1, 2, 4])
+func `raw payload snapshots declared width variants`(width: UInt?) {
+  var buffer = Buffer(size: TerminalSize(columns: 3, rows: 1))
+  let payload = RawTerminalPayload(bytes: [0x1B], declaredWidth: width)
+
+  buffer.writeRaw(
+    payload,
+    at: TerminalPosition(column: 1, row: 0),
+    occupying: Rect(column: 1, row: 0, columns: Int(width ?? 0), rows: 1)
+  )
+
+  let rawWidth = Int(width ?? 0)
+  let expected: String
+  if rawWidth == 0 {
+    expected = "· R0! ·"
+  } else if rawWidth == 1 {
+    expected = "· R1! ·"
+  } else if rawWidth == 2 {
+    expected = "· R2! ◌!"
+  } else {
+    expected = "· R4! ◌!"
+  }
+
+  assertInlineSnapshot(of: buffer, as: .bufferState) {
+    """
+    \(expected)
+    """
+  }
+}
+
+@Test
+func `raw payload with anchor outside clips occupied region without storing anchor`() {
+  var buffer = Buffer(size: TerminalSize(columns: 3, rows: 1))
+  let payload = RawTerminalPayload(bytes: [0x1B], declaredWidth: 2)
+
+  buffer.writeRaw(
+    payload,
+    at: TerminalPosition(column: -1, row: 0),
+    occupying: Rect(column: -1, row: 0, columns: 3, rows: 1)
+  )
+
+  assertInlineSnapshot(of: buffer, as: .bufferState) {
+    """
+    ◌! ◌! ·
+    """
+  }
+}
+
+@Test
+func `raw payload with empty occupied region stores only anchor`() {
+  var buffer = Buffer(size: TerminalSize(columns: 3, rows: 1))
+  let payload = RawTerminalPayload(bytes: [0x1B], declaredWidth: 2)
+
+  buffer.writeRaw(
+    payload,
+    at: TerminalPosition(column: 1, row: 0),
+    occupying: Rect(column: 1, row: 0, columns: 0, rows: 0)
+  )
+
+  assertInlineSnapshot(of: buffer, as: .bufferState) {
+    """
+    · R2! ·
+    """
+  }
+}
+
+@Test
+func `raw payload can occupy multiple rows`() {
+  var buffer = Buffer(size: TerminalSize(columns: 4, rows: 2))
+  let payload = RawTerminalPayload(bytes: [0x1B], declaredWidth: 3)
+
+  buffer.writeRaw(
+    payload,
+    at: TerminalPosition(column: 1, row: 0),
+    occupying: Rect(column: 1, row: 0, columns: 2, rows: 2)
+  )
+
+  assertInlineSnapshot(of: buffer, as: .bufferState) {
+    """
+    · R3! ◌! ·
+    · ◌! ◌! ·
+    """
+  }
+}
+
+@Test
+func `overlapping raw payload clears previous raw region`() {
+  var buffer = Buffer(size: TerminalSize(columns: 4, rows: 1))
+  let first = RawTerminalPayload(bytes: [0x31], declaredWidth: 3)
+  let second = RawTerminalPayload(bytes: [0x32], declaredWidth: 1)
+
+  buffer.writeRaw(
+    first,
+    at: TerminalPosition(column: 0, row: 0),
+    occupying: Rect(column: 0, row: 0, columns: 3, rows: 1)
+  )
+  buffer.writeRaw(
+    second,
+    at: TerminalPosition(column: 2, row: 0),
+    occupying: Rect(column: 2, row: 0, columns: 1, rows: 1)
+  )
+
+  assertInlineSnapshot(of: buffer, as: .bufferState) {
+    """
+    · · R1! ·
+    """
+  }
+}
+
+@Test
+func `clear removes opaque always repaint and continuation cells`() {
+  var buffer = Buffer(size: TerminalSize(columns: 3, rows: 1))
+  let payload = RawTerminalPayload(bytes: [0x1B], declaredWidth: 2)
+
+  buffer.writeRaw(
+    payload,
+    at: TerminalPosition(column: 0, row: 0),
+    occupying: Rect(column: 0, row: 0, columns: 2, rows: 1)
+  )
+  buffer.markOpaque(Rect(column: 2, row: 0, columns: 1, rows: 1))
+  buffer.clear()
+
+  assertInlineSnapshot(of: buffer, as: .bufferState) {
+    """
+    · · ·
+    """
+  }
+}
+
 @Test
 func `clear resets content style and diff policy using fill cell`() {
   var buffer = Buffer(size: TerminalSize(columns: 2, rows: 1))
