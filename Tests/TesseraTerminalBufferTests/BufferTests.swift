@@ -101,3 +101,121 @@ func `write outside the vertical bounds does nothing`() {
     """
   }
 }
+
+@Test
+func `write stores wide graphemes with continuation cells`() {
+  var buffer = Buffer(size: TerminalSize(columns: 5, rows: 1))
+
+  buffer.write("你a", at: TerminalPosition(column: 1, row: 0))
+
+  #expect(buffer[0, 1].content == .grapheme("你"))
+  #expect(buffer[0, 2].content == .continuation)
+  #expect(buffer[0, 3].content == .grapheme("a"))
+  assertInlineSnapshot(of: buffer, as: .customDump) {
+    """
+    ·你◌a·
+    """
+  }
+}
+
+@Test
+func `write drops wide grapheme that does not fit at right edge`() {
+  var buffer = Buffer(size: TerminalSize(columns: 3, rows: 1))
+
+  buffer.write("你", at: TerminalPosition(column: 2, row: 0))
+
+  assertInlineSnapshot(of: buffer, as: .customDump) {
+    """
+    ···
+    """
+  }
+}
+
+@Test
+func `write does not render visible half of clipped wide grapheme`() {
+  var buffer = Buffer(size: TerminalSize(columns: 4, rows: 1))
+
+  buffer.write("你a", at: TerminalPosition(column: -1, row: 0))
+
+  assertInlineSnapshot(of: buffer, as: .customDump) {
+    """
+    ·a··
+    """
+  }
+}
+
+@Test
+func `write does not wrap to the next row`() {
+  var buffer = Buffer(size: TerminalSize(columns: 3, rows: 2))
+
+  buffer.write("abcd", at: TerminalPosition(column: 1, row: 0))
+
+  assertInlineSnapshot(of: buffer, as: .customDump) {
+    """
+    ·ab
+    ···
+    """
+  }
+}
+
+@Test
+func `write clears previous wide grapheme when overwriting leading cell`() {
+  var buffer = Buffer(size: TerminalSize(columns: 4, rows: 1))
+
+  buffer.write("你", at: TerminalPosition(column: 1, row: 0))
+  buffer.write("x", at: TerminalPosition(column: 1, row: 0))
+
+  assertInlineSnapshot(of: buffer, as: .customDump) {
+    """
+    ·x··
+    """
+  }
+}
+
+@Test
+func `write clears previous wide grapheme when overwriting continuation cell`() {
+  var buffer = Buffer(size: TerminalSize(columns: 4, rows: 1))
+
+  buffer.write("你", at: TerminalPosition(column: 1, row: 0))
+  buffer.write("x", at: TerminalPosition(column: 2, row: 0))
+
+  assertInlineSnapshot(of: buffer, as: .customDump) {
+    """
+    ··x·
+    """
+  }
+}
+
+@Test
+func `write grapheme returns next column`() {
+  var buffer = Buffer(size: TerminalSize(columns: 4, rows: 1))
+
+  let result = buffer.write(
+    grapheme: "你",
+    at: TerminalPosition(column: 1, row: 0)
+  )
+
+  #expect(result == .written(nextColumn: 3))
+  #expect(buffer[0, 1].content == .grapheme("你"))
+  #expect(buffer[0, 2].content == .continuation)
+}
+
+@Test
+func `write grapheme reports clipped and unsupported results`() {
+  var buffer = Buffer(size: TerminalSize(columns: 2, rows: 1))
+
+  #expect(
+    buffer.write(grapheme: "你", at: TerminalPosition(column: 1, row: 0))
+      == .clipped
+  )
+  #expect(
+    buffer.write(grapheme: "\u{200D}", at: TerminalPosition(column: 0, row: 0))
+      == .unsupported
+  )
+
+  assertInlineSnapshot(of: buffer, as: .customDump) {
+    """
+    ··
+    """
+  }
+}
