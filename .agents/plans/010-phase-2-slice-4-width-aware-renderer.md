@@ -10,11 +10,11 @@ updated: 2026-06-10
 
 ## Progress
 
-- [ ] **Phase 1 — Buffer model and Unicode-width invariants**
+- [x] **Phase 1 — Buffer model and Unicode-width invariants**
   - [x] 1.1 Redesign `Cell` around explicit content and diff policy
   - [x] 1.2 Implement display-width and control-character classification helpers
   - [x] 1.3 Rewrite `Buffer.write` for grapheme clusters, clipping, and orphan cleanup
-  - [ ] 1.4 Add buffer tests for wide, zero-width, combining, clipping, and orphan cases
+  - [x] 1.4 Add buffer tests for wide, zero-width, combining, clipping, and orphan cases
 - [ ] **Phase 2 — Raw/opaque buffer regions**
   - [ ] 2.1 Add `Rect` geometry
   - [ ] 2.2 Implement `Buffer.writeRaw` and `markOpaque`

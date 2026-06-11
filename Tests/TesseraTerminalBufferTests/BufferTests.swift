@@ -219,3 +219,74 @@ func `write grapheme reports clipped and unsupported results`() {
     """
   }
 }
+
+@Test(arguments: ["你好", "🙂", "👨‍👩‍👧", "🇺🇸", "👍🏽"])
+func `write stores two column graphemes with continuations`(text: String) {
+  var buffer = Buffer(size: TerminalSize(columns: 6, rows: 1))
+
+  buffer.write(text, at: TerminalPosition(column: 0, row: 0))
+
+  var column = 0
+  for character in text {
+    #expect(buffer[0, column].content == .grapheme(String(character)))
+    #expect(buffer[0, column + 1].content == .continuation)
+    column += 2
+  }
+}
+
+@Test(arguments: ["é", "e\u{0301}"])
+func `write stores one column combining graphemes`(grapheme: String) {
+  var buffer = Buffer(size: TerminalSize(columns: 3, rows: 1))
+
+  buffer.write(grapheme, at: TerminalPosition(column: 1, row: 0))
+
+  #expect(buffer[0, 1].content == .grapheme(grapheme))
+  #expect(buffer[0, 1].width == 1)
+  #expect(buffer[0, 2].content == .blank)
+}
+
+@Test
+func `write ignores isolated zero width and control graphemes`() {
+  var buffer = Buffer(size: TerminalSize(columns: 4, rows: 1))
+
+  buffer.write("a\tb", at: TerminalPosition(column: 0, row: 0))
+  #expect(
+    buffer.write(grapheme: "\u{200D}", at: TerminalPosition(column: 2, row: 0))
+      == .unsupported
+  )
+  #expect(
+    buffer.write(grapheme: "\u{0085}", at: TerminalPosition(column: 2, row: 0))
+      == .unsupported
+  )
+  buffer.write("cd", at: TerminalPosition(column: 2, row: 0))
+
+  assertInlineSnapshot(of: buffer, as: .customDump) {
+    """
+    abcd
+    """
+  }
+}
+
+@Test
+func `write stores halfwidth katakana sound marks as one column graphemes`() {
+  var buffer = Buffer(size: TerminalSize(columns: 3, rows: 1))
+
+  _ = buffer.write(grapheme: "\u{FF9E}", at: TerminalPosition(column: 0, row: 0))
+  _ = buffer.write(grapheme: "\u{FF9F}", at: TerminalPosition(column: 1, row: 0))
+
+  #expect(buffer[0, 0].content == .grapheme("\u{FF9E}"))
+  #expect(buffer[0, 1].content == .grapheme("\u{FF9F}"))
+  #expect(buffer[0, 2].content == .blank)
+}
+
+@Test
+func `clear resets content style and diff policy using fill cell`() {
+  var buffer = Buffer(size: TerminalSize(columns: 2, rows: 1))
+  let style = Style(attributes: [.bold])
+
+  buffer.write("你", at: TerminalPosition(column: 0, row: 0), style: style)
+  buffer.clear(fill: Cell(content: .blank, style: style, diffPolicy: .alwaysRepaint))
+
+  #expect(buffer[0, 0] == Cell(content: .blank, style: style, diffPolicy: .alwaysRepaint))
+  #expect(buffer[0, 1] == Cell(content: .blank, style: style, diffPolicy: .alwaysRepaint))
+}
