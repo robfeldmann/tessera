@@ -24,10 +24,10 @@ updated: 2026-06-10
   - [x] 3.2 Implement style emission and SGR delta helpers
   - [ ] 3.3 Implement cursor-position tracking and run coalescing
   - [ ] 3.4 Add focused diff, SGR, cursor, and raw/opaque renderer tests
-- [ ] **Phase 4 — Stateful renderer actor and session integration**
-  - [ ] 4.1 Replace static full-repaint renderer with a stateful `Renderer` actor
+- [ ] **Phase 4 — Stateful renderer value and session integration**
+  - [ ] 4.1 Replace static full-repaint renderer with synchronous `Renderer` state
   - [ ] 4.2 Add render transactions, frame lifecycle, and synchronized-output policy
-  - [ ] 4.3 Integrate `TerminalSession.draw` with the renderer actor and one flush per
+  - [ ] 4.3 Integrate `TerminalSession.draw` with renderer encoding and one flush per
         frame
   - [ ] 4.4 Add invalidate and resize-driven full-repaint behavior
 - [ ] **Phase 5 — Snapshot and example validation**
@@ -80,8 +80,9 @@ damage-rendering bugs are easiest to miss by inspection.
   `Package.swift` must change before `Cell.Content.raw(RawTerminalPayload)` or rich
   `Style` can compile. A text-attributes `OptionSet` is not present yet and should be
   added only if needed for `Style`.
-- `TesseraTerminalRendering` does not yet depend on `TesseraTerminalIO`; if the renderer
-  actor owns `PlatformIO`, add that target dependency deliberately and avoid cycles.
+- `TesseraTerminalRendering` must not depend on `TesseraTerminalIO`; the renderer is a
+  synchronous package value that encodes bytes only. `TerminalSession` owns `PlatformIO`,
+  writes encoded bytes, and flushes.
 - `TerminalGeometry.swift` has `TerminalSize` and `TerminalPosition`; `Rect` is missing.
 - `swift-displaywidth` is declared and attached to `TesseraTerminalBuffer`; inspect the
   local checkout before coding. Its API is `DisplayWidth` with `callAsFunction` overloads.
@@ -110,14 +111,15 @@ hardware scrolling, or color quantization policy.
    types cross module boundaries:
    - `TesseraTerminalBuffer` needs `TesseraTerminalANSI` for `RawTerminalPayload` and
      `Color`; add or place a text-attributes `OptionSet` deliberately when `Style` grows.
-   - `TesseraTerminalRendering` needs `TesseraTerminalIO` if `Renderer` owns `PlatformIO`
-     and performs writes/flushes.
+   - `TesseraTerminalRendering` must not depend on `TesseraTerminalIO`; keep IO in
+     `TesseraTerminal`/`TerminalSession` to avoid cycles and actor hops.
    - Tests may need new dependencies only when imports prove they are required.
-2. **Do not send user drawing closures to another actor.** Keep `TerminalSession.draw` as
-   the public render transaction that creates and lends `Frame`, runs the synchronous body
-   without suspension, then sends a `Sendable` buffer snapshot to the renderer actor. This
-   follows Swift 6 isolation guidance: keep non-`Sendable` borrowed capabilities in one
-   isolation domain instead of making user closures or `Frame` broadly `Sendable`.
+2. **Do not send user drawing closures or buffers to another renderer actor.** Keep
+   `TerminalSession.draw` as the public render transaction that creates and lends `Frame`,
+   runs the synchronous body without suspension, asks its owned package `Renderer` value
+   to encode bytes, writes through `PlatformIO`, and flushes once. This follows Swift 6
+   isolation guidance: keep non-`Sendable` borrowed capabilities and renderer state in the
+   `TerminalSession` actor rather than making the diff engine an actor.
 3. **Adopt the spec's borrowed-frame shape unless the compiler proves otherwise.** First
    attempt `Frame: ~Copyable, ~Escapable` with `borrowing` APIs. If a Swift 6.3 compiler
    limitation blocks this, document the exact diagnostic in this plan, keep the closure
@@ -125,12 +127,15 @@ hardware scrolling, or color quantization policy.
    class.
 4. **No `@unchecked Sendable` in this slice.** `Buffer`, `Cell`, `Style`, geometry, raw
    payloads, render operations, and policies should be value-semantic and derive
-   `Sendable`. `Renderer`, `PlatformIO`, and `TerminalSession` are actors. If a diagnostic
-   suggests `@unchecked Sendable`, fix the isolation boundary instead.
-5. **Actor state advances only after a successful frame.** The renderer must not update
-   `lastDrawnBuffer`, believed cursor position, or believed style until frame bytes have
-   been flushed successfully. If bytes may have been partially written before an error,
-   invalidate renderer assumptions so the next successful draw is conservative.
+   `Sendable`. `Renderer` is a synchronous package struct owned by `TerminalSession`;
+   `PlatformIO` and `TerminalSession` remain actors. If a diagnostic suggests
+   `@unchecked Sendable`, fix the isolation boundary instead.
+5. **Renderer state advances only after a successful frame.** `Renderer.encodeFrame` may
+   mutate style/cursor state while encoding, but `TerminalSession` must not commit
+   `lastDrawnBuffer` until bytes have been written and flushed successfully. If bytes may
+   have been partially written before an error, call `Renderer.invalidate()` (or leave the
+   previous buffer unadvanced and invalidate assumptions) so the next successful draw is
+   conservative.
 6. **Implementation comments should cite the local design source.** For non-obvious rules
    (orphan cleanup, zero-width/control filtering, raw/opaque policy, VS16 trailing clears,
    SGR reset-at-end, synchronized-output no-op bracketing, resize invalidation), add a
@@ -140,6 +145,12 @@ hardware scrolling, or color quantization policy.
    can create orphan continuations or invalid raw regions. Prefer a public read-only
    subscript plus mutation methods, with any invariant-bypassing setter kept `package` and
    documented as low-level test/internal support.
+8. **Use current ANSI API names.** `eraseInLine` takes `LineEraseMode`, while
+   `eraseInDisplay` takes `EraseMode`; do not make `.allAndScrollback` representable for
+   line erase tests or implementation.
+9. **Honor current lint policy.** CI enforces `swift-format lint` and SwiftLint. The
+   SwiftLint `pattern_matching_keywords` rule is disabled so pattern bindings should use
+   swift-format's preferred `case .x(let y)` style.
 
 ## Phase 1 — Buffer model and Unicode-width invariants
 
@@ -365,35 +376,47 @@ bytes without involving actors or live I/O.
   or the new first-frame behavior.
 - Add exact-byte tests where small and stable; use snapshots for larger grouped render
   cases humans inspect as a whole.
-- Include raw payload rendering and opaque-region skip tests before actor integration.
+- Include raw payload rendering and opaque-region skip tests before session integration.
 - Add tests for first frame, identical second frame, style-only damage, clearing previous
   wide content with blanks, raw always-repaint equality, and blank-vs-space visual
   equivalence if the chosen equality policy supports it.
 - Acceptance: `swift test --filter TesseraTerminalRenderingTests` passes.
 
-## Phase 4 — Stateful renderer actor and session integration
+## Phase 4 — Stateful renderer value and session integration
 
-**Goal**: Route terminal drawing through a stateful renderer that owns cached render state
-and writes/flushed bytes exactly once per successful frame.
+**Goal**: Route terminal drawing through a synchronous package renderer value owned by
+`TerminalSession`; the session writes encoded bytes and flushes exactly once per
+successful frame.
 
-### Step 4.1 — Replace static full-repaint renderer with a stateful `Renderer` actor
+### Step 4.1 — Replace static full-repaint renderer with synchronous `Renderer` state
 
-- Files: `Package.swift`, `Sources/TesseraTerminalRendering/Renderer.swift`.
-- Add `TesseraTerminalIO` as a dependency of `TesseraTerminalRendering` if the actor owns
-  `PlatformIO`.
-- Introduce `public actor Renderer` or a `public` type with `package` initializers as
-  needed by `TerminalSession`.
-- Internal state should include:
-  - last drawn `Buffer?` (`nil` means full repaint),
-  - current terminal `Style`,
-  - believed cursor position,
-  - an “erase before next repaint” flag set by invalidation/resize,
-  - synchronized-output policy.
-- The actor should accept a completed `Buffer` value from `TerminalSession`; it should not
-  run the user drawing closure or expose a borrowed `Frame` across actors.
-- Preserve package-testable pure functions so most renderer tests do not need actors.
-- Acceptance: actor-level tests can render two buffers through an in-memory output seam
-  and observe that the second successful draw emits only damage bytes.
+- Files: `Sources/TesseraTerminalRendering/Renderer.swift`.
+- Do not add `TesseraTerminalIO` to `TesseraTerminalRendering`; the renderer must remain
+  pure with respect to IO and only encode bytes.
+- Replace the public static full-repaint API with a package-internal mutable renderer:
+
+  ```swift
+  package struct Renderer {
+    package init()
+    package mutating func encodeFrame(
+      previous: Buffer?,
+      current: Buffer,
+      wrapInSynchronizedOutput: Bool,
+      into bytes: inout [UInt8]
+    )
+    package mutating func invalidate()
+  }
+  ```
+
+- Internal state should include current terminal `Style`, believed cursor position, and an
+  “erase before next repaint” flag set by `invalidate()`/resize. The last-drawn buffer is
+  owned/committed by `TerminalSession`, which passes it as `previous`.
+- `previous == nil` means the screen is unknown: encode `eraseInDisplay(.all)` and a full
+  repaint before returning to damage tracking.
+- `invalidate()` discards renderer terminal assumptions and causes the next encoded frame
+  to erase and repaint conservatively.
+- Acceptance: package-level renderer tests encode two buffers and observe that the second
+  frame emits only damage bytes, with no actor or IO seam required.
 
 ### Step 4.2 — Add render transactions, frame lifecycle, and synchronized-output policy
 
@@ -403,52 +426,58 @@ and writes/flushed bytes exactly once per successful frame.
 - First attempt to harden `Frame` to the spec's `~Copyable, ~Escapable` borrowed shape. If
   this cannot land in this slice, document the compiler blocker and keep the synchronous
   closure as a temporary containment boundary.
+- `Frame` remains a dumb write surface: it has `write`, `writeRaw`, and `markOpaque`; it
+  must not gain `render<V: View>` or know about the view layer.
 - Add a package API for `TerminalSession` to extract or consume the completed buffer after
   the synchronous body returns. Do not expose mutable buffer storage publicly.
 - Add `Frame.writeRaw` and `Frame.markOpaque` forwarding to the buffer.
 - Add a small `SynchronizedOutputPolicy` value (`enabled`/`disabled` is enough for
   Slice 4) in a target that avoids dependency cycles, and store it on
   `TerminalApplicationConfiguration`.
-- Emit enter/exit synchronized output around every frame when policy enables it, including
-  no-op frames.
+- `Renderer.encodeFrame(previous:current:wrapInSynchronizedOutput:into:)` emits enter/exit
+  synchronized output when requested, including no-op frames.
 - Acceptance: tests cover frame raw/opaque forwarding, sync enabled exact bytes, sync
   disabled exact bytes, no-op frame bracketing behavior, and the chosen `Frame` API shape.
 
-### Step 4.3 — Integrate `TerminalSession.draw` with the renderer actor and one flush per frame
+### Step 4.3 — Integrate `TerminalSession.draw` with renderer encoding and one flush per frame
 
 - Files: `Sources/TesseraTerminal/TerminalSession.swift`,
   `Sources/TesseraTerminalRendering/Renderer.swift`,
   `Tests/TesseraTerminalTests/TerminalSessionTests.swift`.
-- Store a renderer on `TerminalSession` and construct it from the same `PlatformIO` and
-  configuration policy.
-- Keep `TerminalSession.draw` API stable: query size, create a frame, run the synchronous
-  body without suspension, render the completed buffer through the renderer, and flush
-  once per successful frame.
-- Ensure body errors do not render partial frames; render errors propagate; flush errors
-  preserve `PlatformIO` buffering semantics from Slice 3.
-- Ensure renderer cached state updates only after successful flush; on render/flush
-  failure, invalidate assumptions or leave them unchanged so the next successful draw is
-  conservative.
-- Acceptance: terminal-session tests prove body return value, no render on body throw,
-  render/flush error propagation, one flush per successful draw, no actor hop while the
-  frame body runs, and conservative behavior after a failed flush.
+- Store `Renderer` and `lastDrawnBuffer: Buffer?` on `TerminalSession`; construct the
+  renderer with `Renderer()`.
+- Keep `TerminalSession.draw {}` as the only public rendering entry point: query size,
+  create a frame, run the synchronous body without suspension, call
+  `renderer.encodeFrame(previous:current:wrapInSynchronizedOutput:into:)`, write bytes
+  through `PlatformIO`, and flush once per successful frame.
+- `TesseraTerminalRendering` must not perform writes or flushes; the session owns IO.
+- Ensure body errors do not encode or render partial frames; write/flush errors propagate
+  and preserve `PlatformIO` buffering semantics from Slice 3.
+- Commit `lastDrawnBuffer = current` only after write and flush both succeed. On write or
+  flush failure, do not advance `lastDrawnBuffer`; call `renderer.invalidate()` if partial
+  terminal output may have occurred so the next successful draw erases and repaints.
+- Acceptance: terminal-session tests prove body return value, no encode/write on body
+  throw, write/flush error propagation, one flush per successful draw, no actor hop while
+  the frame body runs, and conservative behavior after a failed flush.
 
 ### Step 4.4 — Add invalidate and resize-driven full-repaint behavior
 
 - Files: `Sources/TesseraTerminalRendering/Renderer.swift`,
   `Sources/TesseraTerminal/TerminalSession.swift`,
-  `Tests/TesseraTerminalRenderingTests/RendererTests.swift`.
-- Implement renderer invalidation (`invalidateRendererState()`) and a session forwarding
-  API if needed.
-- Invalidation should discard previous buffer assumptions and cause the next draw to emit
-  `eraseInDisplay(.all)` before repainting.
+  `Tests/TesseraTerminalRenderingTests/RendererTests.swift`,
+  `Tests/TesseraTerminalTests/TerminalSessionTests.swift`.
+- Implement `Renderer.invalidate()` and public `TerminalSession.invalidateRenderer()`.
+  `invalidateRenderer()` is the only public invalidation entry point.
+- Invalidation should discard renderer SGR/cursor assumptions, clear `lastDrawnBuffer` in
+  the session, and cause the next draw to emit `eraseInDisplay(.all)` before repainting.
 - Wire resize notifications to renderer invalidation only if this can be done with a
   stored, cancellable task that does not capture borrowed frame state or leak session
   lifetime. If not, document the temporary pre-view-layer behavior and expose explicit
   invalidation for examples/tests.
-- Acceptance: tests prove invalidate causes erase + full repaint, subsequent draw returns
-  to damage tracking, horizontal/size changes repaint conservatively, and resize-triggered
-  invalidation is covered or intentionally deferred with a documented reason.
+- Acceptance: tests prove `Renderer.invalidate()`/`TerminalSession.invalidateRenderer()`
+  cause erase + full repaint, subsequent draw returns to damage tracking, size changes
+  repaint conservatively, and resize-triggered invalidation is covered or intentionally
+  deferred with a documented reason.
 
 ## Phase 5 — Snapshot and example validation
 
@@ -497,6 +526,8 @@ update runnable examples to exercise the real renderer.
   - `swift test --enable-code-coverage`
   - `swift build --package-path Examples`
   - `just test-linux-vm`
+  - `swift-format lint -r Sources Tests Package.swift`
+  - `swiftlint`
   - `just lint-changed`
 - Update this plan's progress and `updated` date as phases complete.
 - Acceptance: all commands pass or any platform-specific deferral is documented with a
@@ -526,9 +557,10 @@ update runnable examples to exercise the real renderer.
    nailed down before renderer tests: which cells are `.opaque`, which are
    `.alwaysRepaint`, and how normal writes reclaim them.
 5. **Failed flush recovery.** A flush failure can mean the terminal saw a prefix of the
-   frame. Renderer state must not believe the full frame succeeded. Existing `PlatformIO`
-   buffering preserves unwritten bytes, so tests must pin down whether the next draw
-   retries, invalidates, or both.
+   frame. `TerminalSession` must not commit `lastDrawnBuffer` as if the full frame
+   succeeded; it should invalidate renderer assumptions and repaint conservatively on the
+   next successful draw. Existing `PlatformIO` buffering preserves unwritten bytes, so
+   tests must pin down whether the next draw retries, invalidates, or both.
 6. **Resize invalidation ownership.** Session-owned resize listeners can create lifetime
    and cancellation complexity. Prefer explicit invalidation if automatic wiring is not
    clean in this slice.
