@@ -42,7 +42,7 @@ public enum ControlSequence: Equatable, Sendable {
   case eraseInDisplay(EraseMode)
 
   /// Erase part or all of the current line using ECMA-48 EL (`CSI Ps K`).
-  case eraseInLine(EraseMode)
+  case eraseInLine(LineEraseMode)
 
   /// Leave the alternate screen buffer using DEC private mode 1049.
   case exitAltScreen
