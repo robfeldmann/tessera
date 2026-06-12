@@ -2191,9 +2191,10 @@ package struct Renderer {
         into bytes: inout [UInt8]
     )
 
-    /// Discards cached terminal assumptions (last buffer, SGR state, cursor belief)
-    /// so the next frame repaints conservatively, including a leading erase. Used
-    /// after resize, after alt-screen reentry, or on demand.
+    /// Discards cached terminal assumptions (SGR state, cursor belief) and arms a
+    /// pending erase so the next frame repaints conservatively. The session's
+    /// invalidateRenderer() additionally clears its own lastDrawnBuffer. Used after
+    /// resize, after alt-screen reentry, or on demand.
     package mutating func invalidate()
 }
 
@@ -2250,12 +2251,16 @@ emit bytes Tessera does not understand, but it preserves render serialization, t
 snapshot visibility, and damage-tracking policy. It is not equivalent to exposing
 `PlatformIO.write`.
 
-Three pieces of internal state:
+State is split by who can guarantee it:
 
-- The last-drawn buffer (`Buffer?` — `nil` triggers full repaint).
-- The currently active `Style` on the terminal (so we know whether SGR needs re-emitting).
+- The last-drawn buffer (`Buffer?` — `nil` triggers erase + full repaint) is owned by
+  `TerminalSession`, which passes it as `previous` and commits `lastDrawnBuffer = current`
+  only after write and flush both succeed. Ownership lives with the session because only
+  the session knows whether the frame actually reached the terminal.
+- The currently active `Style` on the terminal (so we know whether SGR needs re-emitting)
+  is renderer-internal.
 - The currently believed cursor position (so we know whether `cursorPosition` needs
-  emitting).
+  emitting) is renderer-internal, along with a pending-erase flag set by `invalidate()`.
 
 ##### The diff algorithm
 
