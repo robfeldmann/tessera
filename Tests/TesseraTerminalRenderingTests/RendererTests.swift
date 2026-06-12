@@ -20,12 +20,8 @@ func `rendering an empty buffer emits a full repaint`() {
     text:  ␛[1;1H
 
     [row 0]
-    bytes: 1B 5B 30 6D 20 20 20 0D 0A
-    text:  ␛[0m···␍␊
-
-    [row 1]
-    bytes: 20 20 20 1B 5B 30 6D
-    text:  ···␛[0m
+    bytes: 1B 5B 30 6D 20 20 20 1B 5B 32 3B 31 48 20 20 20 1B 5B 30 6D
+    text:  ␛[0m···␛[2;1H···␛[0m
     """
   }
 }
@@ -45,14 +41,81 @@ func `rendering a buffer with text emits row major cell bytes`() {
     text:  ␛[1;1H
 
     [row 0]
-    bytes: 1B 5B 30 6D 20 48 69 20 0D 0A
-    text:  ␛[0m·Hi·␍␊
-
-    [row 1]
-    bytes: 20 20 20 71 1B 5B 30 6D
-    text:  ···q␛[0m
+    bytes: 1B 5B 30 6D 20 48 69 20 1B 5B 32 3B 31 48 20 20 20 71 1B 5B 30 6D
+    text:  ␛[0m·Hi·␛[2;1H···q␛[0m
     """
   }
+}
+
+@Test
+func `damage render coalesces adjacent same row cells`() {
+  let previous = Buffer(size: TerminalSize(columns: 4, rows: 1))
+  var current = previous
+  current.write("ab", at: TerminalPosition(column: 1, row: 0))
+
+  let bytes = Renderer.render(previous: previous, current: current)
+
+  #expect(bytes == escape("[1;2H") + escape("[0m") + utf8("ab") + escape("[0m"))
+}
+
+@Test
+func `damage render moves once per separate dirty row`() {
+  let previous = Buffer(size: TerminalSize(columns: 3, rows: 2))
+  var current = previous
+  current.write("x", at: TerminalPosition(column: 1, row: 0))
+  current.write("y", at: TerminalPosition(column: 2, row: 1))
+
+  let bytes = Renderer.render(previous: previous, current: current)
+
+  #expect(
+    bytes == escape("[1;2H") + escape("[0m") + utf8("x") + escape("[2;3H") + utf8("y")
+      + escape("[0m")
+  )
+}
+
+@Test
+func `damage render repositions around opaque gaps`() {
+  let previous = Buffer(size: TerminalSize(columns: 5, rows: 1))
+  var current = previous
+  current.write("abcde", at: TerminalPosition(column: 0, row: 0))
+  current.markOpaque(Rect(column: 2, row: 0, columns: 1, rows: 1))
+
+  let bytes = Renderer.render(previous: previous, current: current)
+
+  #expect(
+    bytes == escape("[1;1H") + escape("[0m") + utf8("ab") + escape("[1;4H") + utf8("de")
+      + escape("[0m")
+  )
+}
+
+@Test
+func `damage render does not advance cursor for zero width raw payloads`() {
+  let previous = Buffer(size: TerminalSize(columns: 2, rows: 1))
+  var current = previous
+  current.writeRaw(
+    RawTerminalPayload(bytes: utf8("R")),
+    at: TerminalPosition(column: 0, row: 0),
+    occupying: Rect(column: 0, row: 0, columns: 0, rows: 0)
+  )
+  current.write("x", at: TerminalPosition(column: 1, row: 0))
+
+  let bytes = Renderer.render(previous: previous, current: current)
+
+  #expect(
+    bytes == escape("[1;1H") + escape("[0m") + utf8("R") + escape("[1;2H") + utf8("x")
+      + escape("[0m")
+  )
+}
+
+@Test
+func `damage render advances cursor by wide cell width`() {
+  let previous = Buffer(size: TerminalSize(columns: 3, rows: 1))
+  var current = previous
+  current.write("你x", at: TerminalPosition(column: 0, row: 0))
+
+  let bytes = Renderer.render(previous: previous, current: current)
+
+  #expect(bytes == escape("[1;1H") + escape("[0m") + utf8("你x") + escape("[0m"))
 }
 
 @Test
@@ -132,7 +195,8 @@ func `renderer emits no redundant sgr for adjacent same style cells`() {
   let bytes = Renderer.render(buffer)
 
   #expect(
-    bytes == escape("[1;1H") + escape("[0m") + escape("[1m") + utf8("ab") + escape("[0m")
+    bytes == escape("[1;1H") + escape("[0m") + escape("[1m") + utf8("ab")
+      + escape("[0m")
   )
 }
 
