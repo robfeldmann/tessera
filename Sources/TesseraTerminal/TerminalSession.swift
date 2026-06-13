@@ -9,11 +9,17 @@ public actor TerminalSession {
   private let inputEvents: AsyncEventBuffer<InputEvent>
   private let inputPump: Task<Void, Never>
   private let io: PlatformIO
+  private let synchronizedOutput: SynchronizedOutputPolicy
+  private var lastDrawnBuffer: Buffer?
+  private var renderer = Renderer()
 
   /// Terminal-size notifications for the live session.
   nonisolated public let sizeChanges: AsyncStream<TerminalSize>
 
-  package init(io: PlatformIO) {
+  package init(
+    io: PlatformIO,
+    synchronizedOutput: SynchronizedOutputPolicy = .enabled
+  ) {
     let inputEvents = AsyncEventBuffer<InputEvent>()
     self.inputEvents = inputEvents
     self.inputPump = Task {
@@ -25,6 +31,7 @@ public actor TerminalSession {
       await inputEvents.finish()
     }
     self.io = io
+    self.synchronizedOutput = synchronizedOutput
     self.sizeChanges = io.sizeChanges
   }
 
@@ -46,7 +53,10 @@ public actor TerminalSession {
     let lifecycle = ModeLifecycle(io: io)
     try await lifecycle.enter(configuration.modes)
 
-    let session = TerminalSession(io: io)
+    let session = TerminalSession(
+      io: io,
+      synchronizedOutput: configuration.synchronizedOutput
+    )
     do {
       let result = try await body(session)
       try await lifecycle.exit()
@@ -78,9 +88,25 @@ public actor TerminalSession {
       storage.deallocate()
     }
     let result = try body(Frame(buffer: storage))
-    await io.write(Renderer.render(storage.pointee))
-    try await io.flush()
-    return result
+    let buffer = storage.pointee
+    var bytes: [UInt8] = []
+    renderer.encodeFrame(
+      previous: lastDrawnBuffer,
+      current: buffer,
+      wrapInSynchronizedOutput: synchronizedOutput == .enabled,
+      into: &bytes
+    )
+    await io.write(bytes)
+    do {
+      try await io.flush()
+      lastDrawnBuffer = buffer
+      return result
+    } catch {
+      // A failed flush may have written a prefix of the frame, so docs/Spec.md Slice 4
+      // requires the next successful draw to erase and repaint conservatively.
+      renderer.invalidate()
+      throw error
+    }
   }
 
   /// Reads the next parsed input event.

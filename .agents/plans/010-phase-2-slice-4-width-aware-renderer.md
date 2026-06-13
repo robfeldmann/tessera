@@ -27,7 +27,7 @@ updated: 2026-06-12
 - [ ] **Phase 4 — Stateful renderer value and session integration**
   - [x] 4.1 Replace static full-repaint renderer with synchronous `Renderer` state
   - [x] 4.2 Add render transactions, frame lifecycle, and synchronized-output policy
-  - [ ] 4.3 Integrate `TerminalSession.draw` with renderer encoding and one flush per
+  - [x] 4.3 Integrate `TerminalSession.draw` with renderer encoding and one flush per
         frame
   - [ ] 4.4 Add invalidate and resize-driven full-repaint behavior
 - [ ] **Phase 5 — Snapshot and example validation**
