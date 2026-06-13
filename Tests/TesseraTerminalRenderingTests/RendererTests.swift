@@ -119,6 +119,83 @@ func `damage render advances cursor by wide cell width`() {
 }
 
 @Test
+func `damage render identical second frame emits final reset only`() {
+  var buffer = Buffer(size: TerminalSize(columns: 3, rows: 1))
+  buffer.write("abc", at: TerminalPosition(column: 0, row: 0))
+
+  let bytes = Renderer.render(previous: buffer, current: buffer)
+
+  #expect(bytes == escape("[0m"))
+}
+
+@Test
+func `damage render emits style only changes`() throws {
+  let previous = Buffer(size: TerminalSize(columns: 3, rows: 1))
+  var current = previous
+  try current.set(
+    Cell(content: .blank, style: Style(background: .ansi(.blue))),
+    row: 0,
+    column: 1
+  )
+
+  let bytes = Renderer.render(previous: previous, current: current)
+
+  #expect(
+    bytes == escape("[1;2H") + escape("[0m") + escape("[44m") + utf8(" ")
+      + escape("[0m")
+  )
+}
+
+@Test
+func `damage render clears previous wide content with blanks`() {
+  var previous = Buffer(size: TerminalSize(columns: 3, rows: 1))
+  previous.write("你", at: TerminalPosition(column: 0, row: 0))
+  let current = Buffer(size: TerminalSize(columns: 3, rows: 1))
+
+  let bytes = Renderer.render(previous: previous, current: current)
+
+  #expect(bytes == escape("[1;1H") + escape("[0m") + utf8("  ") + escape("[0m"))
+}
+
+@Test
+func `damage render emits raw always repaint cells when equal`() {
+  var buffer = Buffer(size: TerminalSize(columns: 3, rows: 1))
+  buffer.writeRaw(
+    RawTerminalPayload(bytes: utf8("R"), declaredWidth: 1),
+    at: TerminalPosition(column: 1, row: 0),
+    occupying: Rect(column: 1, row: 0, columns: 1, rows: 1)
+  )
+
+  let bytes = Renderer.render(previous: buffer, current: buffer)
+
+  #expect(bytes == escape("[1;2H") + escape("[0m") + utf8("R") + escape("[0m"))
+}
+
+@Test
+func `damage render skips opaque cells while rendering surrounding raw payloads`() {
+  let previous = Buffer(size: TerminalSize(columns: 5, rows: 1))
+  var current = previous
+  current.writeRaw(
+    RawTerminalPayload(bytes: utf8("A"), declaredWidth: 1),
+    at: TerminalPosition(column: 0, row: 0),
+    occupying: Rect(column: 0, row: 0, columns: 1, rows: 1)
+  )
+  current.markOpaque(Rect(column: 1, row: 0, columns: 2, rows: 1))
+  current.writeRaw(
+    RawTerminalPayload(bytes: utf8("B"), declaredWidth: 1),
+    at: TerminalPosition(column: 3, row: 0),
+    occupying: Rect(column: 3, row: 0, columns: 1, rows: 1)
+  )
+
+  let bytes = Renderer.render(previous: previous, current: current)
+
+  #expect(
+    bytes == escape("[1;1H") + escape("[0m") + utf8("A") + escape("[1;4H") + utf8("B")
+      + escape("[0m")
+  )
+}
+
+@Test
 func `sgr delta emits reset and full style for unknown old style`() {
   var bytes: [UInt8] = []
 

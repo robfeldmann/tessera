@@ -23,7 +23,7 @@ updated: 2026-06-10
   - [x] 3.1 Extract render operations and row damage scanning
   - [x] 3.2 Implement style emission and SGR delta helpers
   - [x] 3.3 Implement cursor-position tracking and run coalescing
-  - [ ] 3.4 Add focused diff, SGR, cursor, and raw/opaque renderer tests
+  - [x] 3.4 Add focused diff, SGR, cursor, and raw/opaque renderer tests
 - [ ] **Phase 4 — Stateful renderer value and session integration**
   - [ ] 4.1 Replace static full-repaint renderer with synchronous `Renderer` state
   - [ ] 4.2 Add render transactions, frame lifecycle, and synchronized-output policy
