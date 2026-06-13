@@ -3,7 +3,7 @@ name: Phase 2 Slice 5 Legacy Input Parser
 description:
   Replace the walking-skeleton byte parser with durable semantic terminal input events, a
   stateful legacy escape-sequence parser, and session event streams.
-status: pending
+status: in-progress
 created: 2026-06-13
 updated: 2026-06-13
 ---
@@ -11,7 +11,7 @@ updated: 2026-06-13
 ## Progress
 
 - [ ] **Phase 1 — Public input event model and parser foundation**
-  - [ ] 1.1 Replace the minimal input API with durable key/event types
+  - [x] 1.1 Replace the minimal input API with durable key/event types
   - [ ] 1.2 Implement parser ground state for controls, printable ASCII, and UTF-8
 - [ ] **Phase 2 — Legacy escape-sequence catalog**
   - [ ] 2.1 Implement ESC ambiguity, Alt keys, CSI/SS3 state transitions, and unknown

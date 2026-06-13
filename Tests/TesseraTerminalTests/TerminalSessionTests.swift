@@ -1,5 +1,6 @@
 import CustomDump
 import TesseraTerminalCore
+import TesseraTerminalInput
 import TesseraTerminalTestSupport
 import Testing
 
@@ -84,7 +85,7 @@ func `next event returns first parsed input event`() async throws {
 
   let event = try await session.nextEvent()
 
-  expectNoDifference(event, .character("a"))
+  expectNoDifference(event, .key(Key(code: .character("a"))))
 }
 
 @Test
@@ -95,8 +96,8 @@ func `next event can be called repeatedly on one input stream`() async throws {
   let first = try await session.nextEvent()
   let second = try await session.nextEvent()
 
-  expectNoDifference(first, .character("a"))
-  expectNoDifference(second, .character("b"))
+  expectNoDifference(first, .key(Key(code: .character("a"))))
+  expectNoDifference(second, .key(Key(code: .character("b"))))
 }
 
 @Test
@@ -124,7 +125,7 @@ func `pending event read cancellation preserves the next input`() async throws {
   continuation.yield(0x61)
   let event = try await session.nextEvent()
 
-  expectNoDifference(event, .character("a"))
+  expectNoDifference(event, .key(Key(code: .character("a"))))
 }
 
 @Test

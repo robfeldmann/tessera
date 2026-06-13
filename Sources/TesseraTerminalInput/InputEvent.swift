@@ -1,8 +1,13 @@
+import TesseraTerminalCore
+
 /// A terminal input event parsed from raw terminal bytes.
 public enum InputEvent: Equatable, Sendable {
-  /// The user pressed a printable ASCII character.
-  case character(Character)
+  /// The user pressed a key.
+  case key(Key)
 
-  /// The user pressed `q` to request exit.
-  case quit
+  /// The terminal changed size.
+  case resize(TerminalSize)
+
+  /// The terminal sent an unrecognized input sequence.
+  case unknown([UInt8])
 }
