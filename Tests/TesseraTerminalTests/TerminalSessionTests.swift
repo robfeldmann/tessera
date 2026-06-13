@@ -80,7 +80,7 @@ func `draw writes rendered frame and flushes once`() async throws {
 
 @Test
 func `next event returns first parsed input event`() async throws {
-  let device = InMemoryTerminalDevice(inputBytes: [0x01, 0x61])
+  let device = InMemoryTerminalDevice(inputBytes: [0x61])
   let session = await makeSession(device)
 
   let event = try await session.nextEvent()
@@ -244,13 +244,15 @@ func `next event throws input closed when input finishes without event`() async 
 }
 
 @Test
-func `next event ignores control bytes before input closes`() async throws {
+func `next event returns control key events`() async throws {
   let device = InMemoryTerminalDevice(inputBytes: [0x01, 0x02])
   let session = await makeSession(device)
 
-  await #expect(throws: PlatformIOError.inputClosed) {
-    try await session.nextEvent()
-  }
+  let first = try await session.nextEvent()
+  let second = try await session.nextEvent()
+
+  expectNoDifference(first, .key(Key(code: .character("A"), modifiers: .control)))
+  expectNoDifference(second, .key(Key(code: .character("B"), modifiers: .control)))
 }
 
 @Test

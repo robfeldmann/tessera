@@ -10,9 +10,9 @@ updated: 2026-06-13
 
 ## Progress
 
-- [ ] **Phase 1 — Public input event model and parser foundation**
+- [x] **Phase 1 — Public input event model and parser foundation**
   - [x] 1.1 Replace the minimal input API with durable key/event types
-  - [ ] 1.2 Implement parser ground state for controls, printable ASCII, and UTF-8
+  - [x] 1.2 Implement parser ground state for controls, printable ASCII, and UTF-8
 - [ ] **Phase 2 — Legacy escape-sequence catalog**
   - [ ] 2.1 Implement ESC ambiguity, Alt keys, CSI/SS3 state transitions, and unknown
         events
@@ -74,6 +74,9 @@ large escape-sequence table.
 
 - Files:
   - `Sources/TesseraTerminalInput/InputEvent.swift`
+  - `Sources/TesseraTerminalInput/Key.swift`
+  - `Sources/TesseraTerminalInput/KeyCode.swift`
+  - `Sources/TesseraTerminalInput/Modifiers.swift`
   - `Tests/TesseraTerminalInputTests/InputParserTests.swift`
   - `Tests/TesseraTerminalTests/TerminalSessionTests.swift`
 - Add public `InputEvent`, `Key`, `KeyCode`, and `Modifiers` types matching the stable
@@ -88,8 +91,10 @@ large escape-sequence table.
 ### Step 1.2 — Implement parser ground state for controls, printable ASCII, and UTF-8
 
 - Files:
+  - `Sources/TesseraTerminal/TerminalSession.swift`
   - `Sources/TesseraTerminalInput/InputParser.swift`
   - `Tests/TesseraTerminalInputTests/InputParserTests.swift`
+  - `Tests/TesseraTerminalTests/TerminalSessionTests.swift`
 - Replace the stateless enum with a stateful `InputParser` value exposing `feed(_:)`,
   `feed(contentsOf:)`, and `flush()`.
 - Implement ground-state handling for printable ASCII, Tab, Enter, Backspace, Ctrl-letter

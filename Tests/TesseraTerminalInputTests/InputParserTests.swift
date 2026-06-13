@@ -10,23 +10,83 @@ func `parser maps q to a character key`() {
 
 @Test
 func `parser maps printable ascii bytes to character keys`() {
-  #expect(InputParser.parse(0x20) == .key(Key(code: .character(" "))))
-  #expect(InputParser.parse(0x41) == .key(Key(code: .character("A"))))
-  #expect(InputParser.parse(0x7E) == .key(Key(code: .character("~"))))
+  var parser = InputParser()
+
+  #expect(parser.feed(0x20) == [.key(Key(code: .character(" ")))])
+  #expect(parser.feed(0x41) == [.key(Key(code: .character("A")))])
+  #expect(parser.feed(0x7E) == [.key(Key(code: .character("~")))])
 }
 
 @Test
-func `parser ignores control bytes`() {
-  #expect(InputParser.parse(0x00) == nil)
-  #expect(InputParser.parse(0x1B) == nil)
-  #expect(InputParser.parse(0x7F) == nil)
+func `parser maps control bytes to key codes`() {
+  var parser = InputParser()
+
+  #expect(parser.feed(0x00) == [.key(Key(code: .character(" "), modifiers: .control))])
+  #expect(parser.feed(0x01) == [.key(Key(code: .character("A"), modifiers: .control))])
+  #expect(parser.feed(0x08) == [.key(Key(code: .character("H"), modifiers: .control))])
+  #expect(parser.feed(0x1A) == [.key(Key(code: .character("Z"), modifiers: .control))])
 }
 
 @Test
-func `parser ignores non ascii bytes`() {
-  #expect(InputParser.parse(0x80) == nil)
-  #expect(InputParser.parse(0xC3) == nil)
-  #expect(InputParser.parse(0xFF) == nil)
+func `parser maps tab enter and backspace controls to key codes`() {
+  var parser = InputParser()
+
+  #expect(parser.feed(0x09) == [.key(Key(code: .tab))])
+  #expect(parser.feed(0x0A) == [.key(Key(code: .enter))])
+  #expect(parser.feed(0x0D) == [.key(Key(code: .enter))])
+  #expect(parser.feed(0x7F) == [.key(Key(code: .backspace))])
+}
+
+@Test
+func `parser emits unknown for unsupported control and non ascii bytes`() {
+  var parser = InputParser()
+
+  #expect(parser.feed(0x1B) == [.unknown([0x1B])])
+  #expect(parser.feed(0x80) == [.unknown([0x80])])
+  #expect(parser.feed(0xFF) == [.unknown([0xFF])])
+}
+
+@Test
+func `parser feeds byte sequences in order`() {
+  var parser = InputParser()
+
+  let events = parser.feed(contentsOf: [0x61, 0x62, 0x0D])
+
+  #expect(
+    events == [
+      .key(Key(code: .character("a"))),
+      .key(Key(code: .character("b"))),
+      .key(Key(code: .enter)),
+    ])
+}
+
+@Test
+func `parser assembles utf8 split across feeds`() {
+  var parser = InputParser()
+
+  #expect(parser.feed(0xE4).isEmpty)
+  #expect(parser.feed(0xBD).isEmpty)
+  #expect(parser.feed(0xA0) == [.key(Key(code: .character("你")))])
+  #expect(
+    parser.feed(contentsOf: Array("🙂".utf8)) == [.key(Key(code: .character("🙂")))])
+}
+
+@Test
+func `parser flushes partial utf8 as unknown`() {
+  var parser = InputParser()
+
+  #expect(parser.feed(0xE4).isEmpty)
+  #expect(parser.flush() == [.unknown([0xE4])])
+  #expect(parser.flush().isEmpty)
+}
+
+@Test
+func `parser emits unknown for invalid utf8`() {
+  var parser = InputParser()
+
+  #expect(parser.feed(0xE4).isEmpty)
+  #expect(parser.feed(0x41) == [.unknown([0xE4, 0x41])])
+  #expect(parser.feed(0x62) == [.key(Key(code: .character("b")))])
 }
 
 @Test

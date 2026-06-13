@@ -23,10 +23,14 @@ public actor TerminalSession {
     let inputEvents = AsyncEventBuffer<InputEvent>()
     self.inputEvents = inputEvents
     self.inputPump = Task {
+      var parser = InputParser()
       for await byte in io.bytes {
-        if let event = InputParser.parse(byte) {
+        for event in parser.feed(byte) {
           await inputEvents.yield(event)
         }
+      }
+      for event in parser.flush() {
+        await inputEvents.yield(event)
       }
       await inputEvents.finish()
     }
