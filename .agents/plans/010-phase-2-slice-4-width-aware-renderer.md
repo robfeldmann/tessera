@@ -5,7 +5,7 @@ description:
   rendering with stateful damage-tracked rendering transactions.
 status: pending
 created: 2026-06-10
-updated: 2026-06-10
+updated: 2026-06-12
 ---
 
 ## Progress
@@ -26,7 +26,7 @@ updated: 2026-06-10
   - [x] 3.4 Add focused diff, SGR, cursor, and raw/opaque renderer tests
 - [ ] **Phase 4 — Stateful renderer value and session integration**
   - [x] 4.1 Replace static full-repaint renderer with synchronous `Renderer` state
-  - [ ] 4.2 Add render transactions, frame lifecycle, and synchronized-output policy
+  - [x] 4.2 Add render transactions, frame lifecycle, and synchronized-output policy
   - [ ] 4.3 Integrate `TerminalSession.draw` with renderer encoding and one flush per
         frame
   - [ ] 4.4 Add invalidate and resize-driven full-repaint behavior
@@ -423,9 +423,22 @@ successful frame.
 - Files: `Sources/TesseraTerminal/Frame.swift`,
   `Sources/TesseraTerminal/TerminalApplicationConfiguration.swift`,
   `Sources/TesseraTerminalRendering/Renderer.swift`.
-- First attempt to harden `Frame` to the spec's `~Copyable, ~Escapable` borrowed shape. If
-  this cannot land in this slice, document the compiler blocker and keep the synchronous
-  closure as a temporary containment boundary.
+- `Frame` is now the spec's `~Copyable, ~Escapable` borrowed shape.
+  - Earlier blocker: a `~Escapable` `Frame` was rejected with
+    `an initializer cannot return a ~Escapable result`. Root cause: a `~Escapable` type
+    needs a lifetime-dependency source on its initializer, and `@_lifetime` requires the
+    `Lifetimes` experimental feature (which was not enabled). The reference-storage
+    attempt also had no borrow source to depend on.
+  - Resolution: enable `.enableExperimentalFeature("Lifetimes")` in `Package.swift` shared
+    settings (consistent with the spec's broader `~Escapable` use for `Reader`,
+    `RenderRegion`, and `ResponderContext`). `Frame` holds an
+    `UnsafeMutablePointer<Buffer>` with an `@_lifetime(borrow buffer)` `package init`, and
+    `borrowing` write methods. `TerminalSession.draw` owns heap-allocated buffer storage
+    (`UnsafeMutablePointer<Buffer>.allocate`, freed in `defer`) that outlives the
+    synchronous body, calls `body(Frame(buffer:))` directly so the body's `sending` result
+    is preserved, then renders from `storage.pointee`. Tests construct frames via a scoped
+    `withFrame(size:_:)` helper. Verified that returning, storing, and `Task`-capturing
+    the frame all fail to compile.
 - `Frame` remains a dumb write surface: it has `write`, `writeRaw`, and `markOpaque`; it
   must not gain `render<V: View>` or know about the view layer.
 - Add a package API for `TerminalSession` to extract or consume the completed buffer after
@@ -545,9 +558,9 @@ update runnable examples to exercise the real renderer.
 
 ## Risks and decisions to review before implementation
 
-1. **Noncopyable `Frame` timing.** The spec wants `Frame: ~Copyable, ~Escapable`. This
-   plan now requires trying that first. A class fallback is acceptable only with a
-   recorded compiler/API blocker and a follow-up.
+1. **Noncopyable `Frame` timing.** Resolved: `Frame` is `~Copyable, ~Escapable` via the
+   `Lifetimes` experimental feature and an `@_lifetime(borrow buffer)` initializer over
+   caller-owned storage. See the Step 4.2 note for details.
 2. **Zero-width raw payload semantics.** A raw operation with `declaredWidth == nil` or
    `0` still needs an anchor cell. Decide exactly how that operation coexists with visible
    content at the anchor before renderer tests are written.

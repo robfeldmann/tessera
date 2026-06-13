@@ -28,6 +28,17 @@ func `application terminal returns body result and cleans up modes`() async thro
 }
 
 @Test
+func `application configuration stores synchronized output policy`() {
+  let configuration = TerminalApplicationConfiguration(
+    modes: [.rawMode],
+    synchronizedOutput: .disabled
+  )
+
+  expectNoDifference(configuration.modes, [.rawMode])
+  expectNoDifference(configuration.synchronizedOutput, .disabled)
+}
+
+@Test
 func `application terminal rethrows body error after cleanup`() async throws {
   let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
   let io = PlatformIO(terminalDevice: await device.terminalDevice)
@@ -222,7 +233,7 @@ func `event buffer cancellation before waiter append throws cancellation`() asyn
 }
 
 @Test
-func `next event throws input closed when input finishes without parsed event`() async throws {
+func `next event throws input closed when input finishes without event`() async throws {
   let device = InMemoryTerminalDevice(inputBytes: [])
   let session = await makeSession(device)
 

@@ -1,3 +1,4 @@
+import TesseraTerminalBuffer
 import TesseraTerminalCore
 import TesseraTerminalIO
 import TesseraTerminalInput
@@ -67,9 +68,17 @@ public actor TerminalSession {
     _ body: (borrowing Frame) throws -> sending R
   ) async throws -> sending R {
     let size = try await io.size()
-    let frame = Frame(size: size)
-    let result = try body(frame)
-    await io.write(Renderer.render(frame.buffer))
+    // The frame is a borrowed, non-escapable view onto heap-owned buffer storage. The
+    // storage outlives the synchronous body call, and the body runs without suspension, so
+    // the frame cannot escape the transaction or be observed by other actor work.
+    let storage = UnsafeMutablePointer<Buffer>.allocate(capacity: 1)
+    storage.initialize(to: Buffer(size: size))
+    defer {
+      storage.deinitialize(count: 1)
+      storage.deallocate()
+    }
+    let result = try body(Frame(buffer: storage))
+    await io.write(Renderer.render(storage.pointee))
     try await io.flush()
     return result
   }

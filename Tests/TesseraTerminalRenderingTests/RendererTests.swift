@@ -230,6 +230,38 @@ func `damage render skips opaque cells while rendering surrounding raw payloads`
 }
 
 @Test
+func `renderer wraps frames when synchronized output is enabled`() {
+  let current = Buffer(size: TerminalSize(columns: 1, rows: 1))
+  var renderer = Renderer()
+  var bytes: [UInt8] = []
+
+  renderer.encodeFrame(
+    previous: current,
+    current: current,
+    wrapInSynchronizedOutput: true,
+    into: &bytes
+  )
+
+  #expect(bytes == escape("[?2026h") + escape("[0m") + escape("[?2026l"))
+}
+
+@Test
+func `renderer omits synchronized output wrappers when disabled`() {
+  let current = Buffer(size: TerminalSize(columns: 1, rows: 1))
+  var renderer = Renderer()
+  var bytes: [UInt8] = []
+
+  renderer.encodeFrame(
+    previous: current,
+    current: current,
+    wrapInSynchronizedOutput: false,
+    into: &bytes
+  )
+
+  #expect(bytes == escape("[0m"))
+}
+
+@Test
 func `sgr delta emits reset and full style for unknown old style`() {
   var bytes: [UInt8] = []
 

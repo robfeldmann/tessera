@@ -124,6 +124,16 @@ only lends transaction-local capabilities inside scoped closures:
   operations lend a `Frame`, `Screen`, event context, or responder context.
 - `Reader: ~Copyable, ~Escapable` cannot be stored or escaped; borrowed terminal
   capabilities should have the same shape.
+  - Implementation note: a `~Escapable` type (`Reader`, `Frame`, and any future borrowed
+    capability) needs a lifetime-dependency source on its initializer, written with
+    `@_lifetime(borrow …)` on a stored borrow (typically an `UnsafeMutablePointer` to
+    caller-owned storage). `@_lifetime` requires `.enableExperimentalFeature("Lifetimes")`
+    in `Package.swift`, which is already enabled package-wide. Without it the compiler
+    rejects the initializer with `an initializer cannot return a ~Escapable result`. The
+    lending scope (e.g. `TerminalSession.draw`) owns storage that outlives the synchronous
+    borrowed body and calls the body directly so a `sending` result is preserved. Types
+    that only need to forbid copying/storing (`RenderRegion`, `ResponderContext`) can be
+    plain `~Copyable` and do not require this machinery.
 - Raw `OpaquePointer` values are private; raw file descriptors and platform handles are
   private and never public API.
 
@@ -2212,7 +2222,7 @@ extension TerminalSession {
 }
 
 public struct Frame: ~Copyable, ~Escapable {
-    public borrowing var size: TerminalSize { get }
+    public var size: TerminalSize { get }  // accessors on a ~Escapable type borrow implicitly
     public borrowing func write(_ string: String, at position: TerminalPosition, style: Style)
     public borrowing func writeRaw(
         _ payload: RawTerminalPayload,
