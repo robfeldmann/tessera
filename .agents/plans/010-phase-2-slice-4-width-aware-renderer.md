@@ -3,9 +3,9 @@ name: Phase 2 Slice 4 Width-Aware Renderer
 description:
   Redesign terminal buffers for display-width correctness and replace full repaint
   rendering with stateful damage-tracked rendering transactions.
-status: pending
+status: completed
 created: 2026-06-10
-updated: 2026-06-12
+updated: 2026-06-13
 ---
 
 ## Progress
@@ -30,12 +30,12 @@ updated: 2026-06-12
   - [x] 4.3 Integrate `TerminalSession.draw` with renderer encoding and one flush per
         frame
   - [x] 4.4 Add invalidate and resize-driven full-repaint behavior
-- [ ] **Phase 5 — Snapshot and example validation**
-  - [ ] 5.1 Add virtual-terminal snapshot tests for visual equivalence
-  - [ ] 5.2 Update walking skeleton examples to use damage-tracked rendering behavior
-  - [ ] 5.3 Document manual terminal sanity verification for interrupted renders
-  - [ ] 5.4 Run full slice validation and update this plan
-  - [ ] 5.5 Review public documentation for release-facing language
+- [x] **Phase 5 — Snapshot and example validation**
+  - [x] 5.1 Add virtual-terminal snapshot tests for visual equivalence
+  - [x] 5.2 Update walking skeleton examples to use damage-tracked rendering behavior
+  - [x] 5.3 Document manual terminal sanity verification for interrupted renders
+  - [x] 5.4 Run full slice validation and update this plan
+  - [x] 5.5 Review public documentation for release-facing language
 
 ## Review process
 
@@ -548,6 +548,17 @@ update runnable examples to exercise the real renderer.
 - Update this plan's progress and `updated` date as phases complete.
 - Acceptance: all commands pass or any platform-specific deferral is documented with a
   concrete follow-up.
+- Validation run on 2026-06-13:
+  - `swift test --filter TesseraTerminalBufferTests` passed.
+  - `swift test --filter TesseraTerminalCoreTests` passed.
+  - `swift test --filter TesseraTerminalRenderingTests` passed.
+  - `swift test --filter TesseraTerminalTests` passed.
+  - `swift test --enable-code-coverage` passed.
+  - `swift build --package-path Examples` passed.
+  - Linux VM full test suite passed by manually starting the existing stopped
+    `tessera-linux` Lima instance and running the `just test-linux-vm` test command; the
+    recipe itself attempted to create an already-existing stopped instance.
+  - `just lint` passed, including swift-format, SwiftLint, Markdown formatting, and DocC.
 
 ### Step 5.5 — Review public documentation for release-facing language
 

@@ -41,12 +41,14 @@ let ANSIEncoderDemo: Target.Dependency = .byName(name: "ANSIEncoderDemo")
 let ExampleSupport: Target.Dependency = .byName(name: "ExampleSupport")
 let HelloTessera: Target.Dependency = .byName(name: "HelloTessera")
 let LifecycleModesDemo: Target.Dependency = .byName(name: "LifecycleModesDemo")
+let RendererDemo: Target.Dependency = .byName(name: "RendererDemo")
 
 let AllTesseraExampleTargetNames: Set<String> = [
   "ANSIEncoderDemo",
   "ExampleSupport",
   "HelloTessera",
   "LifecycleModesDemo",
+  "RendererDemo",
 ]
 
 // MARK: - 🎯 Products & Targets
@@ -100,6 +102,20 @@ package.targets.append(
   )
 )
 
+// MARK: RendererDemo
+
+package.products.append(.executable(name: "RendererDemo", targets: ["RendererDemo"]))
+
+package.targets.append(
+  .executableTarget(
+    name: "RendererDemo",
+    dependencies: [
+      ExampleSupport,
+      TesseraTerminal,
+    ]
+  )
+)
+
 // MARK: - ⚙️ Shared Swift Settings
 
 for target in package.targets {
@@ -108,6 +124,7 @@ for target in package.targets {
   }
   var settings = target.swiftSettings ?? []
   settings.append(contentsOf: [
+    .enableExperimentalFeature("Lifetimes"),
     .enableUpcomingFeature("ExistentialAny"),
     .enableUpcomingFeature("ForwardFromBuilder"),
     .enableUpcomingFeature("InferIsolatedConformances"),
