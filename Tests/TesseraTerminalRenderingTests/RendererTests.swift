@@ -63,6 +63,52 @@ func `stateful renderer encodes second frame as damage only`() {
 }
 
 @Test
+func `stateful renderer returns to damage tracking after invalidate repaint`() {
+  var renderer = Renderer()
+  let initial = Buffer(size: TerminalSize(columns: 2, rows: 1))
+  var changed = initial
+  changed.write("x", at: TerminalPosition(column: 1, row: 0))
+  var bytes: [UInt8] = []
+
+  renderer.invalidate()
+  renderer.encodeFrame(
+    previous: initial,
+    current: initial,
+    wrapInSynchronizedOutput: false,
+    into: &bytes
+  )
+  bytes.removeAll()
+  renderer.encodeFrame(
+    previous: initial,
+    current: changed,
+    wrapInSynchronizedOutput: false,
+    into: &bytes
+  )
+
+  #expect(bytes == escape("[1;2H") + utf8("x") + escape("[0m"))
+}
+
+@Test
+func `stateful renderer size changes repaint conservatively`() {
+  var renderer = Renderer()
+  let previous = Buffer(size: TerminalSize(columns: 1, rows: 1))
+  let current = Buffer(size: TerminalSize(columns: 2, rows: 1))
+  var bytes: [UInt8] = []
+
+  renderer.encodeFrame(
+    previous: previous,
+    current: current,
+    wrapInSynchronizedOutput: false,
+    into: &bytes
+  )
+
+  #expect(
+    bytes == escape("[2J") + escape("[1;1H") + escape("[0m") + utf8("  ")
+      + escape("[0m")
+  )
+}
+
+@Test
 func `stateful renderer invalidate causes erase before repaint`() {
   let current = Buffer(size: TerminalSize(columns: 2, rows: 1))
   var renderer = Renderer()

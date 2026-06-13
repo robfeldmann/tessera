@@ -308,6 +308,25 @@ func `draw does not write when body throws`() async throws {
 }
 
 @Test
+func `invalidate renderer causes next draw to repaint`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
+  let session = await makeSession(device, synchronizedOutput: .disabled)
+
+  try await session.draw { frame in
+    frame.write("x", at: TerminalPosition(column: 0, row: 0))
+  }
+  await session.invalidateRenderer()
+  try await session.draw { frame in
+    frame.write("x", at: TerminalPosition(column: 0, row: 0))
+  }
+
+  let events = await device.events
+  let flushes = events.filter(\.isFlush).map(\.flushBytes)
+  #expect(flushes.count == 2)
+  #expect(flushes[1] == Array("\u{1B}[2J\u{1B}[1;1H\u{1B}[0mx\u{1B}[0m".utf8))
+}
+
+@Test
 func `draw invalidates renderer after flush failure`() async throws {
   let device = FailOnceTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
   let session = TerminalSession(

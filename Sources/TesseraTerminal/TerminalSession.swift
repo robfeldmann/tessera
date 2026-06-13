@@ -109,6 +109,12 @@ public actor TerminalSession {
     }
   }
 
+  /// Invalidates cached renderer assumptions so the next draw repaints conservatively.
+  public func invalidateRenderer() {
+    renderer.invalidate()
+    lastDrawnBuffer = nil
+  }
+
   /// Reads the next parsed input event.
   public func nextEvent() async throws -> InputEvent {
     guard let event = try await inputEvents.next() else {

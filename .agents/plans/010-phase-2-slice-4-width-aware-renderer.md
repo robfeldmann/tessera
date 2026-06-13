@@ -29,7 +29,7 @@ updated: 2026-06-12
   - [x] 4.2 Add render transactions, frame lifecycle, and synchronized-output policy
   - [x] 4.3 Integrate `TerminalSession.draw` with renderer encoding and one flush per
         frame
-  - [ ] 4.4 Add invalidate and resize-driven full-repaint behavior
+  - [x] 4.4 Add invalidate and resize-driven full-repaint behavior
 - [ ] **Phase 5 — Snapshot and example validation**
   - [ ] 5.1 Add virtual-terminal snapshot tests for visual equivalence
   - [ ] 5.2 Update walking skeleton examples to use damage-tracked rendering behavior
@@ -487,6 +487,9 @@ successful frame.
   stored, cancellable task that does not capture borrowed frame state or leak session
   lifetime. If not, document the temporary pre-view-layer behavior and expose explicit
   invalidation for examples/tests.
+  - Step 4.4 intentionally deferred automatic resize-listener wiring for this pre-view
+    slice. The renderer now repaints conservatively on buffer-size mismatch, and
+    `TerminalSession.invalidateRenderer()` is the explicit public hook for examples/tests.
 - Acceptance: tests prove `Renderer.invalidate()`/`TerminalSession.invalidateRenderer()`
   cause erase + full repaint, subsequent draw returns to damage tracking, size changes
   repaint conservatively, and resize-triggered invalidation is covered or intentionally

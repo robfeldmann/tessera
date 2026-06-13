@@ -36,7 +36,8 @@ package struct Renderer {
       ControlSequence.enterSynchronizedOutput.encode(into: &bytes)
     }
 
-    let shouldErase = eraseBeforeNextRepaint || previous == nil
+    let shouldErase =
+      eraseBeforeNextRepaint || previous == nil || previous?.size != current.size
     if shouldErase {
       ControlSequence.eraseInDisplay(.all).encode(into: &bytes)
       believedCursorPosition = nil
