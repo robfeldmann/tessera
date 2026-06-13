@@ -8,7 +8,9 @@ import Testing
   @Test
   func `resize registry yields queried sizes for notifications`() async throws {
     let (notifications, notificationContinuation) = AsyncStream.makeStream(of: Void.self)
-    final class State: @unchecked Sendable { var sizes = [TerminalSize(columns: 80, rows: 24), TerminalSize(columns: 100, rows: 30)] }
+    final class State: @unchecked Sendable {
+      var sizes = [TerminalSize(columns: 80, rows: 24), TerminalSize(columns: 100, rows: 30)]
+    }
     let state = State()
     let stream = TerminalResizeRegistry.sizeChanges(
       querySize: { state.sizes.removeFirst() },

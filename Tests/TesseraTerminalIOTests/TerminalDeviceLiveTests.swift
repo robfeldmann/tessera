@@ -97,8 +97,14 @@ import Testing
     }
 
     func closeAll() {
-      if master >= 0 { close(master); master = -1 }
-      if slave >= 0 { close(slave); slave = -1 }
+      if master >= 0 {
+        close(master)
+        master = -1
+      }
+      if slave >= 0 {
+        close(slave)
+        slave = -1
+      }
     }
 
     func readAvailable() throws -> [UInt8] {

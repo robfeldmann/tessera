@@ -28,6 +28,17 @@ func `application terminal returns body result and cleans up modes`() async thro
 }
 
 @Test
+func `application configuration stores synchronized output policy`() {
+  let configuration = TerminalApplicationConfiguration(
+    modes: [.rawMode],
+    synchronizedOutput: .disabled
+  )
+
+  expectNoDifference(configuration.modes, [.rawMode])
+  expectNoDifference(configuration.synchronizedOutput, .disabled)
+}
+
+@Test
 func `application terminal rethrows body error after cleanup`() async throws {
   let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
   let io = PlatformIO(terminalDevice: await device.terminalDevice)
@@ -222,7 +233,7 @@ func `event buffer cancellation before waiter append throws cancellation`() asyn
 }
 
 @Test
-func `next event throws input closed when input finishes without parsed event`() async throws {
+func `next event throws input closed when input finishes without event`() async throws {
   let device = InMemoryTerminalDevice(inputBytes: [])
   let session = await makeSession(device)
 
@@ -239,6 +250,103 @@ func `next event ignores control bytes before input closes`() async throws {
   await #expect(throws: PlatformIOError.inputClosed) {
     try await session.nextEvent()
   }
+}
+
+@Test
+func `draw honors synchronized output policy`() async throws {
+  let enabledDevice = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
+  let enabledSession = await makeSession(enabledDevice, synchronizedOutput: .enabled)
+  let disabledDevice = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
+  let disabledSession = await makeSession(disabledDevice, synchronizedOutput: .disabled)
+
+  try await enabledSession.draw { _ in }
+  try await disabledSession.draw { _ in }
+
+  let enabledBytes = await enabledDevice.bytes
+  let disabledBytes = await disabledDevice.bytes
+
+  let syncEnter = Array("\u{1B}[?2026h".utf8)
+  let syncExit = Array("\u{1B}[?2026l".utf8)
+
+  #expect(enabledBytes.starts(with: syncEnter))
+  #expect(enabledBytes.suffix(syncExit.count) == syncExit[...])
+  #expect(disabledBytes.starts(with: syncEnter) == false)
+  #expect(disabledBytes.suffix(syncExit.count) != syncExit[...])
+}
+
+@Test
+func `draw second frame emits only damage bytes`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 3, rows: 1))
+  let session = await makeSession(device, synchronizedOutput: .disabled)
+
+  try await session.draw { frame in
+    frame.write("abc", at: TerminalPosition(column: 0, row: 0))
+  }
+  try await session.draw { frame in
+    frame.write("axc", at: TerminalPosition(column: 0, row: 0))
+  }
+
+  let events = await device.events
+  let flushes = events.filter(\.isFlush).map(\.flushBytes)
+  #expect(flushes.count == 2)
+  #expect(flushes[1] == Array("\u{1B}[1;2Hx\u{1B}[0m".utf8))
+}
+
+@Test
+func `draw does not write when body throws`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
+  let session = await makeSession(device)
+
+  await #expect(throws: TerminalSessionTestError.bodyFailed) {
+    try await session.draw { _ in
+      throw TerminalSessionTestError.bodyFailed
+    }
+  }
+
+  let events = await device.events
+  #expect(events.isEmpty)
+}
+
+@Test
+func `invalidate renderer causes next draw to repaint`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
+  let session = await makeSession(device, synchronizedOutput: .disabled)
+
+  try await session.draw { frame in
+    frame.write("x", at: TerminalPosition(column: 0, row: 0))
+  }
+  await session.invalidateRenderer()
+  try await session.draw { frame in
+    frame.write("x", at: TerminalPosition(column: 0, row: 0))
+  }
+
+  let events = await device.events
+  let flushes = events.filter(\.isFlush).map(\.flushBytes)
+  #expect(flushes.count == 2)
+  #expect(flushes[1] == Array("\u{1B}[2J\u{1B}[1;1H\u{1B}[0mx\u{1B}[0m".utf8))
+}
+
+@Test
+func `draw invalidates renderer after flush failure`() async throws {
+  let device = FailOnceTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
+  let session = TerminalSession(
+    io: PlatformIO(terminalDevice: await device.terminalDevice)
+  )
+
+  await #expect(throws: PlatformIOError.writeFailed(errno: .ioError)) {
+    try await session.draw { frame in
+      frame.write("x", at: TerminalPosition(column: 0, row: 0))
+    }
+  }
+  try await session.draw { frame in
+    frame.write("y", at: TerminalPosition(column: 0, row: 0))
+  }
+
+  let bytes = await device.bytes
+  let eraseDisplayAll = Array("\u{1B}[2J".utf8)
+  #expect(containsBytes(eraseDisplayAll, in: bytes))
+  let bytesAfterFirstErase = Array(bytes.dropFirst(eraseDisplayAll.count))
+  #expect(containsBytes(eraseDisplayAll, in: bytesAfterFirstErase))
 }
 
 @Test
@@ -275,15 +383,73 @@ func `draw propagates flush errors`() async throws {
   }
 }
 
-private func makeSession(_ device: InMemoryTerminalDevice) async -> TerminalSession {
-  TerminalSession(io: PlatformIO(terminalDevice: await device.terminalDevice))
+private func makeSession(
+  _ device: InMemoryTerminalDevice,
+  synchronizedOutput: SynchronizedOutputPolicy = .enabled
+) async -> TerminalSession {
+  TerminalSession(
+    io: PlatformIO(terminalDevice: await device.terminalDevice),
+    synchronizedOutput: synchronizedOutput
+  )
 }
 
 private enum TerminalSessionTestError: Error, Equatable {
   case bodyFailed
 }
 
+private func containsBytes(_ needle: [UInt8], in haystack: [UInt8]) -> Bool {
+  guard needle.isEmpty == false, haystack.count >= needle.count else {
+    return false
+  }
+
+  return haystack.indices.contains { index in
+    let endIndex = index + needle.count
+    guard endIndex <= haystack.endIndex else {
+      return false
+    }
+    return Array(haystack[index..<endIndex]) == needle
+  }
+}
+
+private actor FailOnceTerminalDevice {
+  private var shouldFail = true
+  private var storedBytes: [UInt8] = []
+  private let storedSize: TerminalSize
+
+  var bytes: [UInt8] {
+    storedBytes
+  }
+
+  var terminalDevice: TerminalDevice {
+    TerminalDevice(
+      size: { self.storedSize },
+      write: { try await self.write($0) }
+    )
+  }
+
+  init(size: TerminalSize) {
+    self.storedSize = size
+  }
+
+  private func write(_ bytes: ArraySlice<UInt8>) throws -> Int {
+    if shouldFail {
+      shouldFail = false
+      throw PlatformIOError.writeFailed(errno: .ioError)
+    }
+
+    storedBytes.append(contentsOf: bytes)
+    return bytes.count
+  }
+}
+
 extension InMemoryTerminalDeviceEvent {
+  fileprivate var flushBytes: [UInt8] {
+    if case .flush(let bytes) = self {
+      return bytes
+    }
+    return []
+  }
+
   fileprivate var isFlush: Bool {
     if case .flush = self {
       return true

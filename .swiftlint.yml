@@ -55,7 +55,10 @@ opt_in_rules:
   - object_literal
   - overridden_super_call
   - override_in_extension
-  - pattern_matching_keywords
+  # pattern_matching_keywords is intentionally NOT enabled: it demands
+  # `case let .rgb(r, g, b)` while swift-format's default-on
+  # UseLetInEveryBoundCaseVariable demands `case .rgb(let r, ...)`.
+  # swift-format is the authoritative formatter, so it wins.
   - period_spacing
   - prefer_asset_symbols
   - prefer_key_path

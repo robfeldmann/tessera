@@ -57,6 +57,13 @@ Use it selectively:
   - [Slice 5: OSC 8 hyperlinks](#slice-5-osc-8-hyperlinks)
   - [Slice 6: Terminal capability detection](#slice-6-terminal-capability-detection)
 - [Phase 4 — View layer](#phase-4--view-layer-the-tessera-module)
+  - [Slice 1: TesseraCore — View, ViewGraph, reconciliation, Text](#slice-1-tesseracore--view-viewgraph-reconciliation-text)
+  - [Slice 2: The Layout protocol and stack containers](#slice-2-the-layout-protocol-and-stack-containers)
+  - [Slice 3: Styling, text wrapping, and decoration](#slice-3-styling-text-wrapping-and-decoration)
+  - [Slice 4: Focus and key routing](#slice-4-focus-and-key-routing-the-responder-system)
+  - [Slice 5: Mouse and hit testing](#slice-5-mouse-and-hit-testing)
+  - [Slice 6: Flex, Grid, and composition](#slice-6-flex-grid-and-composition)
+  - [Slice 7: Widgets — TextInput, List, ScrollView](#slice-7-widgets--textinput-list-scrollview)
 - [Phase 5 — Runtime + polish](#phase-5--runtime--polish)
 - [Risk register](#risk-register)
 - [Proposed module and file layout](#proposed-module-and-file-layout)
@@ -117,6 +124,16 @@ only lends transaction-local capabilities inside scoped closures:
   operations lend a `Frame`, `Screen`, event context, or responder context.
 - `Reader: ~Copyable, ~Escapable` cannot be stored or escaped; borrowed terminal
   capabilities should have the same shape.
+  - Implementation note: a `~Escapable` type (`Reader`, `Frame`, and any future borrowed
+    capability) needs a lifetime-dependency source on its initializer, written with
+    `@_lifetime(borrow …)` on a stored borrow (typically an `UnsafeMutablePointer` to
+    caller-owned storage). `@_lifetime` requires `.enableExperimentalFeature("Lifetimes")`
+    in `Package.swift`, which is already enabled package-wide. Without it the compiler
+    rejects the initializer with `an initializer cannot return a ~Escapable result`. The
+    lending scope (e.g. `TerminalSession.draw`) owns storage that outlives the synchronous
+    borrowed body and calls the body directly so a `sending` result is preserved. Types
+    that only need to forbid copying/storing (`RenderRegion`, `ResponderContext`) can be
+    plain `~Copyable` and do not require this machinery.
 - Raw `OpaquePointer` values are private; raw file descriptors and platform handles are
   private and never public API.
 
@@ -1255,7 +1272,10 @@ Concrete list of cases the encoder needs for Phase 2 (informed by the layer-by-l
 
 - `eraseInDisplay(EraseMode)` where `EraseMode` is
   `.toEnd | .toBeginning | .all | .allAndScrollback`
-- `eraseInLine(EraseMode)` (same enum, sans scrollback)
+- `eraseInLine(LineEraseMode)` where `LineEraseMode` is `.toEnd | .toBeginning | .all` — a
+  separate enum, because EL (`CSI Ps K`) has no scrollback variant and sharing `EraseMode`
+  would make `eraseInLine(.allAndScrollback)` representable but meaningless (the
+  unrepresentability thesis applies to the encoder too)
 
 ##### SGR (styling)
 
@@ -2152,7 +2172,7 @@ These are worth pinning down in the spec because they're where bugs hide:
 >   of `Buffer`s. `flush()` (`ratatui-core/src/terminal/buffers.rs`, line 97) runs
 >   `diff_iter` and passes the resulting iterator to `Backend::draw()`. `swap_buffers()`
 >   (line 121) resets the inactive buffer — the same invalidate-and-redraw discipline
->   Tessera's `Renderer.invalidateRendererState()` implements.
+>   Tessera's `Renderer.invalidate()` implements.
 > - `Backend::draw()` (`ratatui-core/src/backend.rs`, line 166) takes an iterator of
 >   `(u16, u16, &'a Cell)` triples — the backend receives exactly the changed cells, not a
 >   full buffer. In Ratatui the concrete backend (crossterm, termion) is responsible for
@@ -2163,26 +2183,46 @@ The renderer's job: given a previous `Buffer` and a current `Buffer`, emit the m
 bytes that transform the terminal's display from the previous state to the current one.
 
 ```swift
-public actor Renderer {
-    package init(io: PlatformIO)
+/// The damage-tracking diff engine. Deliberately NOT an actor: it is a synchronous,
+/// non-Sendable value owned by the TerminalSession actor, which already serializes
+/// draws. Making it an actor would buy no additional safety and cost an actor hop
+/// per frame; as a plain mutable value it is also trivially testable
+/// (buffers in, bytes out — no mocks, no async).
+package struct Renderer {
+    package init()
 
-    /// Opens one render transaction. The borrowed frame cannot be stored, returned, or
-    /// captured by an escaping task.
+    /// Encodes the minimal bytes that transform the terminal from `previous` to
+    /// `current`, updating internal SGR/cursor/raw state. Pure with respect to IO.
+    /// `previous == nil` means the screen is unknown: erase, then full repaint.
+    package mutating func encodeFrame(
+        previous: Buffer?,
+        current: Buffer,
+        wrapInSynchronizedOutput: Bool,
+        into bytes: inout [UInt8]
+    )
+
+    /// Discards cached terminal assumptions (SGR state, cursor belief) and arms a
+    /// pending erase so the next frame repaints conservatively. The session's
+    /// invalidateRenderer() additionally clears its own lastDrawnBuffer. Used after
+    /// resize, after alt-screen reentry, or on demand.
+    package mutating func invalidate()
+}
+
+extension TerminalSession {
+    /// Opens one render transaction. The borrowed frame cannot be stored, returned,
+    /// or captured by an escaping task. The session runs the body over the back
+    /// buffer, asks the renderer to encode the diff, writes through PlatformIO, and
+    /// flushes once.
     public func draw<R>(
         _ body: (borrowing Frame) throws -> sending R
     ) async throws -> sending R
 
-    /// Test/package escape hatch for asserting the diff algorithm directly.
-    package func drawBuffer(_ buffer: Buffer) async throws
-
-    /// Discards cached terminal assumptions so the next draw repaints conservatively.
-    /// Used after resize, after alt-screen reentry, after losing synchronization, or on demand.
-    public func invalidateRendererState() async
+    /// Invalidates the renderer so the next draw repaints from scratch.
+    public func invalidateRenderer()
 }
 
 public struct Frame: ~Copyable, ~Escapable {
-    public borrowing var size: TerminalSize { get }
-    public borrowing func render<V: View>(_ view: borrowing V, in area: Rect)
+    public var size: TerminalSize { get }  // accessors on a ~Escapable type borrow implicitly
     public borrowing func write(_ string: String, at position: TerminalPosition, style: Style)
     public borrowing func writeRaw(
         _ payload: RawTerminalPayload,
@@ -2194,11 +2234,19 @@ public struct Frame: ~Copyable, ~Escapable {
 }
 ```
 
-The render body is intentionally synchronous. `draw` may suspend to enter the renderer or
-session actor, but the borrowed-frame closure itself is not `async`. It batches related
-frame mutations in one actor job and avoids actor-reentrancy windows while a borrowed
-frame is live. Async work updates app state and requests display/layout invalidation
-before or after a render transaction; it does not happen while holding `Frame`.
+Note what `Frame` does **not** have: a `render(_ view:)` method. `TesseraTerminal` must
+never know the `View` protocol — that would invert the package's dependency direction. The
+Phase 4 view layer renders _into_ a frame (its `RenderRegion` wraps the frame's buffer);
+the frame stays a dumb write surface. Likewise the `Renderer` diff engine is
+package-internal; the only public rendering entry point is `TerminalSession.draw`. `Rect`
+(used by `writeRaw`/`markOpaque`) lands in `TesseraTerminalCore` in this slice; Phase 4's
+Geometry section gives its full definition.
+
+The render body is intentionally synchronous. `draw` may suspend to enter the session
+actor, but the borrowed-frame closure itself is not `async`. It batches related frame
+mutations in one actor job and avoids actor-reentrancy windows while a borrowed frame is
+live. Async work updates app state and requests display/layout invalidation before or
+after a render transaction; it does not happen while holding `Frame`.
 
 These operations should be impossible:
 
@@ -2213,12 +2261,16 @@ emit bytes Tessera does not understand, but it preserves render serialization, t
 snapshot visibility, and damage-tracking policy. It is not equivalent to exposing
 `PlatformIO.write`.
 
-Three pieces of internal state:
+State is split by who can guarantee it:
 
-- The last-drawn buffer (`Buffer?` — `nil` triggers full repaint).
-- The currently active `Style` on the terminal (so we know whether SGR needs re-emitting).
+- The last-drawn buffer (`Buffer?` — `nil` triggers erase + full repaint) is owned by
+  `TerminalSession`, which passes it as `previous` and commits `lastDrawnBuffer = current`
+  only after write and flush both succeed. Ownership lives with the session because only
+  the session knows whether the frame actually reached the terminal.
+- The currently active `Style` on the terminal (so we know whether SGR needs re-emitting)
+  is renderer-internal.
 - The currently believed cursor position (so we know whether `cursorPosition` needs
-  emitting).
+  emitting) is renderer-internal, along with a pending-erase flag set by `invalidate()`.
 
 ##### The diff algorithm
 
@@ -2292,8 +2344,8 @@ package func sgrDelta(from old: Style, to new: Style, into bytes: inout [UInt8])
 }
 ```
 
-For the first frame and after `invalidateRendererState()`, the "previous style" is `nil`
-and we emit a reset followed by the full style. This handles startup correctly without
+For the first frame and after `Renderer.invalidate()`, the "previous style" is `nil` and
+we emit a reset followed by the full style. This handles startup correctly without
 special-casing.
 
 There's a subtle invariant: **after `draw` returns, the terminal's SGR state must match a
@@ -2376,7 +2428,7 @@ that's fine; Phase 4 makes it elegant.
 
 One sharp edge: **after resize, the terminal's screen may contain garbage from the old
 size.** The renderer's first post-resize frame should emit `eraseInDisplay(.all)` before
-drawing. Build this into `invalidateRendererState()` — invalidating renderer state means
+drawing. Build this into `Renderer.invalidate()` — invalidating renderer state means
 "assume the screen is unknown, paint everything, including erasing first."
 
 #### Testing strategy for the renderer
@@ -2399,7 +2451,7 @@ Plus targeted unit tests:
   expect.
 - **Orphan-rule tests.** Overwriting half a wide grapheme blanks the other half; rendered
   bytes reflect this.
-- **Invalidate test.** After `invalidateRendererState()`, next frame is a full repaint
+- **Invalidate test.** After `Renderer.invalidate()`, next frame is a full repaint
   including erase.
 - **Raw payload tests.** A raw payload emits exactly at its anchor position; opaque cells
   are skipped by normal diffing; always-repaint cells emit even when equal; reclaiming an
@@ -2446,11 +2498,12 @@ strings.
    regions, and allow normal content to reclaim those regions later.
 4. `swift-displaywidth` added as a dependency and used for all normal grapheme width
    queries.
-5. `Renderer` actor with scoped `draw {}` transactions, `invalidateRendererState()`,
-   internal SGR/cursor/raw state tracking, row-by-row diff with run coalescing, and
-   policy-controlled synchronized output wrapping.
-6. Renderer integrates with `PlatformIO`: buffered writes per frame, one `flush` at end of
-   frame.
+5. `Renderer` as a synchronous package struct owned by `TerminalSession`, with
+   `encodeFrame`, `invalidate()`, internal SGR/cursor/raw state tracking, row-by-row diff
+   with run coalescing, and policy-controlled synchronized output wrapping.
+   `TerminalSession.draw {}` is the public scoped transaction over it.
+6. The session integrates renderer output with `PlatformIO`: buffered writes per frame,
+   one `flush` at end of frame.
 7. Phase 1 walking skeleton is updated to use the real renderer. Visible result: no more
    flicker; typing feels instant.
 8. ~30-40 tests covering: width handling, orphan rule, diff correctness, SGR minimization,
@@ -2494,12 +2547,15 @@ strings.
    payloads are anchored in frames, paired with opaque/repaint policy, and covered by
    virtual-terminal tests.
 
-4. **The renderer is an actor, like `PlatformIO` and `ModeLifecycle`.** Three actors in
-   `TesseraTerminal` is starting to feel like a lot, and you might wonder whether they
-   should be merged. I think keeping them separate is right — each has a distinct
-   concurrency boundary and a distinct testability story (you can mock `PlatformIO` to
-   test `Renderer` in isolation, etc.) — but it's worth being explicit that "three actors"
-   is a deliberate choice and not accidental complexity.
+4. **The renderer is deliberately NOT an actor.** The actor census in `TesseraTerminal` is
+   `TerminalSession`, `ModeLifecycle`, and `PlatformIO` — each guarding genuinely shared
+   mutable state (the live terminal, mode state, file descriptors). The diff engine guards
+   nothing shared: it is only ever touched by the session actor that owns it, so making it
+   a fourth actor would add an actor hop per frame and an async seam in tests while buying
+   zero safety. Keeping it a synchronous `package struct` makes the core renderer property
+   — two buffers in, minimal bytes out — testable as a pure function. If you ever feel
+   pressure to make it an actor, that is a sign something other than the session has
+   acquired a reference to it, which is the actual bug.
 
 ---
 
@@ -2889,17 +2945,35 @@ because the parser's escape-sequence handling already extends cleanly.
 >   `poll_internal` and wakes the async task when events arrive. This is the closest
 >   analog to Tessera's `AsyncStream<InputEvent>`.
 
-Slice 3 gave you `PlatformIO.bytes: AsyncStream<UInt8>`. Slice 5 layers on top:
+Slice 3 gave you `PlatformIO.bytes: AsyncStream<UInt8>`. Slice 5 layers on top — at
+package level, with `TerminalSession` as the public surface, consistent with the ownership
+thesis (raw byte access must not be public API):
 
 ```swift
-public extension PlatformIO {
+package extension PlatformIO {
+    var events: AsyncStream<InputEvent> { get }
+}
+
+public extension TerminalSession {
+    /// The session's semantic event stream. `nextEvent()` remains as sugar over it.
     var events: AsyncStream<InputEvent> { get }
 }
 ```
 
 The implementation is the input task we sketched: read bytes, feed parser, yield events,
-manage timeout for ESC ambiguity. The raw `bytes` stream stays available for users who
-want to bypass the parser (rare but legitimate — Phase 3's Kitty support might need this).
+manage timeout for ESC ambiguity. The package-level `bytes` stream stays available
+internally for code that bypasses the parser (rare but legitimate — Phase 3's Kitty
+support might need this).
+
+One throughput note, normative for this slice: the event pipeline must not pay one
+`AsyncStream` continuation yield per input byte. Slice 3's per-byte `bytes` stream is fine
+for a walking skeleton, but a large paste (Phase 3) or fast mouse drag delivers kilobytes
+per read, and per-byte yields plus a `[InputEvent]` allocation per `feed(_:)` call is the
+hot spot. The input task should feed the parser whole read buffers
+(`feed(contentsOf: ArraySlice<UInt8>) -> [InputEvent]` or equivalent) and yield events,
+not re-consume the per-byte stream. If the per-byte `bytes` stream loses its remaining
+internal consumers in the process, change it to chunked yields (`AsyncStream<[UInt8]>`)
+rather than keeping a per-byte API alive for sentiment.
 
 A `SIGWINCH` arriving via the cleanup-registry mechanism also yields an
 `InputEvent.resize(TerminalSize)` through the same stream. This unifies "user input" and
@@ -3111,19 +3185,21 @@ conditional code in the encoder, renderer, or parser. The whole Windows port liv
 >   dimensions (`columns_rows: Size`) and pixel dimensions — Tessera's `TerminalSize` is
 >   the character-only equivalent.
 
-The public API stays identical to slice 3's POSIX version. The whole point of the
-abstraction is that callers don't know which platform they're on:
+The API stays identical to slice 3's POSIX version — including its visibility.
+`PlatformIO` remains internal/package on Windows too; `TerminalSession` is still the only
+public facade, per the ownership thesis. The whole point of the abstraction is that
+callers (and the rest of the package) don't know which platform they're on:
 
 ```swift
-public actor PlatformIO {
-    public init() throws
-    public func write(_ bytes: [UInt8]) async throws
-    public func flush() async throws
-    public nonisolated var bytes: AsyncStream<UInt8> { get }
-    public func size() async throws -> TerminalSize
-    public var sizeChanges: AsyncStream<TerminalSize> { get }
-    internal func enableRawMode() async throws
-    internal func disableRawMode() async throws
+internal actor PlatformIO {
+    internal init(handles: consuming PlatformHandles) throws
+    package func write(_ bytes: [UInt8]) async throws
+    package func flush() async throws
+    package nonisolated var bytes: AsyncStream<UInt8> { get }
+    package func size() async throws -> TerminalSize
+    package var sizeChanges: AsyncStream<TerminalSize> { get }
+    package func enableRawMode() async throws
+    package func disableRawMode() async throws
 }
 ```
 
@@ -3386,16 +3462,18 @@ Two things to set up:
    execute normally. This validates the encoder, parser, buffer, renderer, and
    `PlatformIO` mode logic on Windows.
 
-2. **`TesseraSnapshotTests` remains macOS-only** because libghostty-spm is Apple-only.
-   Windows snapshot coverage waits until either (a) libghostty-vt gets a Windows binary
-   distribution, or (b) we add the Linux/Windows from-source build path tracked from
-   earlier. Cross-platform correctness for now is inferred from the encoder unit tests
-   (which run identically on all platforms) plus macOS snapshot coverage.
+2. **Snapshot tests already run on macOS and Linux** via the direct libghostty-vt
+   from-source build that Slice 1 shipped (the `CGhosttyVT` module plus the scripted zig
+   build, cached in CI). Windows snapshot coverage waits until that build path is proven
+   on Windows runners — attempt it in this slice; if the zig/libghostty-vt toolchain
+   fights back, document the skip and move on. Cross-platform correctness for Windows in
+   the meantime is inferred from the encoder/parser unit tests (which run identically on
+   all platforms) plus macOS/Linux snapshot coverage.
 
-This is the same compromise as the Linux situation, and the same reasoning applies: byte
-streams are platform-independent, so macOS snapshot tests prove the _encoding_ is right;
-the platform-specific code in `PlatformIO` is small, well-isolated, and verified by its
-own targeted tests on each platform.
+The reasoning for accepting a temporary Windows gap: byte streams are
+platform-independent, so macOS/Linux snapshot tests prove the _encoding_ is right; the
+platform-specific code in `PlatformIO` is small, well-isolated, and verified by its own
+targeted tests on each platform.
 
 #### Testing strategy for slice 6
 
@@ -3492,9 +3570,6 @@ publishable-as-alpha cross-platform terminal foundation: cell-accurate buffer,
 damage-tracking renderer, full legacy input parser, robust teardown discipline, and
 demonstrable parity across macOS, Linux, and Windows.
 
-Phase 3 (modern terminal protocols) is the next phase. Ready to start it, or pause here
-for retrospective on Phase 2?
-
 ### End of Phase 2
 
 Publishable-as-alpha TesseraTerminal. You can write a program that renders text in any
@@ -3554,6 +3629,44 @@ Mode categories for Phase 3:
    visibility, style state, hyperlinks, raw payloads, and damage-tracking state are
    renderer-owned. Widgets may express desired cursor/style state or call
    `Frame.writeRaw`, but they do not emit raw mode bytes directly.
+
+### Dynamic mode changes (`ModeLifecycle.apply`)
+
+Phase 2 Slice 3 deliberately made double-`enter` an error and deferred mid-run toggling
+("we'll handle that when we get there"). Phase 3 is where we get there, because Phase 4
+depends on it: the view layer's `TerminalRequirements` are dynamic — removing the last
+mouse handler should turn mouse tracking off mid-run, and adding one should turn it on.
+
+The shape: lifecycle/session modes (`rawMode`, `altScreen`) remain session-fixed and are
+still owned by `enter`/`exit`. Application protocol modes (bracketed paste, focus events,
+mouse tracking, Kitty keyboard) become reconcilable:
+
+```swift
+extension ModeLifecycle {
+    /// Reconciles the active application-protocol modes against `target`:
+    /// computes the delta, emits only the enable/disable sequences for modes that
+    /// changed, and atomically updates the cleanup registry's teardown bytes.
+    /// Session modes (rawMode, altScreen) in `target` are a programmer error.
+    public func apply(applicationModes target: Set<Mode>) async throws
+}
+```
+
+Invariants, in order of importance:
+
+1. **The cleanup registry is updated on every successful mode change**, before `apply`
+   returns. If the process dies between two `apply` calls, emergency teardown reflects the
+   modes that are actually active. (`ModeLifecycle` owns the canonical enable and disable
+   ordering internally — the `Set` is a request, not a sequence.)
+2. **`apply` is delta-based and idempotent.** Applying the current set is a no-op that
+   emits no bytes. This is what lets the Phase 4 session reconcile
+   `graph.terminalRequirements` after every update without byte spam.
+3. **Disable-on-exit still over-cleans.** `exit()` and the emergency path disable every
+   application mode Tessera might ever enable, regardless of what `apply` believes is
+   active.
+
+Each Phase 3 slice below describes its mode in enable-at-startup terms for simplicity;
+read those through this section — "enable at startup" means "in the initial applied set
+when the application's configuration/requirements ask for it."
 
 ### Slice 1: Bracketed paste mode
 
@@ -4230,7 +4343,7 @@ public struct Key: Sendable, Equatable {
 
 public enum KeyEventKind: Sendable, Equatable {
     case press
-    case repeat
+    case `repeat`   // backticks: `repeat` is a Swift keyword
     case release
 }
 
@@ -4242,7 +4355,7 @@ public struct Modifiers: OptionSet, Sendable {
     public static let shift   = Modifiers(rawValue: 1 << 0)
     public static let alt     = Modifiers(rawValue: 1 << 1)
     public static let control = Modifiers(rawValue: 1 << 2)
-    public static let super   = Modifiers(rawValue: 1 << 3)
+    public static let `super` = Modifiers(rawValue: 1 << 3)  // keyword, needs backticks
     public static let hyper   = Modifiers(rawValue: 1 << 4)
     public static let meta    = Modifiers(rawValue: 1 << 5)
 }
@@ -4874,10 +4987,12 @@ public enum CapabilityDetectionMode: Sendable, Equatable {
 }
 ```
 
-These names can adapt to the existing initialization API. The principle is more important
-than the exact shape: protocol enablement should be configurable, defaults should be
-visible, and detection should be something users can disable when it causes problems under
-SSH, tmux, CI, or unusual terminals.
+These names should fold into the `TerminalApplicationConfiguration` that Phase 2 Slice 3
+already shipped as the `withApplicationTerminal(configuration:)` parameter — do not
+introduce a second public configuration type. The principle is more important than the
+exact shape: protocol enablement should be configurable, defaults should be visible, and
+detection should be something users can disable when it causes problems under SSH, tmux,
+CI, or unusual terminals.
 
 #### Parser behavior
 
@@ -4950,68 +5065,1058 @@ Everything above this is the view library.
 
 ## Phase 4 — View layer (the `Tessera` module)
 
-This is the largest phase and where the Lip Gloss-flavored API actually shows up. Likely
-5-7 slices.
+Phase 4 builds the declarative view layer on top of the Phase 2–3 terminal substrate. It
+is the largest phase: seven slices. The API should read like SwiftUI to a Swift developer
+— `body`, result builders, modifier chains, environment — while the machinery underneath
+stays a plain, inspectable system you can dump, step, and unit test.
 
-The load-bearing rule: **views render into a borrowed frame; views do not own terminal
-capabilities.** A widget can be non-`Sendable`, can borrow local layout/cache state, and
-can render synchronously inside the runtime isolation domain. Do not make `View: Sendable`
-just to satisfy concurrency diagnostics. Non-sendability is a feature when it prevents
-invalid cross-domain use.
+The design thesis is **declarative at the edge, explicit in the core**:
 
-- `View` protocol + the rendering pipeline (view → borrowed `Frame` → buffer)
-- Style values (`Style.bold.foreground(.red).padding(2)` chains)
-- Built-in primitive views (`Text`, `Spacer`, `Box`, `Divider`)
-- Layout primitives (`HStack`, `VStack`, `ZStack`, `Join`, `Place`, `Compose`)
-- Borders, padding, alignment
-- Focus management (which view receives keyboard input)
-- A small standard widget set (text input, list, scroll view) — the Tessera analog of
-  `bubbles`
+1. **Views are cheap value descriptions.** A `View` is a value type whose only job is to
+   describe UI for the current state. Evaluating `body` allocates no terminal resources
+   and has no side effects.
+2. **Views lower into an explicit runtime tree.** A `ViewGraph` owns a tree of
+   `RuntimeNode`s produced by a documented reconciliation algorithm. Identity rules are
+   written down, the tree is dumpable (`graph.dump()`), and every pass — update, layout,
+   render, event routing — is a synchronous, separately testable function over that tree.
+   There is no attribute graph, no hidden dependency tracking, no magic.
+3. **State management is the app's job.** Composite views have no `@State`. Tessera never
+   owns business state; it consumes snapshots of it. The graph re-evaluates the root when
+   the app says so. This is what makes the layer equally comfortable under TCA,
+   `@Observable`, reducers, actors, or a plain `while` loop.
+4. **Terminal authority stays in the session.** Views declare requirements
+   (`TerminalRequirements`) and render into borrowed regions; they never see file
+   descriptors, mode toggles, or raw writers. The graph aggregates requirements and the
+   session/`ModeLifecycle` arbitrates, exactly as the ownership thesis demands.
 
-Provisional shape to pressure-test before implementation:
+The load-bearing concurrency rule carries over from the provisional design: **views render
+into a borrowed region; views do not own terminal capabilities.** Views, nodes, and the
+`ViewGraph` are non-`Sendable` and live in one isolation domain (the caller's in Phase 4;
+the optional `@MainActor` runtime in Phase 5). Rendering is synchronous while a region is
+held — no suspension points inside a render pass. Do not make `View: Sendable` to silence
+diagnostics; non-sendability is a feature here.
+
+### What Tessera keeps from SwiftUI, and what it deliberately rejects
+
+| SwiftUI concept              | Tessera counterpart                                                         |
+| ---------------------------- | --------------------------------------------------------------------------- |
+| `body` + result builders     | Kept. `View.body`, `@ViewBuilder`, `ForEach`, conditionals.                 |
+| Modifier chains              | Kept. `.padding(2).border(.rounded).onKey { … }` lower to wrapper nodes.    |
+| Environment                  | Kept. `EnvironmentValues` + `EnvironmentKey`, propagated through the tree.  |
+| Two-pass `Layout` protocol   | Kept, integer-cell flavored. `sizeThatFits` / `placeSubviews`.              |
+| Structural identity          | Kept, but **documented and dumpable** instead of implicit folklore.         |
+| AttributeGraph / hidden deps | Rejected. Reconciliation is a plain tree diff you can read in one file.     |
+| `@State` / `@StateObject`    | Rejected in composite views. Widgets use explicit `NodeState`; apps BYO.    |
+| Implicit invalidation        | Rejected. The app calls `graph.update()`; widgets call `setNeedsDisplay()`. |
+| Opaque layout failures       | Rejected. Layout is integer math with documented rounding; `dump()` shows   |
+|                              | every node's proposal, size, and frame.                                     |
+
+### Prerequisites and scheduling
+
+Phase 4 deliberately starts only after the substrate it renders into exists:
+
+- **Slices 1–3** require Phase 2 Slice 4 (width-aware `Buffer`, real `Style`,
+  damage-tracking renderer). Text measurement is grapheme-width measurement.
+- **Slice 4** requires Phase 2 Slice 5 (`Key`, `KeyCode`, `Modifiers`, semantic key
+  events). Kitty keyboard (Phase 3 Slice 4) improves it but is not a prerequisite.
+- **Slice 5** requires Phase 3 Slice 3 (SGR mouse events).
+- **Slice 7** exercises everything above it.
+
+Phase 4 may interleave with Phase 3: slices 1–3 can land while Phase 3 protocol slices are
+still in flight, as long as Phase 2 is complete.
+
+### Architecture: three layers, four passes
+
+```text
+                ┌──────────────────────────────────────────────┐
+   declarative  │ App views: value types, body, modifiers      │  app-owned state
+                └──────────────────┬───────────────────────────┘
+                                   │ 1. update pass (body evaluation + reconciliation)
+                ┌──────────────────▼───────────────────────────┐
+   explicit     │ ViewGraph: RuntimeNode tree                  │  identity, NodeState,
+                │  • 2. layout pass (propose → size → place)   │  frames, focus,
+                │  • 3. render pass (RenderRegion → Buffer)    │  handlers, environment
+                └──────────────────┬───────────────────────────┘
+                                   │ 4. present (session draw transaction)
+                ┌──────────────────▼───────────────────────────┐
+   substrate    │ TesseraTerminal: Frame/Buffer → damage       │  bytes, modes,
+                │ renderer → ANSIEncoder → PlatformIO          │  lifecycle
+                └──────────────────────────────────────────────┘
+```
+
+Input flows the opposite direction and never bypasses the graph:
+
+```text
+PlatformIO bytes → InputParser → InputEvent → graph.dispatch(event)
+  → focus/hit-test routing → user handler closures → app mutates its own state
+  → app calls graph.update() → passes 2–4 run on the next draw
+```
+
+Each pass is synchronous and pure-ish over the tree:
+
+1. **Update** re-evaluates the root view value and reconciles it against the existing node
+   tree. Output: an updated tree plus `needsLayout`/`needsRender` flags.
+2. **Layout** runs top-down proposals and bottom-up sizes through the `Layout` protocol,
+   then assigns each node an absolute `Rect`. Phase 4 keeps this deliberately simple: any
+   `needsLayout` triggers a full relayout from the root, memoized per pass. Terminal trees
+   are small; partial relayout is a Phase 5 performance-pass option, not a correctness
+   feature.
+3. **Render** walks the tree painter's-algorithm order and draws every node into a clipped
+   `RenderRegion` over the frame's `Buffer`. Phase 4 renders the full tree each frame;
+   minimal terminal output is already guaranteed by the Phase 2 buffer-diff renderer, so
+   view-level render skipping is an optimization, not a requirement.
+4. **Present** is Phase 2's existing draw transaction: buffer diff → damage → bytes.
+
+This split is the transparency story: correctness lives in simple full passes plus the
+buffer diff; cleverness is opt-in later and always observable via diagnostics.
+
+### Geometry
+
+These types live in `TesseraTerminalCore` (the rendering and view layers both need them;
+Phase 2 Slice 4's `writeRaw`/`markOpaque` introduce `Rect`, and Phase 4 adds `EdgeInsets`
+and any helpers it needs):
 
 ```swift
-public protocol View {
-    associatedtype Body: View = Never
+public struct Rect: Sendable, Hashable {
+    public var origin: TerminalPosition
+    public var size: TerminalSize
 
-    /// Dynamic declarative terminal requirements for this view's current state.
-    var terminalRequirements: TerminalRequirements { get }
+    public init(origin: TerminalPosition, size: TerminalSize)
+    public init(column: Int, row: Int, columns: Int, rows: Int)
 
-    /// Synchronous and scoped. No async suspension while holding a frame.
-    borrowing func render(in frame: borrowing Frame, context: borrowing ViewContext)
+    public static let zero: Rect
+    public func intersection(_ other: Rect) -> Rect   // empty-safe
+    public func contains(_ position: TerminalPosition) -> Bool
+    public func inset(by edges: EdgeInsets) -> Rect   // clamps at zero size
 }
 
-public struct ViewContext: ~Copyable, ~Escapable {
-    public borrowing var environment: EnvironmentValues { get }
-    public borrowing var focus: FocusContext { get }
-    public borrowing var proposedSize: ProposedSize { get }
-}
-
-public struct ResponderContext: ~Copyable, ~Escapable {
-    public borrowing func setNeedsDisplay()
-    public borrowing func setNeedsLayout()
-    public borrowing func focus(_ id: FocusID?)
-    public borrowing func route(_ event: InputEvent, to responder: ResponderID)
+public struct EdgeInsets: Sendable, Hashable {
+    public var top, leading, bottom, trailing: Int
+    public init(top: Int = 0, leading: Int = 0, bottom: Int = 0, trailing: Int = 0)
+    public init(_ all: Int)
 }
 ```
 
-Rendering is synchronous while holding `Frame`. Async work happens before invalidating or
-after the render transaction completes, not inside `View.render`. This preserves the frame
-as a borrowed, nonescaping capability and avoids actor-reentrancy windows during a render
-batch.
+All geometry is integer cells. There are no fractional points anywhere in the view layer;
+every rounding decision is explicit and documented at the algorithm that makes it.
 
-Views and widgets may declare terminal capabilities they require, but they do not directly
-enable, disable, or write terminal mode sequences. `terminalRequirements` is dynamic
-declarative state, not a static type property and not an imperative side effect. The
-runtime/session collects current requirements, checks them against application
-configuration, computes the effective mode set, and applies changes through
-`ModeLifecycle`.
+### Identity model
 
-Display/layout invalidation is also declarative. `setNeedsDisplay()` means something about
-what should be shown changed and a render pass should be scheduled. `setNeedsLayout()`
-means measurement or placement changed and layout should be recomputed before the next
-render. Runtime contexts can request these invalidations, but they cannot render directly
-or expose a `Frame`, raw terminal handle, arbitrary byte writer, or mutable app state.
+Identity is the part of SwiftUI people debug by superstition. Tessera writes it down.
+
+A node's identity is its **path of slots from the root**:
+
+```swift
+public struct NodeIdentity: Hashable, Sendable, CustomStringConvertible {
+    // conceptually: [Slot]
+}
+
+enum Slot: Hashable, Sendable {
+    case body                 // composite view → its body
+    case index(Int)           // position in a TupleView / fixed container
+    case id(AnyHashable)      // ForEach element, keyed by the element's id
+    case branch(Bool)         // if/else: true and false branches are DIFFERENT identities
+    case explicit(AnyHashable) // .id(_:) modifier resets the path below it
+}
+```
+
+The rules, exhaustively:
+
+1. **Structural by default.** A view's identity is where it sits in its parent's children.
+   Reordering siblings reorders identities.
+2. **`ForEach` is always keyed.** Elements identify by `Identifiable` id or an explicit
+   `id:` key path. Moves preserve node state; there is no index-keyed `ForEach` over
+   non-identifiable data without an explicit key path.
+3. **`if`/`else` branches are distinct.** Switching branches destroys the old subtree (and
+   its `NodeState`) and builds the new one. Same as SwiftUI, but stated.
+4. **`.id(_:)` resets identity.** Changing the value tears down and rebuilds the subtree.
+   This is the explicit "reset this widget" lever.
+5. **Type change is identity change.** If the view type at a slot differs from last
+   update, the old node is discarded.
+6. **Identity loss is observable.** The graph can report created/destroyed node counts per
+   update (`graph.statistics`), and `graph.dump()` prints every node's identity path, so
+   "why did my text field lose its cursor" is answerable by looking.
+
+### State model: bring your own
+
+- **Composite views are pure.** `body` is a function of values the app passed in. No
+  `@State`, no `@StateObject`, no property-wrapper storage smuggled into structs.
+- **`Binding` is the controlled-widget seam.** A minimal value:
+
+  ```swift
+  @propertyWrapper
+  public struct Binding<Value> {
+      public var wrappedValue: Value { get nonmutating set }
+      public init(get: @escaping () -> Value, set: @escaping (Value) -> Void)
+      public static func constant(_ value: Value) -> Binding<Value>
+      public var projectedValue: Binding<Value> { get }
+  }
+  ```
+
+  No graph plumbing, no transactions. It is two closures. TCA bindings, `@Observable`
+  references, and plain `inout`-style closures all adapt to it in one line.
+
+- **`NodeState` is for ephemeral UI internals only.** Leaf primitives and widgets may
+  declare node-local state (cursor index, scroll offset, marquee phase) that lives on the
+  `RuntimeNode`, keyed by identity, passed `inout` to the primitive's methods. It survives
+  updates while identity survives, and dies with the node. It must never hold business
+  state.
+- **Re-render is externally driven.** The app mutates its state, then calls
+  `graph.update()` (directly, or via the Phase 5 runtime). Integration recipes that belong
+  in DocC, not in the core API:
+  - `@Observable`: wrap `update()` in `withObservationTracking`, re-arm on change.
+  - TCA: observe the store; on state change, call `update()`.
+  - Plain loop: call `update()` after every handled event. Unconditional update is always
+    correct; reconciliation makes it cheap.
+
+### Slice 1: TesseraCore — `View`, `ViewGraph`, reconciliation, `Text`
+
+#### What this slice proves
+
+A declarative view value can be lowered to an explicit node tree, rendered into a `Buffer`
+through the real session `Frame`, updated incrementally, and inspected. At the end of this
+slice you can run an example app showing live, declaratively-described text — no layout
+system yet (children stack vertically by a hardcoded interim rule), no input routing.
+
+#### The `View` protocol and builders
+
+```swift
+public protocol View {
+    associatedtype Body: View
+    @ViewBuilder var body: Body { get }
+}
+
+extension Never: View { /* body: fatalError */ }
+extension Optional: View where Wrapped: View { /* lowered to presence/absence */ }
+
+@resultBuilder
+public enum ViewBuilder {
+    public static func buildBlock<each Content: View>(
+        _ content: repeat each Content
+    ) -> TupleView<repeat each Content>
+    public static func buildEither<T: View, F: View>(first: T) -> ConditionalView<T, F>
+    public static func buildEither<T: View, F: View>(second: F) -> ConditionalView<T, F>
+    public static func buildOptional<C: View>(_ content: C?) -> C?
+    public static func buildExpression<C: View>(_ content: C) -> C
+}
+```
+
+`TupleView` uses parameter packs — this is one of the Swift 6 showcase points. If pack
+iteration in the reconciler fights the toolchain, the documented fallback is fixed-arity
+overloads up to 10, generated; do not let this block the slice.
+
+Structural views the reconciler understands natively: `TupleView`, `ConditionalView`,
+`Optional`, `EmptyView`, `ForEach`, `AnyView` (type erasure; documented as an identity
+barrier just like SwiftUI's), and `EquatableView`/`.equatable()` (skip subtree
+re-evaluation when old and new values compare equal).
+
+```swift
+public struct ForEach<Data: RandomAccessCollection, ID: Hashable, Content: View>: View {
+    public init(_ data: Data, id: KeyPath<Data.Element, ID>,
+                @ViewBuilder content: @escaping (Data.Element) -> Content)
+}
+extension ForEach where Data.Element: Identifiable, ID == Data.Element.ID {
+    public init(_ data: Data, @ViewBuilder content: @escaping (Data.Element) -> Content)
+}
+```
+
+#### The leaf seam
+
+Primitives are public protocol conformances, not compiler magic, so third parties can
+write their own leaves (a sparkline, a sixel image view) without forking:
+
+```swift
+public protocol LeafView: View where Body == Never {
+    associatedtype NodeState = Void
+
+    func makeState() -> NodeState
+    func sizeThatFits(
+        _ proposal: ProposedSize,
+        state: inout NodeState,
+        environment: EnvironmentValues
+    ) -> TerminalSize
+    func render(
+        in region: inout RenderRegion,
+        state: inout NodeState,
+        environment: EnvironmentValues
+    )
+    /// Only called when this node is focused or on the bubble path. Default: .ignored.
+    func handleEvent(
+        _ event: InputEvent,
+        state: inout NodeState,
+        context: inout ResponderContext
+    ) -> EventDisposition
+}
+
+public struct ProposedSize: Sendable, Hashable {
+    public var width: Int?    // nil = unconstrained
+    public var height: Int?
+    public static let unspecified: ProposedSize
+    public init(width: Int?, height: Int?)
+}
+
+public enum EventDisposition: Sendable, Equatable {
+    case handled
+    case ignored
+}
+```
+
+Defaults: `makeState()` for `NodeState == Void`, and `handleEvent` returning `.ignored`,
+so a render-only leaf implements exactly two methods.
+
+#### `RenderRegion`
+
+The view layer's borrowed write capability — a clipped, translated window onto the frame's
+`Buffer`:
+
+```swift
+public struct RenderRegion: ~Copyable {
+    /// Local coordinates: origin is (0,0); bounds.size is this node's frame size.
+    public var bounds: Rect { get }
+
+    public mutating func write(_ string: String, at position: TerminalPosition,
+                               style: Style)
+    public mutating func setCell(_ cell: Cell, at position: TerminalPosition)
+    public mutating func fill(_ cell: Cell, in rect: Rect)
+    /// Scoped sub-region: translated and clipped. The closure cannot escape it.
+    public mutating func with(_ rect: Rect, _ body: (inout RenderRegion) -> Void)
+    /// Producer escape hatch, clipped and damage-policy-paired per Phase 2 Slice 2.
+    public mutating func raw(_ payload: RawTerminalPayload, at position: TerminalPosition)
+}
+```
+
+Out-of-bounds writes clip silently (never trap, never wrap). Wide-grapheme writes that
+straddle the clip edge follow the Phase 2 Slice 4 continuation-cell rules. `~Copyable`
+keeps regions from being stored or aliased; render is the only place they exist.
+
+#### `RuntimeNode` and `ViewGraph`
+
+```swift
+public final class ViewGraph {
+    public init<Root: View>(
+        root: @escaping () -> Root,
+        size: TerminalSize,
+        environment: EnvironmentValues = EnvironmentValues()
+    )
+
+    public func update()                       // pass 1
+    public func layoutIfNeeded()               // pass 2 (update() does NOT imply layout)
+    public func render(into frame: inout Frame) // passes 2+3 as needed, then draw
+    public func resize(to size: TerminalSize)
+
+    public func dispatch(_ event: InputEvent) -> EventDisposition  // slice 4+
+    public var focus: FocusManager { get }                          // slice 4
+    public var terminalRequirements: TerminalRequirements { get }   // slice 4
+    public var needsRender: Bool { get }
+    public var needsLayout: Bool { get }
+
+    public func dump() -> String
+    public var statistics: GraphStatistics { get } // nodes created/destroyed/updated,
+                                                   // last pass durations
+}
+```
+
+`ViewGraph` is non-`Sendable` and unisolated; whoever creates it owns it. The canonical
+immediate-mode loop (the Phase 5 runtime automates exactly this, nothing more):
+
+```swift
+let session = try await TerminalSession(configuration: config)
+let graph = ViewGraph(root: { AppView(model: model) }, size: await session.size)
+
+for await event in await session.events {
+    if case .resize(let size) = event { graph.resize(to: size) }
+    _ = graph.dispatch(event)
+    model.apply(event)            // app-owned state, app-owned architecture
+    graph.update()
+    if graph.needsRender {
+        try await session.draw { frame in graph.render(into: &frame) }
+    }
+}
+```
+
+`RuntimeNode` (internal class; its _shape_ is spec'd so dumps and tests are stable):
+identity, view type id, stored view value (`any View`), `NodeState` box, children,
+environment snapshot, `frame: Rect` (absolute), cached `sizeThatFits` memo (cleared each
+layout pass), `needsLayout`/`needsRender` flags, registered handlers (slices 4–5).
+
+#### The reconciliation algorithm
+
+Spelled out so it can be implemented mechanically and reviewed against this text:
+
+1. `update()` calls the root closure to get the new root view value, then calls
+   `reconcile(node: rootNode, view: newRoot)`.
+2. **Fast path:** if the stored and new view values are of the same type, that type is
+   `Equatable` (or wrapped in `EquatableView`), and they compare equal, stop — the entire
+   subtree is unchanged. Flags already set remain set.
+3. **Type check:** if the dynamic type differs from the stored one, destroy the node's
+   subtree (running focus cleanup) and build fresh at the same slot. Record in statistics.
+4. **Leaf:** if the view is a `LeafView`, store the new value, mark `needsRender` (and
+   `needsLayout` — leaves cannot cheaply prove their size is unchanged; the layout memo
+   makes this cheap anyway).
+5. **Structural:** if the view is `TupleView` / `ConditionalView` / `Optional` / `ForEach`
+   / a modifier wrapper, diff children by slot per the identity rules: matching slots
+   recurse; missing slots are destroyed; new slots are built. `ForEach` matches by id,
+   preserving nodes across reorders (moves are reorders of the child array, not
+   destroy/create).
+6. **Composite:** otherwise evaluate `body` once and recurse into the single `.body`
+   child.
+
+Body evaluation happens **only** inside this pass. Layout and render never call `body`.
+Every view gets a node (composites included) so identity paths, environment scoping, and
+`dump()` reflect the structure the user wrote, not a flattened soup.
+
+The reconciler operates on `any View` existentials, opened via generic helper functions
+(`func reconcile<V: View>(_ view: V, …)` dispatched through a small number of
+`as? any LeafView`-style checks). This is the honest cost of having no compiler support;
+at terminal scale (hundreds of nodes, not hundreds of thousands) it is well within budget,
+and `statistics` keeps it observable.
+
+#### Environment
+
+```swift
+public protocol EnvironmentKey {
+    associatedtype Value
+    static var defaultValue: Value { get }
+}
+
+public struct EnvironmentValues {
+    public init()
+    public subscript<K: EnvironmentKey>(key: K.Type) -> K.Value { get set }
+}
+
+extension View {
+    public func environment<V>(
+        _ keyPath: WritableKeyPath<EnvironmentValues, V>, _ value: V
+    ) -> some View
+}
+```
+
+Implementation: copy-on-write storage keyed by `ObjectIdentifier`. The `.environment`
+modifier node stores the override; children snapshot the resolved environment during
+reconciliation. Changing an environment value marks the subtree below the modifier dirty.
+Built-in keys land with the features that need them (`defaultStyle` in slice 3,
+`isFocused`-adjacent values in slice 4).
+
+There is no `@Environment` property wrapper in slice 1. Composite views receive
+environment explicitly via `EnvironmentReader` (a view whose body closure is handed the
+resolved `EnvironmentValues`); leaves receive it as a parameter. A property-wrapper sugar
+can be added later without changing the model — keep the explicit reader as the canonical
+mechanism.
+
+#### Slice 1 primitives
+
+- `Text(String)` — measures grapheme display width per line (Phase 2 Slice 4 width
+  tables), renders top-left into its region, truncates per line at the region edge. No
+  wrapping yet (slice 3). Styling parameter exists (`Text("hi", style: …)`) but the fluent
+  style story is slice 3.
+- `EmptyView` — zero size, renders nothing.
+- Interim composition rule, replaced in slice 2: a node with multiple children stacks them
+  vertically at x=0, each child proposed the full width and its own measured height. This
+  is explicitly temporary scaffolding so slice 1 ships something visible; it must not grow
+  options.
+
+#### Tests
+
+- Reconciler unit tests, no terminal: build a tree, `update()` with mutated inputs, assert
+  created/destroyed/updated counts and identity paths via `statistics` and `dump()` golden
+  snapshots. Cover: tuple reorder (destroys), `ForEach` reorder (preserves), branch switch
+  (destroys), `.id` change (destroys), `Equatable` fast path (zero work), `AnyView`
+  barrier.
+- `NodeState` lifetime tests: a test leaf whose `NodeState` counts renders proves state
+  survives updates and dies on identity change.
+- Render tests through the existing harness: `ViewGraph` → `Frame`/`Buffer` →
+  `VirtualTerminal` snapshot, including clipping (write past region edge) and a wide
+  grapheme straddling a clip boundary.
+- An `Examples/Counter` app updated to the declarative API, driven by the canonical loop
+  above.
+
+#### Definition of done for slice 1
+
+1. `View`, `ViewBuilder`, structural views, `LeafView`, `RenderRegion`,
+   `EnvironmentValues`, `ViewGraph` exist in `TesseraCore` with the shapes above.
+2. The reconciliation algorithm matches the six numbered steps and has tests for each
+   identity rule.
+3. `graph.dump()` output is stable enough to snapshot and shows identity, type, frame, and
+   dirty flags per node.
+4. A declarative example app renders through a real `TerminalSession` on macOS/Linux.
+5. No `Sendable` conformances were added to views, nodes, or the graph.
+
+#### Things to flag
+
+1. **Parameter-pack `TupleView` is a toolchain bet.** Validate pack iteration in the
+   reconciler early in the slice; fall back to generated fixed arity if it fights back.
+2. **`AnyView` is an identity barrier by design.** Document it loudly; do not try to be
+   cleverer than SwiftUI here.
+3. **Resist adding `@State` "just for demos."** The moment it exists, the
+   architecture-agnostic story is dead. Demos use a plain model object and the loop.
+
+---
+
+### Slice 2: The `Layout` protocol and stack containers
+
+#### What this slice proves
+
+Layout is a first-class, user-implementable protocol — not renderer folklore. The interim
+vertical-stacking rule from slice 1 is deleted and replaced by real containers.
+
+#### The protocol
+
+Integer-cell adaptation of SwiftUI's `Layout`, which is the right shape to feel familiar
+while staying fully explicit:
+
+```swift
+public protocol Layout {
+    func sizeThatFits(_ proposal: ProposedSize, subviews: Subviews) -> TerminalSize
+    func placeSubviews(in bounds: Rect, proposal: ProposedSize, subviews: Subviews)
+}
+
+public struct Subviews: RandomAccessCollection {
+    public struct Subview {
+        public func sizeThatFits(_ proposal: ProposedSize) -> TerminalSize  // memoized
+        public func place(at origin: TerminalPosition, proposal: ProposedSize)
+        public subscript<K: LayoutValueKey>(key: K.Type) -> K.Value { get }
+        public var priority: Int { get }   // .layoutPriority sugar
+    }
+}
+
+public protocol LayoutValueKey {
+    associatedtype Value
+    static var defaultValue: Value { get }
+}
+
+extension Layout {
+    /// `VStack { … }`-style call syntax for custom layouts: `MyColumns { … }`.
+    public func callAsFunction<Content: View>(
+        @ViewBuilder _ content: () -> Content
+    ) -> some View
+}
+```
+
+`Subview.sizeThatFits` is memoized per (node, proposal) within a layout pass, so naive
+layouts that probe children repeatedly stay O(children) per distinct proposal. `place` not
+being called for a subview hides it (zero rect) — stated, not implied.
+
+Layout pass contract, exactly: the graph proposes the root the full terminal size; each
+container receives `sizeThatFits` then `placeSubviews`; placement assigns each child's
+absolute `frame: Rect`, clipped to the parent's frame for rendering and hit testing
+(overflow is clipped, never painted outside the parent — see ZStack flag below).
+
+#### Containers and modifiers in this slice
+
+```swift
+public struct VStack<Content: View>: View {
+    public init(alignment: HorizontalAlignment = .leading, spacing: Int = 0,
+                @ViewBuilder content: () -> Content)
+}
+public struct HStack<Content: View>: View {
+    public init(alignment: VerticalAlignment = .top, spacing: Int = 0,
+                @ViewBuilder content: () -> Content)
+}
+public struct ZStack<Content: View>: View {
+    public init(alignment: Alignment = .topLeading,
+                @ViewBuilder content: () -> Content)
+}
+public struct Spacer: View {
+    public init(minLength: Int = 0)
+}
+
+extension View {
+    public func frame(width: Int? = nil, height: Int? = nil,
+                      alignment: Alignment = .topLeading) -> some View
+    public func frame(minWidth: Int? = nil, maxWidth: Int? = nil,
+                      minHeight: Int? = nil, maxHeight: Int? = nil,
+                      alignment: Alignment = .topLeading) -> some View
+    public func padding(_ insets: EdgeInsets) -> some View
+    public func padding(_ all: Int = 1) -> some View
+    public func layoutPriority(_ priority: Int) -> some View
+    public func id<ID: Hashable>(_ id: ID) -> some View
+}
+```
+
+Note alignment defaults: terminal UIs read top-leading, not center. `Alignment`,
+`HorizontalAlignment`, `VerticalAlignment` are simple enums (no custom alignment guides —
+if they are ever needed, that is a separate proposal, not a quiet addition).
+
+#### The stack algorithm (normative)
+
+Deterministic integer distribution, written down so two implementations agree. For
+`HStack` with proposal `W` and children `c₁…cₙ` (VStack is the transpose):
+
+1. Subtract total spacing: `available = W - spacing × (n - 1)`.
+2. Probe flexibility: each child is measured at the proposal `(width: nil, height: h)`
+   (ideal) and `(width: 0, height: h)` (minimum). Children whose ideal equals their
+   minimum are **rigid**; others (and `Spacer`) are **flexible**.
+3. Group children by descending `layoutPriority`. Within each priority tier, measure rigid
+   children at their ideal first and subtract; then offer each flexible child a fair share
+   of the remainder: `share = remaining / flexibleLeft`, measured left-to-right
+   (top-to-bottom for VStack), subtracting the child's actual chosen width each time.
+   Integer division remainder cells go to the **earliest** flexible children, one extra
+   cell each — this is the documented rounding rule.
+4. `Spacer` consumes its share as empty space (min `minLength`).
+5. Place sequentially with spacing; cross-axis alignment per the stack's alignment.
+
+If children overflow the proposal, trailing children clip — stacks never go negative and
+never redistribute below a child's reported minimum.
+
+#### Invalidation semantics (graph-wide, defined here)
+
+- `needsLayout` on any node ⇒ the next `layoutIfNeeded()` re-runs the full layout pass
+  from the root (memoized measures make this cheap; trees are small).
+- `needsRender` ⇒ the next `render(into:)` repaints (full tree; the buffer diff makes
+  terminal output minimal).
+- Reconciliation sets both for changed nodes; `resize(to:)` sets `needsLayout` globally;
+  widget `NodeState` mutations set them via `ResponderContext` (slice 4).
+
+#### Tests
+
+- Pure `Layout` unit tests with stub subviews — no graph, no terminal: distribution tables
+  as parameterized tests (`(proposal, children) → frames`), including remainder rules,
+  priority tiers, spacer behavior, overflow clipping.
+- Graph integration snapshots: nested stacks + frame/padding through `VirtualTerminal`.
+- A custom user-defined `Layout` (e.g., a trivial `FlowLayout`) implemented in the test
+  target, proving the protocol is sufficient for third parties.
+
+#### Definition of done for slice 2
+
+1. `Layout`, `Subviews`, `LayoutValueKey` are public; stacks, `Spacer`, `frame`,
+   `padding`, `layoutPriority`, `id` ship; slice 1's interim stacking rule is deleted.
+2. The stack distribution algorithm matches the normative steps, with table tests.
+3. `dump()` includes proposal, size, and absolute frame per node.
+4. A third-party-style custom layout works using only public API.
+
+#### Things to flag
+
+1. **Resist Cassowary.** The deterministic tiered algorithm covers TUI needs; a constraint
+   solver would destroy the "layout is readable integer math" property. Ratatui's move
+   _away_ from purely solver-driven layout is the cautionary tale.
+2. **Min-size probing costs a second measure.** Memoization makes it fine; do not
+   complicate the protocol with a separate "flexibility" method until profiling says so.
+
+---
+
+### Slice 3: Styling, text wrapping, and decoration
+
+#### What this slice proves
+
+The Lip Gloss-flavored ergonomics: styled text, borders, backgrounds, overlays — as
+modifier chains that lower to ordinary wrapper nodes with zero new machinery.
+
+#### Style chains and inheritance
+
+Phase 2 Slice 4's `Style` (in `TesseraTerminalBuffer`) gains the fluent value API —
+coordinate there; it is one type, not two:
+
+```swift
+let emphasis = Style().bold().foreground(.red)
+let subtle = Style().foreground(.indexed(245)).italic()
+```
+
+The view layer adds **environment-driven inheritance**: a `defaultStyle` environment value
+that text-producing leaves merge under their own attributes.
+
+```swift
+extension View {
+    public func foreground(_ color: Color) -> some View   // environment override
+    public func background(_ color: Color) -> some View   // fills region + environment
+    public func bold(_ on: Bool = true) -> some View
+    public func italic(_ on: Bool = true) -> some View
+    public func underline(_ on: Bool = true) -> some View
+    public func style(_ style: Style) -> some View        // merge wholesale
+}
+```
+
+Merging rule (normative): per-attribute, nearest-ancestor-wins, view's own explicit style
+wins over inherited. No `sub_modifier`-style negation in v1; `.bold(false)` explicitly
+sets the attribute off, which is sufficient and simpler.
+
+#### Text grows up
+
+```swift
+public struct Text: View /* LeafView */ {
+    public init(_ content: String)
+    public func wrapped(_ mode: TextWrapping) -> Text   // .none (default) | .word | .character
+    public func truncation(_ mode: TextTruncation) -> Text // .clip (default) | .tail("…")
+}
+```
+
+Wrapping operates on grapheme clusters with Phase 2 width tables; word wrap breaks on
+Unicode word boundaries with a documented fallback to character wrap for words wider than
+the region. `sizeThatFits` and `render` must agree exactly — property-test this (measure,
+then render into exactly that size, assert no clipping occurred).
+
+#### Decoration
+
+```swift
+public enum BorderStyle: Sendable, Equatable {
+    case single, rounded, double, heavy, ascii
+    case custom(BorderGlyphs)
+}
+
+extension View {
+    public func border(_ style: BorderStyle = .single, _ lineStyle: Style = Style())
+        -> some View
+    public func overlay<O: View>(alignment: Alignment = .topLeading,
+                                 @ViewBuilder _ overlay: () -> O) -> some View
+    public func background<B: View>(@ViewBuilder _ background: () -> B) -> some View
+}
+
+public struct Divider: View { public init() }   // axis-adaptive: ─ in VStack, │ in HStack
+public struct Box<Content: View>: View {        // border + padding + optional title
+    public init(title: String? = nil, border: BorderStyle = .rounded,
+                @ViewBuilder content: () -> Content)
+}
+```
+
+`border` adds 1 to each inset and draws box-drawing glyphs in the inset ring — it is a
+unary layout wrapper plus a render decoration, the model case for "modifiers are just
+nodes." `overlay`/`background` are ZStack-equivalent wrappers sized by the primary child.
+`Divider` reads its axis from a `stackAxis` environment value that stacks set.
+
+`.link(URL)` (OSC 8, Phase 3 Slice 5) joins the chain here if that slice has landed — it
+is an environment-merged `Style` attribute like any other.
+
+#### Tests
+
+- Styled-grid snapshots (the Phase 2 harness's char+style aligned format) for inheritance,
+  override, and merge rules.
+- Border glyph snapshots per `BorderStyle`, including 1×1 and degenerate (zero-area)
+  regions — borders must clamp, not crash.
+- Wrap/truncate property tests: for random strings (ASCII + CJK + emoji + combining
+  marks), `render(into: sizeThatFits(p))` never clips and never writes outside bounds.
+
+#### Definition of done for slice 3
+
+1. `Style` fluent API lives on the buffer's `Style` type; view modifiers above ship.
+2. Wrapping/truncation measurement and rendering agree, property-tested with wide and
+   combining graphemes.
+3. Borders, `Box`, `Divider`, `overlay`, `background` snapshot-tested including degenerate
+   sizes.
+
+#### Things to flag
+
+1. **One `Style` type.** If slice ordering pressure tempts a second view-layer style type
+   "temporarily," stop and do the buffer work first. Two style types never merge back.
+2. **Emoji/ZWJ width will produce the first ugly bugs.** They are substrate (Phase 2
+   Slice 4) bugs surfacing through `Text`; fix them there, with view-layer regression
+   tests pinning the symptom.
+
+---
+
+### Slice 4: Focus and key routing (the responder system)
+
+#### What this slice proves
+
+Input routing is explicit and inspectable: there is a focus list you can print, a
+documented routing order, and nothing else.
+
+#### Focus model
+
+```swift
+public struct FocusID: Hashable, Sendable {
+    public init(_ value: some Hashable & Sendable)
+}
+
+public final class FocusManager {
+    public private(set) var focused: FocusID?
+    public func focus(_ id: FocusID?)                  // nil = clear
+    public func advance(_ direction: FocusDirection)   // .forward / .backward, wraps
+    public var focusableIDs: [FocusID] { get }          // document order (DFS)
+}
+
+extension View {
+    public func focusable(_ id: FocusID) -> some View
+    public func focused(_ binding: Binding<FocusID?>, equals id: FocusID) -> some View
+}
+```
+
+Focus IDs are explicit. Auto-derived focus identity is a footgun (it silently changes when
+structure changes); requiring an ID is one argument and removes a whole bug class. The
+focus order is the depth-first document order of `.focusable` nodes after layout —
+`focusableIDs` _is_ the debug tool. If the focused node disappears in an update, focus
+clears to `nil` and the graph records it in `statistics`; it does not guess a neighbor.
+
+**No implicit Tab handling.** The graph never swallows keys. The app (or the Phase 5
+runtime, as a default policy) opts in:
+
+```swift
+content.onKey(.tab) { context in context.focusAdvance(.forward) }
+       .onKey(.shift(.tab)) { context in context.focusAdvance(.backward) }
+```
+
+#### Event routing (normative)
+
+`graph.dispatch(event)` for a key event:
+
+1. If a focused node exists, deliver to its `handleEvent` (leaf/widget) and its `.onKey`
+   handlers, innermost first.
+2. While `.ignored`, bubble through ancestors' handlers up to the root.
+3. Return the final disposition; the app decides what unhandled events mean (quit keys,
+   global shortcuts). The graph never exits the process.
+
+Non-key events: `.resize` is the app's job to forward to `resize(to:)`; paste events route
+like key events to the focused node; mouse is slice 5; focus-in/out terminal events are
+surfaced as graph-level callbacks, not routed.
+
+#### Handler modifiers and `ResponderContext`
+
+```swift
+extension View {
+    public func onKey(
+        _ handler: @escaping (KeyEvent, inout ResponderContext) -> EventDisposition
+    ) -> some View
+    public func onKey(_ pattern: KeyPattern,
+                      perform: @escaping (inout ResponderContext) -> Void) -> some View
+}
+
+public struct ResponderContext: ~Copyable {
+    public mutating func setNeedsDisplay()
+    public mutating func setNeedsLayout()
+    public mutating func focus(_ id: FocusID?)
+    public mutating func focusAdvance(_ direction: FocusDirection)
+    public var nodeBounds: Rect { get }
+    public var isFocused: Bool { get }
+}
+```
+
+`KeyEvent`/`KeyPattern` build on Phase 2 Slice 5's `Key`/`Modifiers`. `ResponderContext`
+deliberately cannot render, cannot reach a `Frame`, cannot touch terminal modes, and
+cannot see app state — it is UI-scoped capability lending, per the ownership thesis.
+Handlers run synchronously inside `dispatch`; async work belongs in the app's own
+machinery after `dispatch` returns.
+
+#### Terminal requirements aggregation
+
+```swift
+public struct TerminalRequirements: Sendable, Equatable {
+    public var wantsKeyboardEnhancement: Bool   // Kitty protocol, if available
+    public var wantsMouse: Bool                 // set by slice 5 handlers
+    public var wantsBracketedPaste: Bool
+    public var wantsFocusReporting: Bool
+    public static func union(_ a: Self, _ b: Self) -> Self
+}
+```
+
+Recomputed during reconciliation as the union over live nodes (an `.onTap` anywhere ⇒
+`wantsMouse`). The app forwards `graph.terminalRequirements` to the session, which checks
+capabilities/configuration and applies deltas through `ModeLifecycle`. Views still never
+touch modes; this is the declarative-requirements design from the ownership thesis made
+concrete.
+
+#### Tests
+
+- Routing tables: synthetic trees with recording handlers; assert exact delivery order for
+  focused/bubble/unhandled cases.
+- Focus lifecycle: advance wraps both directions; focused-node removal clears focus;
+  `focusableIDs` matches document order across relayouts.
+- Requirements aggregation: adding/removing an `.onTap`-bearing subtree toggles
+  `wantsMouse` across updates.
+- All driven through `graph.dispatch` with constructed `InputEvent`s — no terminal, no
+  sleeps, no `Task.yield()`.
+
+#### Definition of done for slice 4
+
+1. `FocusManager`, `focusable`, `focused`, `onKey`, `ResponderContext`, `EventDisposition`
+   ship with the normative routing order tested.
+2. No key is consumed by the graph without a user-installed handler.
+3. `TerminalRequirements` aggregation works end-to-end against a real `TerminalSession` in
+   an example app (focus two widgets, Tab between them).
+
+#### Things to flag
+
+1. **Resist a global keymap table in the graph.** Key→action indirection belongs in apps
+   (or a future opt-in module). The graph routes; it does not interpret.
+2. **`handleEvent` on `LeafView` vs `.onKey` ordering** (leaf first, then its wrapping
+   handlers, then ancestors) must be pinned by a test — it is the kind of rule that
+   silently flips during refactors.
+
+---
+
+### Slice 5: Mouse and hit testing
+
+Requires Phase 3 Slice 3 (SGR mouse events).
+
+- Layout already records absolute frames; hit testing is deepest-first search of nodes
+  containing the point, respecting clip rects and ZStack order (topmost first), skipping
+  `.allowsHitTesting(false)` subtrees.
+- API:
+
+  ```swift
+  extension View {
+      public func onTap(
+          perform: @escaping (inout ResponderContext) -> Void) -> some View
+      public func onMouse(
+          _ handler: @escaping (MouseEvent, inout ResponderContext) -> EventDisposition
+      ) -> some View
+      public func allowsHitTesting(_ enabled: Bool) -> some View
+  }
+  ```
+
+  `.onTap` is press+release of the primary button within the same node (no drag threshold
+  cleverness — cells are coarse). `.onMouse` exposes the raw stream (move, drag, scroll,
+  per Phase 3's bounded-coalescing policy) for widgets like `List` and `ScrollView`.
+
+- Routing: hit-test the deepest handler-bearing node, bubble while `.ignored`, same as
+  keys. A primary-button press on a `.focusable` node focuses it before tap delivery
+  (click-to-focus); this is the one built-in behavior, and it is documented and
+  disableable (`.focusOnTap(false)` if real demand appears — do not pre-build it).
+- Presence of any mouse handler sets `terminalRequirements.wantsMouse`.
+- Tests: hit-test tables over constructed layouts (overlapping ZStack children, clipped
+  overflow, disabled subtrees); scroll-event routing; click-to-focus.
+
+Definition of done: hit testing matches the table tests; an example app mixes keyboard and
+mouse focus; removing all mouse handlers drops `wantsMouse` and the session disables mouse
+mode mid-run.
+
+---
+
+### Slice 6: `Flex`, `Grid`, and composition
+
+The Ratatui-flavored constraint layout, expressed through the slice 2 `Layout` protocol —
+proving the protocol carries non-stack semantics.
+
+```swift
+public enum FlexConstraint: Sendable, Equatable {
+    case length(Int)         // exactly n cells
+    case min(Int)            // at least n; competes like fill(1) above the minimum
+    case max(Int)            // at most n; takes its ideal up to n
+    case percentage(Int)     // of the container's main axis, floor
+    case ratio(Int, Int)     // numerator/denominator of the main axis, floor
+    case fill(Int)           // share leftover by weight
+}
+
+public struct Flex<Content: View>: View {
+    public init(_ axis: Axis, spacing: Int = 0, @ViewBuilder content: () -> Content)
+}
+extension View {
+    public func flex(_ constraint: FlexConstraint) -> some View  // LayoutValueKey
+}
+```
+
+Distribution (normative): resolve in order — `length`, then `percentage`/`ratio`
+(floored), then `max` (ideal clamped), then `min` (minimum guaranteed), then remaining
+space to `fill` and above-minimum `min` by weight; integer remainders go to the earliest
+weighted children, one cell each. Children without `.flex` default to `.min(ideal)`.
+Negative remainders shrink `fill` first, then `min` down to their floors, then clip
+trailing children. Every branch of this paragraph gets a table test.
+
+```swift
+public struct Grid<Content: View>: View {
+    public init(columns: [FlexConstraint], spacing: Int = 0,
+                @ViewBuilder content: () -> Content)   // content is GridRows
+}
+public struct GridRow<Content: View>: View { … }
+```
+
+Columns resolve once per grid via the flex algorithm; row heights are the max of the row's
+children's heights at their resolved column widths. No spanning in v1 — say no now, design
+spanning later if real apps demand it.
+
+Lip Gloss's `Join`/`Place`/`Compose` vocabulary maps onto existing primitives —
+`JoinHorizontal` ≡ `HStack(alignment:)`, `Place` ≡ `.frame(width:height:alignment:)`,
+`Compose` ≡ `ZStack` — document the mapping in DocC for Lip Gloss émigrés instead of
+shipping duplicate API.
+
+Definition of done: flex table tests cover every resolution branch including
+over-constrained shrinking; `Grid` snapshot tests; a dashboard example (sidebar +
+content + status bar) built with `Flex` matching a Ratatui-style layout.
+
+---
+
+### Slice 7: Widgets — `TextInput`, `List`, `ScrollView`
+
+The Tessera analog of `bubbles`, and the proof that the architecture-agnostic story holds:
+every widget is **controlled** (state in, events out via bindings) with only ephemeral
+internals in `NodeState`.
+
+```swift
+public struct TextInput: View {
+    public init(text: Binding<String>, placeholder: String = "",
+                onSubmit: ((inout ResponderContext) -> Void)? = nil)
+}
+```
+
+`NodeState`: cursor index (grapheme offset) and horizontal scroll offset. Handles, when
+focused: graphemes/paste insertion, left/right/word-wise movement, home/end,
+backspace/delete, submit. Cursor index clamps to the bound text on every update (the app
+may have replaced the text wholesale). Renders single-line with horizontal scrolling;
+requests the **hardware cursor** at the caret:
+
+```swift
+extension RenderRegion {
+    /// Last focused-node request wins; the graph forwards it to the session draw,
+    /// which positions and shows the real terminal cursor (hidden when unset).
+    public mutating func requestCursor(at position: TerminalPosition)
+}
+```
+
+```swift
+public struct List<Data: RandomAccessCollection, Row: View>: View
+where Data.Element: Identifiable {
+    public init(_ data: Data, selection: Binding<Data.Element.ID?>,
+                @ViewBuilder row: @escaping (Data.Element) -> Row)
+}
+```
+
+`NodeState`: scroll offset. Up/down/page/home/end move selection through the binding; the
+offset keeps selection visible (scroll margin 0; no smooth scrolling — cells). Mouse:
+click selects, wheel scrolls (slice 5 events). Selection styling via environment
+(`listSelectionStyle`), overridable per app.
+
+```swift
+public struct ScrollView<Content: View>: View {
+    public init(_ axes: Axis.Set = .vertical,
+                offset: Binding<TerminalPosition>? = nil,   // nil ⇒ NodeState-owned
+                @ViewBuilder content: () -> Content)
+}
+```
+
+Content is proposed `nil` on scrollable axes (measured at its ideal), rendered through a
+translated+clipped `RenderRegion` — this is the existing `with(_:_:)` mechanism plus a
+translation, no new buffer machinery. Offset clamps to content bounds on every layout.
+Optional unobtrusive scrollbar glyphs on the trailing/bottom edge when content overflows.
+
+Widget tests are deterministic state-machine tests, no terminal and no clocks: build graph
+→ `dispatch` a key script → assert bindings, `NodeState` (via test hooks), and buffer
+snapshots at chosen steps. Paste, CJK/emoji cursor movement, and selection-out-of-range
+(app mutated data under the widget) are mandatory cases.
+
+Definition of done: all three widgets ship controlled-style with the key/mouse tables
+above tested; hardware-cursor requests flow through a real session; an example app
+composes all three (a filterable list with a text input over a scrolling detail pane).
+
+#### Things to flag
+
+1. **Controlled-only is the hill to hold.** The first request will be "can `TextInput`
+   just own its text?" The answer is `@Observable` in the app plus a one-line binding.
+   Owning text in `NodeState` would quietly become the state-management coupling this
+   whole layer exists to avoid.
+2. **Grapheme-aware cursor movement is the hard 20%.** Budget for it; reuse Phase 2 Slice
+   4's width/cluster machinery rather than re-deriving it in the widget.
+
+---
+
+### Phase 4 performance posture
+
+- Budgets (same spirit as Phase 2 Slice 4): full update+layout+render of a 200-node tree
+  at 200×50 in well under a frame at 60 Hz on a laptop; `statistics` records pass
+  durations so regressions are measurable, not vibes.
+- The deliberate simplicities — full relayout, full repaint into the buffer, existential
+  reconciliation — are recorded here as the future optimization surface (dirty-subtree
+  layout, render skipping with overlap analysis, reconciler devirtualization, `@inlinable`
+  audit). None of them may be taken early without a benchmark showing the simple pass
+  missing budget.
+
+### Definition of done for Phase 4
+
+1. All seven slices' definitions of done hold.
+2. A non-trivial example app (file browser or chat-style UI) is built with stacks, flex,
+   borders, focus, mouse, and all three widgets, driven by a plain model object — and a
+   variant driven by `@Observable` — proving architecture-agnosticism.
+3. `graph.dump()` and `statistics` are good enough that every "why did it render/focus/
+   lay out like that" question in this phase's development was answered with them, not
+   with print statements. (If they weren't, fix the tools.)
+4. The view layer never imports `TesseraTerminalIO`; everything reaches the terminal
+   through `Frame`/`TerminalSession` and declared `TerminalRequirements`.
 
 **End of Phase 4:** the library does what it says on the tin. You can build real TUI apps.
 
@@ -5024,8 +6129,8 @@ or expose a `Frame`, raw terminal handle, arbitrary byte writer, or mutable app 
   tests)
 - DocC tutorial content
 - Performance pass (profiling, capacity reservation, the `@inlinable` work, etc.)
-- Linux snapshot-test story (libghostty from source, or the static-build path if #11730
-  lands)
+- Windows snapshot-test story (the macOS/Linux direct libghostty-vt build from Phase 2
+  Slice 1 already runs in CI; Windows is the remaining gap)
 - 1.0 release prep
 
 Runtime isolation rules to make explicit before building this phase:
@@ -5104,7 +6209,7 @@ relevant slice before changing course.
 | Tessera becomes a compatibility ceiling             | Cross-cutting; raw protocols                | Stay a producer, expose scoped raw payloads, and avoid mux/emulator responsibilities in core.       |
 | Windows diverges semantically                       | Phase 2 slice 6; Phase 3 protocols          | Require VT mode and keep OS differences inside `PlatformIO` and cleanup code.                       |
 | Modular targets create public API pressure          | Package layout                              | Use `package` access for cross-target internals and thin re-export targets for users.               |
-| Phase 4 view layer designs around missing substrate | Phase 4                                     | Finish terminal foundation first; keep Phase 4 provisional until its API is specified.              |
+| Phase 4 view layer designs around missing substrate | Phase 4                                     | Honor the Phase 4 prerequisites table; do not start a slice before its substrate slice lands.       |
 | No interactive UI hurts motivation                  | Cross-cutting                               | Consider low-level examples like `TerminalLab`, but do not let them drive the view API prematurely. |
 
 A risk becomes urgent when implementation pressure tempts the opposite mitigation: raw
@@ -5142,7 +6247,10 @@ Products:
 
 Targets:
   Tessera                  // re-export target for the view/runtime product
-  TesseraCore
+  TesseraCore              // view protocol, graph, environment, focus (Phase 4 slices 1, 4)
+  TesseraLayout            // Layout protocol, stacks, flex, grid, decoration (slices 2, 3, 5, 6)
+  TesseraWidgets           // TextInput, List, ScrollView (slice 7)
+  TesseraRuntime           // optional @MainActor convenience loop (Phase 5)
 
   TesseraTerminal          // re-export target for the terminal product
   TesseraTerminalANSI
@@ -5159,9 +6267,10 @@ The `TesseraTerminal` targets are relatively concrete because Phases 1–3 defin
 responsibilities in detail. The `TesseraTerminalTestSupport` target exposes safe testing
 affordances such as `TestTerminal`, test input sources, virtual-terminal snapshot helpers,
 and renderer diagnostics without making live-terminal escape hatches public. The `Tessera`
-targets are intentionally provisional because Phase 4 has not been specified yet: they
-capture the expected modular shape of the view layer, but Phase 4 should revise target
-names, boundaries, and file placement before implementation begins.
+targets follow the Phase 4 slice plan: `TesseraCore` for the view protocol, graph,
+environment, and responder system; `TesseraLayout` for the layout protocol, containers,
+and decoration; `TesseraWidgets` for the standard widget set; and `TesseraRuntime`
+(Phase 5) for the optional convenience loop.
 
 Swift SPI may be used sparingly when SwiftPM visibility is not expressive enough:
 
@@ -5254,8 +6363,36 @@ Sources/
   Tessera/
     Tessera.swift                 // @_exported imports only
 
-  TesseraCore/
-    View.swift                    // Phase 4 view API, not designed yet
+  TesseraCore/                  // Phase 4 slices 1 + 4
+    View.swift                    // View protocol, EmptyView, AnyView, EquatableView
+    ViewBuilder.swift             // result builder, TupleView, ConditionalView
+    ForEach.swift
+    ViewGraph.swift               // update/layout/render passes, dispatch, dump
+    RuntimeNode.swift             // node storage, identity, NodeState, dirty flags
+    NodeIdentity.swift
+    LeafView.swift                // primitive seam, ProposedSize, EventDisposition
+    RenderRegion.swift
+    Environment.swift             // EnvironmentValues, EnvironmentKey, EnvironmentReader
+    Binding.swift
+    Text.swift                    // wrapping/truncation arrive with slice 3
+    Focus.swift                   // FocusID, FocusManager, focusable/focused (slice 4)
+    Responder.swift               // ResponderContext, onKey, routing (slice 4)
+    TerminalRequirements.swift    // declarative requirements aggregation (slice 4)
+    HitTesting.swift              // onTap, onMouse, allowsHitTesting (slice 5)
+
+  TesseraLayout/                // Phase 4 slices 2, 3, 5, 6
+    Layout.swift                  // Layout protocol, Subviews, LayoutValueKey
+    Stacks.swift                  // HStack, VStack, ZStack, Spacer, alignment
+    FrameModifiers.swift          // frame, padding, layoutPriority
+    Styling.swift                 // foreground/bold/style modifiers, defaultStyle key
+    Decoration.swift              // border, overlay, background, Divider, Box
+    Flex.swift                    // FlexConstraint, Flex, .flex
+    Grid.swift                    // Grid, GridRow
+
+  TesseraWidgets/               // Phase 4 slice 7
+    TextInput.swift
+    List.swift
+    ScrollView.swift
 ```
 
 Proposed test layout mirrors the targets so each layer can be built and tested directly:
@@ -5291,9 +6428,21 @@ Tests/
     PlatformIOTests.swift
 
   TesseraCoreTests/
+    ReconciliationTests.swift     // identity rules, statistics, dump golden snapshots
+    NodeStateLifetimeTests.swift
+    EnvironmentTests.swift
+    FocusRoutingTests.swift
+    HitTestingTests.swift
   TesseraLayoutTests/
-  TesseraStylingTests/
-  TesseraWidgetTests/
+    StackDistributionTests.swift  // normative table tests
+    FlexDistributionTests.swift
+    GridTests.swift
+    DecorationSnapshotTests.swift
+    TextWrappingTests.swift       // measure/render agreement property tests
+  TesseraWidgetsTests/
+    TextInputTests.swift          // key-script state-machine tests
+    ListTests.swift
+    ScrollViewTests.swift
   TesseraRuntimeTests/
 ```
 
@@ -5322,17 +6471,17 @@ Suggested dependency direction inside `TesseraTerminal`:
 - `TesseraTerminalSnapshotSupport` may depend on ANSI, Buffer, and Rendering, but
   production targets should not depend on snapshot helpers.
 
-Provisional dependency direction inside `Tessera`:
+Dependency direction inside `Tessera`:
 
-- `TesseraCore` likely defines the `View` protocol and shared render context.
-- `TesseraStyling`, `TesseraText`, and `TesseraLayout` likely build on `TesseraCore`.
-- `TesseraPrimitives` and `TesseraWidgets` likely build on core/layout/styling/text.
-- `TesseraRuntime` may depend on the whole view layer plus `TesseraTerminal`.
-- The `Tessera` target re-exports the public view-layer modules for app authors.
-
-This is intentionally less prescriptive than the `TesseraTerminal` layout. Phase 4 should
-turn these provisional view-layer slots into a real target/file plan once the view-layer
-API is designed.
+- `TesseraCore` defines the `View` protocol, graph, environment, focus/responder system,
+  and `Text`. It depends on `TesseraTerminalCore`, `TesseraTerminalBuffer`, and the
+  input/event types — never on `TesseraTerminalIO`.
+- `TesseraLayout` builds on `TesseraCore`: the `Layout` protocol, containers, styling
+  modifiers, and decoration.
+- `TesseraWidgets` builds on core + layout.
+- `TesseraRuntime` (Phase 5) may depend on the whole view layer plus `TesseraTerminal`.
+- The `Tessera` target re-exports the public view-layer modules (and `TesseraTerminal`)
+  for app authors.
 
 Prefer Swift's access control to model intent:
 

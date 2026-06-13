@@ -54,6 +54,35 @@ jobs:
         run:
           python3 scripts/conventional_commits.py "${{ github.event.pull_request.title }}"
 
+  lint:
+    name: lint
+    needs: ci-gate
+    if: >
+      ${{ (github.event_name != 'pull_request' ||
+      !contains(github.event.pull_request.labels.*.name, 'skip-ci')) &&
+      (github.event_name != 'pull_request' || github.event.action != 'edited') }}
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Install lint tools
+        run: brew install swift-format swiftlint
+
+      - name: Install just
+        uses: taiki-e/install-action@v2
+        with:
+          tool: just
+
+      - name: Lint Swift formatting
+        run: just lint-swift
+
+      - name: Run SwiftLint
+        run: just lint-swiftlint
+
   test:
     name: test (${{ matrix.os }})
     needs: ci-gate
