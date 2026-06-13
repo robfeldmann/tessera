@@ -1,7 +1,10 @@
 /// Parses raw terminal input bytes into semantic terminal events.
 public struct InputParser: Sendable {
   private enum State: Sendable {
+    case csi(accumulated: [UInt8])
+    case escape
     case ground
+    case ss3(accumulated: [UInt8])
     case utf8(expectedCount: Int, accumulated: [UInt8])
   }
 
@@ -19,8 +22,18 @@ public struct InputParser: Sendable {
   /// Feeds one byte into the parser.
   public mutating func feed(_ byte: UInt8) -> [InputEvent] {
     switch state {
+    case .csi(let accumulated):
+      return parseCSI(byte, accumulated: accumulated)
+
+    case .escape:
+      return parseEscape(byte)
+
     case .ground:
       return parseGround(byte)
+
+    case .ss3(let accumulated):
+      state = .ground
+      return [.unknown(accumulated + [byte])]
 
     case .utf8(let expectedCount, var accumulated):
       guard byte.isUTF8Continuation else {
@@ -56,12 +69,61 @@ public struct InputParser: Sendable {
   /// Flushes any pending partial input.
   public mutating func flush() -> [InputEvent] {
     switch state {
+    case .csi(let accumulated), .ss3(let accumulated):
+      state = .ground
+      return [.unknown(accumulated)]
+
+    case .escape:
+      state = .ground
+      return [.key(Key(code: .escape))]
+
     case .ground:
       return []
 
     case .utf8(_, let accumulated):
       state = .ground
       return [.unknown(accumulated)]
+    }
+  }
+
+  private mutating func parseCSI(_ byte: UInt8, accumulated: [UInt8]) -> [InputEvent] {
+    let sequence = accumulated + [byte]
+
+    switch byte {
+    case 0x20...0x3F:
+      state = .csi(accumulated: sequence)
+      return []
+
+    case 0x40...0x7E:
+      state = .ground
+      return [.unknown(sequence)]
+
+    default:
+      state = .ground
+      return [.unknown(sequence)]
+    }
+  }
+
+  private mutating func parseEscape(_ byte: UInt8) -> [InputEvent] {
+    switch byte {
+    case 0x5B:
+      state = .csi(accumulated: [0x1B, byte])
+      return []
+
+    case 0x4F:
+      state = .ss3(accumulated: [0x1B, byte])
+      return []
+
+    case 0x20...0x7E:
+      state = .ground
+      guard let scalar = Unicode.Scalar(UInt32(byte)) else {
+        return [.unknown([0x1B, byte])]
+      }
+      return [.key(Key(code: .character(Character(scalar)), modifiers: .alt))]
+
+    default:
+      state = .ground
+      return [.unknown([0x1B, byte])]
     }
   }
 
@@ -82,6 +144,10 @@ public struct InputParser: Sendable {
 
     case 0x0A, 0x0D:
       return [.key(Key(code: .enter))]
+
+    case 0x1B:
+      state = .escape
+      return []
 
     case 0x20...0x7E:
       guard let scalar = Unicode.Scalar(UInt32(byte)) else {

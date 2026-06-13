@@ -41,9 +41,55 @@ func `parser maps tab enter and backspace controls to key codes`() {
 func `parser emits unknown for unsupported control and non ascii bytes`() {
   var parser = InputParser()
 
-  #expect(parser.feed(0x1B) == [.unknown([0x1B])])
   #expect(parser.feed(0x80) == [.unknown([0x80])])
   #expect(parser.feed(0xFF) == [.unknown([0xFF])])
+}
+
+@Test
+func `parser flushes bare escape as escape key`() {
+  var parser = InputParser()
+
+  #expect(parser.feed(0x1B).isEmpty)
+  #expect(parser.flush() == [.key(Key(code: .escape))])
+  #expect(parser.flush().isEmpty)
+}
+
+@Test
+func `parser maps escape followed by printable character to alt key`() {
+  var parser = InputParser()
+
+  #expect(parser.feed(0x1B).isEmpty)
+  #expect(parser.feed(0x61) == [.key(Key(code: .character("a"), modifiers: .alt))])
+}
+
+@Test
+func `parser keeps escape separated when flushed before next character`() {
+  var parser = InputParser()
+
+  #expect(parser.feed(0x1B).isEmpty)
+  #expect(parser.flush() == [.key(Key(code: .escape))])
+  #expect(parser.feed(0x61) == [.key(Key(code: .character("a")))])
+}
+
+@Test
+func `parser buffers csi sequences across feeds and emits unknown on final byte`() {
+  var parser = InputParser()
+
+  #expect(parser.feed(0x1B).isEmpty)
+  #expect(parser.feed(contentsOf: [0x5B, 0x39, 0x39]).isEmpty)
+  #expect(parser.feed(0x58) == [.unknown([0x1B, 0x5B, 0x39, 0x39, 0x58])])
+}
+
+@Test
+func `parser flushes incomplete csi and ss3 sequences as unknown`() {
+  var csiParser = InputParser()
+  var ss3Parser = InputParser()
+
+  #expect(csiParser.feed(contentsOf: [0x1B, 0x5B, 0x31]).isEmpty)
+  #expect(csiParser.flush() == [.unknown([0x1B, 0x5B, 0x31])])
+
+  #expect(ss3Parser.feed(contentsOf: [0x1B, 0x4F]).isEmpty)
+  #expect(ss3Parser.flush() == [.unknown([0x1B, 0x4F])])
 }
 
 @Test

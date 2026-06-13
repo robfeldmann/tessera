@@ -14,7 +14,7 @@ updated: 2026-06-13
   - [x] 1.1 Replace the minimal input API with durable key/event types
   - [x] 1.2 Implement parser ground state for controls, printable ASCII, and UTF-8
 - [ ] **Phase 2 — Legacy escape-sequence catalog**
-  - [ ] 2.1 Implement ESC ambiguity, Alt keys, CSI/SS3 state transitions, and unknown
+  - [x] 2.1 Implement ESC ambiguity, Alt keys, CSI/SS3 state transitions, and unknown
         events
   - [ ] 2.2 Cover the full Phase 2 legacy key catalog with parser tests
 - [ ] **Phase 3 — Platform event stream integration**
