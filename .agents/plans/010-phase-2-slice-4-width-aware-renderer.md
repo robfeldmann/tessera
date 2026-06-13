@@ -25,7 +25,7 @@ updated: 2026-06-10
   - [x] 3.3 Implement cursor-position tracking and run coalescing
   - [x] 3.4 Add focused diff, SGR, cursor, and raw/opaque renderer tests
 - [ ] **Phase 4 — Stateful renderer value and session integration**
-  - [ ] 4.1 Replace static full-repaint renderer with synchronous `Renderer` state
+  - [x] 4.1 Replace static full-repaint renderer with synchronous `Renderer` state
   - [ ] 4.2 Add render transactions, frame lifecycle, and synchronized-output policy
   - [ ] 4.3 Integrate `TerminalSession.draw` with renderer encoding and one flush per
         frame

@@ -13,17 +13,15 @@ func `rendering an empty buffer emits a full repaint`() {
   let buffer = Buffer(size: TerminalSize(columns: 3, rows: 2))
   let bytes = Renderer.render(buffer)
 
+  // swiftlint:disable line_length
   assertInlineSnapshot(of: RendererCustomDump(bytes: bytes), as: .customDump) {
     """
-    [home]
-    bytes: 1B 5B 31 3B 31 48
-    text:  ␛[1;1H
-
     [row 0]
-    bytes: 1B 5B 30 6D 20 20 20 1B 5B 32 3B 31 48 20 20 20 1B 5B 30 6D
-    text:  ␛[0m···␛[2;1H···␛[0m
+    bytes: 1B 5B 32 4A 1B 5B 31 3B 31 48 1B 5B 30 6D 20 20 20 1B 5B 32 3B 31 48 20 20 20 1B 5B 30 6D
+    text:  ␛[2J␛[1;1H␛[0m···␛[2;1H···␛[0m
     """
   }
+  // swiftlint:enable line_length
 }
 
 @Test
@@ -34,17 +32,53 @@ func `rendering a buffer with text emits row major cell bytes`() {
 
   let bytes = Renderer.render(buffer)
 
+  // swiftlint:disable line_length
   assertInlineSnapshot(of: RendererCustomDump(bytes: bytes), as: .customDump) {
     """
-    [home]
-    bytes: 1B 5B 31 3B 31 48
-    text:  ␛[1;1H
-
     [row 0]
-    bytes: 1B 5B 30 6D 20 48 69 20 1B 5B 32 3B 31 48 20 20 20 71 1B 5B 30 6D
-    text:  ␛[0m·Hi·␛[2;1H···q␛[0m
+    bytes: 1B 5B 32 4A 1B 5B 31 3B 31 48 1B 5B 30 6D 20 48 69 20 1B 5B 32 3B 31 48 20 20 20 71 1B 5B 30 6D
+    text:  ␛[2J␛[1;1H␛[0m·Hi·␛[2;1H···q␛[0m
     """
   }
+  // swiftlint:enable line_length
+}
+
+@Test
+func `stateful renderer encodes second frame as damage only`() {
+  var previous = Buffer(size: TerminalSize(columns: 3, rows: 1))
+  previous.write("abc", at: TerminalPosition(column: 0, row: 0))
+  var current = previous
+  current.write("x", at: TerminalPosition(column: 1, row: 0))
+  var renderer = Renderer()
+  var bytes: [UInt8] = []
+
+  renderer.encodeFrame(
+    previous: previous,
+    current: current,
+    wrapInSynchronizedOutput: false,
+    into: &bytes
+  )
+
+  #expect(bytes == escape("[1;2H") + escape("[0m") + utf8("x") + escape("[0m"))
+}
+
+@Test
+func `stateful renderer invalidate causes erase before repaint`() {
+  let current = Buffer(size: TerminalSize(columns: 2, rows: 1))
+  var renderer = Renderer()
+  var bytes: [UInt8] = []
+
+  renderer.invalidate()
+  renderer.encodeFrame(
+    previous: current,
+    current: current,
+    wrapInSynchronizedOutput: false,
+    into: &bytes
+  )
+
+  #expect(
+    bytes == escape("[2J") + escape("[1;1H") + escape("[0m") + utf8("  ") + escape("[0m")
+  )
 }
 
 @Test
@@ -269,7 +303,7 @@ func `renderer emits no redundant sgr for adjacent same style cells`() {
     style: Style(attributes: [.bold])
   )
 
-  let bytes = Renderer.render(buffer)
+  let bytes = Renderer.render(previous: Buffer(size: buffer.size), current: buffer)
 
   #expect(
     bytes == escape("[1;1H") + escape("[0m") + escape("[1m") + utf8("ab")
