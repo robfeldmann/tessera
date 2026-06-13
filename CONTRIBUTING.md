@@ -138,14 +138,20 @@ pgrep -fl LifecycleModesDemo
 kill -TERM <pid>
 ```
 
-Verify these cases before merging lifecycle or signal-handling changes:
+Verify these cases before merging lifecycle, signal-handling, or renderer changes:
 
 - Press `Ctrl-C` while the fixture is running; the shell should return with normal echo
   and the primary screen visible.
 - Send `SIGTERM` from another pane with `kill -TERM <pid>`; the terminal should be
   restored.
 - If practical, close the pane/tab or disconnect the session to exercise `SIGHUP`.
-- Resize the pane repeatedly while the fixture is running; it should keep responding.
+- Resize the pane repeatedly while the fixture is running; it should keep responding and
+  repaint the full screen after resize.
+- While a demo is actively redrawing, interrupt it with `Ctrl-C` or `SIGTERM`;
+  synchronized output should not leave a visibly half-rendered frame behind in supported
+  terminals, and unsupported terminals should still recover modes and the primary screen.
+- If you are testing an injected write/flush failure, the next successful draw should
+  erase and repaint conservatively rather than trusting partially written damage bytes.
 
 If a development build ever leaves your terminal wedged, type this even if input is not
 visible, then press Enter:
@@ -159,6 +165,10 @@ If that is not enough, try:
 ```fish
 stty sane
 ```
+
+After severe renderer or lifecycle interruptions, `reset`/`stty sane` are the expected
+manual recovery path; future `tessera-reset` tooling should emit the same conservative
+terminal-mode and screen cleanup sequences.
 
 ### Linux Test Runs with Lima
 

@@ -25,7 +25,7 @@ public enum Color: Equatable, Sendable {
       [39]
     case .indexed(let index):
       [38, 5, Int(index)]
-    case let .rgb(red, green, blue):
+    case .rgb(let red, let green, let blue):
       [38, 2, Int(red), Int(green), Int(blue)]
     }
   }
@@ -43,7 +43,7 @@ public enum Color: Equatable, Sendable {
       [49]
     case .indexed(let index):
       [48, 5, Int(index)]
-    case let .rgb(red, green, blue):
+    case .rgb(let red, let green, let blue):
       [48, 2, Int(red), Int(green), Int(blue)]
     }
   }

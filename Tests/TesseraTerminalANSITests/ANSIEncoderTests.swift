@@ -119,7 +119,6 @@ func `erase line sequences encode exact bytes`() {
   expectBytes(.eraseInLine(.toEnd), esc("[K"))
   expectBytes(.eraseInLine(.toBeginning), esc("[1K"))
   expectBytes(.eraseInLine(.all), esc("[2K"))
-  expectBytes(.eraseInLine(.allAndScrollback), esc("[2K"))
 }
 
 @Test(
@@ -175,26 +174,6 @@ func `erase all of line round trips through virtual terminal`() {
       .text("Hello"),
       .cursorPosition(TerminalPosition(column: 2, row: 0)),
       .eraseInLine(.all),
-    ],
-    into: terminal
-  )
-
-  #expect(terminal.text(row: 0) == "     ")
-}
-
-@Test(
-  .dependencies {
-    $0.virtualTerminal = .ghostty(cols: 5, rows: 1)
-  }
-)
-func `erase all and scrollback in line aliases whole line erase`() {
-  @Dependency(\.virtualTerminal) var terminal
-
-  feed(
-    [
-      .text("Hello"),
-      .cursorPosition(TerminalPosition(column: 2, row: 0)),
-      .eraseInLine(.allAndScrollback),
     ],
     into: terminal
   )

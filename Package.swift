@@ -275,6 +275,7 @@ package.targets.append(contentsOf: [
     name: "TesseraTerminalBuffer",
     dependencies: [
       DisplayWidth,
+      TesseraTerminalANSI,
       TesseraTerminalCore,
     ]
   ),
@@ -472,6 +473,7 @@ for target in package.targets {
   }
   var settings = target.swiftSettings ?? []
   settings.append(contentsOf: [
+    .enableExperimentalFeature("Lifetimes"),
     .enableUpcomingFeature("ExistentialAny"),
     .enableUpcomingFeature("ForwardFromBuilder"),
     .enableUpcomingFeature("InferIsolatedConformances"),

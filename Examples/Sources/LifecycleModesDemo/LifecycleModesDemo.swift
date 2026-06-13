@@ -67,6 +67,7 @@ enum LifecycleModesDemo {
             try await draw(terminal: terminal, lastEvent: lastEvent)
 
           case .resize:
+            terminal.invalidateRenderer()
             try await draw(terminal: terminal, lastEvent: lastEvent)
           }
 
