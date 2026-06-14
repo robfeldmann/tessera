@@ -40,6 +40,7 @@ let TesseraTerminal: Target.Dependency = .product(
 let ANSIEncoderDemo: Target.Dependency = .byName(name: "ANSIEncoderDemo")
 let ExampleSupport: Target.Dependency = .byName(name: "ExampleSupport")
 let HelloTessera: Target.Dependency = .byName(name: "HelloTessera")
+let InputInspector: Target.Dependency = .byName(name: "InputInspector")
 let LifecycleModesDemo: Target.Dependency = .byName(name: "LifecycleModesDemo")
 let RendererDemo: Target.Dependency = .byName(name: "RendererDemo")
 
@@ -47,6 +48,7 @@ let AllTesseraExampleTargetNames: Set<String> = [
   "ANSIEncoderDemo",
   "ExampleSupport",
   "HelloTessera",
+  "InputInspector",
   "LifecycleModesDemo",
   "RendererDemo",
 ]
@@ -79,6 +81,20 @@ package.products.append(.executable(name: "HelloTessera", targets: ["HelloTesser
 package.targets.append(
   .executableTarget(
     name: "HelloTessera",
+    dependencies: [
+      ExampleSupport,
+      TesseraTerminal,
+    ]
+  )
+)
+
+// MARK: InputInspector
+
+package.products.append(.executable(name: "InputInspector", targets: ["InputInspector"]))
+
+package.targets.append(
+  .executableTarget(
+    name: "InputInspector",
     dependencies: [
       ExampleSupport,
       TesseraTerminal,

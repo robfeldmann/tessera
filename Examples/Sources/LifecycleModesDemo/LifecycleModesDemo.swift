@@ -32,51 +32,31 @@ enum LifecycleModesDemo {
 
       try await draw(terminal: terminal, lastEvent: lastEvent)
 
-      try await withThrowingDiscardingTaskGroup { group in
-        let (events, continuation) = AsyncStream.makeStream(
-          of: DemoEvent.self,
-          bufferingPolicy: .bufferingNewest(32)
-        )
+      for await event in terminal.events {
+        switch event {
+        case .key(let key) where key == Key(code: .character("q")):
+          shouldQuit = true
 
-        group.addTask {
-          do {
-            while Task.isCancelled == false {
-              continuation.yield(.input(try await terminal.nextEvent()))
-            }
-          } catch is CancellationError {
-          } catch {
-            continuation.finish()
-          }
-        }
-
-        group.addTask {
-          for await size in terminal.sizeChanges {
-            continuation.yield(.resize(size))
-          }
-        }
-
-        for await event in events {
-          switch event {
-          case .input(.quit):
-            shouldQuit = true
-            group.cancelAll()
-            continuation.finish()
-
-          case .input(.character(let character)):
+        case .key(let key):
+          if key.modifiers.isEmpty, case .character(let character) = key.code {
             lastEvent = "key: \(character)"
-            try await draw(terminal: terminal, lastEvent: lastEvent)
-
-          case .resize:
-            terminal.invalidateRenderer()
-            try await draw(terminal: terminal, lastEvent: lastEvent)
+          } else {
+            lastEvent = "key: \(key.code) modifiers: \(key.modifiers.rawValue)"
           }
+          try await draw(terminal: terminal, lastEvent: lastEvent)
 
-          if shouldQuit {
-            break
-          }
+        case .resize:
+          terminal.invalidateRenderer()
+          try await draw(terminal: terminal, lastEvent: lastEvent)
+
+        case .unknown(let bytes):
+          lastEvent = "unknown: \(bytes.map { String(format: "%02X", $0) }.joined(separator: " "))"
+          try await draw(terminal: terminal, lastEvent: lastEvent)
         }
 
-        group.cancelAll()
+        if shouldQuit {
+          break
+        }
       }
     }
 
@@ -111,11 +91,6 @@ enum LifecycleModesDemo {
       )
     }
   }
-}
-
-private enum DemoEvent {
-  case input(InputEvent)
-  case resize(TerminalSize?)
 }
 
 private func writeLine(_ line: String) {

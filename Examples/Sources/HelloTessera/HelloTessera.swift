@@ -29,12 +29,17 @@ enum HelloTessera {
 
       while !shouldQuit {
         switch try await terminal.nextEvent() {
-        case .quit:
+        case .key(let key) where key == Key(code: .character("q")):
           shouldQuit = true
 
-        case .character(let character):
-          lastKey = character
-          try await render(lastKey: lastKey, to: terminal)
+        case .key(let key):
+          if key.modifiers.isEmpty, case .character(let character) = key.code {
+            lastKey = character
+            try await render(lastKey: lastKey, to: terminal)
+          }
+
+        case .resize, .unknown:
+          break
         }
       }
     }

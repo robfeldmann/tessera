@@ -1,3 +1,4 @@
+import TesseraTerminalANSI
 import TesseraTerminalBuffer
 import TesseraTerminalCore
 import TesseraTerminalIO
@@ -13,6 +14,9 @@ public actor TerminalSession {
   private var lastDrawnBuffer: Buffer?
   private var renderer = Renderer()
 
+  /// The session's semantic terminal event stream.
+  nonisolated public let events: AsyncStream<InputEvent>
+
   /// Terminal-size notifications for the live session.
   nonisolated public let sizeChanges: AsyncStream<TerminalSize>
 
@@ -21,13 +25,15 @@ public actor TerminalSession {
     synchronizedOutput: SynchronizedOutputPolicy = .enabled
   ) {
     let inputEvents = AsyncEventBuffer<InputEvent>()
+    let eventStream = AsyncStream<InputEvent>.makeStream()
+    self.events = eventStream.stream
     self.inputEvents = inputEvents
     self.inputPump = Task {
-      for await byte in io.bytes {
-        if let event = InputParser.parse(byte) {
-          await inputEvents.yield(event)
-        }
+      for await event in io.events {
+        eventStream.continuation.yield(event)
+        await inputEvents.yield(event)
       }
+      eventStream.continuation.finish()
       await inputEvents.finish()
     }
     self.io = io
@@ -59,10 +65,12 @@ public actor TerminalSession {
     )
     do {
       let result = try await body(session)
+      try await session.restoreCursorVisibility()
       try await lifecycle.exit()
       return result
     } catch {
       do {
+        try await session.restoreCursorVisibility()
         try await lifecycle.exit()
       } catch {
         // Preserve the application body's error. Cleanup failures are surfaced when the
@@ -87,7 +95,13 @@ public actor TerminalSession {
       storage.deinitialize(count: 1)
       storage.deallocate()
     }
-    let result = try body(Frame(buffer: storage))
+    let cursorStorage = UnsafeMutablePointer<TerminalPosition?>.allocate(capacity: 1)
+    cursorStorage.initialize(to: nil)
+    defer {
+      cursorStorage.deinitialize(count: 1)
+      cursorStorage.deallocate()
+    }
+    let result = try body(Frame(buffer: storage, cursorPosition: cursorStorage))
     let buffer = storage.pointee
     var bytes: [UInt8] = []
     renderer.encodeFrame(
@@ -96,6 +110,7 @@ public actor TerminalSession {
       wrapInSynchronizedOutput: synchronizedOutput == .enabled,
       into: &bytes
     )
+    appendCursorState(cursorStorage.pointee, into: &bytes)
     await io.write(bytes)
     do {
       try await io.flush()
@@ -113,6 +128,25 @@ public actor TerminalSession {
   public func invalidateRenderer() {
     renderer.invalidate()
     lastDrawnBuffer = nil
+  }
+
+  private func appendCursorState(
+    _ position: TerminalPosition?,
+    into bytes: inout [UInt8]
+  ) {
+    switch position {
+    case .some(let position):
+      ControlSequence.cursorVisible(true).encode(into: &bytes)
+      ControlSequence.cursorPosition(position).encode(into: &bytes)
+
+    case nil:
+      ControlSequence.cursorVisible(false).encode(into: &bytes)
+    }
+  }
+
+  private func restoreCursorVisibility() async throws {
+    await io.write(ControlSequence.cursorVisible(true).bytes)
+    try await io.flush()
   }
 
   /// Reads the next parsed input event.

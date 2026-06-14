@@ -11,7 +11,7 @@ import Testing
 
 #if os(macOS) || os(Linux)
   @Test
-  func `posix input loop yields bytes written to descriptor`() async throws {
+  func `posix input loop yields bytes written to descriptor as a chunk`() async throws {
     let pipe = try FileDescriptorPipe()
     defer { pipe.closeAll() }
 
@@ -20,11 +20,9 @@ import Testing
 
     try pipe.write([0x61, 0x62])
 
-    let first = await iterator.next()
-    let second = await iterator.next()
+    let chunk = await iterator.next()
 
-    expectNoDifference(first, 0x61)
-    expectNoDifference(second, 0x62)
+    expectNoDifference(chunk, [0x61, 0x62])
   }
 
   @Test
@@ -50,10 +48,17 @@ import Testing
     }
 
     @Test
-    func `input loop ignores poll timeout then yields readable byte`() async {
+    func `input loop yields empty chunks on poll timeout`() async {
+      let value = await nextValue(with: .stub(poll: { _, _, _ in 0 }))
+
+      expectNoDifference(value, [])
+    }
+
+    @Test
+    func `input loop skips poll timeout then yields readable byte`() async {
       final class State: @unchecked Sendable { var calls = 0 }
       let state = State()
-      let value = await nextValue(
+      let value = await nextNonEmptyValue(
         with: .stub(
           poll: { descriptors, _, _ in
             defer { state.calls += 1 }
@@ -66,7 +71,7 @@ import Testing
             return 1
           }
         ))
-      expectNoDifference(value, 0x61)
+      expectNoDifference(value, [0x61])
     }
 
     @Test
@@ -129,7 +134,7 @@ import Testing
             return 1
           }
         ))
-      expectNoDifference(value, 0x62)
+      expectNoDifference(value, [0x62])
     }
 
     @Test
@@ -162,8 +167,8 @@ import Testing
           poll: { _, _, _ in 0 }
         )
       ) {
-        var stream: AsyncStream<UInt8>? = POSIXInputLoop.bytes(fileDescriptor: 0)
-        var iterator: AsyncStream<UInt8>.Iterator? = stream?.makeAsyncIterator()
+        var stream: AsyncStream<[UInt8]>? = POSIXInputLoop.bytes(fileDescriptor: 0)
+        var iterator: AsyncStream<[UInt8]>.Iterator? = stream?.makeAsyncIterator()
         _ = iterator
         iterator = nil
         stream = nil
@@ -174,7 +179,20 @@ import Testing
       expectNoDifference(state.setFlags, [0x04 | O_NONBLOCK, 0x04])
     }
 
-    private func nextValue(with system: POSIXInputLoop.System) async -> UInt8? {
+    private func nextNonEmptyValue(with system: POSIXInputLoop.System) async -> [UInt8]? {
+      await POSIXInputLoop.$systemOverride.withValue(system) {
+        let stream = POSIXInputLoop.bytes(fileDescriptor: 0)
+        var iterator = stream.makeAsyncIterator()
+        while let value = await iterator.next() {
+          if !value.isEmpty {
+            return value
+          }
+        }
+        return nil
+      }
+    }
+
+    private func nextValue(with system: POSIXInputLoop.System) async -> [UInt8]? {
       await POSIXInputLoop.$systemOverride.withValue(system) {
         let stream = POSIXInputLoop.bytes(fileDescriptor: 0)
         var iterator = stream.makeAsyncIterator()
