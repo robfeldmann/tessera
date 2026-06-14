@@ -1,6 +1,7 @@
 import CustomDump
 import SystemPackage
 import TesseraTerminalCore
+import TesseraTerminalInput
 import TesseraTerminalTestSupport
 import Testing
 
@@ -102,17 +103,79 @@ func `flush retries temporarily unavailable writes without dropping bytes`() asy
 }
 
 @Test
-func `bytes reads terminal device seam input bytes`() async {
+func `bytes reads terminal device seam input byte chunks`() async {
   let terminalDevice = InMemoryTerminalDevice(inputBytes: [0x61, 0x62])
   let io = PlatformIO(terminalDevice: await terminalDevice.terminalDevice)
   var iterator = io.bytes.makeAsyncIterator()
+
+  let chunk = await iterator.next()
+  let end = await iterator.next()
+
+  expectNoDifference(chunk, [0x61, 0x62])
+  expectNoDifference(end, nil)
+}
+
+@Test
+func `events parses terminal device seam input byte chunks`() async {
+  let terminalDevice = InMemoryTerminalDevice(inputBytes: Array("\u{1B}[1;5A".utf8))
+  let io = PlatformIO(terminalDevice: await terminalDevice.terminalDevice)
+  var iterator = io.events.makeAsyncIterator()
+
+  let event = await iterator.next()
+  let end = await iterator.next()
+
+  expectNoDifference(event, .key(Key(code: .up, modifiers: .control)))
+  expectNoDifference(end, nil)
+}
+
+@Test
+func `events uses idle chunks to disambiguate escape`() async {
+  let io = PlatformIO(
+    terminalDevice: TerminalDevice(
+      bytes: {
+        AsyncStream { continuation in
+          continuation.yield([0x1B])
+          continuation.yield([])
+          continuation.yield([0x61])
+          continuation.finish()
+        }
+      },
+      size: { TerminalSize(columns: 1, rows: 1) },
+      write: { $0.count }
+    )
+  )
+  var iterator = io.events.makeAsyncIterator()
 
   let first = await iterator.next()
   let second = await iterator.next()
   let end = await iterator.next()
 
-  expectNoDifference(first, 0x61)
-  expectNoDifference(second, 0x62)
+  expectNoDifference(first, .key(Key(code: .escape)))
+  expectNoDifference(second, .key(Key(code: .character("a"))))
+  expectNoDifference(end, nil)
+}
+
+@Test
+func `events preserves alt keys without intervening idle chunk`() async {
+  let io = PlatformIO(
+    terminalDevice: TerminalDevice(
+      bytes: {
+        AsyncStream { continuation in
+          continuation.yield([0x1B])
+          continuation.yield([0x61])
+          continuation.finish()
+        }
+      },
+      size: { TerminalSize(columns: 1, rows: 1) },
+      write: { $0.count }
+    )
+  )
+  var iterator = io.events.makeAsyncIterator()
+
+  let event = await iterator.next()
+  let end = await iterator.next()
+
+  expectNoDifference(event, .key(Key(code: .character("a"), modifiers: .alt)))
   expectNoDifference(end, nil)
 }
 

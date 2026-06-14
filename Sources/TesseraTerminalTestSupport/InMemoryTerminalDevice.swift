@@ -43,11 +43,9 @@ public actor InMemoryTerminalDevice {
         AsyncStream { continuation in
           Task {
             let bytes = await self.inputBytesSnapshot()
-
-            for byte in bytes {
-              continuation.yield(byte)
+            if !bytes.isEmpty {
+              continuation.yield(bytes)
             }
-
             continuation.finish()
           }
         }

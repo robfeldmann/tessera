@@ -18,7 +18,7 @@ updated: 2026-06-13
         events
   - [x] 2.2 Cover the full Phase 2 legacy key catalog with parser tests
 - [ ] **Phase 3 — Platform event stream integration**
-  - [ ] 3.1 Change internal input reads to chunk-oriented parsing and expose
+  - [x] 3.1 Change internal input reads to chunk-oriented parsing and expose
         `PlatformIO.events`
   - [ ] 3.2 Merge resize notifications into the semantic event stream
   - [ ] 3.3 Expose `TerminalSession.events` and keep `nextEvent()` as sugar

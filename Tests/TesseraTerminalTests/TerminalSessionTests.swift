@@ -102,7 +102,7 @@ func `next event can be called repeatedly on one input stream`() async throws {
 
 @Test
 func `pending event read cancellation preserves the next input`() async throws {
-  let (bytes, continuation) = AsyncStream.makeStream(of: UInt8.self)
+  let (bytes, continuation) = AsyncStream.makeStream(of: [UInt8].self)
   let session = TerminalSession(
     io: PlatformIO(
       terminalDevice: TerminalDevice(
@@ -122,7 +122,7 @@ func `pending event read cancellation preserves the next input`() async throws {
     try await pendingEvent.value
   }
 
-  continuation.yield(0x61)
+  continuation.yield([0x61])
   let event = try await session.nextEvent()
 
   expectNoDifference(event, .key(Key(code: .character("a"))))

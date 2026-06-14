@@ -10,6 +10,15 @@ public struct InputParser: Sendable {
 
   private var state: State = .ground
 
+  /// Whether the parser is waiting to disambiguate a bare Escape byte.
+  package var isWaitingForEscape: Bool {
+    if case .escape = state {
+      return true
+    }
+
+    return false
+  }
+
   /// Creates an empty parser.
   public init() {}
 
@@ -63,6 +72,16 @@ public struct InputParser: Sendable {
     contentsOf bytes: S
   ) -> [InputEvent] where S.Element == UInt8 {
     bytes.flatMap { feed($0) }
+  }
+
+  /// Flushes a pending bare Escape byte, if present.
+  package mutating func flushPendingEscape() -> [InputEvent] {
+    guard isWaitingForEscape else {
+      return []
+    }
+
+    state = .ground
+    return [.key(Key(code: .escape))]
   }
 
   /// Flushes any pending partial input.

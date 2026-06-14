@@ -1,4 +1,5 @@
 import TesseraTerminalCore
+import TesseraTerminalInput
 
 #if os(macOS)
   import Darwin
@@ -11,8 +12,13 @@ package actor PlatformIO {
   private let terminalDevice: TerminalDevice
   private var outputBuffer: [UInt8] = []
 
-  /// Reads raw bytes from terminal input.
-  package nonisolated let bytes: AsyncStream<UInt8>
+  /// Reads raw byte chunks from terminal input.
+  ///
+  /// Empty chunks are input-idle notifications used internally for ESC timeout handling.
+  package nonisolated let bytes: AsyncStream<[UInt8]>
+
+  /// Streams semantic terminal input events.
+  package nonisolated let events: AsyncStream<InputEvent>
 
   /// Streams terminal-size changes.
   package nonisolated let sizeChanges: AsyncStream<TerminalSize>
@@ -32,6 +38,7 @@ package actor PlatformIO {
     self.terminalDevice = terminalDevice
     self.bytes = terminalDevice.bytes()
     self.sizeChanges = terminalDevice.sizeChanges()
+    self.events = Self.events(from: self.bytes)
   }
 
   /// Buffers bytes for terminal output.
@@ -125,4 +132,31 @@ package actor PlatformIO {
       await terminalDevice.savedTermios()
     }
   #endif
+
+  private static func events(from bytes: AsyncStream<[UInt8]>) -> AsyncStream<InputEvent> {
+    AsyncStream { continuation in
+      let task = Task {
+        var parser = InputParser()
+        for await chunk in bytes {
+          if chunk.isEmpty {
+            for event in parser.flushPendingEscape() {
+              continuation.yield(event)
+            }
+          } else {
+            for event in parser.feed(contentsOf: chunk) {
+              continuation.yield(event)
+            }
+          }
+        }
+        for event in parser.flush() {
+          continuation.yield(event)
+        }
+        continuation.finish()
+      }
+
+      continuation.onTermination = { _ in
+        task.cancel()
+      }
+    }
+  }
 }
