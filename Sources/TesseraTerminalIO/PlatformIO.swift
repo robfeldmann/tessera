@@ -38,7 +38,7 @@ package actor PlatformIO {
     self.terminalDevice = terminalDevice
     self.bytes = terminalDevice.bytes()
     self.sizeChanges = terminalDevice.sizeChanges()
-    self.events = Self.events(from: self.bytes)
+    self.events = Self.events(from: self.bytes, sizeChanges: self.sizeChanges)
   }
 
   /// Buffers bytes for terminal output.
@@ -133,9 +133,19 @@ package actor PlatformIO {
     }
   #endif
 
-  private static func events(from bytes: AsyncStream<[UInt8]>) -> AsyncStream<InputEvent> {
+  private static func events(
+    from bytes: AsyncStream<[UInt8]>,
+    sizeChanges: AsyncStream<TerminalSize>
+  ) -> AsyncStream<InputEvent> {
     AsyncStream { continuation in
       let task = Task {
+        let resizeTask = Task {
+          for await size in sizeChanges {
+            continuation.yield(.resize(size))
+          }
+        }
+        defer { resizeTask.cancel() }
+
         var parser = InputParser()
         for await chunk in bytes {
           if chunk.isEmpty {

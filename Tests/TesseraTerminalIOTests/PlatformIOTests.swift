@@ -180,6 +180,29 @@ func `events preserves alt keys without intervening idle chunk`() async {
 }
 
 @Test
+func `events includes terminal resize notifications`() async {
+  let size = TerminalSize(columns: 80, rows: 24)
+  let io = PlatformIO(
+    terminalDevice: TerminalDevice(
+      bytes: { AsyncStream { _ in } },
+      size: { TerminalSize(columns: 1, rows: 1) },
+      sizeChanges: {
+        AsyncStream { continuation in
+          continuation.yield(size)
+          continuation.finish()
+        }
+      },
+      write: { $0.count }
+    )
+  )
+  var iterator = io.events.makeAsyncIterator()
+
+  let event = await iterator.next()
+
+  expectNoDifference(event, .resize(size))
+}
+
+@Test
 func `alt screen methods emit alternate screen bytes`() async throws {
   let terminalDevice = InMemoryTerminalDevice()
   let io = PlatformIO(terminalDevice: await terminalDevice.terminalDevice)

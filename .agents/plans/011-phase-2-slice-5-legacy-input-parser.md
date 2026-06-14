@@ -20,7 +20,7 @@ updated: 2026-06-13
 - [ ] **Phase 3 — Platform event stream integration**
   - [x] 3.1 Change internal input reads to chunk-oriented parsing and expose
         `PlatformIO.events`
-  - [ ] 3.2 Merge resize notifications into the semantic event stream
+  - [x] 3.2 Merge resize notifications into the semantic event stream
   - [ ] 3.3 Expose `TerminalSession.events` and keep `nextEvent()` as sugar
 - [ ] **Phase 4 — Examples, cleanup, and validation**
   - [ ] 4.1 Update existing examples and add `InputInspector`
