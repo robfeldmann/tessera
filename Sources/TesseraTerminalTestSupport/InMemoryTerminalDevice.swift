@@ -38,16 +38,15 @@ public actor InMemoryTerminalDevice {
 
   /// A terminal device seam backed by this actor's in-memory state.
   package var terminalDevice: TerminalDevice {
-    TerminalDevice(
+    let inputBytes = storedInputBytes
+
+    return TerminalDevice(
       bytes: {
         AsyncStream { continuation in
-          Task {
-            let bytes = await self.inputBytesSnapshot()
-            if !bytes.isEmpty {
-              continuation.yield(bytes)
-            }
-            continuation.finish()
+          if !inputBytes.isEmpty {
+            continuation.yield(inputBytes)
           }
+          continuation.finish()
         }
       },
       enterAltScreen: { await self.enterAltScreen() },
@@ -84,10 +83,6 @@ public actor InMemoryTerminalDevice {
 
   private func exitRawMode() {
     recordedEvents.append(.exitRawMode)
-  }
-
-  private func inputBytesSnapshot() -> [UInt8] {
-    storedInputBytes
   }
 
   private func write(_ bytes: ArraySlice<UInt8>) throws -> Int {
