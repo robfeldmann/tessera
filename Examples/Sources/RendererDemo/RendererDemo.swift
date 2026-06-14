@@ -1,4 +1,5 @@
 import ExampleSupport
+import Foundation
 import TesseraTerminal
 
 @main
@@ -25,81 +26,51 @@ enum RendererDemo {
       var state = DemoState()
       try await draw(terminal: terminal, state: state)
 
-      try await withThrowingDiscardingTaskGroup { group in
-        let (events, continuation) = AsyncStream.makeStream(
-          of: DemoEvent.self,
-          bufferingPolicy: .bufferingNewest(32)
-        )
-
-        group.addTask {
-          do {
-            while Task.isCancelled == false {
-              continuation.yield(.input(try await terminal.nextEvent()))
-            }
-          } catch is CancellationError {
-          } catch {
-            continuation.finish()
-          }
+      for await event in terminal.events {
+        if handle(event, state: &state, terminal: terminal) {
+          return
         }
-
-        group.addTask {
-          for await size in terminal.sizeChanges {
-            continuation.yield(.resize(size))
-          }
-        }
-
-        for await event in events {
-          if handle(
-            event,
-            state: &state,
-            terminal: terminal,
-            group: group,
-            continuation: continuation
-          ) {
-            return
-          }
-          try await draw(terminal: terminal, state: state)
-        }
+        try await draw(terminal: terminal, state: state)
       }
     }
   }
 
   private static func handle(
-    _ event: DemoEvent,
+    _ event: InputEvent,
     state: inout DemoState,
-    terminal: isolated TerminalSession,
-    group: ThrowingDiscardingTaskGroup<any Error>,
-    continuation: AsyncStream<DemoEvent>.Continuation
+    terminal: isolated TerminalSession
   ) -> Bool {
     switch event {
-    case .input(.quit):
-      group.cancelAll()
-      continuation.finish()
+    case .key(let key) where key == Key(code: .character("q")):
       return true
 
-    case .input(.character(" ")):
+    case .key(let key) where key == Key(code: .character(" ")):
       if state.scene.isAnimated {
         state.advanceFrame()
       } else {
         state.message = "this scene is static; press n/p or i"
       }
 
-    case .input(.character("i")):
+    case .key(let key) where key == Key(code: .character("i")):
       state.message = "renderer invalidated; next draw forced a full repaint"
       terminal.invalidateRenderer()
 
-    case .input(.character("n")):
+    case .key(let key) where key == Key(code: .character("n")):
       state.nextScene()
 
-    case .input(.character("p")):
+    case .key(let key) where key == Key(code: .character("p")):
       state.previousScene()
 
-    case .input:
+    case .key:
       state.message = "press n/p to change scenes, space to animate, i to invalidate"
 
     case .resize(let size):
       state.message = resizeMessage(size)
       terminal.invalidateRenderer()
+
+    case .unknown(let bytes):
+      state.message =
+        "unknown input: \(bytes.map { String(format: "%02X", $0) }.joined(separator: " "))"
     }
 
     return false
@@ -405,11 +376,6 @@ private enum DemoScene: Int, CaseIterable {
     Self(rawValue: (rawValue + Self.allCases.count - 1) % Self.allCases.count)
       ?? .incrementalText
   }
-}
-
-private enum DemoEvent {
-  case input(InputEvent)
-  case resize(TerminalSize?)
 }
 
 private func position(_ column: Int, _ row: Int) -> TerminalPosition {

@@ -75,8 +75,13 @@
       }
     )
 
-    /// Creates an input byte stream for `fileDescriptor`.
-    package static func bytes(fileDescriptor: CInt) -> AsyncStream<UInt8> {
+    /// Creates an input byte-chunk stream for `fileDescriptor`.
+    ///
+    /// Empty chunks represent input-idle poll timeouts.
+    package static func bytes(
+      fileDescriptor: CInt,
+      pollTimeoutMilliseconds: CInt = 25
+    ) -> AsyncStream<[UInt8]> {
       AsyncStream { continuation in
         let system = currentSystem
         var cancelPipe: [CInt] = [-1, -1]
@@ -97,6 +102,7 @@
             fileDescriptor: fileDescriptor,
             cancelReadDescriptor: cancelReadDescriptor,
             continuation: continuation,
+            pollTimeoutMilliseconds: pollTimeoutMilliseconds,
             system: system
           )
         }
@@ -121,7 +127,8 @@
     private static func inputLoop(
       fileDescriptor: CInt,
       cancelReadDescriptor: CInt,
-      continuation: AsyncStream<UInt8>.Continuation,
+      continuation: AsyncStream<[UInt8]>.Continuation,
+      pollTimeoutMilliseconds: CInt,
       system: System
     ) {
       var buffer = [UInt8](repeating: 0, count: 256)
@@ -133,7 +140,7 @@
         ]
 
         let result = descriptors.withUnsafeMutableBufferPointer { pointer in
-          system.poll(pointer.baseAddress, nfds_t(pointer.count), 100)
+          system.poll(pointer.baseAddress, nfds_t(pointer.count), pollTimeoutMilliseconds)
         }
 
         if result < 0 {
@@ -145,6 +152,7 @@
         }
 
         guard result > 0 else {
+          continuation.yield([])
           continue
         }
 
@@ -167,9 +175,7 @@
         }
 
         if readCount > 0 {
-          for index in 0..<readCount {
-            continuation.yield(buffer[index])
-          }
+          continuation.yield(Array(buffer[..<readCount]))
         } else if readCount == 0 {
           continuation.finish()
           return

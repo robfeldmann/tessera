@@ -13,8 +13,11 @@ private func withFrame(
   _ body: (borrowing Frame) -> Void
 ) -> Buffer {
   var buffer = Buffer(size: size)
+  var cursorPosition: TerminalPosition?
   withUnsafeMutablePointer(to: &buffer) { storage in
-    body(Frame(buffer: storage))
+    withUnsafeMutablePointer(to: &cursorPosition) { cursorStorage in
+      body(Frame(buffer: storage, cursorPosition: cursorStorage))
+    }
   }
   return buffer
 }

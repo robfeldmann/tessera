@@ -1,5 +1,6 @@
 import CustomDump
 import TesseraTerminalCore
+import TesseraTerminalInput
 import TesseraTerminalTestSupport
 import Testing
 
@@ -23,7 +24,13 @@ func `application terminal returns body result and cleans up modes`() async thro
   expectNoDifference(result, "done")
   expectNoDifference(
     events,
-    [.enterRawMode, .enterAltScreen, .exitAltScreen, .exitRawMode]
+    [
+      .enterRawMode,
+      .enterAltScreen,
+      .flush(Array("\u{1B}[?25h".utf8)),
+      .exitAltScreen,
+      .exitRawMode,
+    ]
   )
 }
 
@@ -55,7 +62,13 @@ func `application terminal rethrows body error after cleanup`() async throws {
   let events = await device.events
   expectNoDifference(
     events,
-    [.enterRawMode, .enterAltScreen, .exitAltScreen, .exitRawMode]
+    [
+      .enterRawMode,
+      .enterAltScreen,
+      .flush(Array("\u{1B}[?25h".utf8)),
+      .exitAltScreen,
+      .exitRawMode,
+    ]
   )
 }
 
@@ -79,12 +92,12 @@ func `draw writes rendered frame and flushes once`() async throws {
 
 @Test
 func `next event returns first parsed input event`() async throws {
-  let device = InMemoryTerminalDevice(inputBytes: [0x01, 0x61])
+  let device = InMemoryTerminalDevice(inputBytes: [0x61])
   let session = await makeSession(device)
 
   let event = try await session.nextEvent()
 
-  expectNoDifference(event, .character("a"))
+  expectNoDifference(event, .key(Key(code: .character("a"))))
 }
 
 @Test
@@ -95,13 +108,48 @@ func `next event can be called repeatedly on one input stream`() async throws {
   let first = try await session.nextEvent()
   let second = try await session.nextEvent()
 
-  expectNoDifference(first, .character("a"))
-  expectNoDifference(second, .character("b"))
+  expectNoDifference(first, .key(Key(code: .character("a"))))
+  expectNoDifference(second, .key(Key(code: .character("b"))))
+}
+
+@Test
+func `events stream exposes parsed input events`() async throws {
+  let device = InMemoryTerminalDevice(inputBytes: Array("\u{1B}[A".utf8))
+  let session = await makeSession(device)
+  var iterator = session.events.makeAsyncIterator()
+
+  let event = await iterator.next()
+
+  expectNoDifference(event, .key(Key(code: .up)))
+}
+
+@Test
+func `next event returns resize events from semantic stream`() async throws {
+  let size = TerminalSize(columns: 80, rows: 24)
+  let session = TerminalSession(
+    io: PlatformIO(
+      terminalDevice: TerminalDevice(
+        bytes: { AsyncStream { _ in } },
+        size: { TerminalSize(columns: 1, rows: 1) },
+        sizeChanges: {
+          AsyncStream { continuation in
+            continuation.yield(size)
+            continuation.finish()
+          }
+        },
+        write: { $0.count }
+      )
+    )
+  )
+
+  let event = try await session.nextEvent()
+
+  expectNoDifference(event, .resize(size))
 }
 
 @Test
 func `pending event read cancellation preserves the next input`() async throws {
-  let (bytes, continuation) = AsyncStream.makeStream(of: UInt8.self)
+  let (bytes, continuation) = AsyncStream.makeStream(of: [UInt8].self)
   let session = TerminalSession(
     io: PlatformIO(
       terminalDevice: TerminalDevice(
@@ -121,10 +169,10 @@ func `pending event read cancellation preserves the next input`() async throws {
     try await pendingEvent.value
   }
 
-  continuation.yield(0x61)
+  continuation.yield([0x61])
   let event = try await session.nextEvent()
 
-  expectNoDifference(event, .character("a"))
+  expectNoDifference(event, .key(Key(code: .character("a"))))
 }
 
 @Test
@@ -243,13 +291,15 @@ func `next event throws input closed when input finishes without event`() async 
 }
 
 @Test
-func `next event ignores control bytes before input closes`() async throws {
+func `next event returns control key events`() async throws {
   let device = InMemoryTerminalDevice(inputBytes: [0x01, 0x02])
   let session = await makeSession(device)
 
-  await #expect(throws: PlatformIOError.inputClosed) {
-    try await session.nextEvent()
-  }
+  let first = try await session.nextEvent()
+  let second = try await session.nextEvent()
+
+  expectNoDifference(first, .key(Key(code: .character("A"), modifiers: .control)))
+  expectNoDifference(second, .key(Key(code: .character("B"), modifiers: .control)))
 }
 
 @Test
@@ -269,9 +319,33 @@ func `draw honors synchronized output policy`() async throws {
   let syncExit = Array("\u{1B}[?2026l".utf8)
 
   #expect(enabledBytes.starts(with: syncEnter))
-  #expect(enabledBytes.suffix(syncExit.count) == syncExit[...])
+  #expect(containsBytes(syncExit, in: enabledBytes))
   #expect(disabledBytes.starts(with: syncEnter) == false)
-  #expect(disabledBytes.suffix(syncExit.count) != syncExit[...])
+  #expect(containsBytes(syncExit, in: disabledBytes) == false)
+}
+
+@Test
+func `draw hides cursor when frame does not request a cursor position`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
+  let session = await makeSession(device, synchronizedOutput: .disabled)
+
+  try await session.draw { _ in }
+
+  let bytes = await device.bytes
+  #expect(bytes.suffix(6) == Array("\u{1B}[?25l".utf8)[...])
+}
+
+@Test
+func `draw shows and moves cursor when frame requests a cursor position`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 3, rows: 2))
+  let session = await makeSession(device, synchronizedOutput: .disabled)
+
+  try await session.draw { frame in
+    frame.setCursorPosition(TerminalPosition(column: 2, row: 1))
+  }
+
+  let bytes = await device.bytes
+  expectNoDifference(bytes.suffix(12), Array("\u{1B}[?25h\u{1B}[2;3H".utf8)[...])
 }
 
 @Test
@@ -289,7 +363,7 @@ func `draw second frame emits only damage bytes`() async throws {
   let events = await device.events
   let flushes = events.filter(\.isFlush).map(\.flushBytes)
   #expect(flushes.count == 2)
-  #expect(flushes[1] == Array("\u{1B}[1;2Hx\u{1B}[0m".utf8))
+  #expect(flushes[1] == Array("\u{1B}[1;2Hx\u{1B}[0m\u{1B}[?25l".utf8))
 }
 
 @Test
@@ -323,7 +397,7 @@ func `invalidate renderer causes next draw to repaint`() async throws {
   let events = await device.events
   let flushes = events.filter(\.isFlush).map(\.flushBytes)
   #expect(flushes.count == 2)
-  #expect(flushes[1] == Array("\u{1B}[2J\u{1B}[1;1H\u{1B}[0mx\u{1B}[0m".utf8))
+  #expect(flushes[1] == Array("\u{1B}[2J\u{1B}[1;1H\u{1B}[0mx\u{1B}[0m\u{1B}[?25l".utf8))
 }
 
 @Test

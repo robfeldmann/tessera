@@ -2373,6 +2373,30 @@ In practice this matters most for the "first dirty cell in a row" — if the pre
 last write left the cursor at the start of the next row, you may not need a cursor move.
 Modest byte savings, but free if you're already tracking position.
 
+##### Frame-driven cursor visibility
+
+The application cursor is frame-local render intent, not a global app flag. A frame hides
+the cursor by default; if a widget needs an insertion point, it requests one for that
+frame:
+
+```swift
+try await terminal.draw { frame in
+    frame.write(text, at: fieldOrigin)
+    frame.setCursorPosition(cursorPosition)
+}
+```
+
+After the buffer diff is encoded, Tessera applies cursor state:
+
+- no requested cursor position → emit `cursorVisible(false)`
+- requested cursor position → emit `cursorVisible(true)` and `cursorPosition(position)`
+
+This mirrors Ratatui's `Frame::set_cursor_position` model: most TUI screens never show the
+terminal cursor, while focused text-input widgets opt in every frame. Direct session-level
+show/hide APIs are lower-level escape hatches and should not be mixed with frame-driven
+cursor control. Normal and emergency teardown must emit `cursorVisible(true)` so a hidden
+cursor never leaks out of the scoped terminal session.
+
 ##### Synchronized Output wrapping
 
 > [!note] Ratatui References

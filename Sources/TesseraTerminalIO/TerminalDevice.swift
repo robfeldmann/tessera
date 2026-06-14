@@ -8,8 +8,8 @@ import TesseraTerminalCore
 
 /// Package-internal terminal device operations used to build owned platform I/O seams.
 package struct TerminalDevice: Sendable {
-  /// Reads raw bytes from terminal input.
-  package var bytes: @Sendable () -> AsyncStream<UInt8>
+  /// Reads raw input byte chunks from terminal input.
+  package var bytes: @Sendable () -> AsyncStream<[UInt8]>
 
   /// Enters the terminal's alternate screen buffer.
   package var enterAltScreen: @Sendable () async throws -> Void
@@ -44,7 +44,7 @@ package struct TerminalDevice: Sendable {
   package var write: @Sendable (ArraySlice<UInt8>) async throws -> Int
 
   package init(
-    bytes: @escaping @Sendable () -> AsyncStream<UInt8> = { AsyncStream { $0.finish() } },
+    bytes: @escaping @Sendable () -> AsyncStream<[UInt8]> = { AsyncStream { $0.finish() } },
     enterAltScreen: @escaping @Sendable () async throws -> Void = {},
     enterRawMode: @escaping @Sendable () async throws -> Void = {},
     exitAltScreen: @escaping @Sendable () async throws -> Void = {},
