@@ -23,8 +23,9 @@ updated: 2026-06-13
   - [x] 3.2 Merge resize notifications into the semantic event stream
   - [x] 3.3 Expose `TerminalSession.events` and keep `nextEvent()` as sugar
 - [ ] **Phase 4 — Examples, cleanup, and validation**
-  - [ ] 4.1 Update existing examples and add `InputInspector`
-  - [ ] 4.2 Run slice validation and update this plan
+  - [x] 4.1 Update existing examples and add `InputInspector`
+  - [ ] 4.2 Add frame-driven cursor visibility and update the spec
+  - [ ] 4.3 Run slice validation and update this plan
 
 ## Review process
 
@@ -211,7 +212,25 @@ per-byte pipeline.
   `swift build --package-path Examples --product InputInspector` and
   `swift build --package-path Examples` pass.
 
-### Step 4.2 — Run slice validation and update this plan
+### Step 4.2 — Add frame-driven cursor visibility and update the spec
+
+- Files:
+  - `docs/Spec.md`
+  - `Sources/TesseraTerminal/Frame.swift`
+  - `Sources/TesseraTerminal/TerminalSession.swift`
+  - `Tests/TesseraTerminalTests/TerminalSessionTests.swift`
+  - `Examples/Sources/InputInspector/InputInspector.swift`
+- Document the cursor policy in the living spec: Tessera hides the cursor for frames that
+  do not request a cursor position, shows and moves it for frames that do, and restores
+  cursor visibility on session teardown.
+- Add `Frame.setCursorPosition(_:)` as the frame-local API for future text-input UIs.
+- Make `TerminalSession.draw` apply cursor visibility/position after frame bytes are
+  encoded, and ensure normal teardown emits show-cursor bytes before leaving the session.
+- Keep `InputInspector` cursor-free by not requesting a cursor position.
+- Acceptance: focused `TesseraTerminalTests` cursor tests pass; `InputInspector` builds;
+  Markdown lint for `docs/Spec.md` passes.
+
+### Step 4.3 — Run slice validation and update this plan
 
 - Files:
   - `.agents/plans/011-phase-2-slice-5-legacy-input-parser.md`
