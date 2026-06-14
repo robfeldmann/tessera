@@ -3,7 +3,7 @@ name: Phase 2 Slice 5 Legacy Input Parser
 description:
   Replace the walking-skeleton byte parser with durable semantic terminal input events, a
   stateful legacy escape-sequence parser, and session event streams.
-status: in-progress
+status: completed
 created: 2026-06-13
 updated: 2026-06-13
 ---
@@ -22,10 +22,10 @@ updated: 2026-06-13
         `PlatformIO.events`
   - [x] 3.2 Merge resize notifications into the semantic event stream
   - [x] 3.3 Expose `TerminalSession.events` and keep `nextEvent()` as sugar
-- [ ] **Phase 4 — Examples, cleanup, and validation**
+- [x] **Phase 4 — Examples, cleanup, and validation**
   - [x] 4.1 Update existing examples and add `InputInspector`
   - [x] 4.2 Add frame-driven cursor visibility and update the spec
-  - [ ] 4.3 Run slice validation and update this plan
+  - [x] 4.3 Run slice validation and update this plan
 
 ## Review process
 
