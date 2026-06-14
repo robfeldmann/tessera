@@ -101,6 +101,41 @@ func `next event can be called repeatedly on one input stream`() async throws {
 }
 
 @Test
+func `events stream exposes parsed input events`() async throws {
+  let device = InMemoryTerminalDevice(inputBytes: Array("\u{1B}[A".utf8))
+  let session = await makeSession(device)
+  var iterator = session.events.makeAsyncIterator()
+
+  let event = await iterator.next()
+
+  expectNoDifference(event, .key(Key(code: .up)))
+}
+
+@Test
+func `next event returns resize events from semantic stream`() async throws {
+  let size = TerminalSize(columns: 80, rows: 24)
+  let session = TerminalSession(
+    io: PlatformIO(
+      terminalDevice: TerminalDevice(
+        bytes: { AsyncStream { _ in } },
+        size: { TerminalSize(columns: 1, rows: 1) },
+        sizeChanges: {
+          AsyncStream { continuation in
+            continuation.yield(size)
+            continuation.finish()
+          }
+        },
+        write: { $0.count }
+      )
+    )
+  )
+
+  let event = try await session.nextEvent()
+
+  expectNoDifference(event, .resize(size))
+}
+
+@Test
 func `pending event read cancellation preserves the next input`() async throws {
   let (bytes, continuation) = AsyncStream.makeStream(of: [UInt8].self)
   let session = TerminalSession(

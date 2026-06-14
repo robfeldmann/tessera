@@ -17,11 +17,11 @@ updated: 2026-06-13
   - [x] 2.1 Implement ESC ambiguity, Alt keys, CSI/SS3 state transitions, and unknown
         events
   - [x] 2.2 Cover the full Phase 2 legacy key catalog with parser tests
-- [ ] **Phase 3 — Platform event stream integration**
+- [x] **Phase 3 — Platform event stream integration**
   - [x] 3.1 Change internal input reads to chunk-oriented parsing and expose
         `PlatformIO.events`
   - [x] 3.2 Merge resize notifications into the semantic event stream
-  - [ ] 3.3 Expose `TerminalSession.events` and keep `nextEvent()` as sugar
+  - [x] 3.3 Expose `TerminalSession.events` and keep `nextEvent()` as sugar
 - [ ] **Phase 4 — Examples, cleanup, and validation**
   - [ ] 4.1 Update existing examples and add `InputInspector`
   - [ ] 4.2 Run slice validation and update this plan

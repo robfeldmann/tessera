@@ -13,6 +13,9 @@ public actor TerminalSession {
   private var lastDrawnBuffer: Buffer?
   private var renderer = Renderer()
 
+  /// The session's semantic terminal event stream.
+  nonisolated public let events: AsyncStream<InputEvent>
+
   /// Terminal-size notifications for the live session.
   nonisolated public let sizeChanges: AsyncStream<TerminalSize>
 
@@ -21,11 +24,15 @@ public actor TerminalSession {
     synchronizedOutput: SynchronizedOutputPolicy = .enabled
   ) {
     let inputEvents = AsyncEventBuffer<InputEvent>()
+    let eventStream = AsyncStream<InputEvent>.makeStream()
+    self.events = eventStream.stream
     self.inputEvents = inputEvents
     self.inputPump = Task {
       for await event in io.events {
+        eventStream.continuation.yield(event)
         await inputEvents.yield(event)
       }
+      eventStream.continuation.finish()
       await inputEvents.finish()
     }
     self.io = io
