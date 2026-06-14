@@ -24,7 +24,13 @@ func `application terminal returns body result and cleans up modes`() async thro
   expectNoDifference(result, "done")
   expectNoDifference(
     events,
-    [.enterRawMode, .enterAltScreen, .exitAltScreen, .exitRawMode]
+    [
+      .enterRawMode,
+      .enterAltScreen,
+      .flush(Array("\u{1B}[?25h".utf8)),
+      .exitAltScreen,
+      .exitRawMode,
+    ]
   )
 }
 
@@ -56,7 +62,13 @@ func `application terminal rethrows body error after cleanup`() async throws {
   let events = await device.events
   expectNoDifference(
     events,
-    [.enterRawMode, .enterAltScreen, .exitAltScreen, .exitRawMode]
+    [
+      .enterRawMode,
+      .enterAltScreen,
+      .flush(Array("\u{1B}[?25h".utf8)),
+      .exitAltScreen,
+      .exitRawMode,
+    ]
   )
 }
 
@@ -307,9 +319,33 @@ func `draw honors synchronized output policy`() async throws {
   let syncExit = Array("\u{1B}[?2026l".utf8)
 
   #expect(enabledBytes.starts(with: syncEnter))
-  #expect(enabledBytes.suffix(syncExit.count) == syncExit[...])
+  #expect(containsBytes(syncExit, in: enabledBytes))
   #expect(disabledBytes.starts(with: syncEnter) == false)
-  #expect(disabledBytes.suffix(syncExit.count) != syncExit[...])
+  #expect(containsBytes(syncExit, in: disabledBytes) == false)
+}
+
+@Test
+func `draw hides cursor when frame does not request a cursor position`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
+  let session = await makeSession(device, synchronizedOutput: .disabled)
+
+  try await session.draw { _ in }
+
+  let bytes = await device.bytes
+  #expect(bytes.suffix(6) == Array("\u{1B}[?25l".utf8)[...])
+}
+
+@Test
+func `draw shows and moves cursor when frame requests a cursor position`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 3, rows: 2))
+  let session = await makeSession(device, synchronizedOutput: .disabled)
+
+  try await session.draw { frame in
+    frame.setCursorPosition(TerminalPosition(column: 2, row: 1))
+  }
+
+  let bytes = await device.bytes
+  expectNoDifference(bytes.suffix(12), Array("\u{1B}[?25h\u{1B}[2;3H".utf8)[...])
 }
 
 @Test
@@ -327,7 +363,7 @@ func `draw second frame emits only damage bytes`() async throws {
   let events = await device.events
   let flushes = events.filter(\.isFlush).map(\.flushBytes)
   #expect(flushes.count == 2)
-  #expect(flushes[1] == Array("\u{1B}[1;2Hx\u{1B}[0m".utf8))
+  #expect(flushes[1] == Array("\u{1B}[1;2Hx\u{1B}[0m\u{1B}[?25l".utf8))
 }
 
 @Test
@@ -361,7 +397,7 @@ func `invalidate renderer causes next draw to repaint`() async throws {
   let events = await device.events
   let flushes = events.filter(\.isFlush).map(\.flushBytes)
   #expect(flushes.count == 2)
-  #expect(flushes[1] == Array("\u{1B}[2J\u{1B}[1;1H\u{1B}[0mx\u{1B}[0m".utf8))
+  #expect(flushes[1] == Array("\u{1B}[2J\u{1B}[1;1H\u{1B}[0mx\u{1B}[0m\u{1B}[?25l".utf8))
 }
 
 @Test

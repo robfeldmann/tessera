@@ -24,7 +24,7 @@ updated: 2026-06-13
   - [x] 3.3 Expose `TerminalSession.events` and keep `nextEvent()` as sugar
 - [ ] **Phase 4 — Examples, cleanup, and validation**
   - [x] 4.1 Update existing examples and add `InputInspector`
-  - [ ] 4.2 Add frame-driven cursor visibility and update the spec
+  - [x] 4.2 Add frame-driven cursor visibility and update the spec
   - [ ] 4.3 Run slice validation and update this plan
 
 ## Review process
