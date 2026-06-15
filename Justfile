@@ -119,6 +119,67 @@ test-linux-vm:
 
 # ── Windows ──────────────────────────────────────────────────────────────────
 
+windows-vm-start:
+    @set -euo pipefail; \
+    vm="${TESSERA_WINDOWS_VM_NAME:-tessera-windows}"; \
+    if ! command -v utmctl &> /dev/null; then \
+        echo "⚠️  utmctl not found — run 'brew bundle install'"; \
+        exit 1; \
+    fi; \
+    utmctl start --hide "$vm"
+
+windows-vm-stop:
+    @set -euo pipefail; \
+    vm="${TESSERA_WINDOWS_VM_NAME:-tessera-windows}"; \
+    if ! command -v utmctl &> /dev/null; then \
+        echo "⚠️  utmctl not found — run 'brew bundle install'"; \
+        exit 1; \
+    fi; \
+    utmctl stop --request "$vm"
+
+windows-vm-status:
+    @set -euo pipefail; \
+    vm="${TESSERA_WINDOWS_VM_NAME:-tessera-windows}"; \
+    if ! command -v utmctl &> /dev/null; then \
+        echo "⚠️  utmctl not found — run 'brew bundle install'"; \
+        exit 1; \
+    fi; \
+    utmctl status "$vm"
+
+windows-vm-ip:
+    @set -euo pipefail; \
+    vm="${TESSERA_WINDOWS_VM_NAME:-tessera-windows}"; \
+    if ! command -v utmctl &> /dev/null; then \
+        echo "⚠️  utmctl not found — run 'brew bundle install'"; \
+        exit 1; \
+    fi; \
+    ip="$(utmctl ip-address "$vm" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$$' | head -1)"; \
+    if [[ -z "$ip" ]]; then \
+        echo "⚠️  No IPv4 address found for $vm. Is the VM running with UTM Guest Tools installed?"; \
+        exit 1; \
+    fi; \
+    echo "$ip"
+
+windows-vm-push-setup-script:
+    @set -euo pipefail; \
+    vm="${TESSERA_WINDOWS_VM_NAME:-tessera-windows}"; \
+    path="${TESSERA_WINDOWS_VM_SETUP_PATH:-C:\\Windows\\Temp\\setup-windows-vm.ps1}"; \
+    if ! command -v utmctl &> /dev/null; then \
+        echo "⚠️  utmctl not found — run 'brew bundle install'"; \
+        exit 1; \
+    fi; \
+    if [[ ! -f scripts/setup-windows-vm.ps1 ]]; then \
+        echo "⚠️  scripts/setup-windows-vm.ps1 not found"; \
+        exit 1; \
+    fi; \
+    output="$(utmctl file push "$vm" "$path" < scripts/setup-windows-vm.ps1 2>&1)" || { echo "$output"; exit 1; }; \
+    if echo "$output" | grep -E "Error from event:|failed to open file" > /dev/null; then \
+        echo "$output"; \
+        exit 1; \
+    fi; \
+    if [[ -n "$output" ]]; then echo "$output"; fi; \
+    echo "✅ Pushed scripts/setup-windows-vm.ps1 to $vm:$path"
+
 windows-vm-check:
     @set -euo pipefail; \
     host="${TESSERA_WINDOWS_VM_SSH:-}"; \

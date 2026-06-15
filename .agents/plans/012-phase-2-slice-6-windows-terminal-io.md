@@ -9,8 +9,8 @@ updated: 2026-06-14
 
 ## Progress
 
-- [ ] **Phase 0 — Local Windows dev toolchain (UTM + Windows 11 ARM64 + Swift)**
-  - [ ] 0.1 Provision a Windows 11 ARM64 VM in UTM with OpenSSH and the Swift toolchain
+- [x] **Phase 0 — Local Windows dev toolchain (UTM + Windows 11 ARM64 + Swift)**
+  - [x] 0.1 Provision a Windows 11 ARM64 VM in UTM with OpenSSH and the Swift toolchain
   - [x] 0.2 Add Brewfile, Just recipes, and CONTRIBUTING docs for the Windows VM workflow
 - [ ] **Phase 1 — Windows-safe package and snapshot scaffolding**
   - [ ] 1.1 Make platform C and Ghostty snapshot targets compile safely on Windows

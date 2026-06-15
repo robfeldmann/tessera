@@ -84,7 +84,10 @@ Invoke-Step "Enable OpenSSH Server" {
     Set-Service -Name sshd -StartupType Automatic
     Start-Service sshd
 
-    if (-not (Get-NetFirewallRule -Name OpenSSH-Server-In-TCP -ErrorAction SilentlyContinue)) {
+    $firewallRule = Get-NetFirewallRule -Name OpenSSH-Server-In-TCP -ErrorAction SilentlyContinue
+    if ($firewallRule) {
+        Set-NetFirewallRule -Name OpenSSH-Server-In-TCP -Enabled True -Profile Any
+    } else {
         New-NetFirewallRule `
             -Name OpenSSH-Server-In-TCP `
             -DisplayName "OpenSSH Server (sshd)" `
@@ -92,6 +95,7 @@ Invoke-Step "Enable OpenSSH Server" {
             -Direction Inbound `
             -Protocol TCP `
             -Action Allow `
+            -Profile Any `
             -LocalPort 22
     }
 }
