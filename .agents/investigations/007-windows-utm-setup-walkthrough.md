@@ -112,6 +112,30 @@ working for Tessera on Apple Silicon with UTM, and which details should be promo
   - Use file sync only if we can avoid copying `.build` and other platform-specific
     artifacts.
 - Pending: clone Tessera in the guest and run `swift test --no-parallel`.
+- Provisioning script first run output:
+  - Git was already installed; no upgrade available.
+  - Visual Studio Community installer downloaded and started, then printed
+    `Restart your PC to finish installation.`
+  - Despite the restart notice, `vswhere` found Visual Studio at
+    `C:\Program Files\Microsoft Visual Studio\2022\Community`.
+  - Swift 6.3.2 ARM64 installer downloaded 1.26 GB and reported `Successfully installed`.
+  - Script reached `==> Enable OpenSSH Server` and then appeared to sit with a blinking
+    cursor/no prompt, but eventually completed. Contributor docs should warn that enabling
+    OpenSSH can be silent/slow.
+  - OpenSSH capability output after completion:
+    - `Online: True`
+    - `RestartNeeded: False`
+  - Script then failed at `==> Verify Swift version` because `swift.exe` was not on PATH
+    in the current PowerShell process. Error said to open a new PowerShell window after
+    installation and rerun the script.
+  - After reboot, rerunning the script found Git, Visual Studio, and Swift already
+    installed. `swift --version` printed
+    `Swift version 6.3.2 (swift-6.3.2-RELEASE) Target: aarch64-unknown-windows-msvc` plus
+    `Build config: +assertions`, but the script still threw `Expected Swift 6.3.2...`.
+    Root cause: PowerShell captures multi-line command output as an array; `-notmatch`
+    against the array returns non-matching lines, so the condition was truthy even though
+    the first line matched. Fix script by joining `swift --version` output into one string
+    before matching.
 
 ## Conclusion
 

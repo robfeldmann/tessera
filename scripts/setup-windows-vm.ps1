@@ -102,7 +102,7 @@ Invoke-Step "Verify Swift version" {
         throw "swift.exe was not found on PATH. Open a new PowerShell window after installation and rerun this script."
     }
 
-    $versionOutput = & swift --version
+    $versionOutput = (& swift --version) -join "`n"
     Write-Host $versionOutput
     if ($versionOutput -notmatch [regex]::Escape($ExpectedSwiftVersion)) {
         throw "Expected Swift $ExpectedSwiftVersion. Update .swift-version or install the matching Windows toolchain."
