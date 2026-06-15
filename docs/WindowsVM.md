@@ -277,7 +277,16 @@ ssh-keygen -t ed25519 -f ~/.ssh/tessera_windows -N "" -C "tessera-windows"
 ssh-add --apple-use-keychain ~/.ssh/tessera_windows
 ```
 
-Copy the public key into the Windows VM:
+The fastest path is the helper recipe, which uses password SSH for this one-time step and
+installs the key into the administrators key file with the correct ACLs:
+
+```sh
+just windows-vm-install-ssh-key
+```
+
+It defaults to `~/.ssh/tessera_windows.pub`; override with `TESSERA_WINDOWS_VM_PUBKEY`.
+
+To do it by hand instead, copy the public key into the Windows VM:
 
 ```sh
 scp -o PreferredAuthentications=password -o PubkeyAuthentication=no ~/.ssh/tessera_windows.pub tess@192.168.64.2:'C:/Users/tess/tessera_windows.pub'
@@ -397,11 +406,16 @@ export TESSERA_WINDOWS_VM_SETUP_PATH='C:\Users\<user>\Downloads\setup-windows-vm
 The Windows VM should have its own checkout and its own `.build` directory. Do not build
 from a macOS shared folder or share `.build` between macOS and Windows.
 
-For active development, the preferred workflow is still being refined. The likely shape
-is:
+For active development, edit on macOS and push the current branch straight into the guest
+checkout over SSH, without going through GitHub:
 
-1. Edit on macOS.
-2. Sync or push the local branch directly to the Windows VM over SSH.
-3. Run `just test-windows-vm`.
+```sh
+just windows-vm-sync
+just test-windows-vm
+```
 
-Until that sync workflow exists, use normal Git operations inside the Windows checkout.
+`windows-vm-sync` configures `receive.denyCurrentBranch=updateInstead` on the guest repo
+and force-pushes (with lease) your current branch, updating the guest working tree in
+place. The guest tree must be clean for the push to apply, so commit or stash guest-side
+changes first. This keeps `.build` and other platform-specific artifacts entirely on the
+guest. You can still use normal Git operations inside the Windows checkout when preferred.
