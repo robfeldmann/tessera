@@ -6,6 +6,7 @@ brew "swiftlint"
 brew "just"
 brew "lima" # Linux virtual machines
 brew "pre-commit"
+cask "utm" # Windows virtual machines
 
 # Formatting Tools
 brew "jq"

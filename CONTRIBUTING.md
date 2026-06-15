@@ -65,6 +65,7 @@ This will install the following tools:
 - **[pre-commit](https://pre-commit.com/)**: For managing git hooks.
 - **[just](https://github.com/casey/just)**: For running project tasks.
 - **[Lima](https://lima-vm.io/)**: For optional Docker-free Linux test runs.
+- **[UTM](https://mac.getutm.app/)**: For optional Windows test runs on Apple Silicon.
 - **[Prettier](https://prettier.io/)**: For Markdown and config file formatting.
 - **[Python 3](https://www.python.org/)**: For local documentation previews
   (`just docs-preview`).
@@ -208,6 +209,64 @@ deleting it:
 just linux-vm-stop
 just linux-vm-delete
 ```
+
+### Windows Test Runs with UTM
+
+Use [UTM](https://mac.getutm.app/) when you want to run `swift test` on Windows from an
+Apple Silicon Mac. Install UTM with the project tools:
+
+```sh
+brew bundle install
+```
+
+Create the VM manually in UTM; there is no checked-in Windows equivalent of the Lima
+configuration. Download a Windows 11 ARM64 image from Microsoft, create a Windows VM in
+UTM, and use either shared networking or a port forward for SSH. Keep a separate clone of
+this repository inside the Windows guest rather than using a shared mount; SwiftPM build
+artifacts are platform-specific.
+
+In an elevated PowerShell session inside the Windows guest, run the provisioning script
+from the cloned repository:
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
+.\scripts\setup-windows-vm.ps1
+```
+
+The script installs Git, Visual Studio 2022 Community with the C++ workload and Windows 11
+SDK, the Swift toolchain that matches `.swift-version`, and OpenSSH Server. Open a new
+PowerShell session after toolchain installation if `swift` is not immediately on `PATH`.
+Then clone or update the repository in the guest and verify the suite:
+
+```powershell
+git clone https://github.com/robfeldmann/tessera.git tessera
+cd tessera
+swift test --no-parallel
+```
+
+From macOS, configure an SSH host alias for the VM. For example, if UTM forwards localhost
+port 2222 to guest port 22:
+
+```sshconfig
+Host tessera-windows
+  HostName 127.0.0.1
+  Port 2222
+  User <windows-user>
+```
+
+Export the alias and optional repository path, then run the Windows test loop from macOS:
+
+```fish
+set -x TESSERA_WINDOWS_VM_SSH tessera-windows
+set -x TESSERA_WINDOWS_VM_REPO tessera
+just windows-vm-check
+just test-windows-vm
+```
+
+Use `just windows-vm-ssh` to open an interactive shell in the guest. If
+`just windows-vm-check` cannot connect, start the VM in UTM, verify the SSH alias with
+`ssh tessera-windows`, and rerun `scripts/setup-windows-vm.ps1` in the guest if Swift or
+sshd is missing.
 
 ### Pre-commit Hooks
 

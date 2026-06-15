@@ -2,7 +2,7 @@
 name: Phase 2 Slice 6 Windows Terminal IO
 description:
   Complete TesseraTerminalIO's Windows implementation and enable Windows CI for Phase 2.
-status: pending
+status: in_progress
 created: 2026-06-14
 updated: 2026-06-14
 ---
@@ -11,7 +11,7 @@ updated: 2026-06-14
 
 - [ ] **Phase 0 — Local Windows dev toolchain (UTM + Windows 11 ARM64 + Swift)**
   - [ ] 0.1 Provision a Windows 11 ARM64 VM in UTM with OpenSSH and the Swift toolchain
-  - [ ] 0.2 Add Brewfile, Just recipes, and CONTRIBUTING docs for the Windows VM workflow
+  - [x] 0.2 Add Brewfile, Just recipes, and CONTRIBUTING docs for the Windows VM workflow
 - [ ] **Phase 1 — Windows-safe package and snapshot scaffolding**
   - [ ] 1.1 Make platform C and Ghostty snapshot targets compile safely on Windows
   - [ ] 1.2 Mark Ghostty-backed tests explicitly skipped on Windows

@@ -117,6 +117,47 @@ test-linux-vm:
     trap cleanup EXIT; \
     limactl shell tessera-linux -- bash -lc "source ~/.local/share/swiftly/env.sh && export PATH=~/.local/bin:\$PATH && cd '$PWD' && rm -rf .build/aarch64-unknown-linux-gnu/debug/ModuleCache* .build/x86_64-unknown-linux-gnu/debug/ModuleCache* && scripts/build-libghostty-vt.sh && swift test --jobs 2 --no-parallel"
 
+# ── Windows ──────────────────────────────────────────────────────────────────
+
+windows-vm-check:
+    @set -euo pipefail; \
+    host="${TESSERA_WINDOWS_VM_SSH:-}"; \
+    if [[ -z "$host" ]]; then \
+        echo "⚠️  TESSERA_WINDOWS_VM_SSH is not set"; \
+        echo "Set it to your Windows VM SSH target, for example:"; \
+        echo "  set -x TESSERA_WINDOWS_VM_SSH tessera-windows"; \
+        echo "See CONTRIBUTING.md#windows-test-runs-with-utm for VM setup."; \
+        exit 1; \
+    fi; \
+    ssh -o BatchMode=yes -o ConnectTimeout=5 $host "swift --version"
+
+windows-vm-ssh:
+    @set -euo pipefail; \
+    host="${TESSERA_WINDOWS_VM_SSH:-}"; \
+    if [[ -z "$host" ]]; then \
+        echo "⚠️  TESSERA_WINDOWS_VM_SSH is not set"; \
+        echo "See CONTRIBUTING.md#windows-test-runs-with-utm for VM setup."; \
+        exit 1; \
+    fi; \
+    ssh $host
+
+test-windows-vm:
+    @set -euo pipefail; \
+    host="${TESSERA_WINDOWS_VM_SSH:-}"; \
+    repo="${TESSERA_WINDOWS_VM_REPO:-tessera}"; \
+    if [[ -z "$host" ]]; then \
+        echo "⚠️  TESSERA_WINDOWS_VM_SSH is not set"; \
+        echo "Set it to your Windows VM SSH target, then rerun this recipe."; \
+        echo "See CONTRIBUTING.md#windows-test-runs-with-utm for VM setup."; \
+        exit 1; \
+    fi; \
+    if ! ssh -o BatchMode=yes -o ConnectTimeout=5 $host "swift --version"; then \
+        echo "⚠️  Windows VM is unreachable or Swift is not installed."; \
+        echo "Run scripts/setup-windows-vm.ps1 inside the VM and verify SSH access."; \
+        exit 1; \
+    fi; \
+    ssh $host "cd $repo && swift test --no-parallel"
+
 # ── Formatting ───────────────────────────────────────────────────────────────
 
 format: _format-json _format-markdown
