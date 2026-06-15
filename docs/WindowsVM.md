@@ -199,8 +199,13 @@ The script installs or verifies:
 - Swift matching `.swift-version`
 - OpenSSH Server
 
-Visual Studio may print `Restart your PC to finish installation`. If it does, reboot, open
-PowerShell as Administrator again, and rerun the same script.
+Visual Studio installation usually leaves a reboot pending. The script detects this,
+registers a one-time resume task, and reboots after a 10-second warning. Sign back in as
+the same user and setup continues automatically — no need to relaunch the script by hand.
+Pass `-NoAutoReboot` if you would rather reboot yourself and rerun the script manually.
+
+The script also refreshes its own `PATH` after installing Git and Swift, so a single run
+no longer requires closing and reopening PowerShell for those tools to resolve.
 
 Enabling OpenSSH can appear silent for a few minutes. Wait before interrupting it.
 
