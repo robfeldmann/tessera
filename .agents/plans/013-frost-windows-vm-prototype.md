@@ -20,7 +20,7 @@ updated: 2026-06-16
   - [x] 2.1 Build the Frost base golden image
   - [x] 2.2 Verify base image boot, SSH, and exit-code propagation
 - [ ] **Phase 3 — Tessera toolchain golden image**
-  - [ ] 3.1 Create a Frost-oriented Windows provisioning script
+  - [x] 3.1 Create a Frost-oriented Windows provisioning script
   - [ ] 3.2 Build/promote a Tessera toolchain golden image
   - [ ] 3.3 Verify Swift, Git, Visual Studio, Windows SDK, and SSH key auth
 - [ ] **Phase 4 — Tessera source sync and test execution**
@@ -257,8 +257,16 @@ UTM.
 - Document when to use:
   - Frost headless SSH for automated tests and quick TUI checks.
   - UTM-imported Frost image for visual PowerShell/Windows Terminal/conhost validation.
+- Verify GUI guest integration details that are irrelevant to the SSH workflow but matter
+  for manual UTM validation:
+  - display resize/resolution.
+  - keyboard and mouse input.
+  - host ↔ guest clipboard copy/paste.
+  - whether Frost's VirtIO guest tools install is sufficient, or whether UTM/SPICE guest
+    tools need a separate install step.
 - Acceptance: a contributor can run Tessera example apps in a GUI Windows session using
-  the Frost-built image, or knows to fall back to the original UTM Phase 0 VM.
+  the Frost-built image, including copy/paste where possible, or knows to fall back to the
+  original UTM Phase 0 VM.
 
 ## Phase 7 — Frost upstreaming decision
 

@@ -155,6 +155,30 @@ The shared defaults are:
 - `TESSERA_FROST_WINDOWS_ISO`: optional Windows ISO path for future build recipes.
 - `TESSERA_FROST_VIRTIO_ISO`: optional VirtIO ISO path for future build recipes.
 
+## Tessera toolchain provisioning script
+
+The Frost base golden only contains Windows, VirtIO networking, OpenSSH, and the default
+`tester` administrator account. Tessera-specific tools are installed by:
+
+```text
+scripts/setup-windows-frost-vm.ps1
+```
+
+The script is intended to run inside a writable Frost clone over SSH. It installs or
+verifies Git, the Visual Studio C++ workload, the Windows 11 SDK, Swift, OpenSSH, and an
+optional SSH authorized key.
+
+The script is idempotent. If Visual Studio or another installer leaves a reboot pending,
+it writes a marker under `C:\ProgramData\Tessera\FrostProvision` and exits with code
+`100`. The host-side provisioning wrapper should reboot the guest, wait for SSH, and rerun
+the script until it writes `complete.txt`.
+
+This provisioning script intentionally does not configure GUI clipboard integration. For
+headless Frost runs, copy/paste is handled by the host terminal and SSH. If a Frost-built
+image is imported into UTM later, Phase 6 must verify GUI integration separately,
+including display resize, input, host ↔ guest clipboard copy/paste, and whether Frost's
+VirtIO guest tools are sufficient or UTM/SPICE guest tools need another install step.
+
 ## Current next step
 
 Phase 2.2 verified the base golden with `just windows-frost-check-base`. The successful
