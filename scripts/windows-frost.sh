@@ -10,9 +10,10 @@ usage() {
 usage: scripts/windows-frost.sh <command>
 
 Commands:
-  env       Print resolved Frost prototype paths and defaults
-  help      Show Frost CLI help from the configured checkout
-  dry-run   Print a non-destructive Frost run invocation for the planned golden paths
+  env         Print resolved Frost prototype paths and defaults
+  help        Show Frost CLI help from the configured checkout
+  dry-run     Print a non-destructive Frost run invocation for the planned golden paths
+  check-base  Boot the base golden and run a trivial Windows command
 EOF
 }
 
@@ -22,6 +23,12 @@ require_frost() {
     printf 'Set TESSERA_FROST_ROOT or clone Frost to /Users/rob/Developer/solcreek/frost/main.\n' >&2
     exit 1
   fi
+}
+
+prepare_frost_runtime_dirs() {
+  # Frost's test-run.sh currently creates throwaway overlays under its own work/disks
+  # directory even when --golden points outside the Frost checkout.
+  mkdir -p "$TESSERA_FROST_ROOT/work/disks"
 }
 
 command="${1:-}"
@@ -52,7 +59,17 @@ EOF
       --vars "$TESSERA_FROST_TOOLCHAIN_VARS" \
       --ssh-port "$TESSERA_FROST_SSH_PORT" \
       --user "$TESSERA_FROST_USER" \
-      --run 'cmd /c ver'
+      --run 'whoami'
+    ;;
+  check-base)
+    require_frost
+    prepare_frost_runtime_dirs
+    exec "$TESSERA_FROST_CLI" run \
+      --golden "$TESSERA_FROST_BASE_GOLDEN" \
+      --vars "$TESSERA_FROST_BASE_VARS" \
+      --ssh-port "$TESSERA_FROST_SSH_PORT" \
+      --user "$TESSERA_FROST_USER" \
+      --run 'whoami'
     ;;
   -h|--help|help-text)
     usage

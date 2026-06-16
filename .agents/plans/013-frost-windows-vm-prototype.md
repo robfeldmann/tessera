@@ -16,9 +16,9 @@ updated: 2026-06-16
 - [x] **Phase 1 — Base Frost integration wrappers**
   - [x] 1.1 Add non-destructive Frost `just` plumbing
   - [x] 1.2 Document required ISO inputs and expected artifacts
-- [ ] **Phase 2 — Base Windows golden image**
-  - [ ] 2.1 Build the Frost base golden image
-  - [ ] 2.2 Verify base image boot, SSH, and exit-code propagation
+- [x] **Phase 2 — Base Windows golden image**
+  - [x] 2.1 Build the Frost base golden image
+  - [x] 2.2 Verify base image boot, SSH, and exit-code propagation
 - [ ] **Phase 3 — Tessera toolchain golden image**
   - [ ] 3.1 Create a Frost-oriented Windows provisioning script
   - [ ] 3.2 Build/promote a Tessera toolchain golden image

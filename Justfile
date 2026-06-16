@@ -293,6 +293,9 @@ windows-frost-help:
 windows-frost-dry-run:
     scripts/windows-frost.sh dry-run
 
+windows-frost-check-base:
+    scripts/windows-frost.sh check-base
+
 # ── Formatting ───────────────────────────────────────────────────────────────
 
 format: _format-json _format-markdown

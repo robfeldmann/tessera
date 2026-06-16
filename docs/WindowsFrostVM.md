@@ -136,6 +136,16 @@ just windows-frost-help
 just windows-frost-dry-run
 ```
 
+After the base golden exists, verify it with:
+
+```fish
+just windows-frost-check-base
+```
+
+This boots a disposable overlay from `TESSERA_FROST_BASE_GOLDEN`, waits for SSH on
+`TESSERA_FROST_SSH_PORT`, runs `whoami`, prints guest output, and exits with Frost's guest
+command status.
+
 The shared defaults are:
 
 - `TESSERA_FROST_ROOT`: Frost checkout path.
@@ -147,4 +157,15 @@ The shared defaults are:
 
 ## Current next step
 
-Document the required ISO inputs and expected VM artifacts from Phase 1.2.
+Phase 2.2 verified the base golden with `just windows-frost-check-base`. The successful
+guest output was `desktop-hdia40e\\tester`.
+
+Notes from verification:
+
+- Frost's `test-run.sh` currently creates throwaway overlays under the Frost checkout's
+  `work/disks` directory, even when the golden image is outside the Frost checkout. The
+  Tessera wrapper creates that directory before running Frost.
+- A first attempt using `cmd /c ver` reached the guest and returned a non-zero exit code,
+  which proved host-side exit-code propagation, but Windows OpenSSH/default-shell quoting
+  caused the guest to see `ver"`. Use simple commands like `whoami` for the base smoke
+  check until command quoting is handled deliberately in later phases.
