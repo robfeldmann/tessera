@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-frost_root="${TESSERA_FROST_ROOT:-/Users/rob/Developer/solcreek/frost/main}"
+repo_root="$(git rev-parse --show-toplevel)"
+# shellcheck source=scripts/windows-frost-env.sh
+source "$repo_root/scripts/windows-frost-env.sh"
+
 brew_hint="brew install qemu swtpm hudochenkov/sshpass/sshpass"
 
 failures=0
@@ -58,8 +61,10 @@ check_qemu_command() {
   fi
 }
 
-printf 'Frost root: %s\n' "$frost_root"
-check_executable "frost CLI" "$frost_root/bin/frost"
+printf 'Frost root: %s\n' "$TESSERA_FROST_ROOT"
+printf 'Frost work: %s\n' "$TESSERA_FROST_WORK"
+printf 'Frost SSH user/port: %s@localhost:%s\n' "$TESSERA_FROST_USER" "$TESSERA_FROST_SSH_PORT"
+check_executable "frost CLI" "$TESSERA_FROST_CLI"
 
 check_qemu_command qemu-img
 check_qemu_command qemu-system-aarch64
@@ -67,8 +72,8 @@ check_command swtpm "$brew_hint"
 check_command sshpass "$brew_hint"
 check_command swift "install Swift for macOS so Frost can build its vmkit helper"
 
-if [[ -x "$frost_root/bin/frost" ]]; then
-  if version_output="$($frost_root/bin/frost version 2>&1)"; then
+if [[ -x "$TESSERA_FROST_CLI" ]]; then
+  if version_output="$($TESSERA_FROST_CLI version 2>&1)"; then
     ok "$version_output"
   else
     warn "frost version failed: $version_output"

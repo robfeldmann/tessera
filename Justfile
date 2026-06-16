@@ -284,6 +284,15 @@ windows-vm-sync:
 windows-frost-doctor:
     scripts/windows-frost-doctor.sh
 
+windows-frost-env:
+    scripts/windows-frost.sh env
+
+windows-frost-help:
+    scripts/windows-frost.sh help
+
+windows-frost-dry-run:
+    scripts/windows-frost.sh dry-run
+
 # ── Formatting ───────────────────────────────────────────────────────────────
 
 format: _format-json _format-markdown

@@ -91,6 +91,23 @@ If tools are missing, install the host dependencies with:
 brew install qemu swtpm hudochenkov/sshpass/sshpass
 ```
 
+## Non-destructive wrapper recipes
+
+These recipes exercise the local Frost checkout without creating or booting a VM:
+
+```fish
+just windows-frost-env
+just windows-frost-help
+just windows-frost-dry-run
+```
+
+The shared defaults are:
+
+- `TESSERA_FROST_ROOT`: Frost checkout path.
+- `TESSERA_FROST_WORK`: local VM artifact directory, defaulting to `.build/windows-frost`.
+- `TESSERA_FROST_SSH_PORT`: forwarded SSH port, defaulting to `2222`.
+- `TESSERA_FROST_USER`: Windows SSH user, defaulting to `tester`.
+
 ## Current next step
 
-After the doctor passes, add the non-destructive Frost wrapper recipes from Phase 1.
+Document the required ISO inputs and expected VM artifacts from Phase 1.2.

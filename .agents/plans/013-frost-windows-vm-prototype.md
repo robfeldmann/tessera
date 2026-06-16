@@ -14,7 +14,7 @@ updated: 2026-06-16
   - [x] 0.1 Choose the Frost checkout strategy and document local paths
   - [x] 0.2 Add a host prerequisite check for Frost tooling
 - [ ] **Phase 1 — Base Frost integration wrappers**
-  - [ ] 1.1 Add non-destructive Frost `just` plumbing
+  - [x] 1.1 Add non-destructive Frost `just` plumbing
   - [ ] 1.2 Document required ISO inputs and expected artifacts
 - [ ] **Phase 2 — Base Windows golden image**
   - [ ] 2.1 Build the Frost base golden image
