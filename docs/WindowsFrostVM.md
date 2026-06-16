@@ -280,10 +280,60 @@ Windows compile failure:
 Sources\CTesseraTerminalPlatform\include\CTesseraTerminalPlatform.h:5:10: fatal error: 'termios.h' file not found
 ```
 
+## Persistent interactive Frost VM
+
+For interactive Windows/ConPTY work, use a persistent overlay instead of the disposable
+`test-windows-frost` flow:
+
+```fish
+just windows-frost-start
+just windows-frost-ssh
+just windows-frost-stop
+```
+
+Reset the persistent overlay back to the Tessera toolchain golden with:
+
+```fish
+just windows-frost-start --reset
+```
+
+The persistent overlay lives at `.build/windows-frost/persistent/dev.qcow2`, backed by the
+Tessera toolchain golden. It preserves guest state and SwiftPM build caches between
+starts, so it is intended for local iteration rather than clean validation.
+
+For non-interactive smoke testing of the Windows OpenSSH/ConPTY path, run:
+
+```fish
+just windows-frost-start
+just windows-frost-conpty-smoke
+just windows-frost-stop
+```
+
+The smoke check forces a Windows ConPTY, prints ANSI colors, and exercises cursor
+save/restore. In this agent harness, `script(1)` is used to provide a local
+pseudo-terminal so `ssh -tt` behaves like an interactive terminal.
+
+Phase 5 validation result:
+
+- `just windows-frost-start` created and booted the persistent overlay.
+- `just windows-frost-ssh whoami` reached the guest over a forced PTY and printed
+  `desktop-hdia40e\\tester`.
+- `just windows-frost-conpty-smoke` showed Windows ConPTY control sequences plus ANSI
+  color output and cursor save/restore output.
+- `just windows-frost-stop` shut the VM down cleanly.
+
+A real Tessera example app could not be validated yet because the current Windows build
+still stops at the known `termios.h` compile failure. SSH/ConPTY is adequate for the Slice
+6 manual validation loop once the Windows terminal platform compile issue is fixed, but it
+is not a substitute for Phase 6 GUI validation in PowerShell/Windows Terminal.
+
 ## Current next step
 
-Phase 2.2 verified the base golden with `just windows-frost-check-base`. The successful
-guest output was `desktop-hdia40e\\tester`.
+Phase 6 should test whether a Frost-built qcow2 can be imported into UTM for GUI
+PowerShell/Windows Terminal validation.
+
+Earlier Phase 2.2 verification: `just windows-frost-check-base` succeeded with guest
+output `desktop-hdia40e\\tester`.
 
 Notes from verification:
 

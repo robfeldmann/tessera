@@ -308,6 +308,18 @@ windows-frost-sync-source:
 test-windows-frost:
     scripts/windows-frost-test.sh
 
+windows-frost-start *args:
+    scripts/windows-frost-start.sh {{args}}
+
+windows-frost-stop:
+    scripts/windows-frost-stop.sh
+
+windows-frost-ssh *args:
+    scripts/windows-frost-ssh.sh {{args}}
+
+windows-frost-conpty-smoke:
+    scripts/windows-frost-conpty-smoke.sh
+
 # ── Formatting ───────────────────────────────────────────────────────────────
 
 format: _format-json _format-markdown

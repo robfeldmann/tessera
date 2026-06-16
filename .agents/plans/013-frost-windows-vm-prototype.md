@@ -27,9 +27,9 @@ updated: 2026-06-16
   - [x] 4.1 Add source sync for a Frost guest checkout
   - [x] 4.2 Add `test-windows-frost` and run Swift tests in the guest
   - [x] 4.3 Decide disposable vs persistent overlay default
-- [ ] **Phase 5 — Interactive terminal validation**
-  - [ ] 5.1 Add persistent start/stop/ssh recipes for Frost overlays
-  - [ ] 5.2 Validate an interactive Tessera terminal demo over SSH/ConPTY
+- [x] **Phase 5 — Interactive terminal validation**
+  - [x] 5.1 Add persistent start/stop/ssh recipes for Frost overlays
+  - [x] 5.2 Validate an interactive Tessera terminal demo over SSH/ConPTY
 - [ ] **Phase 6 — UTM manual GUI path**
   - [ ] 6.1 Test importing a Frost qcow2 into UTM
   - [ ] 6.2 Document PowerShell/Windows Terminal manual validation steps
