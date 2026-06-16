@@ -3,7 +3,7 @@ name: Frost Windows VM Prototype
 description:
   Prototype a Frost-based Windows 11 ARM64 VM workflow as an alternative to the UTM Phase
   0 setup.
-status: pending
+status: in-progress
 created: 2026-06-16
 updated: 2026-06-16
 ---
@@ -11,7 +11,7 @@ updated: 2026-06-16
 ## Progress
 
 - [ ] **Phase 0 — Frost checkout and host prerequisites**
-  - [ ] 0.1 Choose the Frost checkout strategy and document local paths
+  - [x] 0.1 Choose the Frost checkout strategy and document local paths
   - [ ] 0.2 Add a host prerequisite check for Frost tooling
 - [ ] **Phase 1 — Base Frost integration wrappers**
   - [ ] 1.1 Add non-destructive Frost `just` plumbing
