@@ -55,18 +55,53 @@ all future shells:
 set -Ux TESSERA_FROST_ROOT /Users/rob/Developer/solcreek/frost/main
 ```
 
+## Required ISO inputs
+
+Frost does not redistribute Windows or VirtIO drivers. You must provide these files
+locally before building the base golden image:
+
+1. **Windows 11 ARM64 ISO**
+   - Use the same Microsoft Windows 11 ARM64 ISO flow documented in `docs/WindowsVM.md`.
+   - The Phase 0 walkthrough used: `~/Downloads/Win11_25H2_English_Arm64_v2.iso`.
+2. **VirtIO driver ISO**
+   - This is a new Frost-only prerequisite; the original UTM Phase 0 setup did not
+     download or leave behind a VirtIO ISO.
+   - Frost needs a VirtIO driver ISO so Windows can use virtio networking during
+     provisioning.
+   - The ISO must be downloaded separately and must include ARM64 `NetKVM` drivers.
+
+Keep the Windows and VirtIO paths as separate values because they are separate downloads
+and the VirtIO ISO will not already exist from the UTM setup.
+
+A global shell variable is not required. For a single command, pass paths with `env`:
+
+```fish
+env \
+  TESSERA_FROST_WINDOWS_ISO=~/Downloads/Win11_25H2_English_Arm64_v2.iso \
+  TESSERA_FROST_VIRTIO_ISO=/path/to/virtio-win.iso \
+  just windows-frost-env
+```
+
+Future build recipes should read these optional variables:
+
+- `TESSERA_FROST_WINDOWS_ISO`
+- `TESSERA_FROST_VIRTIO_ISO`
+
 ## Planned local artifacts
 
-Frost-generated disks and VM runtime state should stay out of Git. The prototype will use
-Frost's own ignored `work/` directory or a local Tessera work directory selected by future
-recipes.
+Frost-generated disks and VM runtime state should stay out of Git. The prototype defaults
+to a local work directory under `.build/windows-frost`, which is ignored with other Swift
+build output.
 
-Expected artifact classes:
+Expected artifact paths from `just windows-frost-env`:
 
-- Base Frost Windows golden qcow2.
-- Base UEFI vars file.
-- Tessera toolchain golden qcow2.
-- Per-run disposable overlays or one persistent development overlay.
+- `TESSERA_FROST_BASE_GOLDEN`: base Frost Windows golden qcow2.
+- `TESSERA_FROST_BASE_VARS`: base UEFI vars file.
+- `TESSERA_FROST_TOOLCHAIN_GOLDEN`: Tessera toolchain golden qcow2.
+- `TESSERA_FROST_TOOLCHAIN_VARS`: Tessera toolchain UEFI vars file.
+
+Later phases will also create either per-run disposable overlays or one persistent
+development overlay.
 
 ## Host prerequisite check
 
@@ -107,6 +142,8 @@ The shared defaults are:
 - `TESSERA_FROST_WORK`: local VM artifact directory, defaulting to `.build/windows-frost`.
 - `TESSERA_FROST_SSH_PORT`: forwarded SSH port, defaulting to `2222`.
 - `TESSERA_FROST_USER`: Windows SSH user, defaulting to `tester`.
+- `TESSERA_FROST_WINDOWS_ISO`: optional Windows ISO path for future build recipes.
+- `TESSERA_FROST_VIRTIO_ISO`: optional VirtIO ISO path for future build recipes.
 
 ## Current next step
 

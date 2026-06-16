@@ -13,9 +13,9 @@ updated: 2026-06-16
 - [x] **Phase 0 — Frost checkout and host prerequisites**
   - [x] 0.1 Choose the Frost checkout strategy and document local paths
   - [x] 0.2 Add a host prerequisite check for Frost tooling
-- [ ] **Phase 1 — Base Frost integration wrappers**
+- [x] **Phase 1 — Base Frost integration wrappers**
   - [x] 1.1 Add non-destructive Frost `just` plumbing
-  - [ ] 1.2 Document required ISO inputs and expected artifacts
+  - [x] 1.2 Document required ISO inputs and expected artifacts
 - [ ] **Phase 2 — Base Windows golden image**
   - [ ] 2.1 Build the Frost base golden image
   - [ ] 2.2 Verify base image boot, SSH, and exit-code propagation
