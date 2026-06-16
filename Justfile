@@ -296,6 +296,9 @@ windows-frost-dry-run:
 windows-frost-check-base:
     scripts/windows-frost.sh check-base
 
+windows-frost-provision-toolchain *args:
+    scripts/windows-frost-provision-toolchain.sh {{args}}
+
 # ── Formatting ───────────────────────────────────────────────────────────────
 
 format: _format-json _format-markdown

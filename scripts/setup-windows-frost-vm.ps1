@@ -18,7 +18,14 @@ param(
     # AuthorizedKeyPath exists, the key is read from that path.
     [string]$AuthorizedKey = "",
 
-    [string]$AuthorizedKeyPath = "C:\Windows\Temp\tessera_frost_authorized_key.pub"
+    [string]$AuthorizedKeyPath = "C:\Windows\Temp\tessera_frost_authorized_key.pub",
+
+    [string]$GitInstallerUrl = "https://github.com/git-for-windows/git/releases/download/v2.54.0.windows.1/Git-2.54.0-arm64.exe",
+
+    [string]$VisualStudioBootstrapperUrl = "https://aka.ms/vs/17/release/vs_community.exe",
+
+    # Leave empty to derive the official Swift ARM64 installer URL from ExpectedSwiftVersion.
+    [string]$SwiftInstallerUrl = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -82,6 +89,12 @@ function Test-PendingReboot {
     return $null -ne $pending
 }
 
+function Get-SwiftInstallerUrl {
+    param([string]$Version)
+
+    return "https://download.swift.org/swift-$Version-release/windows10-arm64/swift-$Version-RELEASE/swift-$Version-RELEASE-windows10-arm64.exe"
+}
+
 function Exit-RebootRequired {
     "Reboot required before continuing. Reboot the guest, wait for SSH, then rerun this script." |
         Set-Content -Path $RebootMarker
@@ -89,24 +102,32 @@ function Exit-RebootRequired {
     exit 100
 }
 
-function Invoke-WingetInstall {
+function Invoke-Download {
     param(
-        [string]$Id,
-        [string]$Name,
-        [string[]]$ExtraArguments = @()
+        [string]$Uri,
+        [string]$OutFile
     )
 
-    Write-Log "Installing/verifying $Name via winget ($Id)"
-    $arguments = @(
-        "install",
-        "--id", $Id,
-        "-e",
-        "--source", "winget",
-        "--accept-source-agreements",
-        "--accept-package-agreements"
-    ) + $ExtraArguments
+    Write-Log "Downloading $Uri"
+    $ProgressPreference = "SilentlyContinue"
+    Invoke-WebRequest -Uri $Uri -OutFile $OutFile -UseBasicParsing
+}
 
-    & winget @arguments
+function Invoke-Installer {
+    param(
+        [string]$Name,
+        [string]$Path,
+        [string[]]$Arguments,
+        [int[]]$AllowedExitCodes = @(0)
+    )
+
+    Write-Log "Running $Name installer: $Path $($Arguments -join ' ')"
+    $process = Start-Process -FilePath $Path -ArgumentList $Arguments -Wait -PassThru
+    Write-Log "$Name installer exit code: $($process.ExitCode)"
+    if ($AllowedExitCodes -notcontains $process.ExitCode) {
+        throw "$Name installer failed with exit code $($process.ExitCode)"
+    }
+
     Update-SessionPath
 }
 
@@ -116,26 +137,53 @@ Invoke-Step "Verify administrator token" {
     }
 }
 
-Invoke-Step "Verify winget is available" {
-    if (-not (Test-Command "winget")) {
-        throw "winget is not available. The Windows image may need App Installer before Tessera provisioning can continue."
-    }
-
-    winget source reset --force
+Invoke-Step "Verify download access" {
+    $null = Invoke-WebRequest -Uri "https://download.swift.org" -UseBasicParsing -Method Head
 }
 
 Invoke-Step "Install Git" {
-    Invoke-WingetInstall -Id "Git.Git" -Name "Git"
+    if (Test-Command "git") {
+        Write-Log "Git already available."
+        return
+    }
+
+    $installer = Join-Path $env:TEMP "Git-2.54.0-arm64.exe"
+    Invoke-Download -Uri $GitInstallerUrl -OutFile $installer
+    Invoke-Installer `
+        -Name "Git" `
+        -Path $installer `
+        -Arguments @("/VERYSILENT", "/NORESTART", "/NOCANCEL", "/SP-") `
+        -AllowedExitCodes @(0, 3010)
 }
 
 Invoke-Step "Install Visual Studio 2022 Community C++ toolchain" {
-    Invoke-WingetInstall `
-        -Id "Microsoft.VisualStudio.2022.Community" `
-        -Name "Visual Studio 2022 Community C++ toolchain" `
-        -ExtraArguments @(
-            "--override",
-            "--wait --quiet --norestart --add Microsoft.VisualStudio.Workload.NativeDesktop --add Microsoft.VisualStudio.Component.Windows11SDK.26100 --includeRecommended"
-        )
+    $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+    if (Test-Path $vswhere) {
+        $existing = & $vswhere `
+            -latest `
+            -products Microsoft.VisualStudio.Product.Community `
+            -requires Microsoft.VisualStudio.Workload.NativeDesktop `
+            -property installationPath
+        if (-not [string]::IsNullOrWhiteSpace($existing)) {
+            Write-Log "Visual Studio C++ workload already available at $existing"
+            return
+        }
+    }
+
+    $installer = Join-Path $env:TEMP "vs_community.exe"
+    Invoke-Download -Uri $VisualStudioBootstrapperUrl -OutFile $installer
+    Invoke-Installer `
+        -Name "Visual Studio 2022 Community" `
+        -Path $installer `
+        -Arguments @(
+            "--wait",
+            "--quiet",
+            "--norestart",
+            "--add", "Microsoft.VisualStudio.Workload.NativeDesktop",
+            "--add", "Microsoft.VisualStudio.Component.Windows11SDK.26100",
+            "--includeRecommended"
+        ) `
+        -AllowedExitCodes @(0, 3010)
 }
 
 Invoke-Step "Check for pending reboot after Visual Studio" {
@@ -168,7 +216,33 @@ Invoke-Step "Verify Visual Studio C++ workload" {
 }
 
 Invoke-Step "Install Swift toolchain" {
-    Invoke-WingetInstall -Id "Swift.Toolchain" -Name "Swift toolchain"
+    Update-SessionPath
+    if (Test-Command "swift") {
+        $versionOutput = (& swift --version) -join "`n"
+        if ($versionOutput -match [regex]::Escape($ExpectedSwiftVersion)) {
+            Write-Log "Swift $ExpectedSwiftVersion already available."
+            return
+        }
+    }
+
+    $installerUrl = $SwiftInstallerUrl
+    if ([string]::IsNullOrWhiteSpace($installerUrl)) {
+        $installerUrl = Get-SwiftInstallerUrl -Version $ExpectedSwiftVersion
+    }
+
+    $installer = Join-Path $env:TEMP "swift-$ExpectedSwiftVersion-windows10-arm64.exe"
+    Invoke-Download -Uri $installerUrl -OutFile $installer
+    Invoke-Installer `
+        -Name "Swift toolchain" `
+        -Path $installer `
+        -Arguments @("/quiet", "/norestart") `
+        -AllowedExitCodes @(0, 3010)
+}
+
+Invoke-Step "Check for pending reboot after Swift" {
+    if (Test-PendingReboot) {
+        Exit-RebootRequired
+    }
 }
 
 Invoke-Step "Enable OpenSSH Server" {

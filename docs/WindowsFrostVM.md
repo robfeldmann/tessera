@@ -173,11 +173,56 @@ it writes a marker under `C:\ProgramData\Tessera\FrostProvision` and exits with 
 `100`. The host-side provisioning wrapper should reboot the guest, wait for SSH, and rerun
 the script until it writes `complete.txt`.
 
+The first provisioning attempt tried WinGet over OpenSSH and hit WinGet error `0x8a15000f`
+(`Data required by the source is missing`) even after `winget source reset/update`,
+matching known WinGet-over-OpenSSH behavior. The provisioner now avoids WinGet for the
+heavy toolchain installs and downloads the Git, Visual Studio, and Swift installers
+directly.
+
+Swift maintainability note: the host wrapper reads `.swift-version` and passes that value
+as `-ExpectedSwiftVersion`. Unless `TESSERA_FROST_SWIFT_INSTALLER_URL` is set, the Windows
+provisioning script derives the official Swift ARM64 installer URL from that version. When
+Tessera bumps Swift, `.swift-version` should usually be the only Swift version change
+needed. The direct Git and Visual Studio installer URLs are parameters too, and can be
+overridden for one run with:
+
+```fish
+env \
+  TESSERA_FROST_GIT_INSTALLER_URL=https://example.invalid/Git-arm64.exe \
+  TESSERA_FROST_VS_BOOTSTRAPPER_URL=https://example.invalid/vs_community.exe \
+  TESSERA_FROST_SWIFT_INSTALLER_URL=https://example.invalid/swift-arm64.exe \
+  just windows-frost-provision-toolchain --force
+```
+
 This provisioning script intentionally does not configure GUI clipboard integration. For
 headless Frost runs, copy/paste is handled by the host terminal and SSH. If a Frost-built
 image is imported into UTM later, Phase 6 must verify GUI integration separately,
 including display resize, input, host ↔ guest clipboard copy/paste, and whether Frost's
 VirtIO guest tools are sufficient or UTM/SPICE guest tools need another install step.
+
+To build the Tessera toolchain golden overlay from the base golden, run:
+
+```fish
+just windows-frost-provision-toolchain
+```
+
+If an old toolchain overlay already exists and should be rebuilt:
+
+```fish
+just windows-frost-provision-toolchain --force
+```
+
+The toolchain artifact is currently a qcow2 overlay backed by the base Frost golden. Keep
+both files together until a later phase decides whether to compact/convert it into a
+standalone qcow2.
+
+Phase 3.2 built the Tessera toolchain overlay successfully. Provisioning required one
+reboot after Visual Studio installation, then completed on the second attempt. The created
+artifacts were:
+
+- `.build/windows-frost/disks/tessera-win11.qcow2` — 21 GB qcow2 overlay backed by
+  `base-win11.qcow2`.
+- `.build/windows-frost/disks/tessera-win11-vars.fd` — 64 MB UEFI vars file.
 
 ## Current next step
 
