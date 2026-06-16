@@ -10,9 +10,9 @@ updated: 2026-06-16
 
 ## Progress
 
-- [ ] **Phase 0 — Frost checkout and host prerequisites**
+- [x] **Phase 0 — Frost checkout and host prerequisites**
   - [x] 0.1 Choose the Frost checkout strategy and document local paths
-  - [ ] 0.2 Add a host prerequisite check for Frost tooling
+  - [x] 0.2 Add a host prerequisite check for Frost tooling
 - [ ] **Phase 1 — Base Frost integration wrappers**
   - [ ] 1.1 Add non-destructive Frost `just` plumbing
   - [ ] 1.2 Document required ISO inputs and expected artifacts

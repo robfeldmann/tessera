@@ -68,6 +68,29 @@ Expected artifact classes:
 - Tessera toolchain golden qcow2.
 - Per-run disposable overlays or one persistent development overlay.
 
+## Host prerequisite check
+
+Run the non-destructive doctor before building any VM images:
+
+```fish
+just windows-frost-doctor
+```
+
+The check verifies:
+
+- Frost CLI at the default or overridden checkout path.
+- `qemu-img`.
+- `qemu-system-aarch64`.
+- `swtpm`.
+- `sshpass`.
+- macOS `swift`, used by Frost to build its `vmkit` helper.
+
+If tools are missing, install the host dependencies with:
+
+```fish
+brew install qemu swtpm hudochenkov/sshpass/sshpass
+```
+
 ## Current next step
 
-Run the Phase 0 host prerequisite check once it is added to the `Justfile`.
+After the doctor passes, add the non-destructive Frost wrapper recipes from Phase 1.

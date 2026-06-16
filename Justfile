@@ -279,6 +279,11 @@ windows-vm-sync:
     git push --force-with-lease "$host:$repo" "HEAD:$branch"; \
     ssh "$host" "cd $repo && git log -1 --oneline && git status -sb"
 
+# ── Windows Frost prototype ──────────────────────────────────────────────────
+
+windows-frost-doctor:
+    scripts/windows-frost-doctor.sh
+
 # ── Formatting ───────────────────────────────────────────────────────────────
 
 format: _format-json _format-markdown

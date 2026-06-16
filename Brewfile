@@ -1,3 +1,6 @@
+# Taps
+tap "hudochenkov/sshpass" # For Tessera frost
+
 # Swift Development Tools
 brew "swift-format"
 brew "swiftlint"
@@ -6,6 +9,9 @@ brew "swiftlint"
 brew "just"
 brew "lima" # Linux virtual machines
 brew "pre-commit"
+brew "qemu" # For Tessera frost
+brew "sshpass" # For Tessera frost
+brew "swtpm" # For Tessera frost
 cask "utm" # Windows virtual machines
 
 # Formatting Tools
