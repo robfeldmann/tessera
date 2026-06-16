@@ -216,6 +216,15 @@ The toolchain artifact is currently a qcow2 overlay backed by the base Frost gol
 both files together until a later phase decides whether to compact/convert it into a
 standalone qcow2.
 
+Verify the Tessera toolchain golden with:
+
+```fish
+just windows-frost-check-toolchain
+```
+
+This boots a disposable overlay, runs password SSH checks for Git, Swift, Visual Studio,
+and the Windows SDK, then verifies key-based SSH auth with `~/.ssh/tessera_windows`.
+
 Phase 3.2 built the Tessera toolchain overlay successfully. Provisioning required one
 reboot after Visual Studio installation, then completed on the second attempt. The created
 artifacts were:
@@ -223,6 +232,15 @@ artifacts were:
 - `.build/windows-frost/disks/tessera-win11.qcow2` — 21 GB qcow2 overlay backed by
   `base-win11.qcow2`.
 - `.build/windows-frost/disks/tessera-win11-vars.fd` — 64 MB UEFI vars file.
+
+Phase 3.3 verified the toolchain golden with `just windows-frost-check-toolchain`:
+
+- `git version 2.54.0.windows.1`.
+- `Swift version 6.3.2`, target `aarch64-unknown-windows-msvc`.
+- Visual Studio Native Desktop workload at
+  `C:\Program Files\Microsoft Visual Studio\2022\Community`.
+- Windows SDK `10.0.26100.0`.
+- SSH key auth for `desktop-hdia40e\\tester`.
 
 ## Current next step
 

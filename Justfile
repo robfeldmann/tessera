@@ -299,6 +299,9 @@ windows-frost-check-base:
 windows-frost-provision-toolchain *args:
     scripts/windows-frost-provision-toolchain.sh {{args}}
 
+windows-frost-check-toolchain:
+    scripts/windows-frost-check-toolchain.sh
+
 # ── Formatting ───────────────────────────────────────────────────────────────
 
 format: _format-json _format-markdown

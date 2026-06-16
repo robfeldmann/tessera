@@ -19,10 +19,10 @@ updated: 2026-06-16
 - [x] **Phase 2 — Base Windows golden image**
   - [x] 2.1 Build the Frost base golden image
   - [x] 2.2 Verify base image boot, SSH, and exit-code propagation
-- [ ] **Phase 3 — Tessera toolchain golden image**
+- [x] **Phase 3 — Tessera toolchain golden image**
   - [x] 3.1 Create a Frost-oriented Windows provisioning script
   - [x] 3.2 Build/promote a Tessera toolchain golden image
-  - [ ] 3.3 Verify Swift, Git, Visual Studio, Windows SDK, and SSH key auth
+  - [x] 3.3 Verify Swift, Git, Visual Studio, Windows SDK, and SSH key auth
 - [ ] **Phase 4 — Tessera source sync and test execution**
   - [ ] 4.1 Add source sync for a Frost guest checkout
   - [ ] 4.2 Add `test-windows-frost` and run Swift tests in the guest
