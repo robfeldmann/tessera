@@ -95,10 +95,15 @@ Invoke-Step "Verify winget is available" {
     if (-not (Test-Command "winget")) {
         throw "winget is not available. Install/update App Installer from Microsoft Store, then rerun this script."
     }
+
+    # On a fresh image the winget source index is sometimes missing or corrupt
+    # ("data required by the source is missing; try the reset command"), which makes
+    # every install fail fast. Reset to defaults so the installs below can resolve.
+    winget source reset --force
 }
 
 Invoke-Step "Install Git" {
-    winget install --id Git.Git -e --accept-source-agreements --accept-package-agreements
+    winget install --id Git.Git -e --source winget --accept-source-agreements --accept-package-agreements
     Update-SessionPath
 }
 
@@ -106,6 +111,7 @@ Invoke-Step "Install Visual Studio 2022 Community C++ toolchain" {
     winget install `
         --id Microsoft.VisualStudio.2022.Community `
         -e `
+        --source winget `
         --accept-source-agreements `
         --accept-package-agreements `
         --override "--wait --quiet --norestart --add Microsoft.VisualStudio.Workload.NativeDesktop --add Microsoft.VisualStudio.Component.Windows11SDK.26100 --includeRecommended"
@@ -149,7 +155,7 @@ Invoke-Step "Check for pending reboot" {
 }
 
 Invoke-Step "Install Swift toolchain" {
-    winget install --id Swift.Toolchain -e --accept-source-agreements --accept-package-agreements
+    winget install --id Swift.Toolchain -e --source winget --accept-source-agreements --accept-package-agreements
     Update-SessionPath
 }
 
