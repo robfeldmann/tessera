@@ -302,6 +302,12 @@ windows-frost-provision-toolchain *args:
 windows-frost-check-toolchain:
     scripts/windows-frost-check-toolchain.sh
 
+windows-frost-sync-source:
+    scripts/windows-frost-sync-source.sh
+
+test-windows-frost:
+    scripts/windows-frost-test.sh
+
 # ── Formatting ───────────────────────────────────────────────────────────────
 
 format: _format-json _format-markdown

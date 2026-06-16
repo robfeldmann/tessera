@@ -23,10 +23,10 @@ updated: 2026-06-16
   - [x] 3.1 Create a Frost-oriented Windows provisioning script
   - [x] 3.2 Build/promote a Tessera toolchain golden image
   - [x] 3.3 Verify Swift, Git, Visual Studio, Windows SDK, and SSH key auth
-- [ ] **Phase 4 — Tessera source sync and test execution**
-  - [ ] 4.1 Add source sync for a Frost guest checkout
-  - [ ] 4.2 Add `test-windows-frost` and run Swift tests in the guest
-  - [ ] 4.3 Decide disposable vs persistent overlay default
+- [x] **Phase 4 — Tessera source sync and test execution**
+  - [x] 4.1 Add source sync for a Frost guest checkout
+  - [x] 4.2 Add `test-windows-frost` and run Swift tests in the guest
+  - [x] 4.3 Decide disposable vs persistent overlay default
 - [ ] **Phase 5 — Interactive terminal validation**
   - [ ] 5.1 Add persistent start/stop/ssh recipes for Frost overlays
   - [ ] 5.2 Validate an interactive Tessera terminal demo over SSH/ConPTY

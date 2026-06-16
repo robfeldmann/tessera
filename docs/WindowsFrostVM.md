@@ -242,6 +242,44 @@ Phase 3.3 verified the toolchain golden with `just windows-frost-check-toolchain
 - Windows SDK `10.0.26100.0`.
 - SSH key auth for `desktop-hdia40e\\tester`.
 
+## Source sync and test execution
+
+`test-windows-frost` is the default Phase 4 validation loop:
+
+```fish
+just test-windows-frost
+```
+
+It creates a disposable qcow2 overlay from the Tessera toolchain golden, boots it,
+packages the current macOS working tree, syncs the source archive into
+`C:\Users\tester\tessera`, runs `swift test --no-parallel`, shuts down the guest, and
+returns the guest test command's exit code.
+
+The source archive is created from `git ls-files --cached --others --exclude-standard`, so
+it includes tracked files, local modifications to tracked files, and untracked files that
+are not ignored. Deleted tracked files are treated as an error because they cannot be
+represented safely by the archive list.
+
+`windows-frost-sync-source` exists as a lower-level helper for an already-running Frost
+guest:
+
+```fish
+just windows-frost-sync-source
+```
+
+Phase 4 currently defaults to disposable overlays for validation because they prove a
+clean repeatable Windows run and avoid contaminating the toolchain golden. Persistent
+overlays remain deferred to Phase 5, where the goal shifts to faster interactive iteration
+and TUI manual validation.
+
+Phase 4 test result: `just test-windows-frost` successfully synced source, booted Windows,
+ran SwiftPM, propagated the guest exit code, and reached the expected current Slice 6
+Windows compile failure:
+
+```text
+Sources\CTesseraTerminalPlatform\include\CTesseraTerminalPlatform.h:5:10: fatal error: 'termios.h' file not found
+```
+
 ## Current next step
 
 Phase 2.2 verified the base golden with `just windows-frost-check-base`. The successful
