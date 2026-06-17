@@ -1,4 +1,4 @@
-# Windows VM Bootstrap
+# Manual Windows VM with UTM
 
 Metadata:
 
@@ -11,8 +11,12 @@ Metadata:
 - Recommended VM name: `tessera-windows`
 - Recommended Windows user: `tess`
 
-This guide creates a local Windows 11 ARM64 VM for running Tessera's Windows build and
-test checks from macOS.
+This guide walks through creating a Windows 11 ARM64 VM manually in UTM. Use this path if
+you want maximum control over the Windows desktop VM or if the scripted Frost workflow in
+`docs/WindowsFrostVM.md` does not fit your setup.
+
+For the recommended repeatable test workflow, start with `docs/WindowsFrostVM.md`. For a
+hand-managed Windows desktop VM, continue here.
 
 The goal is a VM you can reach with SSH, then drive from macOS with:
 
@@ -24,6 +28,26 @@ just test-windows-vm
 
 Fish users can use `set -x TESSERA_WINDOWS_VM_SSH tessera-windows` instead of `export`.
 
+## Quick setup for experienced contributors
+
+If you already know how to install Windows in UTM:
+
+1. Create a Windows 11 ARM64 VM named `tessera-windows`.
+2. Install UTM Guest Tools.
+3. Create a Windows user with a real password.
+4. Copy or clone Tessera into the guest.
+5. Run `scripts/setup-windows-vm.ps1` from elevated PowerShell.
+6. Configure SSH key auth from macOS.
+7. Run:
+
+   ```fish
+   set -x TESSERA_WINDOWS_VM_SSH tessera-windows
+   just windows-vm-check
+   just test-windows-vm
+   ```
+
+The rest of this guide explains those steps in detail.
+
 ## Prerequisites
 
 Install the macOS tools from the project `Brewfile`:
@@ -33,6 +57,9 @@ brew bundle install
 ```
 
 This includes [UTM](https://mac.getutm.app/), which runs the Windows VM.
+
+You also need enough disk space for the Windows VM. UTM stores the VM as a local bundle on
+your Mac.
 
 ## 1. Download the Windows 11 ARM64 ISO
 
@@ -163,22 +190,22 @@ Close PowerShell and open a new PowerShell window so `git` is on `PATH`, then ve
 git --version
 ```
 
-Clone Tessera:
+Clone Tessera. Use either the upstream repository URL or your fork URL:
 
 ```powershell
 cd $HOME
-git clone https://github.com/robfeldmann/tessera.git tessera
+git clone <tessera-repository-url> tessera
 cd tessera
 git status
 ```
 
-If the repository is private, authenticate with GitHub CLI first:
+If you prefer GitHub CLI, authenticate first:
 
 ```powershell
 winget install --id GitHub.cli -e --accept-source-agreements --accept-package-agreements
 gh auth login
 cd $HOME
-gh repo clone robfeldmann/tessera tessera
+gh repo clone <owner>/tessera tessera
 cd tessera
 ```
 
@@ -216,7 +243,7 @@ Swift version 6.3.2 (swift-6.3.2-RELEASE)
 Target: aarch64-unknown-windows-msvc
 Build config: +assertions
 OpenSSH Server is running. From macOS, connect with one of:
-  ssh tess@192.168.64.2
+  ssh tess@<vm-ip>
 ```
 
 ## 7. Verify SSH reachability from macOS
@@ -236,13 +263,13 @@ utmctl ip-address tessera-windows
 From macOS, first check that port 22 is reachable:
 
 ```sh
-nc -vz 192.168.64.2 22
+nc -vz <vm-ip> 22
 ```
 
 Then test password SSH:
 
 ```sh
-ssh -o PreferredAuthentications=password -o PubkeyAuthentication=no tess@192.168.64.2 swift --version
+ssh -o PreferredAuthentications=password -o PubkeyAuthentication=no tess@<vm-ip> swift --version
 ```
 
 If `nc` times out, check the Windows network profile and OpenSSH firewall rule from an
@@ -289,7 +316,7 @@ It defaults to `~/.ssh/tessera_windows.pub`; override with `TESSERA_WINDOWS_VM_P
 To do it by hand instead, copy the public key into the Windows VM:
 
 ```sh
-scp -o PreferredAuthentications=password -o PubkeyAuthentication=no ~/.ssh/tessera_windows.pub tess@192.168.64.2:'C:/Users/tess/tessera_windows.pub'
+scp -o PreferredAuthentications=password -o PubkeyAuthentication=no ~/.ssh/tessera_windows.pub tess@<vm-ip>:'C:/Users/tess/tessera_windows.pub'
 ```
 
 For a Windows administrator account, install the key into the administrators key file. In
@@ -305,7 +332,7 @@ On macOS, add an SSH config entry:
 
 ```sshconfig
 Host tessera-windows
-  HostName 192.168.64.2
+  HostName <vm-ip>
   User tess
   IdentityFile ~/.ssh/tessera_windows
   IdentitiesOnly yes
@@ -352,17 +379,9 @@ Run the Windows test loop:
 just test-windows-vm
 ```
 
-At the time this guide was written, `just test-windows-vm` successfully connected to the
-VM, fetched SwiftPM dependencies, and started building. The expected next failure was the
-Phase 1 Windows portability issue:
-
-```text
-fatal error: 'termios.h' file not found
-Sources/CTesseraTerminalPlatform/include/CTesseraTerminalPlatform.h
-```
-
-That means the VM workflow is working; continue with the planned Windows-safe package
-changes.
+A successful run means macOS can reach the VM, Swift is available in Windows, and the
+Windows build/test command runs inside the guest. If tests fail, treat the output as a
+normal Windows build or test failure rather than a VM setup failure.
 
 ## UTM CLI helpers
 

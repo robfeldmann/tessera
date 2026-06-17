@@ -65,7 +65,9 @@ This will install the following tools:
 - **[pre-commit](https://pre-commit.com/)**: For managing git hooks.
 - **[just](https://github.com/casey/just)**: For running project tasks.
 - **[Lima](https://lima-vm.io/)**: For optional Docker-free Linux test runs.
-- **[UTM](https://mac.getutm.app/)**: For optional Windows test runs on Apple Silicon.
+- **[UTM](https://mac.getutm.app/)**: For optional Windows GUI VM runs on Apple Silicon.
+- **[QEMU](https://www.qemu.org/)**, **swtpm**, and **sshpass**: For scripted Windows VM
+  runs with Frost.
 - **[Prettier](https://prettier.io/)**: For Markdown and config file formatting.
 - **[Python 3](https://www.python.org/)**: For local documentation previews
   (`just docs-preview`).
@@ -210,13 +212,23 @@ just linux-vm-stop
 just linux-vm-delete
 ```
 
-### Windows Test Runs with UTM
+### Windows Test Runs
 
-Use [UTM](https://mac.getutm.app/) when you want to run `swift test` on Windows from an
-Apple Silicon Mac. The full noob-friendly walkthrough is in
-[Windows VM Bootstrap](docs/WindowsVM.md).
+Windows development on an Apple Silicon Mac has two supported local VM workflows:
 
-After bootstrapping the VM, the normal macOS test loop is:
+- **Recommended scripted workflow:** use Frost for repeatable image builds, disposable
+  test runs, persistent SSH sessions, and optional UTM GUI import. Start with
+  [Windows VM with Frost](docs/WindowsFrostVM.md).
+- **Manual desktop workflow:** use UTM directly when you want to create and manage the
+  Windows VM yourself. Follow [Manual Windows VM with UTM](docs/WindowsVM.md).
+
+For the normal Frost test loop, build the Frost images once, then run:
+
+```fish
+just test-windows-frost
+```
+
+For manual UTM VM runs, bootstrap the VM and then run:
 
 ```fish
 set -x TESSERA_WINDOWS_VM_SSH tessera-windows
@@ -224,7 +236,8 @@ just windows-vm-check
 just test-windows-vm
 ```
 
-Use `just windows-vm-ssh` to open an interactive shell in the guest.
+Use the detailed guides above for first-time setup, SSH configuration, GUI validation, and
+troubleshooting.
 
 ### Pre-commit Hooks
 

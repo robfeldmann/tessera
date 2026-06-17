@@ -10,7 +10,7 @@ usage() {
 usage: scripts/windows-frost.sh <command>
 
 Commands:
-  env         Print resolved Frost prototype paths and defaults
+  env         Print resolved Frost paths and defaults
   help        Show Frost CLI help from the configured checkout
   dry-run     Print a non-destructive Frost run invocation for the planned golden paths
   check-base  Boot the base golden and run a trivial Windows command
@@ -20,7 +20,7 @@ EOF
 require_frost() {
   if [[ ! -x "$TESSERA_FROST_CLI" ]]; then
     printf 'Frost CLI not found or not executable: %s\n' "$TESSERA_FROST_CLI" >&2
-    printf 'Set TESSERA_FROST_ROOT or clone Frost to /Users/rob/Developer/solcreek/frost/main.\n' >&2
+    printf 'Set TESSERA_FROST_ROOT or clone Frost to $HOME/Developer/solcreek/frost/main.\n' >&2
     exit 1
   fi
 }

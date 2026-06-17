@@ -293,6 +293,9 @@ windows-frost-help:
 windows-frost-dry-run:
     scripts/windows-frost.sh dry-run
 
+windows-frost-build-base *args:
+    scripts/windows-frost-build-base.sh {{args}}
+
 windows-frost-check-base:
     scripts/windows-frost.sh check-base
 
