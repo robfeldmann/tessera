@@ -137,6 +137,13 @@ Invoke-Step "Verify administrator token" {
     }
 }
 
+Invoke-Step "Enable Developer Mode for unprivileged symlinks" {
+    $path = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock"
+    New-Item -Path $path -Force | Out-Null
+    New-ItemProperty -Path $path -Name AllowDevelopmentWithoutDevLicense -Value 1 -PropertyType DWord -Force | Out-Null
+    New-ItemProperty -Path $path -Name AllowAllTrustedApps -Value 1 -PropertyType DWord -Force | Out-Null
+}
+
 Invoke-Step "Verify download access" {
     $null = Invoke-WebRequest -Uri "https://download.swift.org" -UseBasicParsing -Method Head
 }
@@ -184,6 +191,13 @@ Invoke-Step "Install Visual Studio 2022 Community C++ toolchain" {
             "--includeRecommended"
         ) `
         -AllowedExitCodes @(0, 3010)
+}
+
+Invoke-Step "Enable Git symlink checkout support" {
+    Update-SessionPath
+    git config --global core.symlinks true
+    $symlinks = git config --global --get core.symlinks
+    Write-Log "core.symlinks=$symlinks"
 }
 
 Invoke-Step "Check for pending reboot after Visual Studio" {
@@ -309,6 +323,29 @@ Invoke-Step "Verify Git" {
     Update-SessionPath
     $gitVersion = (& git --version) -join "`n"
     Write-Log $gitVersion
+}
+
+Invoke-Step "Make PowerShell start in the user's home directory" {
+    $homeDirectory = $env:USERPROFILE
+    $profilePaths = @(
+        "$homeDirectory\Documents\WindowsPowerShell\profile.ps1",
+        "$homeDirectory\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1",
+        "$homeDirectory\Documents\PowerShell\profile.ps1",
+        "$homeDirectory\Documents\PowerShell\Microsoft.PowerShell_profile.ps1"
+    )
+
+    $content = @'
+# Tessera Frost VM default location
+if ($env:USERPROFILE -and (Test-Path $env:USERPROFILE)) {
+    Set-Location $env:USERPROFILE
+}
+'@
+
+    foreach ($profilePath in $profilePaths) {
+        New-Item -ItemType Directory -Force (Split-Path $profilePath) | Out-Null
+        Set-Content -Path $profilePath -Value $content -Encoding UTF8
+        Write-Log "Wrote $profilePath"
+    }
 }
 
 "Tessera Frost provisioning completed at $([DateTime]::Now.ToString('O'))" |

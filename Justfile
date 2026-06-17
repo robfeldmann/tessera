@@ -305,6 +305,30 @@ windows-frost-check-toolchain:
 windows-frost-sync-source:
     scripts/windows-frost-sync-source.sh
 
+windows-frost-sync-utm host="":
+    @set -euo pipefail; \
+    if [[ -n "{{host}}" ]]; then \
+        scripts/windows-frost-sync-utm.sh "{{host}}"; \
+    else \
+        scripts/windows-frost-sync-utm.sh; \
+    fi
+
+windows-frost-install-utm-tools host="":
+    @set -euo pipefail; \
+    if [[ -n "{{host}}" ]]; then \
+        scripts/windows-frost-install-utm-tools.sh "{{host}}"; \
+    else \
+        scripts/windows-frost-install-utm-tools.sh; \
+    fi
+
+windows-frost-configure-gui host="":
+    @set -euo pipefail; \
+    if [[ -n "{{host}}" ]]; then \
+        scripts/windows-frost-configure-gui.sh "{{host}}"; \
+    else \
+        scripts/windows-frost-configure-gui.sh; \
+    fi
+
 test-windows-frost:
     scripts/windows-frost-test.sh
 

@@ -7,6 +7,8 @@ source "$repo_root/scripts/windows-frost-env.sh"
 
 PASS="${TESSERA_FROST_PASS:-${FROST_SSH_PASS:-Test1234!}}"
 DEST="${TESSERA_FROST_REPO_PATH:-C:/Users/$TESSERA_FROST_USER/tessera}"
+SSH_HOST="${TESSERA_FROST_SSH_HOST:-localhost}"
+SSH_PORT="${TESSERA_FROST_SSH_PORT:-2222}"
 ARCHIVE="$TESSERA_FROST_WORK/source/tessera-source.tar.gz"
 REMOTE_ARCHIVE="C:/Windows/Temp/tessera-source.tar.gz"
 REMOTE_SYNC_SCRIPT="C:/Windows/Temp/sync-windows-frost-source.ps1"
@@ -14,7 +16,7 @@ SSHOPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectT
 
 usage() {
   cat <<'EOF'
-usage: scripts/windows-frost-sync-source.sh [--dest C:/path/to/tessera]
+usage: scripts/windows-frost-sync-source.sh [--host HOST] [--port PORT] [--dest C:/path/to/tessera]
 
 Create an archive of the current working tree and sync it into an already-running
 Windows Frost guest over SSH.
@@ -23,6 +25,14 @@ EOF
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --host)
+      SSH_HOST="$2"
+      shift 2
+      ;;
+    --port)
+      SSH_PORT="$2"
+      shift 2
+      ;;
     --dest)
       DEST="$2"
       shift 2
@@ -56,13 +66,13 @@ printf '[sync] create source archive: %s\n' "$ARCHIVE"
 
 printf '[sync] copy archive and extractor to guest\n'
 export SSHPASS="$PASS"
-sshpass -e scp "${SSHOPTS[@]}" -P "$TESSERA_FROST_SSH_PORT" \
+sshpass -e scp "${SSHOPTS[@]}" -P "$SSH_PORT" \
   "$ARCHIVE" \
-  "$TESSERA_FROST_USER@localhost:$REMOTE_ARCHIVE"
-sshpass -e scp "${SSHOPTS[@]}" -P "$TESSERA_FROST_SSH_PORT" \
+  "$TESSERA_FROST_USER@$SSH_HOST:$REMOTE_ARCHIVE"
+sshpass -e scp "${SSHOPTS[@]}" -P "$SSH_PORT" \
   "$repo_root/scripts/sync-windows-frost-source.ps1" \
-  "$TESSERA_FROST_USER@localhost:$REMOTE_SYNC_SCRIPT"
+  "$TESSERA_FROST_USER@$SSH_HOST:$REMOTE_SYNC_SCRIPT"
 
 printf '[sync] extract source in guest: %s\n' "$DEST"
-sshpass -e ssh "${SSHOPTS[@]}" -p "$TESSERA_FROST_SSH_PORT" "$TESSERA_FROST_USER@localhost" \
+sshpass -e ssh "${SSHOPTS[@]}" -p "$SSH_PORT" "$TESSERA_FROST_USER@$SSH_HOST" \
   "powershell -NoProfile -ExecutionPolicy Bypass -File $REMOTE_SYNC_SCRIPT -ArchivePath $REMOTE_ARCHIVE -Destination $DEST"

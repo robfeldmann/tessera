@@ -3,7 +3,7 @@ name: Frost Windows VM Prototype
 description:
   Prototype a Frost-based Windows 11 ARM64 VM workflow as an alternative to the UTM Phase
   0 setup.
-status: in-progress
+status: completed
 created: 2026-06-16
 updated: 2026-06-16
 ---
@@ -36,11 +36,11 @@ updated: 2026-06-16
 - [x] **Phase 7 — Frost upstreaming decision**
   - [x] 7.1 Record local Frost changes needed by the prototype
   - [x] 7.2 Decide whether to upstream, vendor, or keep wrapper-only integration
-- [ ] **Phase 8 — UTM GUI workflow hardening**
-  - [ ] 8.1 Add a source sync workflow for the UTM-imported GUI VM
-  - [ ] 8.2 Investigate UTM/SPICE/QEMU guest tools for resize, clipboard, and guest-agent
+- [x] **Phase 8 — UTM GUI workflow hardening**
+  - [x] 8.1 Add a source sync workflow for the UTM-imported GUI VM
+  - [x] 8.2 Investigate UTM/SPICE/QEMU guest tools for resize, clipboard, and guest-agent
         support
-  - [ ] 8.3 Document manual GUI app-run workflow and remaining blockers
+  - [x] 8.3 Document manual GUI app-run workflow and remaining blockers
 
 ## Overview
 
@@ -333,6 +333,10 @@ Terminal app runs, not just boot/toolchain checks.
   `C:\Users\tester\tessera`.
 - Handle the expected SSH known-host collision when the imported VM reuses an IP
   previously used by another Windows VM, e.g. document `ssh-keygen -R <ip>`.
+- Result: added `just windows-frost-sync-utm <host>`, which reuses the archive sync
+  workflow over SSH and documents known-host collision handling. Verified with
+  `just windows-frost-sync-utm 192.168.64.2`; `Package.swift` appeared at
+  `C:\Users\tester\tessera`, and `swift --version` still reported Swift 6.3.2.
 - Acceptance: the current working tree can be placed in the GUI VM so PowerShell can run
   commands from `C:\Users\tester\tessera`.
 
@@ -343,6 +347,14 @@ Terminal app runs, not just boot/toolchain checks.
   - display resize/dynamic resolution.
   - host ↔ guest clipboard copy/paste.
   - QEMU guest agent / `utmctl ip-address` and `utmctl exec` support.
+- Result: added `just windows-frost-install-utm-tools <host>` and installed UTM Guest
+  Tools 0.1.271 into `tessera-frost-import`. Services `QEMU-GA`, `vdservice`,
+  `spice-webdavd`, and `BalloonService` are running, and
+  `utmctl ip-address tessera-frost-import` now returns `192.168.64.2`. After rebooting the
+  Windows guest, dynamic resize worked, host ↔ guest clipboard sync worked, and the guest
+  CPU load settled down. Also added `just windows-frost-configure-gui <host>` to enable
+  Developer Mode, set Git `core.symlinks=true`, and make new PowerShell sessions start in
+  `%USERPROFILE%`.
 - Acceptance: either resize/clipboard/guest-agent support works in `tessera-frost-import`,
   or the missing component and next manual action are clearly documented.
 
@@ -357,6 +369,8 @@ Terminal app runs, not just boot/toolchain checks.
   - run tests/examples once Windows compilation is fixed.
 - Note that Tessera example validation remains blocked until the current `termios.h`
   Windows compile failure is fixed.
+- Result: `docs/WindowsFrostVM.md` documents the UTM GUI workflow, source sync, guest
+  tools install/repair command, and remaining `termios.h` blocker.
 - Acceptance: a contributor understands when to use Frost SSH, Frost disposable tests, and
   the UTM GUI VM.
 

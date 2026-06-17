@@ -364,9 +364,85 @@ Observed GUI validation results:
   known `termios.h` failure.
 
 Conclusion: the Frost-built image is usable in UTM for manual GUI boot/toolchain checks,
-but UTM guest integration is incomplete. Follow-up should install or repair the relevant
-UTM/SPICE/QEMU guest tools in the imported image if we want dynamic resolution, clipboard,
-and `utmctl` guest-agent operations.
+but UTM guest integration was initially incomplete. Installing UTM Windows Guest Tools in
+the imported image added the expected guest services (`QEMU-GA`, `vdservice`,
+`spice-webdavd`, and `BalloonService`), and `utmctl ip-address tessera-frost-import` now
+works.
+
+To install or repair UTM Windows Guest Tools in the imported VM:
+
+```fish
+just windows-frost-install-utm-tools <vm-ip>
+```
+
+The recipe downloads UTM's Windows Guest Tools ISO, copies `utm-guest-tools-*.exe` into
+the guest over SSH, and runs it silently with `/S`. Reboot the Windows guest afterward,
+then re-test dynamic resolution and clipboard manually.
+
+To sync the current macOS working tree into the running UTM GUI VM, first find the VM's
+IPv4 address from inside Windows:
+
+```powershell
+Get-NetIPAddress -AddressFamily IPv4 |
+  Where-Object { $_.IPAddress -notlike "169.254.*" -and $_.IPAddress -ne "127.0.0.1" } |
+  Select-Object -ExpandProperty IPAddress
+```
+
+Then run from macOS:
+
+```fish
+just windows-frost-sync-utm <vm-ip>
+```
+
+This copies the current working tree into `C:\Users\tester\tessera` by default. The sync
+is a one-way Mac → Windows snapshot, not a two-way or real-time sync. Rerunning the sync
+replaces the Windows destination, so treat the macOS checkout as the source of truth and
+do not make important edits inside the Windows copy unless you manually copy them back.
+The sync uses an archive of tracked files, modified tracked files, and untracked
+non-ignored files; it does not copy the `.git` directory, so the destination is a source
+tree rather than a Git checkout. It uses `UserKnownHostsFile=/dev/null` for the sync so it
+can tolerate the expected host-key collision when the imported Frost VM reuses an IP
+previously used by another Windows VM. For normal manual SSH, remove stale host keys with:
+
+```fish
+ssh-keygen -R <vm-ip>
+```
+
+After syncing, open PowerShell in the UTM VM:
+
+```powershell
+cd C:\Users\tester\tessera
+swift test --no-parallel
+```
+
+This still reaches the current known `termios.h` Windows compile failure until Slice 6's
+Windows terminal-platform implementation is fixed.
+
+Phase 8.1 verification: `just windows-frost-sync-utm 192.168.64.2` successfully synced the
+current source tree into `C:\Users\tester\tessera` in the UTM-imported VM. `Package.swift`
+was present and `swift --version` in the same VM still reported Swift 6.3.2.
+
+Phase 8.2 verification: UTM Guest Tools 0.1.271 installed successfully via silent
+installer. Services `QEMU-GA`, `vdservice`, `spice-webdavd`, and `BalloonService` were
+running, and `utmctl ip-address tessera-frost-import` returned `192.168.64.2`. After
+rebooting the Windows guest, dynamic resize worked, host ↔ guest clipboard sync worked,
+and the guest CPU load settled down.
+
+Additional GUI quality-of-life settings can be applied with:
+
+```fish
+just windows-frost-configure-gui <vm-ip>
+```
+
+This enables Windows Developer Mode for unprivileged symlink creation, sets Git's global
+`core.symlinks=true`, and writes PowerShell profile files that start new PowerShell
+sessions in `%USERPROFILE%` instead of `C:\Windows\System32`. This has been applied to the
+current `tessera-frost-import` VM and verified with:
+
+- `AllowDevelopmentWithoutDevLicense = 1`.
+- `AllowAllTrustedApps = 1`.
+- `git config --global --get core.symlinks` returns `true`.
+- `C:\Users\tester\Documents\WindowsPowerShell\profile.ps1` exists.
 
 ## Frost integration disposition
 
