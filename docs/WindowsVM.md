@@ -7,14 +7,16 @@ Metadata:
 - UTM: 4.7.5
 - Guest OS: Windows 11 ARM64, 25H2 English multi-edition ISO
 - Guest architecture: ARM64 / aarch64
-- Swift: 6.3.2, `aarch64-unknown-windows-msvc`
+- Swift: follows `.swift-version`, target `aarch64-unknown-windows-msvc`
 - Recommended VM name: `tessera-windows`
 - Recommended Windows user: `tess`
 
 This guide walks through creating a Windows 11 ARM64 VM manually in
-[UTM](https://mac.getutm.app/). Use this path if you want maximum control over the Windows
-desktop VM or if the scripted Frost workflow in `docs/WindowsFrostVM.md` does not fit your
-setup.
+[UTM](https://mac.getutm.app/). If you already know your way around Windows VM setup, you
+can jump to
+[Quick setup for experienced contributors](#quick-setup-for-experienced-contributors). Use
+this manual path if you want maximum control over the Windows desktop VM or if the
+scripted Frost workflow in `docs/WindowsFrostVM.md` does not fit your setup.
 
 For the recommended repeatable test workflow, start with `docs/WindowsFrostVM.md`. For a
 hand-managed Windows desktop VM, continue here.
@@ -51,9 +53,10 @@ The rest of this guide explains those steps in detail.
 
 ## Prerequisites
 
-Install the macOS tools from the project `Brewfile`:
+Install the macOS tools from the project `Brewfile` using [Homebrew](https://brew.sh/):
 
 ```sh
+cd /path/to/tessera
 brew bundle install
 ```
 
@@ -237,10 +240,12 @@ no longer requires closing and reopening PowerShell for those tools to resolve.
 
 Enabling OpenSSH can appear silent for a few minutes. Wait before interrupting it.
 
-A successful run ends with Swift version output and SSH connection details, for example:
+A successful run ends with Swift version output and SSH connection details. The Swift
+version should match `.swift-version`, and the target should be
+`aarch64-unknown-windows-msvc`:
 
 ```text
-Swift version 6.3.2 (swift-6.3.2-RELEASE)
+Swift version <version>
 Target: aarch64-unknown-windows-msvc
 Build config: +assertions
 OpenSSH Server is running. From macOS, connect with one of:

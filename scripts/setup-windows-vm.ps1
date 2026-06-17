@@ -14,7 +14,8 @@ Server, and verifies that Swift matches the repository's .swift-version.
 
 [CmdletBinding()]
 param(
-    [string]$ExpectedSwiftVersion = "6.3.2",
+    # Defaults to the repository's .swift-version when run from a Tessera checkout.
+    [string]$ExpectedSwiftVersion = "",
 
     # Skip the automatic reboot-and-resume when a tool install (typically Visual
     # Studio) leaves a reboot pending. Use this if you want to reboot yourself.
@@ -24,6 +25,23 @@ param(
 $ErrorActionPreference = "Stop"
 
 $ResumeTaskName = "TesseraWindowsVMSetupResume"
+
+function Resolve-ExpectedSwiftVersion {
+    param([string]$ExplicitVersion)
+
+    if (-not [string]::IsNullOrWhiteSpace($ExplicitVersion)) {
+        return $ExplicitVersion.Trim()
+    }
+
+    $versionFile = Join-Path $PSScriptRoot "..\.swift-version"
+    if (Test-Path $versionFile) {
+        return (Get-Content -Raw $versionFile).Trim()
+    }
+
+    throw "Expected Swift version was not provided and .swift-version was not found. Run this script from the Tessera checkout or pass -ExpectedSwiftVersion."
+}
+
+$ExpectedSwiftVersion = Resolve-ExpectedSwiftVersion -ExplicitVersion $ExpectedSwiftVersion
 
 function Invoke-Step {
     param(
@@ -67,7 +85,7 @@ function Test-PendingReboot {
 # Register a one-time elevated scheduled task that reruns this script at the next
 # logon, then remove itself. Used to continue automatically after a reboot.
 function Register-ResumeTask {
-    $argument = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+    $argument = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -ExpectedSwiftVersion `"$ExpectedSwiftVersion`""
     if ($NoAutoReboot) { $argument += " -NoAutoReboot" }
     $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $argument
     $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
