@@ -433,18 +433,3 @@ just windows-frost-configure-gui <vm-ip>
 
 This enables Developer Mode and Git symlink support. You may need to delete `.build` and
 rerun the build if a previous checkout failed halfway through.
-
-## Integration notes
-
-Tessera currently uses wrapper scripts around an external Frost checkout. Frost is not
-vendored and is not a Git submodule.
-
-Potential upstream Frost improvements identified while building this workflow:
-
-- Create `work/disks` before disposable overlays are created.
-- Add a configurable `FROST_WORK` directory.
-- Use short runtime socket paths for `swtpm` and QEMU monitor sockets.
-- Add a generic project customization command for creating project-specific toolchain
-  images.
-- Add persistent `start` / `stop` / `ssh` commands alongside Frost's disposable `run`
-  command.
