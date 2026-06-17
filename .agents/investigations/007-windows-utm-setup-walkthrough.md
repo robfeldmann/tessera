@@ -146,7 +146,7 @@ working for Tessera on Apple Silicon with UTM, and which details should be promo
       ```
 
     - Remote Swift output confirmed 6.3.2 / aarch64 Windows MSVC.
-    - `just windows-vm-check` failed with `Permission denied` because the recipe uses
+    - `just windows-utm check` failed with `Permission denied` because the recipe uses
       `ssh -o BatchMode=yes`, which intentionally disables password prompts. Need
       configure SSH public-key auth for the Windows account before the Just recipes can
       work unattended.
@@ -167,7 +167,7 @@ working for Tessera on Apple Silicon with UTM, and which details should be promo
       permissions with
       `icacls ... /inheritance:r /grant Administrators:F /grant SYSTEM:F`.
     - On macOS, `set -x TESSERA_WINDOWS_VM_SSH tessera-windows` followed by
-      `just windows-vm-check` succeeded and printed Swift 6.3.2 / aarch64 Windows MSVC.
+      `just windows-utm check` succeeded and printed Swift 6.3.2 / aarch64 Windows MSVC.
 
 - Open question discovered during clone step: the most common workflow may be that a macOS
   developer already has the repo cloned locally before provisioning the Windows VM. In
@@ -181,8 +181,8 @@ working for Tessera on Apple Silicon with UTM, and which details should be promo
   - Use file sync only if we can avoid copying `.build` and other platform-specific
     artifacts.
 - Done for Phase 0: clone Tessera in the guest and run `swift test --no-parallel` via
-  `just test-windows-vm`.
-  - From macOS, `just test-windows-vm` successfully connected to the VM, printed Swift
+  `just windows-utm test`.
+  - From macOS, `just windows-utm test` successfully connected to the VM, printed Swift
     6.3.2, fetched package dependencies, and began building.
   - Expected Phase 1 compile failure occurred in `CTesseraTerminalPlatform`:
     `fatal error: 'termios.h' file not found` from
@@ -239,8 +239,8 @@ Successful sequence:
     `C:\ProgramData\ssh\administrators_authorized_keys` and repair ACLs with `icacls`.
 11. Update macOS SSH config for `User tess`.
 12. `ssh tessera-windows whoami`, `ssh tessera-windows swift --version`, and
-    `just windows-vm-check` succeeded.
-13. `just test-windows-vm` again reached the expected Phase 1 `termios.h` failure, now
+    `just windows-utm check` succeeded.
+13. `just windows-utm test` again reached the expected Phase 1 `termios.h` failure, now
     from `C:\Users\tess\tessera\...`.
 
 Finding: Swift/winget registration can be per-user enough that creating a new Windows user
@@ -279,8 +279,8 @@ Implications:
 ## Conclusion
 
 Resolved for Phase 0. The VM can be manually installed, provisioned with Swift 6.3.2 and
-OpenSSH, reached from macOS with SSH key auth, and driven with `just windows-vm-check` and
-`just test-windows-vm`. The Windows test run now reaches the expected Phase 1 portability
-failure (`termios.h` missing), proving the Phase 0 workflow is good enough for local
-iteration. The resulting contributor-facing walkthrough was promoted to
+OpenSSH, reached from macOS with SSH key auth, and driven with `just windows-utm check`
+and `just windows-utm test`. The Windows test run now reaches the expected Phase 1
+portability failure (`termios.h` missing), proving the Phase 0 workflow is good enough for
+local iteration. The resulting contributor-facing walkthrough was promoted to
 `docs/WindowsVM.md`.

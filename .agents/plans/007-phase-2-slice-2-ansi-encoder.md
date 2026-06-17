@@ -283,7 +283,7 @@ make the sequence catalog discoverable.
   - `swift test --filter TesseraTerminalSnapshotSupportTests`
   - `swift build`
   - `cd Examples && swift build --target ANSIEncoderDemo`
-  - `just lint-changed`
+  - `just quality changed`
 - Acceptance: all focused validations pass. If markdown changes are made, also run
   `pnpx markdownlint-cli <changed-md-path>`.
 

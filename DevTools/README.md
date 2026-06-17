@@ -10,14 +10,14 @@ of the main library package or public API.
 command:
 
 ```fish
-just test-linux-vm
+just linux test
 ```
 
 Use it from Xcode when you want a visible reminder or one-click way to run the Linux test
 suite. It is intentionally not part of the normal `Tessera` test plan because it may start
 a Lima VM, requires local Linux tooling, and takes longer than the macOS unit tests.
 
-The executable delegates to `just test-linux-vm`, which:
+The executable delegates to `just linux test`, which:
 
 - starts the `tessera-linux` Lima VM without prompting when needed;
 - runs the Linux build of `libghostty-vt`;
@@ -31,7 +31,7 @@ If the VM is already running, it is left running.
 For day-to-day terminal use, prefer:
 
 ```fish
-just test-linux-vm
+just linux test
 ```
 
 From Xcode, open `Tessera.xcworkspace`, select the `Linux VM Tests` scheme, and run it.

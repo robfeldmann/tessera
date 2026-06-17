@@ -25,8 +25,8 @@ The goal is a VM you can reach with SSH, then drive from macOS with:
 
 ```sh
 export TESSERA_WINDOWS_VM_SSH=tessera-windows
-just windows-vm-check
-just test-windows-vm
+just windows-utm check
+just windows-utm test
 ```
 
 Fish users can use `set -x TESSERA_WINDOWS_VM_SSH tessera-windows` instead of `export`.
@@ -45,8 +45,8 @@ If you already know how to install Windows in UTM:
 
    ```fish
    set -x TESSERA_WINDOWS_VM_SSH tessera-windows
-   just windows-vm-check
-   just test-windows-vm
+   just windows-utm check
+   just windows-utm test
    ```
 
 The rest of this guide explains those steps in detail.
@@ -257,7 +257,7 @@ OpenSSH Server is running. From macOS, connect with one of:
 You can ask UTM for the VM IP address:
 
 ```sh
-just windows-vm-ip
+just windows-utm ip
 ```
 
 Or directly:
@@ -314,7 +314,7 @@ The fastest path is the helper recipe, which uses password SSH for this one-time
 installs the key into the administrators key file with the correct ACLs:
 
 ```sh
-just windows-vm-install-ssh-key
+just windows-utm install-ssh-key
 ```
 
 It defaults to `~/.ssh/tessera_windows.pub`; override with `TESSERA_WINDOWS_VM_PUBKEY`.
@@ -358,7 +358,7 @@ It should not ask for a password.
 Start the VM, if needed:
 
 ```sh
-just windows-vm-start
+just windows-utm start
 ```
 
 Set the VM SSH target:
@@ -376,13 +376,13 @@ set -x TESSERA_WINDOWS_VM_SSH tessera-windows
 Verify the VM:
 
 ```sh
-just windows-vm-check
+just windows-utm check
 ```
 
 Run the Windows test loop:
 
 ```sh
-just test-windows-vm
+just windows-utm test
 ```
 
 A successful run means macOS can reach the VM, Swift is available in Windows, and the
@@ -395,10 +395,10 @@ The project includes `just` recipes around UTM's `utmctl` CLI. They fail with a 
 message if UTM is not installed.
 
 ```sh
-just windows-vm-start
-just windows-vm-status
-just windows-vm-ip
-just windows-vm-stop
+just windows-utm start
+just windows-utm status
+just windows-utm ip
+just windows-utm stop
 ```
 
 By default these target a VM named `tessera-windows`. Override the name with:
@@ -411,7 +411,7 @@ You can also push the current local provisioning script into the guest after UTM
 Tools are installed:
 
 ```sh
-just windows-vm-push-setup-script
+just windows-utm push-setup-script
 ```
 
 By default, that writes to:
@@ -435,12 +435,12 @@ For active development, edit on macOS and push the current branch straight into 
 checkout over SSH, without going through GitHub:
 
 ```sh
-just windows-vm-sync
-just test-windows-vm
+just windows-utm sync
+just windows-utm test
 ```
 
-`windows-vm-sync` configures `receive.denyCurrentBranch=updateInstead` on the guest repo
-and force-pushes (with lease) your current branch, updating the guest working tree in
+`just windows-utm sync` configures `receive.denyCurrentBranch=updateInstead` on the guest
+repo and force-pushes (with lease) your current branch, updating the guest working tree in
 place. The guest tree must be clean for the push to apply, so commit or stash guest-side
 changes first. This keeps `.build` and other platform-specific artifacts entirely on the
 guest. You can still use normal Git operations inside the Windows checkout when preferred.

@@ -81,7 +81,7 @@ fi
 
 if [[ ${#docc_files[@]} -gt 0 ]]; then
   echo "▶ Validating DocC documentation"
-  just lint-docs
+  just docs lint
 fi
 
 echo "✅ Changed-file lint passed"

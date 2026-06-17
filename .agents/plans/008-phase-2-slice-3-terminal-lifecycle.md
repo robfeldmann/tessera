@@ -37,13 +37,13 @@ updated: 2026-06-09
 - [x] **Phase 7 — Recovery docs, demo, and validation**
   - [x] 7.1 Document terminal recovery fallback
   - [x] 7.2 Add a small runnable session demo in `Examples/`
-  - [x] 7.3 Run focused validation, markdown lint, and `just lint-changed`
+  - [x] 7.3 Run focused validation, markdown lint, and `just quality changed`
 
 ## Review process
 
 Use one draft GitHub PR for the slice, with phase-scoped commits rather than stacked PRs
 unless the PR becomes too large to review comfortably. The agent implements one phase,
-runs focused validation plus `just lint-changed`, updates this plan, pushes the phase
+runs focused validation plus `just quality changed`, updates this plan, pushes the phase
 commits, and posts a PR comment summarizing files changed, validation, review focus, and
 known follow-ups. The user reviews that phase on GitHub and discusses requested changes;
 the agent addresses review comments in follow-up commits and resolves conversations once
@@ -420,7 +420,7 @@ the scoped API is usable.
   visibly demonstrates alt-screen restoration, immediate raw-mode key handling, and
   responsive size updates.
 
-### Step 7.3 — Run focused validation, markdown lint, and `just lint-changed`
+### Step 7.3 — Run focused validation, markdown lint, and `just quality changed`
 
 - Files: no production files unless validation finds issues.
 - Run narrow tests first, then broader affected tests:
@@ -430,7 +430,7 @@ the scoped API is usable.
   - `swift test --filter TesseraTerminal`
   - `cd Examples && swift build --target LifecycleModesDemo`
   - `pnpx markdownlint-cli CONTRIBUTING.md .agents/plans/008-phase-2-slice-3-terminal-lifecycle.md`
-  - `just lint-changed`
+  - `just quality changed`
 - Acceptance: all validation commands pass or any failures are documented with follow-up
   plan edits before review.
 

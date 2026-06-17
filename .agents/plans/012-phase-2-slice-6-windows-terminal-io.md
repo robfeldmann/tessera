@@ -72,7 +72,7 @@ as closely as the Windows ecosystem allows. This is a developer-enablement found
 has no shipping code and is not CI-verifiable, so it lands first and the rest of the slice
 depends on it for local iteration.
 
-**Honest constraints (why this can't be a turnkey `just windows-vm-start`):**
+**Honest constraints (why this can't be a turnkey `just windows-utm start`):**
 
 - There is no Lima equivalent for Windows guests. UTM has no checked-in declarative VM
   spec like `tessera-linux.yaml`; creating the VM and installing Windows 11 ARM64 is a
@@ -88,7 +88,7 @@ depends on it for local iteration.
   (multi-GB) and `scripts/setup-windows-vm.ps1` should install/verify it (e.g. via winget
   `Microsoft.VisualStudio.2022.Community` with the required workloads) before Swift.
 - Automation parity for _running tests_ is still achievable: enable the built-in Windows
-  OpenSSH server in the VM, then a `just test-windows-vm` recipe can SSH in and run
+  OpenSSH server in the VM, then a `just windows-utm test` recipe can SSH in and run
   `swift test --no-parallel`, paralleling `test-linux-vm`'s `limactl shell` step.
 
 ### Step 0.1 — Provision a Windows 11 ARM64 VM in UTM with OpenSSH and Swift
@@ -120,12 +120,12 @@ depends on it for local iteration.
 - `CONTRIBUTING.md`: add a "Windows Test Runs with UTM" subsection next to "Linux Test
   Runs with Lima", covering UTM install via `brew bundle`, Windows 11 ARM64 image
   acquisition, running `scripts/setup-windows-vm.ps1`, the SSH/share setup, and the
-  `just test-windows-vm` loop. Also update the Brewfile-derived prerequisites list if it
+  `just windows-utm test` loop. Also update the Brewfile-derived prerequisites list if it
   enumerates tools.
 - Acceptance: `brew bundle check` passes with the new cask; `just --list` shows the
-  Windows recipes; `prettier --check` / `just lint-markdown` pass for `CONTRIBUTING.md`; a
-  fresh contributor can follow the doc end-to-end to reach a working
-  `just test-windows-vm`.
+  Windows recipes; `prettier --check` / `just quality markdown` pass for
+  `CONTRIBUTING.md`; a fresh contributor can follow the doc end-to-end to reach a working
+  `just windows-utm test`.
 
 ## Phase 1 — Windows-safe package and snapshot scaffolding
 
@@ -355,13 +355,13 @@ During implementation, run the narrowest relevant test first, for example:
 ```fish
 swift test --filter TesseraTerminalIOTests
 swift test --filter TesseraTerminalSnapshotSupportTests
-just lint-changed
+just quality changed
 ```
 
 Before committing the completed slice:
 
 ```fish
-just lint
+just quality lint
 swift test
 ```
 
@@ -375,7 +375,7 @@ Windows-specific acceptance runs in two places: GitHub Actions (`windows-latest`
 local UTM + Windows 11 ARM64 VM established in Phase 0. From macOS, iterate with:
 
 ```fish
-just test-windows-vm
+just windows-utm test
 ```
 
 Manual interactive verification (arrow keys, clean `q` exit, Ctrl-C cleanup, resize

@@ -229,9 +229,9 @@ Acceptance criteria for the prototype:
 
 - From a fresh host with the documented ISOs, build a Frost golden without UTM.
 - `just windows-frost-check` proves `swift --version` over `localhost:<port>`.
-- `just test-windows-frost` runs `swift test --no-parallel` in a Windows ARM64 guest and
+- `just windows-frost test` runs `swift test --no-parallel` in a Windows ARM64 guest and
   propagates the remote exit code.
-- `just windows-frost-ssh` opens an interactive PTY capable of running a minimal Tessera
+- `just windows-frost ssh` opens an interactive PTY capable of running a minimal Tessera
   terminal demo with cursor movement/colors.
 
 ## Conclusion

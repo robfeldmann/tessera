@@ -85,7 +85,7 @@ if [[ "$failures" -gt 0 ]]; then
   printf '\nFrost host prerequisite check failed with %d issue(s).\n' "$failures" >&2
   printf 'Install missing host tools with:\n  %s\n' "$brew_hint" >&2
   printf 'If Frost lives elsewhere, pass TESSERA_FROST_ROOT for one command, e.g.:\n' >&2
-  printf '  env TESSERA_FROST_ROOT=/path/to/frost just windows-frost-doctor\n' >&2
+  printf '  env TESSERA_FROST_ROOT=/path/to/frost just windows-frost doctor\n' >&2
   exit 1
 fi
 

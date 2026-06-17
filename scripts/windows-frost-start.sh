@@ -97,4 +97,4 @@ echo $! > "$PID_FILE"
 
 printf '[start] qemu pid: %s\n' "$(cat "$PID_FILE")"
 printf '[start] SSH will be available at %s@localhost:%s\n' "$TESSERA_FROST_USER" "$TESSERA_FROST_SSH_PORT"
-printf '[start] Try: just windows-frost-ssh\n'
+printf '[start] Try: just windows-frost ssh\n'

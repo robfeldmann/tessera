@@ -43,7 +43,7 @@ updated: 2026-06-04
 - CI validates Conventional Commit subjects on pushes and PR titles on pull requests using
   `scripts/conventional_commits.py`.
 - `just ci` is intentionally CI-safe: it runs build/test only. Full local checks use
-  `just check`, and `just lint` no longer mutates files.
+  `just check`, and `just quality lint` no longer mutates files.
 
 ## Overview
 

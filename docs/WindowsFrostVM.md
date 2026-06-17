@@ -60,12 +60,12 @@ Then build and verify:
 env \
   TESSERA_FROST_WINDOWS_ISO=~/Downloads/Win11_ARM64.iso \
   TESSERA_FROST_VIRTIO_ISO=~/Downloads/virtio-win.iso \
-  just windows-frost-build-base
+  just windows-frost build-base
 
-just windows-frost-check-base
-just windows-frost-provision-toolchain
-just windows-frost-check-toolchain
-just test-windows-frost
+just windows-frost check-base
+just windows-frost provision-toolchain
+just windows-frost check-toolchain
+just windows-frost test
 ```
 
 Use the longer tutorial below if any of those terms or files are unfamiliar.
@@ -86,7 +86,7 @@ This installs the VM tools used by this workflow, including [QEMU](https://www.q
 Check that the host tools are available:
 
 ```fish
-just windows-frost-doctor
+just windows-frost doctor
 ```
 
 If Frost has not been cloned yet, this check will report that separately.
@@ -110,7 +110,7 @@ git clone https://github.com/solcreek/frost ~/Developer/frost
 If you keep Frost somewhere else, pass the path per command:
 
 ```fish
-env TESSERA_FROST_ROOT=/path/to/frost just windows-frost-doctor
+env TESSERA_FROST_ROOT=/path/to/frost just windows-frost doctor
 ```
 
 You do not need to set a permanent shell variable unless you want to.
@@ -161,7 +161,7 @@ Run:
 env \
   TESSERA_FROST_WINDOWS_ISO=~/Downloads/Win11_ARM64.iso \
   TESSERA_FROST_VIRTIO_ISO=~/Downloads/virtio-win.iso \
-  just windows-frost-build-base
+  just windows-frost build-base
 ```
 
 If you need to rebuild the base image later:
@@ -170,13 +170,13 @@ If you need to rebuild the base image later:
 env \
   TESSERA_FROST_WINDOWS_ISO=~/Downloads/Win11_ARM64.iso \
   TESSERA_FROST_VIRTIO_ISO=~/Downloads/virtio-win.iso \
-  just windows-frost-build-base --force
+  just windows-frost build-base --force
 ```
 
 Verify the base image boots and accepts SSH:
 
 ```fish
-just windows-frost-check-base
+just windows-frost check-base
 ```
 
 This boots a disposable VM, runs `whoami`, prints guest output, and shuts the VM down.
@@ -189,7 +189,7 @@ Tessera-specific image with the build tools.
 Run:
 
 ```fish
-just windows-frost-provision-toolchain
+just windows-frost provision-toolchain
 ```
 
 This installs or configures:
@@ -209,13 +209,13 @@ rebooting the guest, waiting for SSH, and continuing.
 If you need to rebuild the toolchain image later:
 
 ```fish
-just windows-frost-provision-toolchain --force
+just windows-frost provision-toolchain --force
 ```
 
 Verify the toolchain image:
 
 ```fish
-just windows-frost-check-toolchain
+just windows-frost check-toolchain
 ```
 
 This checks Git, Swift, Visual Studio, Windows SDK, password SSH, and key-based SSH.
@@ -225,7 +225,7 @@ This checks Git, Swift, Visual Studio, Windows SDK, password SSH, and key-based 
 Use this when you want a repeatable Windows check from macOS:
 
 ```fish
-just test-windows-frost
+just windows-frost test
 ```
 
 What happens:
@@ -245,20 +245,20 @@ Edits made inside the disposable Windows VM are not copied back.
 Use the persistent VM when you want an interactive Windows shell and retained build cache:
 
 ```fish
-just windows-frost-start
-just windows-frost-ssh
+just windows-frost start
+just windows-frost ssh
 ```
 
 Inside the SSH session you can run normal Windows commands. When finished:
 
 ```fish
-just windows-frost-stop
+just windows-frost stop
 ```
 
 Reset the persistent overlay back to the Tessera toolchain image with:
 
 ```fish
-just windows-frost-start --reset
+just windows-frost start --reset
 ```
 
 The persistent overlay lives under:
@@ -272,9 +272,9 @@ below. ConPTY is Windows' pseudo-console layer; it is what Windows OpenSSH uses 
 an interactive terminal session for full-screen terminal apps.
 
 ```fish
-just windows-frost-start
-just windows-frost-conpty-smoke
-just windows-frost-stop
+just windows-frost start
+just windows-frost conpty-smoke
+just windows-frost stop
 ```
 
 ## 8. Optional GUI workflow with UTM
@@ -315,7 +315,7 @@ QEMU guest-agent operations.
 With the GUI VM running and reachable over SSH, install or repair the tools:
 
 ```fish
-just windows-frost-install-utm-tools <vm-ip>
+just windows-frost install-utm-tools <vm-ip>
 ```
 
 Then reboot the Windows guest from inside Windows. After reboot, verify:
@@ -340,7 +340,7 @@ Get-NetIPAddress -AddressFamily IPv4 |
 Then run from macOS:
 
 ```fish
-just windows-frost-sync-utm <vm-ip>
+just windows-frost sync-utm <vm-ip>
 ```
 
 This copies the current working tree into:
@@ -372,7 +372,7 @@ swift test --no-parallel
 
 ## Troubleshooting
 
-### `just windows-frost-doctor` cannot find Frost
+### `just windows-frost doctor` cannot find Frost
 
 Clone Frost to the default location:
 
@@ -384,7 +384,7 @@ git clone https://github.com/solcreek/frost ~/Developer/frost
 Or pass your custom path:
 
 ```fish
-env TESSERA_FROST_ROOT=/path/to/frost just windows-frost-doctor
+env TESSERA_FROST_ROOT=/path/to/frost just windows-frost doctor
 ```
 
 ### Base image already exists
@@ -392,7 +392,7 @@ env TESSERA_FROST_ROOT=/path/to/frost just windows-frost-doctor
 Rebuild with `--force`:
 
 ```fish
-just windows-frost-build-base --force
+just windows-frost build-base --force
 ```
 
 ### Toolchain image already exists
@@ -400,7 +400,7 @@ just windows-frost-build-base --force
 Rebuild with `--force`:
 
 ```fish
-just windows-frost-provision-toolchain --force
+just windows-frost provision-toolchain --force
 ```
 
 ### SSH says the remote host key changed
@@ -418,7 +418,7 @@ The sync helpers use a temporary known-hosts file so they can tolerate this case
 Run the GUI configuration helper:
 
 ```fish
-just windows-frost-configure-gui <vm-ip>
+just windows-frost configure-gui <vm-ip>
 ```
 
 Then close and reopen PowerShell.
@@ -428,7 +428,7 @@ Then close and reopen PowerShell.
 Run the GUI configuration helper:
 
 ```fish
-just windows-frost-configure-gui <vm-ip>
+just windows-frost configure-gui <vm-ip>
 ```
 
 This enables Developer Mode and Git symlink support. You may need to delete `.build` and

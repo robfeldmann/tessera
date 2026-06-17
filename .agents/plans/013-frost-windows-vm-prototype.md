@@ -130,7 +130,7 @@ Tessera behavior.
   `powershell -NoProfile -Command "$PSVersionTable.PSVersion"`.
 - Confirm stdout/stderr appear on macOS and the host command exits with the guest
   command's exit code.
-- Acceptance: `just windows-frost-check-base` or equivalent proves the base image is
+- Acceptance: `just windows-frost check-base` or equivalent proves the base image is
   reachable over `localhost:<port>`.
 
 ## Phase 3 — Tessera toolchain golden image
@@ -196,8 +196,8 @@ Tessera behavior.
 - Add a recipe that boots the Tessera toolchain image/overlay, syncs source if needed, and
   runs `swift test --no-parallel` in the guest.
 - Ensure the host recipe returns the guest test command's exit code.
-- Acceptance: `just test-windows-frost` reaches the same current Windows compile/test
-  state as `just test-windows-vm`, or passes once Slice 6 Windows fixes are implemented.
+- Acceptance: `just windows-frost test` reaches the same current Windows compile/test
+  state as `just windows-utm test`, or passes once Slice 6 Windows fixes are implemented.
 
 ### Step 4.3 — Decide disposable vs persistent overlay default
 
@@ -333,9 +333,9 @@ Terminal app runs, not just boot/toolchain checks.
   `C:\Users\tester\tessera`.
 - Handle the expected SSH known-host collision when the imported VM reuses an IP
   previously used by another Windows VM, e.g. document `ssh-keygen -R <ip>`.
-- Result: added `just windows-frost-sync-utm <host>`, which reuses the archive sync
+- Result: added `just windows-frost sync-utm <host>`, which reuses the archive sync
   workflow over SSH and documents known-host collision handling. Verified with
-  `just windows-frost-sync-utm 192.168.64.2`; `Package.swift` appeared at
+  `just windows-frost sync-utm 192.168.64.2`; `Package.swift` appeared at
   `C:\Users\tester\tessera`, and `swift --version` still reported Swift 6.3.2.
 - Acceptance: the current working tree can be placed in the GUI VM so PowerShell can run
   commands from `C:\Users\tester\tessera`.
@@ -347,12 +347,12 @@ Terminal app runs, not just boot/toolchain checks.
   - display resize/dynamic resolution.
   - host ↔ guest clipboard copy/paste.
   - QEMU guest agent / `utmctl ip-address` and `utmctl exec` support.
-- Result: added `just windows-frost-install-utm-tools <host>` and installed UTM Guest
+- Result: added `just windows-frost install-utm-tools <host>` and installed UTM Guest
   Tools 0.1.271 into `tessera-frost-import`. Services `QEMU-GA`, `vdservice`,
   `spice-webdavd`, and `BalloonService` are running, and
   `utmctl ip-address tessera-frost-import` now returns `192.168.64.2`. After rebooting the
   Windows guest, dynamic resize worked, host ↔ guest clipboard sync worked, and the guest
-  CPU load settled down. Also added `just windows-frost-configure-gui <host>` to enable
+  CPU load settled down. Also added `just windows-frost configure-gui <host>` to enable
   Developer Mode, set Git `core.symlinks=true`, and make new PowerShell sessions start in
   `%USERPROFILE%`.
 - Acceptance: either resize/clipboard/guest-agent support works in `tessera-frost-import`,

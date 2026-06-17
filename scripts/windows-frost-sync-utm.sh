@@ -10,7 +10,7 @@ PORT="${TESSERA_FROST_UTM_SSH_PORT:-22}"
 
 if [[ -z "$HOST" ]]; then
   cat >&2 <<'EOF'
-usage: just windows-frost-sync-utm <host>
+usage: just windows-frost sync-utm <host>
 
 Pass the IPv4 address shown inside the UTM-imported Frost VM, or set
 TESSERA_FROST_UTM_SSH_HOST. The source is synced to TESSERA_FROST_REPO_PATH

@@ -16,9 +16,9 @@ paths be covered with deterministic tests while improving production coverage to
 
 - Baseline from the plan was 65.26% production-source line coverage, measured with
   `swift test --enable-code-coverage` and the project-scoped coverage JSON.
-- Added `scripts/coverage-summary.py` and `just coverage-summary` to report project source
-  totals, production Swift totals, and per-module line coverage from SwiftPM's llvm-cov
-  JSON.
+- Added `scripts/coverage-summary.py` and `just core coverage-summary` to report project
+  source totals, production Swift totals, and per-module line coverage from SwiftPM's
+  llvm-cov JSON.
 - Added deterministic test seams using task-local syscall overrides for POSIX write, poll,
   input-loop pipe/read/write/close/fcntl behavior. Task-local overrides avoid cross-test
   interference under Swift Testing parallel execution.

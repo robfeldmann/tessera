@@ -40,7 +40,7 @@ updated: 2026-06-13
 ## Review process
 
 Do not push branches or create a GitHub PR for this slice unless explicitly asked. The
-agent implements one step at a time, runs focused validation plus `just lint-changed`,
+agent implements one step at a time, runs focused validation plus `just quality changed`,
 updates this plan, and pauses for user review. After the user approves the completed step,
 commit the approved work locally before starting the next step. Do not start
 implementation until this plan is reviewed and explicitly approved.
@@ -541,10 +541,10 @@ update runnable examples to exercise the real renderer.
   - `swift test --filter TesseraTerminalTests`
   - `swift test --enable-code-coverage`
   - `swift build --package-path Examples`
-  - `just test-linux-vm`
+  - `just linux test`
   - `swift-format lint -r Sources Tests Package.swift`
   - `swiftlint`
-  - `just lint-changed`
+  - `just quality changed`
 - Update this plan's progress and `updated` date as phases complete.
 - Acceptance: all commands pass or any platform-specific deferral is documented with a
   concrete follow-up.
@@ -556,9 +556,10 @@ update runnable examples to exercise the real renderer.
   - `swift test --enable-code-coverage` passed.
   - `swift build --package-path Examples` passed.
   - Linux VM full test suite passed by manually starting the existing stopped
-    `tessera-linux` Lima instance and running the `just test-linux-vm` test command; the
+    `tessera-linux` Lima instance and running the `just linux test` test command; the
     recipe itself attempted to create an already-existing stopped instance.
-  - `just lint` passed, including swift-format, SwiftLint, Markdown formatting, and DocC.
+  - `just quality lint` passed, including swift-format, SwiftLint, Markdown formatting,
+    and DocC.
 
 ### Step 5.5 — Review public documentation for release-facing language
 

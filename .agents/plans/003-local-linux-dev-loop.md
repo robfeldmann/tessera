@@ -39,7 +39,8 @@ committing to a heavier virtualization workflow while leaving room to add one la
 ### Step 1.1 — Add recommended macOS and Linux commands
 
 - File: `CONTRIBUTING.md` or `README.md`
-- Document native `just build`, `just test`, `just lint`, and DocC commands.
+- Document native `just core build`, `just core test`, `just quality lint`, and DocC
+  commands.
 - Document Linux cross-build setup using an installed Swift SDK bundle and
   `swift build --swift-sdk ...`.
 - Acceptance: A contributor can tell which commands to run for macOS and Linux build
@@ -88,7 +89,7 @@ committing to a heavier virtualization workflow while leaving room to add one la
 - Files: `scripts/config/lima/tessera-linux.yaml`, `Justfile`, `CONTRIBUTING.md`
 - Add a Lima config that mounts the repository and installs Swift from `.swift-version`
   using Swiftly.
-- Acceptance: `just linux-vm-start` creates a VM ready to run `swift test` without manual
+- Acceptance: `just linux start` creates a VM ready to run `swift test` without manual
   setup.
 
 ## Phase 3 — Validate
@@ -99,7 +100,7 @@ committing to a heavier virtualization workflow while leaving room to add one la
 
 - Files: none
 - Run existing native checks.
-- Acceptance: `just build`, `just test`, and DocC generation pass on macOS.
+- Acceptance: `just core build`, `just core test`, and DocC generation pass on macOS.
 
 ### Step 3.2 — Verify Linux cross-build works
 
