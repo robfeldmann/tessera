@@ -3,7 +3,7 @@
 
 repo_root="$(git rev-parse --show-toplevel)"
 
-export TESSERA_FROST_ROOT="${TESSERA_FROST_ROOT:-$HOME/Developer/solcreek/frost/main}"
+export TESSERA_FROST_ROOT="${TESSERA_FROST_ROOT:-$HOME/Developer/frost}"
 export TESSERA_FROST_WORK="${TESSERA_FROST_WORK:-$repo_root/.build/windows-frost}"
 export TESSERA_FROST_SSH_PORT="${TESSERA_FROST_SSH_PORT:-2222}"
 export TESSERA_FROST_USER="${TESSERA_FROST_USER:-tester}"

@@ -11,9 +11,10 @@ Metadata:
 - Recommended VM name: `tessera-windows`
 - Recommended Windows user: `tess`
 
-This guide walks through creating a Windows 11 ARM64 VM manually in UTM. Use this path if
-you want maximum control over the Windows desktop VM or if the scripted Frost workflow in
-`docs/WindowsFrostVM.md` does not fit your setup.
+This guide walks through creating a Windows 11 ARM64 VM manually in
+[UTM](https://mac.getutm.app/). Use this path if you want maximum control over the Windows
+desktop VM or if the scripted Frost workflow in `docs/WindowsFrostVM.md` does not fit your
+setup.
 
 For the recommended repeatable test workflow, start with `docs/WindowsFrostVM.md`. For a
 hand-managed Windows desktop VM, continue here.

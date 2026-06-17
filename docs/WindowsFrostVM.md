@@ -9,9 +9,12 @@ Metadata:
 - Recommended Windows user: `tester`
 
 This guide walks through the recommended scripted Windows VM workflow for Tessera on an
-Apple Silicon Mac. It uses [Frost](https://github.com/solcreek/frost) to build a Windows
-11 ARM64 image, boot throwaway test VMs, run commands over SSH, and optionally import the
-same image into UTM for manual GUI checks.
+Apple Silicon Mac; if you already know your way around VMs and command-line tools, you can
+jump to
+[Quick setup for experienced contributors](#quick-setup-for-experienced-contributors). It
+uses [Frost](https://github.com/solcreek/frost) to build a Windows 11 ARM64 image, boot
+throwaway test VMs, run commands over SSH, and optionally import the same image into
+[UTM](https://mac.getutm.app/) for manual GUI checks.
 
 If you prefer to create and manage a Windows VM by hand, use the manual UTM guide in
 `docs/WindowsVM.md` instead.
@@ -23,7 +26,7 @@ Frost creates a repeatable Windows test environment from files you download loca
 1. A **base Windows golden image** with Windows, VirtIO networking, and OpenSSH.
 2. A **Tessera toolchain golden image** with Git, Visual Studio C++ tools, Windows SDK,
    Swift, SSH key auth, Developer Mode, and PowerShell defaults.
-3. A **disposable test VM** for clean `swift test` runs.
+3. A **disposable test VM** for repeatable `swift test` runs.
 4. A **persistent SSH VM** for interactive terminal work and retained SwiftPM build cache.
 5. An optional **UTM GUI VM** for PowerShell/Windows Terminal visual validation.
 
@@ -32,17 +35,18 @@ into Git.
 
 ## Quick setup for experienced contributors
 
-Install host tools:
+Install host tools from the Tessera checkout:
 
 ```fish
+cd /path/to/tessera
 brew bundle install
 ```
 
 Clone Frost outside this repository:
 
 ```fish
-mkdir -p ~/Developer/solcreek
-git clone https://github.com/solcreek/frost ~/Developer/solcreek/frost/main
+mkdir -p ~/Developer
+git clone https://github.com/solcreek/frost ~/Developer/frost
 ```
 
 Download:
@@ -68,14 +72,16 @@ Use the longer tutorial below if any of those terms or files are unfamiliar.
 
 ## 1. Install macOS prerequisites
 
-Install the project Homebrew dependencies:
+Install the project [Homebrew](https://brew.sh/) dependencies from the Tessera checkout:
 
 ```fish
+cd /path/to/tessera
 brew bundle install
 ```
 
-This installs the VM tools used by this workflow, including QEMU, `swtpm`, `sshpass`, UTM,
-and `just`.
+This installs the VM tools used by this workflow, including [QEMU](https://www.qemu.org/),
+[`swtpm`](https://github.com/stefanberger/swtpm), `sshpass`,
+[UTM](https://mac.getutm.app/), and [`just`](https://github.com/casey/just).
 
 Check that the host tools are available:
 
@@ -91,14 +97,14 @@ Keep Frost outside the Tessera repository while this integration uses wrapper sc
 default path expected by the scripts is:
 
 ```text
-~/Developer/solcreek/frost/main
+~/Developer/frost
 ```
 
 Clone it with:
 
 ```fish
-mkdir -p ~/Developer/solcreek
-git clone https://github.com/solcreek/frost ~/Developer/solcreek/frost/main
+mkdir -p ~/Developer
+git clone https://github.com/solcreek/frost ~/Developer/frost
 ```
 
 If you keep Frost somewhere else, pass the path per command:
@@ -214,7 +220,7 @@ just windows-frost-check-toolchain
 
 This checks Git, Swift, Visual Studio, Windows SDK, password SSH, and key-based SSH.
 
-## 6. Daily workflow: clean Windows test run
+## 6. Daily workflow: repeatable Windows test run
 
 Use this when you want a repeatable Windows check from macOS:
 
@@ -261,7 +267,9 @@ The persistent overlay lives under:
 .build/windows-frost/persistent/dev.qcow2
 ```
 
-For a quick ConPTY smoke check without opening an interactive shell:
+For a quick ConPTY smoke check without opening an interactive shell, use the command
+below. ConPTY is Windows' pseudo-console layer; it is what Windows OpenSSH uses to provide
+an interactive terminal session for full-screen terminal apps.
 
 ```fish
 just windows-frost-start
@@ -276,14 +284,15 @@ Windows Terminal, window resizing, or clipboard behavior.
 
 ### Create or update the UTM GUI VM
 
-The current workflow creates a UTM VM named:
+The current workflow uses a UTM VM named:
 
 ```text
 tessera-frost-import
 ```
 
-It is a normal UTM VM whose disk was created from the Frost toolchain image. If you need
-to recreate it manually:
+Most contributors do not need this VM unless they want GUI validation. There is not yet a
+single `just` recipe that creates or refreshes the UTM GUI VM end-to-end. If you need to
+recreate it, run these steps manually:
 
 1. Convert the Frost toolchain image into a standalone qcow2.
 2. Clone an existing Windows ARM UTM VM or create one with similar settings.
@@ -368,8 +377,8 @@ swift test --no-parallel
 Clone Frost to the default location:
 
 ```fish
-mkdir -p ~/Developer/solcreek
-git clone https://github.com/solcreek/frost ~/Developer/solcreek/frost/main
+mkdir -p ~/Developer
+git clone https://github.com/solcreek/frost ~/Developer/frost
 ```
 
 Or pass your custom path:

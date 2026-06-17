@@ -20,7 +20,7 @@ EOF
 require_frost() {
   if [[ ! -x "$TESSERA_FROST_CLI" ]]; then
     printf 'Frost CLI not found or not executable: %s\n' "$TESSERA_FROST_CLI" >&2
-    printf 'Set TESSERA_FROST_ROOT or clone Frost to $HOME/Developer/solcreek/frost/main.\n' >&2
+    printf 'Set TESSERA_FROST_ROOT or clone Frost to $HOME/Developer/frost.\n' >&2
     exit 1
   fi
 }
