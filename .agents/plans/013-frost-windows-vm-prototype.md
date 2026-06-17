@@ -30,12 +30,17 @@ updated: 2026-06-16
 - [x] **Phase 5 — Interactive terminal validation**
   - [x] 5.1 Add persistent start/stop/ssh recipes for Frost overlays
   - [x] 5.2 Validate an interactive Tessera terminal demo over SSH/ConPTY
-- [ ] **Phase 6 — UTM manual GUI path**
-  - [ ] 6.1 Test importing a Frost qcow2 into UTM
-  - [ ] 6.2 Document PowerShell/Windows Terminal manual validation steps
-- [ ] **Phase 7 — Frost upstreaming decision**
-  - [ ] 7.1 Record local Frost changes needed by the prototype
-  - [ ] 7.2 Decide whether to upstream, vendor, or keep wrapper-only integration
+- [x] **Phase 6 — UTM manual GUI path**
+  - [x] 6.1 Test importing a Frost qcow2 into UTM
+  - [x] 6.2 Document PowerShell/Windows Terminal manual validation steps
+- [x] **Phase 7 — Frost upstreaming decision**
+  - [x] 7.1 Record local Frost changes needed by the prototype
+  - [x] 7.2 Decide whether to upstream, vendor, or keep wrapper-only integration
+- [ ] **Phase 8 — UTM GUI workflow hardening**
+  - [ ] 8.1 Add a source sync workflow for the UTM-imported GUI VM
+  - [ ] 8.2 Investigate UTM/SPICE/QEMU guest tools for resize, clipboard, and guest-agent
+        support
+  - [ ] 8.3 Document manual GUI app-run workflow and remaining blockers
 
 ## Overview
 
@@ -248,6 +253,9 @@ UTM.
   `virt`, NVMe disk, TPM, UEFI boot, and similar memory/CPU.
 - Prefer copying Frost's UEFI vars into UTM's `efi_vars.fd`; if that fails, document any
   Windows Boot Manager repair steps.
+- Result: created `tessera-frost-import.utm` with a standalone Frost-built qcow2 and UEFI
+  vars. Manual GUI validation confirmed the Frost-built image boots to the Windows login
+  screen and desktop in UTM with `tester` / `Test1234!`.
 - Acceptance: the Frost-built image boots to Windows in UTM or the blocker is clearly
   recorded.
 
@@ -264,6 +272,12 @@ UTM.
   - host ↔ guest clipboard copy/paste.
   - whether Frost's VirtIO guest tools install is sufficient, or whether UTM/SPICE guest
     tools need a separate install step.
+- Result: `tessera-frost-import` can run PowerShell commands and `git --version` /
+  `swift --version` report expected versions. Keyboard and mouse input work. Display
+  resize/dynamic resolution and host ↔ guest clipboard do not work yet, and
+  `utmctl ip-address` fails because the QEMU guest agent is not running or installed.
+  Tessera example validation remains blocked by the current `termios.h` Windows compile
+  failure.
 - Acceptance: a contributor can run Tessera example apps in a GUI Windows session using
   the Frost-built image, including copy/paste where possible, or knows to fall back to the
   original UTM Phase 0 VM.
@@ -280,6 +294,8 @@ UTM.
   - Tessera-specific wrapper only.
   - generic Frost feature candidate.
   - local workaround not worth upstreaming.
+- Result: no local Frost checkout changes were required. Candidate upstream items are
+  documented in `docs/WindowsFrostVM.md`.
 - Acceptance: every local Frost change has a disposition before we rely on it long-term.
 
 ### Step 7.2 — Decide whether to upstream, vendor, or keep wrapper-only integration
@@ -298,8 +314,51 @@ UTM.
 
 - Avoid vendoring Frost into Tessera unless upstreaming/wrapper-only integration is not
   viable.
+- Result: keep wrapper-only integration for now; do not vendor Frost or add it as a
+  submodule. Consider upstream PRs later for generic customize/workdir/persistent commands
+  and runtime socket handling.
 - Acceptance: the project has a documented integration decision and any follow-up PR/plan
   is scoped.
+
+## Phase 8 — UTM GUI workflow hardening
+
+**Goal**: Make the UTM-imported Frost image practical for manual PowerShell/Windows
+Terminal app runs, not just boot/toolchain checks.
+
+### Step 8.1 — Add a source sync workflow for the UTM-imported GUI VM
+
+- Files: `Justfile`, docs, optionally scripts under `scripts/`.
+- Add or document a way to sync the current macOS working tree into the running
+  `tessera-frost-import` UTM VM, likely over SSH to `tester@<utm-ip>` and into
+  `C:\Users\tester\tessera`.
+- Handle the expected SSH known-host collision when the imported VM reuses an IP
+  previously used by another Windows VM, e.g. document `ssh-keygen -R <ip>`.
+- Acceptance: the current working tree can be placed in the GUI VM so PowerShell can run
+  commands from `C:\Users\tester\tessera`.
+
+### Step 8.2 — Investigate UTM/SPICE/QEMU guest tools for resize, clipboard, and guest-agent support
+
+- Files: docs; scripts only if a repeatable install/repair step is found.
+- Investigate and, if practical, install or repair the guest components needed for:
+  - display resize/dynamic resolution.
+  - host ↔ guest clipboard copy/paste.
+  - QEMU guest agent / `utmctl ip-address` and `utmctl exec` support.
+- Acceptance: either resize/clipboard/guest-agent support works in `tessera-frost-import`,
+  or the missing component and next manual action are clearly documented.
+
+### Step 8.3 — Document manual GUI app-run workflow and remaining blockers
+
+- Files: `docs/WindowsFrostVM.md`.
+- Document how to use `tessera-frost-import` for manual GUI runs:
+  - start/open the UTM VM.
+  - log in as `tester` / `Test1234!`.
+  - sync or clone Tessera source.
+  - open PowerShell/Windows Terminal.
+  - run tests/examples once Windows compilation is fixed.
+- Note that Tessera example validation remains blocked until the current `termios.h`
+  Windows compile failure is fixed.
+- Acceptance: a contributor understands when to use Frost SSH, Frost disposable tests, and
+  the UTM GUI VM.
 
 ## References
 

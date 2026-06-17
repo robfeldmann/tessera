@@ -327,10 +327,67 @@ still stops at the known `termios.h` compile failure. SSH/ConPTY is adequate for
 6 manual validation loop once the Windows terminal platform compile issue is fixed, but it
 is not a substitute for Phase 6 GUI validation in PowerShell/Windows Terminal.
 
-## Current next step
+## UTM manual GUI import attempt
 
-Phase 6 should test whether a Frost-built qcow2 can be imported into UTM for GUI
-PowerShell/Windows Terminal validation.
+Phase 6 attempted a best-effort unattended UTM import for manual GUI validation:
+
+1. Converted the Tessera toolchain qcow2 overlay into a standalone qcow2.
+2. Copied the Tessera toolchain UEFI vars file.
+3. Cloned the existing `tessera-windows` UTM VM as `tessera-frost-import`.
+4. Replaced the clone's NVMe qcow2 and `efi_vars.fd` with the Frost-built artifacts.
+
+The imported VM bundle now exists at:
+
+```text
+~/Library/Containers/com.utmapp.UTM/Data/Documents/tessera-frost-import.utm
+```
+
+The imported disk inside that bundle is about 36 GB. Temporary intermediate conversion
+files and the clone's original Phase 0 disk backup were removed to avoid wasting disk
+space.
+
+Manual GUI validation confirmed that the imported Frost image boots in UTM. The VM reached
+the Windows login screen, accepted the Frost default credentials (`tester` / `Test1234!`),
+and logged in to the desktop.
+
+Observed GUI validation results:
+
+- Windows boots to desktop in UTM.
+- Keyboard and mouse input work well enough to log in and run commands.
+- PowerShell can run `git --version` and `swift --version`; both report the expected
+  versions.
+- Display resize/dynamic resolution does **not** appear to work.
+- Host ↔ guest clipboard copy/paste does **not** work in either direction.
+- `utmctl ip-address tessera-frost-import` fails because the QEMU guest agent is not
+  running or not installed in the imported Frost image.
+- Tessera examples cannot be validated yet because Windows compilation still stops at the
+  known `termios.h` failure.
+
+Conclusion: the Frost-built image is usable in UTM for manual GUI boot/toolchain checks,
+but UTM guest integration is incomplete. Follow-up should install or repair the relevant
+UTM/SPICE/QEMU guest tools in the imported image if we want dynamic resolution, clipboard,
+and `utmctl` guest-agent operations.
+
+## Frost integration disposition
+
+No Frost checkout modifications were required for this prototype. Tessera currently layers
+wrapper scripts around the external Frost checkout at
+`/Users/rob/Developer/solcreek/frost/main`. Keep this wrapper-only integration for now; do
+not vendor Frost or add it as a submodule.
+
+Potential upstream Frost PRs identified during the prototype:
+
+- Ensure Frost creates `work/disks` before `test-run.sh` creates throwaway overlays,
+  especially when `--golden` points outside the Frost checkout.
+- Add a configurable work directory, e.g. `FROST_WORK`, so downstream wrappers can keep
+  all artifacts outside the Frost source checkout.
+- Use short runtime socket paths, likely under `/tmp`, for `swtpm` and QEMU monitor
+  sockets to avoid Unix socket path length failures under long repository paths.
+- Add a generic project customization command, e.g.
+  `frost customize --golden base.qcow2 --run provision.ps1 --out project.qcow2`, for
+  building project-specific toolchain images.
+- Consider persistent `start`/`stop`/`ssh` commands as a generic interactive-development
+  companion to Frost's disposable `run` command.
 
 Earlier Phase 2.2 verification: `just windows-frost-check-base` succeeded with guest
 output `desktop-hdia40e\\tester`.
