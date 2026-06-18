@@ -12,9 +12,9 @@ updated: 2026-06-17
 - [x] **Phase 0 — Local Windows dev toolchain (UTM + Windows 11 ARM64 + Swift)**
   - [x] 0.1 Provision a Windows 11 ARM64 VM in UTM with OpenSSH and the Swift toolchain
   - [x] 0.2 Add Brewfile, Just recipes, and CONTRIBUTING docs for the Windows VM workflow
-- [ ] **Phase 1 — Windows-safe package and snapshot scaffolding**
+- [x] **Phase 1 — Windows-safe package and snapshot scaffolding**
   - [x] 1.1 Make platform C and Ghostty snapshot targets compile safely on Windows
-  - [ ] 1.2 Mark Ghostty-backed tests explicitly skipped on Windows
+  - [x] 1.2 Mark Ghostty-backed tests explicitly skipped on Windows
 - [ ] **Phase 2 — Windows cleanup and console modes**
   - [ ] 2.1 Generalize emergency cleanup for POSIX and Windows state
   - [ ] 2.2 Add Windows console mode setup/restore behind the existing PlatformIO API

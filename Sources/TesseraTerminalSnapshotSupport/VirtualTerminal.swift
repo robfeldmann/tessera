@@ -73,7 +73,13 @@ public struct VirtualTerminal: Sendable {
 }
 
 extension VirtualTerminal: TestDependencyKey {
-  public static var testValue: Self { Self.ghostty(cols: 80, rows: 24) }
+  public static var testValue: Self {
+    #if os(Windows)
+      Self.platformUnsupported
+    #else
+      Self.ghostty(cols: 80, rows: 24)
+    #endif
+  }
 }
 
 extension DependencyValues {

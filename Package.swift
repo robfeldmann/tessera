@@ -22,10 +22,21 @@ let package = Package(
 
 // MARK: Dependencies
 
+#if os(Windows)
+  let SwiftDependenciesTraits: Set<Package.Dependency.Trait> = [
+    "Clocks",
+    "Foundation",
+    "FoundationNetworking",
+  ]
+#else
+  let SwiftDependenciesTraits: Set<Package.Dependency.Trait> = [.defaults]
+#endif
+
 package.dependencies.append(
   .package(
     url: "https://github.com/pointfreeco/swift-dependencies",
-    from: "1.13.0"
+    from: "1.13.0",
+    traits: SwiftDependenciesTraits
   )
 )
 
@@ -251,6 +262,16 @@ package.targets.append(contentsOf: [
 
 // MARK: TesseraTerminalANSI
 
+let TesseraTerminalANSITestDependencies: [Target.Dependency] = [
+  CustomDump,
+  DependenciesTestSupport,
+  InlineSnapshotTesting,
+  SnapshotTesting,
+  SnapshotTestingCustomDump,
+  TesseraTerminalANSI,
+  TesseraTerminalSnapshotSupport,
+]
+
 package.targets.append(contentsOf: [
   .target(
     name: "TesseraTerminalANSI",
@@ -260,15 +281,7 @@ package.targets.append(contentsOf: [
   ),
   .testTarget(
     name: "TesseraTerminalANSITests",
-    dependencies: [
-      CustomDump,
-      DependenciesTestSupport,
-      InlineSnapshotTesting,
-      SnapshotTesting,
-      SnapshotTestingCustomDump,
-      TesseraTerminalANSI,
-      TesseraTerminalSnapshotSupport,
-    ]
+    dependencies: TesseraTerminalANSITestDependencies
   ),
 ])
 

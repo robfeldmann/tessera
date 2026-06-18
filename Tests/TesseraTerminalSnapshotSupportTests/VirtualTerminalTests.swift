@@ -5,8 +5,11 @@ import TesseraTerminalSnapshotSupport
 import Testing
 
 @Test(
+  .disabled(
+    if: VirtualTerminal.isPlatformUnsupported,
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."),
   .dependencies {
-    $0.virtualTerminal = .ghostty(cols: 4, rows: 2)
+    $0.virtualTerminal = .ghosttyOrPlatformUnsupported(cols: 4, rows: 2)
   }
 )
 func `initial screen is blank`() {
@@ -18,8 +21,11 @@ func `initial screen is blank`() {
 }
 
 @Test(
+  .disabled(
+    if: VirtualTerminal.isPlatformUnsupported,
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."),
   .dependencies {
-    $0.virtualTerminal = .ghostty(cols: 5, rows: 2)
+    $0.virtualTerminal = .ghosttyOrPlatformUnsupported(cols: 5, rows: 2)
   }
 )
 func `characters write into visible cells`() {
@@ -33,8 +39,11 @@ func `characters write into visible cells`() {
 }
 
 @Test(
+  .disabled(
+    if: VirtualTerminal.isPlatformUnsupported,
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."),
   .dependencies {
-    $0.virtualTerminal = .ghostty(cols: 5, rows: 3)
+    $0.virtualTerminal = .ghosttyOrPlatformUnsupported(cols: 5, rows: 3)
   }
 )
 func `cursor movement writes at requested position`() {
@@ -47,8 +56,11 @@ func `cursor movement writes at requested position`() {
 }
 
 @Test(
+  .disabled(
+    if: VirtualTerminal.isPlatformUnsupported,
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."),
   .dependencies {
-    $0.virtualTerminal = .ghostty(cols: 5, rows: 1)
+    $0.virtualTerminal = .ghosttyOrPlatformUnsupported(cols: 5, rows: 1)
   }
 )
 func `erase in line clears visible cells`() {
@@ -61,8 +73,11 @@ func `erase in line clears visible cells`() {
 }
 
 @Test(
+  .disabled(
+    if: VirtualTerminal.isPlatformUnsupported,
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."),
   .dependencies {
-    $0.virtualTerminal = .ghostty(cols: 4, rows: 1)
+    $0.virtualTerminal = .ghosttyOrPlatformUnsupported(cols: 4, rows: 1)
   }
 )
 func `sgr style and colors are inspectable`() {
@@ -83,8 +98,11 @@ func `sgr style and colors are inspectable`() {
 }
 
 @Test(
+  .disabled(
+    if: VirtualTerminal.isPlatformUnsupported,
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."),
   .dependencies {
-    $0.virtualTerminal = .ghostty(cols: 8, rows: 3)
+    $0.virtualTerminal = .ghosttyOrPlatformUnsupported(cols: 8, rows: 3)
   }
 )
 func `cursor position is inspectable`() {

@@ -8,13 +8,16 @@ import Testing
 
 @testable import TesseraTerminalRendering
 
-@Test
+@Test(
+  .disabled(
+    if: VirtualTerminal.isPlatformUnsupported,
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."))
 func `renderer output can be inspected as terminal text`() {
   var buffer = Buffer(size: TerminalSize(columns: 4, rows: 2))
   buffer.write("Hi", at: TerminalPosition(column: 0, row: 0))
   buffer.write("q", at: TerminalPosition(column: 0, row: 1))
 
-  let terminal = VirtualTerminal.ghostty(cols: 4, rows: 2)
+  let terminal = VirtualTerminal.ghosttyOrPlatformUnsupported(cols: 4, rows: 2)
   terminal.feed(Renderer.render(buffer))
 
   assertInlineSnapshot(of: terminal.snapshot(), as: .terminalText()) {
@@ -25,7 +28,10 @@ func `renderer output can be inspected as terminal text`() {
   }
 }
 
-@Test
+@Test(
+  .disabled(
+    if: VirtualTerminal.isPlatformUnsupported,
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."))
 func `renderer output can be inspected as styled terminal state`() {
   var buffer = Buffer(size: TerminalSize(columns: 3, rows: 2))
   buffer.write("H", at: TerminalPosition(column: 0, row: 0))
@@ -33,7 +39,7 @@ func `renderer output can be inspected as styled terminal state`() {
   buffer.write("q", at: TerminalPosition(column: 0, row: 1))
   buffer.write("r", at: TerminalPosition(column: 2, row: 1))
 
-  let terminal = VirtualTerminal.ghostty(cols: 3, rows: 2)
+  let terminal = VirtualTerminal.ghosttyOrPlatformUnsupported(cols: 3, rows: 2)
   terminal.feed(Renderer.render(buffer))
 
   assertInlineSnapshot(of: terminal.snapshot(), as: .terminalStyledGrid(trim: .none)) {
@@ -48,9 +54,12 @@ func `renderer output can be inspected as styled terminal state`() {
   }
 }
 
-@Test
+@Test(
+  .disabled(
+    if: VirtualTerminal.isPlatformUnsupported,
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."))
 func `terminal debug dump includes cursor and styled cell metadata`() {
-  let terminal = VirtualTerminal.ghostty(cols: 4, rows: 2)
+  let terminal = VirtualTerminal.ghosttyOrPlatformUnsupported(cols: 4, rows: 2)
 
   terminal.feed("\u{1B}[2;2H\u{1B}[1;3;4;7;38;5;196;48;2;1;2;3mX")
 
