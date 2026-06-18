@@ -63,6 +63,16 @@ coverage explicitly skipped until the Ghostty build path is proven there.
 - **CI cannot reuse `just ci` on Windows.** The `ci` recipe runs `build-libghostty-vt` (a
   bash + zig script) before `swift build`/`swift test`. Windows must skip that and invoke
   `swift build`/`swift test --no-parallel` directly. See Step 4.2.
+- **Platform state belongs in one typed value, not parallel `#if` fields.** Step 2.1
+  landed parallel `#if os(macOS) || os(Linux)` fd fields vs `#elseif os(Windows)` handle
+  fields on `TerminalDevice`, plus an init that declares both the POSIX and Windows params
+  unconditionally (the Windows params are dead weight on POSIX, and `savedTermios` is
+  forced to `{ nil }` rather than passed). Treat that as an interim shape. The target is a
+  single `cleanupState: PlatformCleanupState` field whose type is defined once per
+  platform (alongside the platform-internal `PlatformHandles` of Step 3.1), so
+  `TerminalDevice`'s body and init carry no `#if`, and `PlatformIO`'s `#if`-guarded
+  `savedTermios()` becomes a platform-neutral accessor the cleanup-install path consumes.
+  See Step 3.1.
 
 ### Local Windows unit-test command before Phase 1 work
 
@@ -223,9 +233,10 @@ depends on it for local iteration.
   sketch in `docs/Spec.md`. Note this intentional divergence from the spec.
 - `PlatformIO.installCleanup` is currently `#if os(macOS) || os(Linux)` only and pulls
   `inputFileDescriptor`/`outputFileDescriptor` (`CInt`) off `TerminalDevice`. Add a
-  Windows branch that sources console `HANDLE`s + saved modes instead; decide whether to
-  conditionalize the `CInt` fd fields on `TerminalDevice` or add parallel Windows handle
-  fields (prefer parallel `#if os(Windows)` fields to keep POSIX untouched).
+  Windows branch that sources console `HANDLE`s + saved modes instead. The parallel
+  `#if os(Windows)` fields shipped here are interim (keeps POSIX untouched for 2.1); Step
+  3.1 collapses them into one typed `PlatformCleanupState` value (see the design
+  constraint above).
 - Add testing hooks only where needed to assert saved mode state and handler installation.
 - Acceptance: existing POSIX cleanup tests pass; Windows-only cleanup tests verify
   install, clear, emergency cleanup, and handler/backstop registration behavior.
@@ -265,6 +276,12 @@ depends on it for local iteration.
   device construction with clear errors.
 - Implement Windows writes, alternate-screen bytes, and `GetConsoleScreenBufferInfo` size
   reads behind the existing `PlatformIO` methods.
+- Collapse the interim parallel `#if` cleanup fields on `TerminalDevice` (from Step 2.1)
+  into a single `cleanupState: PlatformCleanupState` field, defined once per platform next
+  to the platform-internal `PlatformHandles`. Remove the unconditional Windows init params
+  on POSIX and the `#if`-guarded `PlatformIO.savedTermios()`; the cleanup-install path
+  reads the typed value through a platform-neutral accessor. Net: `TerminalDevice` and its
+  init carry no `#if`.
 - Acceptance: Windows-only tests cover standard handle validation, redirected I/O errors,
   write retry/error mapping, alternate screen bytes, and size decoding.
 
