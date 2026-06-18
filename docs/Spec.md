@@ -1676,9 +1676,14 @@ pre-computed bytes.
 **Layer 4: documented escape hatch.**
 
 For users whose programs _do_ die without running our handlers (segfault, `kill -9`, power
-outage), Tessera ships a `tessera-reset` shell command that emits the universal "fix my
-terminal" byte string. Document this prominently. You can't catch every failure mode; you
-can make recovery a one-command operation.
+outage), Tessera documents the per-platform terminal-recovery incantation prominently. You
+can't catch every failure mode; you can make recovery a one-command operation. Tessera is
+a library, not a CLI, so it does **not** ship a `tessera-reset` executable — an executable
+has no coherent distribution path to either end users (who never know Tessera exists) or
+app developers (who already have the platform command), and `swift run`-ing a binary is
+worse than typing the command. Instead: on POSIX, `reset` (or `stty sane`); on Windows,
+which has no native equivalent, a PowerShell one-liner that emits RIS (`ESC c`), e.g.
+`[Console]::Write([char]27 + 'c')`.
 
 #### The real `PlatformIO`
 
@@ -1700,41 +1705,39 @@ can make recovery a one-command operation.
 >   `TerminalSize` starts with just columns/rows.
 > - Input events in Ratatui use `crossterm::event::poll()` and `event::read()` (see
 >   `examples/apps/demo/src/crossterm.rs`, lines 57, 62). Tessera replaces this with a
->   non-blocking `AsyncStream<UInt8>` backed by `poll` + `read(2)`.
+>   non-blocking `AsyncStream<[UInt8]>` backed by `poll` + `read(2)`.
 
 Phase 1's `PlatformIO` was intentionally thin. Slice 3 is where it gains the full terminal
 I/O API.
 
 ```swift
-internal actor PlatformIO {
-    internal init(handles: consuming PlatformHandles) throws
+package actor PlatformIO {
+    package init(handles: consuming PlatformHandles) throws
 
-    // Output: internal/package only. Public arbitrary writes make it possible to write
-    // outside a render transaction.
-    package func write(_ bytes: [UInt8]) async throws
-    package func write(_ bytes: ArraySlice<UInt8>) async throws
+    // Output: package only. Public arbitrary writes make it possible to write
+    // outside a render transaction. `write` buffers; `flush` performs the actual syscall.
+    package func write(_ bytes: [UInt8])
+    package func write(_ bytes: ArraySlice<UInt8>)
     package func flush() async throws
 
-    // Input
-    package nonisolated var bytes: AsyncStream<UInt8> { get }
+    // Input. Chunked rather than per-byte; an empty chunk is an input-idle
+    // notification used internally for ESC-timeout handling.
+    package nonisolated var bytes: AsyncStream<[UInt8]> { get }
 
     // Terminal queries
     package func size() async throws -> TerminalSize
-    package var sizeChanges: AsyncStream<TerminalSize> { get }
+    package nonisolated var sizeChanges: AsyncStream<TerminalSize> { get }
 
     // Mode primitives (called by ModeLifecycle/TerminalSession, not directly by users)
     package func enableRawMode() async throws
     package func disableRawMode() async throws
-    package func savedTermios() -> termios?  // for signal handler
+    package func savedTermios() async -> termios?  // POSIX only; for the signal handler
 }
 
-internal struct FileDescriptor: ~Copyable {
-    private let rawValue: CInt
-}
-
-internal struct PlatformHandles: ~Copyable {
-    private let stdin: FileDescriptor
-    private let stdout: FileDescriptor
+// `FileDescriptor` is swift-system's noncopyable wrapper.
+package struct PlatformHandles: ~Copyable {
+    package let stdin: FileDescriptor
+    package let stdout: FileDescriptor
     // Windows console handles live behind equivalent noncopyable wrappers on Windows.
 }
 ```
@@ -1796,8 +1799,8 @@ Design notes:
 >   Crossterm internally uses `poll`/`epoll`/`kqueue` depending on platform — Tessera
 >   re-implements this directly with POSIX `poll` for full control.
 > - The crossterm event loop is synchronous and blocking within `poll`'s timeout.
->   Tessera's `AsyncStream<UInt8>` approach is async-native, yielding individual bytes via
->   a `AsyncStreamContinuation` from a detached task.
+>   Tessera's `AsyncStream<[UInt8]>` approach is async-native, yielding byte chunks via an
+>   `AsyncStreamContinuation` from the input loop.
 > - Crossterm's cancellation is implicit (the `poll` timeout bounds the block). Tessera
 >   uses an explicit self-pipe trick so cancellation returns immediately without waiting
 >   for the timeout.
@@ -1896,12 +1899,13 @@ what's safe to do in a signal handler context and why.
 
 1. `ModeLifecycle` actor with `enter`/`exit`/`activeModes` for `rawMode` and `altScreen`.
    (Other modes deferred to Phase 3.)
-2. Real internal `PlatformIO` actor: buffered writes, `AsyncStream<UInt8>` input, `size()`
-   query, `sizeChanges` stream, and noncopyable platform handles.
+2. Real internal `PlatformIO` actor: buffered writes, `AsyncStream<[UInt8]>` input,
+   `size()` query, `sizeChanges` stream, and noncopyable platform handles.
 3. Signal handlers installed for SIGINT, SIGTERM, SIGHUP, SIGQUIT that restore the
    terminal and re-raise.
 4. `atexit` backstop installed.
-5. `tessera-reset` executable target that emits the universal terminal-reset byte string.
+5. Documented per-platform terminal-recovery commands (POSIX `reset`/`stty sane`) — no
+   shipped executable; Tessera is a library, not a CLI.
 6. Public `TerminalSession.withApplicationTerminal(configuration:)` entry point that owns
    structured setup/teardown and exposes no arbitrary live-terminal write API.
 7. The Phase 1 walking skeleton is rewritten to use `ModeLifecycle`, `TerminalSession`,
@@ -1948,11 +1952,13 @@ For clarity, things that look like they belong here but don't:
    It's the part of Tessera most likely to have a latent bug that bites someone six months
    from now.
 
-3. **`tessera-reset` as a shipped executable is a small detail that punches above its
-   weight for user trust.** When (not if) someone's terminal ends up in a weird state
-   during early development, "run `tessera-reset`" is a much better story than "type the
-   magic incantation `reset` or `stty sane && printf '\e[?1049l\e[?25h'`." It's ~20 lines
-   of code and turns a class of bad first impressions into a non-issue.
+3. **Documented terminal recovery is a small detail that punches above its weight for user
+   trust.** When (not if) someone's terminal ends up in a weird state during early
+   development, a prominently documented one-command fix turns a class of bad first
+   impressions into a non-issue. On POSIX that command already exists (`reset`,
+   `stty sane`); on Windows there is no native equivalent, so document the PowerShell RIS
+   one-liner. A shipped `tessera-reset` executable was considered and rejected: Tessera is
+   a library, not a CLI, so it has no distribution path to the people who would run it.
 
 ### Slice 4: Width-aware `Buffer` + damage-tracking renderer
 
@@ -2533,8 +2539,9 @@ strings.
 8. ~30-40 tests covering: width handling, orphan rule, diff correctness, SGR minimization,
    cursor optimization, raw payload/opaque-region behavior, synchronized-output policy,
    invalidate behavior. Mix of unit tests and snapshot tests through `VirtualTerminal`.
-9. The `tessera-reset` resilience story still holds: a `kill -INT` during a render leaves
-   the terminal sane (verified manually).
+9. The resilience story still holds: a `kill -INT` during a render leaves the terminal
+   sane (verified manually), via the in-process emergency handler, with documented
+   per-platform recovery as the last-resort fallback.
 
 #### What's not in this slice
 
@@ -2969,7 +2976,7 @@ because the parser's escape-sequence handling already extends cleanly.
 >   `poll_internal` and wakes the async task when events arrive. This is the closest
 >   analog to Tessera's `AsyncStream<InputEvent>`.
 
-Slice 3 gave you `PlatformIO.bytes: AsyncStream<UInt8>`. Slice 5 layers on top — at
+Slice 3 gave you `PlatformIO.bytes: AsyncStream<[UInt8]>`. Slice 5 layers on top — at
 package level, with `TerminalSession` as the public surface, consistent with the ownership
 thesis (raw byte access must not be public API):
 
@@ -3210,18 +3217,18 @@ conditional code in the encoder, renderer, or parser. The whole Windows port liv
 >   the character-only equivalent.
 
 The API stays identical to slice 3's POSIX version — including its visibility.
-`PlatformIO` remains internal/package on Windows too; `TerminalSession` is still the only
+`PlatformIO` remains `package`-level on Windows too; `TerminalSession` is still the only
 public facade, per the ownership thesis. The whole point of the abstraction is that
 callers (and the rest of the package) don't know which platform they're on:
 
 ```swift
-internal actor PlatformIO {
-    internal init(handles: consuming PlatformHandles) throws
-    package func write(_ bytes: [UInt8]) async throws
+package actor PlatformIO {
+    package init(handles: consuming PlatformHandles) throws
+    package func write(_ bytes: [UInt8])  // buffers; flush performs the syscall
     package func flush() async throws
-    package nonisolated var bytes: AsyncStream<UInt8> { get }
+    package nonisolated var bytes: AsyncStream<[UInt8]> { get }  // chunked; empty = idle
     package func size() async throws -> TerminalSize
-    package var sizeChanges: AsyncStream<TerminalSize> { get }
+    package nonisolated var sizeChanges: AsyncStream<TerminalSize> { get }
     package func enableRawMode() async throws
     package func disableRawMode() async throws
 }
@@ -3321,6 +3328,17 @@ This is more contorted than POSIX. It works, it's well-documented, and Microsoft
 `conhost` source confirms this is the intended pattern — but it's the one part of slice 6
 most likely to have subtle bugs.
 
+**One owning loop drives both streams.** A consequence of the above that the `PlatformIO`
+sketch above hides: because byte input and `WINDOW_BUFFER_SIZE_EVENT` records share the
+single console input queue, the `bytes` and `sizeChanges` streams cannot each spin up
+their own loop over `STD_INPUT_HANDLE` — two loops would steal events from each other. On
+Windows the live device owns **one** input loop, created once, that fans out byte chunks
+to `bytes` and translated resize events to `sizeChanges`. This differs from POSIX, where
+`bytes` comes from the read loop and `sizeChanges` comes from an independent `SIGWINCH`
+registry, so the two never contend. Also only call `ReadFile` once `PeekConsoleInput`
+shows character bytes are queued, so a pending resize/focus record never blocks `ReadFile`
+on a keypress.
+
 ##### Output writes on Windows
 
 Comparatively easy. `WriteFile` on `STD_OUTPUT_HANDLE` with the byte buffer. With
@@ -3378,15 +3396,26 @@ cleanup registry's saved console modes, restore them via `SetConsoleMode`, write
 teardown bytes via `WriteFile`. Then return `FALSE` from the handler, which lets the
 default behavior proceed (terminating the process).
 
-```swift
-internal func tesseraCtrlHandler(_ ctrlType: DWORD) -> WindowsBool {
-    switch ctrlType {
-    case DWORD(CTRL_C_EVENT), DWORD(CTRL_BREAK_EVENT), DWORD(CTRL_CLOSE_EVENT):
-        CleanupRegistry.performEmergencyCleanup()
-        return false  // let default handler proceed (process termination)
+This handler lives in the `CTesseraTerminalPlatform` C shim, not in Swift, mirroring how
+the POSIX path already keeps its signal handler in C (`tessera_cleanup_*` in `cleanup.c`,
+registered via `CleanupRegistry.installHandlers()`). The shim branches internally on
+`#if defined(_WIN32)`; the die-now restore reads the stored console handles + saved modes
+and calls `SetConsoleMode` / `WriteFile` directly. (Earlier drafts sketched a Swift
+`tesseraCtrlHandler`; the C-shim placement is the chosen design because it stays
+consistent with the existing teardown architecture.)
+
+```c
+// In CTesseraTerminalPlatform (cleanup.c), alongside the POSIX signal handler.
+static BOOL WINAPI tessera_cleanup_ctrl_handler(DWORD ctrl_type) {
+  switch (ctrl_type) {
+    case CTRL_C_EVENT:
+    case CTRL_BREAK_EVENT:
+    case CTRL_CLOSE_EVENT:
+      tessera_cleanup_perform();  // restore SetConsoleMode + WriteFile teardown bytes
+      return FALSE;               // let the default handler proceed (process termination)
     default:
-        return false
-    }
+      return FALSE;
+  }
 }
 ```
 
@@ -3411,9 +3440,9 @@ pattern to POSIX.
 ##### What about catastrophic exit?
 
 A `TerminateProcess` (analogous to `kill -9`) bypasses all handlers on Windows just like
-POSIX. The `tessera-reset` executable still applies — it emits the universal
-terminal-reset bytes, which work on any VT-capable Windows console. The escape hatch is
-identical.
+POSIX. The documented escape hatch still applies — but unlike POSIX, Windows has no native
+`reset`/`stty sane`, so document a PowerShell one-liner that emits RIS (`ESC c`), e.g.
+`[Console]::Write([char]27 + 'c')`, which works on any VT-capable Windows console.
 
 #### The cleanup registry, generalized
 
@@ -3529,7 +3558,7 @@ running on the Windows matrix entry.
    combinations on the input and output handles.
 3. Async input loop using `WaitForSingleObject` + `ReadConsoleInput` + `ReadFile`,
    draining non-character events (resize, focus) and yielding character bytes through the
-   same `AsyncStream<UInt8>`.
+   same `AsyncStream<[UInt8]>`.
 4. `WINDOW_BUFFER_SIZE_EVENT` translation into `sizeChanges` stream.
 5. `SetConsoleCtrlHandler` installed for `CTRL_C_EVENT`, `CTRL_BREAK_EVENT`,
    `CTRL_CLOSE_EVENT`. Handler restores console modes and writes teardown bytes via the
@@ -3537,7 +3566,8 @@ running on the Windows matrix entry.
 6. `CleanupRegistry` generalized to hold either POSIX or Windows state, with
    platform-specific `performEmergencyCleanup`.
 7. `atexit` backstop installed on Windows (same pattern as POSIX).
-8. `tessera-reset` builds and runs on Windows, emitting the universal reset bytes.
+8. Windows terminal-recovery command documented (PowerShell RIS one-liner) alongside the
+   POSIX `reset`/`stty sane` docs — no shipped executable.
 9. Fail-fast detection for unsupported environments (ISE, redirected I/O, very old
    Windows): `PlatformIO.init` throws a clear error explaining the requirement.
 10. GitHub Actions matrix runs the test suite on `windows-latest`; snapshot tests skipped

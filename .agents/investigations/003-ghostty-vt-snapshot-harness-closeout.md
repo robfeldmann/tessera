@@ -40,10 +40,10 @@ use, and which platforms have been validated?
 - macOS arm64 validation passed with:
   - `swift test --filter TesseraTerminalSnapshotSupportTests`
   - `swift test --filter TesseraTerminalRenderingTests`
-  - `just lint-changed`
-- Local Linux validation passed in the Lima VM with `just test-linux-vm` after installing
+  - `just quality changed`
+- Local Linux validation passed in the Lima VM with `just linux test` after installing
   Ghostty build prerequisites and Zig 0.15.2. The VM recipe now provisions those tools and
-  `just test-linux-vm` builds/refreshes `libghostty-vt` before running `swift test`.
+  `just linux test` builds/refreshes `libghostty-vt` before running `swift test`.
 - Local Homebrew prerequisites are listed in `Brewfile` under "Ghostty Test Harness":
   `cmake`, `ninja`, and `zig@0.15`.
 - `docs/UpdatingGhosttyVT.md` documents how to update the pinned Ghostty revision and how

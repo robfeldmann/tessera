@@ -30,7 +30,7 @@ updated: 2026-06-13
 ## Review process
 
 Do not push branches or create a GitHub PR for this slice unless explicitly asked. The
-agent implements one step at a time, runs focused validation plus `just lint-changed`,
+agent implements one step at a time, runs focused validation plus `just quality changed`,
 updates this plan, and pauses for user review. After the user approves the completed step,
 commit the approved work locally before starting the next step. Do not start
 implementation until this plan is reviewed and explicitly approved.
@@ -208,7 +208,7 @@ per-byte pipeline.
     scrolling, Up/Down or Ctrl+Up/Ctrl+Down for line scrolling if those keys are
     available, and Home/End to jump to the oldest/newest log entries.
 - Keep examples dependent on public `TesseraTerminal`/`Tessera` products only.
-- Acceptance: `just examples-list` includes `InputInspector`; targeted
+- Acceptance: `just core examples-list` includes `InputInspector`; targeted
   `swift build --package-path Examples --product InputInspector` and
   `swift build --package-path Examples` pass.
 
@@ -234,8 +234,9 @@ per-byte pipeline.
 
 - Files:
   - `.agents/plans/011-phase-2-slice-5-legacy-input-parser.md`
-- Run focused test targets first, then `just lint-changed`, `just lint`, and `swift test`.
-- Run `just examples` or equivalent example validation required by the repository.
+- Run focused test targets first, then `just quality changed`, `just quality lint`, and
+  `swift test`.
+- Run `just core examples` or equivalent example validation required by the repository.
 - Update progress checkboxes and `updated` date.
 - Acceptance: all validation passes, no unreviewed follow-up items remain, and the plan is
   marked completed.

@@ -78,10 +78,10 @@ jobs:
           tool: just
 
       - name: Lint Swift formatting
-        run: just lint-swift
+        run: just quality swift
 
       - name: Run SwiftLint
-        run: just lint-swiftlint
+        run: just quality swiftlint
 
   test:
     name: test (${{ matrix.os }})

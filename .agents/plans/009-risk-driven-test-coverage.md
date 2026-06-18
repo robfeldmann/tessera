@@ -259,7 +259,7 @@ clear follow-up guidance.
 - Commands:
   - `swift test --enable-code-coverage`
   - `swift build --package-path Examples`
-  - `just lint-changed`
+  - `just quality changed`
   - coverage summary command from Phase 1
 - If Markdown changed, also run `pnpx markdownlint-cli <path>`.
 - Acceptance: all commands pass and the coverage summary shows improvement over the
