@@ -5,8 +5,6 @@ import Testing
 @testable import TesseraTerminalIO
 
 #if os(macOS)
-  import Darwin
-
   @Suite(.serialized)
   struct TerminalDeviceLiveTests {
     @Test

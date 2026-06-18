@@ -3,12 +3,6 @@ import Testing
 
 @testable import TesseraTerminalIO
 
-#if os(macOS)
-  import Darwin
-#elseif os(Linux)
-  import Glibc
-#endif
-
 #if os(macOS) || os(Linux)
   @Suite(.serialized)
   struct CleanupRegistryTests {
@@ -71,6 +65,18 @@ import Testing
       let bytes = try pipe.readAll()
       expectNoDifference(bytes, [])
     }
+
+    @Test
+    func `querying installed handlers is side-effect free`() {
+      // Regression: the query previously used `atomic_flag_test_and_set`, so merely
+      // asking whether handlers were installed marked them installed and flipped a
+      // subsequent read to true. Reset to a known-clear flag, then prove a query keeps
+      // it clear.
+      CleanupRegistry.resetHandlersForTesting()
+
+      #expect(!CleanupRegistry.hasInstalledHandlersForTesting())
+      #expect(!CleanupRegistry.hasInstalledHandlersForTesting())
+    }
   }
 
   private final class FileDescriptorPipe: @unchecked Sendable {
@@ -129,11 +135,7 @@ import Testing
     _ buffer: UnsafeMutablePointer<UInt8>?,
     _ count: Int
   ) -> Int {
-    #if os(macOS)
-      Darwin.read(fileDescriptor, buffer, count)
-    #elseif os(Linux)
-      Glibc.read(fileDescriptor, buffer, count)
-    #endif
+    read(fileDescriptor, buffer, count)
   }
 #elseif os(Windows)
   @Suite(.serialized)

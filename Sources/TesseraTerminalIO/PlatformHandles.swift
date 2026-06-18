@@ -1,9 +1,3 @@
-#if os(macOS)
-  import Darwin
-#elseif os(Linux)
-  import Glibc
-#endif
-
 /// POSIX terminal handles for standard input and output.
 package struct PlatformHandles: ~Copyable {
   package let stdin: FileDescriptor

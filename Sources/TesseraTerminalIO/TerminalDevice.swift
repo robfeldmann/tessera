@@ -1,11 +1,5 @@
 import TesseraTerminalCore
 
-#if os(macOS)
-  import Darwin
-#elseif os(Linux)
-  import Glibc
-#endif
-
 /// Package-internal terminal device operations used to build owned platform I/O seams.
 package struct TerminalDevice: Sendable {
   /// Reads raw input byte chunks from terminal input.

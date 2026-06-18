@@ -39,6 +39,7 @@ void tessera_cleanup_perform_and_reraise(int signal_number);
 int tessera_cleanup_has_saved_termios_for_testing(void);
 int tessera_cleanup_has_saved_windows_modes_for_testing(void);
 int tessera_cleanup_has_installed_handlers_for_testing(void);
+void tessera_cleanup_reset_handlers_for_testing(void);
 
 #ifdef __cplusplus
 }

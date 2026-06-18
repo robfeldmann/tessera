@@ -3,12 +3,6 @@ import Testing
 
 @testable import TesseraTerminalIO
 
-#if os(macOS)
-  import Darwin
-#elseif os(Linux)
-  import Glibc
-#endif
-
 #if os(macOS) || os(Linux)
   @Test
   func `file descriptor stores raw value`() {

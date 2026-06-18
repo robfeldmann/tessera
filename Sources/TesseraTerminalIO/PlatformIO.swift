@@ -1,12 +1,6 @@
 import TesseraTerminalCore
 import TesseraTerminalInput
 
-#if os(macOS)
-  import Darwin
-#elseif os(Linux)
-  import Glibc
-#endif
-
 /// Owned platform terminal I/O.
 package actor PlatformIO {
   private let terminalDevice: TerminalDevice

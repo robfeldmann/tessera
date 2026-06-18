@@ -19,7 +19,7 @@ struct tessera_cleanup_state {
 };
 
 static _Atomic(struct tessera_cleanup_state *) current_state = NULL;
-static atomic_flag handlers_installed = ATOMIC_FLAG_INIT;
+static _Atomic(int) handlers_installed = 0;
 
 static void write_all_best_effort(HANDLE handle, const unsigned char *bytes, size_t count) {
   size_t offset = 0;
@@ -109,7 +109,8 @@ static BOOL WINAPI tessera_cleanup_ctrl_handler(DWORD control_type) {
 }
 
 void tessera_cleanup_install_handlers(void) {
-  if (atomic_flag_test_and_set(&handlers_installed)) {
+  int expected = 0;
+  if (!atomic_compare_exchange_strong(&handlers_installed, &expected, 1)) {
     return;
   }
 
@@ -128,7 +129,11 @@ int tessera_cleanup_has_saved_windows_modes_for_testing(void) {
 }
 
 int tessera_cleanup_has_installed_handlers_for_testing(void) {
-  return atomic_flag_test_and_set(&handlers_installed) ? 1 : 0;
+  return atomic_load(&handlers_installed);
+}
+
+void tessera_cleanup_reset_handlers_for_testing(void) {
+  atomic_store(&handlers_installed, 0);
 }
 
 #else
@@ -149,7 +154,7 @@ struct tessera_cleanup_state {
 };
 
 static _Atomic(struct tessera_cleanup_state *) current_state = NULL;
-static atomic_flag handlers_installed = ATOMIC_FLAG_INIT;
+static _Atomic(int) handlers_installed = 0;
 
 static void write_all_best_effort(int fd, const unsigned char *bytes, size_t count) {
   size_t offset = 0;
@@ -242,7 +247,11 @@ int tessera_cleanup_has_saved_termios_for_testing(void) {
 int tessera_cleanup_has_saved_windows_modes_for_testing(void) { return 0; }
 
 int tessera_cleanup_has_installed_handlers_for_testing(void) {
-  return atomic_flag_test_and_set(&handlers_installed) ? 1 : 0;
+  return atomic_load(&handlers_installed);
+}
+
+void tessera_cleanup_reset_handlers_for_testing(void) {
+  atomic_store(&handlers_installed, 0);
 }
 
 static void tessera_cleanup_signal_handler(int signal_number) {
@@ -250,7 +259,8 @@ static void tessera_cleanup_signal_handler(int signal_number) {
 }
 
 void tessera_cleanup_install_handlers(void) {
-  if (atomic_flag_test_and_set(&handlers_installed)) {
+  int expected = 0;
+  if (!atomic_compare_exchange_strong(&handlers_installed, &expected, 1)) {
     return;
   }
 

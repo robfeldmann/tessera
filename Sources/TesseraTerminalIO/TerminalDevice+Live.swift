@@ -1,12 +1,6 @@
 import SystemPackage
 import TesseraTerminalCore
 
-#if os(macOS)
-  import Darwin
-#elseif os(Linux)
-  import Glibc
-#endif
-
 extension TerminalDevice {
   package static var live: Self {
     #if os(macOS) || os(Linux)

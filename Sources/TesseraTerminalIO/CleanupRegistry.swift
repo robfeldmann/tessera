@@ -1,11 +1,5 @@
 import CTesseraTerminalPlatform
 
-#if os(macOS)
-  import Darwin
-#elseif os(Linux)
-  import Glibc
-#endif
-
 /// Registers signal-safe terminal cleanup state for catastrophic exits.
 ///
 /// POSIX signal handlers may only perform a very small set of async-signal-safe
@@ -94,5 +88,11 @@ package enum CleanupRegistry {
   /// Returns whether the C cleanup shim has installed process cleanup handlers.
   package static func hasInstalledHandlersForTesting() -> Bool {
     tessera_cleanup_has_installed_handlers_for_testing() != 0
+  }
+
+  /// Clears the C cleanup shim's installed-handlers flag so tests can prove the query is
+  /// side-effect free without installing real process handlers.
+  package static func resetHandlersForTesting() {
+    tessera_cleanup_reset_handlers_for_testing()
   }
 }
