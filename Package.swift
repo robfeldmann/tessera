@@ -130,7 +130,9 @@ let SystemPackage: Target.Dependency = .product(
 
 // MARK: - 🚛 Forward Module Declarations
 
-let CGhosttyVT: Target.Dependency = .byName(name: "CGhosttyVT")
+#if !os(Windows)
+  let CGhosttyVT: Target.Dependency = .byName(name: "CGhosttyVT")
+#endif
 let CTesseraTerminalPlatform: Target.Dependency = .byName(
   name: "CTesseraTerminalPlatform"
 )
@@ -170,13 +172,15 @@ let AllTesseraTargetNames: Set<String> = [
 
 // MARK: CGhosttyVT
 
-package.targets.append(
-  .target(
-    name: "CGhosttyVT",
-    path: "Sources/CGhosttyVT",
-    publicHeadersPath: "include"
+#if !os(Windows)
+  package.targets.append(
+    .target(
+      name: "CGhosttyVT",
+      path: "Sources/CGhosttyVT",
+      publicHeadersPath: "include"
+    )
   )
-)
+#endif
 
 // MARK: CTesseraTerminalPlatform
 
@@ -386,11 +390,18 @@ package.targets.append(contentsOf: [
 
 // MARK: TesseraTerminalSnapshotSupport
 
+#if !os(Windows)
+  let TesseraTerminalSnapshotSupportPlatformDependencies: [Target.Dependency] = [
+    CGhosttyVT
+  ]
+#else
+  let TesseraTerminalSnapshotSupportPlatformDependencies: [Target.Dependency] = []
+#endif
+
 package.targets.append(contentsOf: [
   .target(
     name: "TesseraTerminalSnapshotSupport",
-    dependencies: [
-      CGhosttyVT,
+    dependencies: TesseraTerminalSnapshotSupportPlatformDependencies + [
       Dependencies,
       IssueReporting,
       TesseraTerminalANSI,
@@ -428,42 +439,44 @@ package.targets.append(
 
 // MARK: - 👻 Ghostty VT Build Output
 
-let PackageDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().path
-let GhosttyVTRevisionFile = "\(PackageDirectory)/scripts/ghostty-vt-version.txt"
-let GhosttyVTRevision =
-  (try? String(contentsOfFile: GhosttyVTRevisionFile, encoding: .utf8))?
-  .trimmingCharacters(in: .whitespacesAndNewlines) ?? "unknown"
-#if os(macOS)
-  let GhosttyVTPlatform = "macos"
-#elseif os(Linux)
-  let GhosttyVTPlatform = "linux"
-#else
-  let GhosttyVTPlatform = "unsupported"
-#endif
-#if arch(arm64)
-  let GhosttyVTArch = "arm64"
-#elseif arch(x86_64)
-  let GhosttyVTArch = "x86_64"
-#else
-  let GhosttyVTArch = "unsupported"
-#endif
-let GhosttyVTInstallPath =
-  "\(PackageDirectory)/.build/libghostty-vt/\(GhosttyVTRevision)/\(GhosttyVTPlatform)-\(GhosttyVTArch)"
-let GhosttyVTIncludePath = "\(GhosttyVTInstallPath)/include"
-let GhosttyVTLibraryPath = "\(GhosttyVTInstallPath)/lib"
-let GhosttyVTUnsafeLinkerFlags = [
-  "-L\(GhosttyVTLibraryPath)",
-  "-lghostty-vt",
-  "-Xlinker",
-  "-rpath",
-  "-Xlinker",
-  GhosttyVTLibraryPath,
-]
-if let GhosttyVTTarget = package.targets.first(where: { $0.name == "CGhosttyVT" }) {
-  GhosttyVTTarget.linkerSettings = [
-    .unsafeFlags(GhosttyVTUnsafeLinkerFlags)
+#if !os(Windows)
+  let PackageDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().path
+  let GhosttyVTRevisionFile = "\(PackageDirectory)/scripts/ghostty-vt-version.txt"
+  let GhosttyVTRevision =
+    (try? String(contentsOfFile: GhosttyVTRevisionFile, encoding: .utf8))?
+    .trimmingCharacters(in: .whitespacesAndNewlines) ?? "unknown"
+  #if os(macOS)
+    let GhosttyVTPlatform = "macos"
+  #elseif os(Linux)
+    let GhosttyVTPlatform = "linux"
+  #else
+    let GhosttyVTPlatform = "unsupported"
+  #endif
+  #if arch(arm64)
+    let GhosttyVTArch = "arm64"
+  #elseif arch(x86_64)
+    let GhosttyVTArch = "x86_64"
+  #else
+    let GhosttyVTArch = "unsupported"
+  #endif
+  let GhosttyVTInstallPath =
+    "\(PackageDirectory)/.build/libghostty-vt/\(GhosttyVTRevision)/\(GhosttyVTPlatform)-\(GhosttyVTArch)"
+  let GhosttyVTIncludePath = "\(GhosttyVTInstallPath)/include"
+  let GhosttyVTLibraryPath = "\(GhosttyVTInstallPath)/lib"
+  let GhosttyVTUnsafeLinkerFlags = [
+    "-L\(GhosttyVTLibraryPath)",
+    "-lghostty-vt",
+    "-Xlinker",
+    "-rpath",
+    "-Xlinker",
+    GhosttyVTLibraryPath,
   ]
-}
+  if let GhosttyVTTarget = package.targets.first(where: { $0.name == "CGhosttyVT" }) {
+    GhosttyVTTarget.linkerSettings = [
+      .unsafeFlags(GhosttyVTUnsafeLinkerFlags)
+    ]
+  }
+#endif
 
 // MARK: - ⚙️ Shared Swift Settings
 

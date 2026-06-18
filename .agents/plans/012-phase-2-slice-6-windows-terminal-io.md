@@ -4,7 +4,7 @@ description:
   Complete TesseraTerminalIO's Windows implementation and enable Windows CI for Phase 2.
 status: in_progress
 created: 2026-06-14
-updated: 2026-06-14
+updated: 2026-06-17
 ---
 
 ## Progress
@@ -13,7 +13,7 @@ updated: 2026-06-14
   - [x] 0.1 Provision a Windows 11 ARM64 VM in UTM with OpenSSH and the Swift toolchain
   - [x] 0.2 Add Brewfile, Just recipes, and CONTRIBUTING docs for the Windows VM workflow
 - [ ] **Phase 1 — Windows-safe package and snapshot scaffolding**
-  - [ ] 1.1 Make platform C and Ghostty snapshot targets compile safely on Windows
+  - [x] 1.1 Make platform C and Ghostty snapshot targets compile safely on Windows
   - [ ] 1.2 Mark Ghostty-backed tests explicitly skipped on Windows
 - [ ] **Phase 2 — Windows cleanup and console modes**
   - [ ] 2.1 Generalize emergency cleanup for POSIX and Windows state
@@ -63,6 +63,28 @@ coverage explicitly skipped until the Ghostty build path is proven there.
 - **CI cannot reuse `just ci` on Windows.** The `ci` recipe runs `build-libghostty-vt` (a
   bash + zig script) before `swift build`/`swift test`. Windows must skip that and invoke
   `swift build`/`swift test --no-parallel` directly. See Step 4.2.
+
+### Local Windows unit-test command before Phase 1 work
+
+- Before starting Phase 1, verify the Frost host setup with the actual local Frost
+  worktree path. The default `just windows-frost doctor` currently fails on this machine
+  because the scripts default to `~/Developer/frost`, while Frost is checked out at
+  `~/Developer/solcreek/frost/main`:
+
+  ```fish
+  env TESSERA_FROST_ROOT=~/Developer/solcreek/frost/main just windows-frost doctor
+  ```
+
+- Run the Windows unit-test loop with the same environment override:
+
+  ```fish
+  env TESSERA_FROST_ROOT=~/Developer/solcreek/frost/main just windows-frost test
+  ```
+
+  `just windows-frost::test` resolves to the same recipe in the installed `just`, but use
+  the documented module form above. The recipe boots a disposable Windows overlay, syncs
+  the current macOS working tree into `C:\Users\tester\tessera`, and runs
+  `swift test --no-parallel` in the guest via `scripts/run-windows-frost-tests.ps1`.
 
 ## Phase 0 — Local Windows dev toolchain (UTM + Windows 11 ARM64 + Swift)
 

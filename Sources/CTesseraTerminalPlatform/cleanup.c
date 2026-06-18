@@ -1,5 +1,14 @@
 #include "CTesseraTerminalPlatform.h"
 
+#ifdef _WIN32
+
+void tessera_cleanup_clear(void) {}
+void tessera_cleanup_perform(void) {}
+void tessera_cleanup_install_handlers(void) {}
+int tessera_cleanup_has_saved_termios_for_testing(void) { return 0; }
+
+#else
+
 #include <signal.h>
 #include <stdatomic.h>
 #include <stdlib.h>
@@ -121,3 +130,5 @@ void tessera_cleanup_install_handlers(void) {
   signal(SIGQUIT, tessera_cleanup_signal_handler);
   atexit(tessera_cleanup_perform);
 }
+
+#endif
