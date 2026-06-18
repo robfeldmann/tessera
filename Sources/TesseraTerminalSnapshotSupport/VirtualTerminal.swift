@@ -1,4 +1,3 @@
-import Dependencies
 import IssueReporting
 import TesseraTerminalCore
 
@@ -69,23 +68,5 @@ public struct VirtualTerminal: Sendable {
   /// Returns the terminal cursor position.
   public func cursorPosition() -> TerminalPosition {
     self.cursor()
-  }
-}
-
-extension VirtualTerminal: TestDependencyKey {
-  public static var testValue: Self {
-    #if os(Windows)
-      Self.platformUnsupported
-    #else
-      Self.ghostty(cols: 80, rows: 24)
-    #endif
-  }
-}
-
-extension DependencyValues {
-  /// The virtual terminal dependency used by renderer snapshot tests.
-  public var virtualTerminal: VirtualTerminal {
-    get { self[VirtualTerminal.self] }
-    set { self[VirtualTerminal.self] = newValue }
   }
 }

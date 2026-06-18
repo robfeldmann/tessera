@@ -1,5 +1,3 @@
-import Dependencies
-import DependenciesTestSupport
 import Foundation
 import TesseraTerminalCore
 import TesseraTerminalSnapshotSupport
@@ -34,13 +32,10 @@ func `cursor control sequences encode exact bytes`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isPlatformUnsupported,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."),
-  .dependencies {
-    $0.virtualTerminal = .ghosttyOrPlatformUnsupported(cols: 8, rows: 4)
-  }
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
 )
 func `cursor position round trips through virtual terminal`() {
-  @Dependency(\.virtualTerminal) var terminal
+  let terminal = VirtualTerminal.ghosttyOrPlatformUnsupported(cols: 8, rows: 4)
 
   feed([.cursorPosition(TerminalPosition(column: 3, row: 2))], into: terminal)
 
@@ -50,13 +45,10 @@ func `cursor position round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isPlatformUnsupported,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."),
-  .dependencies {
-    $0.virtualTerminal = .ghosttyOrPlatformUnsupported(cols: 10, rows: 5)
-  }
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
 )
 func `relative cursor movement round trips through virtual terminal`() {
-  @Dependency(\.virtualTerminal) var terminal
+  let terminal = VirtualTerminal.ghosttyOrPlatformUnsupported(cols: 10, rows: 5)
 
   feed(
     [
@@ -75,13 +67,10 @@ func `relative cursor movement round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isPlatformUnsupported,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."),
-  .dependencies {
-    $0.virtualTerminal = .ghosttyOrPlatformUnsupported(cols: 6, rows: 2)
-  }
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
 )
 func `cursor save and restore round trips through virtual terminal`() {
-  @Dependency(\.virtualTerminal) var terminal
+  let terminal = VirtualTerminal.ghosttyOrPlatformUnsupported(cols: 6, rows: 2)
 
   feed(
     [
@@ -101,13 +90,10 @@ func `cursor save and restore round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isPlatformUnsupported,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."),
-  .dependencies {
-    $0.virtualTerminal = .ghosttyOrPlatformUnsupported(cols: 4, rows: 1)
-  }
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
 )
 func `cursor visibility sequences are accepted by virtual terminal`() {
-  @Dependency(\.virtualTerminal) var terminal
+  let terminal = VirtualTerminal.ghosttyOrPlatformUnsupported(cols: 4, rows: 1)
 
   feed(
     [.cursorVisible(false), .text("A"), .cursorVisible(true), .text("B")],
@@ -136,13 +122,10 @@ func `erase line sequences encode exact bytes`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isPlatformUnsupported,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."),
-  .dependencies {
-    $0.virtualTerminal = .ghosttyOrPlatformUnsupported(cols: 5, rows: 1)
-  }
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
 )
 func `erase to end of line round trips through virtual terminal`() {
-  @Dependency(\.virtualTerminal) var terminal
+  let terminal = VirtualTerminal.ghosttyOrPlatformUnsupported(cols: 5, rows: 1)
 
   feed(
     [
@@ -159,13 +142,10 @@ func `erase to end of line round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isPlatformUnsupported,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."),
-  .dependencies {
-    $0.virtualTerminal = .ghosttyOrPlatformUnsupported(cols: 5, rows: 1)
-  }
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
 )
 func `erase to beginning of line round trips through virtual terminal`() {
-  @Dependency(\.virtualTerminal) var terminal
+  let terminal = VirtualTerminal.ghosttyOrPlatformUnsupported(cols: 5, rows: 1)
 
   feed(
     [
@@ -182,13 +162,10 @@ func `erase to beginning of line round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isPlatformUnsupported,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."),
-  .dependencies {
-    $0.virtualTerminal = .ghosttyOrPlatformUnsupported(cols: 5, rows: 1)
-  }
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
 )
 func `erase all of line round trips through virtual terminal`() {
-  @Dependency(\.virtualTerminal) var terminal
+  let terminal = VirtualTerminal.ghosttyOrPlatformUnsupported(cols: 5, rows: 1)
 
   feed(
     [
@@ -205,13 +182,10 @@ func `erase all of line round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isPlatformUnsupported,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."),
-  .dependencies {
-    $0.virtualTerminal = .ghosttyOrPlatformUnsupported(cols: 5, rows: 2)
-  }
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
 )
 func `erase display to end round trips through virtual terminal`() {
-  @Dependency(\.virtualTerminal) var terminal
+  let terminal = VirtualTerminal.ghosttyOrPlatformUnsupported(cols: 5, rows: 2)
 
   feed(
     [
@@ -229,13 +203,10 @@ func `erase display to end round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isPlatformUnsupported,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."),
-  .dependencies {
-    $0.virtualTerminal = .ghosttyOrPlatformUnsupported(cols: 5, rows: 2)
-  }
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
 )
 func `erase display to beginning round trips through virtual terminal`() {
-  @Dependency(\.virtualTerminal) var terminal
+  let terminal = VirtualTerminal.ghosttyOrPlatformUnsupported(cols: 5, rows: 2)
 
   feed(
     [
@@ -253,13 +224,10 @@ func `erase display to beginning round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isPlatformUnsupported,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."),
-  .dependencies {
-    $0.virtualTerminal = .ghosttyOrPlatformUnsupported(cols: 5, rows: 2)
-  }
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
 )
 func `erase display all round trips through virtual terminal`() {
-  @Dependency(\.virtualTerminal) var terminal
+  let terminal = VirtualTerminal.ghosttyOrPlatformUnsupported(cols: 5, rows: 2)
 
   feed([.text("Again"), .eraseInDisplay(.all)], into: terminal)
 
@@ -270,13 +238,10 @@ func `erase display all round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isPlatformUnsupported,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."),
-  .dependencies {
-    $0.virtualTerminal = .ghosttyOrPlatformUnsupported(cols: 5, rows: 2)
-  }
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
 )
 func `erase display all and scrollback is accepted by virtual terminal`() {
-  @Dependency(\.virtualTerminal) var terminal
+  let terminal = VirtualTerminal.ghosttyOrPlatformUnsupported(cols: 5, rows: 2)
 
   // Ghostty accepts CSI 3J as a scrollback purge without clearing visible cells.
   feed([.text("Again"), .eraseInDisplay(.allAndScrollback)], into: terminal)
@@ -322,13 +287,10 @@ func `ansi colors and indexed colors stay distinct`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isPlatformUnsupported,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."),
-  .dependencies {
-    $0.virtualTerminal = .ghosttyOrPlatformUnsupported(cols: 3, rows: 1)
-  }
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
 )
 func `colors round trip through virtual terminal`() {
-  @Dependency(\.virtualTerminal) var terminal
+  let terminal = VirtualTerminal.ghosttyOrPlatformUnsupported(cols: 3, rows: 1)
 
   feed(
     [
@@ -364,13 +326,10 @@ func `attributes encode exact bytes`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isPlatformUnsupported,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."),
-  .dependencies {
-    $0.virtualTerminal = .ghosttyOrPlatformUnsupported(cols: 8, rows: 1)
-  }
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
 )
 func `attributes round trip through virtual terminal`() {
-  @Dependency(\.virtualTerminal) var terminal
+  let terminal = VirtualTerminal.ghosttyOrPlatformUnsupported(cols: 8, rows: 1)
 
   feed(
     [
@@ -406,13 +365,10 @@ func `attributes round trip through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isPlatformUnsupported,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."),
-  .dependencies {
-    $0.virtualTerminal = .ghosttyOrPlatformUnsupported(cols: 8, rows: 1)
-  }
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
 )
 func `normal intensity disables bold and dim`() {
-  @Dependency(\.virtualTerminal) var terminal
+  let terminal = VirtualTerminal.ghosttyOrPlatformUnsupported(cols: 8, rows: 1)
 
   feed([.setBold(true), .setDim(true), .setBold(false), .text("X")], into: terminal)
   let cell = terminal.cell(row: 0, column: 0)
@@ -434,13 +390,10 @@ func `mode sequences encode exact bytes`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isPlatformUnsupported,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."),
-  .dependencies {
-    $0.virtualTerminal = .ghosttyOrPlatformUnsupported(cols: 5, rows: 1)
-  }
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
 )
 func `alternate screen round trips through virtual terminal`() {
-  @Dependency(\.virtualTerminal) var terminal
+  let terminal = VirtualTerminal.ghosttyOrPlatformUnsupported(cols: 5, rows: 1)
 
   feed([.text("Main"), .enterAltScreen], into: terminal)
   #expect(terminal.text(row: 0) == "     ")
@@ -452,13 +405,10 @@ func `alternate screen round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isPlatformUnsupported,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."),
-  .dependencies {
-    $0.virtualTerminal = .ghosttyOrPlatformUnsupported(cols: 4, rows: 2)
-  }
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
 )
 func `line wrap mode round trips through virtual terminal`() {
-  @Dependency(\.virtualTerminal) var terminal
+  let terminal = VirtualTerminal.ghosttyOrPlatformUnsupported(cols: 4, rows: 2)
 
   feed([.enableLineWrap(true), .text("ABCDE")], into: terminal)
   #expect(terminal.text(row: 0) == "ABCD")
@@ -476,13 +426,10 @@ func `line wrap mode round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isPlatformUnsupported,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."),
-  .dependencies {
-    $0.virtualTerminal = .ghosttyOrPlatformUnsupported(cols: 6, rows: 1)
-  }
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
 )
 func `synchronized output mode is accepted by virtual terminal`() {
-  @Dependency(\.virtualTerminal) var terminal
+  let terminal = VirtualTerminal.ghosttyOrPlatformUnsupported(cols: 6, rows: 1)
 
   feed([.enterSynchronizedOutput, .text("Sync"), .exitSynchronizedOutput], into: terminal)
 
@@ -499,13 +446,10 @@ func `window title encodes exact bytes`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isPlatformUnsupported,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."),
-  .dependencies {
-    $0.virtualTerminal = .ghosttyOrPlatformUnsupported(cols: 4, rows: 1)
-  }
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
 )
 func `window title is accepted without changing visible state`() {
-  @Dependency(\.virtualTerminal) var terminal
+  let terminal = VirtualTerminal.ghosttyOrPlatformUnsupported(cols: 4, rows: 1)
 
   feed([.text("A"), .setWindowTitle("Tessera"), .text("B")], into: terminal)
 
@@ -529,13 +473,10 @@ func `text bell and raw payload sequences encode exact bytes`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isPlatformUnsupported,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."),
-  .dependencies {
-    $0.virtualTerminal = .ghosttyOrPlatformUnsupported(cols: 6, rows: 1)
-  }
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
 )
 func `text bell and raw payloads round trip through virtual terminal`() {
-  @Dependency(\.virtualTerminal) var terminal
+  let terminal = VirtualTerminal.ghosttyOrPlatformUnsupported(cols: 6, rows: 1)
   let titlePayload = RawTerminalPayload(bytes: esc("]2;Tessera") + [0x07])
 
   feed(

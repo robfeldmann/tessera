@@ -20,36 +20,6 @@ let package = Package(
 
 // MARK: - ⤵️ Dependencies
 
-// MARK: Dependencies
-
-#if os(Windows)
-  let SwiftDependenciesTraits: Set<Package.Dependency.Trait> = [
-    "Clocks",
-    "Foundation",
-    "FoundationNetworking",
-  ]
-#else
-  let SwiftDependenciesTraits: Set<Package.Dependency.Trait> = [.defaults]
-#endif
-
-package.dependencies.append(
-  .package(
-    url: "https://github.com/pointfreeco/swift-dependencies",
-    from: "1.13.0",
-    traits: SwiftDependenciesTraits
-  )
-)
-
-let Dependencies: Target.Dependency = .product(
-  name: "Dependencies",
-  package: "swift-dependencies"
-)
-
-let DependenciesTestSupport: Target.Dependency = .product(
-  name: "DependenciesTestSupport",
-  package: "swift-dependencies"
-)
-
 // MARK: IssueReporting
 
 package.dependencies.append(
@@ -264,7 +234,6 @@ package.targets.append(contentsOf: [
 
 let TesseraTerminalANSITestDependencies: [Target.Dependency] = [
   CustomDump,
-  DependenciesTestSupport,
   InlineSnapshotTesting,
   SnapshotTesting,
   SnapshotTestingCustomDump,
@@ -415,7 +384,6 @@ package.targets.append(contentsOf: [
   .target(
     name: "TesseraTerminalSnapshotSupport",
     dependencies: TesseraTerminalSnapshotSupportPlatformDependencies + [
-      Dependencies,
       IssueReporting,
       TesseraTerminalANSI,
       TesseraTerminalBuffer,
@@ -426,8 +394,6 @@ package.targets.append(contentsOf: [
   .testTarget(
     name: "TesseraTerminalSnapshotSupportTests",
     dependencies: [
-      Dependencies,
-      DependenciesTestSupport,
       TesseraTerminalCore,
       TesseraTerminalSnapshotSupport,
     ]
