@@ -23,15 +23,24 @@ package struct TerminalDevice: Sendable {
   /// Restores the terminal input mode captured before entering raw mode.
   package var exitRawMode: @Sendable () async throws -> Void
 
-  /// The input file descriptor for emergency cleanup, if available.
-  package var inputFileDescriptor: CInt
-
-  /// The output file descriptor for emergency cleanup, if available.
-  package var outputFileDescriptor: CInt
-
-  /// Returns the saved terminal attributes captured before raw mode, if available.
   #if os(macOS) || os(Linux)
+    /// The input file descriptor for emergency cleanup, if available.
+    package var inputFileDescriptor: CInt
+
+    /// The output file descriptor for emergency cleanup, if available.
+    package var outputFileDescriptor: CInt
+
+    /// Returns the saved terminal attributes captured before raw mode, if available.
     package var savedTermios: @Sendable () async -> termios?
+  #elseif os(Windows)
+    /// The input console handle for emergency cleanup, if available.
+    package var inputHandle: UInt
+
+    /// The output console handle for emergency cleanup, if available.
+    package var outputHandle: UInt
+
+    /// Returns the saved console modes captured before terminal mode changes, if available.
+    package var savedConsoleModes: @Sendable () async -> (input: UInt32, output: UInt32)?
   #endif
 
   /// Reads the terminal's current size.
@@ -51,6 +60,11 @@ package struct TerminalDevice: Sendable {
     exitRawMode: @escaping @Sendable () async throws -> Void = {},
     inputFileDescriptor: CInt = -1,
     outputFileDescriptor: CInt = -1,
+    inputHandle: UInt = 0,
+    outputHandle: UInt = 0,
+    savedConsoleModes: @escaping @Sendable () async -> (input: UInt32, output: UInt32)? = {
+      nil
+    },
     size: @escaping @Sendable () async throws -> TerminalSize,
     sizeChanges: @escaping @Sendable () -> AsyncStream<TerminalSize> = {
       AsyncStream { $0.finish() }
@@ -62,10 +76,14 @@ package struct TerminalDevice: Sendable {
     self.enterRawMode = enterRawMode
     self.exitAltScreen = exitAltScreen
     self.exitRawMode = exitRawMode
-    self.inputFileDescriptor = inputFileDescriptor
-    self.outputFileDescriptor = outputFileDescriptor
     #if os(macOS) || os(Linux)
+      self.inputFileDescriptor = inputFileDescriptor
+      self.outputFileDescriptor = outputFileDescriptor
       self.savedTermios = { nil }
+    #elseif os(Windows)
+      self.inputHandle = inputHandle
+      self.outputHandle = outputHandle
+      self.savedConsoleModes = savedConsoleModes
     #endif
     self.size = size
     self.sizeChanges = sizeChanges

@@ -93,6 +93,17 @@ package actor PlatformIO {
         teardownBytes: teardownBytes,
         savedTermios: savedTermios
       )
+    #elseif os(Windows)
+      guard let modes = await terminalDevice.savedConsoleModes() else {
+        return
+      }
+      CleanupRegistry.install(
+        inputHandle: terminalDevice.inputHandle,
+        outputHandle: terminalDevice.outputHandle,
+        teardownBytes: teardownBytes,
+        savedInputMode: modes.input,
+        savedOutputMode: modes.output
+      )
     #endif
   }
 

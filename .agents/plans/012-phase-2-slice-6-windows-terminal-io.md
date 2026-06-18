@@ -16,7 +16,7 @@ updated: 2026-06-17
   - [x] 1.1 Make platform C and Ghostty snapshot targets compile safely on Windows
   - [x] 1.2 Mark Ghostty-backed tests explicitly skipped on Windows
 - [ ] **Phase 2 — Windows cleanup and console modes**
-  - [ ] 2.1 Generalize emergency cleanup for POSIX and Windows state
+  - [x] 2.1 Generalize emergency cleanup for POSIX and Windows state
   - [ ] 2.2 Add Windows console mode setup/restore behind the existing PlatformIO API
 - [ ] **Phase 3 — Windows terminal device I/O**
   - [ ] 3.1 Add Windows handles, environment validation, writes, alt screen, and size

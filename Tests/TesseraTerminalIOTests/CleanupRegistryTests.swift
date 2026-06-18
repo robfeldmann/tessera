@@ -135,4 +135,79 @@ import Testing
       Glibc.read(fileDescriptor, buffer, count)
     #endif
   }
+#elseif os(Windows)
+  @Suite(.serialized)
+  struct CleanupRegistryTests {
+    @Test
+    func `cleanup registry stores saved windows modes when installed`() {
+      defer { CleanupRegistry.clear() }
+
+      CleanupRegistry.install(
+        inputHandle: 0,
+        outputHandle: 0,
+        teardownBytes: [],
+        savedInputMode: 0x0001,
+        savedOutputMode: 0x0004
+      )
+
+      #expect(CleanupRegistry.hasSavedWindowsModesForTesting())
+    }
+
+    @Test
+    func `cleanup registry clear removes saved windows modes`() {
+      defer { CleanupRegistry.clear() }
+
+      CleanupRegistry.install(
+        inputHandle: 0,
+        outputHandle: 0,
+        teardownBytes: [0x1B],
+        savedInputMode: 0x0001,
+        savedOutputMode: 0x0004
+      )
+      CleanupRegistry.clear()
+
+      #expect(!CleanupRegistry.hasSavedWindowsModesForTesting())
+    }
+
+    @Test
+    func `cleanup registry emergency cleanup is safe with windows state`() {
+      defer { CleanupRegistry.clear() }
+
+      CleanupRegistry.install(
+        inputHandle: 0,
+        outputHandle: 0,
+        teardownBytes: [0x1B],
+        savedInputMode: 0x0001,
+        savedOutputMode: 0x0004
+      )
+
+      CleanupRegistry.performEmergencyCleanupForTesting()
+      #expect(CleanupRegistry.hasSavedWindowsModesForTesting())
+    }
+
+    @Test
+    func `cleanup registry installs windows handlers and backstop`() {
+      CleanupRegistry.installHandlers()
+
+      #expect(CleanupRegistry.hasInstalledHandlersForTesting())
+    }
+
+    @Test
+    func `platform io installs cleanup from windows console modes`() async {
+      let io = PlatformIO(
+        terminalDevice: TerminalDevice(
+          inputHandle: 1,
+          outputHandle: 2,
+          savedConsoleModes: { (input: 0x0001, output: 0x0004) },
+          size: { .init(columns: 1, rows: 1) },
+          write: { _ in 0 }
+        )
+      )
+      defer { CleanupRegistry.clear() }
+
+      await io.installCleanup(teardownBytes: [0x1B])
+
+      #expect(CleanupRegistry.hasSavedWindowsModesForTesting())
+    }
+  }
 #endif
