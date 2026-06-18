@@ -11,9 +11,9 @@ enum LinuxVMTests {
 
     let script = """
       if command -v just >/dev/null 2>&1; then
-        exec just test-linux-vm
+        exec just linux test
       elif [ -x /opt/homebrew/bin/just ]; then
-        exec /opt/homebrew/bin/just test-linux-vm
+        exec /opt/homebrew/bin/just linux test
       else
         echo "error: just not found. Install with: brew install just"
         exit 1

@@ -63,4 +63,4 @@ jobs:
           tool: just
 
       - name: Validate docs
-        run: just lint-docs
+        run: just docs lint

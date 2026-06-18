@@ -48,8 +48,8 @@ Use this prompt when implementing the next phase or slice from `docs/Spec.md`.
 
 - Examples should use public products like `TesseraTerminal`/`Tessera`, not internal root
   targets, unless there is a deliberate reason.
-- Use `just examples`, `just examples-list`, and `just example <Name>` for example
-  workflows.
+- Use `just core examples`, `just core examples-list`, and `just core example <Name>` for
+  example workflows.
 
 ## Dependencies and concurrency
 
@@ -77,7 +77,7 @@ During implementation:
 2. Run changed-file lint while iterating:
 
    ```fish
-   just lint-changed
+   just quality changed
    ```
 
 3. Run Markdown lint for edited Markdown files:
@@ -91,7 +91,7 @@ During implementation:
 Before committing:
 
 ```fish
-just lint
+just quality lint
 swift test
 ```
 

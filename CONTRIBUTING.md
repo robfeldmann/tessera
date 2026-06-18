@@ -65,16 +65,19 @@ This will install the following tools:
 - **[pre-commit](https://pre-commit.com/)**: For managing git hooks.
 - **[just](https://github.com/casey/just)**: For running project tasks.
 - **[Lima](https://lima-vm.io/)**: For optional Docker-free Linux test runs.
+- **[UTM](https://mac.getutm.app/)**: For optional Windows GUI VM runs on Apple Silicon.
+- **[QEMU](https://www.qemu.org/)**, **swtpm**, and **sshpass**: For scripted Windows VM
+  runs with Frost.
 - **[Prettier](https://prettier.io/)**: For Markdown and config file formatting.
 - **[Python 3](https://www.python.org/)**: For local documentation previews
-  (`just docs-preview`).
+  (`just docs preview`).
 
 Exact versions are pinned in `.pre-commit-config.yaml`.
 
 After installing dependencies, set up the git hooks:
 
 ```sh
-just install-hooks
+just setup hooks
 ```
 
 ### Alternative Installation
@@ -85,18 +88,20 @@ respective installation guides linked above. Ensure they are available in your s
 
 ## Local Development Loop
 
-Use `just` for the normal macOS development loop:
+Use `just` for the normal macOS development loop. Recipes are grouped by area; run `just`
+to list the available modules and commands.
 
 ```sh
-just build
-just test
-just lint
+just core build
+just core test
+just quality lint
 just docs
 ```
 
-`just build` and `just test` are the fastest checks while editing. `just lint` runs
-formatting, Swift formatting checks, Markdown checks, and DocC warnings-as-errors checks.
-`just docs` generates the combined DocC archive for local inspection.
+`just core build` and `just core test` are the fastest checks while editing.
+`just quality lint` runs formatting, Swift formatting checks, Markdown checks, and DocC
+warnings-as-errors checks. `just docs` generates the combined DocC archive for local
+inspection.
 
 ### Linux Cross-Build from macOS
 
@@ -104,8 +109,8 @@ For a lightweight Linux compatibility check without Docker or a VM, install the 
 Linux SDK that matches the local Swift toolchain and build with it:
 
 ```sh
-just install-linux-sdk
-just build-linux
+just linux install-sdk
+just linux build
 ```
 
 The supported Swift toolchain version lives in `.swift-version`. Matching Static Linux SDK
@@ -176,7 +181,7 @@ Use [Lima](https://lima-vm.io/) when you want to run `swift test` on Linux witho
 Create and start an Ubuntu 24.04 instance:
 
 ```sh
-just linux-vm-start
+just linux start
 ```
 
 The checked-in Lima config creates an Ubuntu 24.04 VM with 4 CPUs and 8 GiB of memory,
@@ -184,13 +189,13 @@ mounts this repository into the VM, installs Linux build tools, and installs Swi
 `.swift-version` using Swiftly. Once the VM is ready, run the Linux test suite from macOS:
 
 ```sh
-just test-linux-vm
+just linux test
 ```
 
 You can also open a shell in the VM for debugging:
 
 ```sh
-just linux-vm-shell
+just linux shell
 cd /path/to/tessera
 swift test
 ```
@@ -198,16 +203,43 @@ swift test
 When finished, stop the VM (_you may need to `exit` the VM to return to macOS_):
 
 ```sh
-just linux-vm-stop
+just linux stop
 ```
 
 Remove it entirely when you want a fresh environment next time. Stop the VM before
 deleting it:
 
 ```sh
-just linux-vm-stop
-just linux-vm-delete
+just linux stop
+just linux delete
 ```
+
+### Windows Test Runs
+
+Windows development on an Apple Silicon Mac has two supported local VM workflows:
+
+- **Recommended scripted workflow:** use Frost for repeatable image builds, disposable
+  test runs, persistent SSH sessions, and optional UTM GUI import. Start with
+  [Windows VM with Frost](docs/WindowsFrostVM.md).
+- **Manual desktop workflow:** use UTM directly when you want to create and manage the
+  Windows VM yourself. Follow [Manual Windows VM with UTM](docs/WindowsVM.md).
+
+For the normal Frost test loop, build the Frost images once, then run:
+
+```fish
+just windows-frost test
+```
+
+For manual UTM VM runs, bootstrap the VM and then run:
+
+```fish
+set -x TESSERA_WINDOWS_VM_SSH tessera-windows
+just windows-utm check
+just windows-utm test
+```
+
+Use the detailed guides above for first-time setup, SSH configuration, GUI validation, and
+troubleshooting.
 
 ### Pre-commit Hooks
 
@@ -219,7 +251,7 @@ conventional commit messages. To install it:
 brew install pre-commit
 
 # Install the hooks for this project
-just install-hooks
+just setup hooks
 ```
 
 This will configure Git to run `swift-format`, `swiftlint`, and commit message checks
@@ -229,7 +261,7 @@ automatically.
 
 ```sh
 # Run all linters (auto-fixes safe issues first)
-just lint
+just quality lint
 
 # Or run individual linters
 swiftlint

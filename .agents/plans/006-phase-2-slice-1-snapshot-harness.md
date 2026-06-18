@@ -262,15 +262,15 @@ the accepted spike result.
 - Files:
   - `.agents/plans/006-phase-2-slice-1-snapshot-harness.md`
   - changed source/test/doc files
-- Run the narrow target tests first, then `just lint-changed`; run markdown lint for all
-  edited Markdown.
+- Run the narrow target tests first, then `just quality changed`; run markdown lint for
+  all edited Markdown.
 - Before requesting review, run `swift test --filter TesseraTerminalSnapshotSupportTests`
   and `swift test --filter TesseraTerminalRenderingTests` on macOS and Linux.
 - Acceptance: validation passes or any failures are documented with the next action.
 - Completed: validation passed on macOS with
   `swift test --filter TesseraTerminalSnapshotSupportTests`,
   `swift test --filter TesseraTerminalRenderingTests`, markdown lint for edited Markdown,
-  and `just lint-changed`. Local Linux VM validation passed with `just test-linux-vm`
+  and `just quality changed`. Local Linux VM validation passed with `just linux test`
   after provisioning Ghostty build prerequisites and Zig 0.15.2.
 
 ## References

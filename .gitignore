@@ -7,6 +7,9 @@ Brewfile.lock.json
 # pre-commit
 .pre-commit/
 
+# pi local settings
+.pi/settings.json
+
 # Python
 __pycache__/
 *.py[cod]

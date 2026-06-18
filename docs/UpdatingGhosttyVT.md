@@ -29,7 +29,7 @@ stable in a Ghostty release. Until then, use a known-good commit from
    Or, for the default non-forced build used by CI:
 
    ```fish
-   just build-libghostty-vt
+   just core build-libghostty-vt
    ```
 
    The build installs the pinned artifact under
@@ -47,7 +47,7 @@ stable in a Ghostty release. Until then, use a known-good commit from
 
    ```fish
    swift test --filter <relevant-snapshot-support-tests>
-   just lint-changed
+   just quality changed
    ```
 
 6. If the Ghostty C API changed, update the `CGhosttyVT`/`VirtualTerminal` boundary only.
@@ -55,9 +55,10 @@ stable in a Ghostty release. Until then, use a known-good commit from
 
 ## Just and CI behavior
 
-The `build`, `test`, `test-coverage`, `docs-targets`, and `ci-build-test` Just recipes all
-run `build-libghostty-vt` first. If the pinned artifact already exists, the script only
-refreshes the `.build/libghostty-vt/current` symlink and exits quickly.
+The `core build`, `core test`, `core test-coverage`, `docs targets`, and `ci build-test`
+Just recipes all run `core build-libghostty-vt` first. If the pinned artifact already
+exists, the script only refreshes the `.build/libghostty-vt/current` symlink and exits
+quickly.
 
 The GitHub Actions cache key includes `scripts/ghostty-vt-version.txt` and
 `scripts/build-libghostty-vt.sh`. Changing the pinned SHA automatically creates a new
