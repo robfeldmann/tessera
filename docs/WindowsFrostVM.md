@@ -30,8 +30,8 @@ Frost creates a repeatable Windows test environment from files you download loca
 4. A **persistent SSH VM** for interactive terminal work and retained SwiftPM build cache.
 5. An optional **UTM GUI VM** for PowerShell/Windows Terminal visual validation.
 
-The VM images are local build artifacts under `.build/windows-frost/` and are not checked
-into Git.
+The VM images are local build artifacts under `~/.local/state/tessera/windows-frost/` (the
+default `TESSERA_FROST_WORK`) and are not checked into Git.
 
 ## Quick setup for experienced contributors
 
@@ -70,6 +70,30 @@ just windows-frost test
 
 Use the longer tutorial below if any of those terms or files are unfamiliar.
 
+## Machine-local config (skip the env prefixes)
+
+Rather than prefixing commands with `env TESSERA_FROST_…=…`, set the machine-specific
+paths once in a gitignored `.windows-frost.env` at the repo root.
+`scripts/windows-frost-env.sh` sources it automatically, so every `just windows-frost …`
+recipe picks them up:
+
+```fish
+cp scripts/config/frost/windows-frost.env.example .windows-frost.env
+# then edit: frost root and your ISO filenames
+```
+
+Recommended keys:
+
+- `TESSERA_FROST_ROOT` — your Frost checkout, if not `~/Developer/frost`.
+- `TESSERA_FROST_WINDOWS_ISO`, `TESSERA_FROST_VIRTIO_ISO` — your downloaded ISO paths.
+- `TESSERA_FROST_WORK` — optional. Defaults to
+  `${XDG_STATE_HOME:-~/.local/state}/tessera/windows-frost`, deliberately outside the repo
+  so `just core clean` (which removes `.build`) cannot delete the multi-GB golden disks,
+  and so every worktree shares one build.
+
+With this file in place you can drop the `env …` prefixes from the commands above and
+below. An explicit `env VAR=… just …` still overrides the file for one-off runs.
+
 ## 1. Install macOS prerequisites
 
 Install the project [Homebrew](https://brew.sh/) dependencies from the Tessera checkout:
@@ -107,7 +131,9 @@ mkdir -p ~/Developer
 git clone https://github.com/solcreek/frost ~/Developer/frost
 ```
 
-If you keep Frost somewhere else, pass the path per command:
+If you keep Frost somewhere else, set `TESSERA_FROST_ROOT` in the machine-local config
+file (see [Machine-local config](#machine-local-config-skip-the-env-prefixes)) or pass it
+per command:
 
 ```fish
 env TESSERA_FROST_ROOT=/path/to/frost just windows-frost doctor
@@ -264,7 +290,7 @@ just windows-frost start --reset
 The persistent overlay lives under:
 
 ```text
-.build/windows-frost/persistent/dev.qcow2
+~/.local/state/tessera/windows-frost/persistent/dev.qcow2
 ```
 
 For a quick ConPTY smoke check without opening an interactive shell, use the command

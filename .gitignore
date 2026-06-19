@@ -10,6 +10,9 @@ Brewfile.lock.json
 # pi local settings
 .pi/settings.json
 
+# Frost Windows VM machine-local config
+.windows-frost.env
+
 # Python
 __pycache__/
 *.py[cod]
