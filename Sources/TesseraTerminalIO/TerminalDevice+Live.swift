@@ -167,3 +167,29 @@ extension TerminalDevice {
     }
   }
 #endif
+
+#if os(Windows)
+  extension TerminalDevice {
+    package static func windowsConsoleMode(
+      inputHandle: UInt,
+      outputHandle: UInt,
+      system: WindowsConsoleSystem = .current
+    ) -> Self {
+      let mode = WindowsConsoleMode(
+        inputHandle: inputHandle,
+        outputHandle: outputHandle,
+        system: system
+      )
+
+      return Self(
+        enterRawMode: { try await mode.enterRawMode() },
+        exitRawMode: { try await mode.exitRawMode() },
+        inputHandle: inputHandle,
+        outputHandle: outputHandle,
+        savedConsoleModes: { await mode.savedModes() },
+        size: { throw PlatformIOError.unsupportedPlatform },
+        write: { _ in throw PlatformIOError.unsupportedPlatform }
+      )
+    }
+  }
+#endif

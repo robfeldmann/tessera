@@ -2,9 +2,9 @@
 name: Phase 2 Slice 6 Windows Terminal IO
 description:
   Complete TesseraTerminalIO's Windows implementation and enable Windows CI for Phase 2.
-status: in_progress
+status: pending
 created: 2026-06-14
-updated: 2026-06-17
+updated: 2026-06-29
 ---
 
 ## Progress
@@ -15,9 +15,9 @@ updated: 2026-06-17
 - [x] **Phase 1 — Windows-safe package and snapshot scaffolding**
   - [x] 1.1 Make platform C and Ghostty snapshot targets compile safely on Windows
   - [x] 1.2 Mark Ghostty-backed tests explicitly skipped on Windows
-- [ ] **Phase 2 — Windows cleanup and console modes**
+- [x] **Phase 2 — Windows cleanup and console modes**
   - [x] 2.1 Generalize emergency cleanup for POSIX and Windows state
-  - [ ] 2.2 Add Windows console mode setup/restore behind the existing PlatformIO API
+  - [x] 2.2 Add Windows console mode setup/restore behind the existing PlatformIO API
 - [ ] **Phase 3 — Windows terminal device I/O**
   - [ ] 3.1 Add Windows handles, environment validation, writes, alt screen, and size
   - [ ] 3.2 Add Windows async input and resize event translation
