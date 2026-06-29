@@ -79,7 +79,13 @@ stty sane
 
 ## Documentation
 
-Full documentation will be available soon.
+- [Local development state](docs/LocalDevelopmentState.md): explains Ghostty VT, Linux,
+  and Windows VM artifacts for branch/worktree use.
+- [Updating Ghostty VT](docs/UpdatingGhosttyVT.md): update the pinned terminal parser
+  revision.
+- [Windows VM with Frost](docs/WindowsFrostVM.md): recommended repeatable Windows test
+  workflow.
+- [Manual Windows VM with UTM](docs/WindowsVM.md): hand-managed Windows desktop workflow.
 
 ## Contributing
 

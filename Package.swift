@@ -420,6 +420,25 @@ package.targets.append(
 
 #if !os(Windows)
   let PackageDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().path
+  let GhosttyVTEnvironment = ProcessInfo.processInfo.environment
+
+  func defaultGhosttyVTOutputRoot(
+    packageDirectory: String,
+    environment: [String: String]
+  ) -> String {
+    let outputDirectory = environment["GHOSTTY_VT_OUTPUT_DIR"] ?? ""
+    if !outputDirectory.isEmpty {
+      return outputDirectory
+    }
+    if let cacheHome = environment["XDG_CACHE_HOME"], !cacheHome.isEmpty {
+      return "\(cacheHome)/tessera/libghostty-vt"
+    }
+    if let home = environment["HOME"], !home.isEmpty {
+      return "\(home)/.cache/tessera/libghostty-vt"
+    }
+    return "\(packageDirectory)/.build/libghostty-vt"
+  }
+
   let GhosttyVTRevisionFile = "\(PackageDirectory)/scripts/ghostty-vt-version.txt"
   let GhosttyVTRevision =
     (try? String(contentsOfFile: GhosttyVTRevisionFile, encoding: .utf8))?
@@ -438,8 +457,12 @@ package.targets.append(
   #else
     let GhosttyVTArch = "unsupported"
   #endif
+  let GhosttyVTOutputRoot = defaultGhosttyVTOutputRoot(
+    packageDirectory: PackageDirectory,
+    environment: GhosttyVTEnvironment
+  )
   let GhosttyVTInstallPath =
-    "\(PackageDirectory)/.build/libghostty-vt/\(GhosttyVTRevision)/\(GhosttyVTPlatform)-\(GhosttyVTArch)"
+    "\(GhosttyVTOutputRoot)/\(GhosttyVTRevision)/\(GhosttyVTPlatform)-\(GhosttyVTArch)"
   let GhosttyVTIncludePath = "\(GhosttyVTInstallPath)/include"
   let GhosttyVTLibraryPath = "\(GhosttyVTInstallPath)/lib"
   let GhosttyVTUnsafeLinkerFlags = [

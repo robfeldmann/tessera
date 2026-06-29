@@ -43,8 +43,8 @@ If you already know how to install Windows in UTM:
 6. Configure SSH key auth from macOS.
 7. Run:
 
-   ```fish
-   set -x TESSERA_WINDOWS_VM_SSH tessera-windows
+   ```sh
+   export TESSERA_WINDOWS_VM_SSH=tessera-windows
    just windows-utm check
    just windows-utm test
    ```

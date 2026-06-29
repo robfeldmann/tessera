@@ -7,10 +7,30 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Added `just core doctor` to report Ghostty VT, Linux Lima, Static Linux SDK, and Windows
+  Frost state.
+- Added `just core clean-libghostty-vt` to remove the shared Ghostty VT cache root.
+- Added `docs/LocalDevelopmentState.md` as the canonical guide for checkout, cache, and VM
+  state scopes.
+
 ### Changed
 
 - Expanded the Phase 4 view-layer spec with SwiftUI-inspired runtime lessons, explicit
   import-boundary/package-graph checks, and Tessera-native oracle test expectations.
+- Changed Ghostty VT to default to `${XDG_CACHE_HOME:-~/.cache}/tessera/libghostty-vt` for
+  multi-branch use.
+- Changed Linux Lima to honor `TESSERA_LINUX_VM_NAME` so multiple worktrees can use
+  separate VMs.
+- Changed the Windows Frost docs to clarify that Frost state is VM artifacts and source
+  snapshots, not a clone.
+- Changed setup examples from fish syntax to POSIX `sh` syntax where applicable.
+
+### Fixed
+
+- Fixed CI and docs workflows to restore the shared Ghostty VT cache from the new default
+  location.
 
 ## [0.1.0] - 2026-05-25
 

@@ -51,7 +51,7 @@ jobs:
       - name: Restore libghostty-vt cache
         uses: actions/cache@v4
         with:
-          path: .build/libghostty-vt
+          path: ~/.cache/tessera/libghostty-vt
           # prettier-ignore
           key: libghostty-vt-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh') }}
           restore-keys: |

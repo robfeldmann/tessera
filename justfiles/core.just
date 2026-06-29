@@ -9,6 +9,16 @@ build: build-libghostty-vt
 build-libghostty-vt:
     scripts/build-libghostty-vt.sh
 
+doctor:
+    scripts/dev-state.sh
+
+clean-libghostty-vt:
+    @set -euo pipefail; \
+    cache_home="${XDG_CACHE_HOME:-${HOME:-$PWD/.build}/.cache}"; \
+    output_root="${GHOSTTY_VT_OUTPUT_DIR:-$cache_home/tessera/libghostty-vt}"; \
+    rm -rf "$output_root"; \
+    echo "Removed $output_root"
+
 test: build-libghostty-vt
     swift test --no-parallel
 

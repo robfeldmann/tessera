@@ -103,6 +103,10 @@ just docs
 warnings-as-errors checks. `just docs` generates the combined DocC archive for local
 inspection.
 
+If a branch or worktree behaves differently than expected, run `just core doctor` and see
+[Local development state](docs/LocalDevelopmentState.md). That page explains which
+artifacts are per-checkout, machine-global, or VM-local.
+
 ### Linux Cross-Build from macOS
 
 For a lightweight Linux compatibility check without Docker or a VM, install the Static
@@ -131,13 +135,13 @@ Terminal lifecycle changes need manual checks in a real terminal in addition to 
 tests. Use two terminal tabs or panes: one to run a Tessera demo/fixture and one to send
 signals.
 
-```fish
+```sh
 # Pane 1
 cd Examples
 swift run LifecycleModesDemo
 ```
 
-```fish
+```sh
 # Pane 2: find and terminate the fixture
 pgrep -fl LifecycleModesDemo
 kill -TERM <pid>
@@ -161,13 +165,13 @@ Verify these cases before merging lifecycle, signal-handling, or renderer change
 If a development build ever leaves your terminal wedged, type this even if input is not
 visible, then press Enter:
 
-```fish
+```sh
 reset
 ```
 
 If that is not enough, try:
 
-```fish
+```sh
 stty sane
 ```
 
@@ -184,9 +188,11 @@ Create and start an Ubuntu 24.04 instance:
 just linux start
 ```
 
-The checked-in Lima config creates an Ubuntu 24.04 VM with 4 CPUs and 8 GiB of memory,
+The checked-in Lima config creates an Ubuntu 24.04 VM with 4 CPUs and 12 GiB of memory,
 mounts this repository into the VM, installs Linux build tools, and installs Swift from
-`.swift-version` using Swiftly. Once the VM is ready, run the Linux test suite from macOS:
+`.swift-version` using Swiftly. The default VM name is `tessera-linux`; set
+`TESSERA_LINUX_VM_NAME` when two worktrees need separate running VMs. Once the VM is
+ready, run the Linux test suite from macOS:
 
 ```sh
 just linux test
@@ -226,14 +232,14 @@ Windows development on an Apple Silicon Mac has two supported local VM workflows
 
 For the normal Frost test loop, build the Frost images once, then run:
 
-```fish
+```sh
 just windows-frost test
 ```
 
 For manual UTM VM runs, bootstrap the VM and then run:
 
-```fish
-set -x TESSERA_WINDOWS_VM_SSH tessera-windows
+```sh
+export TESSERA_WINDOWS_VM_SSH=tessera-windows
 just windows-utm check
 just windows-utm test
 ```

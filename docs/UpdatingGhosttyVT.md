@@ -16,36 +16,37 @@ stable in a Ghostty release. Until then, use a known-good commit from
 1. Choose a candidate Ghostty commit.
 2. Write the 40-character commit SHA to the version file:
 
-   ```fish
+   ```sh
    echo <commit-sha> > scripts/ghostty-vt-version.txt
    ```
 
 3. Rebuild from source:
 
-   ```fish
+   ```sh
    scripts/build-libghostty-vt.sh --force
    ```
 
    Or, for the default non-forced build used by CI:
 
-   ```fish
+   ```sh
    just core build-libghostty-vt
    ```
 
    The build installs the pinned artifact under
-   `.build/libghostty-vt/<revision>/<platform>-<arch>/` and updates the SwiftPM-facing
-   `.build/libghostty-vt/current` symlink.
+   `${XDG_CACHE_HOME:-~/.cache}/tessera/libghostty-vt/<revision>/<platform>-<arch>/` by
+   default and updates the diagnostic `current` symlink in that cache. Set
+   `GHOSTTY_VT_OUTPUT_DIR` if you need a one-off cache location.
 
 4. Validate the package wiring:
 
-   ```fish
+   ```sh
    swift package describe
    swift build --target TesseraTerminalSnapshotSupport
    ```
 
 5. Run the narrowest relevant tests, then lint changed files:
 
-   ```fish
+   ```sh
    swift test --filter <relevant-snapshot-support-tests>
    just quality changed
    ```
@@ -57,16 +58,16 @@ stable in a Ghostty release. Until then, use a known-good commit from
 
 The `core build`, `core test`, `core test-coverage`, `docs targets`, and `ci build-test`
 Just recipes all run `core build-libghostty-vt` first. If the pinned artifact already
-exists, the script only refreshes the `.build/libghostty-vt/current` symlink and exits
-quickly.
+exists, the script only refreshes the cache's `current` symlink and exits quickly.
 
 The GitHub Actions cache key includes `scripts/ghostty-vt-version.txt` and
 `scripts/build-libghostty-vt.sh`. Changing the pinned SHA automatically creates a new
-`libghostty-vt` cache entry. CI restores the `.build/libghostty-vt` cache before running
-`just ci`, and `just ci` builds or validates `libghostty-vt` before invoking SwiftPM.
+`libghostty-vt` cache entry. CI restores the shared
+`${XDG_CACHE_HOME:-~/.cache}/tessera/libghostty-vt` cache before running `just ci`, and
+`just ci` builds or validates `libghostty-vt` before invoking SwiftPM.
 
 ## Avoid
 
 - Do not pin to `main` or another moving branch.
-- Do not commit generated `.build/libghostty-vt` artifacts.
+- Do not commit generated `libghostty-vt` artifacts from `.build` or the shared cache.
 - Do not expose Ghostty types from public Tessera modules.

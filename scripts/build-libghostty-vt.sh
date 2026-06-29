@@ -8,11 +8,11 @@ Usage: scripts/build-libghostty-vt.sh [--force]
 Build Ghostty's libghostty-vt from the pinned revision in
 scripts/ghostty-vt-version.txt and install it under:
 
-  .build/libghostty-vt/<revision>/<platform>-<arch>/
+  ${GHOSTTY_VT_OUTPUT_DIR:-${XDG_CACHE_HOME:-~/.cache}/tessera/libghostty-vt}/<revision>/<platform>-<arch>/
 
-The script also updates this stable symlink for SwiftPM:
+The script also updates this diagnostic symlink:
 
-  .build/libghostty-vt/current -> <revision>/<platform>-<arch>
+  ${GHOSTTY_VT_OUTPUT_DIR:-${XDG_CACHE_HOME:-~/.cache}/tessera/libghostty-vt}/current -> <revision>/<platform>-<arch>
 
 Prerequisites:
   - Zig 0.15.x on PATH
@@ -25,7 +25,7 @@ Prerequisites:
 
 Environment:
   GHOSTTY_VT_REVISION_FILE  Revision file path
-  GHOSTTY_VT_OUTPUT_DIR     Output root (default: .build/libghostty-vt)
+  GHOSTTY_VT_OUTPUT_DIR     Output root (default: ${XDG_CACHE_HOME:-~/.cache}/tessera/libghostty-vt)
   GHOSTTY_VT_SOURCE_DIR     Source checkout path
   GHOSTTY_VT_BUILD_DIR      CMake build path
   GHOSTTY_VT_BUILD_MODE     Debug or Release (default: Release)
@@ -54,6 +54,18 @@ while [[ $# -gt 0 ]]; do
 done
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+default_output_root() {
+  local cache_home="${XDG_CACHE_HOME:-}"
+  if [[ -z "$cache_home" ]]; then
+    if [[ -n "${HOME:-}" ]]; then
+      cache_home="$HOME/.cache"
+    else
+      cache_home="$repo_root/.build"
+    fi
+  fi
+  printf '%s/tessera/libghostty-vt\n' "$cache_home"
+}
 revision_file="${GHOSTTY_VT_REVISION_FILE:-$repo_root/scripts/ghostty-vt-version.txt}"
 revision="$(tr -d '[:space:]' < "$revision_file")"
 if [[ -z "$revision" ]]; then
@@ -81,7 +93,7 @@ case "$arch" in
     ;;
 esac
 
-output_root="${GHOSTTY_VT_OUTPUT_DIR:-$repo_root/.build/libghostty-vt}"
+output_root="${GHOSTTY_VT_OUTPUT_DIR:-$(default_output_root)}"
 install_dir="$output_root/$revision/$platform-$arch"
 source_dir="${GHOSTTY_VT_SOURCE_DIR:-$output_root/source/$revision}"
 build_dir="${GHOSTTY_VT_BUILD_DIR:-$output_root/cmake/$revision/$platform-$arch}"
