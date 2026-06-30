@@ -67,7 +67,8 @@ This will install the following tools:
 - **[Lima](https://lima-vm.io/)**: For optional Docker-free Linux test runs.
 - **[UTM](https://mac.getutm.app/)**: For optional Windows GUI VM runs on Apple Silicon.
 - **[QEMU](https://www.qemu.org/)**, **swtpm**, and **sshpass**: For scripted Windows VM
-  runs with Frost.
+  runs with Frost. Frost uses SSH key authentication once its key exists; `sshpass` is
+  still required for provisioning and password-auth fallback.
 - **[Prettier](https://prettier.io/)**: For Markdown and config file formatting.
 - **[Python 3](https://www.python.org/)**: For local documentation previews
   (`just docs preview`).

@@ -4,9 +4,11 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 # shellcheck source=scripts/windows-frost-env.sh
 source "$repo_root/scripts/windows-frost-env.sh"
+# shellcheck source=scripts/windows-frost-ssh-options.sh
+source "$repo_root/scripts/windows-frost-ssh-options.sh"
+
 
 FW="${FROST_QEMU_SHARE_DIR:-/opt/homebrew/share/qemu}"
-PASS="${TESSERA_FROST_PASS:-${FROST_SSH_PASS:-Test1234!}}"
 SSH_KEY="${TESSERA_FROST_SSH_KEY:-$HOME/.ssh/tessera_windows}"
 EXPECTED_SWIFT_VERSION="$(tr -d '[:space:]' < "$repo_root/.swift-version")"
 EXPECTED_WINDOWS_SDK="${TESSERA_FROST_WINDOWS_SDK_VERSION:-10.0.26100.0}"
@@ -40,7 +42,7 @@ SHORT_RUN="${TMPDIR:-/tmp}/tessera-frost-$ID"
 TPMDIR="$SHORT_RUN/tpm"
 MON="$SHORT_RUN/mon.sock"
 QPID=""
-SSHOPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10)
+frost_ssh_setup 10
 
 cleanup() {
   if [[ -n "$QPID" ]] && kill -0 "$QPID" 2> /dev/null; then
@@ -67,9 +69,8 @@ wait_for_ssh() {
   return 1
 }
 
-run_guest_password() {
-  export SSHPASS="$PASS"
-  sshpass -e ssh "${SSHOPTS[@]}" -p "$TESSERA_FROST_SSH_PORT" "$TESSERA_FROST_USER@localhost" "$1"
+run_guest() {
+  frost_ssh "$TESSERA_FROST_SSH_PORT" "$TESSERA_FROST_USER@localhost" "$1"
 }
 
 printf '[1/6] create disposable check overlay\n'
@@ -90,18 +91,17 @@ QPID=$!
 printf '[3/6] wait for SSH\n'
 wait_for_ssh 240 || { printf 'SSH did not come up\n' >&2; exit 1; }
 
-printf '[4/6] verify password SSH and toolchain\n'
-export SSHPASS="$PASS"
-sshpass -e scp "${SSHOPTS[@]}" -P "$TESSERA_FROST_SSH_PORT" \
+printf '[4/6] verify SSH and toolchain\n'
+frost_scp "$TESSERA_FROST_SSH_PORT" \
   "$repo_root/scripts/check-windows-frost-toolchain.ps1" \
   "$TESSERA_FROST_USER@localhost:$REMOTE_CHECK"
-run_guest_password "powershell -NoProfile -ExecutionPolicy Bypass -File $REMOTE_CHECK -ExpectedSwiftVersion $EXPECTED_SWIFT_VERSION -ExpectedWindowsSDK $EXPECTED_WINDOWS_SDK"
+run_guest "powershell -NoProfile -ExecutionPolicy Bypass -File $REMOTE_CHECK -ExpectedSwiftVersion $EXPECTED_SWIFT_VERSION -ExpectedWindowsSDK $EXPECTED_WINDOWS_SDK"
 
-printf '[5/6] verify SSH key auth\n'
-ssh "${SSHOPTS[@]}" -i "$SSH_KEY" -o BatchMode=yes -p "$TESSERA_FROST_SSH_PORT" "$TESSERA_FROST_USER@localhost" whoami
+printf '[5/6] verify configured SSH key\n'
+frost_ssh "$TESSERA_FROST_SSH_PORT" "$TESSERA_FROST_USER@localhost" whoami
 
 printf '[6/6] shut down guest\n'
-run_guest_password 'shutdown /s /t 0' || true
+run_guest 'shutdown /s /t 0' || true
 for _ in $(seq 1 60); do
   if ! kill -0 "$QPID" 2> /dev/null; then
     QPID=""

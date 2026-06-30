@@ -93,6 +93,8 @@ Recommended keys:
   `${XDG_STATE_HOME:-~/.local/state}/tessera/windows-frost`, deliberately outside the repo
   so `just core clean` (which removes `.build`) cannot delete the multi-GB golden disks,
   and so every worktree shares one build.
+- `TESSERA_FROST_SSH_KEY` and `TESSERA_FROST_PUBKEY` — optional. Default to
+  `~/.ssh/tessera_windows` and `~/.ssh/tessera_windows.pub`.
 
 With this file in place you can drop the `env …` prefixes from the commands above and
 below. An explicit `env VAR=… just …` still overrides the file for one-off runs.
@@ -247,7 +249,22 @@ Verify the toolchain image:
 just windows-frost check-toolchain
 ```
 
-This checks Git, Swift, Visual Studio, Windows SDK, password SSH, and key-based SSH.
+This checks Git, Swift, Visual Studio, Windows SDK, and the configured SSH authentication
+path.
+
+### Frost SSH authentication
+
+Frost recipes use key authentication whenever `TESSERA_FROST_SSH_KEY` exists. The default
+key path is `~/.ssh/tessera_windows`; `provision-toolchain` installs the matching public
+key from `TESSERA_FROST_PUBKEY` into the toolchain image.
+
+When the private key is absent, host scripts fall back to password authentication through
+`sshpass`. Password-mode SSH disables public-key attempts so an `ssh-agent` loaded with
+many unrelated keys cannot exhaust the Windows OpenSSH server's authentication-attempt
+limit before the password prompt.
+
+The provisioning step itself still uses password authentication because the key is not
+available inside the base guest until provisioning installs it.
 
 ## 6. Daily workflow: repeatable Windows test run
 

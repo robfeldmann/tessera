@@ -31,7 +31,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 
 - Fixed CI and docs workflows to restore the shared Ghostty VT cache from the new default
+- Fixed CI and docs workflows to restore the shared Ghostty VT cache from the new default
   location.
+- Fixed Windows Frost SSH automation to prefer the configured key once available and to
+  disable public-key attempts during password fallback so unrelated `ssh-agent` keys do
+  not exhaust Windows OpenSSH authentication attempts.
 
 ## [0.1.0] - 2026-05-25
 

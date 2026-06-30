@@ -4,15 +4,18 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 # shellcheck source=scripts/windows-frost-env.sh
 source "$repo_root/scripts/windows-frost-env.sh"
+# shellcheck source=scripts/windows-frost-ssh-options.sh
+source "$repo_root/scripts/windows-frost-ssh-options.sh"
 
-PASS="${TESSERA_FROST_PASS:-${FROST_SSH_PASS:-Test1234!}}"
+
 DEST="${TESSERA_FROST_REPO_PATH:-C:/Users/$TESSERA_FROST_USER/tessera}"
 SSH_HOST="${TESSERA_FROST_SSH_HOST:-localhost}"
 SSH_PORT="${TESSERA_FROST_SSH_PORT:-2222}"
 ARCHIVE="$TESSERA_FROST_WORK/source/tessera-source.tar.gz"
 REMOTE_ARCHIVE="C:/Windows/Temp/tessera-source.tar.gz"
 REMOTE_SYNC_SCRIPT="C:/Windows/Temp/sync-windows-frost-source.ps1"
-SSHOPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10)
+
+frost_ssh_setup 10
 
 usage() {
   cat <<'EOF'
@@ -65,14 +68,13 @@ printf '[sync] create source archive: %s\n' "$ARCHIVE"
 )
 
 printf '[sync] copy archive and extractor to guest\n'
-export SSHPASS="$PASS"
-sshpass -e scp "${SSHOPTS[@]}" -P "$SSH_PORT" \
+frost_scp "$SSH_PORT" \
   "$ARCHIVE" \
   "$TESSERA_FROST_USER@$SSH_HOST:$REMOTE_ARCHIVE"
-sshpass -e scp "${SSHOPTS[@]}" -P "$SSH_PORT" \
+frost_scp "$SSH_PORT" \
   "$repo_root/scripts/sync-windows-frost-source.ps1" \
   "$TESSERA_FROST_USER@$SSH_HOST:$REMOTE_SYNC_SCRIPT"
 
 printf '[sync] extract source in guest: %s\n' "$DEST"
-sshpass -e ssh "${SSHOPTS[@]}" -p "$SSH_PORT" "$TESSERA_FROST_USER@$SSH_HOST" \
+frost_ssh "$SSH_PORT" "$TESSERA_FROST_USER@$SSH_HOST" \
   "powershell -NoProfile -ExecutionPolicy Bypass -File $REMOTE_SYNC_SCRIPT -ArchivePath $REMOTE_ARCHIVE -Destination $DEST"

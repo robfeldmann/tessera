@@ -4,9 +4,11 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 # shellcheck source=scripts/windows-frost-env.sh
 source "$repo_root/scripts/windows-frost-env.sh"
+# shellcheck source=scripts/windows-frost-ssh-options.sh
+source "$repo_root/scripts/windows-frost-ssh-options.sh"
+
 
 FW="${FROST_QEMU_SHARE_DIR:-/opt/homebrew/share/qemu}"
-PASS="${TESSERA_FROST_PASS:-${FROST_SSH_PASS:-Test1234!}}"
 REPO_PATH="${TESSERA_FROST_REPO_PATH:-C:/Users/$TESSERA_FROST_USER/tessera}"
 REMOTE_TEST_SCRIPT="$REPO_PATH/scripts/run-windows-frost-tests.ps1"
 
@@ -38,7 +40,7 @@ SHORT_RUN="${TMPDIR:-/tmp}/tessera-frost-$ID"
 TPMDIR="$SHORT_RUN/tpm"
 MON="$SHORT_RUN/mon.sock"
 QPID=""
-SSHOPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10)
+frost_ssh_setup 10
 TEST_RC=1
 
 cleanup() {
@@ -66,9 +68,8 @@ wait_for_ssh() {
   return 1
 }
 
-run_guest_password() {
-  export SSHPASS="$PASS"
-  sshpass -e ssh "${SSHOPTS[@]}" -p "$TESSERA_FROST_SSH_PORT" "$TESSERA_FROST_USER@localhost" "$1"
+run_guest() {
+  frost_ssh "$TESSERA_FROST_SSH_PORT" "$TESSERA_FROST_USER@localhost" "$1"
 }
 
 printf '[1/7] create disposable test overlay\n'
@@ -94,12 +95,12 @@ printf '[4/7] sync source\n'
 
 printf '[5/7] run swift tests\n'
 set +e
-run_guest_password "powershell -NoProfile -ExecutionPolicy Bypass -File $REMOTE_TEST_SCRIPT -RepoPath $REPO_PATH"
+run_guest "powershell -NoProfile -ExecutionPolicy Bypass -File $REMOTE_TEST_SCRIPT -RepoPath $REPO_PATH"
 TEST_RC=$?
 set -e
 
 printf '[6/7] shut down guest\n'
-run_guest_password 'shutdown /s /t 0' || true
+run_guest 'shutdown /s /t 0' || true
 for _ in $(seq 1 60); do
   if ! kill -0 "$QPID" 2> /dev/null; then
     QPID=""
