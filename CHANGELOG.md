@@ -10,6 +10,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - Added Windows console mode setup and restore coverage for `TesseraTerminalIO`.
+- Added focused Linux, Windows Frost, and Windows UTM VM test recipes that forward
+  `swift test` arguments after `--`.
 - Added `just core doctor` to report Ghostty VT, Linux Lima, Static Linux SDK, and Windows
   Frost state.
 - Added `just core clean-libghostty-vt` to remove the shared Ghostty VT cache root.

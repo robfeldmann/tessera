@@ -274,12 +274,20 @@ Use this when you want a repeatable Windows check from macOS:
 just windows-frost test
 ```
 
+For focused iteration, pass SwiftPM test arguments after `--`:
+
+```sh
+just windows-frost test -- --filter WindowsInputLoopTests
+```
+
+The recipe keeps the Windows default (`--no-parallel`) and appends your forwarded args.
+
 What happens:
 
 1. A disposable overlay is created from the Tessera toolchain image.
 2. The VM boots headlessly.
 3. The current macOS working tree is copied into the Windows guest.
-4. The guest runs `swift test --no-parallel`.
+4. The guest runs `swift test --no-parallel` plus any forwarded SwiftPM test args.
 5. Guest output streams back to your macOS terminal.
 6. The VM shuts down and the disposable overlay is deleted.
 

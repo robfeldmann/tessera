@@ -54,8 +54,9 @@ configure-gui host="":
         scripts/windows-frost-configure-gui.sh; \
     fi
 
-test:
-    scripts/windows-frost-test.sh
+# Run Windows Frost tests; pass SwiftPM test args after `--`, e.g. `-- --filter FooTests`
+test *args:
+    scripts/windows-frost-test.sh {{ args }}
 
 start *args:
     scripts/windows-frost-start.sh {{ args }}

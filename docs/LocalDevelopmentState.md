@@ -80,6 +80,13 @@ time, give each worktree its own VM name:
 env TESSERA_LINUX_VM_NAME=tessera-linux-slice6 just linux test
 ```
 
+Forward focused SwiftPM test arguments after `--` when you do not need the full Linux
+suite:
+
+```sh
+just linux test -- --filter PlatformHandlesTests
+```
+
 If the VM is stopped and points at a different checkout, `just linux test` recreates it
 for the current path. If it is running for another checkout, the recipe stops instead of
 silently testing the wrong tree.
@@ -108,8 +115,16 @@ That directory contains VM artifacts, not a Git clone:
 
 `just windows-frost test` creates a disposable overlay, archives the current macOS working
 tree, copies that archive into the guest, extracts it to `C:\Users\tester\tessera`, runs
-`swift test --no-parallel`, then deletes the disposable overlay. The guest source tree is
-a snapshot, not a clone, and `.git` is not copied.
+`swift test --no-parallel` plus any forwarded SwiftPM test args, then deletes the
+disposable overlay. The guest source tree is a snapshot, not a clone, and `.git` is not
+copied.
+
+Forward focused SwiftPM test arguments after `--` when you do not need the full Frost
+suite:
+
+```sh
+just windows-frost test -- --filter WindowsInputLoopTests
+```
 
 You usually do not need to rebuild the Windows images after switching branches. Rebuild
 the base image when the Windows/VirtIO inputs change. Rebuild the toolchain image when
@@ -123,6 +138,12 @@ own `.build`. Use:
 ```sh
 just windows-utm sync
 just windows-utm test
+```
+
+Forward focused SwiftPM test arguments after `--` when you do not need the full UTM suite:
+
+```sh
+just windows-utm test -- --filter WindowsConsoleModeTests
 ```
 
 `just windows-utm sync` force-pushes your current branch into the guest checkout with

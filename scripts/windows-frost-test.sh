@@ -6,11 +6,18 @@ repo_root="$(git rev-parse --show-toplevel)"
 source "$repo_root/scripts/windows-frost-env.sh"
 # shellcheck source=scripts/windows-frost-ssh-options.sh
 source "$repo_root/scripts/windows-frost-ssh-options.sh"
+if [[ "${1:-}" == "--" ]]; then
+  shift
+fi
+
 
 
 FW="${FROST_QEMU_SHARE_DIR:-/opt/homebrew/share/qemu}"
 REPO_PATH="${TESSERA_FROST_REPO_PATH:-C:/Users/$TESSERA_FROST_USER/tessera}"
 REMOTE_TEST_SCRIPT="$REPO_PATH/scripts/run-windows-frost-tests.ps1"
+SWIFT_TEST_ARGS_JSON="$(python3 -c 'import json, sys; print(json.dumps(sys.argv[1:]))' "$@")"
+SWIFT_TEST_ARGS_B64="$(printf '%s' "$SWIFT_TEST_ARGS_JSON" | base64 | tr -d '\n')"
+
 
 require_file() {
   local label="$1"
@@ -95,7 +102,7 @@ printf '[4/7] sync source\n'
 
 printf '[5/7] run swift tests\n'
 set +e
-run_guest "powershell -NoProfile -ExecutionPolicy Bypass -File $REMOTE_TEST_SCRIPT -RepoPath $REPO_PATH"
+run_guest "powershell -NoProfile -ExecutionPolicy Bypass -File $REMOTE_TEST_SCRIPT -RepoPath $REPO_PATH -SwiftTestArgsBase64 \"$SWIFT_TEST_ARGS_B64\""
 TEST_RC=$?
 set -e
 

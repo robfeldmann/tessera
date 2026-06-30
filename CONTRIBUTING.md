@@ -199,6 +199,15 @@ ready, run the Linux test suite from macOS:
 just linux test
 ```
 
+To run a focused Linux test from macOS, pass SwiftPM test arguments after `--`. The recipe
+keeps the Linux defaults (`--jobs 2 --no-parallel`) and appends your filter:
+
+```sh
+just linux test -- --filter PlatformHandlesTests
+```
+
+Prefer this targeted form while iterating; use `just linux test` for the full Linux suite.
+
 You can also open a shell in the VM for debugging:
 
 ```sh
@@ -237,12 +246,25 @@ For the normal Frost test loop, build the Frost images once, then run:
 just windows-frost test
 ```
 
+To run a focused Frost test, pass SwiftPM test arguments after `--`. The recipe keeps the
+Windows default (`--no-parallel`) and appends your filter:
+
+```sh
+just windows-frost test -- --filter WindowsInputLoopTests
+```
+
 For manual UTM VM runs, bootstrap the VM and then run:
 
 ```sh
 export TESSERA_WINDOWS_VM_SSH=tessera-windows
 just windows-utm check
 just windows-utm test
+```
+
+Manual UTM tests accept the same forwarded SwiftPM arguments:
+
+```sh
+just windows-utm test -- --filter WindowsConsoleModeTests
 ```
 
 Use the detailed guides above for first-time setup, SSH configuration, GUI validation, and
