@@ -18,9 +18,9 @@ updated: 2026-06-29
 - [x] **Phase 2 — Windows cleanup and console modes**
   - [x] 2.1 Generalize emergency cleanup for POSIX and Windows state
   - [x] 2.2 Add Windows console mode setup/restore behind the existing PlatformIO API
-- [ ] **Phase 3 — Windows terminal device I/O**
-  - [ ] 3.1 Add Windows handles, environment validation, writes, alt screen, and size
-  - [ ] 3.2 Add Windows async input and resize event translation
+- [x] **Phase 3 — Windows terminal device I/O**
+  - [x] 3.1 Add Windows handles, environment validation, writes, alt screen, and size
+  - [x] 3.2 Add Windows async input and resize event translation
 - [ ] **Phase 4 — CI, recovery docs, and manual verification**
   - [ ] 4.1 Document per-platform terminal recovery (POSIX `reset`; Windows PowerShell
         RIS)

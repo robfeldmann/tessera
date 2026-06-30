@@ -10,6 +10,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - Added Windows console mode setup and restore coverage for `TesseraTerminalIO`.
+- Added live Windows terminal device I/O for `TesseraTerminalIO`, including console handle
+  validation, writes, alternate-screen control, size reads, and shared async input and
+  resize event translation.
 - Added focused Linux, Windows Frost, and Windows UTM VM test recipes that forward
   `swift test` arguments after `--`.
 - Added `just core doctor` to report Ghostty VT, Linux Lima, Static Linux SDK, and Windows

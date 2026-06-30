@@ -24,45 +24,6 @@ public enum WindowsConsoleModeOperation: CustomStringConvertible, Equatable, Sen
 
 #if os(Windows)
 
-  @_exported import WinSDK
-
-  /// Injectable Windows console-mode syscall surface.
-  package struct WindowsConsoleSystem: Sendable {
-    @TaskLocal package static var override: Self?
-
-    package static var current: Self {
-      override ?? live
-    }
-
-    package static let live = Self(
-      getConsoleMode: { rawHandle in
-        var mode: DWORD = 0
-        guard GetConsoleMode(handlePointer(from: rawHandle), &mode) else {
-          return nil
-        }
-        return UInt32(mode)
-      },
-      setConsoleMode: { rawHandle, mode in
-        SetConsoleMode(handlePointer(from: rawHandle), DWORD(mode))
-      },
-      lastErrorCode: { UInt32(GetLastError()) }
-    )
-
-    package var getConsoleMode: @Sendable (UInt) -> UInt32?
-    package var setConsoleMode: @Sendable (UInt, UInt32) -> Bool
-    package var lastErrorCode: @Sendable () -> UInt32
-
-    package init(
-      getConsoleMode: @escaping @Sendable (UInt) -> UInt32?,
-      setConsoleMode: @escaping @Sendable (UInt, UInt32) -> Bool,
-      lastErrorCode: @escaping @Sendable () -> UInt32
-    ) {
-      self.getConsoleMode = getConsoleMode
-      self.setConsoleMode = setConsoleMode
-      self.lastErrorCode = lastErrorCode
-    }
-  }
-
   /// Named Windows console-mode flags and mode transformations used by Tessera.
   package struct WindowsConsoleModeFlags: OptionSet, Sendable {
     package static let echoInput = Self(rawValue: UInt32(ENABLE_ECHO_INPUT))
@@ -217,11 +178,8 @@ public enum WindowsConsoleModeOperation: CustomStringConvertible, Equatable, Sen
       throw firstError
     }
 
-    package func savedModes() -> (input: UInt32, output: UInt32)? {
-      guard let savedModeState else {
-        return nil
-      }
-      return (input: savedModeState.input, output: savedModeState.output)
+    package func savedModes() -> SavedModes? {
+      savedModeState
     }
 
     private func consoleMode(
@@ -246,10 +204,6 @@ public enum WindowsConsoleModeOperation: CustomStringConvertible, Equatable, Sen
         )
       }
     }
-  }
-
-  private func handlePointer(from rawHandle: UInt) -> HANDLE {
-    unsafeBitCast(rawHandle, to: HANDLE.self)
   }
 
 #endif

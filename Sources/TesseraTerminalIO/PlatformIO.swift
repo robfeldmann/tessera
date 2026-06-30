@@ -79,26 +79,7 @@ package actor PlatformIO {
 
   /// Installs emergency cleanup state for the current terminal modes.
   package func installCleanup(teardownBytes: [UInt8]) async {
-    #if os(macOS) || os(Linux)
-      let savedTermios = await terminalDevice.savedTermios()
-      CleanupRegistry.install(
-        inputFileDescriptor: terminalDevice.inputFileDescriptor,
-        outputFileDescriptor: terminalDevice.outputFileDescriptor,
-        teardownBytes: teardownBytes,
-        savedTermios: savedTermios
-      )
-    #elseif os(Windows)
-      guard let modes = await terminalDevice.savedConsoleModes() else {
-        return
-      }
-      CleanupRegistry.install(
-        inputHandle: terminalDevice.inputHandle,
-        outputHandle: terminalDevice.outputHandle,
-        teardownBytes: teardownBytes,
-        savedInputMode: modes.input,
-        savedOutputMode: modes.output
-      )
-    #endif
+    await terminalDevice.cleanupState.install(teardownBytes: teardownBytes)
   }
 
   /// Clears emergency cleanup state for this terminal session.
@@ -130,13 +111,6 @@ package actor PlatformIO {
   package func disableRawMode() async throws {
     try await terminalDevice.exitRawMode()
   }
-
-  /// Returns the terminal attributes captured before raw mode, if available.
-  #if os(macOS) || os(Linux)
-    package func savedTermios() async -> termios? {
-      await terminalDevice.savedTermios()
-    }
-  #endif
 
   private static func events(
     from bytes: AsyncStream<[UInt8]>,

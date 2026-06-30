@@ -57,3 +57,47 @@ func `size propagates unavailable size errors`() async {
     try await io.size()
   }
 }
+
+#if os(Windows)
+  @Test
+  func `windows live terminal reads console window size`() async throws {
+    let system = WindowsConsoleSystem.stub(
+      terminalSize: { handle in
+        handle == 0x20 ? TerminalSize(columns: 132, rows: 43) : nil
+      }
+    )
+
+    try await WindowsConsoleSystem.$override.withValue(system) {
+      let io = PlatformIO(
+        terminalDevice: .live(handles: PlatformHandles(inputHandle: 0x10, outputHandle: 0x20))
+      )
+
+      let size = try await io.size()
+
+      expectNoDifference(size, TerminalSize(columns: 132, rows: 43))
+    }
+  }
+
+  @Test
+  func `windows live terminal maps failed console size reads`() async {
+    let system = WindowsConsoleSystem.stub(
+      terminalSize: { _ in nil },
+      lastErrorCode: { 87 }
+    )
+
+    await #expect(
+      throws: PlatformIOError.consoleOperationFailed(
+        operation: .getConsoleScreenBufferInfo,
+        errorCode: 87
+      )
+    ) {
+      try await WindowsConsoleSystem.$override.withValue(system) {
+        let io = PlatformIO(
+          terminalDevice: .live(handles: PlatformHandles(inputHandle: 0x10, outputHandle: 0x20))
+        )
+
+        try await io.size()
+      }
+    }
+  }
+#endif

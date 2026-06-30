@@ -226,7 +226,7 @@
     private var lastErrorCode: UInt32 = 0
 
     var system: WindowsConsoleSystem {
-      WindowsConsoleSystem(
+      .stub(
         getConsoleMode: { handle in self.getConsoleMode(handle) },
         setConsoleMode: { handle, mode in self.setConsoleMode(handle, mode) },
         lastErrorCode: { self.lastErrorCode }

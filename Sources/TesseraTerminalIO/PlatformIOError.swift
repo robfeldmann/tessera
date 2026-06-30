@@ -1,10 +1,45 @@
 import Foundation
 import SystemPackage
 
+/// Windows console operations surfaced in platform I/O errors.
+public enum WindowsConsoleOperation: CustomStringConvertible, Equatable, Sendable {
+  case getConsoleScreenBufferInfo
+  case peekConsoleInput
+  case readConsoleInput
+  case readFile
+  case waitForSingleObject
+  case writeFile
+
+  public var description: String {
+    switch self {
+    case .getConsoleScreenBufferInfo:
+      return "read console screen buffer information"
+
+    case .peekConsoleInput:
+      return "peek console input"
+
+    case .readConsoleInput:
+      return "read console input"
+
+    case .readFile:
+      return "read console input bytes"
+
+    case .waitForSingleObject:
+      return "wait for console input"
+
+    case .writeFile:
+      return "write output bytes"
+    }
+  }
+}
+
 /// Errors thrown by platform terminal I/O operations.
 public enum PlatformIOError: Error, Equatable, Sendable {
   /// A Windows console mode syscall failed.
   case consoleModeFailed(operation: WindowsConsoleModeOperation, errorCode: UInt32)
+
+  /// A Windows console syscall failed.
+  case consoleOperationFailed(operation: WindowsConsoleOperation, errorCode: UInt32)
 
   /// Terminal input closed before an event was available.
   case inputClosed
@@ -34,6 +69,9 @@ public enum PlatformIOError: Error, Equatable, Sendable {
 extension PlatformIOError: LocalizedError {
   public var errorDescription: String? {
     switch self {
+    case .consoleOperationFailed(let operation, let errorCode):
+      return "Tessera could not \(operation) (Windows error \(errorCode))."
+
     case .consoleModeFailed(let operation, let errorCode):
       return "Tessera could not \(operation) (Windows error \(errorCode)). "
         + "Tessera requires a VT-capable Windows console; use Windows Terminal or "
