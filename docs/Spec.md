@@ -5165,6 +5165,12 @@ diagnostics; non-sendability is a feature here.
 | Opaque layout failures       | Rejected. Layout is integer math with documented rounding; `dump()` shows   |
 |                              | every node's proposal, size, and frame.                                     |
 
+Design note from SwiftUI's actual machinery: Tessera copies the useful mental model, not
+the hidden implementation. View values are disposable descriptions; the persistent state
+is the runtime graph. A runtime node is semantic/debug structure, not a terminal resource.
+Many nodes coalesce into one buffer render, and the terminal session remains the only
+owner of modes and bytes.
+
 ### Prerequisites and scheduling
 
 Phase 4 deliberately starts only after the substrate it renders into exists:
@@ -5223,6 +5229,210 @@ Each pass is synchronous and pure-ish over the tree:
 
 This split is the transparency story: correctness lives in simple full passes plus the
 buffer diff; cleverness is opt-in later and always observable via diagnostics.
+
+### Testing posture: Tessera-native oracles
+
+SwiftUI is a useful API reference, not Tessera's correctness oracle. Phase 4 behavior is
+graded against this spec and Tessera's terminal substrate:
+
+- Layout tests use exact integer tables from the normative algorithms. There is no
+  tolerance: cells and frames either match or the rule is wrong.
+- Render tests compare cell buffers and `VirtualTerminal` snapshots, including style,
+  clipping, wide grapheme continuation cells, and paint order.
+- Event tests use constructed trees and exact routing tables; the graph never consumes an
+  input unless a user-installed handler says so.
+- Reconciliation tests count work that would otherwise be invisible: body evaluations,
+  equatable skips, node creates/destroys, and `NodeState` lifetime.
+- Absence is tested explicitly: no out-of-bounds writes, no hidden key handling, no stale
+  focus, no terminal mode ownership in views, and no forbidden imports.
+
+### Executable architecture boundaries
+
+The import boundary is an executable requirement, not a comment.
+
+1. **Source import boundary test.** A Swift Testing architecture test scans view-layer
+   source roots and fails on forbidden imports. In Phase 4 the initial roots are
+   `Sources/TesseraCore` and `Sources/Tessera`; the forbidden modules include
+   `TesseraTerminalIO`, platform IO shims, `SwiftUI`, `AppKit`, and `UIKit`. The test
+   imports only `Foundation` and `Testing`, reports every offending file/line, and lives
+   with the unit tests so `swift test --filter ImportBoundary` can run it directly.
+2. **Package graph boundary check.** A separate script run by `just quality lint` calls
+   `swift package describe --type json` and rejects forbidden target dependency edges,
+   such as a view-layer target depending directly on `TesseraTerminalIO` or platform IO.
+   Keep this out of `swift test`; invoking SwiftPM from inside SwiftPM tests is recursive
+   and slow. The source test catches actual leaks, while the graph check catches a
+   manifest being broadened before the leak is used.
+
+Both checks enforce the same ownership rule: views declare terminal requirements, but only
+the session owns terminal capabilities.
+
+The source test shape should stay close to this, with helper details kept small enough to
+audit in one screen:
+
+```swift
+import Foundation
+import Testing
+
+private struct ImportBoundary {
+    var name: String
+    var sourcePath: String
+    var forbiddenModules: Set<String>
+}
+
+@Test
+func `view layer sources do not import forbidden modules`() throws {
+    let boundaries = [
+        ImportBoundary(
+            name: "TesseraCore",
+            sourcePath: "Sources/TesseraCore",
+            forbiddenModules: ["AppKit", "SwiftUI", "TesseraTerminalIO", "UIKit"]
+        ),
+        ImportBoundary(
+            name: "Tessera",
+            sourcePath: "Sources/Tessera",
+            forbiddenModules: ["AppKit", "SwiftUI", "TesseraTerminalIO", "UIKit"]
+        ),
+    ]
+
+    let packageRoot = URL(filePath: #filePath)
+        .deletingLastPathComponent()  // TesseraArchitectureTests
+        .deletingLastPathComponent()  // Tests
+        .deletingLastPathComponent()  // package root
+
+    var offenders: [String] = []
+
+    for boundary in boundaries {
+        let sourceRoot = packageRoot.appending(path: boundary.sourcePath)
+        let enumerator = try #require(
+            FileManager.default.enumerator(
+                at: sourceRoot,
+                includingPropertiesForKeys: [.isRegularFileKey],
+                options: [.skipsHiddenFiles]
+            ),
+            "Expected source root to exist for \(boundary.name): \(sourceRoot.path)"
+        )
+
+        for case let fileURL as URL in enumerator where fileURL.pathExtension == "swift" {
+            let source = try String(contentsOf: fileURL, encoding: .utf8)
+
+            for (lineIndex, line) in source.split(
+                separator: "\n",
+                omittingEmptySubsequences: false
+            ).enumerated() {
+                guard let module = importedModule(from: line),
+                    boundary.forbiddenModules.contains(module)
+                else { continue }
+
+                offenders.append("\(fileURL.path):\(lineIndex + 1): \(module)")
+            }
+        }
+    }
+
+    #expect(
+        offenders.isEmpty,
+        "View-layer import boundaries were violated:\n\(offenders.joined(separator: "\n"))"
+    )
+}
+
+private func importedModule(from rawLine: Substring) -> String? {
+    var line = rawLine.trimmingCharacters(in: .whitespaces)
+    guard !line.hasPrefix("//") else { return nil }
+
+    if let commentStart = line.range(of: "//") {
+        line = String(line[..<commentStart.lowerBound])
+            .trimmingCharacters(in: .whitespaces)
+    }
+
+    var tokens = line.split { $0 == " " || $0 == "\t" }.map(String.init)
+
+    while let first = tokens.first,
+        first.hasPrefix("@") || importAccessModifiers.contains(first)
+    {
+        tokens.removeFirst()
+    }
+
+    guard tokens.first == "import" else { return nil }
+    tokens.removeFirst()
+
+    if let first = tokens.first, importKinds.contains(first) {
+        tokens.removeFirst()
+    }
+
+    return tokens.first?.split(separator: ".").first.map(String.init)
+}
+
+private let importAccessModifiers: Set<String> = [
+    "fileprivate", "internal", "package", "private", "public",
+]
+
+private let importKinds: Set<String> = [
+    "class", "enum", "func", "let", "protocol", "struct", "typealias", "var",
+]
+```
+
+The package graph checker should be a separate script that reads SwiftPM's JSON from
+standard input and fails on forbidden direct edges:
+
+```swift
+import Foundation
+
+struct PackageDump: Decodable {
+    var targets: [Target]
+
+    struct Target: Decodable {
+        var name: String
+        var targetDependencies: [String]
+
+        enum CodingKeys: String, CodingKey {
+            case name
+            case targetDependencies = "target_dependencies"
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            name = try container.decode(String.self, forKey: .name)
+            targetDependencies =
+                try container.decodeIfPresent([String].self, forKey: .targetDependencies) ?? []
+        }
+    }
+}
+
+let package = try JSONDecoder().decode(
+    PackageDump.self,
+    from: FileHandle.standardInput.readDataToEndOfFile()
+)
+
+let forbiddenEdges: [String: Set<String>] = [
+    "TesseraCore": ["CTesseraTerminalPlatform", "TesseraTerminal", "TesseraTerminalIO"],
+    "Tessera": ["CTesseraTerminalPlatform", "TesseraTerminalIO"],
+]
+
+let targetsByName = Dictionary(uniqueKeysWithValues: package.targets.map { ($0.name, $0) })
+let offenders = forbiddenEdges.flatMap { source, forbidden -> [String] in
+    let dependencies = Set(targetsByName[source]?.targetDependencies ?? [])
+    return dependencies.intersection(forbidden).sorted().map { "\(source) -> \($0)" }
+}
+
+if !offenders.isEmpty {
+    FileHandle.standardError.write(
+        Data(("Forbidden package dependency edges:\n" + offenders.joined(separator: "\n")).utf8)
+    )
+    throw BoundaryError.violations(offenders)
+}
+
+enum BoundaryError: Error {
+    case violations([String])
+}
+```
+
+`just quality lint` then gets a cheap architecture step:
+
+```just
+lint: swift swiftlint markdown docs architecture
+
+architecture:
+    swift package describe --type json | swift scripts/check-package-boundaries.swift
+```
 
 ### Geometry
 
@@ -5284,7 +5494,9 @@ The rules, exhaustively:
 3. **`if`/`else` branches are distinct.** Switching branches destroys the old subtree (and
    its `NodeState`) and builds the new one. Same as SwiftUI, but stated.
 4. **`.id(_:)` resets identity.** Changing the value tears down and rebuilds the subtree.
-   This is the explicit "reset this widget" lever.
+   This is the explicit "reset this widget" lever. The explicit value is scoped by the
+   structural path above it; duplicate `.id("row")` values in different parents are
+   distinct, not aliased globally.
 5. **Type change is identity change.** If the view type at a slot differs from last
    update, the old node is discarded.
 6. **Identity loss is observable.** The graph can report created/destroyed node counts per
@@ -5465,10 +5677,15 @@ public final class ViewGraph {
     public var needsLayout: Bool { get }
 
     public func dump() -> String
-    public var statistics: GraphStatistics { get } // nodes created/destroyed/updated,
-                                                   // last pass durations
+    public var statistics: GraphStatistics { get }
 }
 ```
+
+`GraphStatistics` includes counts for nodes created/destroyed/updated, body evaluations,
+equatable skips, leaf updates, `sizeThatFits` calls, placements, rendered nodes, focus
+changes, terminal requirement changes, debug-only invalidation reasons, and pass
+durations. Anything developers need print statements to answer belongs here or in
+`dump()`.
 
 `ViewGraph` is non-`Sendable` and unisolated; whoever creates it owns it. The canonical
 immediate-mode loop (the Phase 5 runtime automates exactly this, nothing more):
@@ -5492,6 +5709,12 @@ for await event in await session.events {
 identity, view type id, stored view value (`any View`), `NodeState` box, children,
 environment snapshot, `frame: Rect` (absolute), cached `sizeThatFits` memo (cleared each
 layout pass), `needsLayout`/`needsRender` flags, registered handlers (slices 4–5).
+
+`dump()` is the primary debugger, not a pretty extra. It prints identity paths, dynamic
+view types, frames, proposals, measured sizes, clip rects, dirty flags, environment
+overrides, focusability, focused state, installed handlers, and terminal requirements
+contributed by each subtree. If Phase 4 development requires a print statement to answer a
+"why did this update/layout/render/focus change" question, fix `dump()` or `statistics`.
 
 #### The reconciliation algorithm
 
@@ -5574,13 +5797,18 @@ mechanism.
 - Reconciler unit tests, no terminal: build a tree, `update()` with mutated inputs, assert
   created/destroyed/updated counts and identity paths via `statistics` and `dump()` golden
   snapshots. Cover: tuple reorder (destroys), `ForEach` reorder (preserves), branch switch
-  (destroys), `.id` change (destroys), `Equatable` fast path (zero work), `AnyView`
-  barrier.
+  (destroys), `.id` change (destroys), duplicate explicit IDs under different parents
+  (distinct), `Equatable` fast path (zero child body evaluations), and `AnyView` barrier.
+- Work-accounting tests: `bodyEvaluations`, equatable skips, `sizeThatFits` calls, and
+  rendered-node counts change only when the documented pass semantics say they should.
+- Import-boundary architecture test: view-layer source files do not import
+  `TesseraTerminalIO`, platform IO shims, SwiftUI, AppKit, or UIKit.
 - `NodeState` lifetime tests: a test leaf whose `NodeState` counts renders proves state
-  survives updates and dies on identity change.
+  survives updates and dies on identity change. Widget-shaped tests cover cursor/scroll
+  state surviving keyed `ForEach` moves and dying on branch, type, or `.id` changes.
 - Render tests through the existing harness: `ViewGraph` → `Frame`/`Buffer` →
-  `VirtualTerminal` snapshot, including clipping (write past region edge) and a wide
-  grapheme straddling a clip boundary.
+  `VirtualTerminal` snapshot, including clipping (write past region edge), paint order,
+  and a wide grapheme straddling a clip boundary.
 - An `Examples/Counter` app updated to the declarative API, driven by the canonical loop
   above.
 
@@ -5590,10 +5818,12 @@ mechanism.
    `EnvironmentValues`, `ViewGraph` exist in `TesseraCore` with the shapes above.
 2. The reconciliation algorithm matches the six numbered steps and has tests for each
    identity rule.
-3. `graph.dump()` output is stable enough to snapshot and shows identity, type, frame, and
-   dirty flags per node.
-4. A declarative example app renders through a real `TerminalSession` on macOS/Linux.
-5. No `Sendable` conformances were added to views, nodes, or the graph.
+3. `graph.dump()` and `statistics` output is stable enough to snapshot and shows identity,
+   type, proposal, measured size, frame, dirty flags, handlers, focus state, terminal
+   requirements, and pass work counters per node/subtree.
+4. The source import-boundary test passes for the view-layer source roots.
+5. A declarative example app renders through a real `TerminalSession` on macOS/Linux.
+6. No `Sendable` conformances were added to views, nodes, or the graph.
 
 #### Things to flag
 
@@ -5603,6 +5833,8 @@ mechanism.
    cleverer than SwiftUI here.
 3. **Resist adding `@State` "just for demos."** The moment it exists, the
    architecture-agnostic story is dead. Demos use a plain model object and the loop.
+4. **Do not use SwiftUI as Tessera's oracle.** SwiftUI informs API feel, but Tessera's
+   correctness oracle is this spec plus exact terminal-cell tests.
 
 ---
 
@@ -6153,12 +6385,17 @@ composes all three (a filterable list with a text input over a scrolling detail 
 
 - Budgets (same spirit as Phase 2 Slice 4): full update+layout+render of a 200-node tree
   at 200×50 in well under a frame at 60 Hz on a laptop; `statistics` records pass
-  durations so regressions are measurable, not vibes.
+  durations and work counters so regressions are measurable, not vibes.
 - The deliberate simplicities — full relayout, full repaint into the buffer, existential
   reconciliation — are recorded here as the future optimization surface (dirty-subtree
   layout, render skipping with overlap analysis, reconciler devirtualization, `@inlinable`
   audit). None of them may be taken early without a benchmark showing the simple pass
-  missing budget.
+  missing budget, and any optimization must preserve the same `dump()`/`statistics`
+  observability.
+- Animation is not Phase 4. If it lands later, app/model state jumps to the destination,
+  presentation state is derived from an explicit animation record and deterministic clock,
+  and tests sample the presentation values. A terminal runtime has no Core Animation
+  render server, so it must not promise off-main-thread animation smoothness.
 
 ### Definition of done for Phase 4
 
@@ -6169,8 +6406,11 @@ composes all three (a filterable list with a text input over a scrolling detail 
 3. `graph.dump()` and `statistics` are good enough that every "why did it render/focus/
    lay out like that" question in this phase's development was answered with them, not
    with print statements. (If they weren't, fix the tools.)
-4. The view layer never imports `TesseraTerminalIO`; everything reaches the terminal
+4. The source import-boundary test passes, and the package graph boundary checker is wired
+   into `just quality lint`.
+5. The view layer never imports `TesseraTerminalIO`; everything reaches the terminal
    through `Frame`/`TerminalSession` and declared `TerminalRequirements`.
+6. View-layer targets do not import SwiftUI, AppKit, UIKit, or platform IO shims.
 
 **End of Phase 4:** the library does what it says on the tin. You can build real TUI apps.
 
