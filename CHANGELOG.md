@@ -23,6 +23,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Documented per-platform terminal recovery commands, including the Windows PowerShell
+  reset sequence for consoles without `reset` or `stty sane`.
 - Expanded the Phase 4 view-layer spec with SwiftUI-inspired runtime lessons, explicit
   import-boundary/package-graph checks, and Tessera-native oracle test expectations.
 - Changed Ghostty VT to default to `${XDG_CACHE_HOME:-~/.cache}/tessera/libghostty-vt` for

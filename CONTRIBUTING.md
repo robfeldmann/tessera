@@ -163,22 +163,27 @@ Verify these cases before merging lifecycle, signal-handling, or renderer change
 - If you are testing an injected write/flush failure, the next successful draw should
   erase and repaint conservatively rather than trusting partially written damage bytes.
 
-If a development build ever leaves your terminal wedged, type this even if input is not
-visible, then press Enter:
+If a development build ever leaves your terminal wedged, type the recovery command for
+your platform even if input is not visible, then press Enter.
+
+On macOS and Linux:
 
 ```sh
 reset
 ```
 
-If that is not enough, try:
+If `reset` does not restore normal input echo, try:
 
 ```sh
 stty sane
 ```
 
-After severe renderer or lifecycle interruptions, `reset`/`stty sane` are the expected
-manual recovery path; future `tessera-reset` tooling should emit the same conservative
-terminal-mode and screen cleanup sequences.
+On Windows PowerShell, emit terminal reset and visibility sequences directly because
+Windows has no native `reset` or `stty sane` command:
+
+```powershell
+[Console]::Write([char]27 + '[?1049l' + [char]27 + '[?25h' + [char]27 + 'c')
+```
 
 ### Linux Test Runs with Lima
 

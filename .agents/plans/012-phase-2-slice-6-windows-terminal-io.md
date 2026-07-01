@@ -4,7 +4,7 @@ description:
   Complete TesseraTerminalIO's Windows implementation and enable Windows CI for Phase 2.
 status: pending
 created: 2026-06-14
-updated: 2026-06-29
+updated: 2026-07-01
 ---
 
 ## Progress
@@ -22,7 +22,7 @@ updated: 2026-06-29
   - [x] 3.1 Add Windows handles, environment validation, writes, alt screen, and size
   - [x] 3.2 Add Windows async input and resize event translation
 - [ ] **Phase 4 — CI, recovery docs, and manual verification**
-  - [ ] 4.1 Document per-platform terminal recovery (POSIX `reset`; Windows PowerShell
+  - [x] 4.1 Document per-platform terminal recovery (POSIX `reset`; Windows PowerShell
         RIS)
   - [ ] 4.2 Enable Windows CI and document Windows manual verification
 - [ ] **Phase 5 — Windows snapshot build spike (investigation)**
@@ -411,10 +411,11 @@ pnpx markdownlint-cli CONTRIBUTING.md .agents/plans/012-phase-2-slice-6-windows-
 ```
 
 Windows-specific acceptance runs in two places: GitHub Actions (`windows-latest`) and the
-local UTM + Windows 11 ARM64 VM established in Phase 0. From macOS, iterate with:
+local Windows Frost VM established in Phase 0. From macOS, iterate with:
 
 ```fish
-just windows-utm test
+just windows-frost test # to run the full test suite
+just windows-frost test -- --filter TesseraTerminalIOTests
 ```
 
 Manual interactive verification (arrow keys, clean `q` exit, Ctrl-C cleanup, resize
