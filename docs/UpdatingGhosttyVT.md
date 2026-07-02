@@ -79,10 +79,11 @@ checkout's `build.zig.zon.json` with `curl.exe` and hands the local archives to
 
 On Windows, `CGhosttyVT` joins the package graph only when `TESSERA_GHOSTTY_WINDOWS=1` is
 set in the environment that loads `Package.swift`, and it links the static
-`ghostty-vt-static.lib` (no runtime DLL discovery). Sources gate on
-`#if canImport(CGhosttyVT)`. Hosted Windows CI leaves the gate off; local Frost test runs
-(`just windows-frost test`) turn it on and provision the artifact from the host cache
-populated by `just windows-frost build-ghostty`.
+`ghostty-vt-static.lib` plus `ntdll` (no runtime DLL discovery). Sources gate on
+`#if canImport(CGhosttyVT)`. Both hosted Windows CI and local Frost test runs
+(`just windows-frost test`) turn the gate on; Frost provisions the artifact from the host
+cache populated by `just windows-frost build-ghostty`, while hosted CI builds it with
+`scripts/build-libghostty-vt.ps1` behind an Actions cache.
 
 ## Just and CI behavior
 
@@ -90,11 +91,13 @@ The `core build`, `core test`, `core test-coverage`, `docs targets`, and `ci bui
 Just recipes all run `core build-libghostty-vt` first. If the pinned artifact already
 exists, the script only refreshes the cache's `current` symlink and exits quickly.
 
-The GitHub Actions cache key includes `scripts/ghostty-vt-version.txt` and
-`scripts/build-libghostty-vt.sh`. Changing the pinned SHA automatically creates a new
-`libghostty-vt` cache entry. CI restores the shared
-`${XDG_CACHE_HOME:-~/.cache}/tessera/libghostty-vt` cache before running `just ci`, and
-`just ci` builds or validates `libghostty-vt` before invoking SwiftPM.
+The GitHub Actions cache key includes `scripts/ghostty-vt-version.txt` and both build
+scripts (`scripts/build-libghostty-vt.sh`, `scripts/build-libghostty-vt.ps1`). Changing
+the pinned SHA automatically creates a new `libghostty-vt` cache entry. The CI test job
+restores the cache, builds libghostty-vt as its own step, and saves the cache immediately
+afterward — before `swift build`/`swift test` — so a later failure cannot lose the
+artifact. Only installed artifacts are cached; source checkouts and intermediate build
+trees are excluded.
 
 ## Avoid
 

@@ -91,11 +91,16 @@ jobs:
       !contains(github.event.pull_request.labels.*.name, 'skip-ci')) && (github.event_name
       != 'pull_request' || github.event.action != 'edited') }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    # Windows pays a one-time Zig build of libghostty-vt on cache miss.
+    timeout-minutes: ${{ matrix.os == 'windows-latest' && 45 || 20 }}
     strategy:
-      fail-fast: false
+      # Cancel sibling OS jobs on first failure to save hosted minutes.
+      fail-fast: true
       matrix:
         os: [macos-26, ubuntu-latest, windows-latest]
+    env:
+      # Enables the CGhosttyVT target on Windows (no-op elsewhere); see Package.swift.
+      TESSERA_GHOSTTY_WINDOWS: "1"
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -144,30 +149,53 @@ jobs:
             pkg-config
 
       - name: Restore libghostty-vt cache
-        if: runner.os != 'Windows'
-        uses: actions/cache@v4
+        id: ghostty-cache
+        uses: actions/cache/restore@v4
         with:
-          path: ~/.cache/tessera/libghostty-vt
+          # Source checkouts and intermediate build trees are re-creatable and
+          # huge; cache only the installed artifacts.
+          path: |
+            ~/.cache/tessera/libghostty-vt
+            !~/.cache/tessera/libghostty-vt/source
+            !~/.cache/tessera/libghostty-vt/cmake
+            ~/AppData/Local/tessera/libghostty-vt
+            !~/AppData/Local/tessera/libghostty-vt/source
           # prettier-ignore
-          key: libghostty-vt-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh') }}
+          key: libghostty-vt-v2-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
           restore-keys: |
-            libghostty-vt-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-
+            libghostty-vt-v2-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-
 
       - name: Install just
         uses: taiki-e/install-action@v2
         with:
           tool: just
 
-      - name: Build Windows
+      - name: Build libghostty-vt
+        if: runner.os != 'Windows'
+        run: just core build-libghostty-vt
+
+      - name: Build libghostty-vt (Windows)
         if: runner.os == 'Windows'
-        shell: bash
-        run: swift build
+        shell: pwsh
+        run: scripts/build-libghostty-vt.ps1
+
+      # Save immediately so a later build/test failure cannot lose the
+      # expensive Zig artifact (Windows cold build is the long pole).
+      - name: Save libghostty-vt cache after build
+        if: steps.ghostty-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cache/tessera/libghostty-vt
+            !~/.cache/tessera/libghostty-vt/source
+            !~/.cache/tessera/libghostty-vt/cmake
+            ~/AppData/Local/tessera/libghostty-vt
+            !~/AppData/Local/tessera/libghostty-vt/source
+          # prettier-ignore
+          key: libghostty-vt-v2-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
 
       - name: Build
-        if: runner.os != 'Windows'
-        run: |
-          just core build-libghostty-vt
-          swift build
+        run: swift build
 
       - name: Save SwiftPM cache after build
         if: steps.swiftpm-cache.outputs.cache-hit != 'true'
@@ -180,11 +208,5 @@ jobs:
           # prettier-ignore
           key: swiftpm-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version', 'Package.resolved') }}
 
-      - name: Test Windows
-        if: runner.os == 'Windows'
-        shell: bash
-        run: swift test --no-parallel
-
       - name: Test
-        if: runner.os != 'Windows'
         run: swift test --no-parallel

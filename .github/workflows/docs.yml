@@ -51,11 +51,15 @@ jobs:
       - name: Restore libghostty-vt cache
         uses: actions/cache@v4
         with:
-          path: ~/.cache/tessera/libghostty-vt
+          # Key/path shape must match the CI test job so both share entries.
+          path: |
+            ~/.cache/tessera/libghostty-vt
+            !~/.cache/tessera/libghostty-vt/source
+            !~/.cache/tessera/libghostty-vt/cmake
           # prettier-ignore
-          key: libghostty-vt-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh') }}
+          key: libghostty-vt-v2-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
           restore-keys: |
-            libghostty-vt-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-
+            libghostty-vt-v2-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-
 
       - name: Install just
         uses: taiki-e/install-action@v2

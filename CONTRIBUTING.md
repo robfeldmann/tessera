@@ -267,10 +267,12 @@ Windows default (`--no-parallel`) and appends your filter:
 just windows-frost test -- --filter WindowsInputLoopTests
 ```
 
-The hosted CI matrix runs macOS, Linux, and Windows. Windows uses a split build/test shape
-so the SwiftPM cache can be saved immediately after `swift build`, then runs the full
-Windows suite with `swift test --no-parallel`. If a future Windows bring-up needs a
-focused local loop again, `just ci ci-windows` accepts `TESSERA_CI_WINDOWS_TEST_FILTER`:
+The hosted CI matrix runs macOS, Linux, and Windows, all with Ghostty-backed snapshot
+coverage: every test job builds (or cache-restores) the pinned libghostty-vt before
+`swift build`, and the workflow sets `TESSERA_GHOSTTY_WINDOWS=1` so the Windows package
+graph includes `CGhosttyVT` too. The matrix uses `fail-fast`, so one failing OS cancels
+the sibling jobs to save hosted minutes. If a future Windows bring-up needs a focused
+local loop again, `just ci ci-windows` accepts `TESSERA_CI_WINDOWS_TEST_FILTER`:
 
 ```sh
 TESSERA_CI_WINDOWS_TEST_FILTER=TesseraTerminalIOTests just ci ci-windows
@@ -287,14 +289,14 @@ To spend fewer hosted minutes while iterating:
 
 The CI workflow restores the SwiftPM cache before `swift build`, keyed by the runner OS,
 architecture, `.swift-version`, and `Package.resolved`; when there is no exact cache hit,
-it saves the cache immediately after a successful build and before tests. Hosted
-macOS/Linux jobs keep Ghostty VT artifacts in the shared cache root; the build script
-materializes the generated Ghostty headers into the gitignored
-`Sources/CGhosttyVT/include/ghostty/` directory that the `CGhosttyVT` module map
-umbrellas. Hosted Windows CI does not resolve the Swift-DocC plugin or build
-libghostty-vt: `CGhosttyVT` joins the Windows package graph only when
-`TESSERA_GHOSTTY_WINDOWS=1` is set, which local Frost test runs do and hosted Windows jobs
-do not.
+it saves the cache immediately after a successful build and before tests. Ghostty VT
+artifacts live in a second cache keyed by the pinned revision and both build scripts,
+saved immediately after the libghostty-vt build step so a later build/test failure cannot
+lose the expensive Zig artifact (the cache stores installed artifacts only; source
+checkouts and intermediate build trees are excluded). The build scripts materialize the
+generated Ghostty headers into the gitignored `Sources/CGhosttyVT/include/ghostty/`
+directory that the `CGhosttyVT` module map umbrellas. Windows does not resolve the
+Swift-DocC plugin (it is declared non-Windows in `Package.swift`).
 
 For manual GUI validation, run a Tessera terminal demo in each Windows host terminal you
 intend to support:

@@ -36,6 +36,14 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Enabled Ghostty-backed snapshot tests on hosted Windows CI: the test job now builds
+  libghostty-vt on all three platforms (Windows via `scripts/build-libghostty-vt.ps1`) and
+  sets `TESSERA_GHOSTTY_WINDOWS=1`.
+- Changed the CI test matrix to `fail-fast` so one failing platform cancels sibling jobs,
+  and gave Windows a longer per-job timeout for the one-time cold Zig build.
+- Changed the libghostty-vt Actions cache to save immediately after the libghostty-vt
+  build step (before `swift build`/`swift test`) and to store installed artifacts only,
+  excluding source checkouts and intermediate build trees.
 - Documented per-platform terminal recovery commands, including the Windows PowerShell
   reset sequence for consoles without `reset` or `stty sane`.
 - Expanded the Phase 4 view-layer spec with SwiftUI-inspired runtime lessons, explicit
