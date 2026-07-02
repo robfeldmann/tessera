@@ -35,6 +35,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the focused Windows runner path passed.
 - Removed the Swift-DocC plugin dependency from Windows manifests so hosted Windows builds
   do not restore or compile DocC plugin symlink trees.
+- Pinned hosted macOS/Linux Ghostty VT output to `.build/libghostty-vt` so the C target
+  header symlink and linker flags use the same artifact root.
 - Changed Ghostty VT to default to `${XDG_CACHE_HOME:-~/.cache}/tessera/libghostty-vt` for
   multi-branch use.
 - Changed Linux Lima to honor `TESSERA_LINUX_VM_NAME` so multiple worktrees can use

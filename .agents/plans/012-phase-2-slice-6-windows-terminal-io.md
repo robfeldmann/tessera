@@ -368,6 +368,11 @@ depends on it for local iteration.
   full Windows `swift test --no-parallel` while keeping the post-build SwiftPM cache save.
   Hosted validation is pending on the restored matrix before this step can be marked
   complete.
+- 2026-07-02 macOS CI follow-up: the restored macOS test failed because hosted
+  libghostty-vt was built under the shared cache root while the C target header symlink
+  still points at `.build/libghostty-vt/current/include/ghostty`. Hosted macOS/Linux CI
+  and DocC now pin `GHOSTTY_VT_OUTPUT_DIR` to `.build/libghostty-vt` and cache that path
+  so the header symlink and linker flags agree.
 - Final acceptance before marking this step complete: hosted Windows CI is green; the
   temporary Windows-only/focused-test budget gates are removed; macOS/Linux CI and DocC
   validation are restored and green; Markdown lint passes for edited docs.
