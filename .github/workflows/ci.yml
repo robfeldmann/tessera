@@ -118,9 +118,9 @@ jobs:
             ~/.swiftpm
             ~/AppData/Local/org.swift.swiftpm
           # prettier-ignore
-          key: swiftpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version', 'Package.resolved') }}
+          key: swiftpm-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version', 'Package.resolved') }}
           restore-keys: |
-            swiftpm-${{ runner.os }}-${{ runner.arch }}-
+            swiftpm-v2-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Set up Zig on Linux
         if: runner.os == 'Linux'
@@ -182,7 +182,7 @@ jobs:
             ~/.swiftpm
             ~/AppData/Local/org.swift.swiftpm
           # prettier-ignore
-          key: swiftpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version', 'Package.resolved') }}
+          key: swiftpm-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version', 'Package.resolved') }}
 
       - name: Test Windows focus
         if: runner.os == 'Windows'

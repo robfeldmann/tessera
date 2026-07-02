@@ -359,6 +359,11 @@ depends on it for local iteration.
   suite after the Windows runner path is green. Local focused validation passed with
   `just windows-frost test -- --filter TesseraTerminalIOTests`; hosted Windows validation
   passed on PR #12.
+- 2026-07-02 cache follow-up: the first post-build-cache run restored a cache containing
+  Swift-DocC plugin checkout symlinks that are broken on Windows, causing `swift build` to
+  compile the DocC preview plugin and fail. The Windows manifest now omits the Swift-DocC
+  plugin dependency, and the SwiftPM cache key moved to `swiftpm-v2` so the next run
+  builds from a clean cache namespace before saving post-build artifacts.
 - Final acceptance before marking this step complete: hosted Windows CI is green; the
   temporary Windows-only/focused-test budget gates are removed; macOS/Linux CI and DocC
   validation are restored and green; Markdown lint passes for edited docs.

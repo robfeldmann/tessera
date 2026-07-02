@@ -276,8 +276,9 @@ after the Windows path is green. To spend fewer hosted minutes while iterating:
 The CI workflow restores the SwiftPM cache before `swift build`, keyed by the runner OS,
 architecture, `.swift-version`, and `Package.resolved`; when there is no exact cache hit,
 it saves the cache immediately after a successful build and before tests. Windows does not
-build libghostty-vt during this slice, so the Ghostty cache and prerequisites stay gated
-to non-Windows runners for when the full matrix is restored.
+resolve the Swift-DocC plugin or build libghostty-vt during this slice, so DocC/Ghostty
+cache state and prerequisites stay gated to non-Windows runners for when the full matrix
+is restored.
 
 For manual GUI validation, run a Tessera terminal demo in each Windows host terminal you
 intend to support:
