@@ -2,7 +2,7 @@
 name: Phase 2 Slice 6 Windows Terminal IO
 description:
   Complete TesseraTerminalIO's Windows implementation and enable Windows CI for Phase 2.
-status: in-progress
+status: pending
 created: 2026-06-14
 updated: 2026-07-02
 ---
@@ -21,10 +21,10 @@ updated: 2026-07-02
 - [x] **Phase 3 — Windows terminal device I/O**
   - [x] 3.1 Add Windows handles, environment validation, writes, alt screen, and size
   - [x] 3.2 Add Windows async input and resize event translation
-- [ ] **Phase 4 — CI, recovery docs, and manual verification**
+- [x] **Phase 4 — CI, recovery docs, and manual verification**
   - [x] 4.1 Document per-platform terminal recovery (POSIX `reset`; Windows PowerShell
         RIS)
-  - [ ] 4.2 Enable Windows CI and document Windows manual verification (hosted CI pending)
+  - [x] 4.2 Enable Windows CI and document Windows manual verification
 - [ ] **Phase 5 — Windows snapshot build spike (investigation)**
   - [ ] 5.1 Attempt the Windows libghostty-vt build; enable snapshots or confirm the skip
 
@@ -364,19 +364,18 @@ depends on it for local iteration.
   compile the DocC preview plugin and fail. The Windows manifest now omits the Swift-DocC
   plugin dependency, and the SwiftPM cache key moved to `swiftpm-v2` so the next run
   builds from a clean cache namespace before saving post-build artifacts.
-- 2026-07-02 restoration pass: PR #12 now restores macOS/Linux CI, DocC validation, and
-  full Windows `swift test --no-parallel` while keeping the post-build SwiftPM cache save.
-  Hosted validation is pending on the restored matrix before this step can be marked
-  complete.
+- 2026-07-02 restoration pass: PR #12 restored macOS/Linux CI, DocC validation, and full
+  Windows `swift test --no-parallel` while keeping the post-build SwiftPM cache save.
+  Hosted validation passed on PR #12.
 - 2026-07-02 macOS CI follow-up: the restored macOS test failed because hosted
   libghostty-vt was built under the shared cache root while the C target header symlink
   still points at `.build/libghostty-vt/current/include/ghostty`. The build script now
   keeps artifacts in the shared cache root and refreshes `.build/libghostty-vt/current` as
   a workspace-local bridge so the header symlink and linker flags agree without moving
   artifacts back into `.build`.
-- Final acceptance before marking this step complete: hosted Windows CI is green; the
-  temporary Windows-only/focused-test budget gates are removed; macOS/Linux CI and DocC
-  validation are restored and green; Markdown lint passes for edited docs.
+- Final acceptance passed on PR #12: hosted Windows CI is green; the temporary
+  Windows-only/focused-test budget gates are removed; macOS/Linux CI and DocC validation
+  are restored and green; Markdown lint passed for edited docs.
 
 ## Phase 5 — Windows snapshot build spike (investigation)
 
