@@ -364,6 +364,10 @@ depends on it for local iteration.
   compile the DocC preview plugin and fail. The Windows manifest now omits the Swift-DocC
   plugin dependency, and the SwiftPM cache key moved to `swiftpm-v2` so the next run
   builds from a clean cache namespace before saving post-build artifacts.
+- 2026-07-02 restoration pass: PR #12 now restores macOS/Linux CI, DocC validation, and
+  full Windows `swift test --no-parallel` while keeping the post-build SwiftPM cache save.
+  Hosted validation is pending on the restored matrix before this step can be marked
+  complete.
 - Final acceptance before marking this step complete: hosted Windows CI is green; the
   temporary Windows-only/focused-test budget gates are removed; macOS/Linux CI and DocC
   validation are restored and green; Markdown lint passes for edited docs.

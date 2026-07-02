@@ -258,18 +258,21 @@ Windows default (`--no-parallel`) and appends your filter:
 just windows-frost test -- --filter WindowsInputLoopTests
 ```
 
-During Windows CI bring-up, the hosted CI workflow is intentionally Windows-only and runs
-the focused `TesseraTerminalIOTests` filter. The commands match `just ci ci-windows`, but
-the workflow splits build and test so it can save the SwiftPM cache immediately after
-`swift build`. macOS/Linux CI, DocC validation, and the full suite should be restored
-after the Windows path is green. To spend fewer hosted minutes while iterating:
+The hosted CI matrix runs macOS, Linux, and Windows. Windows uses a split build/test shape
+so the SwiftPM cache can be saved immediately after `swift build`, then runs the full
+Windows suite with `swift test --no-parallel`. If a future Windows bring-up needs a
+focused local loop again, `just ci ci-windows` accepts `TESSERA_CI_WINDOWS_TEST_FILTER`:
+
+```sh
+TESSERA_CI_WINDOWS_TEST_FILTER=TesseraTerminalIOTests just ci ci-windows
+```
+
+To spend fewer hosted minutes while iterating:
 
 - Prove changes locally in Frost or UTM before pushing.
 - Keep the `skip-ci` label on draft PRs until a hosted run is needed.
 - Push one fixup commit per validation attempt so workflow concurrency cancels obsolete
   runs.
-- Use the `TESSERA_CI_WINDOWS_TEST_FILTER` repository variable to narrow or broaden the
-  Windows SwiftPM `--filter` without editing the workflow.
 - Rerun only failed jobs in GitHub Actions; avoid rerunning the full workflow unless setup
   or cache state changed.
 
@@ -277,8 +280,7 @@ The CI workflow restores the SwiftPM cache before `swift build`, keyed by the ru
 architecture, `.swift-version`, and `Package.resolved`; when there is no exact cache hit,
 it saves the cache immediately after a successful build and before tests. Windows does not
 resolve the Swift-DocC plugin or build libghostty-vt during this slice, so DocC/Ghostty
-cache state and prerequisites stay gated to non-Windows runners for when the full matrix
-is restored.
+cache state and prerequisites remain non-Windows concerns.
 
 For manual GUI validation, run a Tessera terminal demo in each Windows host terminal you
 intend to support:

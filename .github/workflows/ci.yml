@@ -7,12 +7,6 @@ on:
     types: [opened, synchronize, reopened, edited, labeled, unlabeled]
   workflow_dispatch:
 
-env:
-  # Temporary Windows bring-up default. Override with a repository variable when a CI
-  # iteration needs a narrower or broader SwiftPM filter without editing the workflow.
-  # prettier-ignore
-  TESSERA_CI_WINDOWS_TEST_FILTER: ${{ vars.TESSERA_CI_WINDOWS_TEST_FILTER || 'TesseraTerminalIOTests' }}
-
 permissions:
   contents: read
 
@@ -37,8 +31,9 @@ jobs:
   conventional-commits:
     name: conventional commits
     needs: ci-gate
-    # Temporarily skipped during Windows CI bring-up to avoid non-Windows runner minutes.
-    if: ${{ false }}
+    if: >
+      ${{ github.event_name != 'pull_request' ||
+      !contains(github.event.pull_request.labels.*.name, 'skip-ci') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -62,8 +57,10 @@ jobs:
   lint:
     name: lint
     needs: ci-gate
-    # Temporarily skipped during Windows CI bring-up to avoid macOS runner minutes.
-    if: ${{ false }}
+    if: >
+      ${{ (github.event_name != 'pull_request' ||
+      !contains(github.event.pull_request.labels.*.name, 'skip-ci')) && (github.event_name
+      != 'pull_request' || github.event.action != 'edited') }}
     runs-on: macos-26
     timeout-minutes: 15
     steps:
@@ -98,8 +95,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Temporary Windows-only bring-up matrix; restore macOS/Linux after Windows is green.
-        os: [windows-latest]
+        os: [macos-26, ubuntu-latest, windows-latest]
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -162,7 +158,7 @@ jobs:
         with:
           tool: just
 
-      - name: Build Windows focus
+      - name: Build Windows
         if: runner.os == 'Windows'
         shell: bash
         run: swift build
@@ -184,10 +180,10 @@ jobs:
           # prettier-ignore
           key: swiftpm-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version', 'Package.resolved') }}
 
-      - name: Test Windows focus
+      - name: Test Windows
         if: runner.os == 'Windows'
         shell: bash
-        run: swift test --no-parallel --filter "$TESSERA_CI_WINDOWS_TEST_FILTER"
+        run: swift test --no-parallel
 
       - name: Test
         if: runner.os != 'Windows'

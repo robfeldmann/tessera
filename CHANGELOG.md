@@ -31,6 +31,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   import-boundary/package-graph checks, and Tessera-native oracle test expectations.
 - Temporarily narrowed hosted CI/docs checks to Windows-focused `TesseraTerminalIOTests`
   while the Windows runner path is being stabilized.
+- Restored hosted macOS/Linux CI, DocC validation, and full Windows test execution after
+  the focused Windows runner path passed.
 - Removed the Swift-DocC plugin dependency from Windows manifests so hosted Windows builds
   do not restore or compile DocC plugin symlink trees.
 - Changed Ghostty VT to default to `${XDG_CACHE_HOME:-~/.cache}/tessera/libghostty-vt` for
