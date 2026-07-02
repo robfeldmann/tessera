@@ -3688,6 +3688,69 @@ Mode categories for Phase 3:
    renderer-owned. Widgets may express desired cursor/style state or call
    `Frame.writeRaw`, but they do not emit raw mode bytes directly.
 
+### Phase 3 ground truth: the implemented substrate
+
+Phase 2 shipped, including full Windows support and the Ghostty-backed snapshot harness on
+every platform. Phase 3 slices extend real code, not spec sketches. The names below are
+the actual API at the end of Phase 2; extend them instead of inventing parallel types.
+Snippets later in Phase 3 have been aligned to the codebase's conventions: alphabetically
+sorted protocol conformances (`Equatable, Sendable`), the unlabeled
+`InputEvent.unknown([UInt8])` payload, and `KeyCode.character(Character)`.
+
+- **Input (`TesseraTerminalInput`).** `InputParser` is a value-type state machine:
+  `feed(_ byte:) -> [InputEvent]`, `feed(contentsOf:)`, `flush()`, and a package-level
+  `flushPendingEscape()` used for ESC-timeout disambiguation. Its private `State` enum has
+  `.csi(accumulated:)`, `.escape`, `.ground`, `.ss3(accumulated:)`, and
+  `.utf8(expectedCount:accumulated:)` cases. CSI parsing accumulates parameter and
+  intermediate bytes (0x20–0x3F) and dispatches on the final byte (0x40–0x7E) through
+  `csiCode(finalByte:params:)`; tilde-terminated sequences resolve through
+  `keyCode(forTildeParameter:)`, and `csiParameterValues` splits parameters on `;` only.
+  `InputEvent` has `case key(Key)`, `case resize(TerminalSize)`, and
+  `case unknown([UInt8])`. `Key` is `var code: KeyCode; var modifiers: Modifiers`.
+  `Modifiers` is a `UInt8` option set: `.shift = 1 << 0`, `.alt = 1 << 1`,
+  `.control = 1 << 2`.
+- **Encoder (`TesseraTerminalANSI`).** `ControlSequence` keeps its cases in alphabetical
+  order and encodes through grouped, exhaustive `switch` helpers (`encodeCursor`,
+  `encodeErase`, `encodeSGR`, `encodeMode`, `encodeOSC`, `encodePayload`); every new case
+  must be added to every one of those switches or the target does not compile. Byte
+  assembly goes through `ANSIByteEncoding.appendCSI`/`appendSGR`/`appendOSC`. The existing
+  convention for DEC private modes with symmetric set/reset is one `Bool`-parameterized
+  case (`cursorVisible(Bool)`, `enableLineWrap(Bool)`); Phase 3 mode toggles should follow
+  it.
+- **IO (`TesseraTerminalIO`).** `PlatformIO` is a package actor that buffers output
+  (`write`) and flushes it (`flush`). It owns the single long-lived `InputParser` inside
+  its `events` pipeline; empty byte chunks on the input stream are input-idle
+  notifications that trigger `flushPendingEscape()` (both platform input loops emit them
+  on poll timeouts, so they arrive constantly). `ModeLifecycle` is an actor whose `Mode`
+  enum already declares `.bracketedPaste`, `.focusEvents`, `.kittyKeyboard`, and
+  `.mouseTracking` — currently rejected as `ModeLifecycleError.unsupportedModes`.
+  Enable/disable ordering is the static `acquisitionOrder` array; `exit()` walks it in
+  reverse. Emergency teardown is byte-based: `installCleanup()` encodes `ControlSequence`
+  teardown bytes and hands them to the async-signal-safe C shim via
+  `PlatformIO.installCleanup(teardownBytes:)` and `CleanupRegistry`.
+- **Session (`TesseraTerminal`).**
+  `TerminalSession.withApplicationTerminal(configuration:_:)` drives
+  `ModeLifecycle.enter(configuration.modes)`. `TerminalApplicationConfiguration` has
+  `modes: Set<ModeLifecycle.Mode>` and `synchronizedOutput: SynchronizedOutputPolicy`
+  (`.disabled`/`.enabled`); `.default` is `[.rawMode, .altScreen]`.
+- **Windows.** Fully supported locally and on CI. Raw mode and VT translation are console
+  mode flags owned by `WindowsConsoleMode` (`ENABLE_VIRTUAL_TERMINAL_INPUT` on input,
+  `ENABLE_VIRTUAL_TERMINAL_PROCESSING` on output). `WindowsInputLoop` single-owns the
+  console input queue: it drains non-character records (only resize records become events;
+  legacy `FOCUS_EVENT`/`MOUSE_EVENT` records are discarded) and delivers VT input bytes on
+  the same `AsyncStream<[UInt8]>` shape as POSIX. Every Phase 3 protocol is
+  bytes-in/bytes-out through that shared path; no slice may add a Win32 record-based event
+  source.
+- **Test harness.** The Ghostty-backed `VirtualTerminal` snapshot harness runs on macOS,
+  Linux, and Windows. CI builds libghostty-vt on all three; Windows compiles `CGhosttyVT`
+  behind the `TESSERA_GHOSTTY_WINDOWS=1` opt-in (see `Package.swift` and
+  `scripts/build-libghostty-vt.ps1`), and sources gate on `#if canImport(CGhosttyVT)` with
+  `VirtualTerminal.ghosttyOrUnavailable(cols:rows:)` as the factory. The early Phase 2
+  "Windows snapshot coverage is deferred" caveat no longer applies — Phase 3 renderer work
+  gets snapshot coverage on all three platforms. Lifecycle byte assertions use
+  `InMemoryTerminalDevice` from `TesseraTerminalTestSupport`, which records lifecycle
+  events and flushed bytes. Parser tests stay plain byte-in/event-out with no harness.
+
 ### Dynamic mode changes (`ModeLifecycle.apply`)
 
 Phase 2 Slice 3 deliberately made double-`enter` an error and deferred mid-run toggling
@@ -3722,9 +3785,33 @@ Invariants, in order of importance:
    application mode Tessera might ever enable, regardless of what `apply` believes is
    active.
 
+Implementation notes, grounded in the Phase 2 code:
+
+- `Mode` already declares the four application-protocol cases; the work is removing them
+  from the `unsupportedModes` rejection path in `enable`/`disable`.
+- Extend the static `acquisitionOrder` so application modes come after `.altScreen`, e.g.
+  `[.rawMode, .altScreen, .bracketedPaste, .focusEvents, .mouseTracking, .kittyKeyboard]`,
+  and add them to `supportedModes`. `enter(_:)` then enables them after the screen is set
+  up, and `exit()`'s reversed walk disables them first — the teardown ordering each slice
+  asks for falls out of the array, with the Kitty push last among enables and its pop
+  first among disables when `.kittyKeyboard` is the final element.
+- Application-mode enable/disable needs no new `TerminalDevice` endpoints. Unlike raw mode
+  (termios/console-mode syscalls) and alt screen, these are pure byte sequences: encode
+  the `ControlSequence`, then `io.write(bytes)` + `io.flush()`.
+- `installCleanup()` must grow. Teardown bytes currently cover alt-screen exit and cursor
+  show; every successful `enter`/`apply` recomputes them to include disable sequences for
+  all application modes (over-cleaning is fine — the emergency path may disable modes that
+  were never enabled).
+- Build `apply(applicationModes:)` once, after slices 1–4 exist, or as part of wiring
+  slice 6 configuration; the four protocol slices themselves only require
+  `enter`/`exit`/cleanup support. Implement each slice's enable/disable in a shape `apply`
+  can reuse (per-mode enable/disable byte emission plus cleanup-registry refresh), so the
+  reconciler is a delta loop over existing pieces.
+
 Each Phase 3 slice below describes its mode in enable-at-startup terms for simplicity;
-read those through this section — "enable at startup" means "in the initial applied set
-when the application's configuration/requirements ask for it."
+read those through this section — "enable at startup" means the mode is present in the
+`TerminalApplicationConfiguration.modes` set handed to `withApplicationTerminal`, or in
+the initial applied set once requirements-driven reconciliation exists.
 
 ### Slice 1: Bracketed paste mode
 
@@ -3761,14 +3848,15 @@ Bracketed paste mode is small but load-bearing:
 > Tessera should copy the event-level idea, not the exact feature-gating: paste is part of
 > `TesseraTerminal`'s modern baseline once Phase 3 starts.
 
-This slice should add a new semantic event:
+This slice should add a new semantic event to the existing `InputEvent` enum (which keeps
+its cases alphabetized and its payload unlabeled):
 
 ```swift
-public enum InputEvent: Sendable, Equatable {
+public enum InputEvent: Equatable, Sendable {
     case key(Key)
-    case resize(TerminalSize)
     case paste(String)
-    case unknown(bytes: [UInt8])
+    case resize(TerminalSize)
+    case unknown([UInt8])
 }
 ```
 
@@ -3783,6 +3871,14 @@ mode and alternate screen:
 - Keep the disable sequence idempotent and safe to emit even if enable failed partway
   through startup.
 
+Concretely: remove `.bracketedPaste` from the `unsupportedModes` rejection in
+`ModeLifecycle.enable`/`disable`, append it to `acquisitionOrder` and `supportedModes`,
+emit the `ControlSequence` bytes through `io.write` + `io.flush`, and add the disable
+sequence to the teardown bytes built by `installCleanup()`. Enable at startup by including
+`.bracketedPaste` in `TerminalApplicationConfiguration.modes`; grow
+`TerminalApplicationConfiguration.default` to include it (slice 6's enablement policy
+keeps bracketed paste on by default).
+
 The cleanup rule matters more than the feature itself. Leaving a user's shell in bracketed
 paste mode is one of those small terminal footguns that makes a library feel sloppy.
 
@@ -3791,9 +3887,17 @@ paste mode is one of those small terminal footguns that makes a library feel slo
 The parser needs one additional state: “currently inside bracketed paste.”
 
 When it sees the exact start marker `ESC [ 200 ~`, it should stop emitting ordinary
-`key(.char(...))` events and begin accumulating bytes as paste payload. When it later sees
-the exact end marker `ESC [ 201 ~`, it should UTF-8 decode the accumulated payload and
-emit one `InputEvent.paste(String)`.
+`key(Key(code: .character(...)))` events and begin accumulating bytes as paste payload.
+When it later sees the exact end marker `ESC [ 201 ~`, it should UTF-8 decode the
+accumulated payload and emit one `InputEvent.paste(String)`.
+
+The concrete hook: the start marker arrives through the existing `.csi` state as a
+tilde-terminated sequence with parameter `200`. `parseCSI` dispatches those through
+`keyCode(forTildeParameter:)` today; parameter `200` instead transitions to a new
+`State.bracketedPaste(accumulated: [UInt8])` case, and parameter `201` seen outside paste
+mode is malformed (existing unknown policy). Inside `.bracketedPaste`, bytes accumulate as
+payload while the parser scans for the exact end marker; when a byte breaks a partial
+end-marker match, the partial-marker bytes are replayed as payload.
 
 Important edge cases:
 
@@ -3804,7 +3908,14 @@ Important edge cases:
 - The start marker itself may be split across reads.
 - The end marker itself may be split across reads.
 - Invalid UTF-8 should not crash the parser. Pick one policy and test it: either emit
-  replacement characters or surface `.unknown(bytes:)`.
+  replacement characters or surface `.unknown([UInt8])`.
+- Input-idle notifications must not disturb paste accumulation. `PlatformIO`'s event
+  pipeline calls `flushPendingEscape()` whenever an empty idle chunk arrives — which is
+  constantly, on every poll timeout. That method acts only on the bare-`.escape` state
+  today; keep it that way. A paste may stall between reads indefinitely.
+- `flush()` (end of the input stream) with an unterminated paste follows the existing
+  incomplete-sequence policy: emit `.unknown` carrying the start marker plus the
+  accumulated payload bytes, mirroring the current `.csi`/`.ss3` flush behavior.
 
 The key design point is that bracketed paste is a _parser mode_, not just another escape
 sequence. Once inside paste mode, the normal key parser is suspended until the closing
@@ -3812,18 +3923,20 @@ marker arrives.
 
 #### Encoder behavior
 
-Add semantic control sequences for enabling and disabling bracketed paste, rather than
-sprinkling raw escape strings through lifecycle code.
-
-Phase 3 should add these cases to `ControlSequence`:
+Add a semantic control sequence for toggling bracketed paste, rather than sprinkling raw
+escape strings through lifecycle code. Follow the existing convention for DEC private
+modes with symmetric set/reset — one `Bool`-parameterized case, like
+`enableLineWrap(Bool)` and `cursorVisible(Bool)`:
 
 ```swift
-public enum ControlSequence: Sendable, Equatable {
-    // Phase 2 cases...
-    case enableBracketedPaste
-    case disableBracketedPaste
+public enum ControlSequence: Equatable, Sendable {
+    // Existing cases, kept alphabetized...
+    case enableBracketedPaste(Bool)
 }
 ```
+
+Encode it in `encodeMode` alongside the other DEC private modes, and add the case to every
+exhaustive `encode*` switch in the enum.
 
 The important part is that tests assert the exact bytes:
 
@@ -3843,12 +3956,14 @@ Add parser tests for:
 - ANSI-looking bytes inside paste payload
 - ordinary key parsing still works before and after paste
 - incomplete paste does not emit partial key events
+- paste state survives an input-idle flush (`flushPendingEscape()` mid-paste)
+- `flush()` on an unterminated paste follows the unknown policy
 
-Add lifecycle/encoder tests for:
+Add lifecycle/encoder tests (assert recorded bytes via `InMemoryTerminalDevice`) for:
 
 - startup emits bracketed paste enable
 - teardown emits bracketed paste disable
-- cleanup path emits bracketed paste disable
+- emergency teardown bytes installed via the cleanup registry include the disable
 - disable ordering is compatible with the existing alternate-screen/raw-mode teardown
 
 #### Non-goals
@@ -3901,16 +4016,16 @@ Focus tracking mode uses these sequences:
 >   `Event::FocusLost` alongside other CSI inputs (`crossterm`
 >   `src/event/sys/unix/parse.rs`, lines 171-172).
 
-This slice should extend `InputEvent` again:
+This slice should extend `InputEvent` again (cases stay alphabetized):
 
 ```swift
-public enum InputEvent: Sendable, Equatable {
-    case key(Key)
-    case resize(TerminalSize)
-    case paste(String)
+public enum InputEvent: Equatable, Sendable {
     case focusGained
     case focusLost
-    case unknown(bytes: [UInt8])
+    case key(Key)
+    case paste(String)
+    case resize(TerminalSize)
+    case unknown([UInt8])
 }
 ```
 
@@ -3923,6 +4038,13 @@ as bracketed paste:
 - Disable focus tracking during normal teardown.
 - Disable focus tracking from cleanup handlers after abnormal exit.
 - Keep the disable sequence idempotent and safe to emit even if startup fails halfway.
+
+Concretely, this is the same `ModeLifecycle` change as Slice 1, for the existing
+`.focusEvents` mode case: lift it out of the `unsupportedModes` rejection, place it in
+`acquisitionOrder`/`supportedModes`, emit bytes through `io.write` + `io.flush`, and
+include the disable in `installCleanup()` teardown bytes. Enable at startup by including
+`.focusEvents` in `TerminalApplicationConfiguration.modes` (and in `.default`, matching
+slice 6's enablement policy).
 
 The teardown ordering should be boring and explicit. Disable optional application modes
 before restoring the user's terminal state. A reasonable ordering is:
@@ -3942,6 +4064,12 @@ Focus events are ordinary CSI sequences from the parser's point of view:
 
 - `ESC [ I` emits `.focusGained`
 - `ESC [ O` emits `.focusLost`
+
+The concrete hook: `csiCode(finalByte:params:)` gains final bytes `I` (0x49) and `O`
+(0x4F), valid only with empty parameters — but those two decode to `InputEvent` cases, not
+`Key` values, so the helper's return type (currently `Key?`) needs to widen to an event,
+or the dispatch happens in `parseCSI` before the key-decoding fallback. `ESC [ I` or
+`ESC [ O` with parameters follows the existing unknown policy.
 
 They should be recognized wherever the normal escape-sequence parser recognizes CSI input,
 including when bytes arrive split across reads. They should not be recognized while the
@@ -3965,13 +4093,13 @@ Design notes:
 
 #### Encoder behavior
 
-Add semantic control sequences for focus tracking, mirroring bracketed paste:
+Add a semantic control sequence for focus tracking, mirroring bracketed paste's
+`Bool`-parameterized shape:
 
 ```swift
-public enum ControlSequence: Sendable, Equatable {
-    // Existing cases...
-    case enableFocusTracking
-    case disableFocusTracking
+public enum ControlSequence: Equatable, Sendable {
+    // Existing cases, kept alphabetized...
+    case enableFocusTracking(Bool)
 }
 ```
 
@@ -3981,20 +4109,24 @@ Tests should assert the exact bytes:
 - disable: `\u{1B}[?1004l`
 
 Keep these as explicit encoder operations rather than generic “set private mode” calls in
-lifecycle code. A lower-level CSI helper is fine internally, but public or call-site code
-should read in terminal concepts: enable focus tracking, disable focus tracking.
+lifecycle code. `ANSIByteEncoding.appendCSI` is the internal helper; public and call-site
+code should read in terminal concepts: enable focus tracking, disable focus tracking.
 
 #### Platform notes
 
 On POSIX terminals this is just bytes in and bytes out. On Windows Terminal and other
-ConPTY-backed environments, VT input mode from Phase 2 is what allows these escape
-sequences to flow through the same parser path as macOS and Linux.
+ConPTY-backed environments, the VT input mode from Phase 2
+(`ENABLE_VIRTUAL_TERMINAL_INPUT`, owned by `WindowsConsoleMode`) is what lets these escape
+sequences flow through the same parser path as macOS and Linux.
 
-There should not be a separate Windows focus-event implementation using Win32 console
-focus records. Those records describe the console window/input buffer model, not the same
-modern terminal protocol Tessera is standardizing around. Phase 2 deliberately put Windows
-behind the same public `PlatformIO` API; Phase 3 should continue paying the cross-platform
-tax only at the byte transport layer, not by inventing a second event semantics.
+There must not be a separate Windows focus-event implementation using Win32 console focus
+records. Those records describe the console window/input buffer model, not the modern
+terminal protocol Tessera is standardizing around — and `WindowsInputLoop` already drains
+and discards legacy `FOCUS_EVENT` records while pumping the console input queue, so the VT
+`ESC [ I` / `ESC [ O` bytes are the only focus signal that can reach the parser. Phase 2
+deliberately put Windows behind the same `PlatformIO` seam; Phase 3 continues paying the
+cross-platform tax only at the byte transport layer, not by inventing a second event
+semantics.
 
 #### Tests
 
@@ -4010,7 +4142,7 @@ Add parser tests for:
 - `ESC [ I` inside bracketed paste payload does not emit `.focusGained`
 - `ESC [ O` inside bracketed paste payload does not emit `.focusLost`
 
-Add lifecycle/encoder tests for:
+Add lifecycle/encoder tests (assert recorded bytes via `InMemoryTerminalDevice`) for:
 
 - startup emits focus tracking enable
 - teardown emits focus tracking disable
@@ -4101,55 +4233,56 @@ ESC [ < button ; column ; row m   // release
 The terminal reports `column` and `row` as 1-based coordinates. Tessera should expose them
 as 0-based buffer coordinates, matching the rest of the renderer and buffer API.
 
-This slice should extend `InputEvent` with a mouse case:
+This slice should extend `InputEvent` with a mouse case (cases stay alphabetized):
 
 ```swift
-public enum InputEvent: Sendable, Equatable {
-    case key(Key)
-    case resize(TerminalSize)
-    case paste(String)
+public enum InputEvent: Equatable, Sendable {
     case focusGained
     case focusLost
+    case key(Key)
     case mouse(MouseEvent)
-    case unknown(bytes: [UInt8])
+    case paste(String)
+    case resize(TerminalSize)
+    case unknown([UInt8])
 }
 ```
 
-Suggested event model:
+Suggested event model, following the codebase's `var`-property and sorted-conformance
+conventions:
 
 ```swift
-public struct MouseEvent: Sendable, Equatable {
-    public let kind: MouseEventKind
-    public let position: TerminalPosition
-    public let modifiers: Modifiers
+public struct MouseEvent: Equatable, Sendable {
+    public var kind: MouseEventKind
+    public var modifiers: Modifiers
+    public var position: TerminalPosition
 
     public init(kind: MouseEventKind, position: TerminalPosition, modifiers: Modifiers = [])
 }
 
-public enum MouseEventKind: Sendable, Equatable {
+public enum MouseEventKind: Equatable, Sendable {
+    case drag(MouseButton)
     case press(MouseButton)
     case release(MouseButton?)
-    case drag(MouseButton)
     case scroll(MouseScrollDirection)
 }
 
-public enum MouseButton: Sendable, Equatable {
+public enum MouseButton: Equatable, Sendable {
     case left
     case middle
     case right
 }
 
-public enum MouseScrollDirection: Sendable, Equatable {
-    case up
+public enum MouseScrollDirection: Equatable, Sendable {
     case down
     case left
     case right
+    case up
 }
 ```
 
-`TerminalPosition` can be whatever coordinate type Phase 2 already established, but the
-important invariant is: mouse positions use the same coordinate origin as buffers and
-rendering. If the terminal sends row 1 / column 1, Tessera reports position `(0, 0)`.
+`TerminalPosition` is the existing `TesseraTerminalCore` type (`column`/`row`, 0-based,
+same origin as buffers and rendering). If the terminal sends row 1 / column 1, Tessera
+reports `TerminalPosition(column: 0, row: 0)`.
 
 #### Button and modifier decoding
 
@@ -4184,7 +4317,7 @@ data.
 
 Malformed, out-of-range, or semantically impossible button codes should follow the
 parser's existing unknown-sequence policy. Do not invent `.unknownMouse`; unknown input
-remains an `InputEvent.unknown(bytes:)` because the parser failed to decode the whole
+remains an `InputEvent.unknown([UInt8])` because the parser failed to decode the whole
 sequence into a semantic event.
 
 #### Lifecycle behavior
@@ -4197,6 +4330,12 @@ as bracketed paste and focus tracking:
 - Disable mouse tracking from cleanup handlers after abnormal exit.
 - Keep all disable sequences idempotent and safe to emit even if enable failed partway
   through startup.
+
+Concretely, this is again the Slice 1 `ModeLifecycle` change, for the existing
+`.mouseTracking` mode case. Unlike paste and focus, mouse tracking should stay out of
+`TerminalApplicationConfiguration.default`: it visibly changes terminal
+selection/scrollback behavior, so applications opt in by adding `.mouseTracking` to
+`configuration.modes` (slice 6's enablement policy keeps it configuration-driven).
 
 Because mouse mode visibly changes terminal behavior, cleanup matters. Leaving mouse
 tracking enabled can make a user's shell appear broken: clicks may stop selecting text,
@@ -4233,25 +4372,32 @@ Parsing requirements:
 - Decode press, release, drag, and scroll into `MouseEventKind`.
 - Preserve ordinary keyboard/focus/paste behavior before and after mouse events.
 
+The concrete hook: no new parser state is needed. `<` is 0x3C, inside `parseCSI`'s
+accumulate range (0x20–0x3F), so the whole report accumulates in the existing `.csi` state
+and decodes at the final byte `M`/`m`. Reuse `csiParameterValues` for the three numeric
+fields after stripping the `<` prefix. Note that the SGR-mouse modifier bits (shift 4, alt
+8, control 16) are packed differently from the legacy `1 + bits` CSI modifier encoding
+handled by `modifiers(encodedAs:)` — write a separate mouse-modifier decode rather than
+reusing that helper.
+
 As with focus events, SGR mouse sequences must not be interpreted while inside bracketed
 paste mode. A paste payload containing `ESC [ < 0 ; 1 ; 1 M` is pasted text, not a mouse
 click.
 
 #### Encoder behavior
 
-Add semantic control sequences rather than writing raw private-mode escapes at lifecycle
+Add a semantic control sequence rather than writing raw private-mode escapes at lifecycle
 call sites:
 
 ```swift
-public enum ControlSequence: Sendable, Equatable {
-    // Existing cases...
-    case enableMouseTracking
-    case disableMouseTracking
+public enum ControlSequence: Equatable, Sendable {
+    // Existing cases, kept alphabetized...
+    case enableMouseTracking(Bool)
 }
 ```
 
-The encoder may implement these as multiple CSI private-mode operations internally. Tests
-should assert the exact bytes and ordering Tessera chooses. Suggested enable sequence:
+One case may emit multiple CSI private-mode operations internally. Tests should assert the
+exact bytes and ordering Tessera chooses. Suggested enable sequence:
 
 ```text
 ESC [ ? 1002 h
@@ -4272,13 +4418,14 @@ future maintainers know those bytes are deliberate, not accidental noise.
 
 Mouse tracking should remain a VT protocol feature across all platforms. On macOS and
 Linux, the terminal emulator sends SGR mouse sequences through the normal input file
-descriptor. On Windows, Windows Terminal / ConPTY should do the same when virtual terminal
-input is enabled.
+descriptor. On Windows, Windows Terminal / ConPTY does the same when
+`ENABLE_VIRTUAL_TERMINAL_INPUT` is active — which Phase 2's raw mode already guarantees.
 
 Do not add a separate Win32 `MOUSE_EVENT_RECORD` public path. It does not have the same
 semantics as SGR mouse mode, it would create platform-specific behavior in the public
 event stream, and it would undermine the Phase 2 decision to keep OS differences inside
-`PlatformIO`.
+`PlatformIO`. `WindowsInputLoop` already drains and discards legacy mouse records from the
+console input queue.
 
 #### Tests
 
@@ -4300,7 +4447,7 @@ Add parser tests for:
 - mouse-looking sequence inside bracketed paste payload does not emit `.mouse`
 - malformed SGR mouse sequences follow the existing unknown-sequence policy
 
-Add lifecycle/encoder tests for:
+Add lifecycle/encoder tests (assert recorded bytes via `InMemoryTerminalDevice`) for:
 
 - startup emits mouse tracking enable sequences
 - teardown emits mouse tracking disable sequences
@@ -4388,47 +4535,56 @@ The existing Phase 2 `Key` model should evolve rather than be replaced. Applicat
 should still receive `InputEvent.key(Key)`, but `Key` needs enough room to represent
 information that legacy protocols could not report.
 
-Suggested direction:
+Suggested direction — `Key` already has `var code: KeyCode` and `var modifiers: Modifiers`
+with the memberwise initializer shown; this slice adds `kind`:
 
 ```swift
-public struct Key: Sendable, Equatable {
-    public let code: KeyCode
-    public let modifiers: Modifiers
-    public let kind: KeyEventKind
+public struct Key: Equatable, Sendable {
+    public var code: KeyCode
+    public var kind: KeyEventKind
+    public var modifiers: Modifiers
 
     public init(code: KeyCode, modifiers: Modifiers = [], kind: KeyEventKind = .press)
 }
 
-public enum KeyEventKind: Sendable, Equatable {
+public enum KeyEventKind: Equatable, Sendable {
     case press
-    case `repeat`   // backticks: `repeat` is a Swift keyword
     case release
-}
-
-public struct Modifiers: OptionSet, Sendable {
-    public let rawValue: UInt16
-
-    public init(rawValue: UInt16)
-
-    public static let shift   = Modifiers(rawValue: 1 << 0)
-    public static let alt     = Modifiers(rawValue: 1 << 1)
-    public static let control = Modifiers(rawValue: 1 << 2)
-    public static let `super` = Modifiers(rawValue: 1 << 3)  // keyword, needs backticks
-    public static let hyper   = Modifiers(rawValue: 1 << 4)
-    public static let meta    = Modifiers(rawValue: 1 << 5)
+    case `repeat`   // backticks: `repeat` is a Swift keyword
 }
 ```
 
-`kind` should default to `.press` for all legacy input, so existing keyboard behavior
-stays source-compatible if possible and behavior-compatible regardless. If adding `kind`
-to `Key` is too disruptive, an alternative is to add it as an optional/defaulted
-initializer parameter while preserving existing construction sites.
+`kind` defaults to `.press`, and it is the last initializer parameter with a default, so
+every existing construction site keeps compiling and all legacy input stays
+behavior-compatible.
 
-The `KeyCode` enum may also need to grow. Kitty can report keys that legacy terminal input
-cannot represent cleanly: keypad keys, caps lock, media keys, modifier-only keys, and
-more. Do not add the whole universe on day one. Add only the cases needed to decode the
-protocol cleanly and surface unknown-but-well-formed reports through `.unknown(bytes:)`
-until the public API has a real use case for them.
+`Modifiers` keeps its `UInt8` raw value and existing bits and gains the rest of the Kitty
+modifier set:
+
+```swift
+extension Modifiers {
+    // Existing: .shift = 1 << 0, .alt = 1 << 1, .control = 1 << 2
+    public static let `super` = Self(rawValue: 1 << 3)  // keyword, needs backticks
+    public static let hyper = Self(rawValue: 1 << 4)
+    public static let meta = Self(rawValue: 1 << 5)
+    // Add only if the implementation surfaces them:
+    public static let capsLock = Self(rawValue: 1 << 6)
+    public static let numLock = Self(rawValue: 1 << 7)
+}
+```
+
+Do not widen to `UInt16`. The existing bit layout already matches the Kitty wire encoding
+exactly — Kitty transmits `modifier field = 1 + bits` with shift 1, alt 2, ctrl 4, super
+8, hyper 16, meta 32, caps-lock 64, num-lock 128 — so `UInt8` holds the entire protocol
+and decoding is `Modifiers(rawValue: UInt8(field - 1))` masked to supported bits. The
+legacy CSI `1 + bits` modifier encoding handled by `modifiers(encodedAs:)` uses the same
+first three bits, which is why the existing values must not be renumbered.
+
+The `KeyCode` enum may also need to grow (its cases stay alphabetized). Kitty can report
+keys that legacy terminal input cannot represent cleanly: keypad keys, caps lock, media
+keys, modifier-only keys, and more. Do not add the whole universe on day one. Add only the
+cases needed to decode the protocol cleanly and surface unknown-but-well-formed reports
+through `.unknown([UInt8])` until the public API has a real use case for them.
 
 #### Protocol level
 
@@ -4441,15 +4597,22 @@ implementation against the current Kitty spec, but Tessera's baseline target sho
 - report alternate keys where useful
 - report all modifiers, including Super/Hyper/Meta where available
 
-Keep the enable operation explicit and semantic:
+Keep the enable operation explicit and semantic, mirroring the protocol's push/pop stack
+shape (`CSI > flags u` pushes, `CSI < u` pops):
 
 ```swift
-public enum ControlSequence: Sendable, Equatable {
-    // Existing cases...
-    case enableKittyKeyboard
-    case disableKittyKeyboard
+public enum ControlSequence: Equatable, Sendable {
+    // Existing cases, kept alphabetized...
+    case popKittyKeyboard
+    case pushKittyKeyboard(KittyKeyboardFlags)
 }
 ```
+
+where `KittyKeyboardFlags` is a small option set in `TesseraTerminalANSI` mirroring the
+protocol's progressive-enhancement bits (disambiguate escape codes 1, report event types
+2, report alternate keys 4, report all keys as escape codes 8, report associated text 16).
+These are CSI sequences, not DEC private modes — encode them in a suitable `encode*`
+helper and remember every exhaustive switch in the enum must list the new cases.
 
 Do not scatter raw `CSI > ... u` strings through lifecycle code. The protocol is subtle
 enough that all flag choices and reset behavior should live in one encoder implementation
@@ -4473,10 +4636,19 @@ Parsing requirements:
 - Map modifier fields into Tessera's `Modifiers` option set.
 - Map event-type fields into `KeyEventKind`.
 - Preserve legacy decoding for terminals that ignore Kitty keyboard enablement.
-- Preserve ordinary text input as `.key(.char(...))`.
+- Preserve ordinary text input as `.key(Key(code: .character(...)))`.
 - Continue to handle bytes split across reads.
 - Continue to resolve bare ESC / Alt-prefix ambiguity for legacy input.
 - Do not interpret Kitty-looking sequences while inside bracketed paste mode.
+
+The concrete hooks: Kitty key reports arrive through the existing `.csi` state with final
+byte `u`, so `csiCode(finalByte:params:)` grows a `u` branch. Kitty also upgrades the
+tilde and arrow/navigation forms the legacy parser already decodes
+(`CSI number ; modifiers ~`, `CSI 1 ; modifiers A`), adding event-type and alternate-key
+sub-parameters. That is the real parsing work: Kitty separates parameters with `;` but
+sub-parameters with `:` (`unicode-key:shifted:base ; modifiers:event-type u`), and the
+existing `csiParameterValues` helper splits on `;` and `Int`-parses only — parameter
+parsing must become colon-aware without breaking the legacy paths that reuse it.
 
 The parser should not require proof that Kitty mode is enabled before decoding a valid
 Kitty keyboard sequence. The input stream is the source of truth: if a terminal sends a
@@ -4503,6 +4675,13 @@ Kitty keyboard mode joins the optional Phase 3 protocol stack:
 - Disable or pop Kitty keyboard mode from cleanup handlers after abnormal exit.
 - Keep cleanup safe if startup fails after enabling the protocol but before the terminal
   fully starts.
+
+Concretely, this is the `.kittyKeyboard` mode case in `ModeLifecycle`, wired like the
+previous three slices. One asymmetry to respect: enable is a push and disable is a pop, so
+the emergency-teardown bytes built by `installCleanup()` include one pop for the one push
+the session performed. Keep `.kittyKeyboard` out of
+`TerminalApplicationConfiguration.default` until slice 6 settles the enablement policy
+(`keyboardProtocol: .kittyIfAvailable` is the intended end state).
 
 A reasonable teardown order is:
 
@@ -4579,10 +4758,12 @@ visible linked text
 OSC 8 ; ; ST
 ```
 
-where `OSC` is `ESC ]` and `ST` is usually either `ESC \\` or BEL depending on terminal
-convention. Tessera should choose one terminator for output and test it consistently. OSC
-8 adoption notes and terminal documentation describe this general `OSC 8 ; params ; URI`
-form.
+where `OSC` is `ESC ]` and `ST` is usually either `ESC \` or BEL depending on terminal
+convention. Tessera should choose one terminator for output and test it consistently. The
+OSC 8 spec recommends ST (`ESC \`); the existing `setWindowTitle` case terminates its OSC
+with BEL. Ghostty's VT accepts both, so pick one, justify it in a comment, and pin it in
+byte tests. OSC 8 adoption notes and terminal documentation describe this general
+`OSC 8 ; params ; URI` form.
 
 > [!note] Ratatui References
 >
@@ -4615,25 +4796,27 @@ Hyperlinks are style-like metadata. They affect how a cell or text span behaves 
 terminal, but they do not consume layout space and they should not change the visible
 characters in the buffer.
 
-The cleanest Phase 3 shape is to add hyperlink metadata to the terminal styling layer that
-Phase 2's buffer/renderer already uses:
+The cleanest Phase 3 shape is to add hyperlink metadata to the existing
+`TesseraTerminalBuffer.Style` — the type the buffer/renderer already uses. Its current
+fields are non-optional with `.default` color values; the slice appends one optional
+field:
 
 ```swift
-public struct Style: Sendable, Equatable {
-    public var foreground: Color?
-    public var background: Color?
+public struct Style: Equatable, Sendable {
+    public var foreground: Color
+    public var background: Color
     public var attributes: TextAttributes
     public var hyperlink: Hyperlink?
 
     public init(
-        foreground: Color? = nil,
-        background: Color? = nil,
+        foreground: Color = .default,
+        background: Color = .default,
         attributes: TextAttributes = [],
         hyperlink: Hyperlink? = nil
     )
 }
 
-public struct Hyperlink: Sendable, Equatable, Hashable {
+public struct Hyperlink: Equatable, Hashable, Sendable {
     public let uri: String
     public let id: String?
 
@@ -4641,9 +4824,12 @@ public struct Hyperlink: Sendable, Equatable, Hashable {
 }
 ```
 
-If Phase 2 named this type something other than `Style`, adapt the design to the existing
-model. The important decision is that hyperlinks live with rendered cell/span attributes,
+`Hyperlink` most naturally lives in `TesseraTerminalANSI` next to `Color`, since the
+encoder's `openHyperlink` case carries it and `TesseraTerminalBuffer` already imports that
+module. The important decision is that hyperlinks live with rendered cell/span attributes,
 not inside `String`, not as a separate overlay, and not as a view-layer concept yet.
+Because `Style` equality drives `BufferDiff`, adding the field means hyperlink changes
+produce damage automatically — no diff changes needed.
 
 `id` should be optional. OSC 8 supports parameters, and the most common useful parameter
 is an identifier that lets terminals treat separate spans as the same hyperlink. Tessera
@@ -4667,46 +4853,57 @@ Rendering requirements:
   span.
 - Hyperlink metadata must not affect cell width, grapheme handling, or layout.
 
-The subtle part is damage tracking. A partial redraw may start in the middle of a row
-where the terminal's _current_ hyperlink state is unknown or stale relative to the damaged
-span. The renderer already has to handle color/style state for damaged regions; hyperlink
-state must be included in the same state machine. Do not assume links only open at the
-beginning of a full frame.
+The subtle part is damage tracking, and the implementation site is precise: the renderer
+(`TesseraTerminalRendering.Renderer`) tracks `currentStyle: Style?` and encodes
+transitions through `sgrDelta(from:to:into:)` in `StyleEncoding.swift`. Hyperlink state
+joins that state machine — either inside `sgrDelta` or as a parallel hyperlink-transition
+step — with one non-negotiable correction to the "reset closes everything" intuition:
+**SGR 0 (`resetAttributes`) does not close an OSC 8 hyperlink.** OSC 8 state is
+independent of SGR state. Every place the renderer resets style — the nil-`currentStyle`
+path at the start of a damaged run after an erase, and the end-of-frame `resetAttributes`
+epilogue in `encodeFrame` — must explicitly emit the OSC 8 close when a hyperlink is open,
+and `invalidate()` must forget believed hyperlink state along with believed style state.
 
 At minimum, before drawing a damaged run, the renderer should establish the complete style
 state needed for the first cell in that run, including hyperlink. After drawing the run,
-it should leave the terminal in a safe neutral state if the existing renderer does that
-for other styles.
+it should leave the terminal in a safe neutral state — reset attributes and no open
+hyperlink — as the existing epilogue already does for SGR.
 
 #### Encoder behavior
 
 Add semantic control sequences for hyperlinks:
 
 ```swift
-public enum ControlSequence: Sendable, Equatable {
-    // Existing cases...
-    case openHyperlink(Hyperlink)
+public enum ControlSequence: Equatable, Sendable {
+    // Existing cases, kept alphabetized...
     case closeHyperlink
+    case openHyperlink(Hyperlink)
 }
 ```
+
+Encode them in `encodeOSC` next to `setWindowTitle`, and add both cases to every
+exhaustive `encode*` switch in the enum.
 
 The exact bytes should be centralized and tested. Suggested output form:
 
 ```text
-ESC ] 8 ; id=<escaped-id> ; <escaped-uri> ESC \\
+ESC ] 8 ; id=<escaped-id> ; <escaped-uri> ESC \
 ...
-ESC ] 8 ; ; ESC \\
+ESC ] 8 ; ; ESC \
 ```
 
 If `id` is nil, emit an empty params field:
 
 ```text
-ESC ] 8 ; ; <escaped-uri> ESC \\
+ESC ] 8 ; ; <escaped-uri> ESC \
 ```
 
 The implementation must define escaping/validation rules for `uri` and `id`. At minimum,
 reject or sanitize control characters so user-provided strings cannot smuggle arbitrary
-OSC or CSI sequences into terminal output.
+OSC or CSI sequences into terminal output. The `setWindowTitle` precedent (`oscSafeTitle`,
+which strips BEL and ESC scalars) is the floor; a throwing `Hyperlink` initializer that
+rejects all C0 controls is the better ceiling because it refuses instead of silently
+rewriting the URI.
 
 #### Security and correctness
 
@@ -4730,14 +4927,20 @@ safe.
 
 #### Snapshot behavior
 
-Snapshot tests need a clear hyperlink story. The cell buffer snapshot should be able to
-assert hyperlink metadata without embedding raw OSC bytes in every expected output string.
-For renderer byte tests, assert the actual OSC 8 bytes directly.
+Snapshot tests have a real hyperlink story on all three platforms: the vendored
+libghostty-vt exposes per-cell hyperlink inspection (`GHOSTTY_CELL_DATA_HAS_HYPERLINK` and
+`ghostty_grid_ref_hyperlink_uri` in the `CGhosttyVT` headers). Extend the harness —
+`RenderedCell` gains an optional hyperlink-URI field, populated by the Ghostty-backed
+`VirtualTerminal` — so renderer tests can assert that the bytes Tessera emitted produced
+linked cells in a real VT. `RenderedCell` is test-support API, so growing it is not a
+public-API change.
 
 Suggested split:
 
 - Buffer/style tests compare `Hyperlink` values structurally.
-- Renderer tests compare exact encoded bytes.
+- Renderer byte tests compare exact encoded OSC 8 bytes.
+- Renderer screen tests feed frames through `VirtualTerminal` and assert per-cell
+  hyperlink URIs (including that damage repaints preserve them).
 - Higher-level snapshots, once the view layer exists, may render hyperlinks in a readable
   annotation form if raw escape bytes make tests hard to review.
 
@@ -4758,8 +4961,10 @@ Add renderer tests for:
 - changing hyperlink closes/replaces the previous one
 - changing from linked to unlinked text closes the hyperlink
 - damage rendering establishes hyperlink state at the start of a damaged run
-- end-of-frame/style reset closes any active hyperlink
+- end-of-frame reset closes any active hyperlink even though SGR 0 alone would not
 - hyperlink metadata does not affect measured width or cell positions
+- `VirtualTerminal` screen assertions: linked cells report the URI, unlinked cells report
+  none, and a damage-only repaint keeps both correct
 
 #### Non-goals
 
@@ -4820,7 +5025,7 @@ So the public model should avoid names like `supportsMouse == true` if that impl
 promise. Prefer a report that communicates confidence and source:
 
 ```swift
-public struct TerminalCapabilities: Sendable, Equatable {
+public struct TerminalCapabilities: Equatable, Sendable {
     public var identity: TerminalIdentity?
     public var color: ColorCapability
     public var synchronizedOutput: CapabilityStatus
@@ -4842,7 +5047,7 @@ public struct TerminalCapabilities: Sendable, Equatable {
     )
 }
 
-public enum ColorCapability: Sendable, Equatable {
+public enum ColorCapability: Equatable, Sendable {
     case unknown
     case noColor
     case monochrome
@@ -4851,14 +5056,14 @@ public enum ColorCapability: Sendable, Equatable {
     case truecolor
 }
 
-public enum CapabilityStatus: Sendable, Equatable {
+public enum CapabilityStatus: Equatable, Sendable {
     case unknown
     case assumed
     case detected
     case unavailable
 }
 
-public struct TerminalIdentity: Sendable, Equatable {
+public struct TerminalIdentity: Equatable, Sendable {
     public var name: String?
     public var version: String?
     public var source: TerminalIdentitySource
@@ -4866,21 +5071,21 @@ public struct TerminalIdentity: Sendable, Equatable {
     public init(name: String?, version: String?, source: TerminalIdentitySource)
 }
 
-public enum TerminalIdentitySource: Sendable, Equatable {
+public enum TerminalIdentitySource: Equatable, Sendable {
     case environment
     case deviceAttributes
     case queryResponse
     case userOverride
 }
 
-public struct NestedTerminalEnvironment: Sendable, Equatable {
+public struct NestedTerminalEnvironment: Equatable, Sendable {
     public var kind: NestedTerminalKind
     public var outerIdentity: TerminalIdentity?
 
     public init(kind: NestedTerminalKind, outerIdentity: TerminalIdentity? = nil)
 }
 
-public enum NestedTerminalKind: Sendable, Equatable {
+public enum NestedTerminalKind: Equatable, Sendable {
     case tmux
     case screen
     case ssh
@@ -4898,8 +5103,8 @@ Use the least invasive sources first:
 1. Environment variables: `NO_COLOR`, `TERM`, `TERM_PROGRAM`, `TERM_PROGRAM_VERSION`,
    `COLORTERM`, `WT_SESSION`, `VTE_VERSION`, `KONSOLE_VERSION`, `TMUX`, `STY`, `SSH_TTY`,
    and similar.
-2. Existing platform information from `PlatformIO`, especially whether VT input/output is
-   active on Windows.
+2. Existing platform information from `PlatformIO` (package-internal), especially whether
+   VT input/output is active on Windows.
 3. Passive observation: if Tessera receives a Kitty keyboard report, SGR mouse event,
    focus event, bracketed paste markers, or other protocol-specific response, it knows
    that path is working.
@@ -4959,8 +5164,10 @@ Suggested policy:
 - Colors: start from user policy first (`NO_COLOR` wins), then environment/detection.
   Downsample app-requested colors at the renderer/style-resolution layer before calling
   the encoder: truecolor → 256 → 16 → monochrome as needed.
-- Synchronized output: enable when detected or explicitly configured; allow an optimistic
-  default for terminals where DEC private modes are known to be harmless; always provide a
+- Synchronized output: `TerminalApplicationConfiguration.synchronizedOutput` already
+  exists as `SynchronizedOutputPolicy` (`.disabled`/`.enabled`, default `.enabled`, and
+  `TerminalSession.draw` already wraps frames in DEC 2026). If detection warrants it, add
+  an `.automatic` case to that existing enum rather than a parallel type; always keep the
   disable knob for nested or buggy environments.
 - Bracketed paste: enable by default unless explicitly disabled.
 - Focus events: enable by default unless explicitly disabled.
@@ -4981,32 +5188,31 @@ The exact defaults can change, but they must be documented. Users should be able
 
 #### Public configuration
 
-If capability detection is implemented, add configuration rather than hidden behavior:
+If capability detection is implemented, add configuration rather than hidden behavior. The
+knobs below are illustrative fields to grow on the existing
+`TerminalApplicationConfiguration` (which already has `modes` and `synchronizedOutput`);
+some replace direct `modes` manipulation with intent-level policy:
 
 ```swift
-public struct TerminalOptions: Sendable, Equatable {
+public struct TerminalApplicationConfiguration: Equatable, Sendable {
+    // Existing: modes, synchronizedOutput...
+    public var capabilityDetection: CapabilityDetectionMode
     public var colorPolicy: ColorPolicy
-    public var synchronizedOutput: SynchronizedOutputMode
     public var enableBracketedPaste: Bool
     public var enableFocusEvents: Bool
-    public var mouseTracking: MouseTrackingMode
-    public var keyboardProtocol: KeyboardProtocolMode
     public var hyperlinkRendering: HyperlinkRenderingMode
-    public var capabilityDetection: CapabilityDetectionMode
+    public var keyboardProtocol: KeyboardProtocolMode
+    public var mouseTracking: MouseTrackingMode
 
-    public init(
-        colorPolicy: ColorPolicy = .automatic,
-        synchronizedOutput: SynchronizedOutputMode = .automatic,
-        enableBracketedPaste: Bool = true,
-        enableFocusEvents: Bool = true,
-        mouseTracking: MouseTrackingMode = .buttonEvents,
-        keyboardProtocol: KeyboardProtocolMode = .kittyIfAvailable,
-        hyperlinkRendering: HyperlinkRenderingMode = .enabled,
-        capabilityDetection: CapabilityDetectionMode = .passive
-    )
+    // New fields default to: .passive, .automatic, true, true, .enabled,
+    // .kittyIfAvailable, .buttonEvents
 }
+```
 
-public enum ColorPolicy: Sendable, Equatable {
+The supporting policy enums:
+
+```swift
+public enum ColorPolicy: Equatable, Sendable {
     case automatic
     case noColor
     case monochrome
@@ -5015,40 +5221,36 @@ public enum ColorPolicy: Sendable, Equatable {
     case truecolor
 }
 
-public enum SynchronizedOutputMode: Sendable, Equatable {
-    case disabled
-    case automatic
-    case enabled
-}
-
-public enum MouseTrackingMode: Sendable, Equatable {
+public enum MouseTrackingMode: Equatable, Sendable {
     case disabled
     case buttonEvents
     case applicationControlled
 }
 
-public enum KeyboardProtocolMode: Sendable, Equatable {
+public enum KeyboardProtocolMode: Equatable, Sendable {
     case legacyOnly
     case kittyIfAvailable
     case kittyRequired
 }
 
-public enum HyperlinkRenderingMode: Sendable, Equatable {
+public enum HyperlinkRenderingMode: Equatable, Sendable {
     case disabled
     case enabled
 }
 
-public enum CapabilityDetectionMode: Sendable, Equatable {
+public enum CapabilityDetectionMode: Equatable, Sendable {
     case disabled
     case passive
     case active(timeout: Duration)
 }
 ```
 
-These names should fold into the `TerminalApplicationConfiguration` that Phase 2 Slice 3
-already shipped as the `withApplicationTerminal(configuration:)` parameter — do not
-introduce a second public configuration type. The principle is more important than the
-exact shape: protocol enablement should be configurable, defaults should be visible, and
+These knobs fold into the `TerminalApplicationConfiguration` that Phase 2 Slice 3 already
+shipped as the `withApplicationTerminal(configuration:)` parameter — do not introduce a
+second public configuration type, and reconcile the intent-level knobs with the
+lower-level `modes` set (either compute `modes` from the knobs or deprecate direct `modes`
+construction; pick one and document it). The principle is more important than the exact
+shape: protocol enablement should be configurable, defaults should be visible, and
 detection should be something users can disable when it causes problems under SSH, tmux,
 CI, or unusual terminals.
 
@@ -5094,7 +5296,7 @@ Add configuration tests for:
 
 - active detection can be disabled
 - passive-only detection performs no terminal writes
-- protocol enablement follows explicit `TerminalOptions`
+- protocol enablement follows explicit `TerminalApplicationConfiguration` values
 - color policy downsampling happens before encoding, not inside `ANSIEncoder`
 - synchronized output policy controls DEC 2026 wrapping
 - users can inspect what was enabled and what was merely detected/assumed
