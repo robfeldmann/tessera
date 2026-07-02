@@ -370,9 +370,10 @@ depends on it for local iteration.
   complete.
 - 2026-07-02 macOS CI follow-up: the restored macOS test failed because hosted
   libghostty-vt was built under the shared cache root while the C target header symlink
-  still points at `.build/libghostty-vt/current/include/ghostty`. Hosted macOS/Linux CI
-  and DocC now pin `GHOSTTY_VT_OUTPUT_DIR` to `.build/libghostty-vt` and cache that path
-  so the header symlink and linker flags agree.
+  still points at `.build/libghostty-vt/current/include/ghostty`. The build script now
+  keeps artifacts in the shared cache root and refreshes `.build/libghostty-vt/current` as
+  a workspace-local bridge so the header symlink and linker flags agree without moving
+  artifacts back into `.build`.
 - Final acceptance before marking this step complete: hosted Windows CI is green; the
   temporary Windows-only/focused-test budget gates are removed; macOS/Linux CI and DocC
   validation are restored and green; Markdown lint passes for edited docs.

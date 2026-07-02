@@ -279,10 +279,11 @@ To spend fewer hosted minutes while iterating:
 The CI workflow restores the SwiftPM cache before `swift build`, keyed by the runner OS,
 architecture, `.swift-version`, and `Package.resolved`; when there is no exact cache hit,
 it saves the cache immediately after a successful build and before tests. Hosted
-macOS/Linux jobs pin `GHOSTTY_VT_OUTPUT_DIR` to `.build/libghostty-vt` so the Ghostty
-header symlink and linker flags agree. Windows does not resolve the Swift-DocC plugin or
-build libghostty-vt during this slice, so DocC/Ghostty cache state and prerequisites
-remain non-Windows concerns.
+macOS/Linux jobs keep Ghostty VT artifacts in the shared cache root. The build script also
+refreshes `.build/libghostty-vt/current` as a workspace-local bridge so the checked-in
+Ghostty header symlink and linker flags agree without moving artifacts back into `.build`.
+Windows does not resolve the Swift-DocC plugin or build libghostty-vt during this slice,
+so DocC/Ghostty cache state and prerequisites remain non-Windows concerns.
 
 For manual GUI validation, run a Tessera terminal demo in each Windows host terminal you
 intend to support:

@@ -114,8 +114,18 @@ update_current_symlink() {
   ln -sfn "$revision/$platform-$arch" "$current_link"
 }
 
+update_workspace_header_bridge_symlink() {
+  local bridge_root="$repo_root/.build/libghostty-vt"
+  if [[ "$output_root" == "$bridge_root" ]]; then
+    return
+  fi
+  mkdir -p "$bridge_root"
+  ln -sfn "$output_root/current" "$bridge_root/current"
+}
+
 if [[ "$force" == "0" ]] && [[ -f "$install_dir/include/ghostty/vt.h" ]] && compgen -G "$install_dir/lib/$shared_glob" >/dev/null; then
   update_current_symlink
+  update_workspace_header_bridge_symlink
   echo "libghostty-vt already built: $install_dir"
   exit 0
 fi
@@ -184,5 +194,6 @@ build_dir=$build_dir
 EOF
 
 update_current_symlink
+update_workspace_header_bridge_symlink
 
 echo "Built libghostty-vt: $install_dir"

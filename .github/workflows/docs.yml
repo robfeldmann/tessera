@@ -36,8 +36,6 @@ jobs:
       !contains(github.event.pull_request.labels.*.name, 'skip-ci') }}
     runs-on: macos-26
     timeout-minutes: 20
-    env:
-      GHOSTTY_VT_OUTPUT_DIR: ${{ github.workspace }}/.build/libghostty-vt
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -53,7 +51,7 @@ jobs:
       - name: Restore libghostty-vt cache
         uses: actions/cache@v4
         with:
-          path: .build/libghostty-vt
+          path: ~/.cache/tessera/libghostty-vt
           # prettier-ignore
           key: libghostty-vt-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh') }}
           restore-keys: |
