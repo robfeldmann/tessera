@@ -43,8 +43,8 @@ If you already know how to install Windows in UTM:
 6. Configure SSH key auth from macOS.
 7. Run:
 
-   ```fish
-   set -x TESSERA_WINDOWS_VM_SSH tessera-windows
+   ```sh
+   export TESSERA_WINDOWS_VM_SSH=tessera-windows
    just windows-utm check
    just windows-utm test
    ```
@@ -385,6 +385,13 @@ Run the Windows test loop:
 just windows-utm test
 ```
 
+For focused iteration, pass SwiftPM test arguments after `--`. The recipe keeps the
+Windows default (`--no-parallel`) and appends your filter:
+
+```sh
+just windows-utm test -- --filter WindowsConsoleModeTests
+```
+
 A successful run means macOS can reach the VM, Swift is available in Windows, and the
 Windows build/test command runs inside the guest. If tests fail, treat the output as a
 normal Windows build or test failure rather than a VM setup failure.
@@ -437,6 +444,13 @@ checkout over SSH, without going through GitHub:
 ```sh
 just windows-utm sync
 just windows-utm test
+```
+
+Focused tests work after syncing too:
+
+```sh
+just windows-utm sync
+just windows-utm test -- --filter WindowsConsoleModeTests
 ```
 
 `just windows-utm sync` configures `receive.denyCurrentBranch=updateInstead` on the guest

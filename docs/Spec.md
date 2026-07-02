@@ -787,14 +787,12 @@ downstream test authors.
 The harness API should stay small, but separate **how tests request a terminal** from the
 **mutable terminal session** itself.
 
-Use a Point-Free Dependencies client as the seam. This support module is test-only, so
-`VirtualTerminal` conforms to `TestDependencyKey` rather than `DependencyKey`; the Ghostty
-backing is the default test value. Keep endpoint closures public so tests can override
-exactly the operations they exercise while unimplemented defaults report issues for
-unexpected calls:
+Model the seam as a plain struct of `@Sendable` endpoint closures. This support module is
+test-only and is never re-exported, so it needs no dependency-injection framework: tests
+construct a terminal directly through a factory. Keep the endpoint closures public, with
+`unimplemented` defaults so an unexpected call reports an issue:
 
 ```swift
-import Dependencies
 import IssueReporting
 
 public struct VirtualTerminal: Sendable {
@@ -817,27 +815,33 @@ public struct VirtualTerminal: Sendable {
             unimplemented("VirtualTerminal.snapshot", placeholder: .empty)
     )
 }
+```
 
-extension VirtualTerminal: TestDependencyKey {
-    public static var testValue: Self { Self.ghostty(cols: 80, rows: 24) }
-}
+A factory builds a Ghostty-backed terminal at the requested size, falling back to a
+loudly-`unimplemented` terminal on platforms without libghostty-vt:
 
-extension DependencyValues {
-    public var virtualTerminal: VirtualTerminal {
-        get { self[VirtualTerminal.self] }
-        set { self[VirtualTerminal.self] = newValue }
+```swift
+extension VirtualTerminal {
+    public static func ghosttyOrPlatformUnsupported(cols: Int, rows: Int) -> Self {
+        #if os(Windows)
+            platformUnsupported
+        #else
+            ghostty(cols: cols, rows: rows)
+        #endif
     }
 }
 ```
 
-Tests that need a specific size override the dependency with a fresh Ghostty-backed
-session:
+Each test constructs the size it needs and skips where the backing is unavailable:
 
 ```swift
-withDependencies {
-    $0.virtualTerminal = .ghostty(cols: 80, rows: 24)
-} operation: {
-    @Dependency(\.virtualTerminal) var terminal
+@Test(
+    .disabled(
+        if: VirtualTerminal.isPlatformUnsupported,
+        "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+)
+func `text writes into cells`() {
+    let terminal = VirtualTerminal.ghosttyOrPlatformUnsupported(cols: 5, rows: 2)
     terminal.feed("Hello")
     #expect(terminal.text(row: 0) == "Hello")
 }
@@ -1032,7 +1036,7 @@ same. This is the correctness property that justifies the test.
 
 1. Add the direct `libghostty-vt` build/link path and `CGhosttyVT` module boundary for
    macOS and Linux.
-2. Add `VirtualTerminal` as the Point-Free Dependencies factory seam, with a Ghostty live
+2. Add `VirtualTerminal` as a closure-based factory seam, with a Ghostty live
    implementation.
 3. Replace the `VirtualTerminal` placeholder with the durable per-terminal inspection API.
 4. Add harness smoke tests: text, cursor movement, erase behavior, SGR style/color.
@@ -1048,8 +1052,8 @@ same. This is the correctness property that justifies the test.
 1. `CGhosttyVT` or equivalent C module exposes the direct `libghostty-vt` API to Swift.
 2. The direct `libghostty-vt` build path is documented, scripted, and validated on macOS
    and Linux.
-3. `VirtualTerminal` exists as a macro-free Point-Free Dependencies client with a Ghostty
-   live implementation.
+3. `VirtualTerminal` exists as a macro-free closure-based client with a Ghostty live
+   implementation.
 4. `VirtualTerminal`, `RenderedCell`, `RenderedColor`, and `ScreenSnapshot` exist in
    `TesseraTerminalSnapshotSupport` and are not exported by `Tessera` or
    `TesseraTerminal`.
@@ -6474,8 +6478,19 @@ try await runtime.drain(maxSteps: 100)
 ```
 
 Timers, animations, debounce, and delayed work use injected clocks, not wall-clock sleeps.
-Point-Free's `swift-clocks`/`TestClock`, `swift-dependencies`, and SnapshotTesting are
-good fits for this layer.
+SnapshotTesting remains a good fit for deterministic output.
+
+**Open question for Phase 5:** how to supply those injected clocks. Two options:
+
+1. The project's owned-seam pattern — a `live` value with a task-local test override, as
+   `TesseraTerminalIO` already does for its syscall surface.
+2. Reintroduce Point-Free's `swift-clocks`/`TestClock` (and `swift-dependencies`) for this
+   layer.
+
+Current lean is the owned-seam pattern: the low-level `TesseraTerminal` modules should
+avoid a third-party DI dependency, and `swift-dependencies` did not earn its keep in the
+snapshot harness (see its removal). Reintroducing a third-party dependency for clocks
+should be a deliberate decision made when Phase 5 lands, not assumed here.
 
 **End of Phase 5:** Tessera 1.0.
 

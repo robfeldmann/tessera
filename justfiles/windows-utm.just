@@ -86,22 +86,9 @@ ssh:
     fi; \
     ssh $host
 
-test:
-    @set -euo pipefail; \
-    host="${TESSERA_WINDOWS_VM_SSH:-}"; \
-    repo="${TESSERA_WINDOWS_VM_REPO:-tessera}"; \
-    if [[ -z "$host" ]]; then \
-        echo "⚠️  TESSERA_WINDOWS_VM_SSH is not set"; \
-        echo "Set it to your Windows VM SSH target, then rerun this recipe."; \
-        echo "See CONTRIBUTING.md#windows-test-runs-with-utm for VM setup."; \
-        exit 1; \
-    fi; \
-    if ! ssh -o BatchMode=yes -o ConnectTimeout=5 $host "swift --version"; then \
-        echo "⚠️  Windows VM is unreachable or Swift is not installed."; \
-        echo "Run scripts/setup-windows-vm.ps1 inside the VM and verify SSH access."; \
-        exit 1; \
-    fi; \
-    ssh $host "cd $repo && swift test --no-parallel"
+# Run Windows UTM tests; pass SwiftPM test args after `--`, e.g. `-- --filter FooTests`
+test *args:
+    scripts/windows-utm-test.sh {{ args }}
 
 # Install a macOS public key into the guest's administrators_authorized_keys so
 # the BatchMode SSH recipes work unattended. Uses password SSH for this one-time

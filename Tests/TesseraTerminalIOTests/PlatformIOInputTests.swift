@@ -3,12 +3,6 @@ import Testing
 
 @testable import TesseraTerminalIO
 
-#if os(macOS)
-  import Darwin
-#elseif os(Linux)
-  import Glibc
-#endif
-
 #if os(macOS) || os(Linux)
   @Test
   func `posix input loop yields bytes written to descriptor as a chunk`() async throws {
@@ -157,7 +151,7 @@ import Testing
     func `input loop restores descriptor flags on termination`() async {
       final class State: @unchecked Sendable { var setFlags: [CInt] = [] }
       let state = State()
-      await POSIXInputLoop.$systemOverride.withValue(
+      await POSIXSystem.$override.withValue(
         .stub(
           fcntlGet: { _, _ in 0x04 },
           fcntlSet: { _, _, flags in
@@ -179,8 +173,8 @@ import Testing
       expectNoDifference(state.setFlags, [0x04 | O_NONBLOCK, 0x04])
     }
 
-    private func nextNonEmptyValue(with system: POSIXInputLoop.System) async -> [UInt8]? {
-      await POSIXInputLoop.$systemOverride.withValue(system) {
+    private func nextNonEmptyValue(with system: POSIXSystem) async -> [UInt8]? {
+      await POSIXSystem.$override.withValue(system) {
         let stream = POSIXInputLoop.bytes(fileDescriptor: 0)
         var iterator = stream.makeAsyncIterator()
         while let value = await iterator.next() {
@@ -192,8 +186,8 @@ import Testing
       }
     }
 
-    private func nextValue(with system: POSIXInputLoop.System) async -> [UInt8]? {
-      await POSIXInputLoop.$systemOverride.withValue(system) {
+    private func nextValue(with system: POSIXSystem) async -> [UInt8]? {
+      await POSIXSystem.$override.withValue(system) {
         let stream = POSIXInputLoop.bytes(fileDescriptor: 0)
         var iterator = stream.makeAsyncIterator()
         return await iterator.next()
@@ -240,43 +234,11 @@ import Testing
     }
   }
 
-  extension POSIXInputLoop.System {
-    fileprivate static func stub(
-      close: @escaping @Sendable (CInt) -> CInt = { _ in 0 },
-      fcntlGet: @escaping @Sendable (CInt, CInt) -> CInt = { _, _ in -1 },
-      fcntlSet: @escaping @Sendable (CInt, CInt, CInt) -> CInt = { _, _, _ in 0 },
-      pipe: @escaping @Sendable (UnsafeMutablePointer<CInt>) -> CInt = { descriptors in
-        descriptors[0] = 100
-        descriptors[1] = 101
-        return 0
-      },
-      poll: @escaping @Sendable (UnsafeMutablePointer<pollfd>?, nfds_t, CInt) -> CInt = { _, _, _ in
-        0
-      },
-      read: @escaping @Sendable (CInt, UnsafeMutableRawPointer?, Int) -> Int = { _, _, _ in 0 },
-      write: @escaping @Sendable (CInt, UnsafeRawPointer?, Int) -> Int = { _, _, count in count }
-    ) -> Self {
-      Self(
-        close: close,
-        fcntlGet: fcntlGet,
-        fcntlSet: fcntlSet,
-        pipe: pipe,
-        poll: poll,
-        read: read,
-        write: write
-      )
-    }
-  }
-
   private func systemWrite(
     _ fileDescriptor: CInt,
     _ buffer: UnsafePointer<UInt8>?,
     _ count: Int
   ) -> Int {
-    #if os(macOS)
-      Darwin.write(fileDescriptor, buffer, count)
-    #elseif os(Linux)
-      Glibc.write(fileDescriptor, buffer, count)
-    #endif
+    write(fileDescriptor, buffer, count)
   }
 #endif

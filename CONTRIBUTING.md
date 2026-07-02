@@ -67,7 +67,8 @@ This will install the following tools:
 - **[Lima](https://lima-vm.io/)**: For optional Docker-free Linux test runs.
 - **[UTM](https://mac.getutm.app/)**: For optional Windows GUI VM runs on Apple Silicon.
 - **[QEMU](https://www.qemu.org/)**, **swtpm**, and **sshpass**: For scripted Windows VM
-  runs with Frost.
+  runs with Frost. Frost uses SSH key authentication once its key exists; `sshpass` is
+  still required for provisioning and password-auth fallback.
 - **[Prettier](https://prettier.io/)**: For Markdown and config file formatting.
 - **[Python 3](https://www.python.org/)**: For local documentation previews
   (`just docs preview`).
@@ -103,6 +104,10 @@ just docs
 warnings-as-errors checks. `just docs` generates the combined DocC archive for local
 inspection.
 
+If a branch or worktree behaves differently than expected, run `just core doctor` and see
+[Local development state](docs/LocalDevelopmentState.md). That page explains which
+artifacts are per-checkout, machine-global, or VM-local.
+
 ### Linux Cross-Build from macOS
 
 For a lightweight Linux compatibility check without Docker or a VM, install the Static
@@ -131,13 +136,13 @@ Terminal lifecycle changes need manual checks in a real terminal in addition to 
 tests. Use two terminal tabs or panes: one to run a Tessera demo/fixture and one to send
 signals.
 
-```fish
+```sh
 # Pane 1
 cd Examples
 swift run LifecycleModesDemo
 ```
 
-```fish
+```sh
 # Pane 2: find and terminate the fixture
 pgrep -fl LifecycleModesDemo
 kill -TERM <pid>
@@ -158,22 +163,27 @@ Verify these cases before merging lifecycle, signal-handling, or renderer change
 - If you are testing an injected write/flush failure, the next successful draw should
   erase and repaint conservatively rather than trusting partially written damage bytes.
 
-If a development build ever leaves your terminal wedged, type this even if input is not
-visible, then press Enter:
+If a development build ever leaves your terminal wedged, type the recovery command for
+your platform even if input is not visible, then press Enter.
 
-```fish
+On macOS and Linux:
+
+```sh
 reset
 ```
 
-If that is not enough, try:
+If `reset` does not restore normal input echo, try:
 
-```fish
+```sh
 stty sane
 ```
 
-After severe renderer or lifecycle interruptions, `reset`/`stty sane` are the expected
-manual recovery path; future `tessera-reset` tooling should emit the same conservative
-terminal-mode and screen cleanup sequences.
+On Windows PowerShell, emit terminal reset and visibility sequences directly because
+Windows has no native `reset` or `stty sane` command:
+
+```powershell
+[Console]::Write([char]27 + '[?1049l' + [char]27 + '[?25h' + [char]27 + 'c')
+```
 
 ### Linux Test Runs with Lima
 
@@ -184,13 +194,24 @@ Create and start an Ubuntu 24.04 instance:
 just linux start
 ```
 
-The checked-in Lima config creates an Ubuntu 24.04 VM with 4 CPUs and 8 GiB of memory,
+The checked-in Lima config creates an Ubuntu 24.04 VM with 4 CPUs and 12 GiB of memory,
 mounts this repository into the VM, installs Linux build tools, and installs Swift from
-`.swift-version` using Swiftly. Once the VM is ready, run the Linux test suite from macOS:
+`.swift-version` using Swiftly. The default VM name is `tessera-linux`; set
+`TESSERA_LINUX_VM_NAME` when two worktrees need separate running VMs. Once the VM is
+ready, run the Linux test suite from macOS:
 
 ```sh
 just linux test
 ```
+
+To run a focused Linux test from macOS, pass SwiftPM test arguments after `--`. The recipe
+keeps the Linux defaults (`--jobs 2 --no-parallel`) and appends your filter:
+
+```sh
+just linux test -- --filter PlatformHandlesTests
+```
+
+Prefer this targeted form while iterating; use `just linux test` for the full Linux suite.
 
 You can also open a shell in the VM for debugging:
 
@@ -224,18 +245,82 @@ Windows development on an Apple Silicon Mac has two supported local VM workflows
 - **Manual desktop workflow:** use UTM directly when you want to create and manage the
   Windows VM yourself. Follow [Manual Windows VM with UTM](docs/WindowsVM.md).
 
-For the normal Frost test loop, build the Frost images once, then run:
+For the normal Frost test loop, build the Frost images once, then build the pinned Windows
+`libghostty-vt` artifact once per pin (requires the persistent VM), and run the tests:
 
-```fish
+```sh
+just windows-frost start
+just windows-frost build-ghostty
+just windows-frost stop
 just windows-frost test
 ```
 
+`build-ghostty` runs `scripts/build-libghostty-vt.ps1` in the guest and caches the
+artifact on the host; `test` provisions that cache into each disposable overlay and runs
+the Ghostty-backed snapshot suites for real (`TESSERA_GHOSTTY_WINDOWS=1`). Re-run
+`build-ghostty` after bumping `scripts/ghostty-vt-version.txt`.
+
+To run a focused Frost test, pass SwiftPM test arguments after `--`. The recipe keeps the
+Windows default (`--no-parallel`) and appends your filter:
+
+```sh
+just windows-frost test -- --filter WindowsInputLoopTests
+```
+
+The hosted CI matrix runs macOS, Linux, and Windows, all with Ghostty-backed snapshot
+coverage: every test job builds (or cache-restores) the pinned libghostty-vt before
+`swift build`, and the workflow sets `TESSERA_GHOSTTY_WINDOWS=1` so the Windows package
+graph includes `CGhosttyVT` too. The matrix uses `fail-fast`, so one failing OS cancels
+the sibling jobs to save hosted minutes. If a future Windows bring-up needs a focused
+local loop again, `just ci ci-windows` accepts `TESSERA_CI_WINDOWS_TEST_FILTER`:
+
+```sh
+TESSERA_CI_WINDOWS_TEST_FILTER=TesseraTerminalIOTests just ci ci-windows
+```
+
+To spend fewer hosted minutes while iterating:
+
+- Prove changes locally in Frost or UTM before pushing.
+- Keep the `skip-ci` label on draft PRs until a hosted run is needed.
+- Push one fixup commit per validation attempt so workflow concurrency cancels obsolete
+  runs.
+- Rerun only failed jobs in GitHub Actions; avoid rerunning the full workflow unless setup
+  or cache state changed.
+
+The CI workflow restores the SwiftPM cache before `swift build`, keyed by the runner OS,
+architecture, `.swift-version`, and `Package.resolved`; when there is no exact cache hit,
+it saves the cache immediately after a successful build and before tests. Ghostty VT
+artifacts live in a second cache keyed by the pinned revision and both build scripts,
+saved immediately after the libghostty-vt build step so a later build/test failure cannot
+lose the expensive Zig artifact (the cache stores installed artifacts only; source
+checkouts and intermediate build trees are excluded). The build scripts materialize the
+generated Ghostty headers into the gitignored `Sources/CGhosttyVT/include/ghostty/`
+directory that the `CGhosttyVT` module map umbrellas. Windows does not resolve the
+Swift-DocC plugin (it is declared non-Windows in `Package.swift`).
+
+For manual GUI validation, run a Tessera terminal demo in each Windows host terminal you
+intend to support:
+
+- Windows Terminal running PowerShell.
+- PowerShell in classic conhost.
+- `cmd.exe` in classic conhost.
+
+In each host, verify arrow keys, `q` clean exit, `Ctrl-C` cleanup, resize-driven redraw,
+and terminal restoration. After interruption, the prompt should return with normal input
+echo, a visible cursor, and the primary screen active.
+
 For manual UTM VM runs, bootstrap the VM and then run:
 
-```fish
-set -x TESSERA_WINDOWS_VM_SSH tessera-windows
+```sh
+export TESSERA_WINDOWS_VM_SSH=tessera-windows
 just windows-utm check
 just windows-utm test
+```
+
+Manual UTM tests accept the same forwarded SwiftPM arguments:
+
+```sh
+just windows-utm test -- --filter WindowsConsoleModeTests
 ```
 
 Use the detailed guides above for first-time setup, SSH configuration, GUI validation, and

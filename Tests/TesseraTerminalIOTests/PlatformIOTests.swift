@@ -298,6 +298,130 @@ func `flush retries buffered data after would block and interruption errors`() a
   expectNoDifference(writes, [[0x41, 0x42], [0x41, 0x42], [0x41, 0x42]])
 }
 
+#if os(Windows)
+  @Suite
+  struct WindowsPlatformIOTests {
+    @Test
+    func `windows live terminal flush writes output bytes`() async throws {
+      let state = WindowsOutputState(writeResults: [.success(2)])
+
+      try await WindowsConsoleSystem.$override.withValue(state.system) {
+        let io = PlatformIO(
+          terminalDevice: .live(handles: PlatformHandles(inputHandle: 0x10, outputHandle: 0x20))
+        )
+
+        await io.write([0x48, 0x69])
+        try await io.flush()
+      }
+
+      expectNoDifference(state.writeCalls, [[0x48, 0x69]])
+    }
+
+    @Test
+    func `windows live terminal flush retries remaining bytes after partial writes`() async throws {
+      let state = WindowsOutputState(writeResults: [.success(1), .success(2)])
+
+      try await WindowsConsoleSystem.$override.withValue(state.system) {
+        let io = PlatformIO(
+          terminalDevice: .live(handles: PlatformHandles(inputHandle: 0x10, outputHandle: 0x20))
+        )
+
+        await io.write([0x48, 0x69, 0x21])
+        try await io.flush()
+      }
+
+      expectNoDifference(state.writeCalls, [[0x48, 0x69, 0x21], [0x69, 0x21]])
+    }
+
+    @Test
+    func `windows live terminal maps failed writes`() async {
+      let state = WindowsOutputState(writeResults: [.failure(123)])
+
+      await #expect(
+        throws: PlatformIOError.consoleOperationFailed(operation: .writeFile, errorCode: 123)
+      ) {
+        try await WindowsConsoleSystem.$override.withValue(state.system) {
+          let io = PlatformIO(
+            terminalDevice: .live(handles: PlatformHandles(inputHandle: 0x10, outputHandle: 0x20))
+          )
+
+          await io.write([0x41])
+          try await io.flush()
+        }
+      }
+
+      expectNoDifference(state.writeCalls, [[0x41]])
+    }
+
+    @Test
+    func `windows live terminal writes alternate screen bytes`() async throws {
+      let state = WindowsOutputState(writeResults: [.success(8), .success(8)])
+
+      try await WindowsConsoleSystem.$override.withValue(state.system) {
+        let io = PlatformIO(
+          terminalDevice: .live(handles: PlatformHandles(inputHandle: 0x10, outputHandle: 0x20))
+        )
+
+        try await io.enableAltScreen()
+        try await io.disableAltScreen()
+      }
+
+      expectNoDifference(
+        state.writeCalls,
+        [
+          Array("\u{1B}[?1049h".utf8),
+          Array("\u{1B}[?1049l".utf8),
+        ])
+    }
+  }
+
+  private final class WindowsOutputState: @unchecked Sendable {
+    enum WriteResult: Sendable {
+      case failure(UInt32)
+      case success(Int)
+    }
+
+    private var lastErrorCode: UInt32 = 0
+    private var writeResults: [WriteResult]
+    private(set) var writeCalls: [[UInt8]] = []
+
+    var system: WindowsConsoleSystem {
+      .stub(
+        writeFile: { _, buffer, count in self.write(buffer: buffer, count: count) },
+        lastErrorCode: { self.lastErrorCode }
+      )
+    }
+
+    init(writeResults: [WriteResult]) {
+      self.writeResults = writeResults
+    }
+
+    private func write(buffer: UnsafeRawPointer?, count: UInt32) -> Int? {
+      if let buffer {
+        let bytes = Array(
+          UnsafeBufferPointer(start: buffer.assumingMemoryBound(to: UInt8.self), count: Int(count))
+        )
+        writeCalls.append(bytes)
+      } else {
+        writeCalls.append([])
+      }
+
+      guard writeResults.isEmpty == false else {
+        return Int(count)
+      }
+
+      switch writeResults.removeFirst() {
+      case .success(let count):
+        return count
+
+      case .failure(let errorCode):
+        lastErrorCode = errorCode
+        return nil
+      }
+    }
+  }
+#endif
+
 private actor CountingOutputWriter {
   private var recordedWrites: [[UInt8]] = []
   private var results: [Result<Int, any Error>]

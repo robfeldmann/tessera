@@ -20,25 +20,6 @@ let package = Package(
 
 // MARK: - ⤵️ Dependencies
 
-// MARK: Dependencies
-
-package.dependencies.append(
-  .package(
-    url: "https://github.com/pointfreeco/swift-dependencies",
-    from: "1.13.0"
-  )
-)
-
-let Dependencies: Target.Dependency = .product(
-  name: "Dependencies",
-  package: "swift-dependencies"
-)
-
-let DependenciesTestSupport: Target.Dependency = .product(
-  name: "DependenciesTestSupport",
-  package: "swift-dependencies"
-)
-
 // MARK: IssueReporting
 
 package.dependencies.append(
@@ -83,12 +64,14 @@ let CustomDump: Target.Dependency = .product(
 
 // MARK: DocC
 
-package.dependencies.append(
-  .package(
-    url: "https://github.com/apple/swift-docc-plugin",
-    from: "1.0.0"
+#if !os(Windows)
+  package.dependencies.append(
+    .package(
+      url: "https://github.com/apple/swift-docc-plugin",
+      from: "1.0.0"
+    )
   )
-)
+#endif
 
 // MARK: SnapshotTesting
 
@@ -127,6 +110,19 @@ let SystemPackage: Target.Dependency = .product(
   name: "SystemPackage",
   package: "swift-system"
 )
+
+// MARK: - 👻 Ghostty VT Gate
+
+// Ghostty-backed snapshot support is always available on macOS/Linux. On Windows it is
+// opt-in until the hosted CI path is approved: set TESSERA_GHOSTTY_WINDOWS=1 (and build
+// the artifact with scripts/build-libghostty-vt.ps1) to compile CGhosttyVT in. Sources
+// gate on `#if canImport(CGhosttyVT)`, so both configurations build from one tree.
+#if os(Windows)
+  let GhosttyVTEnabled =
+    ProcessInfo.processInfo.environment["TESSERA_GHOSTTY_WINDOWS"] == "1"
+#else
+  let GhosttyVTEnabled = true
+#endif
 
 // MARK: - 🚛 Forward Module Declarations
 
@@ -170,13 +166,15 @@ let AllTesseraTargetNames: Set<String> = [
 
 // MARK: CGhosttyVT
 
-package.targets.append(
-  .target(
-    name: "CGhosttyVT",
-    path: "Sources/CGhosttyVT",
-    publicHeadersPath: "include"
+if GhosttyVTEnabled {
+  package.targets.append(
+    .target(
+      name: "CGhosttyVT",
+      path: "Sources/CGhosttyVT",
+      publicHeadersPath: "include"
+    )
   )
-)
+}
 
 // MARK: CTesseraTerminalPlatform
 
@@ -247,6 +245,15 @@ package.targets.append(contentsOf: [
 
 // MARK: TesseraTerminalANSI
 
+let TesseraTerminalANSITestDependencies: [Target.Dependency] = [
+  CustomDump,
+  InlineSnapshotTesting,
+  SnapshotTesting,
+  SnapshotTestingCustomDump,
+  TesseraTerminalANSI,
+  TesseraTerminalSnapshotSupport,
+]
+
 package.targets.append(contentsOf: [
   .target(
     name: "TesseraTerminalANSI",
@@ -256,15 +263,7 @@ package.targets.append(contentsOf: [
   ),
   .testTarget(
     name: "TesseraTerminalANSITests",
-    dependencies: [
-      CustomDump,
-      DependenciesTestSupport,
-      InlineSnapshotTesting,
-      SnapshotTesting,
-      SnapshotTestingCustomDump,
-      TesseraTerminalANSI,
-      TesseraTerminalSnapshotSupport,
-    ]
+    dependencies: TesseraTerminalANSITestDependencies
   ),
 ])
 
@@ -386,12 +385,13 @@ package.targets.append(contentsOf: [
 
 // MARK: TesseraTerminalSnapshotSupport
 
+let TesseraTerminalSnapshotSupportPlatformDependencies: [Target.Dependency] =
+  GhosttyVTEnabled ? [CGhosttyVT] : []
+
 package.targets.append(contentsOf: [
   .target(
     name: "TesseraTerminalSnapshotSupport",
-    dependencies: [
-      CGhosttyVT,
-      Dependencies,
+    dependencies: TesseraTerminalSnapshotSupportPlatformDependencies + [
       IssueReporting,
       TesseraTerminalANSI,
       TesseraTerminalBuffer,
@@ -402,8 +402,6 @@ package.targets.append(contentsOf: [
   .testTarget(
     name: "TesseraTerminalSnapshotSupportTests",
     dependencies: [
-      Dependencies,
-      DependenciesTestSupport,
       TesseraTerminalCore,
       TesseraTerminalSnapshotSupport,
     ]
@@ -429,6 +427,31 @@ package.targets.append(
 // MARK: - 👻 Ghostty VT Build Output
 
 let PackageDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().path
+let GhosttyVTEnvironment = ProcessInfo.processInfo.environment
+
+func defaultGhosttyVTOutputRoot(
+  packageDirectory: String,
+  environment: [String: String]
+) -> String {
+  let outputDirectory = environment["GHOSTTY_VT_OUTPUT_DIR"] ?? ""
+  if !outputDirectory.isEmpty {
+    return outputDirectory
+  }
+  #if os(Windows)
+    if let localAppData = environment["LOCALAPPDATA"], !localAppData.isEmpty {
+      return "\(localAppData)/tessera/libghostty-vt"
+    }
+  #else
+    if let cacheHome = environment["XDG_CACHE_HOME"], !cacheHome.isEmpty {
+      return "\(cacheHome)/tessera/libghostty-vt"
+    }
+    if let home = environment["HOME"], !home.isEmpty {
+      return "\(home)/.cache/tessera/libghostty-vt"
+    }
+  #endif
+  return "\(packageDirectory)/.build/libghostty-vt"
+}
+
 let GhosttyVTRevisionFile = "\(PackageDirectory)/scripts/ghostty-vt-version.txt"
 let GhosttyVTRevision =
   (try? String(contentsOfFile: GhosttyVTRevisionFile, encoding: .utf8))?
@@ -437,6 +460,8 @@ let GhosttyVTRevision =
   let GhosttyVTPlatform = "macos"
 #elseif os(Linux)
   let GhosttyVTPlatform = "linux"
+#elseif os(Windows)
+  let GhosttyVTPlatform = "windows"
 #else
   let GhosttyVTPlatform = "unsupported"
 #endif
@@ -447,18 +472,33 @@ let GhosttyVTRevision =
 #else
   let GhosttyVTArch = "unsupported"
 #endif
+let GhosttyVTOutputRoot = defaultGhosttyVTOutputRoot(
+  packageDirectory: PackageDirectory,
+  environment: GhosttyVTEnvironment
+)
 let GhosttyVTInstallPath =
-  "\(PackageDirectory)/.build/libghostty-vt/\(GhosttyVTRevision)/\(GhosttyVTPlatform)-\(GhosttyVTArch)"
-let GhosttyVTIncludePath = "\(GhosttyVTInstallPath)/include"
+  "\(GhosttyVTOutputRoot)/\(GhosttyVTRevision)/\(GhosttyVTPlatform)-\(GhosttyVTArch)"
 let GhosttyVTLibraryPath = "\(GhosttyVTInstallPath)/lib"
-let GhosttyVTUnsafeLinkerFlags = [
-  "-L\(GhosttyVTLibraryPath)",
-  "-lghostty-vt",
-  "-Xlinker",
-  "-rpath",
-  "-Xlinker",
-  GhosttyVTLibraryPath,
-]
+#if os(Windows)
+  // Static: linking ghostty-vt-static.lib avoids runtime ghostty-vt.dll
+  // discovery. Zig's std library calls ntdll syscalls (NtAllocateVirtualMemory,
+  // DeviceIoControl, ...) directly, so static consumers must link ntdll too.
+  // No rpath on Windows.
+  let GhosttyVTUnsafeLinkerFlags = [
+    "-L\(GhosttyVTLibraryPath)",
+    "-lghostty-vt-static",
+    "-lntdll",
+  ]
+#else
+  let GhosttyVTUnsafeLinkerFlags = [
+    "-L\(GhosttyVTLibraryPath)",
+    "-lghostty-vt",
+    "-Xlinker",
+    "-rpath",
+    "-Xlinker",
+    GhosttyVTLibraryPath,
+  ]
+#endif
 if let GhosttyVTTarget = package.targets.first(where: { $0.name == "CGhosttyVT" }) {
   GhosttyVTTarget.linkerSettings = [
     .unsafeFlags(GhosttyVTUnsafeLinkerFlags)

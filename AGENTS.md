@@ -12,6 +12,9 @@
 - Prefer snapshots for structured state humans inspect as a whole; prefer direct
   assertions for small scalar/API-shape behavior.
 - Sort protocol conformances alphabetically, e.g. `Equatable, Sendable`.
+- Confine platform divergence (`#if os(...)`) to leaf seams: a single syscall/import shim,
+  small typed platform values, or whole-file `sources:` splits in `Package.swift`. Keep
+  shared logic and call sites platform-free instead of wrapping file bodies in `#if`.
 - After code changes, run the narrowest relevant validation first, e.g.
   `swift test --filter <TargetOrTestName>` or `swift build`.
 - During iteration, run `just quality changed`; before committing, run

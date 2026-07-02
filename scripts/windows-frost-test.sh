@@ -4,11 +4,24 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 # shellcheck source=scripts/windows-frost-env.sh
 source "$repo_root/scripts/windows-frost-env.sh"
+# shellcheck source=scripts/windows-frost-ssh-options.sh
+source "$repo_root/scripts/windows-frost-ssh-options.sh"
+if [[ "${1:-}" == "--" ]]; then
+  shift
+fi
+
+
 
 FW="${FROST_QEMU_SHARE_DIR:-/opt/homebrew/share/qemu}"
-PASS="${TESSERA_FROST_PASS:-${FROST_SSH_PASS:-REMOVED_FROST_CREDENTIAL}}"
 REPO_PATH="${TESSERA_FROST_REPO_PATH:-C:/Users/$TESSERA_FROST_USER/tessera}"
 REMOTE_TEST_SCRIPT="$REPO_PATH/scripts/run-windows-frost-tests.ps1"
+SWIFT_TEST_ARGS_JSON="$(python3 -c 'import json, sys; print(json.dumps(sys.argv[1:]))' "$@")"
+SWIFT_TEST_ARGS_B64="$(printf '%s' "$SWIFT_TEST_ARGS_JSON" | base64 | tr -d '\n')"
+GHOSTTY_REVISION="$(tr -d '[:space:]' < "$repo_root/scripts/ghostty-vt-version.txt")"
+GHOSTTY_HOST_CACHE="$TESSERA_FROST_WORK/libghostty-vt"
+GHOSTTY_HOST_ARTIFACT="$GHOSTTY_HOST_CACHE/$GHOSTTY_REVISION/windows-arm64"
+GHOSTTY_GUEST_OUTPUT_ROOT="C:/Users/$TESSERA_FROST_USER/AppData/Local/tessera/libghostty-vt"
+
 
 require_file() {
   local label="$1"
@@ -38,7 +51,7 @@ SHORT_RUN="${TMPDIR:-/tmp}/tessera-frost-$ID"
 TPMDIR="$SHORT_RUN/tpm"
 MON="$SHORT_RUN/mon.sock"
 QPID=""
-SSHOPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10)
+frost_ssh_setup 10
 TEST_RC=1
 
 cleanup() {
@@ -66,9 +79,8 @@ wait_for_ssh() {
   return 1
 }
 
-run_guest_password() {
-  export SSHPASS="$PASS"
-  sshpass -e ssh "${SSHOPTS[@]}" -p "$TESSERA_FROST_SSH_PORT" "$TESSERA_FROST_USER@localhost" "$1"
+run_guest() {
+  frost_ssh "$TESSERA_FROST_SSH_PORT" "$TESSERA_FROST_USER@localhost" "$1"
 }
 
 printf '[1/7] create disposable test overlay\n'
@@ -92,14 +104,26 @@ wait_for_ssh 240 || { printf 'SSH did not come up\n' >&2; exit 1; }
 printf '[4/7] sync source\n'
 "$repo_root/scripts/windows-frost-sync-source.sh" --dest "$REPO_PATH"
 
+if [[ ! -f "$GHOSTTY_HOST_ARTIFACT/lib/ghostty-vt-static.lib" ]]; then
+  printf 'libghostty-vt host cache missing for pinned revision %s.\n' "$GHOSTTY_REVISION" >&2
+  printf 'Run `just windows-frost build-ghostty` (persistent VM) first.\n' >&2
+  exit 1
+fi
+printf '[4b/7] provision libghostty-vt artifact\n'
+run_guest "powershell -NoProfile -Command \"New-Item -ItemType Directory -Force -Path '$GHOSTTY_GUEST_OUTPUT_ROOT' | Out-Null\""
+# COPYFILE_DISABLE stops macOS bsdtar from embedding AppleDouble (._*) entries,
+# which clang would otherwise pick up via the CGhosttyVT umbrella header.
+COPYFILE_DISABLE=1 tar -C "$GHOSTTY_HOST_CACHE" -czf - "$GHOSTTY_REVISION" |
+  run_guest "tar -C $GHOSTTY_GUEST_OUTPUT_ROOT -xzf -"
+
 printf '[5/7] run swift tests\n'
 set +e
-run_guest_password "powershell -NoProfile -ExecutionPolicy Bypass -File $REMOTE_TEST_SCRIPT -RepoPath $REPO_PATH"
+run_guest "powershell -NoProfile -ExecutionPolicy Bypass -File $REMOTE_TEST_SCRIPT -RepoPath $REPO_PATH -SwiftTestArgsBase64 \"$SWIFT_TEST_ARGS_B64\" -GhosttyOutputDir $GHOSTTY_GUEST_OUTPUT_ROOT"
 TEST_RC=$?
 set -e
 
 printf '[6/7] shut down guest\n'
-run_guest_password 'shutdown /s /t 0' || true
+run_guest 'shutdown /s /t 0' || true
 for _ in $(seq 1 60); do
   if ! kill -0 "$QPID" 2> /dev/null; then
     QPID=""

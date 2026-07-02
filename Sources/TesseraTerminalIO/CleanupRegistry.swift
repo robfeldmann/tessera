@@ -1,11 +1,5 @@
 import CTesseraTerminalPlatform
 
-#if os(macOS)
-  import Darwin
-#elseif os(Linux)
-  import Glibc
-#endif
-
 /// Registers signal-safe terminal cleanup state for catastrophic exits.
 ///
 /// POSIX signal handlers may only perform a very small set of async-signal-safe
@@ -45,13 +39,25 @@ package enum CleanupRegistry {
         }
       }
     }
-  #else
+  #elseif os(Windows)
     package static func install(
-      inputFileDescriptor _: CInt,
-      outputFileDescriptor _: CInt,
-      teardownBytes _: [UInt8],
-      savedTermios _: Never?
-    ) {}
+      inputHandle: UInt,
+      outputHandle: UInt,
+      teardownBytes: [UInt8],
+      savedInputMode: UInt32,
+      savedOutputMode: UInt32
+    ) {
+      teardownBytes.withUnsafeBufferPointer { buffer in
+        tessera_cleanup_install_windows(
+          UnsafeMutableRawPointer(bitPattern: inputHandle),
+          UnsafeMutableRawPointer(bitPattern: outputHandle),
+          buffer.baseAddress,
+          buffer.count,
+          savedInputMode,
+          savedOutputMode
+        )
+      }
+    }
   #endif
 
   /// Clears the current emergency cleanup state.
@@ -72,5 +78,21 @@ package enum CleanupRegistry {
   /// Returns whether the C cleanup shim currently stores saved terminal attributes.
   package static func hasSavedTermiosForTesting() -> Bool {
     tessera_cleanup_has_saved_termios_for_testing() != 0
+  }
+
+  /// Returns whether the C cleanup shim currently stores saved Windows console modes.
+  package static func hasSavedWindowsModesForTesting() -> Bool {
+    tessera_cleanup_has_saved_windows_modes_for_testing() != 0
+  }
+
+  /// Returns whether the C cleanup shim has installed process cleanup handlers.
+  package static func hasInstalledHandlersForTesting() -> Bool {
+    tessera_cleanup_has_installed_handlers_for_testing() != 0
+  }
+
+  /// Clears the C cleanup shim's installed-handlers flag so tests can prove the query is
+  /// side-effect free without installing real process handlers.
+  package static func resetHandlersForTesting() {
+    tessera_cleanup_reset_handlers_for_testing()
   }
 }

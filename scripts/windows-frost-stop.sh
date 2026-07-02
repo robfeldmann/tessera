@@ -4,14 +4,16 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 # shellcheck source=scripts/windows-frost-env.sh
 source "$repo_root/scripts/windows-frost-env.sh"
+# shellcheck source=scripts/windows-frost-ssh-options.sh
+source "$repo_root/scripts/windows-frost-ssh-options.sh"
 
-PASS="${TESSERA_FROST_PASS:-${FROST_SSH_PASS:-REMOVED_FROST_CREDENTIAL}}"
+
 RUN_DIR="$TESSERA_FROST_WORK/run/persistent"
 PID_FILE="$RUN_DIR/qemu.pid"
 SWTPM_PID_FILE="$RUN_DIR/swtpm.pid"
 SHORT_RUN="${TMPDIR:-/tmp}/tessera-frost-persistent"
 MON="$SHORT_RUN/mon.sock"
-SSHOPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5)
+frost_ssh_setup 5
 
 if [[ ! -f "$PID_FILE" ]]; then
   printf 'Frost persistent VM is not running (no pid file).\n'
@@ -26,9 +28,8 @@ if ! kill -0 "$QPID" 2> /dev/null; then
 fi
 
 printf '[stop] request guest shutdown\n'
-if command -v sshpass > /dev/null 2>&1; then
-  export SSHPASS="$PASS"
-  sshpass -e ssh "${SSHOPTS[@]}" -p "$TESSERA_FROST_SSH_PORT" "$TESSERA_FROST_USER@localhost" 'shutdown /s /t 0' || true
+if [[ "$FROST_SSH_USES_PASSWORD" != "1" ]] || command -v sshpass > /dev/null 2>&1; then
+  frost_ssh "$TESSERA_FROST_SSH_PORT" "$TESSERA_FROST_USER@localhost" 'shutdown /s /t 0' || true
 fi
 
 for _ in $(seq 1 60); do

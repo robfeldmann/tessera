@@ -4,13 +4,12 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 # shellcheck source=scripts/windows-frost-env.sh
 source "$repo_root/scripts/windows-frost-env.sh"
+# shellcheck source=scripts/windows-frost-ssh-options.sh
+source "$repo_root/scripts/windows-frost-ssh-options.sh"
 
-SSH_KEY="${TESSERA_FROST_SSH_KEY:-$HOME/.ssh/tessera_windows}"
-SSHOPTS=(-tt -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10)
 
-if [[ -f "$SSH_KEY" ]]; then
-  SSHOPTS+=(-i "$SSH_KEY")
-fi
+frost_ssh_setup 10
+SSHOPTS=(-tt "${FROST_SSH_OPTS[@]}")
 
 ssh_command=(ssh "${SSHOPTS[@]}" -p "$TESSERA_FROST_SSH_PORT" "$TESSERA_FROST_USER@localhost" "$@")
 if [[ -t 0 ]]; then

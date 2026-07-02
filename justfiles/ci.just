@@ -14,5 +14,9 @@ build-test:
     swift build
     swift test --no-parallel
 
+ci-windows:
+    swift build
+    if [[ -n "${TESSERA_CI_WINDOWS_TEST_FILTER:-}" ]]; then swift test --no-parallel --filter "$TESSERA_CI_WINDOWS_TEST_FILTER"; else swift test --no-parallel; fi
+
 lint:
     just quality lint

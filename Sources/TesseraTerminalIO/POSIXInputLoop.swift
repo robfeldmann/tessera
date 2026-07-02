@@ -1,80 +1,6 @@
-#if os(macOS)
-  import Darwin
-#elseif os(Linux)
-  import Glibc
-#endif
-
 #if os(macOS) || os(Linux)
   /// Async byte stream backed by non-blocking POSIX input.
   package enum POSIXInputLoop {
-    package struct System: Sendable {
-      package var close: @Sendable (CInt) -> CInt
-      package var fcntlGet: @Sendable (CInt, CInt) -> CInt
-      package var fcntlSet: @Sendable (CInt, CInt, CInt) -> CInt
-      package var pipe: @Sendable (UnsafeMutablePointer<CInt>) -> CInt
-      package var poll: @Sendable (UnsafeMutablePointer<pollfd>?, nfds_t, CInt) -> CInt
-      package var read: @Sendable (CInt, UnsafeMutableRawPointer?, Int) -> Int
-      package var write: @Sendable (CInt, UnsafeRawPointer?, Int) -> Int
-    }
-
-    @TaskLocal package static var systemOverride: System?
-
-    private static var currentSystem: System {
-      systemOverride ?? liveSystem
-    }
-
-    package static let liveSystem = System(
-      close: { descriptor in
-        #if os(macOS)
-          Darwin.close(descriptor)
-        #elseif os(Linux)
-          Glibc.close(descriptor)
-        #endif
-      },
-      fcntlGet: { descriptor, command in
-        #if os(macOS)
-          Darwin.fcntl(descriptor, command)
-        #elseif os(Linux)
-          Glibc.fcntl(descriptor, command)
-        #endif
-      },
-      fcntlSet: { descriptor, command, value in
-        #if os(macOS)
-          Darwin.fcntl(descriptor, command, value)
-        #elseif os(Linux)
-          Glibc.fcntl(descriptor, command, value)
-        #endif
-      },
-      pipe: { descriptors in
-        #if os(macOS)
-          Darwin.pipe(descriptors)
-        #elseif os(Linux)
-          Glibc.pipe(descriptors)
-        #endif
-      },
-      poll: { descriptors, count, timeout in
-        #if os(macOS)
-          Darwin.poll(descriptors, count, timeout)
-        #elseif os(Linux)
-          Glibc.poll(descriptors, count, timeout)
-        #endif
-      },
-      read: { descriptor, buffer, count in
-        #if os(macOS)
-          Darwin.read(descriptor, buffer, count)
-        #elseif os(Linux)
-          Glibc.read(descriptor, buffer, count)
-        #endif
-      },
-      write: { descriptor, buffer, count in
-        #if os(macOS)
-          Darwin.write(descriptor, buffer, count)
-        #elseif os(Linux)
-          Glibc.write(descriptor, buffer, count)
-        #endif
-      }
-    )
-
     /// Creates an input byte-chunk stream for `fileDescriptor`.
     ///
     /// Empty chunks represent input-idle poll timeouts.
@@ -83,7 +9,7 @@
       pollTimeoutMilliseconds: CInt = 25
     ) -> AsyncStream<[UInt8]> {
       AsyncStream { continuation in
-        let system = currentSystem
+        let system = POSIXSystem.current
         var cancelPipe: [CInt] = [-1, -1]
         guard system.pipe(&cancelPipe) == 0 else {
           continuation.finish()
@@ -129,7 +55,7 @@
       cancelReadDescriptor: CInt,
       continuation: AsyncStream<[UInt8]>.Continuation,
       pollTimeoutMilliseconds: CInt,
-      system: System
+      system: POSIXSystem
     ) {
       var buffer = [UInt8](repeating: 0, count: 256)
 

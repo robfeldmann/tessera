@@ -4,6 +4,9 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 # shellcheck source=scripts/windows-frost-env.sh
 source "$repo_root/scripts/windows-frost-env.sh"
+# shellcheck source=scripts/windows-frost-ssh-options.sh
+source "$repo_root/scripts/windows-frost-ssh-options.sh"
+
 
 usage() {
   cat <<'EOF'
@@ -91,7 +94,7 @@ SHORT_RUN="${TMPDIR:-/tmp}/tessera-frost-$ID"
 TPMDIR="$SHORT_RUN/tpm"
 MON="$SHORT_RUN/mon.sock"
 QPID=""
-SSHOPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10)
+frost_ssh_setup_password 10
 
 cleanup() {
   if [[ -n "$QPID" ]] && kill -0 "$QPID" 2> /dev/null; then
@@ -132,8 +135,7 @@ wait_for_ssh_down() {
 }
 
 run_guest() {
-  export SSHPASS="$PASS"
-  sshpass -e ssh "${SSHOPTS[@]}" -p "$TESSERA_FROST_SSH_PORT" "$TESSERA_FROST_USER@localhost" "$1"
+  frost_ssh "$TESSERA_FROST_SSH_PORT" "$TESSERA_FROST_USER@localhost" "$1"
 }
 
 printf '[2/7] boot Tessera toolchain overlay\n'
@@ -151,14 +153,13 @@ printf '[3/7] wait for SSH\n'
 wait_for_ssh 240 || { printf 'SSH did not come up\n' >&2; exit 1; }
 
 printf '[4/7] copy provisioning materials\n'
-export SSHPASS="$PASS"
-sshpass -e scp "${SSHOPTS[@]}" -P "$TESSERA_FROST_SSH_PORT" \
+frost_scp "$TESSERA_FROST_SSH_PORT" \
   "$repo_root/scripts/setup-windows-frost-vm.ps1" \
   "$TESSERA_FROST_USER@localhost:$REMOTE_SCRIPT"
-sshpass -e scp "${SSHOPTS[@]}" -P "$TESSERA_FROST_SSH_PORT" \
+frost_scp "$TESSERA_FROST_SSH_PORT" \
   "$repo_root/scripts/run-windows-frost-provision-task.ps1" \
   "$TESSERA_FROST_USER@localhost:$REMOTE_TASK_HELPER"
-sshpass -e scp "${SSHOPTS[@]}" -P "$TESSERA_FROST_SSH_PORT" \
+frost_scp "$TESSERA_FROST_SSH_PORT" \
   "$PUBKEY" \
   "$TESSERA_FROST_USER@localhost:$REMOTE_KEY"
 

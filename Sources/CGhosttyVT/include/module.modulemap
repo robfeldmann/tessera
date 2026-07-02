@@ -1,4 +1,4 @@
 module CGhosttyVT {
-  umbrella "ghostty"
+  umbrella header "CGhosttyVT.h"
   export *
 }

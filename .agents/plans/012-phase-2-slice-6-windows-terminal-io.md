@@ -2,9 +2,9 @@
 name: Phase 2 Slice 6 Windows Terminal IO
 description:
   Complete TesseraTerminalIO's Windows implementation and enable Windows CI for Phase 2.
-status: in_progress
+status: complete
 created: 2026-06-14
-updated: 2026-06-14
+updated: 2026-07-02
 ---
 
 ## Progress
@@ -12,21 +12,21 @@ updated: 2026-06-14
 - [x] **Phase 0 — Local Windows dev toolchain (UTM + Windows 11 ARM64 + Swift)**
   - [x] 0.1 Provision a Windows 11 ARM64 VM in UTM with OpenSSH and the Swift toolchain
   - [x] 0.2 Add Brewfile, Just recipes, and CONTRIBUTING docs for the Windows VM workflow
-- [ ] **Phase 1 — Windows-safe package and snapshot scaffolding**
-  - [ ] 1.1 Make platform C and Ghostty snapshot targets compile safely on Windows
-  - [ ] 1.2 Mark Ghostty-backed tests explicitly skipped on Windows
-- [ ] **Phase 2 — Windows cleanup and console modes**
-  - [ ] 2.1 Generalize emergency cleanup for POSIX and Windows state
-  - [ ] 2.2 Add Windows console mode setup/restore behind the existing PlatformIO API
-- [ ] **Phase 3 — Windows terminal device I/O**
-  - [ ] 3.1 Add Windows handles, environment validation, writes, alt screen, and size
-  - [ ] 3.2 Add Windows async input and resize event translation
-- [ ] **Phase 4 — CI, recovery docs, and manual verification**
-  - [ ] 4.1 Document per-platform terminal recovery (POSIX `reset`; Windows PowerShell
+- [x] **Phase 1 — Windows-safe package and snapshot scaffolding**
+  - [x] 1.1 Make platform C and Ghostty snapshot targets compile safely on Windows
+  - [x] 1.2 Mark Ghostty-backed tests explicitly skipped on Windows
+- [x] **Phase 2 — Windows cleanup and console modes**
+  - [x] 2.1 Generalize emergency cleanup for POSIX and Windows state
+  - [x] 2.2 Add Windows console mode setup/restore behind the existing PlatformIO API
+- [x] **Phase 3 — Windows terminal device I/O**
+  - [x] 3.1 Add Windows handles, environment validation, writes, alt screen, and size
+  - [x] 3.2 Add Windows async input and resize event translation
+- [x] **Phase 4 — CI, recovery docs, and manual verification**
+  - [x] 4.1 Document per-platform terminal recovery (POSIX `reset`; Windows PowerShell
         RIS)
-  - [ ] 4.2 Enable Windows CI and document Windows manual verification
-- [ ] **Phase 5 — Windows snapshot build spike (investigation)**
-  - [ ] 5.1 Attempt the Windows libghostty-vt build; enable snapshots or confirm the skip
+  - [x] 4.2 Enable Windows CI and document Windows manual verification
+- [x] **Phase 5 — Windows snapshot build spike (investigation)**
+  - [x] 5.1 Attempt the Windows libghostty-vt build; enable snapshots or confirm the skip
 
 ## Overview
 
@@ -63,6 +63,38 @@ coverage explicitly skipped until the Ghostty build path is proven there.
 - **CI cannot reuse `just ci` on Windows.** The `ci` recipe runs `build-libghostty-vt` (a
   bash + zig script) before `swift build`/`swift test`. Windows must skip that and invoke
   `swift build`/`swift test --no-parallel` directly. See Step 4.2.
+- **Platform state belongs in one typed value, not parallel `#if` fields.** Step 2.1
+  landed parallel `#if os(macOS) || os(Linux)` fd fields vs `#elseif os(Windows)` handle
+  fields on `TerminalDevice`, plus an init that declares both the POSIX and Windows params
+  unconditionally (the Windows params are dead weight on POSIX, and `savedTermios` is
+  forced to `{ nil }` rather than passed). Treat that as an interim shape. The target is a
+  single `cleanupState: PlatformCleanupState` field whose type is defined once per
+  platform (alongside the platform-internal `PlatformHandles` of Step 3.1), so
+  `TerminalDevice`'s body and init carry no `#if`, and `PlatformIO`'s `#if`-guarded
+  `savedTermios()` becomes a platform-neutral accessor the cleanup-install path consumes.
+  See Step 3.1.
+
+### Local Windows unit-test command before Phase 1 work
+
+- Before starting Phase 1, verify the Frost host setup with the actual local Frost
+  worktree path. The default `just windows-frost doctor` currently fails on this machine
+  because the scripts default to `~/Developer/frost`, while Frost is checked out at
+  `~/Developer/solcreek/frost/main`:
+
+  ```fish
+  env TESSERA_FROST_ROOT=~/Developer/solcreek/frost/main just windows-frost doctor
+  ```
+
+- Run the Windows unit-test loop with the same environment override:
+
+  ```fish
+  env TESSERA_FROST_ROOT=~/Developer/solcreek/frost/main just windows-frost test
+  ```
+
+  `just windows-frost::test` resolves to the same recipe in the installed `just`, but use
+  the documented module form above. The recipe boots a disposable Windows overlay, syncs
+  the current macOS working tree into `C:\Users\tester\tessera`, and runs
+  `swift test --no-parallel` in the guest via `scripts/run-windows-frost-tests.ps1`.
 
 ## Phase 0 — Local Windows dev toolchain (UTM + Windows 11 ARM64 + Swift)
 
@@ -201,9 +233,10 @@ depends on it for local iteration.
   sketch in `docs/Spec.md`. Note this intentional divergence from the spec.
 - `PlatformIO.installCleanup` is currently `#if os(macOS) || os(Linux)` only and pulls
   `inputFileDescriptor`/`outputFileDescriptor` (`CInt`) off `TerminalDevice`. Add a
-  Windows branch that sources console `HANDLE`s + saved modes instead; decide whether to
-  conditionalize the `CInt` fd fields on `TerminalDevice` or add parallel Windows handle
-  fields (prefer parallel `#if os(Windows)` fields to keep POSIX untouched).
+  Windows branch that sources console `HANDLE`s + saved modes instead. The parallel
+  `#if os(Windows)` fields shipped here are interim (keeps POSIX untouched for 2.1); Step
+  3.1 collapses them into one typed `PlatformCleanupState` value (see the design
+  constraint above).
 - Add testing hooks only where needed to assert saved mode state and handler installation.
 - Acceptance: existing POSIX cleanup tests pass; Windows-only cleanup tests verify
   install, clear, emergency cleanup, and handler/backstop registration behavior.
@@ -243,6 +276,12 @@ depends on it for local iteration.
   device construction with clear errors.
 - Implement Windows writes, alternate-screen bytes, and `GetConsoleScreenBufferInfo` size
   reads behind the existing `PlatformIO` methods.
+- Collapse the interim parallel `#if` cleanup fields on `TerminalDevice` (from Step 2.1)
+  into a single `cleanupState: PlatformCleanupState` field, defined once per platform next
+  to the platform-internal `PlatformHandles`. Remove the unconditional Windows init params
+  on POSIX and the `#if`-guarded `PlatformIO.savedTermios()`; the cleanup-install path
+  reads the typed value through a platform-neutral accessor. Net: `TerminalDevice` and its
+  init carry no `#if`.
 - Acceptance: Windows-only tests cover standard handle validation, redirected I/O errors,
   write retry/error mapping, alternate screen bytes, and size decoding.
 
@@ -312,8 +351,31 @@ depends on it for local iteration.
   invoke `swift`/Examples build directly in the workflow step for Windows.
 - Document manual checks in Windows Terminal, conhost, and PowerShell: arrow keys, `q`
   clean exit, Ctrl-C cleanup, resize-driven redraw, and clean terminal restoration.
-- Acceptance: macOS/Linux validation remains green; Windows CI is green; Markdown lint
-  passes for edited docs.
+- 2026-07-02 budget adjustment: during Windows bring-up, hosted CI is intentionally
+  Windows-only, non-Windows CI/DocC jobs are skipped, and the Windows job runs the focused
+  `TesseraTerminalIOTests` filter. The hosted workflow splits build and test so it can
+  save the SwiftPM cache immediately after `swift build` on Windows now and on macOS/Linux
+  when those runners are restored. Restore macOS/Linux CI, DocC validation, and the full
+  suite after the Windows runner path is green. Local focused validation passed with
+  `just windows-frost test -- --filter TesseraTerminalIOTests`; hosted Windows validation
+  passed on PR #12.
+- 2026-07-02 cache follow-up: the first post-build-cache run restored a cache containing
+  Swift-DocC plugin checkout symlinks that are broken on Windows, causing `swift build` to
+  compile the DocC preview plugin and fail. The Windows manifest now omits the Swift-DocC
+  plugin dependency, and the SwiftPM cache key moved to `swiftpm-v2` so the next run
+  builds from a clean cache namespace before saving post-build artifacts.
+- 2026-07-02 restoration pass: PR #12 restored macOS/Linux CI, DocC validation, and full
+  Windows `swift test --no-parallel` while keeping the post-build SwiftPM cache save.
+  Hosted validation passed on PR #12.
+- 2026-07-02 macOS CI follow-up: the restored macOS test failed because hosted
+  libghostty-vt was built under the shared cache root while the C target header symlink
+  still points at `.build/libghostty-vt/current/include/ghostty`. The build script now
+  keeps artifacts in the shared cache root and refreshes `.build/libghostty-vt/current` as
+  a workspace-local bridge so the header symlink and linker flags agree without moving
+  artifacts back into `.build`.
+- Final acceptance passed on PR #12: hosted Windows CI is green; the temporary
+  Windows-only/focused-test budget gates are removed; macOS/Linux CI and DocC validation
+  are restored and green; Markdown lint passed for edited docs.
 
 ## Phase 5 — Windows snapshot build spike (investigation)
 
@@ -347,6 +409,34 @@ this point the Phase 0 VM exists and the whole package already compiles on Windo
   documented Windows snapshot skip from Phase 1, record where it failed in the
   investigation doc, and mark it `resolved`. Byte-stream unit tests still cover
   encoder/parser/renderer correctness on Windows, so the slice is complete either way.
+- 2026-07-02 local outcome: the direct Windows ARM64
+  `zig build -Demit-lib-vt -Dsimd=false` path can build the pinned Ghostty revision after
+  manually installing Zig 0.15.2 and pre-seeding the Windows Zig package cache from macOS.
+  The artifact contains `bin/ghostty-vt.dll`, `lib/ghostty-vt.lib`, and
+  `include/ghostty/vt.h`.
+- 2026-07-02 local Tessera experiment: a remote-only Frost patch re-enabled `CGhosttyVT`,
+  copied generated headers over the broken Windows header symlink, set
+  `GHOSTTY_VT_OUTPUT_DIR`, and prepended the Ghostty `bin` directory to `PATH`.
+  `swift build --target TesseraTerminalSnapshotSupport` passed; unskipped local Windows
+  runs passed for `TesseraTerminalSnapshotSupportTests` (6 tests),
+  `TesseraTerminalANSITests` (34 tests), `TesseraTerminalRenderingTests` (47 tests), and
+  `ModeLifecycleTests` (8 tests).
+- Decision for this plan: keep the documented Windows snapshot skip as the fallback. The
+  library is viable, but durable enablement still needs a cold-cache Zig package fetch or
+  cache-seeding solution, a Windows-safe `CGhosttyVT` header bridge that does not rely on
+  the checked-out symlink, and scripted DLL discovery for SwiftPM test execution. No
+  GitHub push or Ghostty-backed Windows CI run was attempted per the local-only
+  instruction.
+- Superseded 2026-07-02 (later the same day): the three durable-enablement gaps named
+  above were closed by `.agents/plans/014-windows-ghostty-snapshot-enablement.md` —
+  cold-cache dependency prefetch via `scripts/build-libghostty-vt.ps1` (curl +
+  `zig fetch <local-file>` from the pinned checkout's `build.zig.zon.json`), a
+  build-materialized gitignored header directory replacing the checked-out symlink on
+  every platform, and static linking of `ghostty-vt-static.lib` (plus `-lntdll`) instead
+  of runtime DLL discovery. Local Frost runs now execute the Ghostty-backed suites for
+  real behind the `TESSERA_GHOSTTY_WINDOWS=1` gate; hosted Windows CI still keeps the gate
+  off, so this plan's shipped skip behavior is unchanged there until CI enablement is
+  explicitly approved.
 
 ## Validation
 
@@ -372,10 +462,11 @@ pnpx markdownlint-cli CONTRIBUTING.md .agents/plans/012-phase-2-slice-6-windows-
 ```
 
 Windows-specific acceptance runs in two places: GitHub Actions (`windows-latest`) and the
-local UTM + Windows 11 ARM64 VM established in Phase 0. From macOS, iterate with:
+local Windows Frost VM established in Phase 0. From macOS, iterate with:
 
 ```fish
-just windows-utm test
+just windows-frost test # to run the full test suite
+just windows-frost test -- --filter TesseraTerminalIOTests
 ```
 
 Manual interactive verification (arrow keys, clean `q` exit, Ctrl-C cleanup, resize
