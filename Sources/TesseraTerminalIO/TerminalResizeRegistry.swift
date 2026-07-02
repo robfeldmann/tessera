@@ -1,12 +1,6 @@
 import Dispatch
 import TesseraTerminalCore
 
-#if os(macOS)
-  import Darwin
-#elseif os(Linux)
-  import Glibc
-#endif
-
 #if os(macOS) || os(Linux)
   /// Produces terminal-size changes from SIGWINCH notifications.
   package enum TerminalResizeRegistry {

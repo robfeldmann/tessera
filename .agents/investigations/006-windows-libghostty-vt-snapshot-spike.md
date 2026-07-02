@@ -1,7 +1,7 @@
 ---
 name: Windows libghostty-vt Snapshot Build Spike
 date: 2026-06-14
-status: open
+status: resolved
 ---
 
 # Windows libghostty-vt Snapshot Build Spike
@@ -77,30 +77,62 @@ skip Windows snapshot coverage; this spike decides whether we can do better.
 3. A hybrid (Ghostty on macOS/Linux, other engine on Windows) is the worst option: two
    oracles → divergent baselines → cross-platform snapshot parity becomes meaningless.
 
+### 2026-07-02 local Frost spike
+
+- Local Windows Frost setup did not have Zig on `PATH`; `winget install -e --id zig.zig`
+  failed because the `winget` source was missing required data (`0x8a15000f`). Installing
+  Zig 0.15.2 directly from `ziglang.org` was sufficient to run the Ghostty build.
+- A direct Windows ARM64 build of the pinned Ghostty revision
+  (`ae52f97dcac558735cfa916ea3965f247e5c6e9e`) with
+  `zig build -Demit-lib-vt -Dsimd=false -Doptimize=ReleaseFast --prefix <install>` failed
+  on a cold Windows Zig package cache because Zig 0.15.2 could not fetch packages from
+  `https://deps.files.ghostty.org` (`TlsInitializationFailed`). `git` and `curl.exe` could
+  reach the network from the same guest, so the immediate blocker is Zig's Windows package
+  fetch path, not the VM network.
+- Pre-seeding the Windows Zig package cache from the macOS cache let the same direct build
+  complete. The local artifact contained `bin/ghostty-vt.dll`, `lib/ghostty-vt.lib`,
+  `lib/ghostty-vt-static.lib`, and `include/ghostty/vt.h`.
+- A remote-only Tessera experiment then re-enabled `CGhosttyVT` on Windows, pointed
+  `GHOSTTY_VT_OUTPUT_DIR` at the local artifact, prepended the artifact `bin` directory to
+  `PATH`, and copied generated Ghostty headers over the broken checked-out header symlink.
+  With those local-only changes, `swift build --target TesseraTerminalSnapshotSupport`
+  passed on Windows ARM64.
+- The unskipped Ghostty-backed Windows tests passed locally in Frost:
+  `swift test --filter TesseraTerminalSnapshotSupportTests` ran 6 tests,
+  `swift test --filter TesseraTerminalANSITests` ran 34 tests,
+  `swift test --filter TesseraTerminalRenderingTests` ran 47 tests, and
+  `swift test --filter ModeLifecycleTests` ran 8 tests.
+- Durable enablement still needs product work before Windows snapshots should be committed
+  or enabled in CI: the build script must avoid the cold-cache Zig TLS failure, the
+  `CGhosttyVT` header bridge must stop relying on a symlink that SwiftPM ignored as broken
+  on Windows, and the test/runtime path must make `ghostty-vt.dll` discoverable without
+  ad-hoc environment setup.
+
 ## Conclusion
 
-There is no fidelity-preserving drop-in replacement, so the right lever is **making
-libghostty-vt build on Windows** rather than swapping engines. This is now feasible to
-attempt locally because Phase 0 of the plan provides a Windows 11 ARM64 VM, and the known
-blocker has an upstream fix. Bumping the pinned revision is acceptable (owner approved).
+`libghostty-vt` itself is viable on Windows ARM64: with a pre-seeded Zig package cache and
+local header/runtime-path fixes, the pinned revision built and the Ghostty-backed Tessera
+snapshot tests passed in Frost. The repository should still keep the Windows snapshot skip
+for this slice because a fresh Windows environment cannot yet build the artifact
+repeatably: Zig 0.15.2 failed to fetch Ghostty packages over TLS, SwiftPM ignored the
+checked-out `CGhosttyVT` header symlink as broken, and the DLL search path required manual
+setup.
 
-Recommended spike, time-boxed, run **after** the core Windows I/O work (so the slice's
-real deliverable is not blocked by R&D, and the documented snapshot skip is already in
-place as the fallback):
+The fidelity-preserving path remains Ghostty, not a replacement oracle. A future
+enablement pass should productize the direct `zig build -Demit-lib-vt -Dsimd=false`
+Windows path, solve dependency fetching or cache seeding without a macOS side channel,
+replace the header symlink bridge with a Windows-safe generated-header seam, and set the
+runtime DLL path in the Windows test/build workflow. Until those seams are durable, the
+documented Windows snapshot skip is the correct fallback.
 
-1. In the Phase 0 Windows VM, try building only the vt target — prefer a direct
-   `zig build` of `lib_vt` (or the documented Windows path) that bypasses the full-app
-   CMake/libxml2 graph. Bump `scripts/ghostty-vt-version.txt` to a revision containing the
-   libxml2-on-Windows fix if needed.
-2. If it builds: extend `scripts/build-libghostty-vt.sh` for Windows (platform/arch path,
-   `.dll`/`.lib` artifact glob), add the Windows `GhosttyVTPlatform`/artifact path and
-   linker settings in `Package.swift`, generate Windows snapshot baselines, and flip the
-   Phase 1 Windows snapshot skips to enabled.
-3. Update `docs/UpdatingGhosttyVT.md` to document the Windows build/artifact path and the
-   rev-bump re-validation steps for Windows (it currently covers macOS/Linux only).
-4. If the toolchain fights back within the time box: keep the documented snapshot skip on
-   Windows, record exactly where it failed here, and set this investigation to `resolved`
-   with that outcome.
+## Follow-up
 
-Either way, byte-stream encoder/parser/renderer correctness is covered on Windows by the
-platform-independent unit tests, so a temporary snapshot gap is acceptable.
+`.agents/plans/014-windows-ghostty-snapshot-enablement.md` productized the three seams
+this spike identified: `scripts/build-libghostty-vt.ps1` prefetches the pinned checkout's
+`build.zig.zon.json` dependencies with `curl.exe` and hands local archives to `zig fetch`
+(avoiding Zig's broken Windows TLS path), the committed header symlink was replaced by
+build-materialized gitignored headers on every platform, and Windows links
+`ghostty-vt-static.lib` so no runtime DLL discovery is needed. On Windows, `CGhosttyVT`
+joins the package graph only under `TESSERA_GHOSTTY_WINDOWS=1`;
+`just windows-frost build-ghostty` + `just windows-frost test` run the Ghostty-backed
+suites locally, and hosted Windows CI keeps the gate off until explicitly approved.

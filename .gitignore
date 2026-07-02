@@ -4,11 +4,17 @@
 # Homebrew Bundle lockfile
 Brewfile.lock.json
 
+# libghostty-vt headers materialized by scripts/build-libghostty-vt.{sh,ps1}
+Sources/CGhosttyVT/include/ghostty/
+
 # pre-commit
 .pre-commit/
 
 # pi local settings
 .pi/settings.json
+
+# Frost Windows VM machine-local config
+.windows-frost.env
 
 # Python
 __pycache__/

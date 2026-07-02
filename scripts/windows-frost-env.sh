@@ -3,8 +3,19 @@
 
 repo_root="$(git rev-parse --show-toplevel)"
 
+# Machine-local overrides: keep the frost root and ISO paths in a gitignored
+# `.windows-frost.env` at the repo root (or point TESSERA_FROST_ENV elsewhere) so the
+# workflow runs without env prefixes on every command. That file uses the ${VAR:-…} idiom
+# too, so an explicit `env VAR=… just …` still wins; the defaults below fill anything left
+# unset.
+tessera_frost_env_file="${TESSERA_FROST_ENV:-$repo_root/.windows-frost.env}"
+if [[ -f "$tessera_frost_env_file" ]]; then
+  # shellcheck source=/dev/null
+  source "$tessera_frost_env_file"
+fi
+
 export TESSERA_FROST_ROOT="${TESSERA_FROST_ROOT:-$HOME/Developer/frost}"
-export TESSERA_FROST_WORK="${TESSERA_FROST_WORK:-$repo_root/.build/windows-frost}"
+export TESSERA_FROST_WORK="${TESSERA_FROST_WORK:-${XDG_STATE_HOME:-$HOME/.local/state}/tessera/windows-frost}"
 export TESSERA_FROST_SSH_PORT="${TESSERA_FROST_SSH_PORT:-2222}"
 export TESSERA_FROST_USER="${TESSERA_FROST_USER:-tester}"
 export TESSERA_FROST_WINDOWS_ISO="${TESSERA_FROST_WINDOWS_ISO:-}"

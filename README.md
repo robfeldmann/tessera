@@ -65,21 +65,37 @@ import TesseraTerminal
 
 Tessera applications install in-process cleanup handlers for normal exits, thrown errors,
 and supported termination signals. If a development build ever leaves your terminal in a
-bad state, type this even if input is not visible, then press Enter:
+bad state, type the recovery command for your platform even if input is not visible, then
+press Enter.
+
+On macOS and Linux:
 
 ```sh
 reset
 ```
 
-If that does not restore normal input echo, try:
+If `reset` does not restore normal input echo, try:
 
 ```sh
 stty sane
 ```
 
+On Windows PowerShell, emit terminal reset and visibility sequences directly because
+Windows has no native `reset` or `stty sane` command:
+
+```powershell
+[Console]::Write([char]27 + '[?1049l' + [char]27 + '[?25h' + [char]27 + 'c')
+```
+
 ## Documentation
 
-Full documentation will be available soon.
+- [Local development state](docs/LocalDevelopmentState.md): explains Ghostty VT, Linux,
+  and Windows VM artifacts for branch/worktree use.
+- [Updating Ghostty VT](docs/UpdatingGhosttyVT.md): update the pinned terminal parser
+  revision.
+- [Windows VM with Frost](docs/WindowsFrostVM.md): recommended repeatable Windows test
+  workflow.
+- [Manual Windows VM with UTM](docs/WindowsVM.md): hand-managed Windows desktop workflow.
 
 ## Contributing
 
