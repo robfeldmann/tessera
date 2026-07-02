@@ -29,8 +29,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   reset sequence for consoles without `reset` or `stty sane`.
 - Expanded the Phase 4 view-layer spec with SwiftUI-inspired runtime lessons, explicit
   import-boundary/package-graph checks, and Tessera-native oracle test expectations.
-- Temporarily narrowed hosted CI to Windows-focused `TesseraTerminalIOTests` while the
-  Windows runner path is being stabilized.
+- Temporarily narrowed hosted CI/docs checks to Windows-focused `TesseraTerminalIOTests`
+  while the Windows runner path is being stabilized.
 - Changed Ghostty VT to default to `${XDG_CACHE_HOME:-~/.cache}/tessera/libghostty-vt` for
   multi-branch use.
 - Changed Linux Lima to honor `TESSERA_LINUX_VM_NAME` so multiple worktrees can use
@@ -41,7 +41,6 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- Fixed CI and docs workflows to restore the shared Ghostty VT cache from the new default
 - Fixed CI and docs workflows to restore the shared Ghostty VT cache from the new default
   location.
 - Fixed Windows Frost SSH automation to prefer the configured key once available and to

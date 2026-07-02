@@ -352,14 +352,15 @@ depends on it for local iteration.
 - Document manual checks in Windows Terminal, conhost, and PowerShell: arrow keys, `q`
   clean exit, Ctrl-C cleanup, resize-driven redraw, and clean terminal restoration.
 - 2026-07-02 budget adjustment: during Windows bring-up, hosted CI is intentionally
-  Windows-only, non-Windows jobs are skipped, and the Windows job runs the focused
-  `TesseraTerminalIOTests` filter via `just ci ci-windows`. Restore macOS/Linux jobs and
-  the full suite after the Windows runner path is green. Local focused validation passed
-  with `just windows-frost test -- --filter TesseraTerminalIOTests`; hosted GitHub Actions
-  validation has not been triggered yet to preserve private-repo minutes.
+  Windows-only, non-Windows CI/DocC jobs are skipped, and the Windows job runs the focused
+  `TesseraTerminalIOTests` filter via `just ci ci-windows`. Restore macOS/Linux CI, DocC
+  validation, and the full suite after the Windows runner path is green. Local focused
+  validation passed with `just windows-frost test -- --filter TesseraTerminalIOTests`;
+  hosted GitHub Actions validation has not been triggered yet to preserve private-repo
+  minutes.
 - Final acceptance before marking this step complete: hosted Windows CI is green; the
-  temporary Windows-only/focused-test budget gates are removed; macOS/Linux validation is
-  restored and green; Markdown lint passes for edited docs.
+  temporary Windows-only/focused-test budget gates are removed; macOS/Linux CI and DocC
+  validation are restored and green; Markdown lint passes for edited docs.
 
 ## Phase 5 — Windows snapshot build spike (investigation)
 

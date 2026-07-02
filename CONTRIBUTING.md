@@ -258,10 +258,10 @@ Windows default (`--no-parallel`) and appends your filter:
 just windows-frost test -- --filter WindowsInputLoopTests
 ```
 
-During Windows CI bring-up, the hosted workflow is intentionally Windows-only and runs the
-focused `TesseraTerminalIOTests` filter through `just ci ci-windows`. macOS/Linux jobs and
-the full suite should be restored after the Windows path is green. To spend fewer hosted
-minutes while iterating:
+During Windows CI bring-up, the hosted CI workflow is intentionally Windows-only and runs
+the focused `TesseraTerminalIOTests` filter through `just ci ci-windows`. macOS/Linux CI,
+DocC validation, and the full suite should be restored after the Windows path is green. To
+spend fewer hosted minutes while iterating:
 
 - Prove changes locally in Frost or UTM before pushing.
 - Keep the `skip-ci` label on draft PRs until a hosted run is needed.

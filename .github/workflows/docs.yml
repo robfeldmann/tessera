@@ -31,9 +31,8 @@ jobs:
   docc:
     name: DocC validation
     needs: docs-gate
-    if: >
-      ${{ github.event_name != 'pull_request' ||
-      !contains(github.event.pull_request.labels.*.name, 'skip-ci') }}
+    # Temporarily skipped during Windows CI bring-up to avoid macOS runner minutes.
+    if: ${{ false }}
     runs-on: macos-26
     timeout-minutes: 20
     steps:
