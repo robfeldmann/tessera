@@ -127,7 +127,7 @@ func `exit is idempotent after cleanup`() async throws {
 
 @Test(
   .disabled(
-    if: VirtualTerminal.isPlatformUnsupported,
+    if: VirtualTerminal.isGhosttyUnavailable,
     "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."))
 func `alternate screen bytes round trip through virtual terminal`() async throws {
   let device = LifecycleTestDevice()
@@ -136,7 +136,7 @@ func `alternate screen bytes round trip through virtual terminal`() async throws
   try await lifecycle.enter([.rawMode, .altScreen])
   try await lifecycle.exit()
 
-  let terminal = VirtualTerminal.ghosttyOrPlatformUnsupported(cols: 4, rows: 2)
+  let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 4, rows: 2)
   terminal.feed(await device.bytes)
 
   expectNoDifference(terminal.cursorPosition(), .init(column: 0, row: 0))

@@ -111,11 +111,22 @@ let SystemPackage: Target.Dependency = .product(
   package: "swift-system"
 )
 
+// MARK: - 👻 Ghostty VT Gate
+
+// Ghostty-backed snapshot support is always available on macOS/Linux. On Windows it is
+// opt-in until the hosted CI path is approved: set TESSERA_GHOSTTY_WINDOWS=1 (and build
+// the artifact with scripts/build-libghostty-vt.ps1) to compile CGhosttyVT in. Sources
+// gate on `#if canImport(CGhosttyVT)`, so both configurations build from one tree.
+#if os(Windows)
+  let GhosttyVTEnabled =
+    ProcessInfo.processInfo.environment["TESSERA_GHOSTTY_WINDOWS"] == "1"
+#else
+  let GhosttyVTEnabled = true
+#endif
+
 // MARK: - 🚛 Forward Module Declarations
 
-#if !os(Windows)
-  let CGhosttyVT: Target.Dependency = .byName(name: "CGhosttyVT")
-#endif
+let CGhosttyVT: Target.Dependency = .byName(name: "CGhosttyVT")
 let CTesseraTerminalPlatform: Target.Dependency = .byName(
   name: "CTesseraTerminalPlatform"
 )
@@ -155,7 +166,7 @@ let AllTesseraTargetNames: Set<String> = [
 
 // MARK: CGhosttyVT
 
-#if !os(Windows)
+if GhosttyVTEnabled {
   package.targets.append(
     .target(
       name: "CGhosttyVT",
@@ -163,7 +174,7 @@ let AllTesseraTargetNames: Set<String> = [
       publicHeadersPath: "include"
     )
   )
-#endif
+}
 
 // MARK: CTesseraTerminalPlatform
 
@@ -374,13 +385,8 @@ package.targets.append(contentsOf: [
 
 // MARK: TesseraTerminalSnapshotSupport
 
-#if !os(Windows)
-  let TesseraTerminalSnapshotSupportPlatformDependencies: [Target.Dependency] = [
-    CGhosttyVT
-  ]
-#else
-  let TesseraTerminalSnapshotSupportPlatformDependencies: [Target.Dependency] = []
-#endif
+let TesseraTerminalSnapshotSupportPlatformDependencies: [Target.Dependency] =
+  GhosttyVTEnabled ? [CGhosttyVT] : []
 
 package.targets.append(contentsOf: [
   .target(
@@ -420,53 +426,70 @@ package.targets.append(
 
 // MARK: - 👻 Ghostty VT Build Output
 
-#if !os(Windows)
-  let PackageDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().path
-  let GhosttyVTEnvironment = ProcessInfo.processInfo.environment
+let PackageDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().path
+let GhosttyVTEnvironment = ProcessInfo.processInfo.environment
 
-  func defaultGhosttyVTOutputRoot(
-    packageDirectory: String,
-    environment: [String: String]
-  ) -> String {
-    let outputDirectory = environment["GHOSTTY_VT_OUTPUT_DIR"] ?? ""
-    if !outputDirectory.isEmpty {
-      return outputDirectory
+func defaultGhosttyVTOutputRoot(
+  packageDirectory: String,
+  environment: [String: String]
+) -> String {
+  let outputDirectory = environment["GHOSTTY_VT_OUTPUT_DIR"] ?? ""
+  if !outputDirectory.isEmpty {
+    return outputDirectory
+  }
+  #if os(Windows)
+    if let localAppData = environment["LOCALAPPDATA"], !localAppData.isEmpty {
+      return "\(localAppData)/tessera/libghostty-vt"
     }
+  #else
     if let cacheHome = environment["XDG_CACHE_HOME"], !cacheHome.isEmpty {
       return "\(cacheHome)/tessera/libghostty-vt"
     }
     if let home = environment["HOME"], !home.isEmpty {
       return "\(home)/.cache/tessera/libghostty-vt"
     }
-    return "\(packageDirectory)/.build/libghostty-vt"
-  }
+  #endif
+  return "\(packageDirectory)/.build/libghostty-vt"
+}
 
-  let GhosttyVTRevisionFile = "\(PackageDirectory)/scripts/ghostty-vt-version.txt"
-  let GhosttyVTRevision =
-    (try? String(contentsOfFile: GhosttyVTRevisionFile, encoding: .utf8))?
-    .trimmingCharacters(in: .whitespacesAndNewlines) ?? "unknown"
-  #if os(macOS)
-    let GhosttyVTPlatform = "macos"
-  #elseif os(Linux)
-    let GhosttyVTPlatform = "linux"
-  #else
-    let GhosttyVTPlatform = "unsupported"
-  #endif
-  #if arch(arm64)
-    let GhosttyVTArch = "arm64"
-  #elseif arch(x86_64)
-    let GhosttyVTArch = "x86_64"
-  #else
-    let GhosttyVTArch = "unsupported"
-  #endif
-  let GhosttyVTOutputRoot = defaultGhosttyVTOutputRoot(
-    packageDirectory: PackageDirectory,
-    environment: GhosttyVTEnvironment
-  )
-  let GhosttyVTInstallPath =
-    "\(GhosttyVTOutputRoot)/\(GhosttyVTRevision)/\(GhosttyVTPlatform)-\(GhosttyVTArch)"
-  let GhosttyVTIncludePath = "\(GhosttyVTInstallPath)/include"
-  let GhosttyVTLibraryPath = "\(GhosttyVTInstallPath)/lib"
+let GhosttyVTRevisionFile = "\(PackageDirectory)/scripts/ghostty-vt-version.txt"
+let GhosttyVTRevision =
+  (try? String(contentsOfFile: GhosttyVTRevisionFile, encoding: .utf8))?
+  .trimmingCharacters(in: .whitespacesAndNewlines) ?? "unknown"
+#if os(macOS)
+  let GhosttyVTPlatform = "macos"
+#elseif os(Linux)
+  let GhosttyVTPlatform = "linux"
+#elseif os(Windows)
+  let GhosttyVTPlatform = "windows"
+#else
+  let GhosttyVTPlatform = "unsupported"
+#endif
+#if arch(arm64)
+  let GhosttyVTArch = "arm64"
+#elseif arch(x86_64)
+  let GhosttyVTArch = "x86_64"
+#else
+  let GhosttyVTArch = "unsupported"
+#endif
+let GhosttyVTOutputRoot = defaultGhosttyVTOutputRoot(
+  packageDirectory: PackageDirectory,
+  environment: GhosttyVTEnvironment
+)
+let GhosttyVTInstallPath =
+  "\(GhosttyVTOutputRoot)/\(GhosttyVTRevision)/\(GhosttyVTPlatform)-\(GhosttyVTArch)"
+let GhosttyVTLibraryPath = "\(GhosttyVTInstallPath)/lib"
+#if os(Windows)
+  // Static: linking ghostty-vt-static.lib avoids runtime ghostty-vt.dll
+  // discovery. Zig's std library calls ntdll syscalls (NtAllocateVirtualMemory,
+  // DeviceIoControl, ...) directly, so static consumers must link ntdll too.
+  // No rpath on Windows.
+  let GhosttyVTUnsafeLinkerFlags = [
+    "-L\(GhosttyVTLibraryPath)",
+    "-lghostty-vt-static",
+    "-lntdll",
+  ]
+#else
   let GhosttyVTUnsafeLinkerFlags = [
     "-L\(GhosttyVTLibraryPath)",
     "-lghostty-vt",
@@ -475,12 +498,12 @@ package.targets.append(
     "-Xlinker",
     GhosttyVTLibraryPath,
   ]
-  if let GhosttyVTTarget = package.targets.first(where: { $0.name == "CGhosttyVT" }) {
-    GhosttyVTTarget.linkerSettings = [
-      .unsafeFlags(GhosttyVTUnsafeLinkerFlags)
-    ]
-  }
 #endif
+if let GhosttyVTTarget = package.targets.first(where: { $0.name == "CGhosttyVT" }) {
+  GhosttyVTTarget.linkerSettings = [
+    .unsafeFlags(GhosttyVTUnsafeLinkerFlags)
+  ]
+}
 
 // MARK: - ⚙️ Shared Swift Settings
 

@@ -5,7 +5,8 @@ Run Tessera tests inside a Windows Frost guest.
 [CmdletBinding()]
 param(
     [string]$RepoPath = "C:\Users\tester\tessera",
-    [string]$SwiftTestArgsBase64 = ""
+    [string]$SwiftTestArgsBase64 = "",
+    [string]$GhosttyOutputDir = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -31,6 +32,27 @@ function Decode-SwiftTestArgs {
 
 Update-SessionPath
 Set-Location $RepoPath
+
+if ($GhosttyOutputDir) {
+    # Enable Ghostty-backed snapshot support: materialize the generated headers
+    # (the source archive carries none; the directory is gitignored), point the
+    # package manifest at the provisioned artifact, and opt in to CGhosttyVT.
+    $revision = (Get-Content -Path (Join-Path $RepoPath "scripts\ghostty-vt-version.txt") -Raw).Trim()
+    $artifactDir = Join-Path $GhosttyOutputDir "$revision\windows-arm64"
+    $artifactHeaders = Join-Path $artifactDir "include\ghostty"
+    if (-not (Test-Path (Join-Path $artifactDir "lib\ghostty-vt-static.lib"))) {
+        Write-Error "libghostty-vt artifact missing at $artifactDir"
+        exit 1
+    }
+    $bridgeDir = Join-Path $RepoPath "Sources\CGhosttyVT\include\ghostty"
+    if (Test-Path $bridgeDir) {
+        Remove-Item -Recurse -Force $bridgeDir
+    }
+    Copy-Item -Recurse -Path $artifactHeaders -Destination $bridgeDir
+    $env:GHOSTTY_VT_OUTPUT_DIR = $GhosttyOutputDir
+    $env:TESSERA_GHOSTTY_WINDOWS = "1"
+    Write-Host "==> Ghostty VT enabled (artifact: $artifactDir)"
+}
 
 Write-Host "==> Swift"
 swift --version

@@ -34,8 +34,10 @@ stable in a Ghostty release. Until then, use a known-good commit from
 
    The build installs the pinned artifact under
    `${XDG_CACHE_HOME:-~/.cache}/tessera/libghostty-vt/<revision>/<platform>-<arch>/` by
-   default and updates the diagnostic `current` symlink in that cache. Set
-   `GHOSTTY_VT_OUTPUT_DIR` if you need a one-off cache location.
+   default, updates the diagnostic `current` symlink in that cache, and materializes the
+   generated headers into the gitignored `Sources/CGhosttyVT/include/ghostty/` directory
+   that the `CGhosttyVT` module map umbrellas. Set `GHOSTTY_VT_OUTPUT_DIR` if you need a
+   one-off cache location.
 
 4. Validate the package wiring:
 
@@ -51,8 +53,36 @@ stable in a Ghostty release. Until then, use a known-good commit from
    just quality changed
    ```
 
-6. If the Ghostty C API changed, update the `CGhosttyVT`/`VirtualTerminal` boundary only.
+6. Rebuild the Windows Frost artifact so local Windows snapshot runs keep working:
+
+   ```sh
+   just windows-frost start
+   just windows-frost build-ghostty --force
+   just windows-frost stop
+   ```
+
+7. If the Ghostty C API changed, update the `CGhosttyVT`/`VirtualTerminal` boundary only.
    Keep Ghostty-specific details out of public Tessera products.
+
+## Windows
+
+`scripts/build-libghostty-vt.ps1` is the Windows counterpart of the bash build script. It
+installs the pinned artifact under `%GHOSTTY_VT_OUTPUT_DIR%` (default
+`%LOCALAPPDATA%\tessera\libghostty-vt`) `\<revision>\windows-<arch>\` and materializes the
+same gitignored header directory.
+
+Zig's Windows package fetcher cannot reach `https://deps.files.ghostty.org`
+(`TlsInitializationFailed`), so the script prefetches every dependency in the pinned
+checkout's `build.zig.zon.json` with `curl.exe` and hands the local archives to
+`zig fetch`, verifying each resulting cache key against the manifest. It installs Zig
+0.15.x from `ziglang.org` when missing (`winget` is unreliable in the Frost guest).
+
+On Windows, `CGhosttyVT` joins the package graph only when `TESSERA_GHOSTTY_WINDOWS=1` is
+set in the environment that loads `Package.swift`, and it links the static
+`ghostty-vt-static.lib` (no runtime DLL discovery). Sources gate on
+`#if canImport(CGhosttyVT)`. Hosted Windows CI leaves the gate off; local Frost test runs
+(`just windows-frost test`) turn it on and provision the artifact from the host cache
+populated by `just windows-frost build-ghostty`.
 
 ## Just and CI behavior
 

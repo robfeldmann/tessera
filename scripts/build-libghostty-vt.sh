@@ -14,6 +14,10 @@ The script also updates this diagnostic symlink:
 
   ${GHOSTTY_VT_OUTPUT_DIR:-${XDG_CACHE_HOME:-~/.cache}/tessera/libghostty-vt}/current -> <revision>/<platform>-<arch>
 
+and materializes the generated headers into the workspace (gitignored):
+
+  Sources/CGhosttyVT/include/ghostty/
+
 Prerequisites:
   - Zig 0.15.x on PATH
   - CMake
@@ -114,18 +118,16 @@ update_current_symlink() {
   ln -sfn "$revision/$platform-$arch" "$current_link"
 }
 
-update_workspace_header_bridge_symlink() {
-  local bridge_root="$repo_root/.build/libghostty-vt"
-  if [[ "$output_root" == "$bridge_root" ]]; then
-    return
-  fi
-  mkdir -p "$bridge_root"
-  ln -sfn "$output_root/current" "$bridge_root/current"
+materialize_header_bridge() {
+  local bridge_dir="$repo_root/Sources/CGhosttyVT/include/ghostty"
+  rm -rf "$bridge_dir"
+  mkdir -p "$(dirname "$bridge_dir")"
+  cp -R "$install_dir/include/ghostty" "$bridge_dir"
 }
 
 if [[ "$force" == "0" ]] && [[ -f "$install_dir/include/ghostty/vt.h" ]] && compgen -G "$install_dir/lib/$shared_glob" >/dev/null; then
   update_current_symlink
-  update_workspace_header_bridge_symlink
+  materialize_header_bridge
   echo "libghostty-vt already built: $install_dir"
   exit 0
 fi
@@ -194,6 +196,6 @@ build_dir=$build_dir
 EOF
 
 update_current_symlink
-update_workspace_header_bridge_symlink
+materialize_header_bridge
 
 echo "Built libghostty-vt: $install_dir"

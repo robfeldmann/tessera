@@ -2,7 +2,7 @@
 name: Phase 2 Slice 6 Windows Terminal IO
 description:
   Complete TesseraTerminalIO's Windows implementation and enable Windows CI for Phase 2.
-status: pending
+status: complete
 created: 2026-06-14
 updated: 2026-07-02
 ---
@@ -25,8 +25,8 @@ updated: 2026-07-02
   - [x] 4.1 Document per-platform terminal recovery (POSIX `reset`; Windows PowerShell
         RIS)
   - [x] 4.2 Enable Windows CI and document Windows manual verification
-- [ ] **Phase 5 — Windows snapshot build spike (investigation)**
-  - [ ] 5.1 Attempt the Windows libghostty-vt build; enable snapshots or confirm the skip
+- [x] **Phase 5 — Windows snapshot build spike (investigation)**
+  - [x] 5.1 Attempt the Windows libghostty-vt build; enable snapshots or confirm the skip
 
 ## Overview
 
@@ -409,6 +409,34 @@ this point the Phase 0 VM exists and the whole package already compiles on Windo
   documented Windows snapshot skip from Phase 1, record where it failed in the
   investigation doc, and mark it `resolved`. Byte-stream unit tests still cover
   encoder/parser/renderer correctness on Windows, so the slice is complete either way.
+- 2026-07-02 local outcome: the direct Windows ARM64
+  `zig build -Demit-lib-vt -Dsimd=false` path can build the pinned Ghostty revision after
+  manually installing Zig 0.15.2 and pre-seeding the Windows Zig package cache from macOS.
+  The artifact contains `bin/ghostty-vt.dll`, `lib/ghostty-vt.lib`, and
+  `include/ghostty/vt.h`.
+- 2026-07-02 local Tessera experiment: a remote-only Frost patch re-enabled `CGhosttyVT`,
+  copied generated headers over the broken Windows header symlink, set
+  `GHOSTTY_VT_OUTPUT_DIR`, and prepended the Ghostty `bin` directory to `PATH`.
+  `swift build --target TesseraTerminalSnapshotSupport` passed; unskipped local Windows
+  runs passed for `TesseraTerminalSnapshotSupportTests` (6 tests),
+  `TesseraTerminalANSITests` (34 tests), `TesseraTerminalRenderingTests` (47 tests), and
+  `ModeLifecycleTests` (8 tests).
+- Decision for this plan: keep the documented Windows snapshot skip as the fallback. The
+  library is viable, but durable enablement still needs a cold-cache Zig package fetch or
+  cache-seeding solution, a Windows-safe `CGhosttyVT` header bridge that does not rely on
+  the checked-out symlink, and scripted DLL discovery for SwiftPM test execution. No
+  GitHub push or Ghostty-backed Windows CI run was attempted per the local-only
+  instruction.
+- Superseded 2026-07-02 (later the same day): the three durable-enablement gaps named
+  above were closed by `.agents/plans/014-windows-ghostty-snapshot-enablement.md` —
+  cold-cache dependency prefetch via `scripts/build-libghostty-vt.ps1` (curl +
+  `zig fetch <local-file>` from the pinned checkout's `build.zig.zon.json`), a
+  build-materialized gitignored header directory replacing the checked-out symlink on
+  every platform, and static linking of `ghostty-vt-static.lib` (plus `-lntdll`) instead
+  of runtime DLL discovery. Local Frost runs now execute the Ghostty-backed suites for
+  real behind the `TESSERA_GHOSTTY_WINDOWS=1` gate; hosted Windows CI still keeps the gate
+  off, so this plan's shipped skip behavior is unchanged there until CI enablement is
+  explicitly approved.
 
 ## Validation
 

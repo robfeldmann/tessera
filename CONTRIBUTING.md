@@ -245,11 +245,20 @@ Windows development on an Apple Silicon Mac has two supported local VM workflows
 - **Manual desktop workflow:** use UTM directly when you want to create and manage the
   Windows VM yourself. Follow [Manual Windows VM with UTM](docs/WindowsVM.md).
 
-For the normal Frost test loop, build the Frost images once, then run:
+For the normal Frost test loop, build the Frost images once, then build the pinned Windows
+`libghostty-vt` artifact once per pin (requires the persistent VM), and run the tests:
 
 ```sh
+just windows-frost start
+just windows-frost build-ghostty
+just windows-frost stop
 just windows-frost test
 ```
+
+`build-ghostty` runs `scripts/build-libghostty-vt.ps1` in the guest and caches the
+artifact on the host; `test` provisions that cache into each disposable overlay and runs
+the Ghostty-backed snapshot suites for real (`TESSERA_GHOSTTY_WINDOWS=1`). Re-run
+`build-ghostty` after bumping `scripts/ghostty-vt-version.txt`.
 
 To run a focused Frost test, pass SwiftPM test arguments after `--`. The recipe keeps the
 Windows default (`--no-parallel`) and appends your filter:
@@ -279,11 +288,13 @@ To spend fewer hosted minutes while iterating:
 The CI workflow restores the SwiftPM cache before `swift build`, keyed by the runner OS,
 architecture, `.swift-version`, and `Package.resolved`; when there is no exact cache hit,
 it saves the cache immediately after a successful build and before tests. Hosted
-macOS/Linux jobs keep Ghostty VT artifacts in the shared cache root. The build script also
-refreshes `.build/libghostty-vt/current` as a workspace-local bridge so the checked-in
-Ghostty header symlink and linker flags agree without moving artifacts back into `.build`.
-Windows does not resolve the Swift-DocC plugin or build libghostty-vt during this slice,
-so DocC/Ghostty cache state and prerequisites remain non-Windows concerns.
+macOS/Linux jobs keep Ghostty VT artifacts in the shared cache root; the build script
+materializes the generated Ghostty headers into the gitignored
+`Sources/CGhosttyVT/include/ghostty/` directory that the `CGhosttyVT` module map
+umbrellas. Hosted Windows CI does not resolve the Swift-DocC plugin or build
+libghostty-vt: `CGhosttyVT` joins the Windows package graph only when
+`TESSERA_GHOSTTY_WINDOWS=1` is set, which local Frost test runs do and hosted Windows jobs
+do not.
 
 For manual GUI validation, run a Tessera terminal demo in each Windows host terminal you
 intend to support:

@@ -54,6 +54,10 @@ configure-gui host="":
         scripts/windows-frost-configure-gui.sh; \
     fi
 
+# Build pinned libghostty-vt in the persistent VM and cache it on the host
+build-ghostty *args:
+    scripts/windows-frost-build-ghostty.sh {{ args }}
+
 # Run Windows Frost tests; pass SwiftPM test args after `--`, e.g. `-- --filter FooTests`
 test *args:
     scripts/windows-frost-test.sh {{ args }}

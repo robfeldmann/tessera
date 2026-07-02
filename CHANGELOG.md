@@ -9,6 +9,17 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Added Windows support for Ghostty-backed snapshot tests behind the
+  `TESSERA_GHOSTTY_WINDOWS=1` package-manifest gate, linking the static
+  `ghostty-vt-static.lib` so no runtime DLL discovery is needed.
+- Added `scripts/build-libghostty-vt.ps1`, the Windows libghostty-vt build script. It
+  prefetches every pinned dependency from the Ghostty checkout's `build.zig.zon.json` with
+  `curl.exe` and hands local archives to `zig fetch`, working around Zig's
+  `TlsInitializationFailed` package fetcher on Windows, and installs Zig 0.15.x from
+  ziglang.org when missing.
+- Added `just windows-frost build-ghostty` to build the pinned Windows artifact in the
+  persistent Frost VM and cache it on the host; `just windows-frost test` provisions that
+  cache into each disposable overlay and runs the Ghostty suites for real.
 - Added Windows console mode setup and restore coverage for `TesseraTerminalIO`.
 - Added live Windows terminal device I/O for `TesseraTerminalIO`, including console handle
   validation, writes, alternate-screen control, size reads, and shared async input and
@@ -44,6 +55,13 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Changed the Windows Frost docs to clarify that Frost state is VM artifacts and source
   snapshots, not a clone.
 - Changed setup examples from fish syntax to POSIX `sh` syntax where applicable.
+- Replaced the committed `CGhosttyVT` header symlink with a build-materialized, gitignored
+  `Sources/CGhosttyVT/include/ghostty/` directory on every platform, and pointed the
+  module map at a committed `CGhosttyVT.h` umbrella header that defines `GHOSTTY_STATIC`
+  on Windows.
+- Renamed `VirtualTerminal.isPlatformUnsupported` to `isGhosttyUnavailable` and
+  `ghosttyOrPlatformUnsupported` to `ghosttyOrUnavailable`; sources now gate on
+  `#if canImport(CGhosttyVT)` instead of `#if !os(Windows)`.
 
 ### Fixed
 

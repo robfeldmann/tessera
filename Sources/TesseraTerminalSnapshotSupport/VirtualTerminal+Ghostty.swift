@@ -1,4 +1,4 @@
-#if !os(Windows)
+#if canImport(CGhosttyVT)
 
   import CGhosttyVT
   import IssueReporting
