@@ -112,7 +112,7 @@ jobs:
 
       - name: Restore SwiftPM cache
         id: swiftpm-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: |
             .build
@@ -150,7 +150,7 @@ jobs:
 
       - name: Restore libghostty-vt cache
         id: ghostty-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           # Source checkouts and intermediate build trees are re-creatable and
           # huge; cache only the installed artifacts.
@@ -183,7 +183,7 @@ jobs:
       # expensive Zig artifact (Windows cold build is the long pole).
       - name: Save libghostty-vt cache after build
         if: steps.ghostty-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: |
             ~/.cache/tessera/libghostty-vt
@@ -199,7 +199,7 @@ jobs:
 
       - name: Save SwiftPM cache after build
         if: steps.swiftpm-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: |
             .build
