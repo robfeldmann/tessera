@@ -259,9 +259,10 @@ just windows-frost test -- --filter WindowsInputLoopTests
 ```
 
 During Windows CI bring-up, the hosted CI workflow is intentionally Windows-only and runs
-the focused `TesseraTerminalIOTests` filter through `just ci ci-windows`. macOS/Linux CI,
-DocC validation, and the full suite should be restored after the Windows path is green. To
-spend fewer hosted minutes while iterating:
+the focused `TesseraTerminalIOTests` filter. The commands match `just ci ci-windows`, but
+the workflow splits build and test so it can save the SwiftPM cache immediately after
+`swift build`. macOS/Linux CI, DocC validation, and the full suite should be restored
+after the Windows path is green. To spend fewer hosted minutes while iterating:
 
 - Prove changes locally in Frost or UTM before pushing.
 - Keep the `skip-ci` label on draft PRs until a hosted run is needed.
@@ -273,9 +274,10 @@ spend fewer hosted minutes while iterating:
   or cache state changed.
 
 The CI workflow restores the SwiftPM cache before `swift build`, keyed by the runner OS,
-architecture, `.swift-version`, and `Package.resolved`. Windows does not build
-libghostty-vt during this slice, so the Ghostty cache and prerequisites stay gated to
-non-Windows runners for when the full matrix is restored.
+architecture, `.swift-version`, and `Package.resolved`; when there is no exact cache hit,
+it saves the cache immediately after a successful build and before tests. Windows does not
+build libghostty-vt during this slice, so the Ghostty cache and prerequisites stay gated
+to non-Windows runners for when the full matrix is restored.
 
 For manual GUI validation, run a Tessera terminal demo in each Windows host terminal you
 intend to support:

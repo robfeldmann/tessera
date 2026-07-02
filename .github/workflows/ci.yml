@@ -110,7 +110,8 @@ jobs:
         uses: ./.github/actions/setup-swift
 
       - name: Restore SwiftPM cache
-        uses: actions/cache@v4
+        id: swiftpm-cache
+        uses: actions/cache/restore@v4
         with:
           path: |
             .build
@@ -161,11 +162,33 @@ jobs:
         with:
           tool: just
 
-      - name: Build and test Windows focus
+      - name: Build Windows focus
         if: runner.os == 'Windows'
         shell: bash
-        run: just ci ci-windows
+        run: swift build
 
-      - name: Build and test
+      - name: Build
         if: runner.os != 'Windows'
-        run: just ci
+        run: |
+          just core build-libghostty-vt
+          swift build
+
+      - name: Save SwiftPM cache after build
+        if: steps.swiftpm-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .build
+            ~/.swiftpm
+            ~/AppData/Local/org.swift.swiftpm
+          # prettier-ignore
+          key: swiftpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version', 'Package.resolved') }}
+
+      - name: Test Windows focus
+        if: runner.os == 'Windows'
+        shell: bash
+        run: swift test --no-parallel --filter "$TESSERA_CI_WINDOWS_TEST_FILTER"
+
+      - name: Test
+        if: runner.os != 'Windows'
+        run: swift test --no-parallel

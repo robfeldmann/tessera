@@ -353,11 +353,12 @@ depends on it for local iteration.
   clean exit, Ctrl-C cleanup, resize-driven redraw, and clean terminal restoration.
 - 2026-07-02 budget adjustment: during Windows bring-up, hosted CI is intentionally
   Windows-only, non-Windows CI/DocC jobs are skipped, and the Windows job runs the focused
-  `TesseraTerminalIOTests` filter via `just ci ci-windows`. Restore macOS/Linux CI, DocC
-  validation, and the full suite after the Windows runner path is green. Local focused
-  validation passed with `just windows-frost test -- --filter TesseraTerminalIOTests`;
-  hosted GitHub Actions validation has not been triggered yet to preserve private-repo
-  minutes.
+  `TesseraTerminalIOTests` filter. The hosted workflow splits build and test so it can
+  save the SwiftPM cache immediately after `swift build` on Windows now and on macOS/Linux
+  when those runners are restored. Restore macOS/Linux CI, DocC validation, and the full
+  suite after the Windows runner path is green. Local focused validation passed with
+  `just windows-frost test -- --filter TesseraTerminalIOTests`; hosted Windows validation
+  passed on PR #12.
 - Final acceptance before marking this step complete: hosted Windows CI is green; the
   temporary Windows-only/focused-test budget gates are removed; macOS/Linux CI and DocC
   validation are restored and green; Markdown lint passes for edited docs.

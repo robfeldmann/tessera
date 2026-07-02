@@ -15,7 +15,7 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   resize event translation.
 - Added focused Linux, Windows Frost, and Windows UTM VM test recipes that forward
   `swift test` arguments after `--`.
-- Added a Windows-focused CI recipe and SwiftPM cache restore path for hosted Windows
+- Added a Windows-focused CI recipe and post-build SwiftPM cache save path for hosted
   bring-up runs.
 - Added `just core doctor` to report Ghostty VT, Linux Lima, Static Linux SDK, and Windows
   Frost state.
