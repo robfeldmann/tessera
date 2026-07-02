@@ -15,6 +15,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   resize event translation.
 - Added focused Linux, Windows Frost, and Windows UTM VM test recipes that forward
   `swift test` arguments after `--`.
+- Added a Windows-focused CI recipe and SwiftPM cache restore path for hosted Windows
+  bring-up runs.
 - Added `just core doctor` to report Ghostty VT, Linux Lima, Static Linux SDK, and Windows
   Frost state.
 - Added `just core clean-libghostty-vt` to remove the shared Ghostty VT cache root.
@@ -27,6 +29,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   reset sequence for consoles without `reset` or `stty sane`.
 - Expanded the Phase 4 view-layer spec with SwiftUI-inspired runtime lessons, explicit
   import-boundary/package-graph checks, and Tessera-native oracle test expectations.
+- Temporarily narrowed hosted CI to Windows-focused `TesseraTerminalIOTests` while the
+  Windows runner path is being stabilized.
 - Changed Ghostty VT to default to `${XDG_CACHE_HOME:-~/.cache}/tessera/libghostty-vt` for
   multi-branch use.
 - Changed Linux Lima to honor `TESSERA_LINUX_VM_NAME` so multiple worktrees can use

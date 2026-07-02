@@ -7,6 +7,12 @@ on:
     types: [opened, synchronize, reopened, edited, labeled, unlabeled]
   workflow_dispatch:
 
+env:
+  # Temporary Windows bring-up default. Override with a repository variable when a CI
+  # iteration needs a narrower or broader SwiftPM filter without editing the workflow.
+  # prettier-ignore
+  TESSERA_CI_WINDOWS_TEST_FILTER: ${{ vars.TESSERA_CI_WINDOWS_TEST_FILTER || 'TesseraTerminalIOTests' }}
+
 permissions:
   contents: read
 
@@ -31,9 +37,8 @@ jobs:
   conventional-commits:
     name: conventional commits
     needs: ci-gate
-    if: >
-      ${{ github.event_name != 'pull_request' ||
-      !contains(github.event.pull_request.labels.*.name, 'skip-ci') }}
+    # Temporarily skipped during Windows CI bring-up to avoid non-Windows runner minutes.
+    if: ${{ false }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -57,10 +62,8 @@ jobs:
   lint:
     name: lint
     needs: ci-gate
-    if: >
-      ${{ (github.event_name != 'pull_request' ||
-      !contains(github.event.pull_request.labels.*.name, 'skip-ci')) &&
-      (github.event_name != 'pull_request' || github.event.action != 'edited') }}
+    # Temporarily skipped during Windows CI bring-up to avoid macOS runner minutes.
+    if: ${{ false }}
     runs-on: macos-26
     timeout-minutes: 15
     steps:
@@ -88,14 +91,15 @@ jobs:
     needs: ci-gate
     if: >
       ${{ (github.event_name != 'pull_request' ||
-      !contains(github.event.pull_request.labels.*.name, 'skip-ci')) &&
-      (github.event_name != 'pull_request' || github.event.action != 'edited') }}
+      !contains(github.event.pull_request.labels.*.name, 'skip-ci')) && (github.event_name
+      != 'pull_request' || github.event.action != 'edited') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-26, ubuntu-latest]
+        # Temporary Windows-only bring-up matrix; restore macOS/Linux after Windows is green.
+        os: [windows-latest]
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -104,6 +108,18 @@ jobs:
 
       - name: Set up Swift
         uses: ./.github/actions/setup-swift
+
+      - name: Restore SwiftPM cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build
+            ~/.swiftpm
+            ~/AppData/Local/org.swift.swiftpm
+          # prettier-ignore
+          key: swiftpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version', 'Package.resolved') }}
+          restore-keys: |
+            swiftpm-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Set up Zig on Linux
         if: runner.os == 'Linux'
@@ -131,6 +147,7 @@ jobs:
             pkg-config
 
       - name: Restore libghostty-vt cache
+        if: runner.os != 'Windows'
         uses: actions/cache@v4
         with:
           path: ~/.cache/tessera/libghostty-vt
@@ -144,5 +161,11 @@ jobs:
         with:
           tool: just
 
+      - name: Build and test Windows focus
+        if: runner.os == 'Windows'
+        shell: bash
+        run: just ci ci-windows
+
       - name: Build and test
+        if: runner.os != 'Windows'
         run: just ci

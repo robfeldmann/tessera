@@ -2,9 +2,9 @@
 name: Phase 2 Slice 6 Windows Terminal IO
 description:
   Complete TesseraTerminalIO's Windows implementation and enable Windows CI for Phase 2.
-status: pending
+status: in-progress
 created: 2026-06-14
-updated: 2026-07-01
+updated: 2026-07-02
 ---
 
 ## Progress
@@ -24,7 +24,7 @@ updated: 2026-07-01
 - [ ] **Phase 4 — CI, recovery docs, and manual verification**
   - [x] 4.1 Document per-platform terminal recovery (POSIX `reset`; Windows PowerShell
         RIS)
-  - [ ] 4.2 Enable Windows CI and document Windows manual verification
+  - [ ] 4.2 Enable Windows CI and document Windows manual verification (hosted CI pending)
 - [ ] **Phase 5 — Windows snapshot build spike (investigation)**
   - [ ] 5.1 Attempt the Windows libghostty-vt build; enable snapshots or confirm the skip
 
@@ -351,8 +351,15 @@ depends on it for local iteration.
   invoke `swift`/Examples build directly in the workflow step for Windows.
 - Document manual checks in Windows Terminal, conhost, and PowerShell: arrow keys, `q`
   clean exit, Ctrl-C cleanup, resize-driven redraw, and clean terminal restoration.
-- Acceptance: macOS/Linux validation remains green; Windows CI is green; Markdown lint
-  passes for edited docs.
+- 2026-07-02 budget adjustment: during Windows bring-up, hosted CI is intentionally
+  Windows-only, non-Windows jobs are skipped, and the Windows job runs the focused
+  `TesseraTerminalIOTests` filter via `just ci ci-windows`. Restore macOS/Linux jobs and
+  the full suite after the Windows runner path is green. Local focused validation passed
+  with `just windows-frost test -- --filter TesseraTerminalIOTests`; hosted GitHub Actions
+  validation has not been triggered yet to preserve private-repo minutes.
+- Final acceptance before marking this step complete: hosted Windows CI is green; the
+  temporary Windows-only/focused-test budget gates are removed; macOS/Linux validation is
+  restored and green; Markdown lint passes for edited docs.
 
 ## Phase 5 — Windows snapshot build spike (investigation)
 

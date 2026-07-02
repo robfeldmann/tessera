@@ -258,6 +258,36 @@ Windows default (`--no-parallel`) and appends your filter:
 just windows-frost test -- --filter WindowsInputLoopTests
 ```
 
+During Windows CI bring-up, the hosted workflow is intentionally Windows-only and runs the
+focused `TesseraTerminalIOTests` filter through `just ci ci-windows`. macOS/Linux jobs and
+the full suite should be restored after the Windows path is green. To spend fewer hosted
+minutes while iterating:
+
+- Prove changes locally in Frost or UTM before pushing.
+- Keep the `skip-ci` label on draft PRs until a hosted run is needed.
+- Push one fixup commit per validation attempt so workflow concurrency cancels obsolete
+  runs.
+- Use the `TESSERA_CI_WINDOWS_TEST_FILTER` repository variable to narrow or broaden the
+  Windows SwiftPM `--filter` without editing the workflow.
+- Rerun only failed jobs in GitHub Actions; avoid rerunning the full workflow unless setup
+  or cache state changed.
+
+The CI workflow restores the SwiftPM cache before `swift build`, keyed by the runner OS,
+architecture, `.swift-version`, and `Package.resolved`. Windows does not build
+libghostty-vt during this slice, so the Ghostty cache and prerequisites stay gated to
+non-Windows runners for when the full matrix is restored.
+
+For manual GUI validation, run a Tessera terminal demo in each Windows host terminal you
+intend to support:
+
+- Windows Terminal running PowerShell.
+- PowerShell in classic conhost.
+- `cmd.exe` in classic conhost.
+
+In each host, verify arrow keys, `q` clean exit, `Ctrl-C` cleanup, resize-driven redraw,
+and terminal restoration. After interruption, the prompt should return with normal input
+echo, a visible cursor, and the primary screen active.
+
 For manual UTM VM runs, bootstrap the VM and then run:
 
 ```sh
