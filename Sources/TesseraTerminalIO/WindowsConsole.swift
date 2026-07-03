@@ -30,23 +30,30 @@
       standardInputHandle: { windowsStandardHandle(STD_INPUT_HANDLE) },
       standardOutputHandle: { windowsStandardHandle(STD_OUTPUT_HANDLE) },
       getConsoleMode: { rawHandle in
+        guard let handle = windowsHandlePointer(from: rawHandle) else {
+          return nil
+        }
+
         var mode: DWORD = 0
-        guard GetConsoleMode(windowsHandlePointer(from: rawHandle), &mode) else {
+        guard GetConsoleMode(handle, &mode) else {
           return nil
         }
         return UInt32(mode)
       },
       setConsoleMode: { rawHandle, mode in
-        SetConsoleMode(windowsHandlePointer(from: rawHandle), DWORD(mode))
+        guard let handle = windowsHandlePointer(from: rawHandle) else {
+          return false
+        }
+
+        return SetConsoleMode(handle, DWORD(mode))
       },
       terminalSize: windowsTerminalSize,
       waitForSingleObject: { rawHandle, timeoutMilliseconds in
-        UInt32(
-          WaitForSingleObject(
-            windowsHandlePointer(from: rawHandle),
-            timeoutMilliseconds
-          )
-        )
+        guard let handle = windowsHandlePointer(from: rawHandle) else {
+          return WindowsWaitStatus.failed
+        }
+
+        return UInt32(WaitForSingleObject(handle, timeoutMilliseconds))
       },
       peekConsoleInput: windowsPeekConsoleInput,
       readConsoleInput: windowsReadConsoleInput,
@@ -99,8 +106,8 @@
     package static let failed = UInt32(WAIT_FAILED)
   }
 
-  package func windowsHandlePointer(from rawHandle: UInt) -> HANDLE {
-    HANDLE(bitPattern: rawHandle)!
+  package func windowsHandlePointer(from rawHandle: UInt) -> HANDLE? {
+    HANDLE(bitPattern: rawHandle)
   }
 
   private func windowsStandardHandle(_ standardHandle: DWORD) -> UInt? {
@@ -113,8 +120,12 @@
   }
 
   private func windowsTerminalSize(rawHandle: UInt) -> TerminalSize? {
+    guard let handle = windowsHandlePointer(from: rawHandle) else {
+      return nil
+    }
+
     var info = CONSOLE_SCREEN_BUFFER_INFO()
-    guard GetConsoleScreenBufferInfo(windowsHandlePointer(from: rawHandle), &info) else {
+    guard GetConsoleScreenBufferInfo(handle, &info) else {
       return nil
     }
 
@@ -131,11 +142,15 @@
     rawHandle: UInt,
     maxRecordCount: UInt32
   ) -> [WindowsInputRecord]? {
+    guard let handle = windowsHandlePointer(from: rawHandle) else {
+      return nil
+    }
+
     var records = [INPUT_RECORD](repeating: INPUT_RECORD(), count: Int(maxRecordCount))
     var readCount: DWORD = 0
     let succeeded = records.withUnsafeMutableBufferPointer { buffer in
       PeekConsoleInputW(
-        windowsHandlePointer(from: rawHandle),
+        handle,
         buffer.baseAddress,
         DWORD(buffer.count),
         &readCount
@@ -152,11 +167,15 @@
     rawHandle: UInt,
     maxRecordCount: UInt32
   ) -> [WindowsInputRecord]? {
+    guard let handle = windowsHandlePointer(from: rawHandle) else {
+      return nil
+    }
+
     var records = [INPUT_RECORD](repeating: INPUT_RECORD(), count: Int(maxRecordCount))
     var readCount: DWORD = 0
     let succeeded = records.withUnsafeMutableBufferPointer { buffer in
       ReadConsoleInputW(
-        windowsHandlePointer(from: rawHandle),
+        handle,
         buffer.baseAddress,
         DWORD(buffer.count),
         &readCount
@@ -174,10 +193,14 @@
     buffer: UnsafeMutableRawPointer?,
     count: UInt32
   ) -> Int? {
+    guard let handle = windowsHandlePointer(from: rawHandle) else {
+      return nil
+    }
+
     var readCount: DWORD = 0
     guard
       ReadFile(
-        windowsHandlePointer(from: rawHandle),
+        handle,
         buffer,
         DWORD(count),
         &readCount,
@@ -194,10 +217,14 @@
     buffer: UnsafeRawPointer?,
     count: UInt32
   ) -> Int? {
+    guard let handle = windowsHandlePointer(from: rawHandle) else {
+      return nil
+    }
+
     var writtenCount: DWORD = 0
     guard
       WriteFile(
-        windowsHandlePointer(from: rawHandle),
+        handle,
         buffer,
         DWORD(count),
         &writtenCount,
