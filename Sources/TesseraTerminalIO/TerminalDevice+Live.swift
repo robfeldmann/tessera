@@ -10,16 +10,16 @@ extension TerminalDevice {
     }
   }
 
+  private static var unsupported: Self {
+    failing(PlatformIOError.unsupportedPlatform)
+  }
+
   private static func liveFromStandardHandles() throws -> Self {
     #if os(macOS) || os(Linux) || os(Windows)
       return live(handles: try PlatformHandles.standard())
     #else
       throw PlatformIOError.unsupportedPlatform
     #endif
-  }
-
-  private static var unsupported: Self {
-    failing(PlatformIOError.unsupportedPlatform)
   }
 
   private static func failing(_ error: any Error) -> Self {

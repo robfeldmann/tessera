@@ -77,7 +77,7 @@
     }
 
     @Test
-    func `windows input loop drains leading resize then reads following key bytes`() async {
+    func `windows input loop drains resize before key bytes`() async {
       let size = TerminalSize(columns: 90, rows: 24)
       let state = WindowsInputState(
         waitResults: [WindowsWaitStatus.object],
@@ -143,7 +143,9 @@
 
       let io = await WindowsConsoleSystem.$override.withValue(state.system) {
         PlatformIO(
-          terminalDevice: .live(handles: PlatformHandles(inputHandle: 0x10, outputHandle: 0x20))
+          terminalDevice: .live(
+            handles: PlatformHandles(inputHandle: 0x10, outputHandle: 0x20)
+          )
         )
       }
       var iterator = io.events.makeAsyncIterator()

@@ -410,7 +410,10 @@
 
   private func address(_ pointer: OpaquePointer?, _ operation: String) throws -> UInt {
     guard let pointer else {
-      throw VirtualTerminalError.ghostty(operation: operation, result: GHOSTTY_INVALID_VALUE)
+      throw VirtualTerminalError.ghostty(
+        operation: operation,
+        result: GHOSTTY_INVALID_VALUE
+      )
     }
     return UInt(bitPattern: pointer)
   }

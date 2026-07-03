@@ -35,6 +35,43 @@ package actor PlatformIO {
     self.events = Self.events(from: self.bytes, sizeChanges: self.sizeChanges)
   }
 
+  private static func events(
+    from bytes: AsyncStream<[UInt8]>,
+    sizeChanges: AsyncStream<TerminalSize>
+  ) -> AsyncStream<InputEvent> {
+    AsyncStream { continuation in
+      let task = Task {
+        let resizeTask = Task {
+          for await size in sizeChanges {
+            continuation.yield(.resize(size))
+          }
+        }
+        defer { resizeTask.cancel() }
+
+        var parser = InputParser()
+        for await chunk in bytes {
+          if chunk.isEmpty {
+            for event in parser.flushPendingEscape() {
+              continuation.yield(event)
+            }
+          } else {
+            for event in parser.feed(contentsOf: chunk) {
+              continuation.yield(event)
+            }
+          }
+        }
+        for event in parser.flush() {
+          continuation.yield(event)
+        }
+        continuation.finish()
+      }
+
+      continuation.onTermination = { _ in
+        task.cancel()
+      }
+    }
+  }
+
   /// Buffers bytes for terminal output.
   package func write(_ bytes: [UInt8]) {
     outputBuffer.append(contentsOf: bytes)
@@ -110,42 +147,5 @@ package actor PlatformIO {
   /// Restores the terminal input mode captured before entering raw mode.
   package func disableRawMode() async throws {
     try await terminalDevice.exitRawMode()
-  }
-
-  private static func events(
-    from bytes: AsyncStream<[UInt8]>,
-    sizeChanges: AsyncStream<TerminalSize>
-  ) -> AsyncStream<InputEvent> {
-    AsyncStream { continuation in
-      let task = Task {
-        let resizeTask = Task {
-          for await size in sizeChanges {
-            continuation.yield(.resize(size))
-          }
-        }
-        defer { resizeTask.cancel() }
-
-        var parser = InputParser()
-        for await chunk in bytes {
-          if chunk.isEmpty {
-            for event in parser.flushPendingEscape() {
-              continuation.yield(event)
-            }
-          } else {
-            for event in parser.feed(contentsOf: chunk) {
-              continuation.yield(event)
-            }
-          }
-        }
-        for event in parser.flush() {
-          continuation.yield(event)
-        }
-        continuation.finish()
-      }
-
-      continuation.onTermination = { _ in
-        task.cancel()
-      }
-    }
   }
 }

@@ -265,7 +265,11 @@ func `flush treats zero byte write as failure and preserves bytes`() async throw
 @Test
 func `flush removes only bytes written before a later failure`() async throws {
   let output = CountingOutputWriter(
-    results: [.success(1), .failure(PlatformIOError.writeFailed(errno: .ioError)), .success(2)]
+    results: [
+      .success(1),
+      .failure(PlatformIOError.writeFailed(errno: .ioError)),
+      .success(2),
+    ]
   )
   let io = PlatformIO(terminalDevice: await output.terminalDevice)
 
@@ -281,7 +285,7 @@ func `flush removes only bytes written before a later failure`() async throws {
 }
 
 @Test
-func `flush retries buffered data after would block and interruption errors`() async throws {
+func `flush retries after transient write errors`() async throws {
   let output = CountingOutputWriter(
     results: [
       .failure(PlatformIOError.writeWouldBlock),
@@ -295,7 +299,10 @@ func `flush retries buffered data after would block and interruption errors`() a
   try await io.flush()
 
   let writes = await output.writes
-  expectNoDifference(writes, [[0x41, 0x42], [0x41, 0x42], [0x41, 0x42]])
+  expectNoDifference(
+    writes,
+    [[0x41, 0x42], [0x41, 0x42], [0x41, 0x42]]
+  )
 }
 
 #if os(Windows)
@@ -307,7 +314,9 @@ func `flush retries buffered data after would block and interruption errors`() a
 
       try await WindowsConsoleSystem.$override.withValue(state.system) {
         let io = PlatformIO(
-          terminalDevice: .live(handles: PlatformHandles(inputHandle: 0x10, outputHandle: 0x20))
+          terminalDevice: .live(
+            handles: PlatformHandles(inputHandle: 0x10, outputHandle: 0x20)
+          )
         )
 
         await io.write([0x48, 0x69])
@@ -318,19 +327,24 @@ func `flush retries buffered data after would block and interruption errors`() a
     }
 
     @Test
-    func `windows live terminal flush retries remaining bytes after partial writes`() async throws {
+    func `windows live terminal retries after partial writes`() async throws {
       let state = WindowsOutputState(writeResults: [.success(1), .success(2)])
 
       try await WindowsConsoleSystem.$override.withValue(state.system) {
         let io = PlatformIO(
-          terminalDevice: .live(handles: PlatformHandles(inputHandle: 0x10, outputHandle: 0x20))
+          terminalDevice: .live(
+            handles: PlatformHandles(inputHandle: 0x10, outputHandle: 0x20)
+          )
         )
 
         await io.write([0x48, 0x69, 0x21])
         try await io.flush()
       }
 
-      expectNoDifference(state.writeCalls, [[0x48, 0x69, 0x21], [0x69, 0x21]])
+      expectNoDifference(
+        state.writeCalls,
+        [[0x48, 0x69, 0x21], [0x69, 0x21]]
+      )
     }
 
     @Test
@@ -338,11 +352,16 @@ func `flush retries buffered data after would block and interruption errors`() a
       let state = WindowsOutputState(writeResults: [.failure(123)])
 
       await #expect(
-        throws: PlatformIOError.consoleOperationFailed(operation: .writeFile, errorCode: 123)
+        throws: PlatformIOError.consoleOperationFailed(
+          operation: .writeFile,
+          errorCode: 123
+        )
       ) {
         try await WindowsConsoleSystem.$override.withValue(state.system) {
           let io = PlatformIO(
-            terminalDevice: .live(handles: PlatformHandles(inputHandle: 0x10, outputHandle: 0x20))
+            terminalDevice: .live(
+              handles: PlatformHandles(inputHandle: 0x10, outputHandle: 0x20)
+            )
           )
 
           await io.write([0x41])
@@ -359,7 +378,9 @@ func `flush retries buffered data after would block and interruption errors`() a
 
       try await WindowsConsoleSystem.$override.withValue(state.system) {
         let io = PlatformIO(
-          terminalDevice: .live(handles: PlatformHandles(inputHandle: 0x10, outputHandle: 0x20))
+          terminalDevice: .live(
+            handles: PlatformHandles(inputHandle: 0x10, outputHandle: 0x20)
+          )
         )
 
         try await io.enableAltScreen()
@@ -371,7 +392,8 @@ func `flush retries buffered data after would block and interruption errors`() a
         [
           Array("\u{1B}[?1049h".utf8),
           Array("\u{1B}[?1049l".utf8),
-        ])
+        ]
+      )
     }
   }
 
@@ -399,7 +421,10 @@ func `flush retries buffered data after would block and interruption errors`() a
     private func write(buffer: UnsafeRawPointer?, count: UInt32) -> Int? {
       if let buffer {
         let bytes = Array(
-          UnsafeBufferPointer(start: buffer.assumingMemoryBound(to: UInt8.self), count: Int(count))
+          UnsafeBufferPointer(
+            start: buffer.assumingMemoryBound(to: UInt8.self),
+            count: Int(count)
+          )
         )
         writeCalls.append(bytes)
       } else {

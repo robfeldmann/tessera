@@ -11,7 +11,9 @@ import Testing
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."))
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
+)
 func `renderer output can be inspected as terminal text`() {
   var buffer = Buffer(size: TerminalSize(columns: 4, rows: 2))
   buffer.write("Hi", at: TerminalPosition(column: 0, row: 0))
@@ -31,7 +33,9 @@ func `renderer output can be inspected as terminal text`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."))
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
+)
 func `renderer output can be inspected as styled terminal state`() {
   var buffer = Buffer(size: TerminalSize(columns: 3, rows: 2))
   buffer.write("H", at: TerminalPosition(column: 0, row: 0))
@@ -57,7 +61,9 @@ func `renderer output can be inspected as styled terminal state`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."))
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
+)
 func `terminal debug dump includes cursor and styled cell metadata`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 4, rows: 2)
 

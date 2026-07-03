@@ -16,11 +16,14 @@ import Testing
       try await io.enableAltScreen()
       try await io.disableAltScreen()
 
-      expectNoDifference(try pty.readAvailable(), Array("\u{1B}[?1049h\u{1B}[?1049l".utf8))
+      expectNoDifference(
+        try pty.readAvailable(),
+        Array("\u{1B}[?1049h\u{1B}[?1049l".utf8)
+      )
     }
 
     @Test
-    func `live terminal raw mode disables canonical echo and restores termios`() async throws {
+    func `live terminal raw mode disables echo and restores termios`() async throws {
       let pty = try PTYFixture()
       defer { pty.closeAll() }
       let original = try pty.termios()
@@ -77,31 +80,40 @@ import Testing
   }
 
   private final class PTYFixture: @unchecked Sendable {
-    private var master: CInt = -1
-    private var slave: CInt = -1
+    private var primaryFileDescriptor: CInt = -1
+    private var replicaFileDescriptor: CInt = -1
 
     init() throws {
-      guard openpty(&master, &slave, nil, nil, nil) == 0 else {
+      guard
+        openpty(
+          &primaryFileDescriptor,
+          &replicaFileDescriptor,
+          nil,
+          nil,
+          nil
+        ) == 0
+      else {
         throw PlatformIOError.writeFailed(errno: .init(rawValue: errno))
       }
-      _ = fcntl(master, F_SETFL, fcntl(master, F_GETFL) | O_NONBLOCK)
+      let flags = fcntl(primaryFileDescriptor, F_GETFL)
+      _ = fcntl(primaryFileDescriptor, F_SETFL, flags | O_NONBLOCK)
     }
 
     func handles() -> PlatformHandles {
       PlatformHandles(
-        stdin: FileDescriptor(rawValue: slave),
-        stdout: FileDescriptor(rawValue: slave)
+        stdin: FileDescriptor(rawValue: replicaFileDescriptor),
+        stdout: FileDescriptor(rawValue: replicaFileDescriptor)
       )
     }
 
     func closeAll() {
-      if master >= 0 {
-        close(master)
-        master = -1
+      if primaryFileDescriptor >= 0 {
+        close(primaryFileDescriptor)
+        primaryFileDescriptor = -1
       }
-      if slave >= 0 {
-        close(slave)
-        slave = -1
+      if replicaFileDescriptor >= 0 {
+        close(replicaFileDescriptor)
+        replicaFileDescriptor = -1
       }
     }
 
@@ -110,7 +122,7 @@ import Testing
       var buffer = [UInt8](repeating: 0, count: 1_024)
       while true {
         let count = buffer.withUnsafeMutableBufferPointer { pointer in
-          read(master, pointer.baseAddress, pointer.count)
+          read(primaryFileDescriptor, pointer.baseAddress, pointer.count)
         }
         if count > 0 {
           bytes.append(contentsOf: buffer.prefix(count))
@@ -128,14 +140,14 @@ import Testing
 
     func setSize(columns: UInt16, rows: UInt16) throws {
       var size = winsize(ws_row: rows, ws_col: columns, ws_xpixel: 0, ws_ypixel: 0)
-      guard ioctl(slave, UInt(TIOCSWINSZ), &size) == 0 else {
+      guard ioctl(replicaFileDescriptor, UInt(TIOCSWINSZ), &size) == 0 else {
         throw PlatformIOError.terminalSizeUnavailable(errno: .init(rawValue: errno))
       }
     }
 
     func termios() throws -> termios {
       var value = Darwin.termios()
-      guard tcgetattr(slave, &value) == 0 else {
+      guard tcgetattr(replicaFileDescriptor, &value) == 0 else {
         throw PlatformIOError.rawModeFailed(errno: .init(rawValue: errno))
       }
       return value

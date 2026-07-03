@@ -19,14 +19,14 @@
   }
 
   package struct PlatformCleanupState: Sendable {
-    private let inputFileDescriptor: CInt
-    private let outputFileDescriptor: CInt
-    private let savedTermios: @Sendable () async -> termios?
-
     package static let unavailable = Self(
       inputFileDescriptor: -1,
       outputFileDescriptor: -1
     ) { nil }
+
+    private let inputFileDescriptor: CInt
+    private let outputFileDescriptor: CInt
+    private let savedTermios: @Sendable () async -> termios?
 
     package init(
       inputFileDescriptor: CInt,
@@ -78,14 +78,14 @@
   }
 
   package struct PlatformCleanupState: Sendable {
-    private let inputHandle: UInt
-    private let outputHandle: UInt
-    private let savedConsoleModes: @Sendable () async -> WindowsConsoleMode.SavedModes?
-
     package static let unavailable = Self(
       inputHandle: 0,
       outputHandle: 0
     ) { nil }
+
+    private let inputHandle: UInt
+    private let outputHandle: UInt
+    private let savedConsoleModes: @Sendable () async -> WindowsConsoleMode.SavedModes?
 
     package init(
       inputHandle: UInt,

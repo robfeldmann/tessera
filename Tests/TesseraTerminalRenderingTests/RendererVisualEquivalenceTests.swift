@@ -12,7 +12,9 @@ import Testing
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."))
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
+)
 func `damage render is visually equivalent for ascii edits`() {
   var previous = Buffer(size: TerminalSize(columns: 5, rows: 2))
   previous.write("hello", at: TerminalPosition(column: 0, row: 0))
@@ -34,7 +36,9 @@ func `damage render is visually equivalent for ascii edits`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."))
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
+)
 func `damage render is visually equivalent for styled text`() {
   var previous = Buffer(size: TerminalSize(columns: 3, rows: 1))
   previous.write("abc", at: TerminalPosition(column: 0, row: 0))
@@ -60,7 +64,9 @@ func `damage render is visually equivalent for styled text`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."))
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
+)
 func `damage render is visually equivalent for wide grapheme replacement`() {
   var previous = Buffer(size: TerminalSize(columns: 4, rows: 1))
   previous.write("你好", at: TerminalPosition(column: 0, row: 0))
@@ -79,7 +85,9 @@ func `damage render is visually equivalent for wide grapheme replacement`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."))
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
+)
 func `damage render is visually equivalent for row changes`() {
   var previous = Buffer(size: TerminalSize(columns: 4, rows: 3))
   previous.write("top", at: TerminalPosition(column: 0, row: 0))
@@ -103,7 +111,9 @@ func `damage render is visually equivalent for row changes`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."))
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
+)
 func `damage render is visually equivalent for visible raw payloads`() {
   let previous = Buffer(size: TerminalSize(columns: 4, rows: 1))
   var current = previous
@@ -126,7 +136,9 @@ func `damage render is visually equivalent for visible raw payloads`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."))
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
+)
 func `damage render preserves opaque regions`() {
   var previous = Buffer(size: TerminalSize(columns: 5, rows: 1))
   previous.write("abcde", at: TerminalPosition(column: 0, row: 0))
@@ -147,7 +159,9 @@ func `damage render preserves opaque regions`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."))
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
+)
 func `invalidated render erases before repainting`() {
   var previous = Buffer(size: TerminalSize(columns: 4, rows: 1))
   previous.write("stale", at: TerminalPosition(column: 0, row: 0))
@@ -176,7 +190,9 @@ func `invalidated render erases before repainting`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."))
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
+)
 func `synchronized damage render is visually equivalent`() {
   let previous = Buffer(size: TerminalSize(columns: 3, rows: 1))
   var current = previous
@@ -204,7 +220,9 @@ func `synchronized damage render is visually equivalent`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."))
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
+)
 func `zero width raw control payload does not affect visual state`() {
   let previous = Buffer(size: TerminalSize(columns: 3, rows: 1))
   var current = previous
@@ -231,7 +249,9 @@ private func snapshotAfterDamage(previous: Buffer, current: Buffer) -> ScreenSna
 
 private func terminalPainted(with buffer: Buffer) -> VirtualTerminal {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(
-    cols: buffer.size.columns, rows: buffer.size.rows)
+    cols: buffer.size.columns,
+    rows: buffer.size.rows
+  )
   terminal.feed(Renderer.render(buffer))
   return terminal
 }

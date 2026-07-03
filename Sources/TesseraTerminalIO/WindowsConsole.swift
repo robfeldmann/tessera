@@ -19,7 +19,8 @@
 
   /// Injectable Windows console syscall surface.
   package struct WindowsConsoleSystem: Sendable {
-    @TaskLocal package static var override: Self?
+    @TaskLocal
+    package static var override: Self?
 
     package static var current: Self {
       override ?? live
@@ -40,7 +41,12 @@
       },
       terminalSize: windowsTerminalSize,
       waitForSingleObject: { rawHandle, timeoutMilliseconds in
-        UInt32(WaitForSingleObject(windowsHandlePointer(from: rawHandle), timeoutMilliseconds))
+        UInt32(
+          WaitForSingleObject(
+            windowsHandlePointer(from: rawHandle),
+            timeoutMilliseconds
+          )
+        )
       },
       peekConsoleInput: windowsPeekConsoleInput,
       readConsoleInput: windowsReadConsoleInput,
@@ -169,7 +175,14 @@
     count: UInt32
   ) -> Int? {
     var readCount: DWORD = 0
-    guard ReadFile(windowsHandlePointer(from: rawHandle), buffer, DWORD(count), &readCount, nil)
+    guard
+      ReadFile(
+        windowsHandlePointer(from: rawHandle),
+        buffer,
+        DWORD(count),
+        &readCount,
+        nil
+      )
     else {
       return nil
     }
@@ -182,7 +195,14 @@
     count: UInt32
   ) -> Int? {
     var writtenCount: DWORD = 0
-    guard WriteFile(windowsHandlePointer(from: rawHandle), buffer, DWORD(count), &writtenCount, nil)
+    guard
+      WriteFile(
+        windowsHandlePointer(from: rawHandle),
+        buffer,
+        DWORD(count),
+        &writtenCount,
+        nil
+      )
     else {
       return nil
     }

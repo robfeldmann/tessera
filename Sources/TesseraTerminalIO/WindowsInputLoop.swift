@@ -33,6 +33,75 @@
       self.peekRecordLimit = peekRecordLimit
     }
 
+    private static func run(
+      inputHandle: UInt,
+      system: WindowsConsoleSystem,
+      pollTimeoutMilliseconds: UInt32,
+      peekRecordLimit: UInt32,
+      loop: WindowsInputLoop
+    ) async {
+      var buffer = [UInt8](repeating: 0, count: 256)
+
+      while !Task.isCancelled {
+        let waitResult = system.waitForSingleObject(inputHandle, pollTimeoutMilliseconds)
+        if waitResult == WindowsWaitStatus.timeout {
+          await loop.yieldBytes([])
+          continue
+        }
+        guard waitResult == WindowsWaitStatus.object else {
+          await loop.finishAll()
+          return
+        }
+
+        guard let records = system.peekConsoleInput(inputHandle, peekRecordLimit) else {
+          await loop.finishAll()
+          return
+        }
+        guard records.isEmpty == false else {
+          continue
+        }
+
+        let firstKeyIndex = records.firstIndex { $0.isKey }
+        let drainCount = firstKeyIndex ?? records.count
+        if drainCount > 0 {
+          guard
+            let drainedRecords = system.readConsoleInput(
+              inputHandle,
+              UInt32(drainCount)
+            )
+          else {
+            await loop.finishAll()
+            return
+          }
+          for record in drainedRecords {
+            if case .resize(let size) = record {
+              await loop.yieldSize(size)
+            }
+          }
+        }
+
+        guard firstKeyIndex != nil else {
+          continue
+        }
+
+        let readCount = buffer.withUnsafeMutableBufferPointer { pointer in
+          system.readFile(inputHandle, pointer.baseAddress, UInt32(pointer.count))
+        }
+        guard let readCount else {
+          await loop.finishAll()
+          return
+        }
+        guard readCount > 0 else {
+          await loop.finishAll()
+          return
+        }
+
+        await loop.yieldBytes(Array(buffer.prefix(readCount)))
+      }
+
+      await loop.finishAll()
+    }
+
     package nonisolated func bytes() -> AsyncStream<[UInt8]> {
       AsyncStream { continuation in
         let registration = Task { await self.registerByteContinuation(continuation) }
@@ -141,71 +210,6 @@
       for continuation in sizeContinuations {
         continuation.finish()
       }
-    }
-
-    private static func run(
-      inputHandle: UInt,
-      system: WindowsConsoleSystem,
-      pollTimeoutMilliseconds: UInt32,
-      peekRecordLimit: UInt32,
-      loop: WindowsInputLoop
-    ) async {
-      var buffer = [UInt8](repeating: 0, count: 256)
-
-      while !Task.isCancelled {
-        let waitResult = system.waitForSingleObject(inputHandle, pollTimeoutMilliseconds)
-        if waitResult == WindowsWaitStatus.timeout {
-          await loop.yieldBytes([])
-          continue
-        }
-        guard waitResult == WindowsWaitStatus.object else {
-          await loop.finishAll()
-          return
-        }
-
-        guard let records = system.peekConsoleInput(inputHandle, peekRecordLimit) else {
-          await loop.finishAll()
-          return
-        }
-        guard records.isEmpty == false else {
-          continue
-        }
-
-        let firstKeyIndex = records.firstIndex { $0.isKey }
-        let drainCount = firstKeyIndex ?? records.count
-        if drainCount > 0 {
-          guard let drainedRecords = system.readConsoleInput(inputHandle, UInt32(drainCount))
-          else {
-            await loop.finishAll()
-            return
-          }
-          for record in drainedRecords {
-            if case .resize(let size) = record {
-              await loop.yieldSize(size)
-            }
-          }
-        }
-
-        guard firstKeyIndex != nil else {
-          continue
-        }
-
-        let readCount = buffer.withUnsafeMutableBufferPointer { pointer in
-          system.readFile(inputHandle, pointer.baseAddress, UInt32(pointer.count))
-        }
-        guard let readCount else {
-          await loop.finishAll()
-          return
-        }
-        guard readCount > 0 else {
-          await loop.finishAll()
-          return
-        }
-
-        await loop.yieldBytes(Array(buffer.prefix(readCount)))
-      }
-
-      await loop.finishAll()
     }
   }
 

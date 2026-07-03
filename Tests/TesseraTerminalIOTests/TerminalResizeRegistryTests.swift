@@ -9,7 +9,10 @@ import Testing
   func `resize registry yields queried sizes for notifications`() async throws {
     let (notifications, notificationContinuation) = AsyncStream.makeStream(of: Void.self)
     final class State: @unchecked Sendable {
-      var sizes = [TerminalSize(columns: 80, rows: 24), TerminalSize(columns: 100, rows: 30)]
+      var sizes = [
+        TerminalSize(columns: 80, rows: 24),
+        TerminalSize(columns: 100, rows: 30),
+      ]
     }
     let state = State()
     let stream = TerminalResizeRegistry.sizeChanges(
@@ -39,7 +42,9 @@ import Testing
     let stream = TerminalResizeRegistry.sizeChanges(
       querySize: {
         defer { state.calls += 1 }
-        if state.calls == 0 { throw PlatformIOError.terminalSizeUnavailable(errno: .ioError) }
+        if state.calls == 0 {
+          throw PlatformIOError.terminalSizeUnavailable(errno: .ioError)
+        }
         return TerminalSize(columns: 90, rows: 25)
       },
       notifications: notifications

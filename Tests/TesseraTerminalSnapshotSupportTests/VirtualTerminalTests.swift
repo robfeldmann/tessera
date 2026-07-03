@@ -5,7 +5,8 @@ import Testing
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
 )
 func `initial screen is blank`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 4, rows: 2)
@@ -18,7 +19,8 @@ func `initial screen is blank`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
 )
 func `characters write into visible cells`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 5, rows: 2)
@@ -33,7 +35,8 @@ func `characters write into visible cells`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
 )
 func `cursor movement writes at requested position`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 5, rows: 3)
@@ -47,7 +50,8 @@ func `cursor movement writes at requested position`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
 )
 func `erase in line clears visible cells`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 5, rows: 1)
@@ -61,7 +65,8 @@ func `erase in line clears visible cells`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
 )
 func `sgr style and colors are inspectable`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 4, rows: 1)
@@ -83,7 +88,8 @@ func `sgr style and colors are inspectable`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
 )
 func `cursor position is inspectable`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 8, rows: 3)

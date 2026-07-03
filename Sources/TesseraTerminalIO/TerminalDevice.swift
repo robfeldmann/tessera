@@ -30,7 +30,9 @@ package struct TerminalDevice: Sendable {
   package var write: @Sendable (ArraySlice<UInt8>) async throws -> Int
 
   package init(
-    bytes: @escaping @Sendable () -> AsyncStream<[UInt8]> = { AsyncStream { $0.finish() } },
+    bytes: @escaping @Sendable () -> AsyncStream<[UInt8]> = {
+      AsyncStream { $0.finish() }
+    },
     cleanupState: PlatformCleanupState = .unavailable,
     enterAltScreen: @escaping @Sendable () async throws -> Void = {},
     enterRawMode: @escaping @Sendable () async throws -> Void = {},
