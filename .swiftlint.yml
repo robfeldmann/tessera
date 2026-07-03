@@ -4,6 +4,7 @@
 # Disabled default rules
 disabled_rules:
   - file_length
+  - cyclomatic_complexity
   - function_body_length
   - function_parameter_count
   - identifier_name
@@ -105,9 +106,12 @@ included:
   - Sources
   - Tests
   - Package.swift
+  - Examples/Sources
+  - Examples/Package.swift
 
 excluded:
   - .build
+  - Examples/.build
   - Packages
 
 # Rule configurations

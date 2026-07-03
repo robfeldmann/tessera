@@ -40,6 +40,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Centralized SwiftLint coverage in the root config so example sources lint with the main
+  package, removed the redundant example config symlink, and disabled cyclomatic
+  complexity warnings.
+
 - Enabled Ghostty-backed snapshot tests on hosted Windows CI: the test job now builds
   libghostty-vt on all three platforms (Windows via `scripts/build-libghostty-vt.ps1`) and
   sets `TESSERA_GHOSTTY_WINDOWS=1`.
