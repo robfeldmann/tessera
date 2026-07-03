@@ -50,9 +50,8 @@ extension TerminalDevice {
         bytes: { POSIXInputLoop.bytes(fileDescriptor: stdin) },
         cleanupState: PlatformCleanupState(
           inputFileDescriptor: stdin,
-          outputFileDescriptor: stdout,
-          savedTermios: { await mode.savedTermios() }
-        ),
+          outputFileDescriptor: stdout
+        ) { await mode.savedTermios() },
         enterAltScreen: {
           // DEC private mode 1049: enter alternate screen, `CSI ? 1049 h`.
           try writeAll(Array("\u{1B}[?1049h".utf8), to: stdout)
@@ -81,9 +80,8 @@ extension TerminalDevice {
         bytes: { inputLoop.bytes() },
         cleanupState: PlatformCleanupState(
           inputHandle: handles.inputHandle,
-          outputHandle: outputHandle,
-          savedConsoleModes: { await mode.savedModes() }
-        ),
+          outputHandle: outputHandle
+        ) { await mode.savedModes() },
         enterAltScreen: {
           // DEC private mode 1049: enter alternate screen, `CSI ? 1049 h`.
           try writeAll(Array("\u{1B}[?1049h".utf8), to: outputHandle, system: system)
@@ -264,9 +262,8 @@ extension TerminalDevice {
       return Self(
         cleanupState: PlatformCleanupState(
           inputHandle: inputHandle,
-          outputHandle: outputHandle,
-          savedConsoleModes: { await mode.savedModes() }
-        ),
+          outputHandle: outputHandle
+        ) { await mode.savedModes() },
         enterRawMode: { try await mode.enterRawMode() },
         exitRawMode: { try await mode.exitRawMode() },
         size: { throw PlatformIOError.unsupportedPlatform },

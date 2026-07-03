@@ -198,9 +198,8 @@ import Testing
     func `platform io installs cleanup from windows console modes`() async {
       let cleanupState = PlatformCleanupState(
         inputHandle: 1,
-        outputHandle: 2,
-        savedConsoleModes: { .init(input: 0x0001, output: 0x0004) }
-      )
+        outputHandle: 2
+      ) { .init(input: 0x0001, output: 0x0004) }
       let io = PlatformIO(
         terminalDevice: TerminalDevice(
           cleanupState: cleanupState,

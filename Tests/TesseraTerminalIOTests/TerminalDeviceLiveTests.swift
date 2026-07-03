@@ -107,7 +107,7 @@ import Testing
 
     func readAvailable() throws -> [UInt8] {
       var bytes: [UInt8] = []
-      var buffer = [UInt8](repeating: 0, count: 1024)
+      var buffer = [UInt8](repeating: 0, count: 1_024)
       while true {
         let count = buffer.withUnsafeMutableBufferPointer { pointer in
           read(master, pointer.baseAddress, pointer.count)

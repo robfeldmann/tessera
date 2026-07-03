@@ -45,9 +45,8 @@
       peekConsoleInput: windowsPeekConsoleInput,
       readConsoleInput: windowsReadConsoleInput,
       readFile: windowsReadFile,
-      writeFile: windowsWriteFile,
-      lastErrorCode: { UInt32(GetLastError()) }
-    )
+      writeFile: windowsWriteFile
+    ) { UInt32(GetLastError()) }
 
     package var standardInputHandle: @Sendable () -> UInt?
     package var standardOutputHandle: @Sendable () -> UInt?

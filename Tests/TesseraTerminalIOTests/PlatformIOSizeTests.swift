@@ -61,11 +61,9 @@ func `size propagates unavailable size errors`() async {
 #if os(Windows)
   @Test
   func `windows live terminal reads console window size`() async throws {
-    let system = WindowsConsoleSystem.stub(
-      terminalSize: { handle in
-        handle == 0x20 ? TerminalSize(columns: 132, rows: 43) : nil
-      }
-    )
+    let system = WindowsConsoleSystem.stub { handle in
+      handle == 0x20 ? TerminalSize(columns: 132, rows: 43) : nil
+    }
 
     try await WindowsConsoleSystem.$override.withValue(system) {
       let io = PlatformIO(

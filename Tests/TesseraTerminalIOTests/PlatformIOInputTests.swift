@@ -37,13 +37,13 @@ import Testing
   struct POSIXInputLoopSeamTests {
     @Test
     func `input loop finishes when cancellation pipe setup fails`() async {
-      let value = await nextValue(with: .stub(pipe: { _ in -1 }))
+      let value = await nextValue(with: .stub { _ in -1 })
       expectNoDifference(value, nil)
     }
 
     @Test
     func `input loop yields empty chunks on poll timeout`() async {
-      let value = await nextValue(with: .stub(poll: { _, _, _ in 0 }))
+      let value = await nextValue(with: .stub { _, _, _ in 0 })
 
       expectNoDifference(value, [])
     }
@@ -91,20 +91,20 @@ import Testing
     @Test
     func `input loop finishes on fatal poll failure`() async {
       let value = await nextValue(
-        with: .stub(poll: { _, _, _ in
+        with: .stub { _, _, _ in
           errno = EIO
           return -1
-        }))
+        })
       expectNoDifference(value, nil)
     }
 
     @Test
     func `input loop finishes when cancellation pipe wakes poll`() async {
       let value = await nextValue(
-        with: .stub(poll: { descriptors, _, _ in
+        with: .stub { descriptors, _, _ in
           descriptors?[1].revents = Int16(POLLIN)
           return 1
-        }))
+        })
       expectNoDifference(value, nil)
     }
 

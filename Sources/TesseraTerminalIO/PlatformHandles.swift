@@ -25,9 +25,8 @@
 
     package static let unavailable = Self(
       inputFileDescriptor: -1,
-      outputFileDescriptor: -1,
-      savedTermios: { nil }
-    )
+      outputFileDescriptor: -1
+    ) { nil }
 
     package init(
       inputFileDescriptor: CInt,
@@ -85,9 +84,8 @@
 
     package static let unavailable = Self(
       inputHandle: 0,
-      outputHandle: 0,
-      savedConsoleModes: { nil }
-    )
+      outputHandle: 0
+    ) { nil }
 
     package init(
       inputHandle: UInt,
