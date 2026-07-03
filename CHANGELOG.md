@@ -9,6 +9,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Added `.worktreeinclude` so Worktrunk copies the gitignored Windows Frost env file into
+  future worktrees, and clarified the Windows Frost source-sync message for unstaged
+  deletes.
+
 - Added the Phase 3 modern terminal protocols implementation plan bundle, with an umbrella
   coordination plan and separate executable slice plans for bracketed paste, focus events,
   SGR mouse tracking, Kitty keyboard, OSC 8 hyperlinks, and capability detection.
