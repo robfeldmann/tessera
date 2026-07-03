@@ -1,3 +1,6 @@
+import Foundation
+import InlineSnapshotTesting
+import SnapshotTesting
 import TesseraTerminalCore
 import Testing
 
@@ -265,10 +268,165 @@ func `parser emits unknown for invalid utf8`() {
 }
 
 @Test
-func `input event can represent resize and unknown sequences`() {
+func `event log formats parser transcripts deterministically`() {
+  let events: [InputEvent] = [
+    .key(Key(code: .character("A"), modifiers: [.shift, .control])),
+    .paste("line\nbreak"),
+    .resize(TerminalSize(columns: 2, rows: 1)),
+    .unknown([0x1B, 0x5B]),
+  ]
+
+  assertInlineSnapshot(of: eventLog(events), as: .lines) {
+    """
+    key(character("A"), modifiers: shift+control)
+    paste("line\\nbreak")
+    resize(columns: 2, rows: 1)
+    unknown(1B 5B)
+    """
+  }
+}
+
+@Test
+func `parser emits one paste event for complete bracketed paste`() {
+  var parser = InputParser()
+
+  #expect(parser.feed(contentsOf: bracketedPaste("hello")) == [.paste("hello")])
+}
+
+@Test
+func `parser emits empty paste event for empty bracketed paste payload`() {
+  var parser = InputParser()
+
+  #expect(parser.feed(contentsOf: bracketedPaste("")) == [.paste("")])
+}
+
+@Test
+func `parser emits one paste event when bracketed paste arrives byte by byte`() {
+  var parser = InputParser()
+  var events: [InputEvent] = []
+
+  for byte in bracketedPaste("bytewise") {
+    events.append(contentsOf: parser.feed(byte))
+  }
+
+  #expect(events == [.paste("bytewise")])
+}
+
+@Test
+func `parser recognizes bracketed paste start marker split across feeds`() {
+  var parser = InputParser()
+
+  #expect(parser.feed(contentsOf: Array("\u{1B}[2".utf8)).isEmpty)
+  #expect(parser.feed(contentsOf: Array("00~".utf8)).isEmpty)
+  #expect(parser.feed(contentsOf: Array("split\u{1B}[201~".utf8)) == [.paste("split")])
+}
+
+@Test
+func `parser recognizes bracketed paste end marker split across feeds`() {
+  var parser = InputParser()
+
+  #expect(parser.feed(contentsOf: bracketedPasteStart + Array("payload".utf8)).isEmpty)
+  #expect(parser.feed(contentsOf: Array("\u{1B}[20".utf8)).isEmpty)
+  #expect(parser.feed(0x31).isEmpty)
+  #expect(parser.feed(0x7E) == [.paste("payload")])
+}
+
+@Test
+func `parser preserves multiline bracketed paste payloads`() {
+  var parser = InputParser()
+
+  #expect(
+    parser.feed(contentsOf: bracketedPaste("one\ntwo\r\nthree")) == [
+      .paste("one\ntwo\r\nthree")
+    ])
+}
+
+@Test
+func `parser decodes utf8 bracketed paste payloads`() {
+  var parser = InputParser()
+
+  #expect(parser.feed(contentsOf: bracketedPaste("你好🙂")) == [.paste("你好🙂")])
+}
+
+@Test
+func `parser decodes invalid utf8 paste payloads with replacement characters`() {
+  var parser = InputParser()
+  let bytes = bracketedPasteStart + [0xE4, 0x41] + bracketedPasteEnd
+
+  #expect(parser.feed(contentsOf: bytes) == [.paste("\u{FFFD}A")])
+}
+
+@Test
+func `parser treats ansi looking bytes inside bracketed paste as payload`() {
+  var parser = InputParser()
+  let payload = "\u{1B}[A\u{1B}[200~literal"
+
+  #expect(parser.feed(contentsOf: bracketedPaste(payload)) == [.paste(payload)])
+}
+
+@Test
+func `parser treats bracketed paste start marker inside active paste as payload`() {
+  var parser = InputParser()
+  let payload = "before\u{1B}[200~after"
+
+  #expect(parser.feed(contentsOf: bracketedPaste(payload)) == [.paste(payload)])
+}
+
+@Test
+func `parser emits distinct events for consecutive bracketed pastes`() {
+  var parser = InputParser()
+  let bytes = bracketedPaste("first") + bracketedPaste("second")
+
+  #expect(parser.feed(contentsOf: bytes) == [.paste("first"), .paste("second")])
+}
+
+@Test
+func `parser keeps ordinary keys around bracketed paste separate`() {
+  var parser = InputParser()
+  let bytes = Array("a".utf8) + bracketedPaste("bulk") + Array("b".utf8)
+
+  assertInlineSnapshot(of: eventLog(parser.feed(contentsOf: bytes)), as: .lines) {
+    """
+    key(character("a"), modifiers: none)
+    paste("bulk")
+    key(character("b"), modifiers: none)
+    """
+  }
+}
+
+@Test
+func `parser does not emit partial key events for incomplete bracketed paste`() {
+  var parser = InputParser()
+
+  #expect(parser.feed(contentsOf: bracketedPasteStart + Array("abc\u{1B}[A".utf8)).isEmpty)
+}
+
+@Test
+func `parser does not flush pending escape while bracketed paste is active`() {
+  var parser = InputParser()
+
+  #expect(parser.feed(contentsOf: bracketedPasteStart + Array("p".utf8)).isEmpty)
+  #expect(parser.flushPendingEscape().isEmpty)
+  #expect(parser.feed(contentsOf: bracketedPasteEnd) == [.paste("p")])
+}
+
+@Test
+func `parser flushes unterminated bracketed paste as unknown bytes`() {
+  var parser = InputParser()
+  let bytes = bracketedPasteStart + Array("abc\u{1B}[20".utf8)
+
+  #expect(parser.feed(contentsOf: bytes).isEmpty)
+  #expect(parser.flush() == [.unknown(bytes)])
+  #expect(parser.flush().isEmpty)
+}
+
+@Test
+func `input event can represent paste resize and unknown sequences`() {
+  let paste = InputEvent.paste("hello")
   let resize = InputEvent.resize(TerminalSize(columns: 80, rows: 24))
   let unknown = InputEvent.unknown([0x1B, 0x5B, 0x39, 0x39, 0x58])
 
+  #expect(paste == .paste("hello"))
   #expect(resize == .resize(TerminalSize(columns: 80, rows: 24)))
   #expect(unknown == .unknown([0x1B, 0x5B, 0x39, 0x39, 0x58]))
 }
@@ -281,4 +439,49 @@ func `key stores code and modifiers`() {
   #expect(key.modifiers.contains(.control))
   #expect(key.modifiers.contains(.shift))
   #expect(key.modifiers.contains(.alt) == false)
+}
+
+private let bracketedPasteStart = Array("\u{1B}[200~".utf8)
+private let bracketedPasteEnd = Array("\u{1B}[201~".utf8)
+
+private func bracketedPaste(_ string: String) -> [UInt8] {
+  bracketedPasteStart + Array(string.utf8) + bracketedPasteEnd
+}
+
+private func eventLog(_ events: [InputEvent]) -> String {
+  events.map(eventLogLine).joined(separator: "\n")
+}
+
+private func eventLogLine(_ event: InputEvent) -> String {
+  switch event {
+  case .key(let key):
+    "key(\(key.code), modifiers: \(modifierLog(key.modifiers)))"
+
+  case .paste(let string):
+    "paste(\(String(reflecting: string)))"
+
+  case .resize(let size):
+    "resize(columns: \(size.columns), rows: \(size.rows))"
+
+  case .unknown(let bytes):
+    "unknown(\(hex(bytes)))"
+  }
+}
+
+private func modifierLog(_ modifiers: Modifiers) -> String {
+  var names: [String] = []
+  if modifiers.contains(.shift) {
+    names.append("shift")
+  }
+  if modifiers.contains(.alt) {
+    names.append("alt")
+  }
+  if modifiers.contains(.control) {
+    names.append("control")
+  }
+  return names.isEmpty ? "none" : names.joined(separator: "+")
+}
+
+private func hex(_ bytes: [UInt8]) -> String {
+  bytes.map { String(format: "%02X", $0) }.joined(separator: " ")
 }

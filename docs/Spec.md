@@ -3893,11 +3893,18 @@ accumulated payload and emit one `InputEvent.paste(String)`.
 
 The concrete hook: the start marker arrives through the existing `.csi` state as a
 tilde-terminated sequence with parameter `200`. `parseCSI` dispatches those through
-`keyCode(forTildeParameter:)` today; parameter `200` instead transitions to a new
-`State.bracketedPaste(accumulated: [UInt8])` case, and parameter `201` seen outside paste
-mode is malformed (existing unknown policy). Inside `.bracketedPaste`, bytes accumulate as
-payload while the parser scans for the exact end marker; when a byte breaks a partial
-end-marker match, the partial-marker bytes are replayed as payload.
+`keyCode(forTildeParameter:)` today; parameter `200` instead clears a private paste byte
+buffer and transitions to `State.bracketedPaste(matchedEndMarkerBytes: 0)`. Parameter
+`201` seen outside paste mode is malformed (existing unknown policy). Inside
+`.bracketedPaste`, bytes append to the private paste buffer while the parser tracks how
+many bytes of the exact end marker have matched. When a byte breaks a partial end-marker
+match, the matched marker-prefix bytes are replayed as payload.
+
+Large pastes are expected. Do not store the growing payload in the enum associated value,
+do not allocate a candidate array per byte, and do not implement bulk input with
+`bytes.flatMap { feed($0) }`. `feed(contentsOf:)` should preserve the public parser
+surface while avoiding per-byte event-array churn; a 337 KB paste should parse in low-tens
+of milliseconds on a modern machine, not hundreds of milliseconds.
 
 Important edge cases:
 
@@ -3907,8 +3914,8 @@ Important edge cases:
 - A paste may be split across many reads.
 - The start marker itself may be split across reads.
 - The end marker itself may be split across reads.
-- Invalid UTF-8 should not crash the parser. Pick one policy and test it: either emit
-  replacement characters or surface `.unknown([UInt8])`.
+- Invalid UTF-8 should not crash the parser. Completed paste payloads use Swift's lossy
+  UTF-8 decoding and emit replacement characters for invalid byte sequences.
 - Input-idle notifications must not disturb paste accumulation. `PlatformIO`'s event
   pipeline calls `flushPendingEscape()` whenever an empty idle chunk arrives — which is
   constantly, on every poll timeout. That method acts only on the bare-`.escape` state
@@ -3916,6 +3923,9 @@ Important edge cases:
 - `flush()` (end of the input stream) with an unterminated paste follows the existing
   incomplete-sequence policy: emit `.unknown` carrying the start marker plus the
   accumulated payload bytes, mirroring the current `.csi`/`.ss3` flush behavior.
+- Empty paste payloads emit `.paste("")`.
+- A start marker seen while already inside paste mode is payload, not a nested paste.
+- Consecutive bracketed pastes must clear paste buffer state between emitted events.
 
 The key design point is that bracketed paste is a _parser mode_, not just another escape
 sequence. Once inside paste mode, the normal key parser is suspended until the closing
@@ -3954,6 +3964,10 @@ Add parser tests for:
 - pasted multiline text
 - pasted UTF-8 text
 - ANSI-looking bytes inside paste payload
+- empty paste payload
+- start marker inside active paste payload
+- consecutive bracketed pastes
+- invalid UTF-8 paste uses replacement characters
 - ordinary key parsing still works before and after paste
 - incomplete paste does not emit partial key events
 - paste state survives an input-idle flush (`flushPendingEscape()` mid-paste)

@@ -64,6 +64,9 @@ enum RendererDemo {
     case .key:
       state.message = "press n/p to change scenes, space to animate, i to invalidate"
 
+    case .paste(let text):
+      state.message = "paste ignored by renderer demo: \(text.count) characters"
+
     case .resize(let size):
       state.message = resizeMessage(size)
       terminal.invalidateRenderer()

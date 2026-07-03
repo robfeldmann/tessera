@@ -38,7 +38,7 @@ enum HelloTessera {
             try await render(lastKey: lastKey, to: terminal)
           }
 
-        case .resize, .unknown:
+        case .paste, .resize, .unknown:
           break
         }
       }

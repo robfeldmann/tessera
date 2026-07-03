@@ -3,18 +3,18 @@ name: Phase 3 Modern Terminal Protocols
 description:
   Coordinate the six Phase 3 protocol slices so parser, lifecycle, renderer, tests, and
   the example app evolve consistently.
-status: in-review
+status: in-progress
 created: 2026-07-02
-updated: 2026-07-02
+updated: 2026-07-03
 ---
 
 ## Progress
 
-- [ ] **Phase 1 — Approve shared Phase 3 contracts**
-  - [ ] 1.1 Review the seven-plan bundle and confirm slice order
-  - [ ] 1.2 Approve shared parser, lifecycle, renderer, and example-app rules
+- [x] **Phase 1 — Approve shared Phase 3 contracts**
+  - [x] 1.1 Review the seven-plan bundle and confirm slice order
+  - [x] 1.2 Approve shared parser, lifecycle, renderer, and example-app rules
 - [ ] **Phase 2 — Execute input protocol slices**
-  - [ ] 2.1 Implement bracketed paste from plan 016
+  - [x] 2.1 Implement bracketed paste from plan 016
   - [ ] 2.2 Implement focus events from plan 017
   - [ ] 2.3 Implement SGR mouse tracking from plan 018
   - [ ] 2.4 Implement Kitty keyboard and dynamic mode apply from plan 019
@@ -204,6 +204,9 @@ and wait for review.
   unless they match the exact bracketed-paste end marker.
 - Focus, mouse, and Kitty reports are recognized only in normal parser mode.
 - Byte splitting is part of every parser contract. Each protocol gets byte-by-byte tests.
+- Parser protocol modes must avoid hot-path heap churn. Use bounded marker state and
+  private buffers for large payload modes; do not reintroduce `bytes.flatMap { feed($0) }`
+  or per-byte event-array allocation in `feed(contentsOf:)`.
 - `PlatformIO` remains the single raw-byte-to-`InputEvent` pipeline. Empty byte chunks
   keep their current meaning: input-idle notifications for bare-Escape disambiguation.
 

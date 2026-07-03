@@ -3,9 +3,9 @@ name: Phase 3 Slice 4 Kitty Keyboard Protocol
 description:
   Add Kitty keyboard parsing and lifecycle support, expand key metadata, and introduce
   dynamic application-mode reconciliation for Phase 4 requirements.
-status: in-review
+status: pending
 created: 2026-07-02
-updated: 2026-07-02
+updated: 2026-07-03
 ---
 
 ## Progress
@@ -126,6 +126,9 @@ CSI reports remain lossless `.unknown` events.
   - colon-separated subparameters
   - missing parameter values where the protocol permits defaults
 - Keep this helper private until a public parser type is justified.
+- Keep the parameter parser single-pass over accumulated CSI bytes. Avoid substring-heavy
+  parsing or per-parameter heap churn; Kitty reports are small, but they share the parser
+  hot path with paste, mouse, and legacy keys.
 - Existing legacy key parsing may continue to use the old integer helper if that keeps the
   diff smaller. Do not rewrite legacy parsing for style.
 

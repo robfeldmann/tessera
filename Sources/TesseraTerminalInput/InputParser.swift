@@ -1,6 +1,7 @@
 /// Parses raw terminal input bytes into semantic terminal events.
 public struct InputParser: Sendable {
   private enum State: Sendable {
+    case bracketedPaste(matchedEndMarkerBytes: Int)
     case csi(accumulated: [UInt8])
     case escape
     case ground
@@ -8,7 +9,15 @@ public struct InputParser: Sendable {
     case utf8(expectedCount: Int, accumulated: [UInt8])
   }
 
+  private static let bracketedPasteStartMarker: [UInt8] = [
+    0x1B, 0x5B, 0x32, 0x30, 0x30, 0x7E,
+  ]
+  private static let bracketedPasteEndMarker: [UInt8] = [
+    0x1B, 0x5B, 0x32, 0x30, 0x31, 0x7E,
+  ]
+
   private var state: State = .ground
+  private var bracketedPasteBuffer: [UInt8] = []
 
   /// Whether the parser is waiting to disambiguate a bare Escape byte.
   package var isWaitingForEscape: Bool {
@@ -31,6 +40,17 @@ public struct InputParser: Sendable {
   /// Feeds one byte into the parser.
   public mutating func feed(_ byte: UInt8) -> [InputEvent] {
     switch state {
+    case .bracketedPaste(let matchedEndMarkerBytes):
+      guard
+        let event = parseBracketedPaste(
+          byte,
+          matchedEndMarkerBytes: matchedEndMarkerBytes
+        )
+      else {
+        return []
+      }
+      return [event]
+
     case .csi(let accumulated):
       return parseCSI(byte, accumulated: accumulated)
 
@@ -71,7 +91,29 @@ public struct InputParser: Sendable {
   public mutating func feed<S: Sequence>(
     contentsOf bytes: S
   ) -> [InputEvent] where S.Element == UInt8 {
-    bytes.flatMap { feed($0) }
+    if case .bracketedPaste = state {
+      bracketedPasteBuffer.reserveCapacity(
+        bracketedPasteBuffer.count + bytes.underestimatedCount
+      )
+    }
+
+    var events: [InputEvent] = []
+    events.reserveCapacity(1)
+    for byte in bytes {
+      switch state {
+      case .bracketedPaste(let matchedEndMarkerBytes):
+        if let event = parseBracketedPaste(
+          byte,
+          matchedEndMarkerBytes: matchedEndMarkerBytes
+        ) {
+          events.append(event)
+        }
+
+      case .csi, .escape, .ground, .ss3, .utf8:
+        events.append(contentsOf: feed(byte))
+      }
+    }
+    return events
   }
 
   /// Flushes a pending bare Escape byte, if present.
@@ -87,6 +129,13 @@ public struct InputParser: Sendable {
   /// Flushes any pending partial input.
   public mutating func flush() -> [InputEvent] {
     switch state {
+    case .bracketedPaste(let matchedEndMarkerBytes):
+      state = .ground
+      let bytes =
+        Self.bracketedPasteStartMarker + bracketedPasteBuffer
+        + Self.bracketedPasteEndMarker.prefix(matchedEndMarkerBytes)
+      bracketedPasteBuffer.removeAll(keepingCapacity: true)
+      return [.unknown(Array(bytes))]
     case .csi(let accumulated), .ss3(let accumulated):
       state = .ground
       return [.unknown(accumulated)]
@@ -102,6 +151,43 @@ public struct InputParser: Sendable {
       state = .ground
       return [.unknown(accumulated)]
     }
+  }
+
+  private mutating func parseBracketedPaste(
+    _ byte: UInt8,
+    matchedEndMarkerBytes: Int
+  ) -> InputEvent? {
+    let endMarker = Self.bracketedPasteEndMarker
+    var matchedEndMarkerBytes = matchedEndMarkerBytes
+
+    if byte == endMarker[matchedEndMarkerBytes] {
+      matchedEndMarkerBytes += 1
+
+      if matchedEndMarkerBytes == endMarker.count {
+        state = .ground
+        // swiftlint:disable:next optional_data_string_conversion
+        let payload = String(decoding: bracketedPasteBuffer, as: UTF8.self)
+        bracketedPasteBuffer.removeAll(keepingCapacity: true)
+        return .paste(payload)
+      }
+
+      state = .bracketedPaste(matchedEndMarkerBytes: matchedEndMarkerBytes)
+      return nil
+    }
+
+    if matchedEndMarkerBytes > 0 {
+      bracketedPasteBuffer.append(contentsOf: endMarker.prefix(matchedEndMarkerBytes))
+      matchedEndMarkerBytes = 0
+    }
+
+    if byte == endMarker[0] {
+      state = .bracketedPaste(matchedEndMarkerBytes: 1)
+      return nil
+    }
+
+    bracketedPasteBuffer.append(byte)
+    state = .bracketedPaste(matchedEndMarkerBytes: 0)
+    return nil
   }
 
   private func csiCode(finalByte: UInt8, params: String) -> Key? {
@@ -221,10 +307,15 @@ public struct InputParser: Sendable {
     case 0x40...0x7E:
       state = .ground
       let parameterBytes = Array(sequence.dropFirst(2).dropLast())
-      guard
-        let params = String(validating: parameterBytes, as: UTF8.self),
-        let code = csiCode(finalByte: byte, params: params)
-      else {
+      guard let params = String(validating: parameterBytes, as: UTF8.self) else {
+        return [.unknown(sequence)]
+      }
+      if byte == 0x7E, params == "200" {
+        bracketedPasteBuffer.removeAll(keepingCapacity: true)
+        state = .bracketedPaste(matchedEndMarkerBytes: 0)
+        return []
+      }
+      guard let code = csiCode(finalByte: byte, params: params) else {
         return [.unknown(sequence)]
       }
       return [.key(code)]

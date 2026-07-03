@@ -42,6 +42,7 @@ let ExampleSupport: Target.Dependency = .byName(name: "ExampleSupport")
 let HelloTessera: Target.Dependency = .byName(name: "HelloTessera")
 let InputInspector: Target.Dependency = .byName(name: "InputInspector")
 let LifecycleModesDemo: Target.Dependency = .byName(name: "LifecycleModesDemo")
+let Phase3ProtocolsDemo: Target.Dependency = .byName(name: "Phase3ProtocolsDemo")
 let RendererDemo: Target.Dependency = .byName(name: "RendererDemo")
 
 let AllTesseraExampleTargetNames: Set<String> = [
@@ -50,6 +51,7 @@ let AllTesseraExampleTargetNames: Set<String> = [
   "HelloTessera",
   "InputInspector",
   "LifecycleModesDemo",
+  "Phase3ProtocolsDemo",
   "RendererDemo",
 ]
 
@@ -111,6 +113,22 @@ package.products.append(
 package.targets.append(
   .executableTarget(
     name: "LifecycleModesDemo",
+    dependencies: [
+      ExampleSupport,
+      TesseraTerminal,
+    ]
+  )
+)
+
+// MARK: Phase3ProtocolsDemo
+
+package.products.append(
+  .executable(name: "Phase3ProtocolsDemo", targets: ["Phase3ProtocolsDemo"])
+)
+
+package.targets.append(
+  .executableTarget(
+    name: "Phase3ProtocolsDemo",
     dependencies: [
       ExampleSupport,
       TesseraTerminal,

@@ -3,9 +3,9 @@ name: Phase 3 Slice 6 Terminal Capability Detection
 description:
   Add conservative terminal capability reporting and configuration policy so modern
   protocol enablement degrades gracefully.
-status: in-review
+status: pending
 created: 2026-07-02
-updated: 2026-07-02
+updated: 2026-07-03
 ---
 
 ## Progress

@@ -29,6 +29,9 @@ public enum ControlSequence: Equatable, Sendable {
   /// Show or hide the cursor using DEC private mode 25 (`CSI ? 25 h/l`).
   case cursorVisible(Bool)
 
+  /// Enable or disable bracketed paste using DEC private mode 2004.
+  case enableBracketedPaste(Bool)
+
   /// Enable or disable automatic line wrap using DEC private mode 7.
   case enableLineWrap(Bool)
 
@@ -123,7 +126,8 @@ public enum ControlSequence: Equatable, Sendable {
       .setUnderline:
       self.encodeSGR(into: &buffer)
 
-    case .enableLineWrap,
+    case .enableBracketedPaste,
+      .enableLineWrap,
       .enterAltScreen,
       .enterSynchronizedOutput,
       .exitAltScreen,
@@ -178,6 +182,7 @@ public enum ControlSequence: Equatable, Sendable {
       ANSIByteEncoding.appendCSI(isVisible ? "?25h" : "?25l", into: &buffer)
 
     case .bell,
+      .enableBracketedPaste,
       .enableLineWrap,
       .enterAltScreen,
       .enterSynchronizedOutput,
@@ -220,6 +225,7 @@ public enum ControlSequence: Equatable, Sendable {
       .cursorSave,
       .cursorUp,
       .cursorVisible,
+      .enableBracketedPaste,
       .enableLineWrap,
       .enterAltScreen,
       .enterSynchronizedOutput,
@@ -289,6 +295,7 @@ public enum ControlSequence: Equatable, Sendable {
       .cursorSave,
       .cursorUp,
       .cursorVisible,
+      .enableBracketedPaste,
       .enableLineWrap,
       .enterAltScreen,
       .enterSynchronizedOutput,
@@ -306,6 +313,10 @@ public enum ControlSequence: Equatable, Sendable {
   /// Encodes terminal modes using DEC private mode set/reset (`CSI ? Ps h/l`).
   private func encodeMode(into buffer: inout [UInt8]) {
     switch self {
+    case .enableBracketedPaste(let isEnabled):
+      // DEC private mode 2004: bracketed paste, `CSI ? 2004 h/l`.
+      ANSIByteEncoding.appendCSI(isEnabled ? "?2004h" : "?2004l", into: &buffer)
+
     case .enableLineWrap(let isEnabled):
       // DEC private mode 7 (DECAWM): automatic line wrap, `CSI ? 7 h/l`.
       ANSIByteEncoding.appendCSI(isEnabled ? "?7h" : "?7l", into: &buffer)
@@ -371,6 +382,7 @@ public enum ControlSequence: Equatable, Sendable {
       .cursorSave,
       .cursorUp,
       .cursorVisible,
+      .enableBracketedPaste,
       .enableLineWrap,
       .enterAltScreen,
       .enterSynchronizedOutput,
@@ -417,6 +429,7 @@ public enum ControlSequence: Equatable, Sendable {
       .cursorSave,
       .cursorUp,
       .cursorVisible,
+      .enableBracketedPaste,
       .enableLineWrap,
       .enterAltScreen,
       .enterSynchronizedOutput,

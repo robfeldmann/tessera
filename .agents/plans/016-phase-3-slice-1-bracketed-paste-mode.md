@@ -3,23 +3,23 @@ name: Phase 3 Slice 1 Bracketed Paste Mode
 description:
   Add bracketed paste as the first modern terminal protocol mode, with parser isolation,
   lifecycle cleanup, tests, and the initial Phase 3 demo app.
-status: in-review
+status: complete
 created: 2026-07-02
-updated: 2026-07-02
+updated: 2026-07-03
 ---
 
 ## Progress
 
-- [ ] **Phase 1 — Public event and parser mode**
-  - [ ] 1.1 Add the paste event case and parser event-log test helpers
-  - [ ] 1.2 Add bracketed-paste parser state and edge-case coverage
-- [ ] **Phase 2 — Encoder and lifecycle support**
-  - [ ] 2.1 Add exact bracketed-paste control-sequence encoding
-  - [ ] 2.2 Enable, disable, and cleanup `.bracketedPaste`
-  - [ ] 2.3 Make bracketed paste part of the default application terminal
-- [ ] **Phase 3 — Example app and validation**
-  - [ ] 3.1 Add the Phase 3 demo app with the paste panel
-  - [ ] 3.2 Run narrow parser, encoder, lifecycle, session, and example checks
+- [x] **Phase 1 — Public event and parser mode**
+  - [x] 1.1 Add the paste event case and parser event-log test helpers
+  - [x] 1.2 Add bracketed-paste parser state and edge-case coverage
+- [x] **Phase 2 — Encoder and lifecycle support**
+  - [x] 2.1 Add exact bracketed-paste control-sequence encoding
+  - [x] 2.2 Enable, disable, and cleanup `.bracketedPaste`
+  - [x] 2.3 Make bracketed paste part of the default application terminal
+- [x] **Phase 3 — Example app and validation**
+  - [x] 3.1 Add the Phase 3 demo app with the paste panel
+  - [x] 3.2 Run narrow parser, encoder, lifecycle, session, and example checks
 
 ## Overview
 
@@ -61,18 +61,20 @@ Acceptance:
 ### Step 1.2 — Add bracketed-paste parser state and edge-case coverage
 
 - File: `Sources/TesseraTerminalInput/InputParser.swift`.
-- Add a `State.bracketedPaste(...)` case. It should store accumulated payload bytes and
-  enough partial-marker state to detect the exact end marker across feed boundaries.
+- Add a `State.bracketedPaste(matchedEndMarkerBytes:)` case. Keep the growing payload in a
+  private parser buffer and store only bounded end-marker match state in the enum.
 - Start marker: `ESC [ 200 ~`.
 - End marker: `ESC [ 201 ~`.
 - The start marker arrives through the existing CSI path as tilde parameter `200`.
 - Parameter `201` outside paste mode is malformed and follows the existing unknown policy.
 - While in paste mode, every byte is payload unless it advances the exact end marker.
   Broken partial-marker bytes are replayed into the payload.
+- Keep the paste hot path allocation-conscious: no payload copies through enum state, no
+  per-byte marker candidate arrays, and no `bytes.flatMap { feed($0) }` bulk parser loop.
 - Decode completed paste payload with replacement characters using Swift's lossy UTF-8
   decoding. This matches terminal-library precedent and prevents invalid paste bytes from
   crashing the parser. Unterminated paste on `flush()` remains `.unknown` with the start
-  marker plus accumulated bytes.
+  marker plus accumulated bytes and any pending end-marker prefix.
 - `flushPendingEscape()` must keep its current guard: only a bare `.escape` state flushes.
   Idle chunks must not disturb an in-progress paste.
 
@@ -86,6 +88,9 @@ Add parser tests for:
 - UTF-8 paste
 - invalid UTF-8 paste uses replacement characters
 - ANSI-looking bytes inside paste payload remain paste payload
+- empty paste payload
+- start marker inside active paste payload
+- consecutive bracketed pastes
 - ordinary key parsing before and after paste
 - incomplete paste emits no partial key events
 - idle `flushPendingEscape()` during paste emits nothing
@@ -190,6 +195,8 @@ Acceptance:
 - Keep a recent event log capped to a fixed count.
 - Show typed keys separately from paste events.
 - Do not add a view abstraction or reusable widget layer.
+- On very small terminals, show a wrapped resize message instead of drawing a clipped
+  panel.
 
 Wireframe:
 

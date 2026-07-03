@@ -45,6 +45,10 @@ enum LifecycleModesDemo {
           }
           try await draw(terminal: terminal, lastEvent: lastEvent)
 
+        case .paste(let text):
+          lastEvent = "paste: \(text.count) characters"
+          try await draw(terminal: terminal, lastEvent: lastEvent)
+
         case .resize:
           terminal.invalidateRenderer()
           try await draw(terminal: terminal, lastEvent: lastEvent)

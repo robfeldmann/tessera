@@ -17,6 +17,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   coordination plan and separate executable slice plans for bracketed paste, focus events,
   SGR mouse tracking, Kitty keyboard, OSC 8 hyperlinks, and capability detection.
 
+- Added Phase 3 bracketed paste support, including semantic paste input events, DEC
+  private mode 2004 encoding and lifecycle cleanup, default app enablement, parser
+  performance coverage, and the initial Phase 3 protocols demo panel.
+
 - Added Windows support for Ghostty-backed snapshot tests behind the
   `TESSERA_GHOSTTY_WINDOWS=1` package-manifest gate, linking the static
   `ghostty-vt-static.lib` so no runtime DLL discovery is needed.

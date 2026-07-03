@@ -3,9 +3,9 @@ name: Phase 3 Slice 3 SGR Mouse Tracking
 description:
   Add SGR button-event mouse tracking with semantic mouse events, mode lifecycle cleanup,
   parser coverage, and an interactive demo panel.
-status: in-review
+status: pending
 created: 2026-07-02
-updated: 2026-07-02
+updated: 2026-07-03
 ---
 
 ## Progress
@@ -120,6 +120,9 @@ ESC [ < button ; column ; row m
 - For release, prefer `.release(button)` when the button is identifiable and
   `.release(nil)` when the sequence only reports an unspecified release.
 - Mouse-looking bytes inside bracketed paste remain paste payload.
+- Mouse reports can arrive in high-volume drag or scroll streams. Keep SGR decoding
+  single-pass over the accumulated CSI bytes and avoid per-event heap churn beyond the
+  emitted semantic event.
 
 Add parser tests for:
 

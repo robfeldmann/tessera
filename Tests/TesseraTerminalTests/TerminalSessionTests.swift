@@ -27,7 +27,9 @@ func `application terminal returns body result and cleans up modes`() async thro
     [
       .enterRawMode,
       .enterAltScreen,
+      .flush(Array("\u{1B}[?2004h".utf8)),
       .flush(Array("\u{1B}[?25h".utf8)),
+      .flush(Array("\u{1B}[?2004l".utf8)),
       .exitAltScreen,
       .exitRawMode,
     ]
@@ -43,6 +45,15 @@ func `application configuration stores synchronized output policy`() {
 
   expectNoDifference(configuration.modes, [.rawMode])
   expectNoDifference(configuration.synchronizedOutput, .disabled)
+}
+
+@Test
+func `default application configuration requests bracketed paste`() {
+  let modes = TerminalApplicationConfiguration.default.modes
+
+  #expect(modes.contains(.rawMode))
+  #expect(modes.contains(.altScreen))
+  #expect(modes.contains(.bracketedPaste))
 }
 
 @Test
@@ -65,7 +76,9 @@ func `application terminal rethrows body error after cleanup`() async throws {
     [
       .enterRawMode,
       .enterAltScreen,
+      .flush(Array("\u{1B}[?2004h".utf8)),
       .flush(Array("\u{1B}[?25h".utf8)),
+      .flush(Array("\u{1B}[?2004l".utf8)),
       .exitAltScreen,
       .exitRawMode,
     ]

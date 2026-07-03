@@ -3,9 +3,9 @@ name: Phase 3 Slice 2 Focus Events
 description:
   Add terminal focus gained/lost events using CSI focus tracking, sharing the Phase 3 mode
   lifecycle and preserving bracketed-paste isolation.
-status: in-review
+status: pending
 created: 2026-07-02
-updated: 2026-07-02
+updated: 2026-07-03
 ---
 
 ## Progress
@@ -73,7 +73,8 @@ Acceptance:
 - Duplicate focus events are surfaced as received. The parser does not store `isFocused`.
 - Focus-looking bytes inside `State.bracketedPaste` are payload, not focus events.
 
-Add parser tests for:
+- Focus reports are tiny CSI events. Do not add a new parser mode or regress the optimized
+  bracketed-paste bulk feed path while widening CSI dispatch. Add parser tests for:
 
 - focus gained in one feed
 - focus lost in one feed

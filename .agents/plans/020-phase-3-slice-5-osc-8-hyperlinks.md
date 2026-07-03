@@ -3,9 +3,9 @@ name: Phase 3 Slice 5 OSC 8 Hyperlinks
 description:
   Add semantic OSC 8 hyperlink styling, encoder support, renderer state transitions,
   hyperlink-aware snapshots, and a demo panel.
-status: in-review
+status: pending
 created: 2026-07-02
-updated: 2026-07-02
+updated: 2026-07-03
 ---
 
 ## Progress

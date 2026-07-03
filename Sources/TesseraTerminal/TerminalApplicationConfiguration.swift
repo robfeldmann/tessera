@@ -4,7 +4,7 @@ import TesseraTerminalIO
 public struct TerminalApplicationConfiguration: Equatable, Sendable {
   /// The default terminal application configuration.
   public static var `default`: Self {
-    Self(modes: [.rawMode, .altScreen])
+    Self(modes: [.rawMode, .altScreen, .bracketedPaste])
   }
 
   /// Terminal modes to acquire for the session.

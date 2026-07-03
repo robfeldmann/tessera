@@ -20,7 +20,9 @@ enum InputInspector {
       return
     }
 
-    try await TerminalSession.withApplicationTerminal(configuration: .default) { terminal in
+    try await TerminalSession.withApplicationTerminal(
+      configuration: .default
+    ) { terminal in
       var state = InspectorState()
       try await draw(terminal: terminal, state: &state)
 
@@ -85,7 +87,7 @@ enum InputInspector {
       terminal.invalidateRenderer()
       state.followLatest()
 
-    case .key, .unknown:
+    case .key, .paste, .unknown:
       state.append(event)
       state.followLatest()
     }
@@ -117,13 +119,18 @@ enum InputInspector {
       style: Style(attributes: [.dim])
     )
     frame.write(
-      "Arrows move @ · PageUp/PageDown scroll log · Ctrl+Up/Down line scroll · Home/End jump",
+      "Arrows move @ · PageUp/PageDown scroll log",
       at: position(0, 2),
       style: Style(attributes: [.dim])
     )
     frame.write(
-      "Paste is intentionally ungrouped in Slice 5: every pasted character logs separately.",
+      "Ctrl+Up/Down line scroll · Home/End jump",
       at: position(0, 3),
+      style: Style(attributes: [.dim])
+    )
+    frame.write(
+      "Bracketed paste logs as one grouped paste event.",
+      at: position(0, 4),
       style: Style(attributes: [.dim])
     )
   }
@@ -155,14 +162,22 @@ enum InputInspector {
     let start = state.visibleLogStart(visibleCount: height)
     let end = min(state.log.count, start + height)
 
-    frame.write("Event log:", at: position(left, top - 1), style: Style(attributes: [.bold]))
+    frame.write(
+      "Event log:",
+      at: position(left, top - 1),
+      style: Style(attributes: [.bold])
+    )
 
     if start < end {
       for (offset, line) in state.log[start..<end].enumerated() {
         frame.write(line, at: position(left, top + offset))
       }
     } else {
-      frame.write("no events yet", at: position(left, top), style: Style(attributes: [.dim]))
+      frame.write(
+        "no events yet",
+        at: position(left, top),
+        style: Style(attributes: [.dim])
+      )
     }
   }
 
@@ -179,6 +194,10 @@ private struct InspectorState {
 
   let gridColumns = 5
   let gridRows = 3
+
+  private var maximumScrollOffset: Int {
+    max(log.count - visibleLogCount, 0)
+  }
 
   mutating func append(_ event: InputEvent) {
     log.append(describe(event))
@@ -214,10 +233,6 @@ private struct InspectorState {
     max(0, log.count - visibleCount - scrollOffsetFromLatest)
   }
 
-  private var maximumScrollOffset: Int {
-    max(log.count - visibleLogCount, 0)
-  }
-
   private mutating func clampScrollOffset() {
     scrollOffsetFromLatest = max(0, min(maximumScrollOffset, scrollOffsetFromLatest))
   }
@@ -232,6 +247,8 @@ private func describe(_ event: InputEvent) -> String {
   switch event {
   case .key(let key):
     return "key code=\(key.code) modifiers=\(describe(key.modifiers))"
+  case .paste(let text):
+    return "paste chars=\(text.count) lines=\(lineCount(text))"
   case .resize(let size):
     return "resize \(size.columns)x\(size.rows)"
   case .unknown(let bytes):
@@ -245,6 +262,10 @@ private func describe(_ modifiers: Modifiers) -> String {
   if modifiers.contains(.alt) { parts.append("alt") }
   if modifiers.contains(.control) { parts.append("ctrl") }
   return parts.isEmpty ? "none" : parts.joined(separator: "+")
+}
+
+private func lineCount(_ text: String) -> Int {
+  text.split(separator: "\n", omittingEmptySubsequences: false).count
 }
 
 private func hex(_ bytes: [UInt8]) -> String {

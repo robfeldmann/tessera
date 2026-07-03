@@ -10,11 +10,11 @@ public actor ModeLifecycle {
     /// Alternate screen buffer.
     case altScreen
 
-    /// Mouse tracking. Deferred to Phase 3.
-    case mouseTracking
-
-    /// Bracketed paste. Deferred to Phase 3.
+    /// Bracketed paste.
     case bracketedPaste
+
+    /// Mouse tracking. Deferred to a later Phase 3 slice.
+    case mouseTracking
 
     /// Focus events. Deferred to Phase 3.
     case focusEvents
@@ -23,7 +23,7 @@ public actor ModeLifecycle {
     case kittyKeyboard
   }
 
-  private static let acquisitionOrder: [Mode] = [.rawMode, .altScreen]
+  private static let acquisitionOrder: [Mode] = [.rawMode, .altScreen, .bracketedPaste]
   private static let supportedModes: Set<Mode> = Set(acquisitionOrder)
 
   private let io: PlatformIO
@@ -106,7 +106,11 @@ public actor ModeLifecycle {
     case .altScreen:
       try await io.disableAltScreen()
 
-    case .mouseTracking, .bracketedPaste, .focusEvents, .kittyKeyboard:
+    case .bracketedPaste:
+      await io.write(ControlSequence.enableBracketedPaste(false).bytes)
+      try await io.flush()
+
+    case .mouseTracking, .focusEvents, .kittyKeyboard:
       throw ModeLifecycleError.unsupportedModes([mode])
     }
   }
@@ -119,13 +123,22 @@ public actor ModeLifecycle {
     case .altScreen:
       try await io.enableAltScreen()
 
-    case .mouseTracking, .bracketedPaste, .focusEvents, .kittyKeyboard:
+    case .bracketedPaste:
+      await io.write(ControlSequence.enableBracketedPaste(true).bytes)
+      try await io.flush()
+
+    case .mouseTracking, .focusEvents, .kittyKeyboard:
       throw ModeLifecycleError.unsupportedModes([mode])
     }
   }
 
   private func installCleanup() async {
     var teardownBytes: [UInt8] = []
+
+    // DEC private mode 2004: disable bracketed paste, `CSI ? 2004 l`.
+    if modes.contains(.bracketedPaste) || requestedModes.contains(.bracketedPaste) {
+      ControlSequence.enableBracketedPaste(false).encode(into: &teardownBytes)
+    }
 
     // DEC private mode 1049: leave alternate screen, `CSI ? 1049 l`.
     if modes.contains(.altScreen) || requestedModes.contains(.altScreen) {

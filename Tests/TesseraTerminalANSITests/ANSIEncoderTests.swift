@@ -32,7 +32,8 @@ func `cursor control sequences encode exact bytes`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
 )
 func `cursor position round trips through virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 8, rows: 4)
@@ -45,7 +46,8 @@ func `cursor position round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
 )
 func `relative cursor movement round trips through virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 10, rows: 5)
@@ -67,7 +69,8 @@ func `relative cursor movement round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
 )
 func `cursor save and restore round trips through virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 6, rows: 2)
@@ -90,7 +93,8 @@ func `cursor save and restore round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
 )
 func `cursor visibility sequences are accepted by virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 4, rows: 1)
@@ -122,7 +126,8 @@ func `erase line sequences encode exact bytes`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
 )
 func `erase to end of line round trips through virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 5, rows: 1)
@@ -142,7 +147,8 @@ func `erase to end of line round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
 )
 func `erase to beginning of line round trips through virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 5, rows: 1)
@@ -162,7 +168,8 @@ func `erase to beginning of line round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
 )
 func `erase all of line round trips through virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 5, rows: 1)
@@ -182,7 +189,8 @@ func `erase all of line round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
 )
 func `erase display to end round trips through virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 5, rows: 2)
@@ -203,7 +211,8 @@ func `erase display to end round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
 )
 func `erase display to beginning round trips through virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 5, rows: 2)
@@ -224,7 +233,8 @@ func `erase display to beginning round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
 )
 func `erase display all round trips through virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 5, rows: 2)
@@ -238,7 +248,8 @@ func `erase display all round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
 )
 func `erase display all and scrollback is accepted by virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 5, rows: 2)
@@ -287,7 +298,8 @@ func `ansi colors and indexed colors stay distinct`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
 )
 func `colors round trip through virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 3, rows: 1)
@@ -326,7 +338,8 @@ func `attributes encode exact bytes`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
 )
 func `attributes round trip through virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 8, rows: 1)
@@ -365,7 +378,8 @@ func `attributes round trip through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
 )
 func `normal intensity disables bold and dim`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 8, rows: 1)
@@ -383,6 +397,8 @@ func `mode sequences encode exact bytes`() {
   expectBytes(.exitAltScreen, esc("[?1049l"))
   expectBytes(.enterSynchronizedOutput, esc("[?2026h"))
   expectBytes(.exitSynchronizedOutput, esc("[?2026l"))
+  expectBytes(.enableBracketedPaste(true), esc("[?2004h"))
+  expectBytes(.enableBracketedPaste(false), esc("[?2004l"))
   expectBytes(.enableLineWrap(true), esc("[?7h"))
   expectBytes(.enableLineWrap(false), esc("[?7l"))
 }
@@ -390,7 +406,8 @@ func `mode sequences encode exact bytes`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
 )
 func `alternate screen round trips through virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 5, rows: 1)
@@ -405,7 +422,8 @@ func `alternate screen round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
 )
 func `line wrap mode round trips through virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 4, rows: 2)
@@ -426,12 +444,16 @@ func `line wrap mode round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
 )
 func `synchronized output mode is accepted by virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 6, rows: 1)
 
-  feed([.enterSynchronizedOutput, .text("Sync"), .exitSynchronizedOutput], into: terminal)
+  feed(
+    [.enterSynchronizedOutput, .text("Sync"), .exitSynchronizedOutput],
+    into: terminal
+  )
 
   #expect(terminal.text(row: 0) == "Sync  ")
   #expect(terminal.cursorPosition() == TerminalPosition(column: 4, row: 0))
@@ -446,7 +468,8 @@ func `window title encodes exact bytes`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
 )
 func `window title is accepted without changing visible state`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 4, rows: 1)
@@ -473,7 +496,8 @@ func `text bell and raw payload sequences encode exact bytes`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
 )
 func `text bell and raw payloads round trip through virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 6, rows: 1)
