@@ -87,4 +87,4 @@ limactl shell "$linux_vm_name" -- bash -lc '
 
   scripts/build-libghostty-vt.sh
   swift test --jobs 2 --no-parallel "$@"
-' bash "$repo_root" "${swift_test_args[@]}"
+' bash "$repo_root" "${swift_test_args[@]+"${swift_test_args[@]}"}"

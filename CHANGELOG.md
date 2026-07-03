@@ -81,6 +81,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Fixed the Linux Lima test recipe to forward zero or more `swift test` arguments without
+  tripping Bash `nounset` on an empty array.
+
 - Fixed CI and docs workflows to restore the shared Ghostty VT cache from the new default
   location.
 - Fixed Windows Frost SSH automation to prefer the configured key once available and to
