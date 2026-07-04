@@ -3,8 +3,10 @@ set working-directory := '..'
 
 # ── Formatting ───────────────────────────────────────────────────────────────
 
+# Auto-fix formatting and safe SwiftLint corrections.
 format: _format-json _format-markdown
-    swift-format format -i -r Sources Tests Package.swift
+    swift-format format -i -r Sources Tests Package.swift Examples/Sources Examples/Package.swift
+    swiftlint lint --fix --quiet --config .swiftlint.yml
 
 _format-json:
     @if command -v jq &> /dev/null; then \
@@ -25,18 +27,22 @@ _format-markdown:
 
 # ── Linting ──────────────────────────────────────────────────────────────────
 
-lint: swift swiftlint markdown docs
+# Strict full-repo quality gate for CI, agents, and pre-PR checks.
+lint: _swift-format swiftlint markdown docs
     @echo "✅ All lint checks passed"
 
+# Strict changed-file quality gate for pre-commit/local iteration.
 changed:
     scripts/lint-changed.sh
 
-swift:
-    swift-format lint -r Sources Tests Package.swift
+_swift-format:
+    swift-format lint -r Sources Tests Package.swift Examples/Sources Examples/Package.swift
 
+# Strict SwiftLint gate; warnings fail here to prevent drift.
 swiftlint:
-    swiftlint
+    swiftlint lint --strict --config .swiftlint.yml
 
+# Markdown formatting check.
 markdown:
     @if command -v prettier &> /dev/null; then \
         prettier --check "**/*.md"; \
@@ -44,5 +50,6 @@ markdown:
         echo "⚠️  prettier not found — skip markdown linting (pnpm add -g prettier)"; \
     fi
 
+# DocC documentation check.
 docs:
     just docs lint
