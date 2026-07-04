@@ -64,6 +64,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Changed Windows Frost source sync to suppress macOS AppleDouble metadata, preventing
   `._*` headers from reaching the Windows checkout and triggering Swift/Clang umbrella
   header warnings.
+- Changed Windows Frost tests to persist SwiftPM's dependency cache on the host and
+  restore it into disposable overlays, avoiding repeated GitHub dependency downloads when
+  resolved dependencies are unchanged.
 
 - Centralized SwiftLint coverage in the root config so example sources lint with the main
   package, removed the redundant example config symlink, and disabled cyclomatic
