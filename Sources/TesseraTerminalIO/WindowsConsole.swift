@@ -58,8 +58,9 @@
       peekConsoleInput: windowsPeekConsoleInput,
       readConsoleInput: windowsReadConsoleInput,
       readFile: windowsReadFile,
-      writeFile: windowsWriteFile
-    ) { UInt32(GetLastError()) }
+      writeFile: windowsWriteFile,
+      lastErrorCode: windowsLastErrorCode
+    )
 
     package var standardInputHandle: @Sendable () -> UInt?
     package var standardOutputHandle: @Sendable () -> UInt?
@@ -67,8 +68,8 @@
     package var setConsoleMode: @Sendable (UInt, UInt32) -> Bool
     package var terminalSize: @Sendable (UInt) -> TerminalSize?
     package var waitForSingleObject: @Sendable (UInt, UInt32) -> UInt32
-    package var peekConsoleInput: @Sendable (UInt, UInt32) -> [WindowsInputRecord]?
-    package var readConsoleInput: @Sendable (UInt, UInt32) -> [WindowsInputRecord]?
+    package var peekConsoleInput: @Sendable (UInt, UInt32) throws -> [WindowsInputRecord]
+    package var readConsoleInput: @Sendable (UInt, UInt32) throws -> [WindowsInputRecord]
     package var readFile: @Sendable (UInt, UnsafeMutableRawPointer?, UInt32) -> Int?
     package var writeFile: @Sendable (UInt, UnsafeRawPointer?, UInt32) -> Int?
     package var lastErrorCode: @Sendable () -> UInt32
@@ -80,8 +81,8 @@
       setConsoleMode: @escaping @Sendable (UInt, UInt32) -> Bool,
       terminalSize: @escaping @Sendable (UInt) -> TerminalSize?,
       waitForSingleObject: @escaping @Sendable (UInt, UInt32) -> UInt32,
-      peekConsoleInput: @escaping @Sendable (UInt, UInt32) -> [WindowsInputRecord]?,
-      readConsoleInput: @escaping @Sendable (UInt, UInt32) -> [WindowsInputRecord]?,
+      peekConsoleInput: @escaping @Sendable (UInt, UInt32) throws -> [WindowsInputRecord],
+      readConsoleInput: @escaping @Sendable (UInt, UInt32) throws -> [WindowsInputRecord],
       readFile: @escaping @Sendable (UInt, UnsafeMutableRawPointer?, UInt32) -> Int?,
       writeFile: @escaping @Sendable (UInt, UnsafeRawPointer?, UInt32) -> Int?,
       lastErrorCode: @escaping @Sendable () -> UInt32
@@ -108,6 +109,10 @@
 
   package func windowsHandlePointer(from rawHandle: UInt) -> HANDLE? {
     HANDLE(bitPattern: rawHandle)
+  }
+
+  private func windowsLastErrorCode() -> UInt32 {
+    UInt32(GetLastError())
   }
 
   private func windowsStandardHandle(_ standardHandle: DWORD) -> UInt? {
@@ -141,9 +146,12 @@
   private func windowsPeekConsoleInput(
     rawHandle: UInt,
     maxRecordCount: UInt32
-  ) -> [WindowsInputRecord]? {
+  ) throws -> [WindowsInputRecord] {
     guard let handle = windowsHandlePointer(from: rawHandle) else {
-      return nil
+      throw PlatformIOError.consoleOperationFailed(
+        operation: .peekConsoleInput,
+        errorCode: UInt32(ERROR_INVALID_HANDLE)
+      )
     }
 
     var records = [INPUT_RECORD](repeating: INPUT_RECORD(), count: Int(maxRecordCount))
@@ -157,7 +165,10 @@
       )
     }
     guard succeeded else {
-      return nil
+      throw PlatformIOError.consoleOperationFailed(
+        operation: .peekConsoleInput,
+        errorCode: UInt32(GetLastError())
+      )
     }
 
     return records.prefix(Int(readCount)).map(windowsInputRecord)
@@ -166,9 +177,12 @@
   private func windowsReadConsoleInput(
     rawHandle: UInt,
     maxRecordCount: UInt32
-  ) -> [WindowsInputRecord]? {
+  ) throws -> [WindowsInputRecord] {
     guard let handle = windowsHandlePointer(from: rawHandle) else {
-      return nil
+      throw PlatformIOError.consoleOperationFailed(
+        operation: .readConsoleInput,
+        errorCode: UInt32(ERROR_INVALID_HANDLE)
+      )
     }
 
     var records = [INPUT_RECORD](repeating: INPUT_RECORD(), count: Int(maxRecordCount))
@@ -182,7 +196,10 @@
       )
     }
     guard succeeded else {
-      return nil
+      throw PlatformIOError.consoleOperationFailed(
+        operation: .readConsoleInput,
+        errorCode: UInt32(GetLastError())
+      )
     }
 
     return records.prefix(Int(readCount)).map(windowsInputRecord)

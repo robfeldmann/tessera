@@ -53,7 +53,10 @@
           return
         }
 
-        guard let records = system.peekConsoleInput(inputHandle, peekRecordLimit) else {
+        let records: [WindowsInputRecord]
+        do {
+          records = try system.peekConsoleInput(inputHandle, peekRecordLimit)
+        } catch {
           await loop.finishAll()
           return
         }
@@ -64,12 +67,13 @@
         let firstKeyIndex = records.firstIndex { $0.isKey }
         let drainCount = firstKeyIndex ?? records.count
         if drainCount > 0 {
-          guard
-            let drainedRecords = system.readConsoleInput(
+          let drainedRecords: [WindowsInputRecord]
+          do {
+            drainedRecords = try system.readConsoleInput(
               inputHandle,
               UInt32(drainCount)
             )
-          else {
+          } catch {
             await loop.finishAll()
             return
           }

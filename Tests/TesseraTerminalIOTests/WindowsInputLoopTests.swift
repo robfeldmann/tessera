@@ -13,7 +13,7 @@
     func `windows input loop reads queued key bytes`() async {
       let state = WindowsInputState(
         waitResults: [WindowsWaitStatus.object],
-        peekResults: [[.key]],
+        peekResults: [.success([.key])],
         readFileResults: [.success([0x61, 0x62])]
       )
       let loop = WindowsInputLoop(inputHandle: 0x10, system: state.system)
@@ -45,8 +45,8 @@
       let size = TerminalSize(columns: 100, rows: 40)
       let state = WindowsInputState(
         waitResults: [WindowsWaitStatus.object, WindowsWaitStatus.failed],
-        peekResults: [[.resize(size)]],
-        readConsoleResults: [[.resize(size)]]
+        peekResults: [.success([.resize(size)])],
+        readConsoleResults: [.success([.resize(size)])]
       )
       let loop = WindowsInputLoop(inputHandle: 0x10, system: state.system)
       var iterator = loop.sizeChanges().makeAsyncIterator()
@@ -63,8 +63,8 @@
       let size = TerminalSize(columns: 120, rows: 30)
       let state = WindowsInputState(
         waitResults: [WindowsWaitStatus.object, WindowsWaitStatus.failed],
-        peekResults: [[.other, .resize(size)]],
-        readConsoleResults: [[.other, .resize(size)]]
+        peekResults: [.success([.other, .resize(size)])],
+        readConsoleResults: [.success([.other, .resize(size)])]
       )
       let loop = WindowsInputLoop(inputHandle: 0x10, system: state.system)
       var iterator = loop.bytes().makeAsyncIterator()
@@ -81,8 +81,8 @@
       let size = TerminalSize(columns: 90, rows: 24)
       let state = WindowsInputState(
         waitResults: [WindowsWaitStatus.object],
-        peekResults: [[.resize(size), .key]],
-        readConsoleResults: [[.resize(size)]],
+        peekResults: [.success([.resize(size), .key])],
+        readConsoleResults: [.success([.resize(size)])],
         readFileResults: [.success([0x1B])]
       )
       let loop = WindowsInputLoop(inputHandle: 0x10, system: state.system)
@@ -102,7 +102,9 @@
     func `windows input loop finishes when peek fails`() async {
       let state = WindowsInputState(
         waitResults: [WindowsWaitStatus.object],
-        peekResults: [nil]
+        peekResults: [
+          .failure(.consoleOperationFailed(operation: .peekConsoleInput, errorCode: 123))
+        ]
       )
       let loop = WindowsInputLoop(inputHandle: 0x10, system: state.system)
       var iterator = loop.bytes().makeAsyncIterator()
@@ -116,7 +118,7 @@
     func `windows input loop finishes when read file fails`() async {
       let state = WindowsInputState(
         waitResults: [WindowsWaitStatus.object],
-        peekResults: [[.key]],
+        peekResults: [.success([.key])],
         readFileResults: [.failure(995)]
       )
       let loop = WindowsInputLoop(inputHandle: 0x10, system: state.system)
@@ -137,8 +139,8 @@
           WindowsWaitStatus.timeout,
           WindowsWaitStatus.failed,
         ],
-        peekResults: [[.resize(size)]],
-        readConsoleResults: [[.resize(size)]]
+        peekResults: [.success([.resize(size)])],
+        readConsoleResults: [.success([.resize(size)])]
       )
 
       let io = await WindowsConsoleSystem.$override.withValue(state.system) {
@@ -162,9 +164,9 @@
       case success([UInt8])
     }
 
-    private var peekResults: [[WindowsInputRecord]?]
+    private var peekResults: [Result<[WindowsInputRecord], PlatformIOError>]
     private var readFileResults: [ReadFileResult]
-    private var readConsoleResults: [[WindowsInputRecord]?]
+    private var readConsoleResults: [Result<[WindowsInputRecord], PlatformIOError>]
     private var waitResults: [UInt32]
     private(set) var lastErrorCode: UInt32 = 0
     private(set) var readConsoleCounts: [UInt32] = []
@@ -182,8 +184,8 @@
 
     init(
       waitResults: [UInt32],
-      peekResults: [[WindowsInputRecord]?] = [],
-      readConsoleResults: [[WindowsInputRecord]?] = [],
+      peekResults: [Result<[WindowsInputRecord], PlatformIOError>] = [],
+      readConsoleResults: [Result<[WindowsInputRecord], PlatformIOError>] = [],
       readFileResults: [ReadFileResult] = []
     ) {
       self.waitResults = waitResults
@@ -199,19 +201,19 @@
       return waitResults.removeFirst()
     }
 
-    private func peek() -> [WindowsInputRecord]? {
+    private func peek() throws -> [WindowsInputRecord] {
       guard peekResults.isEmpty == false else {
         return []
       }
-      return peekResults.removeFirst()
+      return try peekResults.removeFirst().get()
     }
 
-    private func readConsoleInput(count: UInt32) -> [WindowsInputRecord]? {
+    private func readConsoleInput(count: UInt32) throws -> [WindowsInputRecord] {
       readConsoleCounts.append(count)
       guard readConsoleResults.isEmpty == false else {
         return []
       }
-      return readConsoleResults.removeFirst()
+      return try readConsoleResults.removeFirst().get()
     }
 
     private func readFile(buffer: UnsafeMutableRawPointer?, count: UInt32) -> Int? {

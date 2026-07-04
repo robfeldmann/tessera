@@ -23,11 +23,21 @@
       peekConsoleInput:
         @escaping @Sendable (
           UInt, UInt32
-        ) -> [WindowsInputRecord]? = { _, _ in nil },
+        ) throws -> [WindowsInputRecord] = { _, _ in
+          throw PlatformIOError.consoleOperationFailed(
+            operation: .peekConsoleInput,
+            errorCode: 0
+          )
+        },
       readConsoleInput:
         @escaping @Sendable (
           UInt, UInt32
-        ) -> [WindowsInputRecord]? = { _, _ in nil },
+        ) throws -> [WindowsInputRecord] = { _, _ in
+          throw PlatformIOError.consoleOperationFailed(
+            operation: .readConsoleInput,
+            errorCode: 0
+          )
+        },
       readFile:
         @escaping @Sendable (
           UInt, UnsafeMutableRawPointer?, UInt32

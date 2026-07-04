@@ -181,6 +181,9 @@ import Testing
       expectNoDifference(state.setFlags, [0x04 | O_NONBLOCK, 0x04])
     }
 
+    // These helpers mirror AsyncIterator.next(): nil means stream end.
+    // An empty array is a real idle chunk emitted by the input loop.
+    // swiftlint:disable:next discouraged_optional_collection
     private func nextNonEmptyValue(with system: POSIXSystem) async -> [UInt8]? {
       await POSIXSystem.$override.withValue(system) {
         let stream = POSIXInputLoop.bytes(fileDescriptor: 0)
@@ -194,6 +197,9 @@ import Testing
       }
     }
 
+    // Same AsyncIterator.next() semantics: nil is stream end.
+    // An empty array is a real idle chunk emitted by the input loop.
+    // swiftlint:disable:next discouraged_optional_collection
     private func nextValue(with system: POSIXSystem) async -> [UInt8]? {
       await POSIXSystem.$override.withValue(system) {
         let stream = POSIXInputLoop.bytes(fileDescriptor: 0)
