@@ -82,6 +82,11 @@ package actor PlatformIO {
     outputBuffer.append(contentsOf: bytes)
   }
 
+  /// Discards buffered output bytes that belong to a failed terminal-mode transition.
+  package func discardBufferedOutput() {
+    outputBuffer.removeAll(keepingCapacity: true)
+  }
+
   /// Flushes buffered output bytes to the terminal device.
   package func flush() async throws {
     var offset = 0

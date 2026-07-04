@@ -88,6 +88,16 @@ let modifiedTildeKeyCases: [ParserCase] = [
   ParserCase("\u{1B}[11;5~", .key(Key(code: .function(1), modifiers: .control))),
 ]
 
+let focusCSIReportCases: [ParserCase] = [
+  ParserCase("\u{1B}[I", .focusGained),
+  ParserCase("\u{1B}[O", .focusLost),
+]
+
+let malformedFocusCSIReportCases: [ParserCase] = [
+  ParserCase("\u{1B}[1I", .unknown([0x1B, 0x5B, 0x31, 0x49])),
+  ParserCase("\u{1B}[1O", .unknown([0x1B, 0x5B, 0x31, 0x4F])),
+]
+
 @Test
 func `parser maps q to a character key`() {
   #expect(InputParser.parse(0x71) == .key(Key(code: .character("q"))))
@@ -212,6 +222,60 @@ func `parser maps modified tilde key sequences`(_ testCase: ParserCase) {
   #expect(parser.feed(contentsOf: testCase.bytes) == [testCase.event])
 }
 
+@Test(arguments: focusCSIReportCases)
+func `parser maps focus reports in one feed`(_ testCase: ParserCase) {
+  var parser = InputParser()
+
+  #expect(parser.feed(contentsOf: testCase.bytes) == [testCase.event])
+}
+
+@Test(arguments: focusCSIReportCases)
+func `parser maps focus reports byte by byte`(_ testCase: ParserCase) {
+  var parser = InputParser()
+  var events: [InputEvent] = []
+
+  for byte in testCase.bytes {
+    events.append(contentsOf: parser.feed(byte))
+  }
+
+  #expect(events == [testCase.event])
+}
+
+@Test
+func `parser keeps keys around focus reports in order`() {
+  var parser = InputParser()
+  let bytes = Array("a\u{1B}[Ob".utf8)
+
+  assertInlineSnapshot(of: eventLog(parser.feed(contentsOf: bytes)), as: .lines) {
+    """
+    key(character("a"), modifiers: none)
+    focus lost
+    key(character("b"), modifiers: none)
+    """
+  }
+}
+
+@Test
+func `parser emits repeated focus reports`() {
+  var parser = InputParser()
+  let bytes = Array("\u{1B}[I\u{1B}[I\u{1B}[O".utf8)
+
+  assertInlineSnapshot(of: eventLog(parser.feed(contentsOf: bytes)), as: .lines) {
+    """
+    focus gained
+    focus gained
+    focus lost
+    """
+  }
+}
+
+@Test(arguments: malformedFocusCSIReportCases)
+func `parser emits unknown for malformed focus reports`(_ testCase: ParserCase) {
+  var parser = InputParser()
+
+  #expect(parser.feed(contentsOf: testCase.bytes) == [testCase.event])
+}
+
 @Test
 func `parser maps modified csi split across feeds`() {
   var parser = InputParser()
@@ -270,6 +334,8 @@ func `parser emits unknown for invalid utf8`() {
 @Test
 func `event log formats parser transcripts deterministically`() {
   let events: [InputEvent] = [
+    .focusGained,
+    .focusLost,
     .key(Key(code: .character("A"), modifiers: [.shift, .control])),
     .paste("line\nbreak"),
     .resize(TerminalSize(columns: 2, rows: 1)),
@@ -278,6 +344,8 @@ func `event log formats parser transcripts deterministically`() {
 
   assertInlineSnapshot(of: eventLog(events), as: .lines) {
     """
+    focus gained
+    focus lost
     key(character("A"), modifiers: shift+control)
     paste("line\\nbreak")
     resize(columns: 2, rows: 1)
@@ -360,6 +428,22 @@ func `parser decodes invalid utf8 paste payloads with replacement characters`() 
 func `parser treats ansi looking bytes inside bracketed paste as payload`() {
   var parser = InputParser()
   let payload = "\u{1B}[A\u{1B}[200~literal"
+
+  #expect(parser.feed(contentsOf: bracketedPaste(payload)) == [.paste(payload)])
+}
+
+@Test
+func `parser treats focus gained report inside bracketed paste as payload`() {
+  var parser = InputParser()
+  let payload = "before\u{1B}[Iafter"
+
+  #expect(parser.feed(contentsOf: bracketedPaste(payload)) == [.paste(payload)])
+}
+
+@Test
+func `parser treats focus lost report inside bracketed paste as payload`() {
+  var parser = InputParser()
+  let payload = "before\u{1B}[Oafter"
 
   #expect(parser.feed(contentsOf: bracketedPaste(payload)) == [.paste(payload)])
 }
@@ -454,6 +538,12 @@ private func eventLog(_ events: [InputEvent]) -> String {
 
 private func eventLogLine(_ event: InputEvent) -> String {
   switch event {
+  case .focusGained:
+    "focus gained"
+
+  case .focusLost:
+    "focus lost"
+
   case .key(let key):
     "key(\(key.code), modifiers: \(modifierLog(key.modifiers)))"
 

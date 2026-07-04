@@ -27,7 +27,6 @@ func `enter rejects unsupported phase three modes`() async throws {
   let device = LifecycleTestDevice()
   let lifecycle = await makeLifecycle(device)
   let unsupportedModes: Set<ModeLifecycle.Mode> = [
-    .focusEvents,
     .kittyKeyboard,
     .mouseTracking,
   ]
@@ -59,6 +58,27 @@ func `enter allows bracketed paste and enables it after alternate screen`() asyn
     enableRawMode
     enableAltScreen
     flush: 1B 5B 3F 32 30 30 34 68
+    """
+  }
+}
+
+@Test
+func `enter enables focus tracking after bracketed paste`() async throws {
+  let device = LifecycleTestDevice()
+  let lifecycle = await makeLifecycle(device)
+
+  try await lifecycle.enter([.rawMode, .altScreen, .bracketedPaste, .focusEvents])
+
+  let activeModes = await lifecycle.activeModes
+  let events = await device.events
+
+  expectNoDifference(activeModes, [.rawMode, .altScreen, .bracketedPaste, .focusEvents])
+  assertInlineSnapshot(of: lifecycleEventLog(events), as: .lines) {
+    """
+    enableRawMode
+    enableAltScreen
+    flush: 1B 5B 3F 32 30 30 34 68
+    flush: 1B 5B 3F 31 30 30 34 68
     """
   }
 }
@@ -140,6 +160,32 @@ func `exit disables bracketed paste before other cleanup`() async throws {
 }
 
 @Test
+func `exit disables focus tracking before bracketed paste`() async throws {
+  let device = LifecycleTestDevice()
+  let lifecycle = await makeLifecycle(device)
+
+  try await lifecycle.enter([.rawMode, .altScreen, .bracketedPaste, .focusEvents])
+  try await lifecycle.exit()
+
+  let activeModes = await lifecycle.activeModes
+  let events = await device.events
+
+  expectNoDifference(activeModes, [])
+  assertInlineSnapshot(of: lifecycleEventLog(events), as: .lines) {
+    """
+    enableRawMode
+    enableAltScreen
+    flush: 1B 5B 3F 32 30 30 34 68
+    flush: 1B 5B 3F 31 30 30 34 68
+    flush: 1B 5B 3F 31 30 30 34 6C
+    flush: 1B 5B 3F 32 30 30 34 6C
+    disableAltScreen
+    disableRawMode
+    """
+  }
+}
+
+@Test
 func `exit keeps cleaning up after alternate screen cleanup fails`() async throws {
   let device = LifecycleTestDevice(failure: .disableAltScreen)
   let lifecycle = await makeLifecycle(device)
@@ -161,11 +207,37 @@ func `exit keeps cleaning up after alternate screen cleanup fails`() async throw
 }
 
 @Test
-func `exit is idempotent after cleanup`() async throws {
+func `enter rolls back optional modes when focus enable fails`() async throws {
+  let device = LifecycleTestDevice(failure: .writeOnAttempt(2))
+  let lifecycle = await makeLifecycle(device)
+
+  await #expect(throws: LifecycleTestDevice.Failure.write) {
+    try await lifecycle.enter([.rawMode, .altScreen, .bracketedPaste, .focusEvents])
+  }
+
+  let activeModes = await lifecycle.activeModes
+  let events = await device.events
+
+  expectNoDifference(activeModes, [])
+  assertInlineSnapshot(of: lifecycleEventLog(events), as: .lines) {
+    """
+    enableRawMode
+    enableAltScreen
+    flush: 1B 5B 3F 32 30 30 34 68
+    flush: 1B 5B 3F 31 30 30 34 68
+    flush: 1B 5B 3F 32 30 30 34 6C
+    disableAltScreen
+    disableRawMode
+    """
+  }
+}
+
+@Test
+func `exit is idempotent after focus cleanup`() async throws {
   let device = LifecycleTestDevice()
   let lifecycle = await makeLifecycle(device)
 
-  try await lifecycle.enter([.rawMode, .altScreen, .bracketedPaste])
+  try await lifecycle.enter([.rawMode, .altScreen, .bracketedPaste, .focusEvents])
   try await lifecycle.exit()
   try await lifecycle.exit()
 
@@ -176,6 +248,8 @@ func `exit is idempotent after cleanup`() async throws {
     enableRawMode
     enableAltScreen
     flush: 1B 5B 3F 32 30 30 34 68
+    flush: 1B 5B 3F 31 30 30 34 68
+    flush: 1B 5B 3F 31 30 30 34 6C
     flush: 1B 5B 3F 32 30 30 34 6C
     disableAltScreen
     disableRawMode
@@ -208,7 +282,7 @@ func `alternate screen bytes round trip through virtual terminal`() async throws
   @Suite(.serialized)
   struct ModeLifecycleEmergencyCleanupTests {
     @Test
-    func `cleanup bytes disable bracketed paste before alt screen`() async throws {
+    func `cleanup bytes disable focus before bracketed paste`() async throws {
       let pipe = try LifecycleCleanupPipe()
       defer {
         CleanupRegistry.clear()
@@ -222,14 +296,15 @@ func `alternate screen bytes round trip through virtual terminal`() async throws
       )
       let lifecycle = await makeLifecycle(device)
 
-      try await lifecycle.enter([.rawMode, .altScreen, .bracketedPaste])
+      try await lifecycle.enter([.rawMode, .altScreen, .bracketedPaste, .focusEvents])
       CleanupRegistry.performEmergencyCleanupForTesting()
       pipe.closeWriteDescriptor()
 
       let bytes = try pipe.readAll()
-      assertInlineSnapshot(of: hex(bytes), as: .lines) {
+      assertInlineSnapshot(of: wrappedHex(bytes, bytesPerLine: 16), as: .lines) {
         """
-        1B 5B 3F 32 30 30 34 6C 1B 5B 3F 31 30 34 39 6C 1B 5B 3F 32 35 68
+        1B 5B 3F 31 30 30 34 6C 1B 5B 3F 32 30 30 34 6C
+        1B 5B 3F 31 30 34 39 6C 1B 5B 3F 32 35 68
         """
       }
     }
@@ -255,12 +330,14 @@ private actor LifecycleTestDevice {
     case enableAltScreen
     case enableRawMode
     case write
+    case writeOnAttempt(Int)
   }
 
   private let cleanupState: PlatformCleanupState
   private let failure: Failure?
   private var recordedBytes: [UInt8] = []
   private var recordedEvents: [Event] = []
+  private var writeCount = 0
 
   var bytes: [UInt8] {
     recordedBytes
@@ -325,7 +402,8 @@ private actor LifecycleTestDevice {
   private func write(_ bytes: ArraySlice<UInt8>) throws -> Int {
     let bytes = Array(bytes)
     recordedEvents.append(.flush(bytes))
-    if failure == .write {
+    writeCount += 1
+    if failure == .write || failure == .writeOnAttempt(writeCount) {
       throw Failure.write
     }
     recordedBytes.append(contentsOf: bytes)
@@ -357,6 +435,17 @@ private func lifecycleEventLog(_ events: [LifecycleTestDevice.Event]) -> String 
 
 private func hex(_ bytes: [UInt8]) -> String {
   bytes.map { String(format: "%02X", $0) }.joined(separator: " ")
+}
+
+private func wrappedHex(_ bytes: [UInt8], bytesPerLine: Int) -> String {
+  stride(from: bytes.startIndex, to: bytes.endIndex, by: bytesPerLine)
+    .map { index in
+      let end =
+        bytes.index(index, offsetBy: bytesPerLine, limitedBy: bytes.endIndex)
+        ?? bytes.endIndex
+      return hex(Array(bytes[index..<end]))
+    }
+    .joined(separator: "\n")
 }
 
 #if os(macOS) || os(Linux)

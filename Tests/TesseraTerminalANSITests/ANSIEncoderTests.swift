@@ -399,6 +399,8 @@ func `mode sequences encode exact bytes`() {
   expectBytes(.exitSynchronizedOutput, esc("[?2026l"))
   expectBytes(.enableBracketedPaste(true), esc("[?2004h"))
   expectBytes(.enableBracketedPaste(false), esc("[?2004l"))
+  expectBytes(.enableFocusTracking(true), esc("[?1004h"))
+  expectBytes(.enableFocusTracking(false), esc("[?1004l"))
   expectBytes(.enableLineWrap(true), esc("[?7h"))
   expectBytes(.enableLineWrap(false), esc("[?7l"))
 }

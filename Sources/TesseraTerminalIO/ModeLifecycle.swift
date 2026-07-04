@@ -16,14 +16,19 @@ public actor ModeLifecycle {
     /// Mouse tracking. Deferred to a later Phase 3 slice.
     case mouseTracking
 
-    /// Focus events. Deferred to Phase 3.
+    /// Focus events.
     case focusEvents
 
     /// Kitty keyboard protocol. Deferred to Phase 3.
     case kittyKeyboard
   }
 
-  private static let acquisitionOrder: [Mode] = [.rawMode, .altScreen, .bracketedPaste]
+  private static let acquisitionOrder: [Mode] = [
+    .rawMode,
+    .altScreen,
+    .bracketedPaste,
+    .focusEvents,
+  ]
   private static let supportedModes: Set<Mode> = Set(acquisitionOrder)
 
   private let io: PlatformIO
@@ -66,6 +71,7 @@ public actor ModeLifecycle {
       }
       await installCleanup()
     } catch {
+      await io.discardBufferedOutput()
       await rollback(acquiredModes)
       await io.clearCleanup()
       requestedModes = []
@@ -110,7 +116,11 @@ public actor ModeLifecycle {
       await io.write(ControlSequence.enableBracketedPaste(false).bytes)
       try await io.flush()
 
-    case .mouseTracking, .focusEvents, .kittyKeyboard:
+    case .focusEvents:
+      await io.write(ControlSequence.enableFocusTracking(false).bytes)
+      try await io.flush()
+
+    case .mouseTracking, .kittyKeyboard:
       throw ModeLifecycleError.unsupportedModes([mode])
     }
   }
@@ -127,13 +137,22 @@ public actor ModeLifecycle {
       await io.write(ControlSequence.enableBracketedPaste(true).bytes)
       try await io.flush()
 
-    case .mouseTracking, .focusEvents, .kittyKeyboard:
+    case .focusEvents:
+      await io.write(ControlSequence.enableFocusTracking(true).bytes)
+      try await io.flush()
+
+    case .mouseTracking, .kittyKeyboard:
       throw ModeLifecycleError.unsupportedModes([mode])
     }
   }
 
   private func installCleanup() async {
     var teardownBytes: [UInt8] = []
+
+    // DEC private mode 1004: disable focus event reports, `CSI ? 1004 l`.
+    if modes.contains(.focusEvents) || requestedModes.contains(.focusEvents) {
+      ControlSequence.enableFocusTracking(false).encode(into: &teardownBytes)
+    }
 
     // DEC private mode 2004: disable bracketed paste, `CSI ? 2004 l`.
     if modes.contains(.bracketedPaste) || requestedModes.contains(.bracketedPaste) {

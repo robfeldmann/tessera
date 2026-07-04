@@ -3,23 +3,23 @@ name: Phase 3 Slice 2 Focus Events
 description:
   Add terminal focus gained/lost events using CSI focus tracking, sharing the Phase 3 mode
   lifecycle and preserving bracketed-paste isolation.
-status: pending
+status: complete
 created: 2026-07-02
-updated: 2026-07-03
+updated: 2026-07-04
 ---
 
 ## Progress
 
-- [ ] **Phase 1 — Focus event parsing**
-  - [ ] 1.1 Add public focus event cases
-  - [ ] 1.2 Decode focus CSI reports without breaking paste mode
-- [ ] **Phase 2 — Encoder and lifecycle support**
-  - [ ] 2.1 Add exact focus-tracking control-sequence encoding
-  - [ ] 2.2 Enable, disable, and cleanup `.focusEvents`
-  - [ ] 2.3 Keep focus enabled in the default application terminal
-- [ ] **Phase 3 — Example app and validation**
-  - [ ] 3.1 Add the focus panel to `Phase3ProtocolsDemo`
-  - [ ] 3.2 Run narrow parser, encoder, lifecycle, session, and example checks
+- [x] **Phase 1 — Focus event parsing**
+  - [x] 1.1 Add public focus event cases
+  - [x] 1.2 Decode focus CSI reports without breaking paste mode
+- [x] **Phase 2 — Encoder and lifecycle support**
+  - [x] 2.1 Add exact focus-tracking control-sequence encoding
+  - [x] 2.2 Enable, disable, and cleanup `.focusEvents`
+  - [x] 2.3 Keep focus enabled in the default application terminal
+- [x] **Phase 3 — Example app and validation**
+  - [x] 3.1 Add the focus panel to `Phase3ProtocolsDemo`
+  - [x] 3.2 Run narrow parser, encoder, lifecycle, session, and example checks
 
 ## Overview
 

@@ -11,6 +11,7 @@ enum Phase3ProtocolsDemo {
         features: [
           "bracketed paste mode",
           "semantic paste events",
+          "terminal focus events",
           "raw keyboard input",
           "alternate screen rendering",
         ],
@@ -47,10 +48,24 @@ enum Phase3ProtocolsDemo {
     case .key(let key):
       state.append(event)
       state.lastKeyDescription = describe(key)
-
+      if key == Key(code: .character("1")) {
+        state.selectedPanel = .paste
+      } else if key == Key(code: .character("2")) {
+        state.selectedPanel = .focus
+      }
     case .paste(let text):
       state.append(event)
       state.lastPaste = text
+
+    case .focusGained:
+      state.append(event)
+      state.focusState = .focused
+      state.lastFocusTransition = "focus gained at event \(state.formattedSequenceNumber)"
+
+    case .focusLost:
+      state.append(event)
+      state.focusState = .unfocused
+      state.lastFocusTransition = "focus lost at event \(state.formattedSequenceNumber)"
 
     case .resize:
       state.append(event)
@@ -68,27 +83,33 @@ enum Phase3ProtocolsDemo {
     state: DemoState
   ) async throws {
     try await terminal.draw { frame in
-      drawHeader(frame: frame)
+      drawHeader(frame: frame, state: state)
       guard frame.size.columns >= 12, frame.size.rows >= 20 else {
         drawSmallTerminalMessage(frame: frame)
         return
       }
 
-      drawLastEvent(frame: frame, state: state)
-      drawPastePreview(frame: frame, state: state)
-      drawKeySummary(frame: frame, state: state)
-      drawRecentEvents(frame: frame, state: state)
+      switch state.selectedPanel {
+      case .paste:
+        drawLastEvent(frame: frame, state: state)
+        drawPastePreview(frame: frame, state: state)
+        drawKeySummary(frame: frame, state: state)
+        drawRecentEvents(frame: frame, state: state, top: 19)
+
+      case .focus:
+        drawFocusPanel(frame: frame, state: state)
+      }
     }
   }
 
-  private static func drawHeader(frame: borrowing Frame) {
+  private static func drawHeader(frame: borrowing Frame, state: DemoState) {
     frame.write(
-      "Phase3ProtocolsDemo — Paste",
+      "Phase3ProtocolsDemo — \(state.selectedPanel.title)",
       at: position(0, 0),
       style: Style(foreground: .ansi(.brightCyan), attributes: [.bold])
     )
     frame.write(
-      "q quit · paste text from your clipboard",
+      "q quit · 1 paste · 2 focus",
       at: position(0, 1),
       style: Style(attributes: [.dim])
     )
@@ -105,7 +126,7 @@ enum Phase3ProtocolsDemo {
     }
 
     let lines = wrappedLines(
-      "Resize to at least 12x20 for the paste demo.",
+      "Resize to at least 12x20 for the protocol demo.",
       width: frame.size.columns
     )
     let availableRows = frame.size.rows - 4
@@ -178,8 +199,11 @@ enum Phase3ProtocolsDemo {
     frame.write(state.lastKeyDescription, at: position(2, 17))
   }
 
-  private static func drawRecentEvents(frame: borrowing Frame, state: DemoState) {
-    let top = 19
+  private static func drawRecentEvents(
+    frame: borrowing Frame,
+    state: DemoState,
+    top: Int
+  ) {
     frame.write("Recent events", at: position(0, top), style: Style(attributes: [.bold]))
 
     if state.recentEvents.isEmpty {
@@ -197,13 +221,68 @@ enum Phase3ProtocolsDemo {
     }
   }
 
+  private static func drawFocusPanel(frame: borrowing Frame, state: DemoState) {
+    drawLastEvent(frame: frame, state: state)
+
+    frame.write("Terminal focus", at: position(0, 7), style: Style(attributes: [.bold]))
+    frame.write("state: \(state.focusState.description)", at: position(2, 8))
+    frame.write("last transition: \(state.lastFocusTransition)", at: position(2, 9))
+
+    frame.write("Try it", at: position(0, 12), style: Style(attributes: [.bold]))
+    frame.write(
+      "Switch to another terminal tab/window, then return here.",
+      at: position(2, 13)
+    )
+    frame.write(
+      "Some terminals only report focus while the alternate screen is active.",
+      at: position(2, 14),
+      style: Style(attributes: [.dim])
+    )
+
+    drawRecentEvents(frame: frame, state: state, top: 17)
+  }
+
   private static func position(_ column: Int, _ row: Int) -> TerminalPosition {
     TerminalPosition(column: column, row: row)
   }
 }
 
+private enum DemoPanel {
+  case focus
+  case paste
+
+  var title: String {
+    switch self {
+    case .focus:
+      return "Focus"
+    case .paste:
+      return "Paste"
+    }
+  }
+}
+
+private enum DemoFocusState {
+  case focused
+  case unfocused
+  case unknown
+
+  var description: String {
+    switch self {
+    case .focused:
+      return "focused"
+    case .unfocused:
+      return "unfocused"
+    case .unknown:
+      return "unknown"
+    }
+  }
+}
+
 private struct DemoState {
   private(set) var recentEvents: [String] = []
+  var selectedPanel = DemoPanel.paste
+  var focusState = DemoFocusState.unknown
+  var lastFocusTransition = "none"
   var lastKeyDescription = "none"
   var lastPaste = ""
   var sequenceNumber = 0
@@ -212,9 +291,13 @@ private struct DemoState {
     recentEvents.last ?? "none"
   }
 
+  var formattedSequenceNumber: String {
+    String(format: "%04d", sequenceNumber)
+  }
+
   mutating func append(_ event: InputEvent) {
     sequenceNumber += 1
-    recentEvents.append("\(String(format: "%04d", sequenceNumber)) \(describe(event))")
+    recentEvents.append("\(formattedSequenceNumber) \(describe(event))")
     if recentEvents.count > 25 {
       recentEvents.removeFirst(recentEvents.count - 25)
     }
@@ -242,6 +325,10 @@ private struct DemoState {
 
 private func describe(_ event: InputEvent) -> String {
   switch event {
+  case .focusGained:
+    return "focus gained"
+  case .focusLost:
+    return "focus lost"
   case .key(let key):
     return "key \(describe(key))"
   case .paste(let text):

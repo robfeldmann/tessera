@@ -22,17 +22,18 @@ func `application terminal returns body result and cleans up modes`() async thro
   let events = await device.events
 
   expectNoDifference(result, "done")
-  expectNoDifference(
-    events,
-    [
-      .enterRawMode,
-      .enterAltScreen,
-      .flush(Array("\u{1B}[?2004h".utf8)),
-      .flush(Array("\u{1B}[?25h".utf8)),
-      .flush(Array("\u{1B}[?2004l".utf8)),
-      .exitAltScreen,
-      .exitRawMode,
-    ]
+  #expect(
+    terminalSessionEventLog(events) == """
+      enterRawMode
+      enterAltScreen
+      flush: enableBracketedPaste(true)
+      flush: enableFocusTracking(true)
+      flush: cursorVisible(true)
+      flush: enableFocusTracking(false)
+      flush: enableBracketedPaste(false)
+      exitAltScreen
+      exitRawMode
+      """
   )
 }
 
@@ -45,15 +46,6 @@ func `application configuration stores synchronized output policy`() {
 
   expectNoDifference(configuration.modes, [.rawMode])
   expectNoDifference(configuration.synchronizedOutput, .disabled)
-}
-
-@Test
-func `default application configuration requests bracketed paste`() {
-  let modes = TerminalApplicationConfiguration.default.modes
-
-  #expect(modes.contains(.rawMode))
-  #expect(modes.contains(.altScreen))
-  #expect(modes.contains(.bracketedPaste))
 }
 
 @Test
@@ -71,17 +63,18 @@ func `application terminal rethrows body error after cleanup`() async throws {
   }
 
   let events = await device.events
-  expectNoDifference(
-    events,
-    [
-      .enterRawMode,
-      .enterAltScreen,
-      .flush(Array("\u{1B}[?2004h".utf8)),
-      .flush(Array("\u{1B}[?25h".utf8)),
-      .flush(Array("\u{1B}[?2004l".utf8)),
-      .exitAltScreen,
-      .exitRawMode,
-    ]
+  #expect(
+    terminalSessionEventLog(events) == """
+      enterRawMode
+      enterAltScreen
+      flush: enableBracketedPaste(true)
+      flush: enableFocusTracking(true)
+      flush: cursorVisible(true)
+      flush: enableFocusTracking(false)
+      flush: enableBracketedPaste(false)
+      exitAltScreen
+      exitRawMode
+      """
   )
 }
 
@@ -482,6 +475,47 @@ private func makeSession(
 
 private enum TerminalSessionTestError: Error, Equatable {
   case bodyFailed
+}
+
+private func terminalSessionEventLog(_ events: [InMemoryTerminalDeviceEvent]) -> String {
+  events.map { event in
+    switch event {
+    case .enterAltScreen:
+      "enterAltScreen"
+
+    case .enterRawMode:
+      "enterRawMode"
+
+    case .exitAltScreen:
+      "exitAltScreen"
+
+    case .exitRawMode:
+      "exitRawMode"
+
+    case .flush(let bytes):
+      "flush: \(terminalFlushName(bytes))"
+    }
+  }
+  .joined(separator: "\n")
+}
+
+private func terminalFlushName(_ bytes: [UInt8]) -> String {
+  if bytes == Array("\u{1B}[?25h".utf8) {
+    return "cursorVisible(true)"
+  }
+  if bytes == Array("\u{1B}[?1004h".utf8) {
+    return "enableFocusTracking(true)"
+  }
+  if bytes == Array("\u{1B}[?1004l".utf8) {
+    return "enableFocusTracking(false)"
+  }
+  if bytes == Array("\u{1B}[?2004h".utf8) {
+    return "enableBracketedPaste(true)"
+  }
+  if bytes == Array("\u{1B}[?2004l".utf8) {
+    return "enableBracketedPaste(false)"
+  }
+  return String(describing: bytes)
 }
 
 private func containsBytes(_ needle: [UInt8], in haystack: [UInt8]) -> Bool {

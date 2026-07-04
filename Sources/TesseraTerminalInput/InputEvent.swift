@@ -2,6 +2,12 @@ import TesseraTerminalCore
 
 /// A terminal input event parsed from raw terminal bytes.
 public enum InputEvent: Equatable, Sendable {
+  /// The terminal reported that the application gained focus.
+  case focusGained
+
+  /// The terminal reported that the application lost focus.
+  case focusLost
+
   /// The user pressed a key.
   case key(Key)
 

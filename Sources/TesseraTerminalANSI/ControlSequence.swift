@@ -32,6 +32,9 @@ public enum ControlSequence: Equatable, Sendable {
   /// Enable or disable bracketed paste using DEC private mode 2004.
   case enableBracketedPaste(Bool)
 
+  /// Enable or disable focus event reports using DEC private mode 1004.
+  case enableFocusTracking(Bool)
+
   /// Enable or disable automatic line wrap using DEC private mode 7.
   case enableLineWrap(Bool)
 
@@ -127,6 +130,7 @@ public enum ControlSequence: Equatable, Sendable {
       self.encodeSGR(into: &buffer)
 
     case .enableBracketedPaste,
+      .enableFocusTracking,
       .enableLineWrap,
       .enterAltScreen,
       .enterSynchronizedOutput,
@@ -183,6 +187,7 @@ public enum ControlSequence: Equatable, Sendable {
 
     case .bell,
       .enableBracketedPaste,
+      .enableFocusTracking,
       .enableLineWrap,
       .enterAltScreen,
       .enterSynchronizedOutput,
@@ -226,6 +231,7 @@ public enum ControlSequence: Equatable, Sendable {
       .cursorUp,
       .cursorVisible,
       .enableBracketedPaste,
+      .enableFocusTracking,
       .enableLineWrap,
       .enterAltScreen,
       .enterSynchronizedOutput,
@@ -296,6 +302,7 @@ public enum ControlSequence: Equatable, Sendable {
       .cursorUp,
       .cursorVisible,
       .enableBracketedPaste,
+      .enableFocusTracking,
       .enableLineWrap,
       .enterAltScreen,
       .enterSynchronizedOutput,
@@ -316,6 +323,10 @@ public enum ControlSequence: Equatable, Sendable {
     case .enableBracketedPaste(let isEnabled):
       // DEC private mode 2004: bracketed paste, `CSI ? 2004 h/l`.
       ANSIByteEncoding.appendCSI(isEnabled ? "?2004h" : "?2004l", into: &buffer)
+
+    case .enableFocusTracking(let isEnabled):
+      // DEC private mode 1004: focus event reports, `CSI ? 1004 h/l`.
+      ANSIByteEncoding.appendCSI(isEnabled ? "?1004h" : "?1004l", into: &buffer)
 
     case .enableLineWrap(let isEnabled):
       // DEC private mode 7 (DECAWM): automatic line wrap, `CSI ? 7 h/l`.
@@ -383,6 +394,7 @@ public enum ControlSequence: Equatable, Sendable {
       .cursorUp,
       .cursorVisible,
       .enableBracketedPaste,
+      .enableFocusTracking,
       .enableLineWrap,
       .enterAltScreen,
       .enterSynchronizedOutput,
@@ -430,6 +442,7 @@ public enum ControlSequence: Equatable, Sendable {
       .cursorUp,
       .cursorVisible,
       .enableBracketedPaste,
+      .enableFocusTracking,
       .enableLineWrap,
       .enterAltScreen,
       .enterSynchronizedOutput,

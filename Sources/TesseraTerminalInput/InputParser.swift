@@ -315,6 +315,12 @@ public struct InputParser: Sendable {
         state = .bracketedPaste(matchedEndMarkerBytes: 0)
         return []
       }
+      if byte == 0x49, params.isEmpty {
+        return [.focusGained]
+      }
+      if byte == 0x4F, params.isEmpty {
+        return [.focusLost]
+      }
       guard let code = csiCode(finalByte: byte, params: params) else {
         return [.unknown(sequence)]
       }
