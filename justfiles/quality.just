@@ -8,6 +8,7 @@ format: _format-json _format-markdown
     swift-format format -i -r Sources Tests Package.swift Examples/Sources Examples/Package.swift
     swiftlint lint --fix --quiet --config .swiftlint.yml
 
+# Sort JSON files when jq is available.
 _format-json:
     @if command -v jq &> /dev/null; then \
         find . -name "*.json" -not -path "./.build/*" -not -path "./.git/*" | \
@@ -18,6 +19,7 @@ _format-json:
         echo "⚠️  jq not found — skip JSON sorting (brew install jq)"; \
     fi
 
+# Format Markdown files when Prettier is available.
 _format-markdown:
     @if command -v prettier &> /dev/null; then \
         prettier --write "**/*.md"; \
@@ -35,6 +37,7 @@ lint: _swift-format swiftlint markdown docs
 changed:
     scripts/lint-changed.sh
 
+# Run the strict full-repo SwiftFormat formatting check.
 _swift-format:
     swift-format lint -r Sources Tests Package.swift Examples/Sources Examples/Package.swift
 

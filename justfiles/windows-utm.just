@@ -3,6 +3,7 @@ set working-directory := '..'
 
 # ── Manual UTM Windows VM ───────────────────────────────────────────────────
 
+# Start the manual UTM Windows VM.
 start:
     @set -euo pipefail; \
     vm="${TESSERA_WINDOWS_VM_NAME:-tessera-windows}"; \
@@ -12,6 +13,7 @@ start:
     fi; \
     utmctl start --hide "$vm"
 
+# Stop the manual UTM Windows VM.
 stop:
     @set -euo pipefail; \
     vm="${TESSERA_WINDOWS_VM_NAME:-tessera-windows}"; \
@@ -21,6 +23,7 @@ stop:
     fi; \
     utmctl stop --request "$vm"
 
+# Print the manual UTM Windows VM status.
 status:
     @set -euo pipefail; \
     vm="${TESSERA_WINDOWS_VM_NAME:-tessera-windows}"; \
@@ -30,6 +33,7 @@ status:
     fi; \
     utmctl status "$vm"
 
+# Print the manual UTM Windows VM IPv4 address.
 ip:
     @set -euo pipefail; \
     vm="${TESSERA_WINDOWS_VM_NAME:-tessera-windows}"; \
@@ -44,6 +48,7 @@ ip:
     fi; \
     echo "$ip"
 
+# Copy the Windows setup PowerShell script into the UTM VM.
 push-setup-script:
     @set -euo pipefail; \
     vm="${TESSERA_WINDOWS_VM_NAME:-tessera-windows}"; \
@@ -64,6 +69,7 @@ push-setup-script:
     if [[ -n "$output" ]]; then echo "$output"; fi; \
     echo "✅ Pushed scripts/setup-windows-vm.ps1 to $vm:$path"
 
+# Verify SSH and Swift availability in the UTM Windows VM.
 check:
     @set -euo pipefail; \
     host="${TESSERA_WINDOWS_VM_SSH:-}"; \
@@ -76,6 +82,7 @@ check:
     fi; \
     ssh -o BatchMode=yes -o ConnectTimeout=5 $host "swift --version"
 
+# Open an SSH session in the UTM Windows VM.
 ssh:
     @set -euo pipefail; \
     host="${TESSERA_WINDOWS_VM_SSH:-}"; \
@@ -95,6 +102,7 @@ test *args:
 # step (you will be prompted for the Windows password), so it does not depend on
 # key auth already working. Override the key with TESSERA_WINDOWS_VM_PUBKEY.
 
+# Install the macOS SSH public key into the UTM Windows VM.
 install-ssh-key:
     @set -euo pipefail; \
     vm="${TESSERA_WINDOWS_VM_NAME:-tessera-windows}"; \
@@ -132,6 +140,7 @@ install-ssh-key:
 # `receive.denyCurrentBranch=updateInstead` (configured here) to update the guest
 # working tree in place; the guest tree must be clean for the push to apply.
 
+# Push the current branch into the UTM Windows guest checkout.
 sync:
     @set -euo pipefail; \
     host="${TESSERA_WINDOWS_VM_SSH:-}"; \
