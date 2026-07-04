@@ -61,6 +61,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   platform-aware, lifecycle input is routed through Tessera events instead of `readLine`,
   raw-mode status lines use CRLF, and the renderer width page avoids terminal-dependent
   ZWJ/flag ruler samples.
+- Changed Windows Frost source sync to suppress macOS AppleDouble metadata, preventing
+  `._*` headers from reaching the Windows checkout and triggering Swift/Clang umbrella
+  header warnings.
 
 - Centralized SwiftLint coverage in the root config so example sources lint with the main
   package, removed the redundant example config symlink, and disabled cyclomatic

@@ -65,7 +65,7 @@ printf '[sync] create source archive: %s\n' "$ARCHIVE"
 (
   cd "$repo_root"
   git ls-files -z --cached --others --exclude-standard |
-    tar --null -czf "$ARCHIVE" -T -
+    COPYFILE_DISABLE=1 tar --exclude '._*' --exclude '*/._*' --null -czf "$ARCHIVE" -T -
 )
 
 printf '[sync] copy archive and extractor to guest\n'
