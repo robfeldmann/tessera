@@ -199,6 +199,17 @@ func `damage render advances cursor by wide cell width`() {
 }
 
 @Test
+func `damage render precomposes decomposed combining graphemes`() {
+  let previous = Buffer(size: TerminalSize(columns: 1, rows: 1))
+  var current = previous
+  current.write("e\u{0301}", at: TerminalPosition(column: 0, row: 0))
+
+  let bytes = Renderer.render(previous: previous, current: current)
+
+  #expect(bytes == escape("[1;1H") + escape("[0m") + utf8("é") + escape("[0m"))
+}
+
+@Test
 func `damage render identical second frame emits final reset only`() {
   var buffer = Buffer(size: TerminalSize(columns: 3, rows: 1))
   buffer.write("abc", at: TerminalPosition(column: 0, row: 0))

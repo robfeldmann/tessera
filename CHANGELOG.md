@@ -9,6 +9,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Added a project-local Windows smoke-testing skill and expanded the Windows Frost doctor
+  with UTM GUI VM IPv4 discovery plus a PowerShell fallback command for manual lookup.
+
 - Added `.worktreeinclude` so Worktrunk copies the gitignored Windows Frost env file into
   future worktrees, and clarified the Windows Frost source-sync message for unstaged
   deletes.
@@ -47,6 +50,17 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   state scopes.
 
 ### Changed
+
+- Changed Windows terminal input to translate queued console key records through
+  `ReadConsoleInputW`, so live Windows consoles deliver keystrokes and bracketed paste to
+  Tessera apps without relying on `ReadFile`.
+- Changed renderer text emission to canonical-precompose decomposed combining graphemes
+  when possible, improving cell alignment in Windows Terminal while preserving buffer
+  width accounting.
+- Updated the example demos' Windows smoke-test behavior: terminal availability checks are
+  platform-aware, lifecycle input is routed through Tessera events instead of `readLine`,
+  raw-mode status lines use CRLF, and the renderer width page avoids terminal-dependent
+  ZWJ/flag ruler samples.
 
 - Centralized SwiftLint coverage in the root config so example sources lint with the main
   package, removed the redundant example config symlink, and disabled cyclomatic

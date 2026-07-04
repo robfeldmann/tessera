@@ -21,8 +21,14 @@ enum LifecycleModesDemo {
     }
 
     writeLine("Before Tessera: cooked mode on the primary screen.")
-    writeLine("Typing should echo normally here. Press Enter to start.")
-    _ = readLine()
+    writeLine("Tessera will enter raw mode on the primary screen next.")
+
+    let shouldEnterAltScreen = try await runRawPrimaryScreenStage()
+    guard shouldEnterAltScreen else {
+      writeLine("Back from Tessera: primary screen restored.")
+      writeLine("Typing should echo normally again.")
+      return
+    }
 
     try await TerminalSession.withApplicationTerminal(
       configuration: .default
@@ -68,6 +74,52 @@ enum LifecycleModesDemo {
     writeLine("Typing should echo normally again.")
   }
 
+  private static func runRawPrimaryScreenStage() async throws -> Bool {
+    writeLine("")
+    writeLine("Inside Tessera: raw mode on the primary screen.")
+    writeLine("Typed keys are reported immediately; press Enter for alternate screen.")
+    writeLine("Press q here to leave without opening alternate screen.")
+
+    var shouldEnterAltScreen = false
+    try await TerminalSession.withApplicationTerminal(
+      configuration: TerminalApplicationConfiguration(
+        modes: [.rawMode],
+        synchronizedOutput: .disabled
+      )
+    ) { terminal in
+      for await event in terminal.events {
+        switch event {
+        case .key(let key) where key == Key(code: .enter):
+          shouldEnterAltScreen = true
+          return
+
+        case .key(let key) where key == Key(code: .character("q")):
+          shouldEnterAltScreen = false
+          return
+
+        case .key(let key):
+          if key.modifiers.isEmpty, case .character(let character) = key.code {
+            writeRawLine("raw key: \(character)")
+          } else {
+            writeRawLine("raw key: \(key.code) modifiers: \(key.modifiers.rawValue)")
+          }
+
+        case .paste(let text):
+          writeRawLine("raw paste: \(text)")
+
+        case .resize:
+          writeRawLine("raw resize")
+
+        case .unknown(let bytes):
+          let hexBytes = bytes.map { String(format: "%02X", $0) }.joined(separator: " ")
+          writeRawLine("raw unknown: \(hexBytes)")
+        }
+      }
+    }
+
+    return shouldEnterAltScreen
+  }
+
   private static func draw(
     terminal: isolated TerminalSession,
     lastEvent: String
@@ -99,4 +151,8 @@ enum LifecycleModesDemo {
 
 private func writeLine(_ line: String) {
   TerminalExampleSupport.writeLine(line)
+}
+
+private func writeRawLine(_ line: String) {
+  FileHandle.standardOutput.write(Data("\(line)\r\n".utf8))
 }

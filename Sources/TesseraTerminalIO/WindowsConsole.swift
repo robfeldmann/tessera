@@ -5,7 +5,7 @@
 
   /// Input records relevant to Tessera's shared Windows console input loop.
   package enum WindowsInputRecord: Equatable, Sendable {
-    case key
+    case key([UInt8])
     case other
     case resize(TerminalSize)
 
@@ -256,8 +256,7 @@
   private func windowsInputRecord(_ record: INPUT_RECORD) -> WindowsInputRecord {
     switch record.EventType {
     case WORD(KEY_EVENT):
-      return .key
-
+      return windowsKeyInputRecord(record.Event.KeyEvent)
     case WORD(WINDOW_BUFFER_SIZE_EVENT):
       let size = record.Event.WindowBufferSizeEvent.dwSize
       let columns = Int(size.X)
@@ -270,6 +269,19 @@
     default:
       return .other
     }
+  }
+
+  private func windowsKeyInputRecord(_ record: KEY_EVENT_RECORD) -> WindowsInputRecord {
+    guard record.bKeyDown.boolValue else {
+      return .other
+    }
+
+    let codeUnit = record.uChar.UnicodeChar
+    guard codeUnit != 0, let scalar = Unicode.Scalar(UInt32(codeUnit)) else {
+      return .other
+    }
+
+    return .key(Array(String(scalar).utf8))
   }
 
 #endif

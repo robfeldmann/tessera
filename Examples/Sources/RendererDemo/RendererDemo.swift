@@ -146,8 +146,8 @@ enum RendererDemo {
       ("ASCII", "hello"),
       ("CJK", "你好 "),
       ("emoji", "🙂   "),
-      ("ZWJ", "👨‍👩‍👧   "),
-      ("flag", "🇺🇸   "),
+      ("mixed", "A你🙂"),
+      ("accent", "é    "),
       ("combining", "e\u{0301}    "),
     ]
 
@@ -172,6 +172,11 @@ enum RendererDemo {
         style: Style(foreground: .ansi(.brightBlack))
       )
     }
+    frame.write(
+      "ZWJ emoji and flags vary by terminal/font, so this ruler avoids them.",
+      at: position(0, 13),
+      style: Style(attributes: [.dim])
+    )
   }
 
   private static func drawWideOverwrite(frame: borrowing Frame, state: DemoState) {

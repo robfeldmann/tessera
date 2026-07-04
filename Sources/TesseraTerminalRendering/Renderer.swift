@@ -1,3 +1,5 @@
+import Foundation
+
 import TesseraTerminalANSI
 import TesseraTerminalBuffer
 import TesseraTerminalCore
@@ -95,9 +97,17 @@ package struct Renderer {
     case .continuation:
       break
     case .grapheme(let grapheme):
-      ControlSequence.text(grapheme).encode(into: &bytes)
+      ControlSequence.text(terminalText(for: grapheme)).encode(into: &bytes)
     case .raw(let payload):
       ControlSequence.raw(payload).encode(into: &bytes)
     }
+  }
+
+  private func terminalText(for grapheme: String) -> String {
+    guard grapheme.unicodeScalars.count > 1 else {
+      return grapheme
+    }
+
+    return grapheme.precomposedStringWithCanonicalMapping
   }
 }
