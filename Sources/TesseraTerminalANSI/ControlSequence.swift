@@ -29,6 +29,9 @@ public enum ControlSequence: Equatable, Sendable {
   /// Show or hide the cursor using DEC private mode 25 (`CSI ? 25 h/l`).
   case cursorVisible(Bool)
 
+  /// Disable all SGR mouse tracking modes defensively.
+  case disableMouseTracking
+
   /// Enable or disable bracketed paste using DEC private mode 2004.
   case enableBracketedPaste(Bool)
 
@@ -37,6 +40,9 @@ public enum ControlSequence: Equatable, Sendable {
 
   /// Enable or disable automatic line wrap using DEC private mode 7.
   case enableLineWrap(Bool)
+
+  /// Enable SGR mouse tracking at the requested granularity.
+  case enableMouseTracking(MouseTracking)
 
   /// Enter the alternate screen buffer using DEC private mode 1049.
   case enterAltScreen
@@ -129,9 +135,11 @@ public enum ControlSequence: Equatable, Sendable {
       .setUnderline:
       self.encodeSGR(into: &buffer)
 
-    case .enableBracketedPaste,
+    case .disableMouseTracking,
+      .enableBracketedPaste,
       .enableFocusTracking,
       .enableLineWrap,
+      .enableMouseTracking,
       .enterAltScreen,
       .enterSynchronizedOutput,
       .exitAltScreen,
@@ -186,8 +194,10 @@ public enum ControlSequence: Equatable, Sendable {
       ANSIByteEncoding.appendCSI(isVisible ? "?25h" : "?25l", into: &buffer)
 
     case .bell,
+      .disableMouseTracking,
       .enableBracketedPaste,
       .enableFocusTracking,
+      .enableMouseTracking,
       .enableLineWrap,
       .enterAltScreen,
       .enterSynchronizedOutput,
@@ -231,7 +241,9 @@ public enum ControlSequence: Equatable, Sendable {
       .cursorUp,
       .cursorVisible,
       .enableBracketedPaste,
+      .disableMouseTracking,
       .enableFocusTracking,
+      .enableMouseTracking,
       .enableLineWrap,
       .enterAltScreen,
       .enterSynchronizedOutput,
@@ -302,7 +314,9 @@ public enum ControlSequence: Equatable, Sendable {
       .cursorUp,
       .cursorVisible,
       .enableBracketedPaste,
+      .disableMouseTracking,
       .enableFocusTracking,
+      .enableMouseTracking,
       .enableLineWrap,
       .enterAltScreen,
       .enterSynchronizedOutput,
@@ -320,6 +334,13 @@ public enum ControlSequence: Equatable, Sendable {
   /// Encodes terminal modes using DEC private mode set/reset (`CSI ? Ps h/l`).
   private func encodeMode(into buffer: inout [UInt8]) {
     switch self {
+    case .disableMouseTracking:
+      // SGR mouse teardown is deliberately defensive and idempotent: reset
+      // any-event tracking, button-event tracking, then SGR encoding.
+      ANSIByteEncoding.appendCSI("?1003l", into: &buffer)
+      ANSIByteEncoding.appendCSI("?1002l", into: &buffer)
+      ANSIByteEncoding.appendCSI("?1006l", into: &buffer)
+
     case .enableBracketedPaste(let isEnabled):
       // DEC private mode 2004: bracketed paste, `CSI ? 2004 h/l`.
       ANSIByteEncoding.appendCSI(isEnabled ? "?2004h" : "?2004l", into: &buffer)
@@ -327,6 +348,19 @@ public enum ControlSequence: Equatable, Sendable {
     case .enableFocusTracking(let isEnabled):
       // DEC private mode 1004: focus event reports, `CSI ? 1004 h/l`.
       ANSIByteEncoding.appendCSI(isEnabled ? "?1004h" : "?1004l", into: &buffer)
+
+    case .enableMouseTracking(let granularity):
+      switch granularity {
+      case .anyEvent:
+        // DEC private mode 1003: any-event mouse tracking.
+        ANSIByteEncoding.appendCSI("?1003h", into: &buffer)
+
+      case .buttonEvents:
+        // DEC private mode 1002: button-event mouse tracking.
+        ANSIByteEncoding.appendCSI("?1002h", into: &buffer)
+      }
+      // DEC private mode 1006: SGR mouse report encoding.
+      ANSIByteEncoding.appendCSI("?1006h", into: &buffer)
 
     case .enableLineWrap(let isEnabled):
       // DEC private mode 7 (DECAWM): automatic line wrap, `CSI ? 7 h/l`.
@@ -385,6 +419,7 @@ public enum ControlSequence: Equatable, Sendable {
       buffer.append(ANSIByteEncoding.bell)
 
     case .bell,
+      .disableMouseTracking,
       .cursorBack,
       .cursorDown,
       .cursorForward,
@@ -395,6 +430,7 @@ public enum ControlSequence: Equatable, Sendable {
       .cursorVisible,
       .enableBracketedPaste,
       .enableFocusTracking,
+      .enableMouseTracking,
       .enableLineWrap,
       .enterAltScreen,
       .enterSynchronizedOutput,
@@ -441,8 +477,10 @@ public enum ControlSequence: Equatable, Sendable {
       .cursorSave,
       .cursorUp,
       .cursorVisible,
+      .disableMouseTracking,
       .enableBracketedPaste,
       .enableFocusTracking,
+      .enableMouseTracking,
       .enableLineWrap,
       .enterAltScreen,
       .enterSynchronizedOutput,

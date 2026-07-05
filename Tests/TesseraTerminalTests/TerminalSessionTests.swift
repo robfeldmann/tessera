@@ -1,4 +1,5 @@
 import CustomDump
+import TesseraTerminalANSI
 import TesseraTerminalCore
 import TesseraTerminalInput
 import TesseraTerminalTestSupport
@@ -70,6 +71,101 @@ func `application terminal rethrows body error after cleanup`() async throws {
       flush: enableBracketedPaste(true)
       flush: enableFocusTracking(true)
       flush: cursorVisible(true)
+      flush: enableFocusTracking(false)
+      flush: enableBracketedPaste(false)
+      exitAltScreen
+      exitRawMode
+      """
+  )
+}
+
+@Test
+func `app terminal enables button-event mouse when requested`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+  let configuration = TerminalApplicationConfiguration(
+    modes: applicationModes(including: [.mouseTracking(.buttonEvents)])
+  )
+
+  try await TerminalSession.withApplicationTerminal(
+    configuration: configuration,
+    io: io
+  ) { _ in }
+
+  let events = await device.events
+  #expect(
+    terminalSessionEventLog(events) == """
+      enterRawMode
+      enterAltScreen
+      flush: enableBracketedPaste(true)
+      flush: enableFocusTracking(true)
+      flush: enableMouseTracking(buttonEvents)
+      flush: cursorVisible(true)
+      flush: disableMouseTracking
+      flush: enableFocusTracking(false)
+      flush: enableBracketedPaste(false)
+      exitAltScreen
+      exitRawMode
+      """
+  )
+}
+
+@Test
+func `app terminal enables any-event mouse when requested`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+  let configuration = TerminalApplicationConfiguration(
+    modes: applicationModes(including: [.mouseTracking(.anyEvent)])
+  )
+
+  try await TerminalSession.withApplicationTerminal(
+    configuration: configuration,
+    io: io
+  ) { _ in }
+
+  let events = await device.events
+  #expect(
+    terminalSessionEventLog(events) == """
+      enterRawMode
+      enterAltScreen
+      flush: enableBracketedPaste(true)
+      flush: enableFocusTracking(true)
+      flush: enableMouseTracking(anyEvent)
+      flush: cursorVisible(true)
+      flush: disableMouseTracking
+      flush: enableFocusTracking(false)
+      flush: enableBracketedPaste(false)
+      exitAltScreen
+      exitRawMode
+      """
+  )
+}
+
+@Test
+func `app terminal normalizes mouse granularities to any-event`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+  let configuration = TerminalApplicationConfiguration(
+    modes: applicationModes(
+      including: [.mouseTracking(.buttonEvents), .mouseTracking(.anyEvent)]
+    )
+  )
+
+  try await TerminalSession.withApplicationTerminal(
+    configuration: configuration,
+    io: io
+  ) { _ in }
+
+  let events = await device.events
+  #expect(
+    terminalSessionEventLog(events) == """
+      enterRawMode
+      enterAltScreen
+      flush: enableBracketedPaste(true)
+      flush: enableFocusTracking(true)
+      flush: enableMouseTracking(anyEvent)
+      flush: cursorVisible(true)
+      flush: disableMouseTracking
       flush: enableFocusTracking(false)
       flush: enableBracketedPaste(false)
       exitAltScreen
@@ -287,6 +383,103 @@ func `event buffer cancellation before waiter append throws cancellation`() asyn
 }
 
 @Test
+func `input event buffer coalesces buffered moves to the latest position`() async throws {
+  let buffer = AsyncEventBuffer<InputEvent>(coalescing: shouldCoalesceInputEvents)
+  let first = mouseInputEvent(.move, column: 1, row: 1)
+  let second = mouseInputEvent(.move, column: 2, row: 1)
+  let latest = mouseInputEvent(.move, column: 3, row: 1)
+
+  await buffer.yield(first)
+  await buffer.yield(second)
+  await buffer.yield(latest)
+  await buffer.finish()
+
+  let event = try await buffer.next()
+  let end = try await buffer.next()
+
+  expectNoDifference(event, latest)
+  expectNoDifference(end, nil)
+}
+
+@Test
+func `event buffer keeps press between buffered moves`() async throws {
+  let buffer = AsyncEventBuffer<InputEvent>(coalescing: shouldCoalesceInputEvents)
+  let firstMove = mouseInputEvent(.move, column: 1, row: 1)
+  let press = mouseInputEvent(.press(.left), column: 2, row: 1)
+  let secondMove = mouseInputEvent(.move, column: 3, row: 1)
+
+  await buffer.yield(firstMove)
+  await buffer.yield(press)
+  await buffer.yield(secondMove)
+
+  let first = try await buffer.next()
+  let second = try await buffer.next()
+  let third = try await buffer.next()
+
+  expectNoDifference(first, firstMove)
+  expectNoDifference(second, press)
+  expectNoDifference(third, secondMove)
+}
+
+@Test
+func `event buffer coalesces same-button drags only`() async throws {
+  let buffer = AsyncEventBuffer<InputEvent>(coalescing: shouldCoalesceInputEvents)
+  let firstLeft = mouseInputEvent(.drag(.left), column: 1, row: 1)
+  let latestLeft = mouseInputEvent(.drag(.left), column: 2, row: 1)
+  let right = mouseInputEvent(.drag(.right), column: 3, row: 1)
+
+  await buffer.yield(firstLeft)
+  await buffer.yield(latestLeft)
+  await buffer.yield(right)
+
+  let first = try await buffer.next()
+  let second = try await buffer.next()
+
+  expectNoDifference(first, latestLeft)
+  expectNoDifference(second, right)
+}
+
+@Test
+func `input event buffer preserves moves whose modifiers differ`() async throws {
+  let buffer = AsyncEventBuffer<InputEvent>(coalescing: shouldCoalesceInputEvents)
+  let unmodified = mouseInputEvent(.move, column: 1, row: 1)
+  let shifted = mouseInputEvent(.move, column: 2, row: 1, modifiers: .shift)
+
+  await buffer.yield(unmodified)
+  await buffer.yield(shifted)
+
+  let first = try await buffer.next()
+  let second = try await buffer.next()
+
+  expectNoDifference(first, unmodified)
+  expectNoDifference(second, shifted)
+}
+
+@Test
+func `event buffer delivers waiting consumers every mouse move`() async throws {
+  let buffer = AsyncEventBuffer<InputEvent>(coalescing: shouldCoalesceInputEvents)
+  let firstMove = mouseInputEvent(.move, column: 1, row: 1)
+  let secondMove = mouseInputEvent(.move, column: 2, row: 1)
+
+  let firstPending = Task { try await buffer.next() }
+  while await buffer.waiterCount == 0 {
+    await Task.yield()
+  }
+  await buffer.yield(firstMove)
+  let first = try await firstPending.value
+
+  let secondPending = Task { try await buffer.next() }
+  while await buffer.waiterCount == 0 {
+    await Task.yield()
+  }
+  await buffer.yield(secondMove)
+  let second = try await secondPending.value
+
+  expectNoDifference(first, firstMove)
+  expectNoDifference(second, secondMove)
+}
+
+@Test
 func `next event throws input closed when input finishes without event`() async throws {
   let device = InMemoryTerminalDevice(inputBytes: [])
   let session = await makeSession(device)
@@ -463,6 +656,27 @@ func `draw propagates flush errors`() async throws {
   }
 }
 
+private func applicationModes(
+  including additionalModes: Set<ModeLifecycle.Mode> = []
+) -> Set<ModeLifecycle.Mode> {
+  Set([.rawMode, .altScreen, .bracketedPaste, .focusEvents]).union(additionalModes)
+}
+
+private func mouseInputEvent(
+  _ kind: MouseEventKind,
+  column: Int,
+  row: Int,
+  modifiers: Modifiers = []
+) -> InputEvent {
+  .mouse(
+    MouseEvent(
+      kind: kind,
+      position: TerminalPosition(column: column, row: row),
+      modifiers: modifiers
+    )
+  )
+}
+
 private func makeSession(
   _ device: InMemoryTerminalDevice,
   synchronizedOutput: SynchronizedOutputPolicy = .enabled
@@ -515,7 +729,29 @@ private func terminalFlushName(_ bytes: [UInt8]) -> String {
   if bytes == Array("\u{1B}[?2004l".utf8) {
     return "enableBracketedPaste(false)"
   }
+  if bytes == mouseEnableBytes(.buttonEvents) {
+    return "enableMouseTracking(buttonEvents)"
+  }
+  if bytes == mouseEnableBytes(.anyEvent) {
+    return "enableMouseTracking(anyEvent)"
+  }
+  if bytes == mouseDisableBytes {
+    return "disableMouseTracking"
+  }
+
   return String(describing: bytes)
+}
+
+private let mouseDisableBytes =
+  Array("\u{1B}[?1003l\u{1B}[?1002l\u{1B}[?1006l".utf8)
+
+private func mouseEnableBytes(_ granularity: MouseTracking) -> [UInt8] {
+  switch granularity {
+  case .anyEvent:
+    Array("\u{1B}[?1003h\u{1B}[?1006h".utf8)
+  case .buttonEvents:
+    Array("\u{1B}[?1002h\u{1B}[?1006h".utf8)
+  }
 }
 
 private func containsBytes(_ needle: [UInt8], in haystack: [UInt8]) -> Bool {

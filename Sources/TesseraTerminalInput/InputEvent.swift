@@ -11,6 +11,9 @@ public enum InputEvent: Equatable, Sendable {
   /// The user pressed a key.
   case key(Key)
 
+  /// The terminal reported a mouse interaction in terminal coordinates.
+  case mouse(MouseEvent)
+
   /// The terminal delivered text as one bracketed paste payload.
   case paste(String)
 

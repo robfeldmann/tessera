@@ -5,6 +5,31 @@ import TesseraTerminalIO
 import TesseraTerminalInput
 import TesseraTerminalRendering
 
+func shouldCoalesceInputEvents(
+  _ buffered: InputEvent,
+  _ incoming: InputEvent
+) -> Bool {
+  guard case .mouse(let bufferedMouse) = buffered,
+    case .mouse(let incomingMouse) = incoming,
+    bufferedMouse.modifiers == incomingMouse.modifiers
+  else {
+    return false
+  }
+
+  switch (bufferedMouse.kind, incomingMouse.kind) {
+  case (.move, .move):
+    return true
+  case (.drag(let bufferedButton), .drag(let incomingButton)):
+    return bufferedButton == incomingButton
+  case (.press, _),
+    (.release, _),
+    (.scroll, _),
+    (.move, _),
+    (.drag, _):
+    return false
+  }
+}
+
 /// A scoped live-terminal capability for Tessera applications.
 public actor TerminalSession {
   private let inputEvents: AsyncEventBuffer<InputEvent>
@@ -24,7 +49,7 @@ public actor TerminalSession {
     io: PlatformIO,
     synchronizedOutput: SynchronizedOutputPolicy = .enabled
   ) {
-    let inputEvents = AsyncEventBuffer<InputEvent>()
+    let inputEvents = AsyncEventBuffer<InputEvent>(coalescing: shouldCoalesceInputEvents)
     let eventStream = AsyncStream<InputEvent>.makeStream()
     self.events = eventStream.stream
     self.inputEvents = inputEvents

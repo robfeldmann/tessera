@@ -5,7 +5,7 @@ description:
   the example app evolve consistently.
 status: in-progress
 created: 2026-07-02
-updated: 2026-07-04
+updated: 2026-07-05
 ---
 
 ## Progress
@@ -16,7 +16,7 @@ updated: 2026-07-04
 - [ ] **Phase 2 — Execute input protocol slices**
   - [x] 2.1 Implement bracketed paste from plan 016
   - [x] 2.2 Implement focus events from plan 017
-  - [ ] 2.3 Implement SGR mouse tracking from plan 018
+  - [x] 2.3 Implement SGR mouse tracking from plan 018
   - [ ] 2.4 Implement Kitty keyboard and dynamic mode apply from plan 019
 - [ ] **Phase 3 — Execute output and capability slices**
   - [ ] 3.1 Implement OSC 8 hyperlinks from plan 020

@@ -16,6 +16,16 @@ struct ParserCase: Sendable {
   }
 }
 
+struct MouseReportCase: Sendable {
+  var bytes: [UInt8]
+  var event: MouseEvent
+
+  init(_ string: String, _ event: MouseEvent) {
+    self.bytes = Array(string.utf8)
+    self.event = event
+  }
+}
+
 let csiKeyCases: [ParserCase] = [
   ParserCase("\u{1B}[A", .key(Key(code: .up))),
   ParserCase("\u{1B}[B", .key(Key(code: .down))),
@@ -96,6 +106,126 @@ let focusCSIReportCases: [ParserCase] = [
 let malformedFocusCSIReportCases: [ParserCase] = [
   ParserCase("\u{1B}[1I", .unknown([0x1B, 0x5B, 0x31, 0x49])),
   ParserCase("\u{1B}[1O", .unknown([0x1B, 0x5B, 0x31, 0x4F])),
+]
+
+let mouseReportCases: [MouseReportCase] = [
+  MouseReportCase(
+    "\u{1B}[<0;12;34M",
+    MouseEvent(kind: .press(.left), position: TerminalPosition(column: 11, row: 33))
+  ),
+  MouseReportCase(
+    "\u{1B}[<1;2;3M",
+    MouseEvent(kind: .press(.middle), position: TerminalPosition(column: 1, row: 2))
+  ),
+  MouseReportCase(
+    "\u{1B}[<2;2;3M",
+    MouseEvent(kind: .press(.right), position: TerminalPosition(column: 1, row: 2))
+  ),
+  MouseReportCase(
+    "\u{1B}[<0;4;5m",
+    MouseEvent(kind: .release(.left), position: TerminalPosition(column: 3, row: 4))
+  ),
+  MouseReportCase(
+    "\u{1B}[<1;4;5m",
+    MouseEvent(kind: .release(.middle), position: TerminalPosition(column: 3, row: 4))
+  ),
+  MouseReportCase(
+    "\u{1B}[<2;4;5m",
+    MouseEvent(kind: .release(.right), position: TerminalPosition(column: 3, row: 4))
+  ),
+  MouseReportCase(
+    "\u{1B}[<3;4;5m",
+    MouseEvent(kind: .release(nil), position: TerminalPosition(column: 3, row: 4))
+  ),
+  MouseReportCase(
+    "\u{1B}[<32;8;9M",
+    MouseEvent(kind: .drag(.left), position: TerminalPosition(column: 7, row: 8))
+  ),
+  MouseReportCase(
+    "\u{1B}[<33;8;9M",
+    MouseEvent(kind: .drag(.middle), position: TerminalPosition(column: 7, row: 8))
+  ),
+  MouseReportCase(
+    "\u{1B}[<34;8;9M",
+    MouseEvent(kind: .drag(.right), position: TerminalPosition(column: 7, row: 8))
+  ),
+  MouseReportCase(
+    "\u{1B}[<35;10;11M",
+    MouseEvent(kind: .move, position: TerminalPosition(column: 9, row: 10))
+  ),
+  MouseReportCase(
+    "\u{1B}[<64;6;7M",
+    MouseEvent(kind: .scroll(.up), position: TerminalPosition(column: 5, row: 6))
+  ),
+  MouseReportCase(
+    "\u{1B}[<65;6;7M",
+    MouseEvent(kind: .scroll(.down), position: TerminalPosition(column: 5, row: 6))
+  ),
+  MouseReportCase(
+    "\u{1B}[<66;6;7M",
+    MouseEvent(kind: .scroll(.left), position: TerminalPosition(column: 5, row: 6))
+  ),
+  MouseReportCase(
+    "\u{1B}[<67;6;7M",
+    MouseEvent(kind: .scroll(.right), position: TerminalPosition(column: 5, row: 6))
+  ),
+  MouseReportCase(
+    "\u{1B}[<4;2;3M",
+    MouseEvent(
+      kind: .press(.left),
+      position: TerminalPosition(column: 1, row: 2),
+      modifiers: .shift
+    )
+  ),
+  MouseReportCase(
+    "\u{1B}[<8;2;3M",
+    MouseEvent(
+      kind: .press(.left),
+      position: TerminalPosition(column: 1, row: 2),
+      modifiers: .alt
+    )
+  ),
+  MouseReportCase(
+    "\u{1B}[<16;2;3M",
+    MouseEvent(
+      kind: .press(.left),
+      position: TerminalPosition(column: 1, row: 2),
+      modifiers: .control
+    )
+  ),
+  MouseReportCase(
+    "\u{1B}[<63;2;3M",
+    MouseEvent(
+      kind: .move,
+      position: TerminalPosition(column: 1, row: 2),
+      modifiers: [.shift, .alt, .control]
+    )
+  ),
+]
+
+let malformedMouseReportCases: [ParserCase] = [
+  ParserCase(
+    "\u{1B}[<0;0;1M",
+    .unknown([0x1B, 0x5B, 0x3C, 0x30, 0x3B, 0x30, 0x3B, 0x31, 0x4D])
+  ),
+  ParserCase(
+    "\u{1B}[<0;1;0M",
+    .unknown([0x1B, 0x5B, 0x3C, 0x30, 0x3B, 0x31, 0x3B, 0x30, 0x4D])
+  ),
+  ParserCase(
+    "\u{1B}[<128;1;1M",
+    .unknown([
+      0x1B, 0x5B, 0x3C, 0x31, 0x32, 0x38, 0x3B, 0x31, 0x3B, 0x31, 0x4D,
+    ])
+  ),
+  ParserCase(
+    "\u{1B}[<0;1M",
+    .unknown([0x1B, 0x5B, 0x3C, 0x30, 0x3B, 0x31, 0x4D])
+  ),
+  ParserCase(
+    "\u{1B}[<;1;1M",
+    .unknown([0x1B, 0x5B, 0x3C, 0x3B, 0x31, 0x3B, 0x31, 0x4D])
+  ),
 ]
 
 @Test
@@ -276,6 +406,108 @@ func `parser emits unknown for malformed focus reports`(_ testCase: ParserCase) 
   #expect(parser.feed(contentsOf: testCase.bytes) == [testCase.event])
 }
 
+@Test(arguments: mouseReportCases)
+func `parser maps SGR mouse reports`(_ testCase: MouseReportCase) throws {
+  var parser = InputParser()
+
+  let events = parser.feed(contentsOf: testCase.bytes)
+  #expect(events.count == 1)
+  let event = try #require(events.first)
+  guard case .mouse(let mouse) = event else {
+    Issue.record("Expected mouse event, got \(String(reflecting: event))")
+    return
+  }
+
+  #expect(mouse.kind == testCase.event.kind)
+  #expect(mouse.position == testCase.event.position)
+  #expect(mouse.modifiers == testCase.event.modifiers)
+}
+
+@Test
+func `parser emits mouse press and move reports byte by byte`() {
+  var pressParser = InputParser()
+  var moveParser = InputParser()
+  var pressEvents: [InputEvent] = []
+  var moveEvents: [InputEvent] = []
+
+  for byte in "\u{1B}[<0;5;3M".utf8 {
+    pressEvents.append(contentsOf: pressParser.feed(byte))
+  }
+  for byte in "\u{1B}[<35;6;4M".utf8 {
+    moveEvents.append(contentsOf: moveParser.feed(byte))
+  }
+
+  #expect(pressEvents.count == 1)
+  #expect(
+    pressEvents.first
+      == .mouse(
+        MouseEvent(
+          kind: .press(.left),
+          position: TerminalPosition(column: 4, row: 2)
+        )
+      )
+  )
+  #expect(moveEvents.count == 1)
+  #expect(
+    moveEvents.first
+      == .mouse(
+        MouseEvent(
+          kind: .move,
+          position: TerminalPosition(column: 5, row: 3)
+        )
+      )
+  )
+}
+
+@Test
+func `parser keeps keys around mouse reports in order`() {
+  var parser = InputParser()
+  let bytes = Array("a\u{1B}[<0;5;3Mb".utf8)
+
+  assertInlineSnapshot(of: eventLog(parser.feed(contentsOf: bytes)), as: .lines) {
+    """
+    key(character("a"), modifiers: none)
+    mouse(press(left) at column: 4, row: 2, modifiers: none)
+    key(character("b"), modifiers: none)
+    """
+  }
+}
+
+@Test
+func `parser keeps focus reports around mouse reports in order`() {
+  var parser = InputParser()
+  let bytes = Array("\u{1B}[I\u{1B}[<0;5;3M\u{1B}[O".utf8)
+
+  assertInlineSnapshot(of: eventLog(parser.feed(contentsOf: bytes)), as: .lines) {
+    """
+    focus gained
+    mouse(press(left) at column: 4, row: 2, modifiers: none)
+    focus lost
+    """
+  }
+}
+
+@Test
+func `parser preserves adjacent move press and drag mouse reports`() {
+  var parser = InputParser()
+  let bytes = Array("\u{1B}[<35;10;4M\u{1B}[<0;10;4M\u{1B}[<32;11;4M".utf8)
+
+  assertInlineSnapshot(of: eventLog(parser.feed(contentsOf: bytes)), as: .lines) {
+    """
+    mouse(move at column: 9, row: 3, modifiers: none)
+    mouse(press(left) at column: 9, row: 3, modifiers: none)
+    mouse(drag(left) at column: 10, row: 3, modifiers: none)
+    """
+  }
+}
+
+@Test(arguments: malformedMouseReportCases)
+func `parser emits unknown for malformed SGR mouse reports`(_ testCase: ParserCase) {
+  var parser = InputParser()
+
+  #expect(parser.feed(contentsOf: testCase.bytes) == [testCase.event])
+}
+
 @Test
 func `parser maps modified csi split across feeds`() {
   var parser = InputParser()
@@ -449,6 +681,14 @@ func `parser treats focus lost report inside bracketed paste as payload`() {
 }
 
 @Test
+func `parser treats SGR mouse report inside bracketed paste as payload`() {
+  var parser = InputParser()
+  let payload = "before\u{1B}[<0;5;3Mafter"
+
+  #expect(parser.feed(contentsOf: bracketedPaste(payload)) == [.paste(payload)])
+}
+
+@Test
 func `parser treats bracketed paste start marker inside active paste as payload`() {
   var parser = InputParser()
   let payload = "before\u{1B}[200~after"
@@ -547,6 +787,9 @@ private func eventLogLine(_ event: InputEvent) -> String {
   case .key(let key):
     "key(\(key.code), modifiers: \(modifierLog(key.modifiers)))"
 
+  case .mouse(let mouse):
+    "mouse(\(mouseKindLog(mouse.kind)) at column: \(mouse.position.column), row: \(mouse.position.row), modifiers: \(modifierLog(mouse.modifiers)))"
+
   case .paste(let string):
     "paste(\(String(reflecting: string)))"
 
@@ -555,6 +798,25 @@ private func eventLogLine(_ event: InputEvent) -> String {
 
   case .unknown(let bytes):
     "unknown(\(hex(bytes)))"
+  }
+}
+
+private func mouseKindLog(_ kind: MouseEventKind) -> String {
+  switch kind {
+  case .drag(let button):
+    "drag(\(button))"
+  case .move:
+    "move"
+  case .press(let button):
+    "press(\(button))"
+  case .release(let button):
+    if let button {
+      "release(\(button))"
+    } else {
+      "release(nil)"
+    }
+  case .scroll(let direction):
+    "scroll(\(direction))"
   }
 }
 

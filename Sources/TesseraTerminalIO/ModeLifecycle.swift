@@ -13,23 +13,32 @@ public actor ModeLifecycle {
     /// Bracketed paste.
     case bracketedPaste
 
-    /// Mouse tracking. Deferred to a later Phase 3 slice.
-    case mouseTracking
-
     /// Focus events.
     case focusEvents
+
+    /// Mouse tracking.
+    case mouseTracking(MouseTracking)
 
     /// Kitty keyboard protocol. Deferred to Phase 3.
     case kittyKeyboard
   }
 
-  private static let acquisitionOrder: [Mode] = [
+  private enum AcquisitionSlot: Sendable {
+    case rawMode
+    case altScreen
+    case bracketedPaste
+    case focusEvents
+    case mouseTracking
+    case kittyKeyboard
+  }
+
+  private static let acquisitionOrder: [AcquisitionSlot] = [
     .rawMode,
     .altScreen,
     .bracketedPaste,
     .focusEvents,
+    .mouseTracking,
   ]
-  private static let supportedModes: Set<Mode> = Set(acquisitionOrder)
 
   private let io: PlatformIO
   private var acquisitionStack: [Mode] = []
@@ -47,23 +56,105 @@ public actor ModeLifecycle {
     CleanupRegistry.installHandlers()
   }
 
+  private static func isSupported(_ mode: Mode) -> Bool {
+    switch mode {
+    case .rawMode, .altScreen, .bracketedPaste, .focusEvents, .mouseTracking:
+      true
+    case .kittyKeyboard:
+      false
+    }
+  }
+
+  private static func mode(for slot: AcquisitionSlot, in modes: Set<Mode>) -> Mode? {
+    switch slot {
+    case .rawMode:
+      modes.contains(.rawMode) ? .rawMode : nil
+    case .altScreen:
+      modes.contains(.altScreen) ? .altScreen : nil
+    case .bracketedPaste:
+      modes.contains(.bracketedPaste) ? .bracketedPaste : nil
+    case .focusEvents:
+      modes.contains(.focusEvents) ? .focusEvents : nil
+    case .mouseTracking:
+      requestedMouseTracking(in: modes).map(Mode.mouseTracking)
+    case .kittyKeyboard:
+      modes.contains(.kittyKeyboard) ? .kittyKeyboard : nil
+    }
+  }
+
+  private static func normalized(_ modes: Set<Mode>) -> Set<Mode> {
+    var normalizedModes = modes.filter { mode in
+      if case .mouseTracking = mode {
+        return false
+      }
+      return true
+    }
+
+    // A set may request both mouse granularities; any-event is a strict superset of
+    // button-event tracking, so the broadest requested granularity wins.
+    if let mouseTracking = requestedMouseTracking(in: modes) {
+      normalizedModes.insert(.mouseTracking(mouseTracking))
+    }
+    return normalizedModes
+  }
+
+  private static func requestedMouseTracking(in modes: Set<Mode>) -> MouseTracking? {
+    var requestedButtonEvents = false
+    for mode in modes {
+      switch mode {
+      case .mouseTracking(.anyEvent):
+        return .anyEvent
+      case .mouseTracking(.buttonEvents):
+        requestedButtonEvents = true
+      case .rawMode, .altScreen, .bracketedPaste, .focusEvents, .kittyKeyboard:
+        continue
+      }
+    }
+    return requestedButtonEvents ? .buttonEvents : nil
+  }
+
+  private static func slot(for mode: Mode) -> AcquisitionSlot {
+    switch mode {
+    case .rawMode:
+      .rawMode
+    case .altScreen:
+      .altScreen
+    case .bracketedPaste:
+      .bracketedPaste
+    case .focusEvents:
+      .focusEvents
+    case .mouseTracking:
+      .mouseTracking
+    case .kittyKeyboard:
+      .kittyKeyboard
+    }
+  }
+
   /// Enters all requested modes in canonical acquisition order.
   public func enter(_ modes: Set<Mode>) async throws {
-    let unsupportedModes = modes.subtracting(Self.supportedModes)
+    let unsupportedModes = modes.filter { Self.isSupported($0) == false }
     guard unsupportedModes.isEmpty else {
-      throw ModeLifecycleError.unsupportedModes(unsupportedModes)
+      throw ModeLifecycleError.unsupportedModes(Set(unsupportedModes))
     }
 
-    let overlappingModes = self.modes.intersection(modes)
+    let normalizedModes = Self.normalized(modes)
+    let overlappingModes = normalizedModes.filter { normalizedMode in
+      self.modes.contains { activeMode in
+        Self.slot(for: activeMode) == Self.slot(for: normalizedMode)
+      }
+    }
     guard overlappingModes.isEmpty else {
-      throw ModeLifecycleError.modesAlreadyActive(overlappingModes)
+      throw ModeLifecycleError.modesAlreadyActive(Set(overlappingModes))
     }
 
-    requestedModes = modes
+    requestedModes = normalizedModes
     var acquiredModes: [Mode] = []
 
     do {
-      for mode in Self.acquisitionOrder where modes.contains(mode) {
+      for slot in Self.acquisitionOrder {
+        guard let mode = Self.mode(for: slot, in: normalizedModes) else {
+          continue
+        }
         try await enable(mode)
         acquiredModes.append(mode)
         acquisitionStack.append(mode)
@@ -84,7 +175,10 @@ public actor ModeLifecycle {
     let cleanupModes = modes.union(requestedModes)
     var firstError: (any Error)?
 
-    for mode in Self.acquisitionOrder.reversed() where cleanupModes.contains(mode) {
+    for slot in Self.acquisitionOrder.reversed() {
+      guard let mode = Self.mode(for: slot, in: cleanupModes) else {
+        continue
+      }
       do {
         try await disable(mode)
       } catch {
@@ -120,7 +214,11 @@ public actor ModeLifecycle {
       await io.write(ControlSequence.enableFocusTracking(false).bytes)
       try await io.flush()
 
-    case .mouseTracking, .kittyKeyboard:
+    case .mouseTracking:
+      await io.write(ControlSequence.disableMouseTracking.bytes)
+      try await io.flush()
+
+    case .kittyKeyboard:
       throw ModeLifecycleError.unsupportedModes([mode])
     }
   }
@@ -141,13 +239,23 @@ public actor ModeLifecycle {
       await io.write(ControlSequence.enableFocusTracking(true).bytes)
       try await io.flush()
 
-    case .mouseTracking, .kittyKeyboard:
+    case .mouseTracking(let granularity):
+      await io.write(ControlSequence.enableMouseTracking(granularity).bytes)
+      try await io.flush()
+
+    case .kittyKeyboard:
       throw ModeLifecycleError.unsupportedModes([mode])
     }
   }
 
   private func installCleanup() async {
     var teardownBytes: [UInt8] = []
+
+    // Mouse tracking teardown is broadest-wins on enable but always defensively resets
+    // both tracking granularities and SGR encoding.
+    if Self.requestedMouseTracking(in: modes.union(requestedModes)) != nil {
+      ControlSequence.disableMouseTracking.encode(into: &teardownBytes)
+    }
 
     // DEC private mode 1004: disable focus event reports, `CSI ? 1004 l`.
     if modes.contains(.focusEvents) || requestedModes.contains(.focusEvents) {

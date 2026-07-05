@@ -12,6 +12,7 @@ enum Phase3ProtocolsDemo {
           "bracketed paste mode",
           "semantic paste events",
           "terminal focus events",
+          "SGR mouse tracking",
           "raw keyboard input",
           "alternate screen rendering",
         ],
@@ -21,8 +22,11 @@ enum Phase3ProtocolsDemo {
       return
     }
 
+    var configuration = TerminalApplicationConfiguration.default
+    configuration.modes.insert(.mouseTracking(.anyEvent))
+
     try await TerminalSession.withApplicationTerminal(
-      configuration: .default
+      configuration: configuration
     ) { terminal in
       var state = DemoState()
       try await draw(terminal: terminal, state: state)
@@ -52,6 +56,10 @@ enum Phase3ProtocolsDemo {
         state.selectedPanel = .paste
       } else if key == Key(code: .character("2")) {
         state.selectedPanel = .focus
+      } else if key == Key(code: .character("3")) {
+        state.selectedPanel = .mouse
+      } else if key == Key(code: .character("m")) {
+        state.logsMouseMotionOutsideMousePanel.toggle()
       }
     case .paste(let text):
       state.append(event)
@@ -66,6 +74,14 @@ enum Phase3ProtocolsDemo {
       state.append(event)
       state.focusState = .unfocused
       state.lastFocusTransition = "focus lost at event \(state.formattedSequenceNumber)"
+
+    case .mouse(let event):
+      if state.shouldAppendMouseEvent(event) {
+        state.append(.mouse(event))
+      }
+      state.lastMouseEvent = event
+      state.lastMouseDescription = describe(event)
+      state.updateMouseGridPress(for: event)
 
     case .resize:
       state.append(event)
@@ -84,8 +100,12 @@ enum Phase3ProtocolsDemo {
   ) async throws {
     try await terminal.draw { frame in
       drawHeader(frame: frame, state: state)
-      guard frame.size.columns >= 12, frame.size.rows >= 20 else {
-        drawSmallTerminalMessage(frame: frame)
+      let minimumSize = minimumTerminalSize(for: state.selectedPanel)
+      guard
+        frame.size.columns >= minimumSize.columns,
+        frame.size.rows >= minimumSize.rows
+      else {
+        drawSmallTerminalMessage(frame: frame, minimumSize: minimumSize)
         return
       }
 
@@ -98,6 +118,9 @@ enum Phase3ProtocolsDemo {
 
       case .focus:
         drawFocusPanel(frame: frame, state: state)
+
+      case .mouse:
+        drawMousePanel(frame: frame, state: state)
       }
     }
   }
@@ -109,24 +132,27 @@ enum Phase3ProtocolsDemo {
       style: Style(foreground: .ansi(.brightCyan), attributes: [.bold])
     )
     frame.write(
-      "q quit · 1 paste · 2 focus",
+      "q quit · 1 paste · 2 focus · 3 mouse · m motion log",
       at: position(0, 1),
       style: Style(attributes: [.dim])
     )
     frame.write(
-      "Terminal: \(frame.size.columns)x\(frame.size.rows)",
+      "Terminal: \(frame.size.columns)x\(frame.size.rows) · motion log outside mouse: \(state.motionLogDescription)",
       at: position(0, 2),
       style: Style(attributes: [.dim])
     )
   }
 
-  private static func drawSmallTerminalMessage(frame: borrowing Frame) {
+  private static func drawSmallTerminalMessage(
+    frame: borrowing Frame,
+    minimumSize: TerminalSize
+  ) {
     guard frame.size.rows > 4, frame.size.columns > 0 else {
       return
     }
 
     let lines = wrappedLines(
-      "Resize to at least 12x20 for the protocol demo.",
+      "Resize to at least \(minimumSize.columns)x\(minimumSize.rows) for this panel.",
       width: frame.size.columns
     )
     let availableRows = frame.size.rows - 4
@@ -137,6 +163,15 @@ enum Phase3ProtocolsDemo {
         at: position(0, 4 + offset),
         style: Style(foreground: .ansi(.yellow), attributes: [.bold])
       )
+    }
+  }
+
+  private static func minimumTerminalSize(for panel: DemoPanel) -> TerminalSize {
+    switch panel {
+    case .mouse:
+      return TerminalSize(columns: 32, rows: 22)
+    case .focus, .paste:
+      return TerminalSize(columns: 12, rows: 20)
     }
   }
 
@@ -242,19 +277,125 @@ enum Phase3ProtocolsDemo {
     drawRecentEvents(frame: frame, state: state, top: 17)
   }
 
+  private static func drawMousePanel(frame: borrowing Frame, state: DemoState) {
+    drawLastEvent(frame: frame, state: state)
+
+    frame.write(
+      "Latest mouse event",
+      at: position(0, 7),
+      style: Style(attributes: [.bold])
+    )
+    frame.write("kind: \(state.lastMouseDescription)", at: position(2, 8))
+    if let mouse = state.lastMouseEvent {
+      frame.write(
+        "position: column \(mouse.position.column), row \(mouse.position.row)",
+        at: position(2, 9)
+      )
+      frame.write("modifiers: \(describe(mouse.modifiers))", at: position(2, 10))
+    } else {
+      frame.write("move, click, drag, or scroll inside the terminal", at: position(2, 9))
+    }
+
+    drawMouseGrid(frame: frame, state: state)
+    drawRecentEvents(frame: frame, state: state, top: 20)
+  }
+
+  private static func drawMouseGrid(frame: borrowing Frame, state: DemoState) {
+    let pointer = state.lastMouseEvent?.position
+    let normalStyle = Style(foreground: .ansi(.brightBlack))
+    let hoverStyle = Style(foreground: .ansi(.brightWhite), attributes: [.bold])
+    let pressedStyle = Style(
+      foreground: .ansi(.brightWhite),
+      background: .ansi(.cyan),
+      attributes: [.bold]
+    )
+
+    frame.write(
+      "Mouse grid",
+      at: position(0, MouseGrid.top),
+      style: Style(attributes: [.bold])
+    )
+    frame.write(
+      "columns →",
+      at: position(2, MouseGrid.headerRow),
+      style: Style(attributes: [.dim])
+    )
+    for column in 0..<MouseGrid.columnCount {
+      let cellPosition = MouseGrid.cellPosition(row: 0, column: column)
+      frame.write("\(column)", at: position(cellPosition.column, MouseGrid.headerRow))
+    }
+
+    for row in 0..<MouseGrid.rowCount {
+      frame.write(
+        "row \(row) →",
+        at: position(2, MouseGrid.cellOrigin.row + row),
+        style: Style(attributes: [.dim])
+      )
+      for column in 0..<MouseGrid.columnCount {
+        let cellPosition = MouseGrid.cellPosition(row: row, column: column)
+        let isPointerOverCell = pointer == cellPosition
+        let isPressedCell = state.pressedMouseGridCell == cellPosition
+        let symbol: String
+        let style: Style
+        if isPressedCell {
+          symbol = "●"
+          style = pressedStyle
+        } else if isPointerOverCell {
+          symbol = "●"
+          style = hoverStyle
+        } else {
+          symbol = "·"
+          style = normalStyle
+        }
+        frame.write(symbol, at: cellPosition, style: style)
+      }
+    }
+  }
+
   private static func position(_ column: Int, _ row: Int) -> TerminalPosition {
     TerminalPosition(column: column, row: row)
   }
 }
 
+private enum MouseGrid {
+  static let top = 13
+  static let headerRow = top + 1
+  static let cellOrigin = TerminalPosition(column: 13, row: top + 2)
+  static let columnCount = 10
+  static let rowCount = 3
+  static let columnStride = 2
+
+  static func cell(at position: TerminalPosition) -> TerminalPosition? {
+    for row in 0..<rowCount {
+      for column in 0..<columnCount {
+        let cell = cellPosition(row: row, column: column)
+        if cell == position {
+          return cell
+        }
+      }
+    }
+    return nil
+  }
+
+  static func cellPosition(row: Int, column: Int) -> TerminalPosition {
+    TerminalPosition(
+      column: cellOrigin.column + column * columnStride,
+      row: cellOrigin.row + row
+    )
+  }
+}
+
 private enum DemoPanel {
   case focus
+  case mouse
   case paste
 
   var title: String {
     switch self {
     case .focus:
       return "Focus"
+    case .mouse:
+      return "Mouse"
     case .paste:
       return "Paste"
     }
@@ -284,6 +425,10 @@ private struct DemoState {
   var focusState = DemoFocusState.unknown
   var lastFocusTransition = "none"
   var lastKeyDescription = "none"
+  var lastMouseDescription = "none"
+  var lastMouseEvent: MouseEvent?
+  var pressedMouseGridCell: TerminalPosition?
+  var logsMouseMotionOutsideMousePanel = false
   var lastPaste = ""
   var sequenceNumber = 0
 
@@ -295,11 +440,32 @@ private struct DemoState {
     String(format: "%04d", sequenceNumber)
   }
 
+  var motionLogDescription: String {
+    logsMouseMotionOutsideMousePanel ? "on" : "off"
+  }
+
   mutating func append(_ event: InputEvent) {
     sequenceNumber += 1
     recentEvents.append("\(formattedSequenceNumber) \(describe(event))")
     if recentEvents.count > 25 {
       recentEvents.removeFirst(recentEvents.count - 25)
+    }
+  }
+
+  func shouldAppendMouseEvent(_ event: MouseEvent) -> Bool {
+    selectedPanel == .mouse
+      || logsMouseMotionOutsideMousePanel
+      || !isMouseMotion(event.kind)
+  }
+
+  mutating func updateMouseGridPress(for event: MouseEvent) {
+    switch event.kind {
+    case .press:
+      pressedMouseGridCell = MouseGrid.cell(at: event.position)
+    case .release:
+      pressedMouseGridCell = nil
+    case .drag, .move, .scroll:
+      break
     }
   }
 
@@ -331,6 +497,8 @@ private func describe(_ event: InputEvent) -> String {
     return "focus lost"
   case .key(let key):
     return "key \(describe(key))"
+  case .mouse(let event):
+    return "mouse \(describe(event))"
   case .paste(let text):
     return "paste chars=\(text.count) lines=\(lineCount(text))"
   case .resize(let size):
@@ -342,6 +510,38 @@ private func describe(_ event: InputEvent) -> String {
 
 private func describe(_ key: Key) -> String {
   "code=\(key.code) modifiers=\(describe(key.modifiers))"
+}
+
+private func describe(_ event: MouseEvent) -> String {
+  "\(describe(event.kind)) at \(event.position.column),\(event.position.row) "
+    + "modifiers=\(describe(event.modifiers))"
+}
+
+private func describe(_ kind: MouseEventKind) -> String {
+  switch kind {
+  case .drag(let button):
+    return "drag(\(button))"
+  case .move:
+    return "move"
+  case .press(let button):
+    return "press(\(button))"
+  case .release(let button):
+    if let button {
+      return "release(\(button))"
+    }
+    return "release"
+  case .scroll(let direction):
+    return "scroll(\(direction))"
+  }
+}
+
+private func isMouseMotion(_ kind: MouseEventKind) -> Bool {
+  switch kind {
+  case .drag, .move:
+    true
+  case .press, .release, .scroll:
+    false
+  }
 }
 
 private func describe(_ modifiers: Modifiers) -> String {

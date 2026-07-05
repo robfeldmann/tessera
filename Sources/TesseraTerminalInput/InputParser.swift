@@ -1,3 +1,5 @@
+import TesseraTerminalCore
+
 /// Parses raw terminal input bytes into semantic terminal events.
 public struct InputParser: Sendable {
   private enum State: Sendable {
@@ -321,6 +323,12 @@ public struct InputParser: Sendable {
       if byte == 0x4F, params.isEmpty {
         return [.focusLost]
       }
+      if byte == 0x4D || byte == 0x6D {
+        guard let event = mouseEvent(finalByte: byte, params: params) else {
+          return [.unknown(sequence)]
+        }
+        return [.mouse(event)]
+      }
       guard let code = csiCode(finalByte: byte, params: params) else {
         return [.unknown(sequence)]
       }
@@ -430,6 +438,101 @@ public struct InputParser: Sendable {
     }
   }
 
+  private func mouseButton(_ code: Int) -> MouseButton? {
+    switch code {
+    case 0:
+      return .left
+    case 1:
+      return .middle
+    case 2:
+      return .right
+    default:
+      return nil
+    }
+  }
+
+  private func mouseEvent(finalByte: UInt8, params: String) -> MouseEvent? {
+    guard params.first == "<" else {
+      return nil
+    }
+
+    let values = mouseParameterValues(String(params.dropFirst()))
+    guard
+      values.count == 3,
+      let buttonParameter = values.first,
+      buttonParameter >= 0,
+      buttonParameter <= 127,
+      values[1] > 0,
+      values[2] > 0
+    else {
+      return nil
+    }
+
+    let finalIsRelease = finalByte == 0x6D
+    let hasMotionBit = buttonParameter & 32 != 0
+    let hasWheelBit = buttonParameter & 64 != 0
+    let lowButtonCode = buttonParameter & 3
+    let position = TerminalPosition(column: values[1] - 1, row: values[2] - 1)
+    let modifiers = mouseModifiers(encodedAs: buttonParameter)
+
+    if finalIsRelease {
+      guard !hasMotionBit, !hasWheelBit else {
+        return nil
+      }
+      return MouseEvent(
+        kind: .release(mouseButton(lowButtonCode)),
+        position: position,
+        modifiers: modifiers
+      )
+    }
+
+    if hasWheelBit {
+      guard !hasMotionBit else {
+        return nil
+      }
+      let direction: MouseScrollDirection
+      switch lowButtonCode {
+      case 0:
+        direction = .up
+      case 1:
+        direction = .down
+      case 2:
+        direction = .left
+      case 3:
+        direction = .right
+      default:
+        return nil
+      }
+      return MouseEvent(kind: .scroll(direction), position: position, modifiers: modifiers)
+    }
+
+    if hasMotionBit {
+      guard let button = mouseButton(lowButtonCode) else {
+        return MouseEvent(kind: .move, position: position, modifiers: modifiers)
+      }
+      return MouseEvent(kind: .drag(button), position: position, modifiers: modifiers)
+    }
+
+    guard let button = mouseButton(lowButtonCode) else {
+      return nil
+    }
+    return MouseEvent(kind: .press(button), position: position, modifiers: modifiers)
+  }
+
+  private func mouseModifiers(encodedAs value: Int) -> Modifiers {
+    var modifiers: Modifiers = []
+    if value & 4 != 0 {
+      modifiers.insert(.shift)
+    }
+    if value & 8 != 0 {
+      modifiers.insert(.alt)
+    }
+    if value & 16 != 0 {
+      modifiers.insert(.control)
+    }
+    return modifiers
+  }
+
   private func tildeCSIKey(params: String) -> Key? {
     let values = csiParameterValues(params)
     guard let first = values.first, let code = keyCode(forTildeParameter: first) else {
@@ -456,4 +559,17 @@ extension UInt8 {
 
 private func csiParameterValues(_ params: String) -> [Int] {
   params.split(separator: ";").compactMap { Int($0) }
+}
+
+private func mouseParameterValues(_ params: String) -> [Int] {
+  let fields = params.split(separator: ";", omittingEmptySubsequences: false)
+  var values: [Int] = []
+  values.reserveCapacity(fields.count)
+  for field in fields {
+    guard let value = Int(field) else {
+      return []
+    }
+    values.append(value)
+  }
+  return values
 }

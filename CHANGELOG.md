@@ -31,6 +31,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   DEC private mode 1004 encoding and lifecycle cleanup, default app enablement, parser
   paste-isolation coverage, and a focus panel in the Phase 3 protocols demo.
 
+- Added Phase 3 SGR mouse tracking, including semantic mouse input events, SGR mouse
+  control-sequence encoding, explicit opt-in lifecycle cleanup, bounded motion coalescing,
+  parser coverage, and a mouse panel in the Phase 3 protocols demo.
+
 - Added Windows support for Ghostty-backed snapshot tests behind the
   `TESSERA_GHOSTTY_WINDOWS=1` package-manifest gate, linking the static
   `ghostty-vt-static.lib` so no runtime DLL discovery is needed.

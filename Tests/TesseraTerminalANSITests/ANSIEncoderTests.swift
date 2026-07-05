@@ -29,6 +29,21 @@ func `cursor control sequences encode exact bytes`() {
   expectBytes(.cursorRestore, esc("8"))
 }
 
+@Test
+func `button-event mouse tracking enables button reports before SGR encoding`() {
+  expectBytes(.enableMouseTracking(.buttonEvents), esc("[?1002h") + esc("[?1006h"))
+}
+
+@Test
+func `any-event mouse tracking enables any-event reports before SGR encoding`() {
+  expectBytes(.enableMouseTracking(.anyEvent), esc("[?1003h") + esc("[?1006h"))
+}
+
+@Test
+func `disable mouse tracking always resets both granularities defensively`() {
+  expectBytes(.disableMouseTracking, esc("[?1003l") + esc("[?1002l") + esc("[?1006l"))
+}
+
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,

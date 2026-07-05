@@ -4,24 +4,24 @@ description:
   Add SGR mouse tracking with semantic press, release, drag, scroll, and motion events,
   opt-in any-event hover tracking with bounded motion coalescing, mode lifecycle cleanup,
   parser coverage, and an interactive demo panel.
-status: pending
+status: completed
 created: 2026-07-02
-updated: 2026-07-04
+updated: 2026-07-05
 ---
 
 ## Progress
 
-- [ ] **Phase 1 — Mouse event API and parser coverage**
-  - [ ] 1.1 Add semantic mouse event types and tracking granularity
-  - [ ] 1.2 Decode SGR mouse reports through the CSI parser
-  - [ ] 1.3 Add bounded motion coalescing to the input event buffer
-- [ ] **Phase 2 — Encoder and lifecycle support**
-  - [ ] 2.1 Add exact SGR mouse control-sequence encoding
-  - [ ] 2.2 Enable, disable, and cleanup `.mouseTracking`
-  - [ ] 2.3 Keep mouse tracking explicit, not default
-- [ ] **Phase 3 — Example app and validation**
-  - [ ] 3.1 Add the mouse panel to `Phase3ProtocolsDemo`
-  - [ ] 3.2 Run narrow parser, encoder, lifecycle, session, and example checks
+- [x] **Phase 1 — Mouse event API and parser coverage**
+  - [x] 1.1 Add semantic mouse event types and tracking granularity
+  - [x] 1.2 Decode SGR mouse reports through the CSI parser
+  - [x] 1.3 Add bounded motion coalescing to the input event buffer
+- [x] **Phase 2 — Encoder and lifecycle support**
+  - [x] 2.1 Add exact SGR mouse control-sequence encoding
+  - [x] 2.2 Enable, disable, and cleanup `.mouseTracking`
+  - [x] 2.3 Keep mouse tracking explicit, not default
+- [x] **Phase 3 — Example app and validation**
+  - [x] 3.1 Add the mouse panel to `Phase3ProtocolsDemo`
+  - [x] 3.2 Run narrow parser, encoder, lifecycle, session, and example checks
 
 ## Overview
 

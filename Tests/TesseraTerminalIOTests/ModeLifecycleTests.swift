@@ -2,6 +2,7 @@ import CustomDump
 import Foundation
 import InlineSnapshotTesting
 import SnapshotTesting
+import TesseraTerminalANSI
 import TesseraTerminalCore
 import TesseraTerminalSnapshotSupport
 import Testing
@@ -27,8 +28,7 @@ func `enter rejects unsupported phase three modes`() async throws {
   let device = LifecycleTestDevice()
   let lifecycle = await makeLifecycle(device)
   let unsupportedModes: Set<ModeLifecycle.Mode> = [
-    .kittyKeyboard,
-    .mouseTracking,
+    .kittyKeyboard
   ]
 
   await #expect(throws: ModeLifecycleError.unsupportedModes(unsupportedModes)) {
@@ -79,6 +79,100 @@ func `enter enables focus tracking after bracketed paste`() async throws {
     enableAltScreen
     flush: 1B 5B 3F 32 30 30 34 68
     flush: 1B 5B 3F 31 30 30 34 68
+    """
+  }
+}
+
+@Test
+func `enter enables button-event mouse tracking after focus tracking`() async throws {
+  let device = LifecycleTestDevice()
+  let lifecycle = await makeLifecycle(device)
+
+  try await lifecycle.enter([
+    .rawMode,
+    .altScreen,
+    .bracketedPaste,
+    .focusEvents,
+    .mouseTracking(.buttonEvents),
+  ])
+
+  let activeModes = await lifecycle.activeModes
+  let events = await device.events
+
+  expectNoDifference(
+    activeModes,
+    [.rawMode, .altScreen, .bracketedPaste, .focusEvents, .mouseTracking(.buttonEvents)]
+  )
+  assertInlineSnapshot(of: lifecycleEventLog(events), as: .lines) {
+    """
+    enableRawMode
+    enableAltScreen
+    flush: 1B 5B 3F 32 30 30 34 68
+    flush: 1B 5B 3F 31 30 30 34 68
+    flush: 1B 5B 3F 31 30 30 32 68 1B 5B 3F 31 30 30 36 68
+    """
+  }
+}
+
+@Test
+func `enter enables any-event mouse tracking after focus tracking`() async throws {
+  let device = LifecycleTestDevice()
+  let lifecycle = await makeLifecycle(device)
+
+  try await lifecycle.enter([
+    .rawMode,
+    .altScreen,
+    .bracketedPaste,
+    .focusEvents,
+    .mouseTracking(.anyEvent),
+  ])
+
+  let activeModes = await lifecycle.activeModes
+  let events = await device.events
+
+  expectNoDifference(
+    activeModes,
+    [.rawMode, .altScreen, .bracketedPaste, .focusEvents, .mouseTracking(.anyEvent)]
+  )
+  assertInlineSnapshot(of: lifecycleEventLog(events), as: .lines) {
+    """
+    enableRawMode
+    enableAltScreen
+    flush: 1B 5B 3F 32 30 30 34 68
+    flush: 1B 5B 3F 31 30 30 34 68
+    flush: 1B 5B 3F 31 30 30 33 68 1B 5B 3F 31 30 30 36 68
+    """
+  }
+}
+
+@Test
+func `enter normalizes mouse granularities to any-event once`() async throws {
+  let device = LifecycleTestDevice()
+  let lifecycle = await makeLifecycle(device)
+
+  try await lifecycle.enter([
+    .rawMode,
+    .altScreen,
+    .bracketedPaste,
+    .focusEvents,
+    .mouseTracking(.buttonEvents),
+    .mouseTracking(.anyEvent),
+  ])
+
+  let activeModes = await lifecycle.activeModes
+  let events = await device.events
+
+  expectNoDifference(
+    activeModes,
+    [.rawMode, .altScreen, .bracketedPaste, .focusEvents, .mouseTracking(.anyEvent)]
+  )
+  assertInlineSnapshot(of: lifecycleEventLog(events), as: .lines) {
+    """
+    enableRawMode
+    enableAltScreen
+    flush: 1B 5B 3F 32 30 30 34 68
+    flush: 1B 5B 3F 31 30 30 34 68
+    flush: 1B 5B 3F 31 30 30 33 68 1B 5B 3F 31 30 30 36 68
     """
   }
 }
@@ -185,6 +279,38 @@ func `exit disables focus tracking before bracketed paste`() async throws {
   }
 }
 
+@Test(arguments: [MouseTracking.buttonEvents, .anyEvent])
+func `exit disables mouse before focus`(_ granularity: MouseTracking) async throws {
+  let device = LifecycleTestDevice()
+  let lifecycle = await makeLifecycle(device)
+
+  try await lifecycle.enter([
+    .rawMode,
+    .altScreen,
+    .bracketedPaste,
+    .focusEvents,
+    .mouseTracking(granularity),
+  ])
+  try await lifecycle.exit()
+
+  let activeModes = await lifecycle.activeModes
+  let events = await device.events
+  let flushes = events.filter(\.isFlush).map(\.flushBytes)
+
+  expectNoDifference(activeModes, [])
+  expectNoDifference(
+    flushes,
+    [
+      bracketedPasteEnableBytes,
+      focusEnableBytes,
+      mouseEnableBytes(granularity),
+      mouseDisableBytes,
+      focusDisableBytes,
+      bracketedPasteDisableBytes,
+    ]
+  )
+}
+
 @Test
 func `exit keeps cleaning up after alternate screen cleanup fails`() async throws {
   let device = LifecycleTestDevice(failure: .disableAltScreen)
@@ -225,6 +351,40 @@ func `enter rolls back optional modes when focus enable fails`() async throws {
     enableAltScreen
     flush: 1B 5B 3F 32 30 30 34 68
     flush: 1B 5B 3F 31 30 30 34 68
+    flush: 1B 5B 3F 32 30 30 34 6C
+    disableAltScreen
+    disableRawMode
+    """
+  }
+}
+
+@Test
+func `enter rolls back protocol modes when mouse enable fails`() async throws {
+  let device = LifecycleTestDevice(failure: .writeOnAttempt(3))
+  let lifecycle = await makeLifecycle(device)
+
+  await #expect(throws: LifecycleTestDevice.Failure.write) {
+    try await lifecycle.enter([
+      .rawMode,
+      .altScreen,
+      .bracketedPaste,
+      .focusEvents,
+      .mouseTracking(.anyEvent),
+    ])
+  }
+
+  let activeModes = await lifecycle.activeModes
+  let events = await device.events
+
+  expectNoDifference(activeModes, [])
+  assertInlineSnapshot(of: lifecycleEventLog(events), as: .lines) {
+    """
+    enableRawMode
+    enableAltScreen
+    flush: 1B 5B 3F 32 30 30 34 68
+    flush: 1B 5B 3F 31 30 30 34 68
+    flush: 1B 5B 3F 31 30 30 33 68 1B 5B 3F 31 30 30 36 68
+    flush: 1B 5B 3F 31 30 30 34 6C
     flush: 1B 5B 3F 32 30 30 34 6C
     disableAltScreen
     disableRawMode
@@ -308,6 +468,44 @@ func `alternate screen bytes round trip through virtual terminal`() async throws
         """
       }
     }
+
+    @Test(arguments: [MouseTracking.buttonEvents, .anyEvent])
+    func `cleanup bytes defensively disable mouse tracking for either granularity`(
+      _ granularity: MouseTracking
+    ) async throws {
+      let pipe = try LifecycleCleanupPipe()
+      defer {
+        CleanupRegistry.clear()
+        pipe.closeAll()
+      }
+      let device = LifecycleTestDevice(
+        cleanupState: PlatformCleanupState(
+          inputFileDescriptor: -1,
+          outputFileDescriptor: pipe.writeDescriptor
+        ) { nil }
+      )
+      let lifecycle = await makeLifecycle(device)
+
+      try await lifecycle.enter([
+        .rawMode,
+        .altScreen,
+        .bracketedPaste,
+        .focusEvents,
+        .mouseTracking(granularity),
+      ])
+      CleanupRegistry.performEmergencyCleanupForTesting()
+      pipe.closeWriteDescriptor()
+
+      let bytes = try pipe.readAll()
+      expectNoDifference(
+        bytes,
+        mouseDisableBytes
+          + focusDisableBytes
+          + bracketedPasteDisableBytes
+          + Array("\u{1B}[?1049l".utf8)
+          + Array("\u{1B}[?25h".utf8)
+      )
+    }
   }
 #endif
 
@@ -322,6 +520,20 @@ private actor LifecycleTestDevice {
     case enableAltScreen
     case enableRawMode
     case flush([UInt8])
+
+    var flushBytes: [UInt8] {
+      if case .flush(let bytes) = self {
+        return bytes
+      }
+      return []
+    }
+
+    var isFlush: Bool {
+      if case .flush = self {
+        return true
+      }
+      return false
+    }
   }
 
   enum Failure: Error, Equatable {
@@ -431,6 +643,22 @@ private func lifecycleEventLog(_ events: [LifecycleTestDevice.Event]) -> String 
     }
   }
   .joined(separator: "\n")
+}
+
+private let bracketedPasteEnableBytes = Array("\u{1B}[?2004h".utf8)
+private let bracketedPasteDisableBytes = Array("\u{1B}[?2004l".utf8)
+private let focusEnableBytes = Array("\u{1B}[?1004h".utf8)
+private let focusDisableBytes = Array("\u{1B}[?1004l".utf8)
+private let mouseDisableBytes =
+  Array("\u{1B}[?1003l\u{1B}[?1002l\u{1B}[?1006l".utf8)
+
+private func mouseEnableBytes(_ granularity: MouseTracking) -> [UInt8] {
+  switch granularity {
+  case .anyEvent:
+    Array("\u{1B}[?1003h\u{1B}[?1006h".utf8)
+  case .buttonEvents:
+    Array("\u{1B}[?1002h\u{1B}[?1006h".utf8)
+  }
 }
 
 private func hex(_ bytes: [UInt8]) -> String {
