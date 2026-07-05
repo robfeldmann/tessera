@@ -1,5 +1,10 @@
 # ``TesseraTerminal``
 
+@Metadata {
+    @PageImage(purpose: icon, source: "terminal-icon", alt: "Module icon.")
+    @PageImage(purpose: card, source: "terminal-card", alt: "Module card.")
+}
+
 The public import surface for Tessera's terminal foundation.
 
 ## Overview

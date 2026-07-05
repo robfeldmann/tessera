@@ -1,5 +1,10 @@
 # ``TesseraTerminalANSI``
 
+@Metadata {
+    @PageImage(purpose: icon, source: "ansi-icon", alt: "Module icon.")
+    @PageImage(purpose: card, source: "ansi-card", alt: "Module card.")
+}
+
 ANSI control sequence encoding.
 
 `TesseraTerminalANSI` is the only terminal module that knows the byte-level spelling of
