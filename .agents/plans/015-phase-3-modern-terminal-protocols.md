@@ -1,7 +1,7 @@
 ---
 name: Phase 3 Modern Terminal Protocols
 description:
-  Coordinate the six Phase 3 protocol slices so parser, lifecycle, renderer, tests, and
+  Coordinate the seven Phase 3 protocol slices so parser, lifecycle, renderer, tests, and
   the example app evolve consistently.
 status: in-progress
 created: 2026-07-02
@@ -21,13 +21,14 @@ updated: 2026-07-04
 - [ ] **Phase 3 — Execute output and capability slices**
   - [ ] 3.1 Implement OSC 8 hyperlinks from plan 020
   - [ ] 3.2 Implement terminal capability detection from plan 021
+  - [ ] 3.3 Implement Kitty graphics protocol from plan 022
 - [ ] **Phase 4 — Close Phase 3 as one integrated substrate**
   - [ ] 4.1 Run the full Phase 3 validation sweep
   - [ ] 4.2 Review the example app across every protocol panel
 
 ## Overview
 
-This is the coordination plan for `docs/Spec.md` Phase 3, lines 3639-5342. Phase 3 keeps
+This is the coordination plan for `docs/Spec.md` Phase 3, lines 3644-6029. Phase 3 keeps
 the work inside `TesseraTerminal`: modern terminal protocols are added to input parsing,
 terminal mode lifecycle, rendering, configuration, tests, and examples. It does not
 introduce `View`, layout, widgets, shortcut routing, hit testing, or runtime state
@@ -41,11 +42,14 @@ The executable slice plans are separate review units:
 - `019-phase-3-slice-4-kitty-keyboard-protocol.md`
 - `020-phase-3-slice-5-osc-8-hyperlinks.md`
 - `021-phase-3-slice-6-terminal-capability-detection.md`
+- `022-phase-3-slice-7-kitty-graphics-protocol.md`
 
 Implement them in numeric order. The order matters because each slice proves a contract
 that later slices reuse: bracketed paste establishes parser-mode isolation, focus proves
 small CSI event decoding, mouse expands event payloads, Kitty keyboard changes keyboard
-semantics, hyperlinks exercise output-side metadata, and capabilities settle policy.
+semantics, hyperlinks exercise output-side metadata, capabilities settle policy, and Kitty
+graphics builds on all of it — APC joins the parser modes, the encoder grows a chunked
+command family, and cleanup gains its first non-mode teardown bytes.
 
 ## Implementation prompts
 
@@ -60,7 +64,7 @@ Implement .agents/plans/016-phase-3-slice-1-bracketed-paste-mode.md.
 
 Before editing, read these fully:
 - .agents/plans/015-phase-3-modern-terminal-protocols.md
-- docs/Spec.md lines 3639-3984, covering the Phase 3 overview and Slice 1
+- docs/Spec.md lines 3644-4009, covering the Phase 3 overview and Slice 1
 - .agents/plans/016-phase-3-slice-1-bracketed-paste-mode.md
 
 Treat plan 015 as the shared contract. Execute only plan 016. Do not implement focus
@@ -82,8 +86,8 @@ Implement .agents/plans/017-phase-3-slice-2-focus-events.md.
 
 Before editing, read these fully:
 - .agents/plans/015-phase-3-modern-terminal-protocols.md
-- docs/Spec.md lines 3639-3815, covering the Phase 3 overview
-- docs/Spec.md lines 3985-4173, covering Slice 2
+- docs/Spec.md lines 3644-3826, covering the Phase 3 overview
+- docs/Spec.md lines 4010-4198, covering Slice 2
 - .agents/plans/017-phase-3-slice-2-focus-events.md
 
 Treat plan 015 as the shared contract and the completed Slice 1 code as source of truth.
@@ -105,8 +109,8 @@ Implement .agents/plans/018-phase-3-slice-3-sgr-mouse-tracking.md.
 
 Before editing, read these fully:
 - .agents/plans/015-phase-3-modern-terminal-protocols.md
-- docs/Spec.md lines 3639-3815, covering the Phase 3 overview
-- docs/Spec.md lines 4174-4483, covering Slice 3
+- docs/Spec.md lines 3644-3826, covering the Phase 3 overview
+- docs/Spec.md lines 4199-4645, covering Slice 3
 - .agents/plans/018-phase-3-slice-3-sgr-mouse-tracking.md
 
 Treat plan 015 as the shared contract and completed prior slice code as source of truth.
@@ -128,8 +132,8 @@ Implement .agents/plans/019-phase-3-slice-4-kitty-keyboard-protocol.md.
 
 Before editing, read these fully:
 - .agents/plans/015-phase-3-modern-terminal-protocols.md
-- docs/Spec.md lines 3639-3815, covering the Phase 3 overview
-- docs/Spec.md lines 4484-4741, covering Slice 4
+- docs/Spec.md lines 3644-3826, covering the Phase 3 overview
+- docs/Spec.md lines 4646-4903, covering Slice 4
 - .agents/plans/019-phase-3-slice-4-kitty-keyboard-protocol.md
 
 Treat plan 015 as the shared contract and completed prior slice code as source of truth.
@@ -152,8 +156,8 @@ Implement .agents/plans/020-phase-3-slice-5-osc-8-hyperlinks.md.
 
 Before editing, read these fully:
 - .agents/plans/015-phase-3-modern-terminal-protocols.md
-- docs/Spec.md lines 3639-3815, covering the Phase 3 overview
-- docs/Spec.md lines 4742-4989, covering Slice 5
+- docs/Spec.md lines 3644-3826, covering the Phase 3 overview
+- docs/Spec.md lines 4904-5151, covering Slice 5
 - .agents/plans/020-phase-3-slice-5-osc-8-hyperlinks.md
 
 Treat plan 015 as the shared contract and completed prior slice code as source of truth.
@@ -175,8 +179,8 @@ Implement .agents/plans/021-phase-3-slice-6-terminal-capability-detection.md.
 
 Before editing, read these fully:
 - .agents/plans/015-phase-3-modern-terminal-protocols.md
-- docs/Spec.md lines 3639-3815, covering the Phase 3 overview
-- docs/Spec.md lines 4990-5342, covering Slice 6
+- docs/Spec.md lines 3644-3826, covering the Phase 3 overview
+- docs/Spec.md lines 5152-5490, covering Slice 6
 - .agents/plans/021-phase-3-slice-6-terminal-capability-detection.md
 
 Treat plan 015 as the shared contract and completed prior slice code as source of truth.
@@ -184,8 +188,32 @@ Execute only plan 021. Do not implement Phase 4 view-layer work.
 
 Write tests close to the production code they cover. Keep capability detection passive
 unless the plan has been updated and approved to include active queries. Add only the
-capabilities panel to Phase3ProtocolsDemo. Run the validation commands from plan 021 and
-the integrated validation sweep from this umbrella plan.
+capabilities panel to Phase3ProtocolsDemo. Run the validation commands from plan 021.
+
+When complete, update plan progress, report changed files and validation results, then stop
+and wait for review.
+```
+
+### Slice 7 prompt — Kitty graphics
+
+```text
+Implement .agents/plans/022-phase-3-slice-7-kitty-graphics-protocol.md.
+
+Before editing, read these fully:
+- .agents/plans/015-phase-3-modern-terminal-protocols.md
+- docs/Spec.md lines 3644-3826, covering the Phase 3 overview
+- docs/Spec.md lines 5491-6029, covering Slice 7
+- .agents/plans/022-phase-3-slice-7-kitty-graphics-protocol.md
+- Sources/CGhosttyVT/include/ghostty/vt/kitty_graphics.h, before the harness step
+
+Treat plan 015 as the shared contract and completed prior slice code as source of truth.
+Execute only plan 022. Do not implement Sixel, iTerm2 inline images, Unicode
+placeholders, animation, active capability probing, or Phase 4 view-layer work.
+
+Write tests close to the production code they cover. Prefer Ghostty-backed placement
+assertions over byte snapshots for harness-facing behavior; keep exact byte tests for the
+encoder surface. Add only the image panel to Phase3ProtocolsDemo. Run the validation
+commands from plan 022 and the integrated validation sweep from this umbrella plan.
 
 When complete, update plan progress, report changed files and validation results, then stop
 and wait for review.
@@ -202,7 +230,8 @@ and wait for review.
 - `InputEvent.unknown([UInt8])` remains the lossless malformed-input escape hatch.
 - Bracketed paste is a parser mode. While inside paste, ANSI-looking bytes are payload
   unless they match the exact bracketed-paste end marker.
-- Focus, mouse, and Kitty reports are recognized only in normal parser mode.
+- Focus, mouse, Kitty keyboard, and APC graphics reports are recognized only in normal
+  parser mode.
 - Byte splitting is part of every parser contract. Each protocol gets byte-by-byte tests.
 - Parser protocol modes must avoid hot-path heap churn. Use bounded marker state and
   private buffers for large payload modes; do not reintroduce `bytes.flatMap { feed($0) }`
@@ -220,9 +249,11 @@ and wait for review.
   stack-shaped.
 - `ModeLifecycle` owns all terminal mode enable/disable bytes.
 - `rawMode` and `altScreen` stay session-fixed. Bracketed paste, focus, mouse, and Kitty
-  keyboard are application protocol modes.
-- Cleanup may over-disable optional protocol modes. It must never leave a mode enabled
-  after normal or abnormal exit.
+  keyboard are application protocol modes. Kitty graphics is not a mode: there is nothing
+  to enable, only teardown bytes.
+- Cleanup may over-disable optional protocol modes and always includes the Kitty graphics
+  delete-all sequence. It must never leave a mode enabled — or an image placed — after
+  normal or abnormal exit.
 - `ModeLifecycle.apply(applicationModes:)` is implemented after the four input modes
   exist, in the Kitty plan. Earlier slices shape their enable/disable helpers so `apply`
   can reuse them.
@@ -275,7 +306,7 @@ Prefer direct assertions for scalar API behavior:
 
 ## Example application strategy
 
-Add one evolving example executable instead of six small apps:
+Add one evolving example executable instead of seven small apps:
 
 - Product and target: `Phase3ProtocolsDemo` in `Examples/Package.swift`.
 - Source: `Examples/Sources/Phase3ProtocolsDemo/Phase3ProtocolsDemo.swift`.
@@ -288,7 +319,7 @@ High-level wireframe:
 
 ```text
 ┌─ Phase3ProtocolsDemo ───────────────────────────────────────────────────────┐
-│ q quit · 1 paste · 2 focus · 3 mouse · 4 keys · 5 links · 6 capabilities    │
+│ q quit · 1 paste · 2 focus · 3 mouse · 4 keys · 5 links · 6 caps · 7 image  │
 ├─ Active protocol panel ─────────────────────────────────────────────────────┤
 │ Status line for the selected protocol                                       │
 │                                                                            │
@@ -316,10 +347,13 @@ review, but it is not the primary verification mechanism; tests remain the autho
   show the visible text.
 - Capability detection starts conservative. It exposes hints and policy, not promises.
   Startup must not fail because a terminal does not answer a query.
+- Kitty graphics is never probed or transmitted by default. Apps opt in by calling the
+  session/frame graphics API; teardown always over-cleans with delete-all, and blind
+  emission is safe on terminals that ignore APC.
 
 ## Integrated validation sweep
 
-Run narrow validation inside each slice first. After plan 021 is implemented, run:
+Run narrow validation inside each slice first. After plan 022 is implemented, run:
 
 ```fish
 swift test --filter TesseraTerminalInputTests
