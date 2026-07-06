@@ -17,7 +17,7 @@ updated: 2026-07-05
   - [x] 2.1 Implement bracketed paste from plan 016
   - [x] 2.2 Implement focus events from plan 017
   - [x] 2.3 Implement SGR mouse tracking from plan 018
-  - [ ] 2.4 Implement Kitty keyboard and dynamic mode apply from plan 019
+  - [x] 2.4 Implement Kitty keyboard and dynamic mode apply from plan 019
 - [ ] **Phase 3 — Execute output and capability slices**
   - [ ] 3.1 Implement OSC 8 hyperlinks from plan 020
   - [ ] 3.2 Implement terminal capability detection from plan 021

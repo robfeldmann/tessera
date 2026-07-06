@@ -3,24 +3,24 @@ name: Phase 3 Slice 4 Kitty Keyboard Protocol
 description:
   Add Kitty keyboard parsing and lifecycle support, expand key metadata, and introduce
   dynamic application-mode reconciliation for Phase 4 requirements.
-status: pending
+status: complete
 created: 2026-07-02
-updated: 2026-07-03
+updated: 2026-07-06
 ---
 
 ## Progress
 
-- [ ] **Phase 1 — Keyboard API expansion**
-  - [ ] 1.1 Add key event kind and richer modifier support
-  - [ ] 1.2 Add Kitty keyboard option-set values and encoder bytes
-- [ ] **Phase 2 — Kitty keyboard parsing**
-  - [ ] 2.1 Add colon-aware CSI parameter parsing
-  - [ ] 2.2 Decode Kitty key reports without regressing legacy input
-- [ ] **Phase 3 — Lifecycle, dynamic apply, and example app**
-  - [ ] 3.1 Enable, disable, and cleanup `.kittyKeyboard`
-  - [ ] 3.2 Add `ModeLifecycle.apply(applicationModes:)`
-  - [ ] 3.3 Add the keyboard panel to `Phase3ProtocolsDemo`
-  - [ ] 3.4 Run narrow parser, encoder, lifecycle, session, and example checks
+- [x] **Phase 1 — Keyboard API expansion**
+  - [x] 1.1 Add key event kind and richer modifier support
+  - [x] 1.2 Add Kitty keyboard option-set values and encoder bytes
+- [x] **Phase 2 — Kitty keyboard parsing**
+  - [x] 2.1 Add colon-aware CSI parameter parsing
+  - [x] 2.2 Decode Kitty key reports without regressing legacy input
+- [x] **Phase 3 — Lifecycle, dynamic apply, and example app**
+  - [x] 3.1 Enable, disable, and cleanup `.kittyKeyboard`
+  - [x] 3.2 Add `ModeLifecycle.apply(applicationModes:)`
+  - [x] 3.3 Add the keyboard panel to `Phase3ProtocolsDemo`
+  - [x] 3.4 Run narrow parser, encoder, lifecycle, session, and example checks
 
 ## Overview
 

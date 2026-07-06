@@ -11,6 +11,63 @@ public struct InputParser: Sendable {
     case utf8(expectedCount: Int, accumulated: [UInt8])
   }
 
+  private enum AssociatedTextResult: Equatable {
+    case invalid
+    case valid(String?)
+
+    var value: String? {
+      guard case .valid(let value) = self else {
+        return nil
+      }
+      return value
+    }
+  }
+
+  private struct CSIParameters: Sendable {
+    var rawBytes: [UInt8]
+    var parameters: [[Int?]]
+
+    init?(rawBytes: [UInt8]) {
+      self.rawBytes = rawBytes
+      parameters = []
+      var currentParameter: [Int?] = []
+      var value: Int?
+      var hasDigits = false
+
+      func finishSubparameter() {
+        currentParameter.append(hasDigits ? value : nil)
+        value = nil
+        hasDigits = false
+      }
+
+      func finishParameter() {
+        finishSubparameter()
+        parameters.append(currentParameter)
+        currentParameter = []
+      }
+
+      for byte in rawBytes {
+        switch byte {
+        case 0x30...0x39:
+          let digit = Int(byte - 0x30)
+          value = (value ?? 0) * 10 + digit
+          hasDigits = true
+
+        case 0x3A:
+          finishSubparameter()
+
+        case 0x3B:
+          finishParameter()
+
+        default:
+          return nil
+        }
+      }
+
+      finishParameter()
+    }
+  }
+
   private static let bracketedPasteStartMarker: [UInt8] = [
     0x1B, 0x5B, 0x32, 0x30, 0x30, 0x7E,
   ]
@@ -192,24 +249,37 @@ public struct InputParser: Sendable {
     return nil
   }
 
-  private func csiCode(finalByte: UInt8, params: String) -> Key? {
+  private func csiCode(finalByte: UInt8, params: String, parameterBytes: [UInt8]) -> Key? {
     switch finalByte {
     case 0x41:
-      return modifiedCSIKey(defaultCode: .up, params: params)
+      return modifiedCSIKey(defaultCode: .up, parameterBytes: parameterBytes)
     case 0x42:
-      return modifiedCSIKey(defaultCode: .down, params: params)
+      return modifiedCSIKey(defaultCode: .down, parameterBytes: parameterBytes)
     case 0x43:
-      return modifiedCSIKey(defaultCode: .right, params: params)
+      return modifiedCSIKey(defaultCode: .right, parameterBytes: parameterBytes)
     case 0x44:
-      return modifiedCSIKey(defaultCode: .left, params: params)
+      return modifiedCSIKey(defaultCode: .left, parameterBytes: parameterBytes)
+    case 0x45:
+      return modifiedCSIKey(defaultCode: .keypad(.begin), parameterBytes: parameterBytes)
     case 0x46:
-      return modifiedCSIKey(defaultCode: .end, params: params)
+      return modifiedCSIKey(defaultCode: .end, parameterBytes: parameterBytes)
     case 0x48:
-      return modifiedCSIKey(defaultCode: .home, params: params)
+      return modifiedCSIKey(defaultCode: .home, parameterBytes: parameterBytes)
+    case 0x50:
+      return modifiedCSIKey(defaultCode: .function(1), parameterBytes: parameterBytes)
+    case 0x51:
+      return modifiedCSIKey(defaultCode: .function(2), parameterBytes: parameterBytes)
+    case 0x53:
+      return modifiedCSIKey(defaultCode: .function(4), parameterBytes: parameterBytes)
     case 0x5A where params.isEmpty:
       return Key(code: .tab, modifiers: .shift)
+    case 0x75:
+      guard let parameters = CSIParameters(rawBytes: parameterBytes) else {
+        return nil
+      }
+      return kittyKey(parameters: parameters)
     case 0x7E:
-      return tildeCSIKey(params: params)
+      return tildeCSIKey(parameterBytes: parameterBytes)
     default:
       return nil
     }
@@ -254,48 +324,93 @@ public struct InputParser: Sendable {
       return .function(11)
     case 24:
       return .function(12)
+    case 57_427:
+      return .keypad(.begin)
     default:
       return nil
     }
   }
   // swiftlint:enable cyclomatic_complexity
 
-  private func modifiedCSIKey(defaultCode: KeyCode, params: String) -> Key? {
-    if params.isEmpty {
+  private func modifiedCSIKey(defaultCode: KeyCode, parameterBytes: [UInt8]) -> Key? {
+    guard let parameters = CSIParameters(rawBytes: parameterBytes) else {
+      return nil
+    }
+
+    if parameterBytes.isEmpty {
       return Key(code: defaultCode)
     }
 
-    let values = csiParameterValues(params)
     guard
-      values.count == 2,
-      values[0] == 1,
-      let modifiers = modifiers(encodedAs: values[1])
+      let primaryParameter = parameters.parameters.first,
+      primaryParameter.count == 1,
+      primaryParameter.first.flatMap(\.self) == 1
     else {
       return nil
     }
 
-    return Key(code: defaultCode, modifiers: modifiers)
+    var modifiers: Modifiers = []
+    var kind: KeyEventKind = .press
+    guard parseModifierAndKind(parameters: parameters, into: &modifiers, and: &kind) else {
+      return nil
+    }
+
+    return Key(code: defaultCode, modifiers: modifiers, kind: kind)
+  }
+
+  private func parseModifierAndKind(
+    parameters: CSIParameters,
+    into modifiers: inout Modifiers,
+    and kind: inout KeyEventKind
+  ) -> Bool {
+    guard parameters.parameters.count <= 3 else {
+      return false
+    }
+
+    guard parameters.parameters.count >= 2 else {
+      modifiers = []
+      kind = .press
+      return true
+    }
+
+    let modifierParameter = parameters.parameters[1]
+    guard
+      let encodedModifiers = modifierParameter.first.flatMap(\.self),
+      encodedModifiers > 0
+    else {
+      return false
+    }
+
+    let rawModifiers = encodedModifiers - 1
+    guard rawModifiers >= 0, rawModifiers <= Int(UInt8.max) else {
+      return false
+    }
+    modifiers = Modifiers(rawValue: UInt8(rawModifiers))
+
+    if modifierParameter.count > 1 {
+      guard let encodedKind = modifierParameter[1], modifierParameter.count == 2 else {
+        return false
+      }
+      guard let parsedKind = kittyEventKind(encodedKind) else {
+        return false
+      }
+      kind = parsedKind
+    } else {
+      kind = .press
+    }
+
+    return true
   }
 
   private func modifiers(encodedAs value: Int) -> Modifiers? {
-    switch value {
-    case 2:
-      return .shift
-    case 3:
-      return .alt
-    case 4:
-      return [.shift, .alt]
-    case 5:
-      return .control
-    case 6:
-      return [.shift, .control]
-    case 7:
-      return [.alt, .control]
-    case 8:
-      return [.shift, .alt, .control]
-    default:
+    guard value > 0 else {
       return nil
     }
+    let rawModifiers = value - 1
+    guard rawModifiers >= 0, rawModifiers <= Int(UInt8.max) else {
+      return nil
+    }
+    return Modifiers(rawValue: UInt8(rawModifiers))
   }
 
   private mutating func parseCSI(_ byte: UInt8, accumulated: [UInt8]) -> [InputEvent] {
@@ -329,7 +444,9 @@ public struct InputParser: Sendable {
         }
         return [.mouse(event)]
       }
-      guard let code = csiCode(finalByte: byte, params: params) else {
+      guard
+        let code = csiCode(finalByte: byte, params: params, parameterBytes: parameterBytes)
+      else {
         return [.unknown(sequence)]
       }
       return [.key(code)]
@@ -438,6 +555,199 @@ public struct InputParser: Sendable {
     }
   }
 
+  private func kittyKey(parameters: CSIParameters) -> Key? {
+    guard
+      let primaryParameter = parameters.parameters.first,
+      let primary = primaryParameter.first.flatMap(\.self)
+    else {
+      return nil
+    }
+
+    let associatedText = associatedText(parameters: parameters)
+    guard associatedText != .invalid else {
+      return nil
+    }
+
+    guard
+      let code = kittyKeyCode(
+        primary,
+        allowUnidentifiedZero: associatedText.value != nil
+      )
+    else {
+      return nil
+    }
+
+    let shiftedCode: KeyCode?
+    if primaryParameter.count > 1, let shifted = primaryParameter[1] {
+      guard let code = kittyKeyCode(shifted) else {
+        return nil
+      }
+      shiftedCode = code
+    } else {
+      shiftedCode = nil
+    }
+
+    let baseLayoutCode: KeyCode?
+    if primaryParameter.count > 2, let baseLayout = primaryParameter[2] {
+      guard let code = kittyKeyCode(baseLayout) else {
+        return nil
+      }
+      baseLayoutCode = code
+    } else {
+      baseLayoutCode = nil
+    }
+
+    guard primaryParameter.count <= 3 else {
+      return nil
+    }
+
+    var modifiers: Modifiers = []
+    var kind: KeyEventKind = .press
+    guard parseModifierAndKind(parameters: parameters, into: &modifiers, and: &kind) else {
+      return nil
+    }
+
+    return Key(
+      code: code,
+      modifiers: modifiers,
+      kind: kind,
+      shiftedCode: shiftedCode,
+      baseLayoutCode: baseLayoutCode,
+      associatedText: associatedText.value
+    )
+  }
+
+  private func associatedText(parameters: CSIParameters) -> AssociatedTextResult {
+    guard parameters.parameters.count > 2 else {
+      return .valid(nil)
+    }
+    guard parameters.parameters.count == 3 else {
+      return .invalid
+    }
+
+    let textParameter = parameters.parameters[2]
+    if textParameter == [nil] {
+      // A present-but-empty text field is zero code points, not a malformed one.
+      return .valid("")
+    }
+
+    var scalars = String.UnicodeScalarView()
+    for value in textParameter {
+      guard
+        let value,
+        let scalar = Unicode.Scalar(value),
+        !isControlAssociatedTextScalar(value)
+      else {
+        return .invalid
+      }
+      scalars.append(scalar)
+    }
+    return .valid(String(scalars))
+  }
+
+  private func isControlAssociatedTextScalar(_ value: Int) -> Bool {
+    (0x00...0x1F).contains(value) || (0x7F...0x9F).contains(value)
+  }
+
+  private func kittyEventKind(_ value: Int) -> KeyEventKind? {
+    switch value {
+    case 1:
+      return .press
+    case 2:
+      return .repeat
+    case 3:
+      return .release
+    default:
+      return nil
+    }
+  }
+
+  // swiftlint:disable cyclomatic_complexity function_body_length
+  private func kittyKeyCode(
+    _ value: Int,
+    allowUnidentifiedZero: Bool = false
+  ) -> KeyCode? {
+    switch value {
+    case 0 where allowUnidentifiedZero:
+      return .unidentified(0)
+    case 0:
+      return nil
+    case 9:
+      return .tab
+    case 13:
+      return .enter
+    case 27:
+      return .escape
+    case 127:
+      return .backspace
+    case 57_358:
+      return .capsLock
+    case 57_359:
+      return .scrollLock
+    case 57_360:
+      return .numLock
+    case 57_361:
+      return .printScreen
+    case 57_362:
+      return .pause
+    case 57_363:
+      return .menu
+    case 57_376...57_398:
+      return .function(value - 57_363)
+    case 57_399...57_408:
+      let keypads: [KeyCode.Keypad] = [
+        .zero, .one, .two, .three, .four, .five, .six, .seven, .eight, .nine,
+      ]
+      return .keypad(keypads[value - 57_399])
+    case 57_409...57_416:
+      let keypads: [KeyCode.Keypad] = [
+        .decimal, .divide, .multiply, .subtract, .add, .enter, .equal, .separator,
+      ]
+      return .keypad(keypads[value - 57_409])
+    case 57_417...57_427:
+      let keypads: [KeyCode.Keypad] = [
+        .left, .right, .up, .down, .pageUp, .pageDown, .home, .end, .insert,
+        .delete, .begin,
+      ]
+      return .keypad(keypads[value - 57_417])
+    case 57_428...57_437:
+      let media: [KeyCode.Media] = [
+        .play, .pause, .playPause, .reverse, .stop, .fastForward, .rewind,
+        .trackNext, .trackPrevious, .record,
+      ]
+      return .media(media[value - 57_428])
+    case 57_438:
+      return .media(.lowerVolume)
+    case 57_439:
+      return .media(.raiseVolume)
+    case 57_440:
+      return .media(.muteVolume)
+    case 57_441...57_446:
+      let modifiers: [KeyCode.Modifier] = [
+        .leftShift, .leftControl, .leftAlt, .leftSuper, .leftHyper, .leftMeta,
+      ]
+      return .modifier(modifiers[value - 57_441])
+    case 57_447...57_452:
+      let modifiers: [KeyCode.Modifier] = [
+        .rightShift, .rightControl, .rightAlt, .rightSuper, .rightHyper,
+        .rightMeta,
+      ]
+      return .modifier(modifiers[value - 57_447])
+    case 57_453:
+      return .modifier(.isoLevel3Shift)
+    case 57_454:
+      return .modifier(.isoLevel5Shift)
+    case 57_344...63_743:
+      return .unidentified(value)
+    default:
+      guard let scalar = Unicode.Scalar(value) else {
+        return nil
+      }
+      return .character(Character(scalar))
+    }
+  }
+  // swiftlint:enable cyclomatic_complexity function_body_length
+
   private func mouseButton(_ code: Int) -> MouseButton? {
     switch code {
     case 0:
@@ -533,21 +843,26 @@ public struct InputParser: Sendable {
     return modifiers
   }
 
-  private func tildeCSIKey(params: String) -> Key? {
-    let values = csiParameterValues(params)
-    guard let first = values.first, let code = keyCode(forTildeParameter: first) else {
+  private func tildeCSIKey(parameterBytes: [UInt8]) -> Key? {
+    guard let parameters = CSIParameters(rawBytes: parameterBytes) else {
+      return nil
+    }
+    guard
+      let firstParameter = parameters.parameters.first,
+      firstParameter.count == 1,
+      let first = firstParameter.first.flatMap(\.self),
+      let code = keyCode(forTildeParameter: first)
+    else {
       return nil
     }
 
-    if values.count == 1 {
-      return Key(code: code)
-    }
-
-    guard values.count == 2, let modifiers = modifiers(encodedAs: values[1]) else {
+    var modifiers: Modifiers = []
+    var kind: KeyEventKind = .press
+    guard parseModifierAndKind(parameters: parameters, into: &modifiers, and: &kind) else {
       return nil
     }
 
-    return Key(code: code, modifiers: modifiers)
+    return Key(code: code, modifiers: modifiers, kind: kind)
   }
 }
 

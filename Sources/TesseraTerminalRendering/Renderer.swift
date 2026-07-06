@@ -1,5 +1,4 @@
 import Foundation
-
 import TesseraTerminalANSI
 import TesseraTerminalBuffer
 import TesseraTerminalCore

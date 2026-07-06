@@ -4744,9 +4744,12 @@ first three bits, which is why the existing values must not be renumbered.
 
 The `KeyCode` enum may also need to grow (its cases stay alphabetized). Kitty can report
 keys that legacy terminal input cannot represent cleanly: keypad keys, caps lock, media
-keys, modifier-only keys, and more. Do not add the whole universe on day one. Add only the
-cases needed to decode the protocol cleanly and surface unknown-but-well-formed reports
-through `.unknown([UInt8])` until the public API has a real use case for them.
+keys, modifier-only keys, and more. A follow-up full-coverage pass superseded the day-one
+guidance below: `KeyCode` now represents Kitty's complete functional-key table (nested
+`Keypad`, `Media`, and `Modifier` enums plus flat singleton cases), and a well-formed
+Kitty key code with no named mapping surfaces as `KeyCode.unidentified(Int)` rather than
+`InputEvent.unknown([UInt8])`. `InputEvent.unknown([UInt8])` stays reserved for malformed
+or non-keyboard sequences Tessera cannot parse at all.
 
 #### Protocol level
 

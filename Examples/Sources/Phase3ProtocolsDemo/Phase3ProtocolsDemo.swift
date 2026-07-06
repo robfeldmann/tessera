@@ -13,6 +13,7 @@ enum Phase3ProtocolsDemo {
           "semantic paste events",
           "terminal focus events",
           "SGR mouse tracking",
+          "Kitty keyboard protocol",
           "raw keyboard input",
           "alternate screen rendering",
         ],
@@ -24,6 +25,7 @@ enum Phase3ProtocolsDemo {
 
     var configuration = TerminalApplicationConfiguration.default
     configuration.modes.insert(.mouseTracking(.anyEvent))
+    configuration.modes.insert(.kittyKeyboard)
 
     try await TerminalSession.withApplicationTerminal(
       configuration: configuration
@@ -58,6 +60,8 @@ enum Phase3ProtocolsDemo {
         state.selectedPanel = .focus
       } else if key == Key(code: .character("3")) {
         state.selectedPanel = .mouse
+      } else if key == Key(code: .character("4")) {
+        state.selectedPanel = .keyboard
       } else if key == Key(code: .character("m")) {
         state.logsMouseMotionOutsideMousePanel.toggle()
       }
@@ -121,6 +125,9 @@ enum Phase3ProtocolsDemo {
 
       case .mouse:
         drawMousePanel(frame: frame, state: state)
+
+      case .keyboard:
+        drawKeyboardPanel(frame: frame, state: state)
       }
     }
   }
@@ -132,7 +139,7 @@ enum Phase3ProtocolsDemo {
       style: Style(foreground: .ansi(.brightCyan), attributes: [.bold])
     )
     frame.write(
-      "q quit · 1 paste · 2 focus · 3 mouse · m motion log",
+      "q quit · 1 paste · 2 focus · 3 mouse · 4 keys · m motion log",
       at: position(0, 1),
       style: Style(attributes: [.dim])
     )
@@ -170,7 +177,7 @@ enum Phase3ProtocolsDemo {
     switch panel {
     case .mouse:
       return TerminalSize(columns: 32, rows: 22)
-    case .focus, .paste:
+    case .focus, .keyboard, .paste:
       return TerminalSize(columns: 12, rows: 20)
     }
   }
@@ -270,7 +277,7 @@ enum Phase3ProtocolsDemo {
     )
     frame.write(
       "Some terminals only report focus while the alternate screen is active.",
-      at: position(2, 14),
+      at: position(2, 16),
       style: Style(attributes: [.dim])
     )
 
@@ -297,6 +304,41 @@ enum Phase3ProtocolsDemo {
     }
 
     drawMouseGrid(frame: frame, state: state)
+    drawRecentEvents(frame: frame, state: state, top: 20)
+  }
+
+  private static func drawKeyboardPanel(frame: borrowing Frame, state: DemoState) {
+    drawLastEvent(frame: frame, state: state)
+
+    frame.write("Latest key", at: position(0, 7), style: Style(attributes: [.bold]))
+    if let key = state.lastKey {
+      frame.write("code: \(key.code)", at: position(2, 8))
+      frame.write("kind: \(key.kind)", at: position(2, 9))
+      frame.write("modifiers: \(describe(key.modifiers))", at: position(2, 10))
+      frame.write("shifted: \(describeOptional(key.shiftedCode))", at: position(2, 11))
+      frame.write("base: \(describeOptional(key.baseLayoutCode))", at: position(2, 12))
+      frame.write(
+        "text: \(key.associatedText.map(String.init(reflecting:)) ?? "none")",
+        at: position(2, 13)
+      )
+    } else {
+      frame.write("press keys now", at: position(2, 8), style: Style(attributes: [.dim]))
+    }
+
+    frame.write(
+      "Kitty protocol notes",
+      at: position(0, 15),
+      style: Style(attributes: [.bold])
+    )
+    frame.write(
+      "Press Escape, Tab, arrows, modified letters, and hold a key for repeat.",
+      at: position(2, 16)
+    )
+    frame.write(
+      "Unsupported terminals should still show legacy key events below.",
+      at: position(2, 17)
+    )
+
     drawRecentEvents(frame: frame, state: state, top: 20)
   }
 
@@ -387,6 +429,7 @@ private enum MouseGrid {
 
 private enum DemoPanel {
   case focus
+  case keyboard
   case mouse
   case paste
 
@@ -394,6 +437,8 @@ private enum DemoPanel {
     switch self {
     case .focus:
       return "Focus"
+    case .keyboard:
+      return "Keyboard"
     case .mouse:
       return "Mouse"
     case .paste:
@@ -424,6 +469,7 @@ private struct DemoState {
   var selectedPanel = DemoPanel.paste
   var focusState = DemoFocusState.unknown
   var lastFocusTransition = "none"
+  var lastKey: Key?
   var lastKeyDescription = "none"
   var lastMouseDescription = "none"
   var lastMouseEvent: MouseEvent?
@@ -446,6 +492,9 @@ private struct DemoState {
 
   mutating func append(_ event: InputEvent) {
     sequenceNumber += 1
+    if case .key(let key) = event {
+      lastKey = key
+    }
     recentEvents.append("\(formattedSequenceNumber) \(describe(event))")
     if recentEvents.count > 25 {
       recentEvents.removeFirst(recentEvents.count - 25)
@@ -509,7 +558,25 @@ private func describe(_ event: InputEvent) -> String {
 }
 
 private func describe(_ key: Key) -> String {
-  "code=\(key.code) modifiers=\(describe(key.modifiers))"
+  var parts = [
+    "code=\(key.code)",
+    "modifiers=\(describe(key.modifiers))",
+    "kind=\(key.kind)",
+  ]
+  if let shiftedCode = key.shiftedCode {
+    parts.append("shifted=\(shiftedCode)")
+  }
+  if let baseLayoutCode = key.baseLayoutCode {
+    parts.append("base=\(baseLayoutCode)")
+  }
+  if let associatedText = key.associatedText {
+    parts.append("text=\(String(reflecting: associatedText))")
+  }
+  return parts.joined(separator: " ")
+}
+
+private func describeOptional(_ code: KeyCode?) -> String {
+  code.map(String.init(describing:)) ?? "none"
 }
 
 private func describe(_ event: MouseEvent) -> String {
@@ -549,6 +616,11 @@ private func describe(_ modifiers: Modifiers) -> String {
   if modifiers.contains(.shift) { parts.append("shift") }
   if modifiers.contains(.alt) { parts.append("alt") }
   if modifiers.contains(.control) { parts.append("ctrl") }
+  if modifiers.contains(.super) { parts.append("super") }
+  if modifiers.contains(.hyper) { parts.append("hyper") }
+  if modifiers.contains(.meta) { parts.append("meta") }
+  if modifiers.contains(.capsLock) { parts.append("capsLock") }
+  if modifiers.contains(.numLock) { parts.append("numLock") }
   return parts.isEmpty ? "none" : parts.joined(separator: "+")
 }
 

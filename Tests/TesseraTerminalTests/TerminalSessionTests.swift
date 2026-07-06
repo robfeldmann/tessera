@@ -50,6 +50,44 @@ func `application configuration stores synchronized output policy`() {
 }
 
 @Test
+func `default application configuration omits kitty keyboard`() {
+  #expect(TerminalApplicationConfiguration.default.modes.contains(.kittyKeyboard) == false)
+}
+
+@Test
+func `app terminal enables kitty keyboard when requested`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+  let configuration = TerminalApplicationConfiguration(
+    modes: applicationModes(including: [.mouseTracking(.anyEvent), .kittyKeyboard])
+  )
+
+  try await TerminalSession.withApplicationTerminal(
+    configuration: configuration,
+    io: io
+  ) { _ in }
+
+  let events = await device.events
+  #expect(
+    terminalSessionEventLog(events) == """
+      enterRawMode
+      enterAltScreen
+      flush: enableBracketedPaste(true)
+      flush: enableFocusTracking(true)
+      flush: enableMouseTracking(anyEvent)
+      flush: pushKittyKeyboard
+      flush: cursorVisible(true)
+      flush: popKittyKeyboard
+      flush: disableMouseTracking
+      flush: enableFocusTracking(false)
+      flush: enableBracketedPaste(false)
+      exitAltScreen
+      exitRawMode
+      """
+  )
+}
+
+@Test
 func `application terminal rethrows body error after cleanup`() async throws {
   let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
   let io = PlatformIO(terminalDevice: await device.terminalDevice)
@@ -199,7 +237,7 @@ func `next event returns first parsed input event`() async throws {
 
   let event = try await session.nextEvent()
 
-  expectNoDifference(event, .key(Key(code: .character("a"))))
+  #expect(event == .key(Key(code: .character("a"))))
 }
 
 @Test
@@ -210,8 +248,8 @@ func `next event can be called repeatedly on one input stream`() async throws {
   let first = try await session.nextEvent()
   let second = try await session.nextEvent()
 
-  expectNoDifference(first, .key(Key(code: .character("a"))))
-  expectNoDifference(second, .key(Key(code: .character("b"))))
+  #expect(first == .key(Key(code: .character("a"))))
+  #expect(second == .key(Key(code: .character("b"))))
 }
 
 @Test
@@ -222,7 +260,7 @@ func `events stream exposes parsed input events`() async throws {
 
   let event = await iterator.next()
 
-  expectNoDifference(event, .key(Key(code: .up)))
+  #expect(event == .key(Key(code: .up)))
 }
 
 @Test
@@ -246,7 +284,7 @@ func `next event returns resize events from semantic stream`() async throws {
 
   let event = try await session.nextEvent()
 
-  expectNoDifference(event, .resize(size))
+  #expect(event == .resize(size))
 }
 
 @Test
@@ -274,7 +312,7 @@ func `pending event read cancellation preserves the next input`() async throws {
   continuation.yield([0x61])
   let event = try await session.nextEvent()
 
-  expectNoDifference(event, .key(Key(code: .character("a"))))
+  #expect(event == .key(Key(code: .character("a"))))
 }
 
 @Test
@@ -738,12 +776,20 @@ private func terminalFlushName(_ bytes: [UInt8]) -> String {
   if bytes == mouseDisableBytes {
     return "disableMouseTracking"
   }
+  if bytes == kittyKeyboardPushBytes {
+    return "pushKittyKeyboard"
+  }
+  if bytes == kittyKeyboardPopBytes {
+    return "popKittyKeyboard"
+  }
 
   return String(describing: bytes)
 }
 
 private let mouseDisableBytes =
   Array("\u{1B}[?1003l\u{1B}[?1002l\u{1B}[?1006l".utf8)
+private let kittyKeyboardPushBytes = Array("\u{1B}[>7u".utf8)
+private let kittyKeyboardPopBytes = Array("\u{1B}[<u".utf8)
 
 private func mouseEnableBytes(_ granularity: MouseTracking) -> [UInt8] {
   switch granularity {
