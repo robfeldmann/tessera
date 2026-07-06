@@ -44,6 +44,26 @@ func `disable mouse tracking always resets both granularities defensively`() {
   expectBytes(.disableMouseTracking, esc("[?1003l") + esc("[?1002l") + esc("[?1006l"))
 }
 
+@Test
+func `kitty keyboard flags expose protocol bit masks`() {
+  #expect(KittyKeyboardFlags.disambiguateEscapeCodes.rawValue == 1)
+  #expect(KittyKeyboardFlags.reportEventTypes.rawValue == 2)
+  #expect(KittyKeyboardFlags.reportAlternateKeys.rawValue == 4)
+  #expect(KittyKeyboardFlags.reportAllKeysAsEscapeCodes.rawValue == 8)
+  #expect(KittyKeyboardFlags.reportAssociatedText.rawValue == 16)
+  #expect(KittyKeyboardFlags.tesseraDefault.rawValue == 7)
+}
+
+@Test
+func `kitty keyboard control sequences encode exact bytes`() {
+  expectBytes(.pushKittyKeyboard(.tesseraDefault), esc("[>7u"))
+  expectBytes(
+    .pushKittyKeyboard([.disambiguateEscapeCodes, .reportAssociatedText]),
+    esc("[>17u")
+  )
+  expectBytes(.popKittyKeyboard, esc("[<u"))
+}
+
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,

@@ -19,7 +19,7 @@ public actor ModeLifecycle {
     /// Mouse tracking.
     case mouseTracking(MouseTracking)
 
-    /// Kitty keyboard protocol. Deferred to Phase 3.
+    /// Kitty keyboard protocol.
     case kittyKeyboard
   }
 
@@ -38,6 +38,7 @@ public actor ModeLifecycle {
     .bracketedPaste,
     .focusEvents,
     .mouseTracking,
+    .kittyKeyboard,
   ]
 
   private let io: PlatformIO
@@ -58,10 +59,9 @@ public actor ModeLifecycle {
 
   private static func isSupported(_ mode: Mode) -> Bool {
     switch mode {
-    case .rawMode, .altScreen, .bracketedPaste, .focusEvents, .mouseTracking:
+    case .rawMode, .altScreen, .bracketedPaste, .focusEvents, .mouseTracking,
+      .kittyKeyboard:
       true
-    case .kittyKeyboard:
-      false
     }
   }
 
@@ -170,6 +170,71 @@ public actor ModeLifecycle {
     }
   }
 
+  /// Reconciles active application protocol modes after startup.
+  package func apply(applicationModes requestedApplicationModes: Set<Mode>) async throws {
+    let normalizedApplicationModes = Self.normalized(requestedApplicationModes)
+    let invalidModes = normalizedApplicationModes.filter { mode in
+      switch mode {
+      case .bracketedPaste, .focusEvents, .mouseTracking, .kittyKeyboard:
+        return false
+      case .rawMode, .altScreen:
+        return true
+      }
+    }
+    guard invalidModes.isEmpty else {
+      throw ModeLifecycleError.unsupportedModes(Set(invalidModes))
+    }
+
+    let fixedModes = modes.filter { mode in
+      switch mode {
+      case .rawMode, .altScreen:
+        return true
+      case .bracketedPaste, .focusEvents, .mouseTracking, .kittyKeyboard:
+        return false
+      }
+    }
+    let desiredModes = fixedModes.union(normalizedApplicationModes)
+    let applicationModes = modes.filter { mode in
+      switch mode {
+      case .bracketedPaste, .focusEvents, .mouseTracking, .kittyKeyboard:
+        return true
+      case .rawMode, .altScreen:
+        return false
+      }
+    }
+
+    let modesToDisable = applicationModes.subtracting(desiredModes)
+    let modesToEnable = normalizedApplicationModes.subtracting(modes)
+
+    do {
+      for slot in Self.acquisitionOrder.reversed() {
+        guard let mode = Self.mode(for: slot, in: modesToDisable) else {
+          continue
+        }
+        try await disable(mode)
+        modes.remove(mode)
+        requestedModes.remove(mode)
+        acquisitionStack.removeAll { Self.slot(for: $0) == Self.slot(for: mode) }
+      }
+
+      for slot in Self.acquisitionOrder {
+        guard let mode = Self.mode(for: slot, in: modesToEnable) else {
+          continue
+        }
+        try await enable(mode)
+        modes.insert(mode)
+        requestedModes.insert(mode)
+        acquisitionStack.append(mode)
+      }
+
+      requestedModes = fixedModes.union(normalizedApplicationModes)
+      await installCleanup()
+    } catch {
+      await installCleanup()
+      throw error
+    }
+  }
+
   /// Exits believed/requested modes in reverse acquisition order.
   public func exit() async throws {
     let cleanupModes = modes.union(requestedModes)
@@ -219,7 +284,8 @@ public actor ModeLifecycle {
       try await io.flush()
 
     case .kittyKeyboard:
-      throw ModeLifecycleError.unsupportedModes([mode])
+      await io.write(ControlSequence.popKittyKeyboard.bytes)
+      try await io.flush()
     }
   }
 
@@ -244,12 +310,17 @@ public actor ModeLifecycle {
       try await io.flush()
 
     case .kittyKeyboard:
-      throw ModeLifecycleError.unsupportedModes([mode])
+      await io.write(ControlSequence.pushKittyKeyboard(.tesseraDefault).bytes)
+      try await io.flush()
     }
   }
 
   private func installCleanup() async {
     var teardownBytes: [UInt8] = []
+
+    if modes.contains(.kittyKeyboard) || requestedModes.contains(.kittyKeyboard) {
+      ControlSequence.popKittyKeyboard.encode(into: &teardownBytes)
+    }
 
     // Mouse tracking teardown is broadest-wins on enable but always defensively resets
     // both tracking granularities and SGR encoding.

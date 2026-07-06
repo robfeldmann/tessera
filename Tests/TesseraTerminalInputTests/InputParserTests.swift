@@ -33,6 +33,12 @@ let csiKeyCases: [ParserCase] = [
   ParserCase("\u{1B}[D", .key(Key(code: .left))),
   ParserCase("\u{1B}[H", .key(Key(code: .home))),
   ParserCase("\u{1B}[F", .key(Key(code: .end))),
+  ParserCase("\u{1B}[P", .key(Key(code: .function(1)))),
+  ParserCase("\u{1B}[Q", .key(Key(code: .function(2)))),
+  ParserCase("\u{1B}[S", .key(Key(code: .function(4)))),
+  ParserCase("\u{1B}[1P", .key(Key(code: .function(1)))),
+  ParserCase("\u{1B}[1Q", .key(Key(code: .function(2)))),
+  ParserCase("\u{1B}[1S", .key(Key(code: .function(4)))),
   ParserCase("\u{1B}[Z", .key(Key(code: .tab, modifiers: .shift))),
 ]
 
@@ -49,6 +55,9 @@ let modifiedCSIKeyCases: [ParserCase] = [
   ParserCase("\u{1B}[1;5D", .key(Key(code: .left, modifiers: .control))),
   ParserCase("\u{1B}[1;5H", .key(Key(code: .home, modifiers: .control))),
   ParserCase("\u{1B}[1;5F", .key(Key(code: .end, modifiers: .control))),
+  ParserCase("\u{1B}[1;5P", .key(Key(code: .function(1), modifiers: .control))),
+  ParserCase("\u{1B}[1;5Q", .key(Key(code: .function(2), modifiers: .control))),
+  ParserCase("\u{1B}[1;5S", .key(Key(code: .function(4), modifiers: .control))),
 ]
 
 let ss3KeyCases: [ParserCase] = [
@@ -756,13 +765,144 @@ func `input event can represent paste resize and unknown sequences`() {
 }
 
 @Test
-func `key stores code and modifiers`() {
-  let key = Key(code: .up, modifiers: [.control, .shift])
+func `key stores code modifiers and event kind`() {
+  let key = Key(code: .up, modifiers: [.control, .shift], kind: .repeat)
 
   #expect(key.code == .up)
+  #expect(key.kind == .repeat)
   #expect(key.modifiers.contains(.control))
   #expect(key.modifiers.contains(.shift))
   #expect(key.modifiers.contains(.alt) == false)
+}
+
+@Test
+func `modifiers include kitty modifier bits`() {
+  let modifiers: Modifiers = [
+    .shift, .alt, .control, .super, .hyper, .meta, .capsLock, .numLock,
+  ]
+
+  #expect(modifiers.rawValue == 0b1111_1111)
+}
+
+@Test
+func `parser decodes kitty printable key reports`() {
+  var parser = InputParser()
+
+  #expect(
+    parser.feed(contentsOf: Array("\u{1B}[75u".utf8)) == [
+      .key(Key(code: .character("K")))
+    ])
+  #expect(
+    parser.feed(contentsOf: Array("\u{1B}[107;64u".utf8)) == [
+      .key(
+        Key(
+          code: .character("k"),
+          modifiers: [.shift, .alt, .control, .super, .hyper, .meta]
+        )
+      ),
+    ])
+}
+
+@Test
+func `parser decodes kitty key event kinds`() {
+  var parser = InputParser()
+
+  #expect(
+    parser.feed(contentsOf: Array("\u{1B}[107;1:1u".utf8)) == [
+      .key(Key(code: .character("k"), kind: .press))
+    ])
+  #expect(
+    parser.feed(contentsOf: Array("\u{1B}[107;1:2u".utf8)) == [
+      .key(Key(code: .character("k"), kind: .repeat))
+    ])
+  #expect(
+    parser.feed(contentsOf: Array("\u{1B}[107;1:3u".utf8)) == [
+      .key(Key(code: .character("k"), kind: .release))
+    ])
+}
+
+@Test
+func `parser decodes kitty escape controls and lock keys`() {
+  var parser = InputParser()
+
+  #expect(parser.feed(contentsOf: Array("\u{1B}[27u".utf8)) == [.key(Key(code: .escape))])
+  #expect(parser.feed(contentsOf: Array("\u{1B}[9u".utf8)) == [.key(Key(code: .tab))])
+  #expect(parser.feed(contentsOf: Array("\u{1B}[13u".utf8)) == [.key(Key(code: .enter))])
+  #expect(
+    parser.feed(contentsOf: Array("\u{1B}[127u".utf8)) == [.key(Key(code: .backspace))]
+  )
+  #expect(
+    parser.feed(contentsOf: Array("\u{1B}[57358u".utf8)) == [
+      .key(Key(code: .capsLock))
+    ]
+  )
+  #expect(
+    parser.feed(contentsOf: Array("\u{1B}[57359u".utf8)) == [
+      .key(Key(code: .scrollLock))
+    ]
+  )
+  #expect(
+    parser.feed(contentsOf: Array("\u{1B}[57360u".utf8)) == [
+      .key(Key(code: .numLock))
+    ]
+  )
+  #expect(
+    parser.feed(contentsOf: Array("\u{1B}[57361u".utf8)) == [
+      .key(Key(code: .printScreen))
+    ]
+  )
+}
+
+@Test
+func `parser preserves malformed kitty reports as unknown`() {
+  var parser = InputParser()
+
+  #expect(
+    parser.feed(contentsOf: Array("\u{1B}[107;0u".utf8)) == [
+      .unknown(Array("\u{1B}[107;0u".utf8))
+    ])
+  #expect(
+    parser.feed(contentsOf: Array("\u{1B}[107;1:4u".utf8)) == [
+      .unknown(Array("\u{1B}[107;1:4u".utf8))
+    ])
+  #expect(
+    parser.feed(contentsOf: Array("\u{1B}[107;1:<u".utf8)) == [
+      .unknown(Array("\u{1B}[107;1:<u".utf8))
+    ])
+}
+
+@Test
+func `parser decodes byte by byte kitty reports`() {
+  var parser = InputParser()
+  var events: [InputEvent] = []
+
+  for byte in "\u{1B}[107;17:2u".utf8 {
+    events.append(contentsOf: parser.feed(byte))
+  }
+
+  #expect(
+    events == [
+      .key(Key(code: .character("k"), modifiers: .hyper, kind: .repeat))
+    ])
+}
+
+@Test
+func `parser keeps kitty reports isolated from paste and mixed protocol events`() {
+  var parser = InputParser()
+  let events = parser.feed(contentsOf: Array("\u{1B}[<0;1;1M\u{1B}[I\u{1B}[107;9:3u".utf8))
+
+  assertInlineSnapshot(of: eventLog(events), as: .lines) {
+    #"""
+    mouse(press(left) at column: 0, row: 0, modifiers: none)
+    focus gained
+    key(character("k"), modifiers: super, kind: release)
+    """#
+  }
+
+  #expect(
+    parser.feed(contentsOf: bracketedPaste("\u{1B}[107;9:3u")) == [
+      .paste("\u{1B}[107;9:3u")
+    ])
 }
 
 private let bracketedPasteStart = Array("\u{1B}[200~".utf8)
@@ -779,28 +919,29 @@ private func eventLog(_ events: [InputEvent]) -> String {
 private func eventLogLine(_ event: InputEvent) -> String {
   switch event {
   case .focusGained:
-    "focus gained"
+    return "focus gained"
 
   case .focusLost:
-    "focus lost"
+    return "focus lost"
 
   case .key(let key):
-    "key(\(key.code), modifiers: \(modifierLog(key.modifiers)))"
+    let kind = key.kind == .press ? "" : ", kind: \(key.kind)"
+    return "key(\(key.code), modifiers: \(modifierLog(key.modifiers))\(kind))"
 
   case .mouse(let mouse):
-    "mouse(\(mouseKindLog(mouse.kind)) at column: \(mouse.position.column), row: \(mouse.position.row), modifiers: \(modifierLog(mouse.modifiers)))"
+    return
+      "mouse(\(mouseKindLog(mouse.kind)) at column: \(mouse.position.column), row: \(mouse.position.row), modifiers: \(modifierLog(mouse.modifiers)))"
 
   case .paste(let string):
-    "paste(\(String(reflecting: string)))"
+    return "paste(\(String(reflecting: string)))"
 
   case .resize(let size):
-    "resize(columns: \(size.columns), rows: \(size.rows))"
+    return "resize(columns: \(size.columns), rows: \(size.rows))"
 
   case .unknown(let bytes):
-    "unknown(\(hex(bytes)))"
+    return "unknown(\(hex(bytes)))"
   }
 }
-
 private func mouseKindLog(_ kind: MouseEventKind) -> String {
   switch kind {
   case .drag(let button):
@@ -830,6 +971,21 @@ private func modifierLog(_ modifiers: Modifiers) -> String {
   }
   if modifiers.contains(.control) {
     names.append("control")
+  }
+  if modifiers.contains(.super) {
+    names.append("super")
+  }
+  if modifiers.contains(.hyper) {
+    names.append("hyper")
+  }
+  if modifiers.contains(.meta) {
+    names.append("meta")
+  }
+  if modifiers.contains(.capsLock) {
+    names.append("capsLock")
+  }
+  if modifiers.contains(.numLock) {
+    names.append("numLock")
   }
   return names.isEmpty ? "none" : names.joined(separator: "+")
 }

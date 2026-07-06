@@ -62,6 +62,12 @@ public enum ControlSequence: Equatable, Sendable {
   /// End synchronized output using DEC private mode 2026.
   case exitSynchronizedOutput
 
+  /// Pop one Kitty keyboard protocol level.
+  case popKittyKeyboard
+
+  /// Push one Kitty keyboard protocol level with the requested flags.
+  case pushKittyKeyboard(KittyKeyboardFlags)
+
   /// Append explicit raw bytes Tessera does not semantically model yet.
   case raw(RawTerminalPayload)
 
@@ -140,6 +146,8 @@ public enum ControlSequence: Equatable, Sendable {
       .enableFocusTracking,
       .enableLineWrap,
       .enableMouseTracking,
+      .popKittyKeyboard,
+      .pushKittyKeyboard,
       .enterAltScreen,
       .enterSynchronizedOutput,
       .exitAltScreen,
@@ -199,6 +207,8 @@ public enum ControlSequence: Equatable, Sendable {
       .enableFocusTracking,
       .enableMouseTracking,
       .enableLineWrap,
+      .popKittyKeyboard,
+      .pushKittyKeyboard,
       .enterAltScreen,
       .enterSynchronizedOutput,
       .eraseInDisplay,
@@ -245,6 +255,8 @@ public enum ControlSequence: Equatable, Sendable {
       .enableFocusTracking,
       .enableMouseTracking,
       .enableLineWrap,
+      .popKittyKeyboard,
+      .pushKittyKeyboard,
       .enterAltScreen,
       .enterSynchronizedOutput,
       .exitAltScreen,
@@ -318,6 +330,8 @@ public enum ControlSequence: Equatable, Sendable {
       .enableFocusTracking,
       .enableMouseTracking,
       .enableLineWrap,
+      .popKittyKeyboard,
+      .pushKittyKeyboard,
       .enterAltScreen,
       .enterSynchronizedOutput,
       .eraseInDisplay,
@@ -365,6 +379,14 @@ public enum ControlSequence: Equatable, Sendable {
     case .enableLineWrap(let isEnabled):
       // DEC private mode 7 (DECAWM): automatic line wrap, `CSI ? 7 h/l`.
       ANSIByteEncoding.appendCSI(isEnabled ? "?7h" : "?7l", into: &buffer)
+
+    case .popKittyKeyboard:
+      // Kitty keyboard protocol: pop one flags level, `CSI < u`.
+      ANSIByteEncoding.appendCSI("<u", into: &buffer)
+
+    case .pushKittyKeyboard(let flags):
+      // Kitty keyboard protocol: push requested flags, `CSI > Ps u`.
+      ANSIByteEncoding.appendCSI(">\(flags.rawValue)u", into: &buffer)
 
     case .enterAltScreen:
       // DEC private mode 1049: enter alternate screen, `CSI ? 1049 h`.
@@ -432,6 +454,8 @@ public enum ControlSequence: Equatable, Sendable {
       .enableFocusTracking,
       .enableMouseTracking,
       .enableLineWrap,
+      .popKittyKeyboard,
+      .pushKittyKeyboard,
       .enterAltScreen,
       .enterSynchronizedOutput,
       .eraseInDisplay,
@@ -482,6 +506,8 @@ public enum ControlSequence: Equatable, Sendable {
       .enableFocusTracking,
       .enableMouseTracking,
       .enableLineWrap,
+      .popKittyKeyboard,
+      .pushKittyKeyboard,
       .enterAltScreen,
       .enterSynchronizedOutput,
       .eraseInDisplay,

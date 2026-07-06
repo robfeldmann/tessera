@@ -24,25 +24,6 @@ func `enter records raw mode and alternate screen as active`() async throws {
 }
 
 @Test
-func `enter rejects unsupported phase three modes`() async throws {
-  let device = LifecycleTestDevice()
-  let lifecycle = await makeLifecycle(device)
-  let unsupportedModes: Set<ModeLifecycle.Mode> = [
-    .kittyKeyboard
-  ]
-
-  await #expect(throws: ModeLifecycleError.unsupportedModes(unsupportedModes)) {
-    try await lifecycle.enter(unsupportedModes)
-  }
-
-  let activeModes = await lifecycle.activeModes
-  let events = await device.events
-
-  expectNoDifference(activeModes, [])
-  expectNoDifference(events, [])
-}
-
-@Test
 func `enter allows bracketed paste and enables it after alternate screen`() async throws {
   let device = LifecycleTestDevice()
   let lifecycle = await makeLifecycle(device)
@@ -279,6 +260,168 @@ func `exit disables focus tracking before bracketed paste`() async throws {
   }
 }
 
+@Test
+func `enter enables kitty keyboard after mouse tracking`() async throws {
+  let device = LifecycleTestDevice()
+  let lifecycle = await makeLifecycle(device)
+
+  try await lifecycle.enter([
+    .rawMode,
+    .altScreen,
+    .bracketedPaste,
+    .focusEvents,
+    .mouseTracking(.anyEvent),
+    .kittyKeyboard,
+  ])
+
+  let activeModes = await lifecycle.activeModes
+  let events = await device.events
+
+  expectNoDifference(
+    activeModes,
+    [
+      .rawMode, .altScreen, .bracketedPaste, .focusEvents, .mouseTracking(.anyEvent),
+      .kittyKeyboard,
+    ]
+  )
+  assertInlineSnapshot(of: lifecycleEventLog(events), as: .lines) {
+    """
+    enableRawMode
+    enableAltScreen
+    flush: 1B 5B 3F 32 30 30 34 68
+    flush: 1B 5B 3F 31 30 30 34 68
+    flush: 1B 5B 3F 31 30 30 33 68 1B 5B 3F 31 30 30 36 68
+    flush: 1B 5B 3E 37 75
+    """
+  }
+}
+
+@Test
+func `exit pops kitty keyboard before mouse focus and paste`() async throws {
+  let device = LifecycleTestDevice()
+  let lifecycle = await makeLifecycle(device)
+
+  try await lifecycle.enter([
+    .rawMode,
+    .altScreen,
+    .bracketedPaste,
+    .focusEvents,
+    .mouseTracking(.anyEvent),
+    .kittyKeyboard,
+  ])
+  try await lifecycle.exit()
+
+  let activeModes = await lifecycle.activeModes
+  let events = await device.events
+
+  expectNoDifference(activeModes, [])
+  assertInlineSnapshot(of: lifecycleEventLog(events), as: .lines) {
+    """
+    enableRawMode
+    enableAltScreen
+    flush: 1B 5B 3F 32 30 30 34 68
+    flush: 1B 5B 3F 31 30 30 34 68
+    flush: 1B 5B 3F 31 30 30 33 68 1B 5B 3F 31 30 30 36 68
+    flush: 1B 5B 3E 37 75
+    flush: 1B 5B 3C 75
+    flush: 1B 5B 3F 31 30 30 33 6C 1B 5B 3F 31 30 30 32 6C 1B 5B 3F 31 30 30 36 6C
+    flush: 1B 5B 3F 31 30 30 34 6C
+    flush: 1B 5B 3F 32 30 30 34 6C
+    disableAltScreen
+    disableRawMode
+    """
+  }
+}
+
+@Test
+func `apply enables and disables application modes in deterministic order`() async throws {
+  let device = LifecycleTestDevice()
+  let lifecycle = await makeLifecycle(device)
+
+  try await lifecycle.enter([.rawMode, .altScreen, .bracketedPaste])
+  try await lifecycle.apply(applicationModes: [
+    .focusEvents, .mouseTracking(.buttonEvents), .kittyKeyboard,
+  ])
+  try await lifecycle.apply(applicationModes: [
+    .focusEvents, .mouseTracking(.buttonEvents), .kittyKeyboard,
+  ])
+  try await lifecycle.apply(applicationModes: [.bracketedPaste])
+
+  let activeModes = await lifecycle.activeModes
+  let flushes = await device.events.filter(\.isFlush).map(\.flushBytes)
+
+  expectNoDifference(activeModes, [.rawMode, .altScreen, .bracketedPaste])
+  expectNoDifference(
+    flushes,
+    [
+      bracketedPasteEnableBytes,
+      bracketedPasteDisableBytes,
+      focusEnableBytes,
+      mouseEnableBytes(.buttonEvents),
+      kittyKeyboardPushBytes,
+      kittyKeyboardPopBytes,
+      mouseDisableBytes,
+      focusDisableBytes,
+      bracketedPasteEnableBytes,
+    ]
+  )
+}
+
+@Test
+func `apply switches mouse tracking granularity`() async throws {
+  let device = LifecycleTestDevice()
+  let lifecycle = await makeLifecycle(device)
+
+  try await lifecycle.enter([.rawMode, .altScreen, .mouseTracking(.buttonEvents)])
+  try await lifecycle.apply(applicationModes: [.mouseTracking(.anyEvent)])
+
+  let activeModes = await lifecycle.activeModes
+  let flushes = await device.events.filter(\.isFlush).map(\.flushBytes)
+
+  expectNoDifference(activeModes, [.rawMode, .altScreen, .mouseTracking(.anyEvent)])
+  expectNoDifference(
+    flushes,
+    [mouseEnableBytes(.buttonEvents), mouseDisableBytes, mouseEnableBytes(.anyEvent)]
+  )
+}
+
+@Test
+func `apply rejects session fixed modes`() async throws {
+  let device = LifecycleTestDevice()
+  let lifecycle = await makeLifecycle(device)
+
+  try await lifecycle.enter([.rawMode, .altScreen])
+
+  await #expect(throws: ModeLifecycleError.unsupportedModes([.rawMode, .altScreen])) {
+    try await lifecycle.apply(applicationModes: [.rawMode, .altScreen])
+  }
+}
+
+@Test
+func `apply failure leaves exit safe for succeeded operations`() async throws {
+  let device = LifecycleTestDevice(failure: .writeOnAttempt(2))
+  let lifecycle = await makeLifecycle(device)
+
+  try await lifecycle.enter([.rawMode, .altScreen])
+  await #expect(throws: LifecycleTestDevice.Failure.write) {
+    try await lifecycle.apply(applicationModes: [.focusEvents, .mouseTracking(.anyEvent)])
+  }
+  try await lifecycle.exit()
+
+  let events = await device.events
+  assertInlineSnapshot(of: lifecycleEventLog(events), as: .lines) {
+    """
+    enableRawMode
+    enableAltScreen
+    flush: 1B 5B 3F 31 30 30 34 68
+    flush: 1B 5B 3F 31 30 30 33 68 1B 5B 3F 31 30 30 36 68
+    flush: 1B 5B 3F 31 30 30 33 68 1B 5B 3F 31 30 30 36 68 1B 5B 3F 31 30 30 34 6C
+    disableAltScreen
+    disableRawMode
+    """
+  }
+}
+
 @Test(arguments: [MouseTracking.buttonEvents, .anyEvent])
 func `exit disables mouse before focus`(_ granularity: MouseTracking) async throws {
   let device = LifecycleTestDevice()
@@ -506,6 +649,44 @@ func `alternate screen bytes round trip through virtual terminal`() async throws
           + Array("\u{1B}[?25h".utf8)
       )
     }
+
+    @Test
+    func `cleanup bytes pop kitty keyboard before mouse focus and paste`() async throws {
+      let pipe = try LifecycleCleanupPipe()
+      defer {
+        CleanupRegistry.clear()
+        pipe.closeAll()
+      }
+      let device = LifecycleTestDevice(
+        cleanupState: PlatformCleanupState(
+          inputFileDescriptor: -1,
+          outputFileDescriptor: pipe.writeDescriptor
+        ) { nil }
+      )
+      let lifecycle = await makeLifecycle(device)
+
+      try await lifecycle.enter([
+        .rawMode,
+        .altScreen,
+        .bracketedPaste,
+        .focusEvents,
+        .mouseTracking(.anyEvent),
+        .kittyKeyboard,
+      ])
+      CleanupRegistry.performEmergencyCleanupForTesting()
+      pipe.closeWriteDescriptor()
+
+      let bytes = try pipe.readAll()
+      expectNoDifference(
+        bytes,
+        kittyKeyboardPopBytes
+          + mouseDisableBytes
+          + focusDisableBytes
+          + bracketedPasteDisableBytes
+          + Array("\u{1B}[?1049l".utf8)
+          + Array("\u{1B}[?25h".utf8)
+      )
+    }
   }
 #endif
 
@@ -651,6 +832,8 @@ private let focusEnableBytes = Array("\u{1B}[?1004h".utf8)
 private let focusDisableBytes = Array("\u{1B}[?1004l".utf8)
 private let mouseDisableBytes =
   Array("\u{1B}[?1003l\u{1B}[?1002l\u{1B}[?1006l".utf8)
+private let kittyKeyboardPushBytes = Array("\u{1B}[>7u".utf8)
+private let kittyKeyboardPopBytes = Array("\u{1B}[<u".utf8)
 
 private func mouseEnableBytes(_ granularity: MouseTracking) -> [UInt8] {
   switch granularity {
@@ -733,6 +916,44 @@ private func wrappedHex(_ bytes: [UInt8], bytesPerLine: Int) -> String {
           throw LifecycleCleanupReadError(errno: errno)
         }
       }
+    }
+
+    @Test
+    func `cleanup bytes pop kitty keyboard before mouse focus and paste`() async throws {
+      let pipe = try LifecycleCleanupPipe()
+      defer {
+        CleanupRegistry.clear()
+        pipe.closeAll()
+      }
+      let device = LifecycleTestDevice(
+        cleanupState: PlatformCleanupState(
+          inputFileDescriptor: -1,
+          outputFileDescriptor: pipe.writeDescriptor
+        ) { nil }
+      )
+      let lifecycle = await makeLifecycle(device)
+
+      try await lifecycle.enter([
+        .rawMode,
+        .altScreen,
+        .bracketedPaste,
+        .focusEvents,
+        .mouseTracking(.anyEvent),
+        .kittyKeyboard,
+      ])
+      CleanupRegistry.performEmergencyCleanupForTesting()
+      pipe.closeWriteDescriptor()
+
+      let bytes = try pipe.readAll()
+      expectNoDifference(
+        bytes,
+        kittyKeyboardPopBytes
+          + mouseDisableBytes
+          + focusDisableBytes
+          + bracketedPasteDisableBytes
+          + Array("\u{1B}[?1049l".utf8)
+          + Array("\u{1B}[?25h".utf8)
+      )
     }
   }
 #endif
