@@ -1,6 +1,9 @@
 # macOS
 .DS_Store
 
+# Obsidian vault config (design/ is openable as a vault)
+design/.obsidian/
+
 # Homebrew Bundle lockfile
 Brewfile.lock.json
 
