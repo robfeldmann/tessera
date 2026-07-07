@@ -10,14 +10,18 @@ public struct Style: Equatable, Sendable {
   public var background: Color
   public var attributes: TextAttributes
 
+  public var hyperlink: Hyperlink?
+
   public init(
     foreground: Color = .default,
     background: Color = .default,
-    attributes: TextAttributes = []
+    attributes: TextAttributes = [],
+    hyperlink: Hyperlink? = nil
   ) {
     self.foreground = foreground
     self.background = background
     self.attributes = attributes
+    self.hyperlink = hyperlink
   }
 }
 

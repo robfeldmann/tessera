@@ -5,7 +5,7 @@ description:
   the example app evolve consistently.
 status: in-progress
 created: 2026-07-02
-updated: 2026-07-05
+updated: 2026-07-06
 ---
 
 ## Progress
@@ -19,7 +19,7 @@ updated: 2026-07-05
   - [x] 2.3 Implement SGR mouse tracking from plan 018
   - [x] 2.4 Implement Kitty keyboard and dynamic mode apply from plan 019
 - [ ] **Phase 3 — Execute output and capability slices**
-  - [ ] 3.1 Implement OSC 8 hyperlinks from plan 020
+  - [x] 3.1 Implement OSC 8 hyperlinks from plan 020
   - [ ] 3.2 Implement terminal capability detection from plan 021
   - [ ] 3.3 Implement Kitty graphics protocol from plan 022
 - [ ] **Phase 4 — Close Phase 3 as one integrated substrate**

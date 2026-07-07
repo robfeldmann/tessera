@@ -6,6 +6,7 @@ import TesseraTerminalCore
 /// Encodes damage-tracked terminal buffer frames.
 package struct Renderer {
   private var currentStyle: Style?
+  private var currentHyperlink: Hyperlink?
   private var eraseBeforeNextRepaint = false
   private var believedCursorPosition: TerminalPosition?
 
@@ -40,9 +41,11 @@ package struct Renderer {
     let shouldErase =
       eraseBeforeNextRepaint || previous == nil || previous?.size != current.size
     if shouldErase {
+      closeCurrentHyperlink(into: &bytes)
       ControlSequence.eraseInDisplay(.all).encode(into: &bytes)
       believedCursorPosition = nil
       currentStyle = nil
+      currentHyperlink = nil
     }
 
     let damagePrevious = shouldErase ? nil : previous
@@ -50,8 +53,10 @@ package struct Renderer {
       encode(run: run, from: current, into: &bytes)
     }
 
+    closeCurrentHyperlink(into: &bytes)
     ControlSequence.resetAttributes.encode(into: &bytes)
     currentStyle = Style()
+    currentHyperlink = nil
     eraseBeforeNextRepaint = false
 
     if wrapInSynchronizedOutput {
@@ -62,6 +67,7 @@ package struct Renderer {
   package mutating func invalidate() {
     currentStyle = nil
     believedCursorPosition = nil
+    currentHyperlink = nil
     eraseBeforeNextRepaint = true
   }
 
@@ -82,11 +88,31 @@ package struct Renderer {
         believedCursorPosition = position
       }
 
+      hyperlinkDelta(to: cell.style.hyperlink, into: &bytes)
       sgrDelta(from: currentStyle, to: cell.style, into: &bytes)
       currentStyle = cell.style
+      currentHyperlink = cell.style.hyperlink
       encodeContent(cell.content, into: &bytes)
       believedCursorPosition = TerminalPosition(column: column + cell.width, row: run.row)
     }
+  }
+
+  private mutating func hyperlinkDelta(to target: Hyperlink?, into bytes: inout [UInt8]) {
+    guard currentHyperlink != target else {
+      return
+    }
+    closeCurrentHyperlink(into: &bytes)
+    if let target {
+      ControlSequence.openHyperlink(target).encode(into: &bytes)
+    }
+  }
+
+  private mutating func closeCurrentHyperlink(into bytes: inout [UInt8]) {
+    guard currentHyperlink != nil else {
+      return
+    }
+    ControlSequence.closeHyperlink.encode(into: &bytes)
+    currentHyperlink = nil
   }
 
   private func encodeContent(_ content: Cell.Content, into bytes: inout [UInt8]) {

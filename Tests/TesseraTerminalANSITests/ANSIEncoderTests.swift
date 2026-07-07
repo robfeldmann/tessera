@@ -583,6 +583,38 @@ func `window title strips osc terminators and uses bel terminator`() {
   )
 }
 
+@Test
+func `osc 8 hyperlinks encode exact open and close bytes`() throws {
+  expectBytes(
+    .openHyperlink(try Hyperlink(uri: "https://example.com/docs")),
+    esc("]8;;https://example.com/docs") + esc("\\")
+  )
+  expectBytes(
+    .openHyperlink(try Hyperlink(uri: "file:///tmp/source.swift", id: "source")),
+    esc("]8;id=source;file:///tmp/source.swift") + esc("\\")
+  )
+  expectBytes(.closeHyperlink, esc("]8;;") + esc("\\"))
+}
+
+@Test
+func `hyperlinks reject osc delimiters and unsafe identifiers`() throws {
+  #expect(throws: Hyperlink.ValidationError.emptyURI) {
+    try Hyperlink(uri: "")
+  }
+  for unsafeURI in ["a\u{00}b", "a\u{07}b", "a\u{1B}b", "a\u{7F}b"] {
+    #expect(throws: Hyperlink.ValidationError.unsafeURI) {
+      try Hyperlink(uri: unsafeURI)
+    }
+  }
+  #expect(throws: Hyperlink.ValidationError.emptyID) {
+    try Hyperlink(uri: "https://example.com", id: "")
+  }
+  for unsafeID in ["a\u{00}b", "a\u{1B}b", "a;b", "a\u{7F}b"] {
+    #expect(throws: Hyperlink.ValidationError.unsafeID) {
+      try Hyperlink(uri: "https://example.com", id: unsafeID)
+    }
+  }
+}
 func expectBytes(
   _ sequence: ControlSequence,
   _ expected: [UInt8]

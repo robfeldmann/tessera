@@ -40,6 +40,21 @@ extension Snapshotting where Value == ScreenSnapshot, Format == String {
       """
     }
   }
+
+  /// Snapshots characters plus an aligned hyperlink grid when metadata is available.
+  public static func terminalLinksGrid(
+    trim: TerminalSnapshotTrim = .trailing
+  ) -> Snapshotting {
+    Snapshotting<String, String>.lines.pullback { snapshot in
+      """
+      ── chars ──
+      \(textGrid(snapshot, trim: trim))
+      ── links ──
+      \(linkGrid(snapshot, trim: trim))
+      \(linkLegend(snapshot))
+      """
+    }
+  }
 }
 
 private func textGrid(_ snapshot: ScreenSnapshot, trim: TerminalSnapshotTrim) -> String {
@@ -52,6 +67,50 @@ private func styleGrid(_ snapshot: ScreenSnapshot, trim: TerminalSnapshotTrim) -
   snapshot.cells
     .map { row in String(styleGlyphs(in: row, trim: trim)) }
     .joined(separator: "\n")
+}
+
+private func linkGrid(_ snapshot: ScreenSnapshot, trim: TerminalSnapshotTrim) -> String {
+  let legend = linkLegendEntries(snapshot)
+  return snapshot.cells
+    .map { row in
+      String(
+        trimmed(row, trim: trim).map { cell in
+          guard let hyperlinkURI = cell.hyperlinkURI else {
+            return "."
+          }
+          return legend[hyperlinkURI] ?? "?"
+        }
+      )
+    }
+    .joined(separator: "\n")
+}
+
+private func linkLegend(_ snapshot: ScreenSnapshot) -> String {
+  let entries = linkLegendEntries(snapshot)
+  guard entries.isEmpty == false else {
+    return "No hyperlink metadata exposed by backing terminal."
+  }
+
+  let lines = entries
+    .sorted { $0.value < $1.value }
+    .map { "\($0.value) = \($0.key)" }
+  return lines.joined(separator: "\n")
+}
+
+private func linkLegendEntries(_ snapshot: ScreenSnapshot) -> [String: Character] {
+  let glyphs = Array("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789")
+  var entries: [String: Character] = [:]
+  var nextGlyphIndex = 0
+  for row in snapshot.cells {
+    for cell in row {
+      guard let hyperlinkURI = cell.hyperlinkURI, entries[hyperlinkURI] == nil else {
+        continue
+      }
+      entries[hyperlinkURI] = nextGlyphIndex < glyphs.count ? glyphs[nextGlyphIndex] : "?"
+      nextGlyphIndex += 1
+    }
+  }
+  return entries
 }
 
 private func debugDump(_ snapshot: ScreenSnapshot) -> String {
@@ -165,6 +224,9 @@ private func attributesDescription(_ cell: RenderedCell) -> String {
     attributes.append("strikethrough")
   }
 
+  if let hyperlinkURI = cell.hyperlinkURI {
+    attributes.append("link=\(hyperlinkURI)")
+  }
   return attributes.isEmpty ? "default" : attributes.joined(separator: ",")
 }
 

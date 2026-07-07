@@ -12,7 +12,7 @@ package func sgrDelta(
     return
   }
 
-  guard oldStyle != newStyle else {
+  guard oldStyle.sgrAttributes != newStyle.sgrAttributes else {
     return
   }
 
@@ -73,4 +73,16 @@ private func encodeAddedAttributes(
   if addedAttributes.contains(.underline) {
     ControlSequence.setUnderline(true).encode(into: &bytes)
   }
+}
+
+extension Style {
+  fileprivate var sgrAttributes: SGRAttributes {
+    SGRAttributes(foreground: foreground, background: background, attributes: attributes)
+  }
+}
+
+private struct SGRAttributes: Equatable {
+  var foreground: Color
+  var background: Color
+  var attributes: TextAttributes
 }

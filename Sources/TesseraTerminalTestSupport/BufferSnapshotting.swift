@@ -62,6 +62,13 @@ private func bufferStyleSuffix(for style: Style) -> String {
     components.append("bg=\(bufferColorDescription(style.background))")
   }
   components.append(contentsOf: bufferAttributeDescriptions(style.attributes))
+  if let hyperlink = style.hyperlink {
+    if let id = hyperlink.id {
+      components.append("link=\(id):\(hyperlink.uri)")
+    } else {
+      components.append("link=\(hyperlink.uri)")
+    }
+  }
 
   return "{\(components.joined(separator: ","))}"
 }

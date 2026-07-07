@@ -5,6 +5,9 @@ public enum ControlSequence: Equatable, Sendable {
   /// Ring the terminal bell using the C0 BEL control character.
   case bell
 
+  /// Close the current OSC 8 hyperlink.
+  case closeHyperlink
+
   /// Move the cursor backward using ECMA-48 CUB (`CSI Ps D`).
   case cursorBack(Int)
 
@@ -61,6 +64,9 @@ public enum ControlSequence: Equatable, Sendable {
 
   /// End synchronized output using DEC private mode 2026.
   case exitSynchronizedOutput
+
+  /// Open an OSC 8 hyperlink.
+  case openHyperlink(Hyperlink)
 
   /// Pop one Kitty keyboard protocol level.
   case popKittyKeyboard
@@ -154,7 +160,7 @@ public enum ControlSequence: Equatable, Sendable {
       .exitSynchronizedOutput:
       self.encodeMode(into: &buffer)
 
-    case .setWindowTitle:
+    case .closeHyperlink, .openHyperlink, .setWindowTitle:
       self.encodeOSC(into: &buffer)
     }
   }
@@ -202,11 +208,13 @@ public enum ControlSequence: Equatable, Sendable {
       ANSIByteEncoding.appendCSI(isVisible ? "?25h" : "?25l", into: &buffer)
 
     case .bell,
+      .closeHyperlink,
       .disableMouseTracking,
       .enableBracketedPaste,
       .enableFocusTracking,
       .enableMouseTracking,
       .enableLineWrap,
+      .openHyperlink,
       .popKittyKeyboard,
       .pushKittyKeyboard,
       .enterAltScreen,
@@ -242,6 +250,7 @@ public enum ControlSequence: Equatable, Sendable {
       ANSIByteEncoding.appendCSI(mode.lineEraseParameter + "K", into: &buffer)
 
     case .bell,
+      .closeHyperlink,
       .cursorBack,
       .cursorDown,
       .cursorForward,
@@ -255,6 +264,7 @@ public enum ControlSequence: Equatable, Sendable {
       .enableFocusTracking,
       .enableMouseTracking,
       .enableLineWrap,
+      .openHyperlink,
       .popKittyKeyboard,
       .pushKittyKeyboard,
       .enterAltScreen,
@@ -317,6 +327,7 @@ public enum ControlSequence: Equatable, Sendable {
       ANSIByteEncoding.appendSGR([isEnabled ? 4 : 24], into: &buffer)
 
     case .bell,
+      .closeHyperlink,
       .cursorBack,
       .cursorDown,
       .cursorForward,
@@ -330,6 +341,7 @@ public enum ControlSequence: Equatable, Sendable {
       .enableFocusTracking,
       .enableMouseTracking,
       .enableLineWrap,
+      .openHyperlink,
       .popKittyKeyboard,
       .pushKittyKeyboard,
       .enterAltScreen,
@@ -405,6 +417,7 @@ public enum ControlSequence: Equatable, Sendable {
       ANSIByteEncoding.appendCSI("?2026l", into: &buffer)
 
     case .bell,
+      .closeHyperlink,
       .cursorBack,
       .cursorDown,
       .cursorForward,
@@ -415,6 +428,7 @@ public enum ControlSequence: Equatable, Sendable {
       .cursorVisible,
       .eraseInDisplay,
       .eraseInLine,
+      .openHyperlink,
       .raw,
       .resetAttributes,
       .setBackground,
@@ -434,11 +448,27 @@ public enum ControlSequence: Equatable, Sendable {
   /// Encodes operating system commands.
   private func encodeOSC(into buffer: inout [UInt8]) {
     switch self {
+    case .closeHyperlink:
+      // OSC 8 close: ESC ] 8 ; ; ESC \.
+      ANSIByteEncoding.appendOSC("8;;", terminator: .stringTerminator, into: &buffer)
+
+    case .openHyperlink(let hyperlink):
+      // OSC 8 open: ESC ] 8 ; params ; uri ESC \.
+      let params = hyperlink.id.map { "id=\($0)" } ?? ""
+      ANSIByteEncoding.appendOSC(
+        "8;\(params);\(hyperlink.uri)",
+        terminator: .stringTerminator,
+        into: &buffer
+      )
+
     case .setWindowTitle(let title):
       // OSC 2 sets the window title. BEL terminates the OSC; embedded BEL and
       // ESC are stripped so title text cannot terminate or branch the sequence.
-      ANSIByteEncoding.appendOSC("2;" + title.oscSafeTitle, into: &buffer)
-      buffer.append(ANSIByteEncoding.bell)
+      ANSIByteEncoding.appendOSC(
+        "2;" + title.oscSafeTitle,
+        terminator: .bell,
+        into: &buffer
+      )
 
     case .bell,
       .disableMouseTracking,
@@ -494,6 +524,7 @@ public enum ControlSequence: Equatable, Sendable {
       buffer.append(contentsOf: text.utf8)
 
     case .cursorBack,
+      .closeHyperlink,
       .cursorDown,
       .cursorForward,
       .cursorPosition,
@@ -506,6 +537,7 @@ public enum ControlSequence: Equatable, Sendable {
       .enableFocusTracking,
       .enableMouseTracking,
       .enableLineWrap,
+      .openHyperlink,
       .popKittyKeyboard,
       .pushKittyKeyboard,
       .enterAltScreen,

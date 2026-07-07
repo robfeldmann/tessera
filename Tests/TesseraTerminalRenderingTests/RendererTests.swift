@@ -400,6 +400,70 @@ func `renderer emits no redundant sgr for adjacent same style cells`() {
   )
 }
 
+@Test
+func `renderer opens shared hyperlink once and closes at frame end`() throws {
+  var buffer = Buffer(size: TerminalSize(columns: 2, rows: 1))
+  let link = try Hyperlink(uri: "https://example.com/docs")
+  buffer.write(
+    "ab",
+    at: TerminalPosition(column: 0, row: 0),
+    style: Style(hyperlink: link)
+  )
+
+  let bytes = Renderer.render(previous: Buffer(size: buffer.size), current: buffer)
+
+  #expect(
+    bytes == escape("[1;1H") + escape("]8;;https://example.com/docs") + escape("\\")
+      + escape("[0m") + utf8("ab") + escape("]8;;") + escape("\\") + escape("[0m")
+  )
+}
+
+@Test
+func `renderer switches and closes hyperlinks independently from sgr`() throws {
+  var buffer = Buffer(size: TerminalSize(columns: 3, rows: 1))
+  let first = try Hyperlink(uri: "https://example.com/a")
+  let second = try Hyperlink(uri: "https://example.com/b", id: "b")
+  buffer.write(
+    "a",
+    at: TerminalPosition(column: 0, row: 0),
+    style: Style(hyperlink: first)
+  )
+  buffer.write(
+    "b",
+    at: TerminalPosition(column: 1, row: 0),
+    style: Style(hyperlink: second)
+  )
+  buffer.write("c", at: TerminalPosition(column: 2, row: 0))
+
+  let bytes = Renderer.render(previous: Buffer(size: buffer.size), current: buffer)
+
+  #expect(
+    bytes == escape("[1;1H") + escape("]8;;https://example.com/a") + escape("\\")
+      + escape("[0m") + utf8("a") + escape("]8;;") + escape("\\")
+      + escape("]8;id=b;https://example.com/b") + escape("\\") + utf8("b")
+      + escape("]8;;") + escape("\\") + utf8("c") + escape("[0m")
+  )
+}
+
+@Test
+func `damage render emits hyperlink only changes`() throws {
+  var previous = Buffer(size: TerminalSize(columns: 1, rows: 1))
+  previous.write("x", at: TerminalPosition(column: 0, row: 0))
+  var current = previous
+  let link = try Hyperlink(uri: "https://example.com/x")
+  current.write(
+    "x",
+    at: TerminalPosition(column: 0, row: 0),
+    style: Style(hyperlink: link)
+  )
+
+  let bytes = Renderer.render(previous: previous, current: current)
+
+  #expect(
+    bytes == escape("[1;1H") + escape("]8;;https://example.com/x") + escape("\\")
+      + escape("[0m") + utf8("x") + escape("]8;;") + escape("\\") + escape("[0m")
+  )
+}
 private func escape(_ suffix: String) -> [UInt8] {
   utf8("\u{1B}\(suffix)")
 }

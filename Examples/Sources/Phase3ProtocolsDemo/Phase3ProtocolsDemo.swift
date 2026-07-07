@@ -14,6 +14,7 @@ enum Phase3ProtocolsDemo {
           "terminal focus events",
           "SGR mouse tracking",
           "Kitty keyboard protocol",
+          "OSC 8 hyperlinks",
           "raw keyboard input",
           "alternate screen rendering",
         ],
@@ -62,6 +63,8 @@ enum Phase3ProtocolsDemo {
         state.selectedPanel = .mouse
       } else if key == Key(code: .character("4")) {
         state.selectedPanel = .keyboard
+      } else if key == Key(code: .character("5")) {
+        state.selectedPanel = .links
       } else if key == Key(code: .character("m")) {
         state.logsMouseMotionOutsideMousePanel.toggle()
       }
@@ -128,6 +131,9 @@ enum Phase3ProtocolsDemo {
 
       case .keyboard:
         drawKeyboardPanel(frame: frame, state: state)
+
+      case .links:
+        drawLinksPanel(frame: frame, state: state)
       }
     }
   }
@@ -139,7 +145,7 @@ enum Phase3ProtocolsDemo {
       style: Style(foreground: .ansi(.brightCyan), attributes: [.bold])
     )
     frame.write(
-      "q quit · 1 paste · 2 focus · 3 mouse · 4 keys · m motion log",
+      "q quit · 1 paste · 2 focus · 3 mouse · 4 keys · 5 links · m motion log",
       at: position(0, 1),
       style: Style(attributes: [.dim])
     )
@@ -177,7 +183,7 @@ enum Phase3ProtocolsDemo {
     switch panel {
     case .mouse:
       return TerminalSize(columns: 32, rows: 22)
-    case .focus, .keyboard, .paste:
+    case .focus, .keyboard, .links, .paste:
       return TerminalSize(columns: 12, rows: 20)
     }
   }
@@ -342,6 +348,71 @@ enum Phase3ProtocolsDemo {
     drawRecentEvents(frame: frame, state: state, top: 20)
   }
 
+  private static func drawLinksPanel(frame: borrowing Frame, state: DemoState) {
+    drawLastEvent(frame: frame, state: state)
+
+    frame.write(
+      "OSC 8 hyperlink samples",
+      at: position(0, 7),
+      style: Style(attributes: [.bold])
+    )
+    writeLink(
+      frame: frame,
+      label: "Docs:",
+      text: "Tessera Spec",
+      uri: "https://github.com/robfeldmann/tessera/blob/main/docs/Spec.md",
+      id: "docs",
+      row: 9
+    )
+    writeLink(
+      frame: frame,
+      label: "Issue:",
+      text: "GH-123 terminal protocols",
+      uri: "https://github.com/robfeldmann/tessera/issues/123",
+      id: "issue-123",
+      row: 10
+    )
+    writeLink(
+      frame: frame,
+      label: "File:",
+      text: "Sources/TesseraTerminalANSI/ControlSequence.swift",
+      uri: "file://Sources/TesseraTerminalANSI/ControlSequence.swift",
+      id: "control-sequence",
+      row: 11
+    )
+
+    frame.write("Plain fallback", at: position(0, 14), style: Style(attributes: [.bold]))
+    frame.write(
+      "The visible text above remains readable even when OSC 8 is unsupported.",
+      at: position(2, 15),
+      style: Style(attributes: [.dim])
+    )
+
+    drawRecentEvents(frame: frame, state: state, top: 18)
+  }
+
+  private static func writeLink(
+    frame: borrowing Frame,
+    label: String,
+    text: String,
+    uri: String,
+    id: String,
+    row: Int
+  ) {
+    frame.write(label, at: position(2, row), style: Style(attributes: [.bold]))
+    let style: Style
+    do {
+      style = try Style(
+        foreground: .ansi(.brightBlue),
+        attributes: [.underline],
+        hyperlink: Hyperlink(uri: uri, id: id)
+      )
+    } catch {
+      style = Style(foreground: .ansi(.brightBlue), attributes: [.underline])
+    }
+    frame.write(text, at: position(11, row), style: style)
+  }
+
   private static func drawMouseGrid(frame: borrowing Frame, state: DemoState) {
     let pointer = state.lastMouseEvent?.position
     let normalStyle = Style(foreground: .ansi(.brightBlack))
@@ -430,6 +501,7 @@ private enum MouseGrid {
 private enum DemoPanel {
   case focus
   case keyboard
+  case links
   case mouse
   case paste
 
@@ -439,6 +511,8 @@ private enum DemoPanel {
       return "Focus"
     case .keyboard:
       return "Keyboard"
+    case .links:
+      return "Links"
     case .mouse:
       return "Mouse"
     case .paste:

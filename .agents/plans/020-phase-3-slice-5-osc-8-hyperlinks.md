@@ -3,24 +3,24 @@ name: Phase 3 Slice 5 OSC 8 Hyperlinks
 description:
   Add semantic OSC 8 hyperlink styling, encoder support, renderer state transitions,
   hyperlink-aware snapshots, and a demo panel.
-status: pending
+status: complete
 created: 2026-07-02
-updated: 2026-07-03
+updated: 2026-07-06
 ---
 
 ## Progress
 
-- [ ] **Phase 1 — Hyperlink model and cell styling**
-  - [ ] 1.1 Add a validated `Hyperlink` value type
-  - [ ] 1.2 Store hyperlink metadata in `Style` and buffer snapshots
-- [ ] **Phase 2 — OSC 8 encoder and renderer integration**
-  - [ ] 2.1 Add exact OSC 8 open and close encoding
-  - [ ] 2.2 Render hyperlink transitions independently from SGR state
-  - [ ] 2.3 Keep hyperlink changes in damage tracking and invalidation
-- [ ] **Phase 3 — Snapshot support, example app, and validation**
-  - [ ] 3.1 Add hyperlink-aware virtual-terminal snapshots
-  - [ ] 3.2 Add the links panel to `Phase3ProtocolsDemo`
-  - [ ] 3.3 Run narrow buffer, encoder, renderer, snapshot, and example checks
+- [x] **Phase 1 — Hyperlink model and cell styling**
+  - [x] 1.1 Add a validated `Hyperlink` value type
+  - [x] 1.2 Store hyperlink metadata in `Style` and buffer snapshots
+- [x] **Phase 2 — OSC 8 encoder and renderer integration**
+  - [x] 2.1 Add exact OSC 8 open and close encoding
+  - [x] 2.2 Render hyperlink transitions independently from SGR state
+  - [x] 2.3 Keep hyperlink changes in damage tracking and invalidation
+- [x] **Phase 3 — Snapshot support, example app, and validation**
+  - [x] 3.1 Add hyperlink-aware virtual-terminal snapshots
+  - [x] 3.2 Add the links panel to `Phase3ProtocolsDemo`
+  - [x] 3.3 Run narrow buffer, encoder, renderer, snapshot, and example checks
 
 ## Overview
 

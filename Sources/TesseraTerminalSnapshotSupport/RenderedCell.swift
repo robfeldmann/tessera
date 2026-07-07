@@ -9,7 +9,8 @@ public struct RenderedCell: Sendable, Equatable {
     italic: false,
     reverse: false,
     strikethrough: false,
-    underline: false
+    underline: false,
+    hyperlinkURI: nil
   )
 
   public let character: Character
@@ -21,6 +22,7 @@ public struct RenderedCell: Sendable, Equatable {
   public let reverse: Bool
   public let strikethrough: Bool
   public let underline: Bool
+  public let hyperlinkURI: String?
 
   public init(
     character: Character,
@@ -31,7 +33,8 @@ public struct RenderedCell: Sendable, Equatable {
     italic: Bool,
     reverse: Bool,
     strikethrough: Bool,
-    underline: Bool
+    underline: Bool,
+    hyperlinkURI: String? = nil
   ) {
     self.character = character
     self.foreground = foreground
@@ -42,5 +45,6 @@ public struct RenderedCell: Sendable, Equatable {
     self.reverse = reverse
     self.strikethrough = strikethrough
     self.underline = underline
+    self.hyperlinkURI = hyperlinkURI
   }
 }
