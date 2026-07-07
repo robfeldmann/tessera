@@ -3,23 +3,23 @@ name: Phase 3 Slice 6 Terminal Capability Detection
 description:
   Add conservative terminal capability reporting and configuration policy so modern
   protocol enablement degrades gracefully.
-status: pending
+status: complete
 created: 2026-07-02
-updated: 2026-07-03
+updated: 2026-07-07
 ---
 
 ## Progress
 
-- [ ] **Phase 1 — Capability model and passive detection**
-  - [ ] 1.1 Add terminal capability value types
-  - [ ] 1.2 Add passive environment-based detection tests
-- [ ] **Phase 2 — Configuration policy and session integration**
-  - [ ] 2.1 Replace direct default mode policy with explicit protocol knobs
-  - [ ] 2.2 Resolve startup modes from configuration and capabilities
-  - [ ] 2.3 Expose detected and enabled terminal protocol state
-- [ ] **Phase 3 — Example app and validation**
-  - [ ] 3.1 Add the capabilities panel to `Phase3ProtocolsDemo`
-  - [ ] 3.2 Run narrow capability, lifecycle, session, renderer, and example checks
+- [x] **Phase 1 — Capability model and passive detection**
+  - [x] 1.1 Add terminal capability value types
+  - [x] 1.2 Add passive environment-based detection tests
+- [x] **Phase 2 — Configuration policy and session integration**
+  - [x] 2.1 Replace direct default mode policy with explicit protocol knobs
+  - [x] 2.2 Resolve startup modes from configuration and capabilities
+  - [x] 2.3 Expose detected and enabled terminal protocol state
+- [x] **Phase 3 — Example app and validation**
+  - [x] 3.1 Add the capabilities panel to `Phase3ProtocolsDemo`
+  - [x] 3.2 Run narrow capability, lifecycle, session, renderer, and example checks
 
 ## Overview
 

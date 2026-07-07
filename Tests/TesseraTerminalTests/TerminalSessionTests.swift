@@ -15,7 +15,8 @@ func `application terminal returns body result and cleans up modes`() async thro
 
   let result = try await TerminalSession.withApplicationTerminal(
     configuration: .default,
-    io: io
+    io: io,
+    environment: [:]
   ) { _ in
     "done"
   }
@@ -29,7 +30,9 @@ func `application terminal returns body result and cleans up modes`() async thro
       enterAltScreen
       flush: enableBracketedPaste(true)
       flush: enableFocusTracking(true)
+      flush: pushKittyKeyboard
       flush: cursorVisible(true)
+      flush: popKittyKeyboard
       flush: enableFocusTracking(false)
       flush: enableBracketedPaste(false)
       exitAltScreen
@@ -47,11 +50,6 @@ func `application configuration stores synchronized output policy`() {
 
   expectNoDifference(configuration.modes, [.rawMode])
   expectNoDifference(configuration.synchronizedOutput, .disabled)
-}
-
-@Test
-func `default application configuration omits kitty keyboard`() {
-  #expect(TerminalApplicationConfiguration.default.modes.contains(.kittyKeyboard) == false)
 }
 
 @Test
@@ -95,13 +93,102 @@ func `application terminal rethrows body error after cleanup`() async throws {
   await #expect(throws: TerminalSessionTestError.bodyFailed) {
     try await TerminalSession.withApplicationTerminal(
       configuration: .default,
-      io: io
+      io: io,
+      environment: [:]
     ) { _ in
       throw TerminalSessionTestError.bodyFailed
     }
   }
 
   let events = await device.events
+  #expect(
+    terminalSessionEventLog(events) == """
+      enterRawMode
+      enterAltScreen
+      flush: enableBracketedPaste(true)
+      flush: enableFocusTracking(true)
+      flush: pushKittyKeyboard
+      flush: cursorVisible(true)
+      flush: popKittyKeyboard
+      flush: enableFocusTracking(false)
+      flush: enableBracketedPaste(false)
+      exitAltScreen
+      exitRawMode
+      """
+  )
+}
+
+@Test
+func `app terminal exposes resolved capabilities and modes`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+  let configuration = TerminalApplicationConfiguration(
+    capabilityDetection: .passive,
+    enableBracketedPaste: true,
+    enableFocusEvents: true,
+    mouseTracking: .disabled,
+    keyboardProtocol: .kittyIfAvailable,
+    hyperlinkRendering: .enabled,
+    synchronizedOutput: .enabled
+  )
+
+  let observed = try await TerminalSession.withApplicationTerminal(
+    configuration: configuration,
+    io: io,
+    environment: [
+      "TERM_PROGRAM": "Ghostty",
+      "TERM_PROGRAM_VERSION": "1.3.2",
+    ]
+  ) { session in
+    (session.capabilities, session.enabledProtocolModes)
+  }
+
+  expectNoDifference(
+    observed.0,
+    TerminalCapabilities(
+      bracketedPaste: .supported,
+      focusEvents: .supported,
+      mouseTracking: .supported,
+      kittyKeyboard: .supported,
+      osc8Hyperlinks: .supported,
+      synchronizedOutput: .unknown,
+      color: .unknown,
+      identity: TerminalIdentity(
+        kind: .ghostty,
+        source: .termProgram("Ghostty"),
+        version: "1.3.2"
+      ),
+      isNested: false
+    )
+  )
+  expectNoDifference(observed.1, applicationModes(including: [.kittyKeyboard]))
+}
+
+@Test
+func `app terminal accepts dumb hints without kitty keyboard`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+  let configuration = TerminalApplicationConfiguration(
+    capabilityDetection: .passive,
+    enableBracketedPaste: true,
+    enableFocusEvents: true,
+    mouseTracking: .disabled,
+    keyboardProtocol: .kittyIfAvailable,
+    hyperlinkRendering: .enabled,
+    synchronizedOutput: .enabled
+  )
+
+  let result = try await TerminalSession.withApplicationTerminal(
+    configuration: configuration,
+    io: io,
+    environment: ["TERM": "dumb"]
+  ) { _ in
+    "started"
+  }
+
+  let events = await device.events
+
+  expectNoDifference(result, "started")
   #expect(
     terminalSessionEventLog(events) == """
       enterRawMode

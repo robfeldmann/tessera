@@ -23,6 +23,7 @@ package struct Renderer {
       previous: previous,
       current: current,
       wrapInSynchronizedOutput: false,
+      renderHyperlinks: true,
       into: &bytes
     )
     return bytes
@@ -32,6 +33,7 @@ package struct Renderer {
     previous: Buffer?,
     current: Buffer,
     wrapInSynchronizedOutput: Bool,
+    renderHyperlinks: Bool = true,
     into bytes: inout [UInt8]
   ) {
     if wrapInSynchronizedOutput {
@@ -50,7 +52,7 @@ package struct Renderer {
 
     let damagePrevious = shouldErase ? nil : previous
     for run in BufferDiff.damageRuns(previous: damagePrevious, current: current) {
-      encode(run: run, from: current, into: &bytes)
+      encode(run: run, from: current, renderHyperlinks: renderHyperlinks, into: &bytes)
     }
 
     closeCurrentHyperlink(into: &bytes)
@@ -74,6 +76,7 @@ package struct Renderer {
   private mutating func encode(
     run: RowDamageRun,
     from buffer: Buffer,
+    renderHyperlinks: Bool,
     into bytes: inout [UInt8]
   ) {
     for column in run.columns {
@@ -88,10 +91,11 @@ package struct Renderer {
         believedCursorPosition = position
       }
 
-      hyperlinkDelta(to: cell.style.hyperlink, into: &bytes)
+      let hyperlink = renderHyperlinks ? cell.style.hyperlink : nil
+      hyperlinkDelta(to: hyperlink, into: &bytes)
       sgrDelta(from: currentStyle, to: cell.style, into: &bytes)
       currentStyle = cell.style
-      currentHyperlink = cell.style.hyperlink
+      currentHyperlink = hyperlink
       encodeContent(cell.content, into: &bytes)
       believedCursorPosition = TerminalPosition(column: column + cell.width, row: run.row)
     }

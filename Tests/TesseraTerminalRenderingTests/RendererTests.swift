@@ -419,6 +419,29 @@ func `renderer opens shared hyperlink once and closes at frame end`() throws {
 }
 
 @Test
+func `renderer disables OSC 8 but preserves text`() throws {
+  var buffer = Buffer(size: TerminalSize(columns: 2, rows: 1))
+  let link = try Hyperlink(uri: "https://example.com/docs")
+  buffer.write(
+    "ab",
+    at: TerminalPosition(column: 0, row: 0),
+    style: Style(hyperlink: link)
+  )
+  var renderer = Renderer()
+  var bytes: [UInt8] = []
+
+  renderer.encodeFrame(
+    previous: Buffer(size: buffer.size),
+    current: buffer,
+    wrapInSynchronizedOutput: false,
+    renderHyperlinks: false,
+    into: &bytes
+  )
+
+  #expect(bytes == escape("[1;1H") + escape("[0m") + utf8("ab") + escape("[0m"))
+}
+
+@Test
 func `renderer switches and closes hyperlinks independently from sgr`() throws {
   var buffer = Buffer(size: TerminalSize(columns: 3, rows: 1))
   let first = try Hyperlink(uri: "https://example.com/a")

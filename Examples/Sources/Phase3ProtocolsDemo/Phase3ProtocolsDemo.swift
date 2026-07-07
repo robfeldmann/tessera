@@ -24,9 +24,10 @@ enum Phase3ProtocolsDemo {
       return
     }
 
-    var configuration = TerminalApplicationConfiguration.default
-    configuration.modes.insert(.mouseTracking(.anyEvent))
-    configuration.modes.insert(.kittyKeyboard)
+    let configuration = TerminalApplicationConfiguration(
+      mouseTracking: .buttonEvents,
+      keyboardProtocol: .kittyIfAvailable
+    )
 
     try await TerminalSession.withApplicationTerminal(
       configuration: configuration
@@ -65,6 +66,8 @@ enum Phase3ProtocolsDemo {
         state.selectedPanel = .keyboard
       } else if key == Key(code: .character("5")) {
         state.selectedPanel = .links
+      } else if key == Key(code: .character("6")) {
+        state.selectedPanel = .capabilities
       } else if key == Key(code: .character("m")) {
         state.logsMouseMotionOutsideMousePanel.toggle()
       }
@@ -117,6 +120,15 @@ enum Phase3ProtocolsDemo {
       }
 
       switch state.selectedPanel {
+      case .capabilities:
+        drawCapabilitiesPanel(
+          frame: frame,
+          capabilities: terminal.capabilities,
+          enabledModes: terminal.enabledProtocolModes,
+          hyperlinkRendering: terminal.hyperlinkRendering,
+          synchronizedOutput: terminal.synchronizedOutput
+        )
+
       case .paste:
         drawLastEvent(frame: frame, state: state)
         drawPastePreview(frame: frame, state: state)
@@ -145,15 +157,14 @@ enum Phase3ProtocolsDemo {
       style: Style(foreground: .ansi(.brightCyan), attributes: [.bold])
     )
     frame.write(
-      "q quit · 1 paste · 2 focus · 3 mouse · 4 keys · 5 links · m motion log",
+      "q quit · 1 paste · 2 focus · 3 mouse · 4 keys · 5 links · 6 caps · m motion",
       at: position(0, 1),
       style: Style(attributes: [.dim])
     )
-    frame.write(
-      "Terminal: \(frame.size.columns)x\(frame.size.rows) · motion log outside mouse: \(state.motionLogDescription)",
-      at: position(0, 2),
-      style: Style(attributes: [.dim])
-    )
+    let terminalStatus =
+      "Terminal: \(frame.size.columns)x\(frame.size.rows)"
+      + " · motion log outside mouse: \(state.motionLogDescription)"
+    frame.write(terminalStatus, at: position(0, 2), style: Style(attributes: [.dim]))
   }
 
   private static func drawSmallTerminalMessage(
@@ -181,10 +192,10 @@ enum Phase3ProtocolsDemo {
 
   private static func minimumTerminalSize(for panel: DemoPanel) -> TerminalSize {
     switch panel {
+    case .capabilities, .focus, .keyboard, .links, .paste:
+      return TerminalSize(columns: 12, rows: 20)
     case .mouse:
       return TerminalSize(columns: 32, rows: 22)
-    case .focus, .keyboard, .links, .paste:
-      return TerminalSize(columns: 12, rows: 20)
     }
   }
 
@@ -391,6 +402,71 @@ enum Phase3ProtocolsDemo {
     drawRecentEvents(frame: frame, state: state, top: 18)
   }
 
+  private static func drawCapabilitiesPanel(
+    frame: borrowing Frame,
+    capabilities: TerminalCapabilities,
+    enabledModes: Set<ModeLifecycle.Mode>,
+    hyperlinkRendering: HyperlinkRenderingMode,
+    synchronizedOutput: SynchronizedOutputPolicy
+  ) {
+    frame.write(
+      "Detected terminal",
+      at: position(0, 4),
+      style: Style(attributes: [.bold])
+    )
+    frame.write("identity: \(describe(capabilities.identity))", at: position(2, 5))
+    frame.write(
+      "nested:   \(capabilities.isNested ? "yes" : "no")",
+      at: position(2, 6)
+    )
+    frame.write("color:    \(describe(capabilities.color))", at: position(2, 7))
+
+    frame.write(
+      "Protocol support",
+      at: position(0, 10),
+      style: Style(attributes: [.bold])
+    )
+    frame.write(
+      "bracketed paste: \(describe(capabilities.bracketedPaste))",
+      at: position(2, 11)
+    )
+    frame.write(
+      "focus events:    \(describe(capabilities.focusEvents))",
+      at: position(2, 12)
+    )
+    frame.write(
+      "SGR mouse:       \(describe(capabilities.mouseTracking))",
+      at: position(2, 13)
+    )
+    frame.write(
+      "Kitty keyboard:  \(describe(capabilities.kittyKeyboard))",
+      at: position(2, 14)
+    )
+    frame.write(
+      "OSC 8 links:     \(describe(capabilities.osc8Hyperlinks))"
+        + ", rendering \(describe(hyperlinkRendering))",
+      at: position(2, 15)
+    )
+    frame.write(
+      "sync output:     \(describe(capabilities.synchronizedOutput))"
+        + ", policy \(describe(synchronizedOutput))",
+      at: position(2, 16)
+    )
+
+    frame.write(
+      "Enabled in this session",
+      at: position(0, 18),
+      style: Style(attributes: [.bold])
+    )
+    let lines = wrappedLines(
+      describeEnabledModes(enabledModes),
+      width: max(frame.size.columns - 2, 1)
+    )
+    for (offset, line) in lines.prefix(max(frame.size.rows - 19, 0)).enumerated() {
+      frame.write(line, at: position(2, 19 + offset))
+    }
+  }
+
   private static func writeLink(
     frame: borrowing Frame,
     label: String,
@@ -499,6 +575,7 @@ private enum MouseGrid {
 }
 
 private enum DemoPanel {
+  case capabilities
   case focus
   case keyboard
   case links
@@ -507,6 +584,8 @@ private enum DemoPanel {
 
   var title: String {
     switch self {
+    case .capabilities:
+      return "Capabilities"
     case .focus:
       return "Focus"
     case .keyboard:
@@ -610,6 +689,136 @@ private struct DemoState {
       return String(string.prefix(max(width - 1, 0))) + "…"
     }
   }
+}
+
+private func describe(_ status: CapabilityStatus) -> String {
+  switch status {
+  case .supported:
+    return "supported"
+  case .unknown:
+    return "unknown"
+  case .unsupported:
+    return "unsupported"
+  }
+}
+
+private func describe(_ color: ColorCapability) -> String {
+  switch color {
+  case .ansi16:
+    return "ANSI 16"
+  case .indexed256:
+    return "256-color"
+  case .noColor:
+    return "no color"
+  case .truecolor:
+    return "truecolor"
+  case .unknown:
+    return "unknown"
+  }
+}
+
+private func describe(_ mode: HyperlinkRenderingMode) -> String {
+  switch mode {
+  case .disabled:
+    return "disabled"
+  case .enabled:
+    return "enabled"
+  }
+}
+
+private func describe(_ policy: SynchronizedOutputPolicy) -> String {
+  switch policy {
+  case .disabled:
+    return "disabled"
+  case .enabled:
+    return "enabled"
+  }
+}
+
+private func describe(_ identity: TerminalIdentity) -> String {
+  let name = describe(identity.kind)
+  let version = identity.version.map { " \($0)" } ?? ""
+  let source = describe(identity.source)
+  guard source != "unknown" else {
+    return name + version
+  }
+  return "\(name)\(version) from \(source)"
+}
+
+private func describe(_ kind: TerminalIdentityKind) -> String {
+  switch kind {
+  case .appleTerminal:
+    return "Apple Terminal"
+  case .dumb:
+    return "dumb"
+  case .foot:
+    return "foot"
+  case .ghostty:
+    return "Ghostty"
+  case .iTerm2:
+    return "iTerm2"
+  case .kitty:
+    return "Kitty"
+  case .other(let name):
+    return name
+  case .screen:
+    return "screen"
+  case .tmux:
+    return "tmux"
+  case .unknown:
+    return "unknown"
+  case .wezTerm:
+    return "WezTerm"
+  case .windowsTerminal:
+    return "Windows Terminal"
+  case .xterm:
+    return "xterm"
+  }
+}
+
+private func describe(_ source: TerminalIdentitySource) -> String {
+  switch source {
+  case .environmentVariable(let name, _):
+    return name
+  case .none:
+    return "unknown"
+  case .term:
+    return "TERM"
+  case .termProgram:
+    return "TERM_PROGRAM"
+  case .windowsTerminalSession:
+    return "WT_SESSION"
+  }
+}
+
+private func describeEnabledModes(_ modes: Set<ModeLifecycle.Mode>) -> String {
+  var parts: [String] = []
+  if modes.contains(.rawMode) {
+    parts.append("raw mode")
+  }
+  if modes.contains(.altScreen) {
+    parts.append("alt screen")
+  }
+  if modes.contains(.bracketedPaste) {
+    parts.append("bracketed paste")
+  }
+  if modes.contains(.focusEvents) {
+    parts.append("focus events")
+  }
+  if modes.contains(where: isMouseTrackingMode) {
+    parts.append("mouse")
+  }
+  if modes.contains(.kittyKeyboard) {
+    parts.append("kitty keyboard")
+  }
+  return parts.isEmpty ? "none" : parts.joined(separator: " · ")
+}
+
+private func isMouseTrackingMode(_ mode: ModeLifecycle.Mode) -> Bool {
+  if case .mouseTracking = mode {
+    return true
+  }
+  return false
 }
 
 private func describe(_ event: InputEvent) -> String {

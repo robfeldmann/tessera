@@ -35,22 +35,37 @@ public actor TerminalSession {
   private let inputEvents: AsyncEventBuffer<InputEvent>
   private let inputPump: Task<Void, Never>
   private let io: PlatformIO
-  private let synchronizedOutput: SynchronizedOutputPolicy
   private var lastDrawnBuffer: Buffer?
   private var renderer = Renderer()
+
+  /// Capability hints resolved for this session.
+  nonisolated public let capabilities: TerminalCapabilities
+
+  /// Terminal modes enabled for this session.
+  nonisolated public let enabledProtocolModes: Set<ModeLifecycle.Mode>
 
   /// The session's semantic terminal event stream.
   nonisolated public let events: AsyncStream<InputEvent>
 
+  /// OSC 8 hyperlink rendering policy applied to drawn frames.
+  nonisolated public let hyperlinkRendering: HyperlinkRenderingMode
+
   /// Terminal-size notifications for the live session.
   nonisolated public let sizeChanges: AsyncStream<TerminalSize>
 
+  /// DEC synchronized output policy applied to drawn frames.
+  nonisolated public let synchronizedOutput: SynchronizedOutputPolicy
   package init(
     io: PlatformIO,
-    synchronizedOutput: SynchronizedOutputPolicy = .enabled
+    synchronizedOutput: SynchronizedOutputPolicy = .enabled,
+    capabilities: TerminalCapabilities = .conservativeDefault,
+    enabledProtocolModes: Set<ModeLifecycle.Mode> = [],
+    hyperlinkRendering: HyperlinkRenderingMode = .enabled
   ) {
     let inputEvents = AsyncEventBuffer<InputEvent>(coalescing: shouldCoalesceInputEvents)
     let eventStream = AsyncStream<InputEvent>.makeStream()
+    self.capabilities = capabilities
+    self.enabledProtocolModes = enabledProtocolModes
     self.events = eventStream.stream
     self.inputEvents = inputEvents
     self.inputPump = Task {
@@ -62,6 +77,7 @@ public actor TerminalSession {
       await inputEvents.finish()
     }
     self.io = io
+    self.hyperlinkRendering = hyperlinkRendering
     self.synchronizedOutput = synchronizedOutput
     self.sizeChanges = io.sizeChanges
   }
@@ -79,14 +95,19 @@ public actor TerminalSession {
   package static func withApplicationTerminal<R>(
     configuration: TerminalApplicationConfiguration,
     io: PlatformIO,
+    environment: [String: String] = TerminalCapabilityDetector.currentEnvironment(),
     _ body: (isolated TerminalSession) async throws -> sending R
   ) async throws -> sending R {
+    let resolution = configuration.resolve(environment: environment)
     let lifecycle = ModeLifecycle(io: io)
-    try await lifecycle.enter(configuration.modes)
+    try await lifecycle.enter(resolution.modes)
 
     let session = TerminalSession(
       io: io,
-      synchronizedOutput: configuration.synchronizedOutput
+      synchronizedOutput: resolution.synchronizedOutput,
+      capabilities: resolution.capabilities,
+      enabledProtocolModes: resolution.enabledProtocolModes,
+      hyperlinkRendering: resolution.hyperlinkRendering
     )
     do {
       let result = try await body(session)
@@ -133,6 +154,7 @@ public actor TerminalSession {
       previous: lastDrawnBuffer,
       current: buffer,
       wrapInSynchronizedOutput: synchronizedOutput == .enabled,
+      renderHyperlinks: hyperlinkRendering == .enabled,
       into: &bytes
     )
     appendCursorState(cursorStorage.pointee, into: &bytes)
