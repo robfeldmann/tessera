@@ -12,6 +12,12 @@ public struct VirtualTerminal: Sendable {
   /// Feeds raw terminal bytes into the virtual terminal.
   public var feed: @Sendable ([UInt8]) -> Void
 
+  /// Returns Kitty Graphics Protocol images stored by the terminal.
+  public var kittyImages: @Sendable () -> [RenderedKittyImage]
+
+  /// Returns Kitty Graphics Protocol placements visible in the terminal.
+  public var kittyPlacements: @Sendable () -> [RenderedKittyPlacement]
+
   /// Returns the visible terminal screen.
   public var snapshot: @Sendable () -> ScreenSnapshot
 
@@ -38,6 +44,14 @@ public struct VirtualTerminal: Sendable {
       "VirtualTerminal.cursor",
       placeholder: TerminalPosition(column: 0, row: 0)
     ),
+    kittyImages: @escaping @Sendable () -> [RenderedKittyImage] = unimplemented(
+      "VirtualTerminal.kittyImages",
+      placeholder: []
+    ),
+    kittyPlacements: @escaping @Sendable () -> [RenderedKittyPlacement] = unimplemented(
+      "VirtualTerminal.kittyPlacements",
+      placeholder: []
+    ),
     snapshot: @escaping @Sendable () -> ScreenSnapshot = unimplemented(
       "VirtualTerminal.snapshot",
       placeholder: ScreenSnapshot.empty
@@ -48,6 +62,8 @@ public struct VirtualTerminal: Sendable {
     self.cell = cell
     self.cursor = cursor
     self.snapshot = snapshot
+    self.kittyImages = kittyImages
+    self.kittyPlacements = kittyPlacements
   }
 
   /// Feeds UTF-8 text into the virtual terminal.

@@ -32,6 +32,7 @@ func `application terminal returns body result and cleans up modes`() async thro
       flush: enableFocusTracking(true)
       flush: pushKittyKeyboard
       flush: cursorVisible(true)
+      flush: deleteKittyGraphicsAll
       flush: popKittyKeyboard
       flush: enableFocusTracking(false)
       flush: enableBracketedPaste(false)
@@ -39,6 +40,76 @@ func `application terminal returns body result and cleans up modes`() async thro
       exitRawMode
       """
   )
+}
+
+@Test
+func `session exposes nil cell pixel size`() async {
+  let device = InMemoryTerminalDevice(
+    size: TerminalSize(columns: 4, rows: 2),
+    cellPixelSize: nil
+  )
+  let session = await makeSession(device)
+
+  let pixelSize = await session.cellPixelSize
+
+  expectNoDifference(pixelSize, nil)
+}
+
+@Test
+func `session exposes terminal device cell pixel size`() async {
+  let device = InMemoryTerminalDevice(
+    size: TerminalSize(columns: 4, rows: 2),
+    cellPixelSize: CellPixelSize(height: 18, width: 9)
+  )
+  let session = await makeSession(device)
+
+  let pixelSize = await session.cellPixelSize
+
+  expectNoDifference(pixelSize, CellPixelSize(height: 18, width: 9))
+}
+
+@Test
+func `transmit image writes exact kitty graphics bytes and flushes`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let session = await makeSession(device)
+
+  try await session.transmitImage(
+    KittyGraphicsTransmission(
+      id: KittyImageID(rawValue: 7),
+      format: .png,
+      data: [0x48, 0x69]
+    )
+  )
+
+  let events = await device.events
+
+  expectNoDifference(events, [.flush(kittyGraphicsTransmitBytes)])
+}
+
+@Test
+func `delete images writes exact kitty graphics bytes and flushes`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let session = await makeSession(device)
+
+  try await session.deleteImages(
+    .placement(KittyImageID(rawValue: 7), KittyPlacementID(rawValue: 9))
+  )
+
+  let events = await device.events
+
+  expectNoDifference(events, [.flush(kittyGraphicsDeletePlacementBytes)])
+}
+
+@Test
+func `query kitty graphics support writes query and DA1`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let session = await makeSession(device)
+
+  try await session.queryKittyGraphicsSupport(id: KittyImageID(rawValue: 17))
+
+  let events = await device.events
+
+  expectNoDifference(events, [.flush(kittyGraphicsQueryProbeBytes)])
 }
 
 @Test
@@ -75,6 +146,7 @@ func `app terminal enables kitty keyboard when requested`() async throws {
       flush: enableMouseTracking(anyEvent)
       flush: pushKittyKeyboard
       flush: cursorVisible(true)
+      flush: deleteKittyGraphicsAll
       flush: popKittyKeyboard
       flush: disableMouseTracking
       flush: enableFocusTracking(false)
@@ -109,6 +181,7 @@ func `application terminal rethrows body error after cleanup`() async throws {
       flush: enableFocusTracking(true)
       flush: pushKittyKeyboard
       flush: cursorVisible(true)
+      flush: deleteKittyGraphicsAll
       flush: popKittyKeyboard
       flush: enableFocusTracking(false)
       flush: enableBracketedPaste(false)
@@ -119,7 +192,7 @@ func `application terminal rethrows body error after cleanup`() async throws {
 }
 
 @Test
-func `app terminal exposes resolved capabilities and modes`() async throws {
+func `app terminal exposes conservative Ghostty capabilities and modes`() async throws {
   let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
   let io = PlatformIO(terminalDevice: await device.terminalDevice)
   let configuration = TerminalApplicationConfiguration(
@@ -149,6 +222,7 @@ func `app terminal exposes resolved capabilities and modes`() async throws {
       bracketedPaste: .supported,
       focusEvents: .supported,
       mouseTracking: .supported,
+      kittyGraphics: .unknown,
       kittyKeyboard: .supported,
       osc8Hyperlinks: .supported,
       synchronizedOutput: .unknown,
@@ -196,6 +270,48 @@ func `app terminal accepts dumb hints without kitty keyboard`() async throws {
       flush: enableBracketedPaste(true)
       flush: enableFocusTracking(true)
       flush: cursorVisible(true)
+      flush: deleteKittyGraphicsAll
+      flush: enableFocusTracking(false)
+      flush: enableBracketedPaste(false)
+      exitAltScreen
+      exitRawMode
+      """
+  )
+}
+
+@Test
+func `app terminal resolves intent any-event mouse and enables tracking`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+  let configuration = TerminalApplicationConfiguration(
+    capabilityDetection: .disabled,
+    mouseTracking: .anyEvent,
+    keyboardProtocol: .legacyOnly
+  )
+
+  let enabledModes = try await TerminalSession.withApplicationTerminal(
+    configuration: configuration,
+    io: io
+  ) { session in
+    session.enabledProtocolModes
+  }
+
+  let events = await device.events
+
+  expectNoDifference(
+    enabledModes,
+    applicationModes(including: [.mouseTracking(.anyEvent)])
+  )
+  #expect(
+    terminalSessionEventLog(events) == """
+      enterRawMode
+      enterAltScreen
+      flush: enableBracketedPaste(true)
+      flush: enableFocusTracking(true)
+      flush: enableMouseTracking(anyEvent)
+      flush: cursorVisible(true)
+      flush: deleteKittyGraphicsAll
+      flush: disableMouseTracking
       flush: enableFocusTracking(false)
       flush: enableBracketedPaste(false)
       exitAltScreen
@@ -226,6 +342,7 @@ func `app terminal enables button-event mouse when requested`() async throws {
       flush: enableFocusTracking(true)
       flush: enableMouseTracking(buttonEvents)
       flush: cursorVisible(true)
+      flush: deleteKittyGraphicsAll
       flush: disableMouseTracking
       flush: enableFocusTracking(false)
       flush: enableBracketedPaste(false)
@@ -257,6 +374,7 @@ func `app terminal enables any-event mouse when requested`() async throws {
       flush: enableFocusTracking(true)
       flush: enableMouseTracking(anyEvent)
       flush: cursorVisible(true)
+      flush: deleteKittyGraphicsAll
       flush: disableMouseTracking
       flush: enableFocusTracking(false)
       flush: enableBracketedPaste(false)
@@ -290,6 +408,7 @@ func `app terminal normalizes mouse granularities to any-event`() async throws {
       flush: enableFocusTracking(true)
       flush: enableMouseTracking(anyEvent)
       flush: cursorVisible(true)
+      flush: deleteKittyGraphicsAll
       flush: disableMouseTracking
       flush: enableFocusTracking(false)
       flush: enableBracketedPaste(false)
@@ -869,6 +988,9 @@ private func terminalFlushName(_ bytes: [UInt8]) -> String {
   if bytes == kittyKeyboardPopBytes {
     return "popKittyKeyboard"
   }
+  if bytes == kittyGraphicsDeleteAllBytes {
+    return "deleteKittyGraphicsAll"
+  }
 
   return String(describing: bytes)
 }
@@ -877,6 +999,13 @@ private let mouseDisableBytes =
   Array("\u{1B}[?1003l\u{1B}[?1002l\u{1B}[?1006l".utf8)
 private let kittyKeyboardPushBytes = Array("\u{1B}[>7u".utf8)
 private let kittyKeyboardPopBytes = Array("\u{1B}[<u".utf8)
+private let kittyGraphicsDeleteAllBytes = Array("\u{1B}_Ga=d,d=A\u{1B}\\".utf8)
+private let kittyGraphicsDeletePlacementBytes =
+  Array("\u{1B}_Ga=d,d=i,i=7,p=9\u{1B}\\".utf8)
+private let kittyGraphicsTransmitBytes =
+  Array("\u{1B}_Ga=t,i=7,f=100,t=d,q=1,m=0;SGk=\u{1B}\\".utf8)
+private let kittyGraphicsQueryProbeBytes =
+  Array("\u{1B}_Gi=17,s=1,v=1,a=q,t=d,f=24;AAAA\u{1B}\\\u{1B}[c".utf8)
 
 private func mouseEnableBytes(_ granularity: MouseTracking) -> [UInt8] {
   switch granularity {

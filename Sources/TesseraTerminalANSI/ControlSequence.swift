@@ -65,6 +65,9 @@ public enum ControlSequence: Equatable, Sendable {
   /// End synchronized output using DEC private mode 2026.
   case exitSynchronizedOutput
 
+  /// Sends a Kitty Graphics Protocol command as an APC-wrapped sequence.
+  case kittyGraphics(KittyGraphicsCommand)
+
   /// Open an OSC 8 hyperlink.
   case openHyperlink(Hyperlink)
 
@@ -160,6 +163,9 @@ public enum ControlSequence: Equatable, Sendable {
       .exitSynchronizedOutput:
       self.encodeMode(into: &buffer)
 
+    case .kittyGraphics:
+      self.encodeKittyGraphics(into: &buffer)
+
     case .closeHyperlink, .openHyperlink, .setWindowTitle:
       self.encodeOSC(into: &buffer)
     }
@@ -223,6 +229,7 @@ public enum ControlSequence: Equatable, Sendable {
       .eraseInLine,
       .exitAltScreen,
       .exitSynchronizedOutput,
+      .kittyGraphics,
       .raw,
       .resetAttributes,
       .setBackground,
@@ -271,6 +278,7 @@ public enum ControlSequence: Equatable, Sendable {
       .enterSynchronizedOutput,
       .exitAltScreen,
       .exitSynchronizedOutput,
+      .kittyGraphics,
       .raw,
       .resetAttributes,
       .setBackground,
@@ -350,6 +358,7 @@ public enum ControlSequence: Equatable, Sendable {
       .eraseInLine,
       .exitAltScreen,
       .exitSynchronizedOutput,
+      .kittyGraphics,
       .raw,
       .setWindowTitle,
       .text:
@@ -428,7 +437,54 @@ public enum ControlSequence: Equatable, Sendable {
       .cursorVisible,
       .eraseInDisplay,
       .eraseInLine,
+      .kittyGraphics,
       .openHyperlink,
+      .raw,
+      .resetAttributes,
+      .setBackground,
+      .setBold,
+      .setDim,
+      .setForeground,
+      .setItalic,
+      .setReverse,
+      .setStrikethrough,
+      .setUnderline,
+      .setWindowTitle,
+      .text:
+      break
+    }
+  }
+
+  /// Encodes Kitty Graphics Protocol commands as APC-wrapped, base64-chunked bytes.
+  private func encodeKittyGraphics(into buffer: inout [UInt8]) {
+    switch self {
+    case .kittyGraphics(let command):
+      command.encode(into: &buffer)
+
+    case .bell,
+      .closeHyperlink,
+      .cursorBack,
+      .cursorDown,
+      .cursorForward,
+      .cursorPosition,
+      .cursorRestore,
+      .cursorSave,
+      .cursorUp,
+      .cursorVisible,
+      .disableMouseTracking,
+      .enableBracketedPaste,
+      .enableFocusTracking,
+      .enableLineWrap,
+      .enableMouseTracking,
+      .enterAltScreen,
+      .enterSynchronizedOutput,
+      .eraseInDisplay,
+      .eraseInLine,
+      .exitAltScreen,
+      .exitSynchronizedOutput,
+      .openHyperlink,
+      .popKittyKeyboard,
+      .pushKittyKeyboard,
       .raw,
       .resetAttributes,
       .setBackground,
@@ -492,6 +548,7 @@ public enum ControlSequence: Equatable, Sendable {
       .eraseInLine,
       .exitAltScreen,
       .exitSynchronizedOutput,
+      .kittyGraphics,
       .raw,
       .resetAttributes,
       .setBackground,
@@ -546,6 +603,7 @@ public enum ControlSequence: Equatable, Sendable {
       .eraseInLine,
       .exitAltScreen,
       .exitSynchronizedOutput,
+      .kittyGraphics,
       .resetAttributes,
       .setBackground,
       .setBold,

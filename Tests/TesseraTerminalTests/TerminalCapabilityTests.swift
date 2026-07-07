@@ -13,7 +13,7 @@ func `empty passive environment yields conservative unknown capabilities`() {
 }
 
 @Test(arguments: modernTerminalCases)
-private func `modern terminal hints advertise protocol support conservatively`(
+private func `modern terminals keep kitty graphics unknown`(
   _ testCase: ModernTerminalCase
 ) {
   let capabilities = TerminalCapabilityDetector.detect(environment: testCase.environment)
@@ -24,6 +24,7 @@ private func `modern terminal hints advertise protocol support conservatively`(
       bracketedPaste: .supported,
       focusEvents: .supported,
       mouseTracking: .supported,
+      kittyGraphics: .unknown,
       kittyKeyboard: .supported,
       osc8Hyperlinks: .supported,
       synchronizedOutput: .unknown,
@@ -34,8 +35,17 @@ private func `modern terminal hints advertise protocol support conservatively`(
   )
 }
 
+@Test(arguments: passiveKittyGraphicsStatusCases)
+private func `passive detection does not infer kitty graphics from named terminals`(
+  _ testCase: PassiveKittyGraphicsStatusCase
+) {
+  let capabilities = TerminalCapabilityDetector.detect(environment: testCase.environment)
+
+  #expect(capabilities.kittyGraphics == testCase.status)
+}
+
 @Test(arguments: nestedTerminalCases)
-private func `nested multiplexer hints keep protocol support unknown`(
+private func `nested multiplexer hints keep protocol and kitty graphics support unknown`(
   _ testCase: NestedTerminalCase
 ) {
   let capabilities = TerminalCapabilityDetector.detect(environment: testCase.environment)
@@ -46,6 +56,7 @@ private func `nested multiplexer hints keep protocol support unknown`(
       bracketedPaste: .unknown,
       focusEvents: .unknown,
       mouseTracking: .unknown,
+      kittyGraphics: .unknown,
       kittyKeyboard: .unknown,
       osc8Hyperlinks: .unknown,
       synchronizedOutput: .unknown,
@@ -88,6 +99,7 @@ func `unknown terminal protocols remain unknown instead of unsupported`() {
       bracketedPaste: .unknown,
       focusEvents: .unknown,
       mouseTracking: .unknown,
+      kittyGraphics: .unknown,
       kittyKeyboard: .unknown,
       osc8Hyperlinks: .unknown,
       synchronizedOutput: .unknown,
@@ -99,7 +111,7 @@ func `unknown terminal protocols remain unknown instead of unsupported`() {
 }
 
 @Test
-func `modern terminal identity with dumb TERM keeps identity but downgrades protocols`() {
+func `contradictory dumb TERM keeps protocol support unknown despite Ghostty identity`() {
   let capabilities = TerminalCapabilityDetector.detect(
     environment: [
       "TERM": "dumb",
@@ -114,6 +126,7 @@ func `modern terminal identity with dumb TERM keeps identity but downgrades prot
       bracketedPaste: .unknown,
       focusEvents: .unknown,
       mouseTracking: .unknown,
+      kittyGraphics: .unknown,
       kittyKeyboard: .unknown,
       osc8Hyperlinks: .unknown,
       synchronizedOutput: .unknown,
@@ -129,7 +142,7 @@ func `modern terminal identity with dumb TERM keeps identity but downgrades prot
 }
 
 @Test(arguments: assumedModernTerminalCases)
-private func `assumed modern terminal hints omit kitty keyboard confidence`(
+private func `known terminals keep kitty graphics and keyboard confidence unknown`(
   _ testCase: ModernTerminalCase
 ) {
   let capabilities = TerminalCapabilityDetector.detect(environment: testCase.environment)
@@ -140,6 +153,7 @@ private func `assumed modern terminal hints omit kitty keyboard confidence`(
       bracketedPaste: .supported,
       focusEvents: .supported,
       mouseTracking: .supported,
+      kittyGraphics: .unknown,
       kittyKeyboard: .unknown,
       osc8Hyperlinks: .supported,
       synchronizedOutput: .unknown,
@@ -151,7 +165,7 @@ private func `assumed modern terminal hints omit kitty keyboard confidence`(
 }
 
 @Test
-func `bare xterm TERM hint keeps hyperlinks and kitty keyboard unknown`() {
+func `xterm reports kitty graphics unknown`() {
   let capabilities = TerminalCapabilityDetector.detect(environment: ["TERM": "xterm"])
 
   expectNoDifference(
@@ -160,6 +174,7 @@ func `bare xterm TERM hint keeps hyperlinks and kitty keyboard unknown`() {
       bracketedPaste: .supported,
       focusEvents: .supported,
       mouseTracking: .supported,
+      kittyGraphics: .unknown,
       kittyKeyboard: .unknown,
       osc8Hyperlinks: .unknown,
       synchronizedOutput: .unknown,
@@ -171,7 +186,7 @@ func `bare xterm TERM hint keeps hyperlinks and kitty keyboard unknown`() {
 }
 
 @Test
-func `Apple Terminal hint reports only bracketed paste with confidence`() {
+func `Apple Terminal reports kitty graphics unknown`() {
   let capabilities = TerminalCapabilityDetector.detect(
     environment: ["TERM_PROGRAM": "Apple_Terminal"]
   )
@@ -182,6 +197,7 @@ func `Apple Terminal hint reports only bracketed paste with confidence`() {
       bracketedPaste: .supported,
       focusEvents: .unknown,
       mouseTracking: .unknown,
+      kittyGraphics: .unknown,
       kittyKeyboard: .unknown,
       osc8Hyperlinks: .unknown,
       synchronizedOutput: .unknown,
@@ -207,6 +223,7 @@ func `KONSOLE_VERSION hint identifies Konsole without protocol confidence`() {
       bracketedPaste: .unknown,
       focusEvents: .unknown,
       mouseTracking: .unknown,
+      kittyGraphics: .unknown,
       kittyKeyboard: .unknown,
       osc8Hyperlinks: .unknown,
       synchronizedOutput: .unknown,
@@ -232,6 +249,7 @@ func `VTE_VERSION hint identifies VTE without protocol confidence`() {
       bracketedPaste: .unknown,
       focusEvents: .unknown,
       mouseTracking: .unknown,
+      kittyGraphics: .unknown,
       kittyKeyboard: .unknown,
       osc8Hyperlinks: .unknown,
       synchronizedOutput: .unknown,
@@ -348,7 +366,7 @@ func `disabled capability detection resolves conservative unknown capabilities`(
 }
 
 @Test
-func `dumb terminal hints exclude optional kitty keyboard mode`() {
+func `dumb terminal marks kitty graphics unsupported`() {
   let configuration = TerminalApplicationConfiguration(
     capabilityDetection: .passive,
     enableBracketedPaste: true,
@@ -367,6 +385,7 @@ func `dumb terminal hints exclude optional kitty keyboard mode`() {
       bracketedPaste: .unsupported,
       focusEvents: .unsupported,
       mouseTracking: .unsupported,
+      kittyGraphics: .unsupported,
       kittyKeyboard: .unsupported,
       osc8Hyperlinks: .unsupported,
       synchronizedOutput: .unsupported,
@@ -470,6 +489,94 @@ private let assumedModernTerminalCases = [
     identity: TerminalIdentity(kind: .foot, source: .term("foot"))
   ),
 ]
+
+private let passiveKittyGraphicsStatusCases = [
+  PassiveKittyGraphicsStatusCase(
+    name: "Ghostty TERM_PROGRAM",
+    environment: ["TERM_PROGRAM": "Ghostty"],
+    status: .unknown
+  ),
+  PassiveKittyGraphicsStatusCase(
+    name: "Ghostty TERM",
+    environment: ["TERM": "ghostty"],
+    status: .unknown
+  ),
+  PassiveKittyGraphicsStatusCase(
+    name: "kitty TERM_PROGRAM",
+    environment: ["TERM_PROGRAM": "kitty"],
+    status: .unknown
+  ),
+  PassiveKittyGraphicsStatusCase(
+    name: "kitty TERM",
+    environment: ["TERM": "xterm-kitty"],
+    status: .unknown
+  ),
+  PassiveKittyGraphicsStatusCase(
+    name: "WezTerm TERM_PROGRAM",
+    environment: ["TERM_PROGRAM": "WezTerm"],
+    status: .unknown
+  ),
+  PassiveKittyGraphicsStatusCase(
+    name: "WezTerm TERM",
+    environment: ["TERM": "wezterm"],
+    status: .unknown
+  ),
+  PassiveKittyGraphicsStatusCase(
+    name: "iTerm2 TERM_PROGRAM",
+    environment: ["TERM_PROGRAM": "iTerm.app"],
+    status: .unknown
+  ),
+  PassiveKittyGraphicsStatusCase(
+    name: "Windows Terminal",
+    environment: ["WT_SESSION": "abc123"],
+    status: .unknown
+  ),
+  PassiveKittyGraphicsStatusCase(
+    name: "foot TERM",
+    environment: ["TERM": "foot"],
+    status: .unknown
+  ),
+  PassiveKittyGraphicsStatusCase(
+    name: "xterm TERM",
+    environment: ["TERM": "xterm"],
+    status: .unknown
+  ),
+  PassiveKittyGraphicsStatusCase(
+    name: "Apple Terminal TERM_PROGRAM",
+    environment: ["TERM_PROGRAM": "Apple_Terminal"],
+    status: .unknown
+  ),
+  PassiveKittyGraphicsStatusCase(
+    name: "Konsole VERSION",
+    environment: ["KONSOLE_VERSION": "23.08.4"],
+    status: .unknown
+  ),
+  PassiveKittyGraphicsStatusCase(
+    name: "VTE VERSION",
+    environment: ["VTE_VERSION": "6800"],
+    status: .unknown
+  ),
+  PassiveKittyGraphicsStatusCase(
+    name: "dumb TERM",
+    environment: ["TERM": "dumb"],
+    status: .unsupported
+  ),
+  PassiveKittyGraphicsStatusCase(
+    name: "dumb-prefixed TERM",
+    environment: ["TERM": "dumb-ansi"],
+    status: .unsupported
+  ),
+]
+
+private struct PassiveKittyGraphicsStatusCase: CustomStringConvertible, Sendable {
+  let name: String
+  let environment: [String: String]
+  let status: CapabilityStatus
+
+  var description: String {
+    name
+  }
+}
 
 private struct ColorCapabilityCase: CustomStringConvertible, Sendable {
   let environment: [String: String]

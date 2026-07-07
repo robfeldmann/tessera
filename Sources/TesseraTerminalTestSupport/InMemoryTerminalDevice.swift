@@ -24,6 +24,7 @@ public actor InMemoryTerminalDevice {
   private var recordedEvents: [InMemoryTerminalDeviceEvent] = []
   private var storedBytes: [UInt8] = []
   private var storedInputBytes: [UInt8]
+  private var storedCellPixelSize: CellPixelSize?
   private var storedSize: TerminalSize
 
   /// The bytes written to the device so far.
@@ -49,6 +50,7 @@ public actor InMemoryTerminalDevice {
           continuation.finish()
         }
       },
+      cellPixelSize: { await self.storedCellPixelSize },
       enterAltScreen: { await self.enterAltScreen() },
       enterRawMode: { await self.enterRawMode() },
       exitAltScreen: { await self.exitAltScreen() },
@@ -61,9 +63,11 @@ public actor InMemoryTerminalDevice {
   /// Creates an in-memory terminal device with an initial terminal size and input bytes.
   public init(
     size: TerminalSize = TerminalSize(columns: 1, rows: 1),
+    cellPixelSize: CellPixelSize? = nil,
     inputBytes: [UInt8] = []
   ) {
     self.storedInputBytes = inputBytes
+    self.storedCellPixelSize = cellPixelSize
     self.storedSize = size
   }
 

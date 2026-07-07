@@ -3,6 +3,7 @@ import TesseraTerminalCore
 /// Parses raw terminal input bytes into semantic terminal events.
 public struct InputParser: Sendable {
   private enum State: Sendable {
+    case apc(accumulated: [UInt8])
     case bracketedPaste(matchedEndMarkerBytes: Int)
     case csi(accumulated: [UInt8])
     case escape
@@ -75,6 +76,8 @@ public struct InputParser: Sendable {
     0x1B, 0x5B, 0x32, 0x30, 0x31, 0x7E,
   ]
 
+  private static let apcByteCap = 4_096
+
   private var state: State = .ground
   private var bracketedPasteBuffer: [UInt8] = []
 
@@ -99,6 +102,9 @@ public struct InputParser: Sendable {
   /// Feeds one byte into the parser.
   public mutating func feed(_ byte: UInt8) -> [InputEvent] {
     switch state {
+    case .apc(let accumulated):
+      return parseAPC(byte, accumulated: accumulated)
+
     case .bracketedPaste(let matchedEndMarkerBytes):
       guard
         let event = parseBracketedPaste(
@@ -168,7 +174,7 @@ public struct InputParser: Sendable {
           events.append(event)
         }
 
-      case .csi, .escape, .ground, .ss3, .utf8:
+      case .apc, .csi, .escape, .ground, .ss3, .utf8:
         events.append(contentsOf: feed(byte))
       }
     }
@@ -195,6 +201,10 @@ public struct InputParser: Sendable {
         + Self.bracketedPasteEndMarker.prefix(matchedEndMarkerBytes)
       bracketedPasteBuffer.removeAll(keepingCapacity: true)
       return [.unknown(Array(bytes))]
+    case .apc(let accumulated):
+      state = .ground
+      return [.unknown(accumulated)]
+
     case .csi(let accumulated), .ss3(let accumulated):
       state = .ground
       return [.unknown(accumulated)]
@@ -247,6 +257,38 @@ public struct InputParser: Sendable {
     bracketedPasteBuffer.append(byte)
     state = .bracketedPaste(matchedEndMarkerBytes: 0)
     return nil
+  }
+
+  private mutating func parseAPC(_ byte: UInt8, accumulated: [UInt8]) -> [InputEvent] {
+    if byte == 0x18 || byte == 0x1A {
+      state = .ground
+      return [.unknown(accumulated)]
+    }
+
+    let sequence = accumulated + [byte]
+
+    if sequence.count >= 4, Array(sequence.suffix(2)) == [0x1B, 0x5C] {
+      state = .ground
+      return [decodeAPC(sequence)]
+    }
+
+    guard sequence.count < Self.apcByteCap else {
+      state = .ground
+      return [.unknown(sequence)]
+    }
+
+    state = .apc(accumulated: sequence)
+    return []
+  }
+
+  private func decodeAPC(_ sequence: [UInt8]) -> InputEvent {
+    let payload = sequence.dropFirst(2).dropLast(2)
+    guard payload.first == 0x47,
+      let response = KittyGraphicsResponse(decoding: payload.dropFirst())
+    else {
+      return .unknown(sequence)
+    }
+    return .kittyGraphicsResponse(response)
   }
 
   private func csiCode(finalByte: UInt8, params: String, parameterBytes: [UInt8]) -> Key? {
@@ -444,6 +486,9 @@ public struct InputParser: Sendable {
         }
         return [.mouse(event)]
       }
+      if byte == 0x63, let event = primaryDeviceAttributesEvent(params) {
+        return [event]
+      }
       guard
         let code = csiCode(finalByte: byte, params: params, parameterBytes: parameterBytes)
       else {
@@ -465,6 +510,10 @@ public struct InputParser: Sendable {
 
     case 0x4F:
       state = .ss3(accumulated: [0x1B, byte])
+      return []
+
+    case 0x5F:
+      state = .apc(accumulated: [0x1B, byte])
       return []
 
     case 0x20...0x7E:
@@ -866,10 +915,65 @@ public struct InputParser: Sendable {
   }
 }
 
+extension KittyGraphicsResponse {
+  fileprivate init?(decoding payload: ArraySlice<UInt8>) {
+    guard let text = String(validating: Array(payload), as: UTF8.self),
+      let semicolon = text.firstIndex(of: ";")
+    else {
+      return nil
+    }
+
+    var id: KittyImageID?
+    var placement: KittyPlacementID?
+    for pair in text[..<semicolon].split(separator: ",") {
+      let parts = pair.split(separator: "=", maxSplits: 1)
+      guard parts.count == 2 else {
+        return nil
+      }
+      switch parts[0] {
+      case "i":
+        guard let value = UInt32(parts[1]) else {
+          return nil
+        }
+        id = KittyImageID(rawValue: value)
+      case "p":
+        guard let value = UInt32(parts[1]) else {
+          return nil
+        }
+        placement = KittyPlacementID(rawValue: value)
+      default:
+        break
+      }
+    }
+
+    self.init(
+      id: id,
+      placement: placement,
+      message: String(text[text.index(after: semicolon)...])
+    )
+  }
+}
+
 extension UInt8 {
   fileprivate var isUTF8Continuation: Bool {
     (0x80...0xBF).contains(self)
   }
+}
+
+private func primaryDeviceAttributesEvent(_ params: String) -> InputEvent? {
+  guard params.first == "?" else {
+    return nil
+  }
+  let fields = params.dropFirst().split(separator: ";", omittingEmptySubsequences: false)
+  var values: [Int] = []
+  values.reserveCapacity(fields.count)
+  for field in fields {
+    guard let value = Int(field) else {
+      return nil
+    }
+    values.append(value)
+  }
+  return .primaryDeviceAttributes(values)
 }
 
 private func csiParameterValues(_ params: String) -> [Int] {

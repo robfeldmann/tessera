@@ -6,6 +6,7 @@ package enum TerminalCapabilityDetector {
     bracketedPaste: CapabilityStatus,
     focusEvents: CapabilityStatus,
     mouseTracking: CapabilityStatus,
+    kittyGraphics: CapabilityStatus,
     kittyKeyboard: CapabilityStatus,
     osc8Hyperlinks: CapabilityStatus,
     synchronizedOutput: CapabilityStatus
@@ -32,6 +33,7 @@ package enum TerminalCapabilityDetector {
       bracketedPaste: status.bracketedPaste,
       focusEvents: status.focusEvents,
       mouseTracking: status.mouseTracking,
+      kittyGraphics: status.kittyGraphics,
       kittyKeyboard: status.kittyKeyboard,
       osc8Hyperlinks: status.osc8Hyperlinks,
       synchronizedOutput: status.synchronizedOutput,
@@ -205,6 +207,7 @@ package enum TerminalCapabilityDetector {
         bracketedPaste: .unsupported,
         focusEvents: .unsupported,
         mouseTracking: .unsupported,
+        kittyGraphics: .unsupported,
         kittyKeyboard: .unsupported,
         osc8Hyperlinks: .unsupported,
         synchronizedOutput: .unsupported
@@ -221,6 +224,7 @@ package enum TerminalCapabilityDetector {
         bracketedPaste: .supported,
         focusEvents: .supported,
         mouseTracking: .supported,
+        kittyGraphics: .unknown,
         kittyKeyboard: .supported,
         osc8Hyperlinks: .supported,
         synchronizedOutput: .unknown
@@ -231,6 +235,7 @@ package enum TerminalCapabilityDetector {
         bracketedPaste: .supported,
         focusEvents: .supported,
         mouseTracking: .supported,
+        kittyGraphics: .unknown,
         kittyKeyboard: .unknown,
         osc8Hyperlinks: .supported,
         synchronizedOutput: .unknown
@@ -241,6 +246,7 @@ package enum TerminalCapabilityDetector {
         bracketedPaste: .supported,
         focusEvents: .supported,
         mouseTracking: .supported,
+        kittyGraphics: .unknown,
         kittyKeyboard: .unknown,
         osc8Hyperlinks: .unknown,
         synchronizedOutput: .unknown
@@ -251,6 +257,7 @@ package enum TerminalCapabilityDetector {
         bracketedPaste: .supported,
         focusEvents: .unknown,
         mouseTracking: .unknown,
+        kittyGraphics: .unknown,
         kittyKeyboard: .unknown,
         osc8Hyperlinks: .unknown,
         synchronizedOutput: .unknown
@@ -278,6 +285,7 @@ package enum TerminalCapabilityDetector {
       bracketedPaste: .unknown,
       focusEvents: .unknown,
       mouseTracking: .unknown,
+      kittyGraphics: .unknown,
       kittyKeyboard: .unknown,
       osc8Hyperlinks: .unknown,
       synchronizedOutput: .unknown

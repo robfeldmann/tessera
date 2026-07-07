@@ -55,6 +55,11 @@ public actor TerminalSession {
 
   /// DEC synchronized output policy applied to drawn frames.
   nonisolated public let synchronizedOutput: SynchronizedOutputPolicy
+
+  /// The terminal's per-cell pixel size, or `nil` when unknown.
+  public var cellPixelSize: CellPixelSize? {
+    get async { await io.cellPixelSize() }
+  }
   package init(
     io: PlatformIO,
     synchronizedOutput: SynchronizedOutputPolicy = .enabled,
@@ -169,6 +174,32 @@ public actor TerminalSession {
       renderer.invalidate()
       throw error
     }
+  }
+
+  /// Sends a Kitty Graphics Protocol support query followed by DA1 as a sentinel.
+  ///
+  /// Terminals that support KGP should respond with `InputEvent.kittyGraphicsResponse`
+  /// before the `InputEvent.primaryDeviceAttributes` DA1 response. If DA1 arrives first,
+  /// the terminal did not answer the graphics query.
+  public func queryKittyGraphicsSupport(
+    id: KittyImageID = KittyImageID(rawValue: .max)
+  ) async throws {
+    var bytes = ControlSequence.kittyGraphics(.query(id: id)).bytes
+    bytes.append(contentsOf: [0x1B, 0x5B, 0x63])
+    await io.write(bytes)
+    try await io.flush()
+  }
+
+  /// Transmits image data over the tty. Session-scoped, outside draw.
+  public func transmitImage(_ transmission: KittyGraphicsTransmission) async throws {
+    await io.write(ControlSequence.kittyGraphics(.transmit(transmission)).bytes)
+    try await io.flush()
+  }
+
+  /// Deletes Kitty Graphics Protocol images or placements immediately.
+  public func deleteImages(_ delete: KittyGraphicsDelete) async throws {
+    await io.write(ControlSequence.kittyGraphics(.delete(delete)).bytes)
+    try await io.flush()
   }
 
   /// Invalidates cached renderer assumptions so the next draw repaints conservatively.

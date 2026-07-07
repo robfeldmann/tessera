@@ -129,6 +129,11 @@ package actor PlatformIO {
     CleanupRegistry.clear()
   }
 
+  /// Reads the terminal's per-cell pixel size, or `nil` when unknown.
+  package func cellPixelSize() async -> CellPixelSize? {
+    await terminalDevice.cellPixelSize()
+  }
+
   /// Reads the terminal size from the output terminal.
   package func size() async throws -> TerminalSize {
     try await terminalDevice.size()

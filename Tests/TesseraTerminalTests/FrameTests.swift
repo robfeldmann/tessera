@@ -70,3 +70,67 @@ func `frame forwards opaque regions to backing buffer`() {
 
   #expect(buffer[0, 1].diffPolicy == .opaque)
 }
+
+@Test
+func `frame place image anchors raw payload and marks covered cells opaque`() {
+  let placement = KittyGraphicsPlacement(
+    id: KittyImageID(rawValue: 7),
+    placement: KittyPlacementID(rawValue: 9),
+    columns: 2,
+    rows: 2,
+    zIndex: 3
+  )
+
+  let buffer = withFrame(size: TerminalSize(columns: 4, rows: 3)) { frame in
+    frame.placeImage(
+      placement,
+      at: TerminalPosition(column: 1, row: 1),
+      occupying: Rect(column: 1, row: 1, columns: 2, rows: 2)
+    )
+  }
+
+  expectNoDifference(
+    buffer[1, 1].content,
+    .raw(RawTerminalPayload(bytes: kittyPlacementBytes))
+  )
+  #expect(buffer[1, 1].diffPolicy == .alwaysRepaint)
+  #expect(buffer[1, 2].diffPolicy == .opaque)
+  #expect(buffer[2, 1].diffPolicy == .opaque)
+  #expect(buffer[2, 2].diffPolicy == .opaque)
+}
+
+@Test
+func `frame repeated image placement keeps anchor raw and repainting`() {
+  let placement = KittyGraphicsPlacement(
+    id: KittyImageID(rawValue: 7),
+    placement: KittyPlacementID(rawValue: 9),
+    columns: 2,
+    rows: 2,
+    zIndex: 3
+  )
+
+  let buffer = withFrame(size: TerminalSize(columns: 4, rows: 3)) { frame in
+    frame.placeImage(
+      placement,
+      at: TerminalPosition(column: 1, row: 1),
+      occupying: Rect(column: 1, row: 1, columns: 2, rows: 2)
+    )
+    frame.placeImage(
+      placement,
+      at: TerminalPosition(column: 1, row: 1),
+      occupying: Rect(column: 1, row: 1, columns: 2, rows: 2)
+    )
+  }
+
+  expectNoDifference(
+    buffer[1, 1].content,
+    .raw(RawTerminalPayload(bytes: kittyPlacementBytes))
+  )
+  #expect(buffer[1, 1].diffPolicy == .alwaysRepaint)
+  #expect(buffer[1, 2].diffPolicy == .opaque)
+  #expect(buffer[2, 1].diffPolicy == .opaque)
+  #expect(buffer[2, 2].diffPolicy == .opaque)
+}
+
+private let kittyPlacementBytes =
+  Array("\u{1B}_Ga=p,i=7,p=9,c=2,r=2,z=3,C=1,q=1\u{1B}\\".utf8)

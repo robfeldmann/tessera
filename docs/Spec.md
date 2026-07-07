@@ -3674,8 +3674,8 @@ The slice order is intentional:
 6. Terminal capability detection — optional final slice, because it may reshape how the
    earlier protocols are enabled but should not block implementing them.
 7. Kitty graphics protocol — output-side; reuses the encoder/parser patterns from earlier
-   slices; pairs with Slice 6's capability model but does not require active queries to
-   ship.
+   slices and adds the first protocol-native active probe (`a=q` followed by DA1) for
+   large non-text output.
 
 Terminal protocol modes are controlled by the session/runtime, not by direct widget
 mutation. Views and widgets may declare capabilities they require, but they do not
@@ -5265,17 +5265,25 @@ advisory and inspectable, not hidden global switches that make behavior mysterio
 
 #### Information sources
 
-Use the least invasive sources first:
+Use information sources according to how trustworthy they are:
 
-1. Environment variables: `NO_COLOR`, `TERM`, `TERM_PROGRAM`, `TERM_PROGRAM_VERSION`,
-   `COLORTERM`, `WT_SESSION`, `VTE_VERSION`, `KONSOLE_VERSION`, `TMUX`, `STY`, `SSH_TTY`,
-   and similar.
-2. Existing platform information from `PlatformIO` (package-internal), especially whether
-   VT input/output is active on Windows.
-3. Passive observation: if Tessera receives a Kitty keyboard report, SGR mouse event,
-   focus event, bracketed paste markers, or other protocol-specific response, it knows
-   that path is working.
-4. Active terminal queries only if they provide value beyond the above.
+1. Generic environment conventions: `NO_COLOR`, `COLORTERM`, color-depth hints in `TERM`,
+   nested-session hints such as `TMUX`/`STY`, and Windows VT availability. These may
+   inform color and safety policy because they are not terminal-name protocol allowlists.
+2. Passive observation: if Tessera receives a Kitty keyboard report, SGR mouse event,
+   focus event, bracketed paste markers, KGP response, or other protocol-specific
+   response, it knows that path is working.
+3. Protocol-native active queries: DA1 sentinels, KGP `a=q`, Kitty keyboard queries, and
+   DECRQM for DEC private modes.
+
+Do not use `TERM_PROGRAM`, `TERM`, `WT_SESSION`, `VTE_VERSION`, `KONSOLE_VERSION`, or
+similar terminal identity hints to decide that a modern protocol is supported or
+unsupported. Terminal identity can be useful diagnostic metadata for an example panel, but
+production protocol policy must not branch on concrete emulator names.
+
+As of Slice 7, only `kittyGraphics` follows this rule: the remaining protocol fields still
+use terminal-identity inference until plan 015 step 3.4 replaces them with active,
+non-hard-coded probes.
 
 > [!note] Ratatui References
 >
@@ -5298,11 +5306,12 @@ Use the least invasive sources first:
 >   602-607). Tessera can centralize that kind of passive hinting in
 >   `TerminalCapabilities`.
 
-Active query candidates include primary/secondary device attributes and terminfo-style
-queries such as XTGETTCAP. XTGETTCAP is typically expressed as a DCS query for named
-terminfo capabilities; it can be useful, but it also introduces parsing complexity,
-timeouts, and multiplexer edge cases. Treat it as an implementation option, not a required
-badge of sophistication.
+Active query candidates include KGP `a=q` + DA1, Kitty keyboard query + DA1, DECRQM
+(`CSI ? Ps $ p`) for DEC private modes, primary/secondary device attributes, and
+terminfo-style queries such as XTGETTCAP. XTGETTCAP is typically expressed as a DCS query
+for named terminfo capabilities; it can be useful, but it also introduces parsing
+complexity and multiplexer edge cases. Treat it as an implementation option, not a
+required badge of sophistication.
 
 #### Startup behavior
 
@@ -5310,17 +5319,19 @@ Capability detection must not make terminal startup feel slow or brittle.
 
 Rules:
 
-- Startup should have a short, explicit timeout for any active query.
-- Timeout means `.unknown`, not failure.
+- Prefer sentinel-based probes over wall-clock timeouts when the protocol defines one. KGP
+  and Kitty keyboard can use DA1 as the sentinel: response before DA1 means supported, DA1
+  first means unsupported.
+- For queries without a reliable sentinel, timeout means `.unknown`, not failure.
 - Query responses must flow through a parser path that cannot steal ordinary user input
   indefinitely.
 - Detection should not block raw-mode restoration or cleanup.
 - The app should be able to opt out of active queries entirely.
 
-A good first implementation may be entirely passive/environment-based. That is acceptable
-if it keeps the rest of the library predictable. The test for this slice is not “does
-Tessera know every terminal?” The test is “does Tessera expose useful capability hints
-without making startup worse?”
+A conservative implementation may expose `.unknown` until active probe responses arrive.
+The test for this slice is not “does Tessera know every terminal?” The test is “does
+Tessera expose useful capability state without terminal-name hard-coding or fragile
+startup behavior?”
 
 #### Protocol enablement policy
 
@@ -5346,10 +5357,9 @@ Suggested policy:
   enough evidence.
 - OSC 8 hyperlinks: render when hyperlink metadata exists unless disabled; unsupported
   terminals still show visible text.
-- Kitty graphics (Slice 7): never probed or enabled by default. Blind `a=t`/`a=p` emission
-  is safe on non-supporting terminals — unknown APC sequences are ignored — so apps opt in
-  explicitly; Slice 6's bounded active query can populate `kittyGraphics` as a hint that a
-  future `Image` view (Phase 4) can consult.
+- Kitty graphics (Slice 7): active detection uses the protocol's `a=q` query immediately
+  followed by DA1. Apps should not send large image transmit/place payloads until the KGP
+  response is observed, unless the user explicitly opts in to blind output.
 - Raw payloads: never enable or disable themselves. They are app-authored bytes; Tessera's
   job is to serialize them safely through the renderer and honor their opaque/repaint
   policy.
@@ -5393,9 +5403,9 @@ public enum ColorPolicy: Equatable, Sendable {
 }
 
 public enum MouseTrackingMode: Equatable, Sendable {
-    case applicationControlled
+    case anyEvent      // Enable hover/move events with DECSET 1003 + SGR 1006.
+    case buttonEvents  // Enable press/release/drag/scroll with DECSET 1002 + SGR 1006.
     case disabled
-    case tracking(MouseTracking)  // Phase 3 Slice 3 granularity: .anyEvent or .buttonEvents
 }
 
 public enum KeyboardProtocolMode: Equatable, Sendable {
@@ -5521,11 +5531,14 @@ The protocol's envelope is an APC (Application Program Command) escape sequence:
 ESC _ G <k=v,...> ; <base64 payload> ESC \
 ```
 
-Most terminals ignore APC codes they don't recognize, so emitting this blindly is safe: an
-unsupporting terminal wastes a few dozen bytes and shows nothing, it never corrupts the
-screen. Core keys, all documented at the URL in the reference callout below: `a` action
-(`t` transmit, `p` place, `q` query, `d` delete), `f` format (`24` RGB / `32` RGBA default
-/ `100` PNG), `t` medium (`d` direct — the only one Tessera emits), `i` image id, `p`
+Well-behaved terminals ignore APC codes they do not recognize, but Tessera still probes
+before emitting large image transmit/place payloads in examples. The KGP `a=q` query is
+the small, side-effect-free support probe; `a=t`/`a=p` are real output and should be gated
+by a successful probe or an explicit application/user opt-in.
+
+Core keys, all documented at the URL in the reference callout below: `a` action (`t`
+transmit, `p` place, `q` query, `d` delete), `f` format (`24` RGB / `32` RGBA default /
+`100` PNG), `t` medium (`d` direct — the only one Tessera emits), `i` image id, `p`
 placement id, `m` more-chunks flag, `q` quiet level (`1` suppresses OK responses, `2`
 additionally suppresses failures — two named levels, not cumulative), `s`/`v` pixel
 width/height, `c`/`r` display columns/rows, `z` z-index, `C=1` do-not-move-cursor, and
@@ -5636,19 +5649,19 @@ public enum KittyGraphicsDelete: Equatable, Sendable {
 public enum KittyGraphicsCommand: Equatable, Sendable {
     case delete(KittyGraphicsDelete)
     case place(KittyGraphicsPlacement)
-    case query(id: KittyImageID)   // i=<id>,s=1,v=1,a=q,t=d,f=24;AAAA — support probe
+    case query(id: KittyImageID)   // i=<id>,s=1,v=1,a=q,t=d,f=24;AAAA
     case transmit(KittyGraphicsTransmission)
 }
 ```
 
-`query` encodes the detection probe from the protocol spec: a 1×1 RGB pixel sent as a
-query action, immediately followed by a DA1 request (`CSI c`). If a KGP response arrives
-before the DA1 response, the terminal supports graphics. Slice 7 ships the encode/decode
-halves of that probe; the bounded end-to-end sequencing belongs to Slice 6 (see Capability
-detection, below).
+`query` encodes the KGP half of the detection probe from the protocol spec: a 1×1 RGB
+pixel sent as a query action. `TerminalSession.queryKittyGraphicsSupport(id:)` appends a
+DA1 request (`CSI c`) to those query bytes in the same flushed write. If a
+`KittyGraphicsResponse` arrives before the DA1 response, the terminal supports graphics;
+if DA1 arrives first, it did not answer the KGP query.
 
-On the input side, `InputEvent` gains one alphabetized case, and the response payload it
-carries lives in `TesseraTerminalCore` next to the ID types:
+On the input side, `InputEvent` gains cases for both halves of that active probe, and the
+KGP response payload lives in `TesseraTerminalCore` next to the ID types:
 
 ```swift
 public enum InputEvent: Equatable, Sendable {
@@ -5658,6 +5671,7 @@ public enum InputEvent: Equatable, Sendable {
     case kittyGraphicsResponse(KittyGraphicsResponse)
     case mouse(MouseEvent)
     case paste(String)
+    case primaryDeviceAttributes([Int])
     case resize(TerminalSize)
     case unknown([UInt8])
 }
@@ -5671,8 +5685,8 @@ public struct KittyGraphicsResponse: Equatable, Sendable {
 ```
 
 This follows the same alphabetized-case discipline Slice 3 established for `.mouse`: the
-new case slots between `.key` and `.mouse` because `key` sorts before
-`kittyGraphicsResponse`, which sorts before `mouse`.
+graphics response slots between `.key` and `.mouse`, and the DA1 sentinel slots between
+`.paste` and `.resize`.
 
 #### Encoder behavior
 
@@ -5868,17 +5882,16 @@ to free a large image an app no longer needs.
 #### Capability detection
 
 Slice 6's `TerminalCapabilities` gains a `kittyGraphics: CapabilityStatus` field (see the
-Slice 6 edits above). Slice 7 ships the two halves of detection it owns: the `query`
-encoder command and `KittyGraphicsResponse` parsing. The bounded end-to-end probe — send
-the query, race it against a DA1 fence, time out to `.unknown` — is Slice 6's active-query
-machinery, not this slice's; Slice 7 only guarantees that if something else sends the
-query, Tessera decodes the answer correctly.
+Slice 6 edits above), but passive detection must not infer this value from terminal names.
+Slice 7 ships the active KGP probe path it owns: `query(id:)` encodes the side-effect-free
+`a=q` command, `TerminalSession.queryKittyGraphicsSupport(id:)` writes that query followed
+by DA1, `InputParser` decodes both `KittyGraphicsResponse` and DA1, and the app can decide
+support based on response ordering.
 
-In the meantime, blind emission is the documented safe default: Tessera never probes for
-graphics support at startup on its own, and the app decides whether to call
-`transmitImage`/`placeImage` at all. An unsupporting terminal drops the bytes silently; a
-supporting one renders the image. `kittyGraphics` stays `.unknown` until either a passive
-`KittyGraphicsResponse` is observed or Slice 6's active probe runs.
+Current behavior: `kittyGraphics` remains `.unknown` until an active probe or passive KGP
+response provides evidence. Examples may run the probe when the graphics panel is selected
+and must not transmit/place image data until support is observed, unless the user
+explicitly opts in to blind output.
 
 #### Snapshot harness support
 
@@ -5927,15 +5940,13 @@ support:
   unless the user has explicitly configured passthrough. Tessera does not detect or work
   around this; it is out of scope for this slice (see Non-goals, below).
 
-Given that matrix, graceful degradation is mandatory, not a nice-to-have: most terminals a
-Tessera app runs in today will silently ignore graphics bytes, and the app must have a
+Given that matrix, graceful degradation is mandatory, not a nice-to-have: many terminals a
+Tessera app runs in today will ignore or mishandle graphics bytes, and the app must have a
 real fallback (text, a placeholder glyph, or simply no image) rather than treating
-graphics as guaranteed. The APC envelope makes blind emission safe on every terminal in
-the "do not support it" list above — an unrecognized APC code is specified to be ignored,
-not to corrupt the screen or emit visible garbage — so Tessera never needs to gate
-`transmitImage`/`placeImage` calls behind a successful capability probe. Apps that want to
-skip the wasted bytes entirely can still consult `kittyGraphics` (Slice 6) first; nothing
-about this slice requires them to.
+graphics as guaranteed. The side-effect-free KGP query plus DA1 sentinel is the preferred
+way to avoid sending large image payloads to unsupported terminals. Apps may still opt in
+to blind `transmitImage`/`placeImage` calls when the user or application policy knows the
+terminal path supports KGP, but examples must default to probing first.
 
 On Windows, `cellPixelSize` is `nil` unconditionally (see Pixel geometry, above) because
 no currently-supported Windows terminal implements KGP; this is a consequence of today's

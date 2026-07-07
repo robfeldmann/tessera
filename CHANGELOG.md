@@ -50,6 +50,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and enabled terminal protocol state, hyperlink rendering policy control, and a
   capabilities panel in the Phase 3 protocols demo.
 
+- Added Phase 3 Kitty Graphics Protocol support, including first-class APC encoding and
+  parsing, session image query/transmission/deletion APIs, frame-scoped placement, cell
+  pixel geometry, unconditional cleanup, Ghostty-backed graphics snapshot inspection, and
+  a graphics panel in the Phase 3 protocols demo.
+
 - Added Windows support for Ghostty-backed snapshot tests behind the
   `TESSERA_GHOSTTY_WINDOWS=1` package-manifest gate, linking the static
   `ghostty-vt-static.lib` so no runtime DLL discovery is needed.

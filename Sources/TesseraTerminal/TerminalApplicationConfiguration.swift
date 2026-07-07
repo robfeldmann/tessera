@@ -33,6 +33,9 @@ public enum KeyboardProtocolMode: Equatable, Sendable {
 
 /// Controls application mouse tracking.
 public enum MouseTrackingMode: Equatable, Sendable {
+  /// Enable any-event mouse tracking, including hover motion.
+  case anyEvent
+
   /// Enable button-event mouse tracking.
   case buttonEvents
 
@@ -119,7 +122,14 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
     self.hyperlinkRendering = .enabled
     self.keyboardProtocol = modes.contains(.kittyKeyboard) ? .kittyRequired : .legacyOnly
     self.mouseTracking =
-      Self.requestedMouseTracking(in: modes) == nil ? .disabled : .buttonEvents
+      switch Self.requestedMouseTracking(in: modes) {
+      case .anyEvent:
+        .anyEvent
+      case .buttonEvents:
+        .buttonEvents
+      case nil:
+        .disabled
+      }
     self.synchronizedOutput = synchronizedOutput
     self.modeSelection = .explicit(Self.normalized(modes))
   }
@@ -193,8 +203,13 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
     if enableFocusEvents {
       modes.insert(.focusEvents)
     }
-    if mouseTracking == .buttonEvents {
+    switch mouseTracking {
+    case .anyEvent:
+      modes.insert(.mouseTracking(.anyEvent))
+    case .buttonEvents:
       modes.insert(.mouseTracking(.buttonEvents))
+    case .disabled:
+      break
     }
 
     switch keyboardProtocol {

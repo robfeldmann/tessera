@@ -4,32 +4,33 @@ description:
   Add first-class Kitty Graphics Protocol (KGP) support: APC encoding and parsing,
   per-cell pixel geometry, session-scoped image transmission, frame-scoped placement,
   unconditional cleanup, a Ghostty snapshot harness, and a procedural-gradient demo panel.
-status: pending
+status: complete
 created: 2026-07-04
-updated: 2026-07-04
+updated: 2026-07-07
 ---
 
 ## Progress
 
-- [ ] **Phase 1 — APC encoding and the KGP command model**
-  - [ ] 1.1 Add APC/ST encoding primitives and the KGP value/command types
-  - [ ] 1.2 Wire `ControlSequence.kittyGraphics` through the encoder
-  - [ ] 1.3 Add exact byte tests for every KGP wire format
-- [ ] **Phase 2 — APC input parsing**
-  - [ ] 2.1 Add the `.apc` parser state and stop shredding `ESC _`
-  - [ ] 2.2 Decode `G`-prefixed APC payloads into `KittyGraphicsResponse`
-  - [ ] 2.3 Add parser tests, including the Alt+`_` regression
-- [ ] **Phase 3 — Pixel geometry**
-  - [ ] 3.1 Add `CellPixelSize` and the `TerminalDevice.cellPixelSize` seam
-  - [ ] 3.2 Implement POSIX/Windows/in-memory pixel geometry and expose the session
+- [x] **Phase 1 — APC encoding and the KGP command model**
+  - [x] 1.1 Add APC/ST encoding primitives and the KGP value/command types
+  - [x] 1.2 Wire `ControlSequence.kittyGraphics` through the encoder
+  - [x] 1.3 Add exact byte tests for every KGP wire format
+- [x] **Phase 2 — APC input parsing**
+  - [x] 2.1 Add the `.apc` parser state and stop shredding `ESC _`
+  - [x] 2.2 Decode `G`-prefixed APC payloads into `KittyGraphicsResponse`
+  - [x] 2.3 Add parser tests, including the Alt+`_` regression
+- [x] **Phase 3 — Pixel geometry**
+  - [x] 3.1 Add `CellPixelSize` and the `TerminalDevice.cellPixelSize` seam
+  - [x] 3.2 Implement POSIX/Windows/in-memory pixel geometry and expose the session
         accessor
-- [ ] **Phase 4 — Session, Frame, cleanup, and snapshot harness**
-  - [ ] 4.1 Add `TerminalSession.transmitImage`/`deleteImages` and `Frame.placeImage`
-  - [ ] 4.2 Add the unconditional delete-all cleanup sequence
-  - [ ] 4.3 Extend the Ghostty snapshot harness with graphics inspection endpoints
-- [ ] **Phase 5 — Example app and validation**
-  - [ ] 5.1 Add the graphics panel to `Phase3ProtocolsDemo`
-  - [ ] 5.2 Run narrow encoder, parser, IO, session, snapshot, and example checks
+- [x] **Phase 4 — Session, Frame, cleanup, and snapshot harness**
+  - [x] 4.1 Add `TerminalSession.queryKittyGraphicsSupport`/`transmitImage`/
+        `deleteImages` and `Frame.placeImage`
+  - [x] 4.2 Add the unconditional delete-all cleanup sequence
+  - [x] 4.3 Extend the Ghostty snapshot harness with graphics inspection endpoints
+- [x] **Phase 5 — Example app and validation**
+  - [x] 5.1 Add the graphics panel to `Phase3ProtocolsDemo`
+  - [x] 5.2 Run narrow encoder, parser, IO, session, snapshot, and example checks
 
 ## Overview
 
@@ -49,12 +50,11 @@ iTerm2 OSC 1337 have no equivalent id/placement/z/delete model and no libghostty
 inspection surface, so they stay `RawTerminalPayload` territory until there is
 demonstrated demand.
 
-Nothing in this slice is implemented yet: `ANSIByteEncoding` has no APC/ST helpers,
-`InputParser` has no APC state (`ESC _` currently falls into the generic printable-Alt-key
-branch and produces a bogus `Alt+_` key event, then shreds the rest of the payload into
-garbage key/unknown events), `TerminalDevice`/`TerminalSize` carry no pixel fields, and
-`Frame.writeRaw`/`Frame.markOpaque` have no callers anywhere in the tree yet — this slice
-is their first real consumer.
+Implemented in this slice: `ANSIByteEncoding` now has APC/ST helpers, `InputParser` has a
+bounded APC state, `TerminalDevice`/`TerminalSession` expose cell pixel geometry,
+`TerminalSession.queryKittyGraphicsSupport(id:)` writes a KGP query followed by DA1 for a
+bounded active support probe, and `Frame.placeImage` is backed by first-class KGP command
+encoding and Ghostty snapshot inspection.
 
 ### Module placement (resolved, matches the spec exactly)
 
@@ -79,9 +79,9 @@ must not drift from it.
 - Image decoding, scaling, dithering, or any raster processing — Tessera transports bytes;
   PNG/pixel production is the caller's (or Phase 4's) concern.
 - The Phase 4 `Image` view, layout, and hit-testing (Phase 4 work; requires this slice).
-- The bounded, end-to-end active support probe (query + DA1 fencing, timeout handling) —
-  that belongs to Phase 3 Slice 6's active-query machinery. This slice ships the two
-  halves it owns: the `query` encoder command and APC response parsing.
+- Non-KGP active probes, terminal-name inference removal, and the broader Phase 3.4
+  capability-detector refactor. This slice owns KGP's `a=q` + DA1 support probe plus APC
+  response parsing.
 
 ## Phase 1 — APC encoding and the KGP command model
 
@@ -292,11 +292,11 @@ Acceptance:
     func encode(into buffer: inout [UInt8]) {
       switch self {
       case .delete(let delete):
-        ANSIByteEncoding.appendAPC(delete.controlString, into: &buffer)
+        ANSIByteEncoding.appendAPC("G" + delete.controlString, into: &buffer)
         ANSIByteEncoding.appendST(into: &buffer)
 
       case .place(let placement):
-        ANSIByteEncoding.appendAPC(placement.controlString, into: &buffer)
+        ANSIByteEncoding.appendAPC("G" + placement.controlString, into: &buffer)
         ANSIByteEncoding.appendST(into: &buffer)
 
       case .query(let id):
@@ -304,7 +304,7 @@ Acceptance:
         // ORDER below is load-bearing — it matches the exact bytes real terminals are
         // tested against for KGP support detection.
         ANSIByteEncoding.appendAPC(
-          "i=\(id.rawValue),s=1,v=1,a=q,t=d,f=24;AAAA",
+          "Gi=\(id.rawValue),s=1,v=1,a=q,t=d,f=24;AAAA",
           into: &buffer
         )
         ANSIByteEncoding.appendST(into: &buffer)
@@ -383,7 +383,7 @@ Acceptance:
         }
         keys.append("m=\(isLastChunk ? 0 : 1)")
 
-        ANSIByteEncoding.appendAPC(keys.joined(separator: ",") + ";", into: &buffer)
+        ANSIByteEncoding.appendAPC("G" + keys.joined(separator: ",") + ";", into: &buffer)
         buffer.append(contentsOf: base64[offset..<end])
         ANSIByteEncoding.appendST(into: &buffer)
 
@@ -424,7 +424,8 @@ Acceptance:
     always present regardless of the other fields.
   - `delete(.all)`, `delete(.image(_))`, `delete(.placement(_,_)))` byte-for-byte.
   - `query(id:)` byte-for-byte against the verified detection-probe sequence.
-  - Every APC sequence starts with `ESC _` (`0x1B, 0x5F`) and ends with ST (`0x1B, 0x5C`).
+  - Every APC sequence starts with `ESC _ G` (`0x1B, 0x5F, 0x47`) and ends with ST
+    (`0x1B, 0x5C`).
 
 Acceptance:
 
@@ -582,10 +583,10 @@ Acceptance:
 
 Acceptance:
 
-- `ESC _ G i=31;OK ESC \` decodes to
+- `ESC _ Gi=31;OK ESC \` decodes to
   `.kittyGraphicsResponse(KittyGraphicsResponse(id: KittyImageID(rawValue: 31), message: "OK"))`
   with `success == true`.
-- An error response (`ESC _ G i=7;ENOENT:no such image ESC \`) decodes with
+- An error response (`ESC _ Gi=7;ENOENT:no such image ESC \`) decodes with
   `success == false` and the full message preserved.
 - A non-`G` APC and a malformed `G` APC both become a single `.unknown` event covering the
   entire `ESC _ ... ESC \` sequence.
@@ -595,7 +596,7 @@ Acceptance:
 - File: `Tests/TesseraTerminalInputTests/InputParserTests.swift`.
 - Follow the existing `ParserCase`/`@Test(arguments:)` conventions in this file. Add tests
   for:
-  - a byte-by-byte fed, complete `ESC _ G i=1;OK ESC \` decodes to one
+  - a byte-by-byte fed, complete `ESC _ Gi=1;OK ESC \` decodes to one
     `.kittyGraphicsResponse` event, not a `.key`/`.unknown` stream.
   - a REGRESSION test asserting `ESC _` followed by any other byte never produces
     `Key(code: .character("_"), modifiers: .alt)` (the exact bug being fixed).
@@ -610,7 +611,7 @@ Acceptance:
   - an APC sequence that never terminates is flushed as `.unknown` by `flush()`.
   - an APC sequence exceeding the byte cap flushes as `.unknown` and the parser accepts
     the next byte normally (no permanent state corruption).
-  - an `ESC _ G ... ESC \` sequence embedded inside an open bracketed-paste block remains
+  - an `ESC _ G... ESC \` sequence embedded inside an open bracketed-paste block remains
     literal paste text — the paste event's payload contains the raw bytes, and no
     `.kittyGraphicsResponse`/`.unknown` event is emitted mid-paste.
   - APC sequences interleaved with ordinary key events in one transcript (mirroring this
@@ -766,16 +767,17 @@ Acceptance:
 flicker-free semantics, and Tessera always cleans up images/placements on exit — verified
 against a real libghostty-vt-backed virtual terminal.
 
-### Step 4.1 — Add `TerminalSession.transmitImage`/`deleteImages` and `Frame.placeImage`
+### Step 4.1 — Add `TerminalSession.queryKittyGraphicsSupport`/`transmitImage`/`deleteImages` and `Frame.placeImage`
 
 - Files:
   - `Sources/TesseraTerminal/TerminalSession.swift`
   - `Sources/TesseraTerminal/Frame.swift`
   - `Tests/TesseraTerminalTests/TerminalSessionTests.swift`
   - `Tests/TesseraTerminalTests/FrameTests.swift`
-- Add the session-scoped transmission and deletion API. Both follow the exact
+- Add the session-scoped query, transmission, and deletion API. They follow the exact
   write-then-flush shape `TerminalSession.restoreCursorVisibility()` already uses for
-  session-scoped I/O outside `draw`:
+  session-scoped I/O outside `draw`; the query writes the KGP `a=q` command immediately
+  followed by DA1 before flushing so APC/no-response terminals can be fenced by DA1.
 
   ```swift
   extension TerminalSession {
@@ -875,6 +877,9 @@ against a real libghostty-vt-backed virtual terminal.
 
 Add tests for:
 
+- `TerminalSession.queryKittyGraphicsSupport` writes the exact KGP `query(id:)` bytes,
+  appends primary device attributes (`ESC [ c`) before flushing, and does not wait for a
+  response.
 - `TerminalSession.transmitImage`/`deleteImages` write the exact
   `ControlSequence.kittyGraphics(...)` bytes and flush, using `InMemoryTerminalDevice`
   (mirroring how `TerminalSessionTests.swift` already exercises other session-scoped

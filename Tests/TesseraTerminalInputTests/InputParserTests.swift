@@ -14,6 +14,11 @@ struct ParserCase: Sendable {
     self.bytes = Array(string.utf8)
     self.event = event
   }
+
+  init(bytes: [UInt8], _ event: InputEvent) {
+    self.bytes = bytes
+    self.event = event
+  }
 }
 
 struct MouseReportCase: Sendable {
@@ -115,6 +120,25 @@ let focusCSIReportCases: [ParserCase] = [
 let malformedFocusCSIReportCases: [ParserCase] = [
   ParserCase("\u{1B}[1I", .unknown([0x1B, 0x5B, 0x31, 0x49])),
   ParserCase("\u{1B}[1O", .unknown([0x1B, 0x5B, 0x31, 0x4F])),
+]
+
+let malformedPrimaryDeviceAttributeCases: [ParserCase] = [
+  ParserCase(
+    "\u{1B}[c",
+    .unknown(Array("\u{1B}[c".utf8))
+  ),
+  ParserCase(
+    "\u{1B}[1;2c",
+    .unknown(Array("\u{1B}[1;2c".utf8))
+  ),
+  ParserCase(
+    "\u{1B}[?c",
+    .unknown(Array("\u{1B}[?c".utf8))
+  ),
+  ParserCase(
+    "\u{1B}[?1;c",
+    .unknown(Array("\u{1B}[?1;c".utf8))
+  ),
 ]
 
 let mouseReportCases: [MouseReportCase] = [
@@ -234,6 +258,17 @@ let malformedMouseReportCases: [ParserCase] = [
   ParserCase(
     "\u{1B}[<;1;1M",
     .unknown([0x1B, 0x5B, 0x3C, 0x3B, 0x31, 0x3B, 0x31, 0x4D])
+  ),
+]
+
+let malformedKittyGraphicsAPCCases: [ParserCase] = [
+  ParserCase(
+    bytes: kittyGraphicsAPC("i=7OK"),
+    .unknown(kittyGraphicsAPC("i=7OK"))
+  ),
+  ParserCase(
+    bytes: kittyGraphicsAPC("i=not-a-number;OK"),
+    .unknown(kittyGraphicsAPC("i=not-a-number;OK"))
   ),
 ]
 
@@ -415,6 +450,38 @@ func `parser emits unknown for malformed focus reports`(_ testCase: ParserCase) 
   #expect(parser.feed(contentsOf: testCase.bytes) == [testCase.event])
 }
 
+@Test
+func `parser decodes primary device attributes response`() {
+  var parser = InputParser()
+
+  #expect(
+    parser.feed(contentsOf: Array("\u{1B}[?1;2c".utf8)) == [
+      .primaryDeviceAttributes([1, 2])
+    ]
+  )
+}
+
+@Test
+func `parser decodes primary device attributes byte by byte`() {
+  var parser = InputParser()
+  var events: [InputEvent] = []
+
+  for byte in "\u{1B}[?1;2c".utf8 {
+    events.append(contentsOf: parser.feed(byte))
+  }
+
+  #expect(events == [.primaryDeviceAttributes([1, 2])])
+}
+
+@Test(arguments: malformedPrimaryDeviceAttributeCases)
+func `parser emits unknown for malformed or non private primary device attributes`(
+  _ testCase: ParserCase
+) {
+  var parser = InputParser()
+
+  #expect(parser.feed(contentsOf: testCase.bytes) == [testCase.event])
+}
+
 @Test(arguments: mouseReportCases)
 func `parser maps SGR mouse reports`(_ testCase: MouseReportCase) throws {
   var parser = InputParser()
@@ -578,6 +645,14 @@ func `event log formats parser transcripts deterministically`() {
     .focusGained,
     .focusLost,
     .key(Key(code: .character("A"), modifiers: [.shift, .control])),
+    .kittyGraphicsResponse(
+      KittyGraphicsResponse(
+        id: KittyImageID(rawValue: 31),
+        placement: KittyPlacementID(rawValue: 4),
+        message: "OK"
+      )
+    ),
+    .primaryDeviceAttributes([1, 2]),
     .paste("line\nbreak"),
     .resize(TerminalSize(columns: 2, rows: 1)),
     .unknown([0x1B, 0x5B]),
@@ -588,6 +663,8 @@ func `event log formats parser transcripts deterministically`() {
     focus gained
     focus lost
     key(character("A"), modifiers: shift+control)
+    kitty graphics response(id: 31, placement: 4, success: true, message: "OK")
+    primary device attributes([1, 2])
     paste("line\\nbreak")
     resize(columns: 2, rows: 1)
     unknown(1B 5B)
@@ -792,15 +869,13 @@ func `parser decodes kitty printable key reports`() {
     parser.feed(contentsOf: Array("\u{1B}[75u".utf8)) == [
       .key(Key(code: .character("K")))
     ])
-  #expect(
-    parser.feed(contentsOf: Array("\u{1B}[107;64u".utf8)) == [
-      .key(
-        Key(
-          code: .character("k"),
-          modifiers: [.shift, .alt, .control, .super, .hyper, .meta]
-        )
-      ),
-    ])
+  let expectedModifiedKey = InputEvent.key(
+    Key(
+      code: .character("k"),
+      modifiers: [.shift, .alt, .control, .super, .hyper, .meta]
+    )
+  )
+  #expect(parser.feed(contentsOf: Array("\u{1B}[107;64u".utf8)) == [expectedModifiedKey])
 }
 
 @Test
@@ -905,6 +980,173 @@ func `parser keeps kitty reports isolated from paste and mixed protocol events`(
     ])
 }
 
+@Test
+func `parser decodes byte by byte Kitty graphics OK response as one event`() {
+  var parser = InputParser()
+  var events: [InputEvent] = []
+
+  for byte in kittyGraphicsAPC("i=1;OK") {
+    events.append(contentsOf: parser.feed(byte))
+  }
+
+  let expected = InputEvent.kittyGraphicsResponse(
+    KittyGraphicsResponse(id: KittyImageID(rawValue: 1), message: "OK")
+  )
+  #expect(events == [expected])
+}
+
+@Test
+func `parser does not regress APC introducer ESC underscore into Alt underscore key`() {
+  var parser = InputParser()
+
+  #expect(parser.feed(0x1B).isEmpty)
+  #expect(parser.feed(0x5F).isEmpty)
+  #expect(
+    parser.feed(contentsOf: Array("Xhello\u{1B}\\".utf8)) == [
+      .unknown(apc("Xhello"))
+    ]
+  )
+}
+
+@Test
+func `parser decodes Kitty graphics response placement id`() throws {
+  var parser = InputParser()
+
+  let events = parser.feed(contentsOf: kittyGraphicsAPC("i=42,p=9;OK"))
+
+  #expect(events.count == 1)
+  let event = try #require(events.first)
+  let response = try #require(kittyGraphicsResponse(from: event))
+  #expect(response.id == KittyImageID(rawValue: 42))
+  #expect(response.placement == KittyPlacementID(rawValue: 9))
+  #expect(response.message == "OK")
+  #expect(response.success)
+}
+
+@Test
+func `parser decodes Kitty graphics error response with success false`() throws {
+  var parser = InputParser()
+
+  let events = parser.feed(contentsOf: kittyGraphicsAPC("i=7;ENOENT:no such image"))
+
+  #expect(events.count == 1)
+  let event = try #require(events.first)
+  let response = try #require(kittyGraphicsResponse(from: event))
+  #expect(response.id == KittyImageID(rawValue: 7))
+  #expect(response.placement == nil)
+  #expect(response.message == "ENOENT:no such image")
+  #expect(response.success == false)
+}
+
+@Test
+func `parser emits one unknown event for non G APC`() {
+  var parser = InputParser()
+  let bytes = apc("Xhello")
+
+  #expect(parser.feed(contentsOf: bytes) == [.unknown(bytes)])
+}
+
+@Test(arguments: malformedKittyGraphicsAPCCases)
+func `parser emits unknown for malformed KGP APC`(_ testCase: ParserCase) {
+  var parser = InputParser()
+
+  #expect(parser.feed(contentsOf: testCase.bytes) == [testCase.event])
+}
+
+@Test
+func `parser aborts APC on CAN or SUB and returns to ground`() {
+  for abortByte in [UInt8(0x18), UInt8(0x1A)] {
+    var parser = InputParser()
+    let events = parser.feed(contentsOf: [0x1B, 0x5F, 0x47, abortByte, 0x61])
+
+    #expect(
+      events == [
+        .unknown([0x1B, 0x5F, 0x47]),
+        .key(Key(code: .character("a"))),
+      ])
+  }
+}
+
+@Test
+func `parser flushes unterminated APC as unknown bytes`() {
+  var parser = InputParser()
+  let bytes = [0x1B, 0x5F] + Array("Gi=1;OK".utf8)
+
+  #expect(parser.feed(contentsOf: bytes).isEmpty)
+  #expect(parser.flush() == [.unknown(bytes)])
+  #expect(parser.flush().isEmpty)
+}
+
+@Test
+func `parser emits unknown for APC byte cap overflow and resynchronizes`() {
+  var parser = InputParser()
+  let overflow = [0x1B, 0x5F] + Array(repeating: UInt8(ascii: "x"), count: 4_094)
+  let events = parser.feed(contentsOf: overflow + [UInt8(ascii: "z")])
+
+  #expect(
+    events == [
+      .unknown(overflow),
+      .key(Key(code: .character("z"))),
+    ])
+}
+
+@Test
+func `parser keeps Kitty graphics APC literal inside bracketed paste`() throws {
+  var parser = InputParser()
+  let payloadBytes =
+    Array("before".utf8) + kittyGraphicsAPC("i=2;OK") + Array("after".utf8)
+  let bytes = bracketedPasteStart + payloadBytes + bracketedPasteEnd
+  let payload = try #require(String(bytes: payloadBytes, encoding: .utf8))
+
+  #expect(parser.feed(contentsOf: bytes) == [.paste(payload)])
+}
+
+@Test
+func `parser keeps APC responses interleaved with ordinary keys in order`() {
+  var parser = InputParser()
+  let bytes =
+    Array("a".utf8) + kittyGraphicsAPC("i=3;OK") + Array("b".utf8) + apc("Xignored")
+    + Array("c".utf8)
+
+  assertInlineSnapshot(of: eventLog(parser.feed(contentsOf: bytes)), as: .lines) {
+    """
+    key(character("a"), modifiers: none)
+    kitty graphics response(id: 3, placement: nil, success: true, message: "OK")
+    key(character("b"), modifiers: none)
+    unknown(1B 5F 58 69 67 6E 6F 72 65 64 1B 5C)
+    key(character("c"), modifiers: none)
+    """
+  }
+}
+
+@Test
+func `parser preserves Kitty graphics response before following DA1`() {
+  var parser = InputParser()
+  let bytes = kittyGraphicsAPC("i=11;OK") + Array("\u{1B}[?1;2c".utf8)
+
+  assertInlineSnapshot(of: eventLog(parser.feed(contentsOf: bytes)), as: .lines) {
+    """
+    kitty graphics response(id: 11, placement: nil, success: true, message: "OK")
+    primary device attributes([1, 2])
+    """
+  }
+}
+
+private func kittyGraphicsResponse(from event: InputEvent) -> KittyGraphicsResponse? {
+  guard case .kittyGraphicsResponse(let response) = event else {
+    return nil
+  }
+  return response
+}
+
+private func kittyGraphicsAPC(_ payload: String) -> [UInt8] {
+  apc("G" + payload)
+}
+
+private func apc(_ payload: String) -> [UInt8] {
+  [0x1B, 0x5F] + Array(payload.utf8) + [0x1B, 0x5C]
+}
+
 private let bracketedPasteStart = Array("\u{1B}[200~".utf8)
 private let bracketedPasteEnd = Array("\u{1B}[201~".utf8)
 
@@ -927,6 +1169,16 @@ private func eventLogLine(_ event: InputEvent) -> String {
   case .key(let key):
     let kind = key.kind == .press ? "" : ", kind: \(key.kind)"
     return "key(\(key.code), modifiers: \(modifierLog(key.modifiers))\(kind))"
+
+  case .kittyGraphicsResponse(let response):
+    let id = response.id.map { String($0.rawValue) } ?? "nil"
+    let placement = response.placement.map { String($0.rawValue) } ?? "nil"
+    return
+      "kitty graphics response(id: \(id), placement: \(placement), success: \(response.success), message: \(String(reflecting: response.message)))"
+
+  case .primaryDeviceAttributes(let attributes):
+    let values = attributes.map { String($0) }.joined(separator: ", ")
+    return "primary device attributes([\(values)])"
 
   case .mouse(let mouse):
     return

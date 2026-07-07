@@ -15,6 +15,8 @@
           text: { row in state.text(row: row) },
           cell: { row, column in state.cell(row: row, column: column) },
           cursor: { state.cursorPosition() },
+          kittyImages: { state.kittyImages() },
+          kittyPlacements: { state.kittyPlacements() },
           snapshot: { state.snapshot() }
         )
       } catch {
@@ -48,6 +50,23 @@
         ),
         "ghostty_terminal_new"
       )
+
+      var kittyImageStorageLimit = UInt64(64 * 1_024 * 1_024)
+      do {
+        try withUnsafePointer(to: &kittyImageStorageLimit) { pointer in
+          try check(
+            ghostty_terminal_set(
+              terminal,
+              GHOSTTY_TERMINAL_OPT_KITTY_IMAGE_STORAGE_LIMIT,
+              pointer
+            ),
+            "ghostty_terminal_set kitty image storage limit"
+          )
+        }
+      } catch {
+        ghostty_terminal_free(terminal)
+        throw error
+      }
 
       var renderState: GhosttyRenderState?
       do {
@@ -138,6 +157,18 @@
     func cursorPosition() -> TerminalPosition {
       self.handles.withLock { handles in
         handles.cursorPosition()
+      }
+    }
+
+    func kittyImages() -> [RenderedKittyImage] {
+      self.handles.withLock { handles in
+        handles.kittyImages()
+      }
+    }
+
+    func kittyPlacements() -> [RenderedKittyPlacement] {
+      self.handles.withLock { handles in
+        handles.kittyPlacements()
       }
     }
 
@@ -282,6 +313,211 @@
       return TerminalPosition(column: Int(column), row: Int(row))
     }
 
+    mutating func kittyImages() -> [RenderedKittyImage] {
+      var imagesByID: [UInt32: RenderedKittyImage] = [:]
+      for placement in self.kittyPlacements() {
+        if let image = self.kittyImage(id: placement.imageID) {
+          imagesByID[placement.imageID] = image
+        }
+      }
+      return imagesByID.keys.sorted().compactMap { imagesByID[$0] }
+    }
+
+    mutating func kittyPlacements() -> [RenderedKittyPlacement] {
+      guard let graphics = self.kittyGraphics(),
+        let iterator = self.kittyPlacementIterator(graphics: graphics)
+      else {
+        return []
+      }
+      defer { ghostty_kitty_graphics_placement_iterator_free(iterator) }
+
+      var placements: [RenderedKittyPlacement] = []
+      while ghostty_kitty_graphics_placement_next(iterator) {
+        let imageID = self.placementUInt32(
+          iterator: iterator,
+          data: GHOSTTY_KITTY_GRAPHICS_PLACEMENT_DATA_IMAGE_ID,
+          operation: "ghostty_kitty_graphics_placement_get image id"
+        )
+        let placementID = self.placementUInt32(
+          iterator: iterator,
+          data: GHOSTTY_KITTY_GRAPHICS_PLACEMENT_DATA_PLACEMENT_ID,
+          operation: "ghostty_kitty_graphics_placement_get placement id"
+        )
+        let columns = self.placementUInt32(
+          iterator: iterator,
+          data: GHOSTTY_KITTY_GRAPHICS_PLACEMENT_DATA_COLUMNS,
+          operation: "ghostty_kitty_graphics_placement_get columns"
+        )
+        let rows = self.placementUInt32(
+          iterator: iterator,
+          data: GHOSTTY_KITTY_GRAPHICS_PLACEMENT_DATA_ROWS,
+          operation: "ghostty_kitty_graphics_placement_get rows"
+        )
+        let zIndex = self.placementInt32(
+          iterator: iterator,
+          data: GHOSTTY_KITTY_GRAPHICS_PLACEMENT_DATA_Z,
+          operation: "ghostty_kitty_graphics_placement_get z"
+        )
+        guard let image = ghostty_kitty_graphics_image(graphics, imageID) else {
+          continue
+        }
+        var selection = GhosttySelection(
+          size: MemoryLayout<GhosttySelection>.size,
+          start: emptyGridRef(),
+          end: emptyGridRef(),
+          rectangle: false
+        )
+        let rectResult = ghostty_kitty_graphics_placement_rect(
+          iterator,
+          image,
+          self.terminal,
+          &selection
+        )
+        guard rectResult == GHOSTTY_SUCCESS else {
+          report(rectResult, "ghostty_kitty_graphics_placement_rect")
+          continue
+        }
+        placements.append(
+          RenderedKittyPlacement(
+            column: Int(min(selection.start.x, selection.end.x)),
+            columns: Int(columns),
+            imageID: imageID,
+            placementID: placementID,
+            row: Int(min(selection.start.y, selection.end.y)),
+            rows: Int(rows),
+            zIndex: zIndex
+          )
+        )
+      }
+      return placements
+    }
+
+    mutating func kittyGraphics() -> GhosttyKittyGraphics? {
+      var graphics: GhosttyKittyGraphics?
+      let result = withUnsafeMutablePointer(to: &graphics) { pointer in
+        ghostty_terminal_get(
+          self.terminal,
+          GHOSTTY_TERMINAL_DATA_KITTY_GRAPHICS,
+          pointer
+        )
+      }
+      guard result == GHOSTTY_SUCCESS else {
+        report(result, "ghostty_terminal_get kitty graphics")
+        return nil
+      }
+      return graphics
+    }
+
+    mutating func kittyPlacementIterator(
+      graphics: GhosttyKittyGraphics
+    ) -> GhosttyKittyGraphicsPlacementIterator? {
+      var iterator: GhosttyKittyGraphicsPlacementIterator?
+      let newResult = ghostty_kitty_graphics_placement_iterator_new(nil, &iterator)
+      guard newResult == GHOSTTY_SUCCESS else {
+        report(newResult, "ghostty_kitty_graphics_placement_iterator_new")
+        return nil
+      }
+      let getResult = withUnsafeMutablePointer(to: &iterator) { pointer in
+        ghostty_kitty_graphics_get(
+          graphics,
+          GHOSTTY_KITTY_GRAPHICS_DATA_PLACEMENT_ITERATOR,
+          pointer
+        )
+      }
+      guard getResult == GHOSTTY_SUCCESS else {
+        report(getResult, "ghostty_kitty_graphics_get placement iterator")
+        if let iterator {
+          ghostty_kitty_graphics_placement_iterator_free(iterator)
+        }
+        return nil
+      }
+      return iterator
+    }
+
+    mutating func kittyImage(id: UInt32) -> RenderedKittyImage? {
+      guard let graphics = self.kittyGraphics(),
+        let image = ghostty_kitty_graphics_image(graphics, id)
+      else {
+        return nil
+      }
+
+      var imageID = UInt32(0)
+      var width = UInt32(0)
+      var height = UInt32(0)
+      var format = GHOSTTY_KITTY_IMAGE_FORMAT_RGB
+      withUnsafeMutablePointer(to: &imageID) { pointer in
+        self.getKittyImageData(
+          image,
+          GHOSTTY_KITTY_IMAGE_DATA_ID,
+          out: pointer,
+          "ghostty_kitty_graphics_image_get id"
+        )
+      }
+      withUnsafeMutablePointer(to: &width) { pointer in
+        self.getKittyImageData(
+          image,
+          GHOSTTY_KITTY_IMAGE_DATA_WIDTH,
+          out: pointer,
+          "ghostty_kitty_graphics_image_get width"
+        )
+      }
+      withUnsafeMutablePointer(to: &height) { pointer in
+        self.getKittyImageData(
+          image,
+          GHOSTTY_KITTY_IMAGE_DATA_HEIGHT,
+          out: pointer,
+          "ghostty_kitty_graphics_image_get height"
+        )
+      }
+      withUnsafeMutablePointer(to: &format) { pointer in
+        self.getKittyImageData(
+          image,
+          GHOSTTY_KITTY_IMAGE_DATA_FORMAT,
+          out: pointer,
+          "ghostty_kitty_graphics_image_get format"
+        )
+      }
+      return RenderedKittyImage(
+        format: RenderedKittyImageFormat(format),
+        height: Int(height),
+        id: imageID,
+        width: Int(width)
+      )
+    }
+
+    func placementUInt32(
+      iterator: GhosttyKittyGraphicsPlacementIterator,
+      data: GhosttyKittyGraphicsPlacementData,
+      operation: String
+    ) -> UInt32 {
+      var value = UInt32(0)
+      withUnsafeMutablePointer(to: &value) { pointer in
+        report(ghostty_kitty_graphics_placement_get(iterator, data, pointer), operation)
+      }
+      return value
+    }
+
+    func placementInt32(
+      iterator: GhosttyKittyGraphicsPlacementIterator,
+      data: GhosttyKittyGraphicsPlacementData,
+      operation: String
+    ) -> Int32 {
+      var value = Int32(0)
+      withUnsafeMutablePointer(to: &value) { pointer in
+        report(ghostty_kitty_graphics_placement_get(iterator, data, pointer), operation)
+      }
+      return value
+    }
+
+    func getKittyImageData(
+      _ image: GhosttyKittyGraphicsImage,
+      _ data: GhosttyKittyGraphicsImageData,
+      out: UnsafeMutableRawPointer,
+      _ operation: String
+    ) {
+      report(ghostty_kitty_graphics_image_get(image, data, out), operation)
+    }
+
     func currentRenderedCell() -> RenderedCell {
       var style = GhosttyStyle(
         size: MemoryLayout<GhosttyStyle>.size,
@@ -382,6 +618,25 @@
     }
   }
 
+  extension RenderedKittyImageFormat {
+    init(_ format: GhosttyKittyImageFormat) {
+      switch format {
+      case GHOSTTY_KITTY_IMAGE_FORMAT_GRAY:
+        self = .gray
+      case GHOSTTY_KITTY_IMAGE_FORMAT_GRAY_ALPHA:
+        self = .grayAlpha
+      case GHOSTTY_KITTY_IMAGE_FORMAT_PNG:
+        self = .png
+      case GHOSTTY_KITTY_IMAGE_FORMAT_RGB:
+        self = .rgb
+      case GHOSTTY_KITTY_IMAGE_FORMAT_RGBA:
+        self = .rgba
+      default:
+        self = .unknown
+      }
+    }
+  }
+
   extension RenderedColor {
     init(_ color: GhosttyStyleColor) {
       switch color.tag {
@@ -393,6 +648,15 @@
         self = .default
       }
     }
+  }
+
+  private func emptyGridRef() -> GhosttyGridRef {
+    GhosttyGridRef(
+      size: MemoryLayout<GhosttyGridRef>.size,
+      node: nil,
+      x: 0,
+      y: 0
+    )
   }
 
   private func check(_ result: GhosttyResult, _ operation: String) throws {

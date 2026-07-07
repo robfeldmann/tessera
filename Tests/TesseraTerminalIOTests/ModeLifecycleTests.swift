@@ -193,7 +193,7 @@ func `enter rolls back raw mode when alternate screen fails`() async throws {
 }
 
 @Test
-func `exit unwinds alternate screen before raw mode`() async throws {
+func `exit deletes kitty graphics before alternate screen and raw mode`() async throws {
   let device = LifecycleTestDevice()
   let lifecycle = await makeLifecycle(device)
 
@@ -206,7 +206,37 @@ func `exit unwinds alternate screen before raw mode`() async throws {
   expectNoDifference(activeModes, [])
   expectNoDifference(
     events,
-    [.enableRawMode, .enableAltScreen, .disableAltScreen, .disableRawMode]
+    [
+      .enableRawMode,
+      .enableAltScreen,
+      .flush(kittyGraphicsDeleteAllBytes),
+      .disableAltScreen,
+      .disableRawMode,
+    ]
+  )
+}
+
+@Test
+func `graphics cleanup flush failure does not block mode teardown`() async throws {
+  let device = LifecycleTestDevice(failure: .writeOnAttempt(1))
+  let lifecycle = await makeLifecycle(device)
+
+  try await lifecycle.enter([.rawMode, .altScreen])
+  try await lifecycle.exit()
+
+  let activeModes = await lifecycle.activeModes
+  let events = await device.events
+
+  expectNoDifference(activeModes, [])
+  expectNoDifference(
+    events,
+    [
+      .enableRawMode,
+      .enableAltScreen,
+      .flush(kittyGraphicsDeleteAllBytes),
+      .disableAltScreen,
+      .disableRawMode,
+    ]
   )
 }
 
@@ -227,6 +257,7 @@ func `exit disables bracketed paste before other cleanup`() async throws {
     enableRawMode
     enableAltScreen
     flush: 1B 5B 3F 32 30 30 34 68
+    flush: 1B 5F 47 61 3D 64 2C 64 3D 41 1B 5C
     flush: 1B 5B 3F 32 30 30 34 6C
     disableAltScreen
     disableRawMode
@@ -252,6 +283,7 @@ func `exit disables focus tracking before bracketed paste`() async throws {
     enableAltScreen
     flush: 1B 5B 3F 32 30 30 34 68
     flush: 1B 5B 3F 31 30 30 34 68
+    flush: 1B 5F 47 61 3D 64 2C 64 3D 41 1B 5C
     flush: 1B 5B 3F 31 30 30 34 6C
     flush: 1B 5B 3F 32 30 30 34 6C
     disableAltScreen
@@ -323,6 +355,7 @@ func `exit pops kitty keyboard before mouse focus and paste`() async throws {
     flush: 1B 5B 3F 31 30 30 34 68
     flush: 1B 5B 3F 31 30 30 33 68 1B 5B 3F 31 30 30 36 68
     flush: 1B 5B 3E 37 75
+    flush: 1B 5F 47 61 3D 64 2C 64 3D 41 1B 5C
     flush: 1B 5B 3C 75
     flush: 1B 5B 3F 31 30 30 33 6C 1B 5B 3F 31 30 30 32 6C 1B 5B 3F 31 30 30 36 6C
     flush: 1B 5B 3F 31 30 30 34 6C
@@ -409,17 +442,20 @@ func `apply failure leaves exit safe for succeeded operations`() async throws {
   try await lifecycle.exit()
 
   let events = await device.events
+  // swiftlint:disable line_length
   assertInlineSnapshot(of: lifecycleEventLog(events), as: .lines) {
     """
     enableRawMode
     enableAltScreen
     flush: 1B 5B 3F 31 30 30 34 68
     flush: 1B 5B 3F 31 30 30 33 68 1B 5B 3F 31 30 30 36 68
-    flush: 1B 5B 3F 31 30 30 33 68 1B 5B 3F 31 30 30 36 68 1B 5B 3F 31 30 30 34 6C
+    flush: 1B 5B 3F 31 30 30 33 68 1B 5B 3F 31 30 30 36 68 1B 5F 47 61 3D 64 2C 64 3D 41 1B 5C
+    flush: 1B 5B 3F 31 30 30 34 6C
     disableAltScreen
     disableRawMode
     """
   }
+  // swiftlint:enable line_length
 }
 
 @Test(arguments: [MouseTracking.buttonEvents, .anyEvent])
@@ -447,6 +483,7 @@ func `exit disables mouse before focus`(_ granularity: MouseTracking) async thro
       bracketedPasteEnableBytes,
       focusEnableBytes,
       mouseEnableBytes(granularity),
+      kittyGraphicsDeleteAllBytes,
       mouseDisableBytes,
       focusDisableBytes,
       bracketedPasteDisableBytes,
@@ -471,7 +508,13 @@ func `exit keeps cleaning up after alternate screen cleanup fails`() async throw
   expectNoDifference(activeModes, [])
   expectNoDifference(
     events,
-    [.enableRawMode, .enableAltScreen, .disableAltScreen, .disableRawMode]
+    [
+      .enableRawMode,
+      .enableAltScreen,
+      .flush(kittyGraphicsDeleteAllBytes),
+      .disableAltScreen,
+      .disableRawMode,
+    ]
   )
 }
 
@@ -552,10 +595,12 @@ func `exit is idempotent after focus cleanup`() async throws {
     enableAltScreen
     flush: 1B 5B 3F 32 30 30 34 68
     flush: 1B 5B 3F 31 30 30 34 68
+    flush: 1B 5F 47 61 3D 64 2C 64 3D 41 1B 5C
     flush: 1B 5B 3F 31 30 30 34 6C
     flush: 1B 5B 3F 32 30 30 34 6C
     disableAltScreen
     disableRawMode
+    flush: 1B 5F 47 61 3D 64 2C 64 3D 41 1B 5C
     """
   }
 }
@@ -586,29 +631,32 @@ func `alternate screen bytes round trip through virtual terminal`() async throws
   struct ModeLifecycleEmergencyCleanupTests {
     @Test
     func `cleanup bytes disable focus before bracketed paste`() async throws {
-      let pipe = try LifecycleCleanupPipe()
-      defer {
-        CleanupRegistry.clear()
-        pipe.closeAll()
-      }
-      let device = LifecycleTestDevice(
-        cleanupState: PlatformCleanupState(
-          inputFileDescriptor: -1,
-          outputFileDescriptor: pipe.writeDescriptor
-        ) { nil }
-      )
-      let lifecycle = await makeLifecycle(device)
+      try await CleanupRegistryTestIsolation.withExclusiveAccess {
+        let pipe = try LifecycleCleanupPipe()
+        defer {
+          CleanupRegistry.clear()
+          pipe.closeAll()
+        }
+        let device = LifecycleTestDevice(
+          cleanupState: PlatformCleanupState(
+            inputFileDescriptor: -1,
+            outputFileDescriptor: pipe.writeDescriptor
+          ) { nil }
+        )
+        let lifecycle = await makeLifecycle(device)
 
-      try await lifecycle.enter([.rawMode, .altScreen, .bracketedPaste, .focusEvents])
-      CleanupRegistry.performEmergencyCleanupForTesting()
-      pipe.closeWriteDescriptor()
+        try await lifecycle.enter([.rawMode, .altScreen, .bracketedPaste, .focusEvents])
+        CleanupRegistry.performEmergencyCleanupForTesting()
+        pipe.closeWriteDescriptor()
 
-      let bytes = try pipe.readAll()
-      assertInlineSnapshot(of: wrappedHex(bytes, bytesPerLine: 16), as: .lines) {
-        """
-        1B 5B 3F 31 30 30 34 6C 1B 5B 3F 32 30 30 34 6C
-        1B 5B 3F 31 30 34 39 6C 1B 5B 3F 32 35 68
-        """
+        let bytes = try pipe.readAll()
+        assertInlineSnapshot(of: wrappedHex(bytes, bytesPerLine: 16), as: .lines) {
+          """
+          1B 5F 47 61 3D 64 2C 64 3D 41 1B 5C 1B 5B 3F 31
+          30 30 34 6C 1B 5B 3F 32 30 30 34 6C 1B 5B 3F 31
+          30 34 39 6C 1B 5B 3F 32 35 68
+          """
+        }
       }
     }
 
@@ -616,76 +664,82 @@ func `alternate screen bytes round trip through virtual terminal`() async throws
     func `cleanup bytes defensively disable mouse tracking for either granularity`(
       _ granularity: MouseTracking
     ) async throws {
-      let pipe = try LifecycleCleanupPipe()
-      defer {
-        CleanupRegistry.clear()
-        pipe.closeAll()
+      try await CleanupRegistryTestIsolation.withExclusiveAccess {
+        let pipe = try LifecycleCleanupPipe()
+        defer {
+          CleanupRegistry.clear()
+          pipe.closeAll()
+        }
+        let device = LifecycleTestDevice(
+          cleanupState: PlatformCleanupState(
+            inputFileDescriptor: -1,
+            outputFileDescriptor: pipe.writeDescriptor
+          ) { nil }
+        )
+        let lifecycle = await makeLifecycle(device)
+
+        try await lifecycle.enter([
+          .rawMode,
+          .altScreen,
+          .bracketedPaste,
+          .focusEvents,
+          .mouseTracking(granularity),
+        ])
+        CleanupRegistry.performEmergencyCleanupForTesting()
+        pipe.closeWriteDescriptor()
+
+        let bytes = try pipe.readAll()
+        expectNoDifference(
+          bytes,
+          kittyGraphicsDeleteAllBytes
+            + mouseDisableBytes
+            + focusDisableBytes
+            + bracketedPasteDisableBytes
+            + Array("\u{1B}[?1049l".utf8)
+            + Array("\u{1B}[?25h".utf8)
+        )
       }
-      let device = LifecycleTestDevice(
-        cleanupState: PlatformCleanupState(
-          inputFileDescriptor: -1,
-          outputFileDescriptor: pipe.writeDescriptor
-        ) { nil }
-      )
-      let lifecycle = await makeLifecycle(device)
-
-      try await lifecycle.enter([
-        .rawMode,
-        .altScreen,
-        .bracketedPaste,
-        .focusEvents,
-        .mouseTracking(granularity),
-      ])
-      CleanupRegistry.performEmergencyCleanupForTesting()
-      pipe.closeWriteDescriptor()
-
-      let bytes = try pipe.readAll()
-      expectNoDifference(
-        bytes,
-        mouseDisableBytes
-          + focusDisableBytes
-          + bracketedPasteDisableBytes
-          + Array("\u{1B}[?1049l".utf8)
-          + Array("\u{1B}[?25h".utf8)
-      )
     }
 
     @Test
     func `cleanup bytes pop kitty keyboard before mouse focus and paste`() async throws {
-      let pipe = try LifecycleCleanupPipe()
-      defer {
-        CleanupRegistry.clear()
-        pipe.closeAll()
+      try await CleanupRegistryTestIsolation.withExclusiveAccess {
+        let pipe = try LifecycleCleanupPipe()
+        defer {
+          CleanupRegistry.clear()
+          pipe.closeAll()
+        }
+        let device = LifecycleTestDevice(
+          cleanupState: PlatformCleanupState(
+            inputFileDescriptor: -1,
+            outputFileDescriptor: pipe.writeDescriptor
+          ) { nil }
+        )
+        let lifecycle = await makeLifecycle(device)
+
+        try await lifecycle.enter([
+          .rawMode,
+          .altScreen,
+          .bracketedPaste,
+          .focusEvents,
+          .mouseTracking(.anyEvent),
+          .kittyKeyboard,
+        ])
+        CleanupRegistry.performEmergencyCleanupForTesting()
+        pipe.closeWriteDescriptor()
+
+        let bytes = try pipe.readAll()
+        expectNoDifference(
+          bytes,
+          kittyGraphicsDeleteAllBytes
+            + kittyKeyboardPopBytes
+            + mouseDisableBytes
+            + focusDisableBytes
+            + bracketedPasteDisableBytes
+            + Array("\u{1B}[?1049l".utf8)
+            + Array("\u{1B}[?25h".utf8)
+        )
       }
-      let device = LifecycleTestDevice(
-        cleanupState: PlatformCleanupState(
-          inputFileDescriptor: -1,
-          outputFileDescriptor: pipe.writeDescriptor
-        ) { nil }
-      )
-      let lifecycle = await makeLifecycle(device)
-
-      try await lifecycle.enter([
-        .rawMode,
-        .altScreen,
-        .bracketedPaste,
-        .focusEvents,
-        .mouseTracking(.anyEvent),
-        .kittyKeyboard,
-      ])
-      CleanupRegistry.performEmergencyCleanupForTesting()
-      pipe.closeWriteDescriptor()
-
-      let bytes = try pipe.readAll()
-      expectNoDifference(
-        bytes,
-        kittyKeyboardPopBytes
-          + mouseDisableBytes
-          + focusDisableBytes
-          + bracketedPasteDisableBytes
-          + Array("\u{1B}[?1049l".utf8)
-          + Array("\u{1B}[?25h".utf8)
-      )
     }
   }
 #endif
@@ -834,6 +888,7 @@ private let mouseDisableBytes =
   Array("\u{1B}[?1003l\u{1B}[?1002l\u{1B}[?1006l".utf8)
 private let kittyKeyboardPushBytes = Array("\u{1B}[>7u".utf8)
 private let kittyKeyboardPopBytes = Array("\u{1B}[<u".utf8)
+private let kittyGraphicsDeleteAllBytes = Array("\u{1B}_Ga=d,d=A\u{1B}\\".utf8)
 
 private func mouseEnableBytes(_ granularity: MouseTracking) -> [UInt8] {
   switch granularity {
@@ -916,44 +971,6 @@ private func wrappedHex(_ bytes: [UInt8], bytesPerLine: Int) -> String {
           throw LifecycleCleanupReadError(errno: errno)
         }
       }
-    }
-
-    @Test
-    func `cleanup bytes pop kitty keyboard before mouse focus and paste`() async throws {
-      let pipe = try LifecycleCleanupPipe()
-      defer {
-        CleanupRegistry.clear()
-        pipe.closeAll()
-      }
-      let device = LifecycleTestDevice(
-        cleanupState: PlatformCleanupState(
-          inputFileDescriptor: -1,
-          outputFileDescriptor: pipe.writeDescriptor
-        ) { nil }
-      )
-      let lifecycle = await makeLifecycle(device)
-
-      try await lifecycle.enter([
-        .rawMode,
-        .altScreen,
-        .bracketedPaste,
-        .focusEvents,
-        .mouseTracking(.anyEvent),
-        .kittyKeyboard,
-      ])
-      CleanupRegistry.performEmergencyCleanupForTesting()
-      pipe.closeWriteDescriptor()
-
-      let bytes = try pipe.readAll()
-      expectNoDifference(
-        bytes,
-        kittyKeyboardPopBytes
-          + mouseDisableBytes
-          + focusDisableBytes
-          + bracketedPasteDisableBytes
-          + Array("\u{1B}[?1049l".utf8)
-          + Array("\u{1B}[?25h".utf8)
-      )
     }
   }
 #endif

@@ -237,6 +237,11 @@ public actor ModeLifecycle {
 
   /// Exits believed/requested modes in reverse acquisition order.
   public func exit() async throws {
+    // Unconditional Kitty Graphics cleanup, before any mode is torn down. Harmless on
+    // unsupported terminals and safer than leaving images after alternate-screen exit.
+    await io.write(ControlSequence.kittyGraphics(.delete(.all)).bytes)
+    try? await io.flush()
+
     let cleanupModes = modes.union(requestedModes)
     var firstError: (any Error)?
 
@@ -317,6 +322,10 @@ public actor ModeLifecycle {
 
   private func installCleanup() async {
     var teardownBytes: [UInt8] = []
+    // Unconditional Kitty Graphics cleanup: harmless APC noise on terminals that never
+    // saw a KGP command, and defense-in-depth for terminals that do not clear alt-screen
+    // images on their own. Must precede leaving the alternate screen.
+    ControlSequence.kittyGraphics(.delete(.all)).encode(into: &teardownBytes)
 
     if modes.contains(.kittyKeyboard) || requestedModes.contains(.kittyKeyboard) {
       ControlSequence.popKittyKeyboard.encode(into: &teardownBytes)

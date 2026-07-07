@@ -13,7 +13,7 @@ updated: 2026-07-07
 - [x] **Phase 1 — Approve shared Phase 3 contracts**
   - [x] 1.1 Review the seven-plan bundle and confirm slice order
   - [x] 1.2 Approve shared parser, lifecycle, renderer, and example-app rules
-- [ ] **Phase 2 — Execute input protocol slices**
+- [x] **Phase 2 — Execute input protocol slices**
   - [x] 2.1 Implement bracketed paste from plan 016
   - [x] 2.2 Implement focus events from plan 017
   - [x] 2.3 Implement SGR mouse tracking from plan 018
@@ -21,7 +21,8 @@ updated: 2026-07-07
 - [ ] **Phase 3 — Execute output and capability slices**
   - [x] 3.1 Implement OSC 8 hyperlinks from plan 020
   - [x] 3.2 Implement terminal capability detection from plan 021
-  - [ ] 3.3 Implement Kitty graphics protocol from plan 022
+  - [x] 3.3 Implement Kitty graphics protocol from plan 022
+  - [ ] 3.4 Refactor capability detection to active, non-hard-coded probes
 - [ ] **Phase 4 — Close Phase 3 as one integrated substrate**
   - [ ] 4.1 Run the full Phase 3 validation sweep
   - [ ] 4.2 Review the example app across every protocol panel
@@ -214,6 +215,106 @@ Write tests close to the production code they cover. Prefer Ghostty-backed place
 assertions over byte snapshots for harness-facing behavior; keep exact byte tests for the
 encoder surface. Add only the image panel to Phase3ProtocolsDemo. Run the validation
 commands from plan 022 and the integrated validation sweep from this umbrella plan.
+
+When complete, update plan progress, report changed files and validation results, then stop
+and wait for review.
+```
+
+### Step 3.4 prompt — Active capability detection refactor
+
+```text
+Refactor Phase 3 capability detection so production protocol support decisions are active,
+protocol-native, and not inferred from hard-coded terminal names.
+
+Before editing, read these fully:
+- .agents/plans/015-phase-3-modern-terminal-protocols.md
+- docs/Spec.md lines 3644-3826, covering the Phase 3 overview
+- docs/Spec.md lines 5152-5490, covering Slice 6
+- docs/Spec.md lines 5491-6029, covering Slice 7
+- Sources/TesseraTerminal/TerminalCapabilityDetector.swift
+- Sources/TesseraTerminal/TerminalApplicationConfiguration.swift
+- Sources/TesseraTerminal/TerminalSession.swift
+- Sources/TesseraTerminalInput/InputParser.swift
+- Examples/Sources/Phase3ProtocolsDemo/Phase3ProtocolsDemo.swift
+
+Treat completed Slice 6 and Slice 7 code as source of truth, but remove their remaining
+passive terminal-name protocol assumptions. The final production capability system must not
+branch on concrete terminal names such as Ghostty, kitty, WezTerm, Apple Terminal, Windows
+Terminal, iTerm2, foot, xterm, Konsole, or VTE to decide whether a protocol is supported or
+unsupported. Terminal identity may remain as diagnostic/display metadata only if capability
+policy does not depend on specific terminal names.
+
+Keep the KGP active probe added during Slice 7: send `a=q` Kitty graphics query bytes
+immediately followed by DA1 (`ESC [ c`). A KGP response before DA1 means supported; DA1
+first means unsupported; no response keeps the result unknown/pending. Do not replace this
+with a terminal-name allowlist.
+
+Add equivalent active-probe infrastructure for the other queryable protocols:
+- Kitty keyboard: use the documented `CSI ? u` query plus DA1 sentinel. A keyboard-protocol
+  response before DA1 means supported; DA1 first means unsupported.
+- DEC private modes: add DECRQM request/response support (`CSI ? Ps $ p` request and
+  `CSI ? Ps ; Pm $ y` response) and use it for bracketed paste (`2004`), focus events
+  (`1004`), SGR mouse / mouse protocol modes that Tessera enables (`1000`, `1002`,
+  `1003`, `1006` as applicable), and synchronized output (`2026`) only after verifying the
+  mode is queryable. Unrecognized DECRQM responses must preserve an unknown result, not
+  silently report support.
+- OSC 8 hyperlinks: do not invent detection. OSC 8 has no standard support query; keep it
+  as safe-to-emit style metadata with visible text fallback, and present it in capability
+  UI as not actively detectable unless a future standard probe is added.
+- Color depth and `NO_COLOR`/`COLORTERM` handling may remain environment-based because
+  those are generic environment conventions rather than terminal-name protocol support
+  tables. Do not add named-terminal color special cases.
+
+Update configuration policy so `.kittyIfAvailable` and any future "if available" mode
+intents consume active probe results rather than passive terminal-name confidence. Startup
+must not block indefinitely: probes must be represented as pending/unknown until terminal
+input produces responses. Unsupported or unknown probes must prevent enabling protocols
+that can corrupt input/output when blindly enabled.
+
+Revisit `Phase3ProtocolsDemo`:
+- Panel 6 (capabilities) must show active probe state per protocol: pending, supported,
+  unsupported, unknown, or not detectable. It must not imply support because of the
+  terminal name.
+- Panel 4 (keyboard) must still make sense after Kitty keyboard support becomes actively
+  detected rather than passively inferred.
+- Panel 7 (graphics) must continue to use the KGP query + DA1 sentinel and must not
+  transmit image bytes until support is observed or the user explicitly opts in.
+- Any other panel affected by dynamic mode enablement must be reviewed and updated.
+
+Update tests close to the code they protect:
+- Parser tests for DA1, Kitty keyboard query responses, and DECRQM responses, including
+  byte-by-byte parsing, malformed responses, and ordering around DA1 sentinels.
+- Session/configuration tests proving active probe results drive application mode
+  resolution.
+- Capability tests proving named terminal identities do not imply protocol support or
+  unsupported status. Tests should fail if protocol support is reintroduced through
+  hard-coded terminal-name branches.
+- Phase3ProtocolsDemo-focused tests or smoke checks proving panel 6 displays active probe
+  state and panel 7 gates image output on the KGP probe.
+
+Update docs/Spec.md so Slice 6 and Slice 7 describe the active, non-hard-coded detection
+model. Remove outdated language saying capability detection is passive or terminal-name
+based.
+
+Acceptance criteria:
+- Production capability support decisions contain no hard-coded references to specific
+  terminal brands or emulator names.
+- KGP support uses `a=q` + DA1 sentinel and never relies on a terminal-name allowlist.
+- Queryable protocols use their native active query mechanism or remain unknown; no
+  protocol silently falls back to terminal-name inference.
+- OSC 8 is explicitly documented and tested as not actively detectable, while remaining
+  safe because visible link text still renders.
+- `Phase3ProtocolsDemo` panel 6 and all affected protocol panes reflect active probe state
+  and do not display hard-coded confidence from terminal identity.
+- Unit tests cover parser responses, session/config resolution, and the no-hard-coded-name
+  contract.
+- docs/Spec.md matches the implemented behavior.
+- Run:
+  swift test --filter TesseraTerminalInputTests
+  swift test --filter TesseraTerminalIOTests
+  swift test --filter TesseraTerminalTests
+  swift build --package-path Examples --product Phase3ProtocolsDemo
+  just quality changed
 
 When complete, update plan progress, report changed files and validation results, then stop
 and wait for review.

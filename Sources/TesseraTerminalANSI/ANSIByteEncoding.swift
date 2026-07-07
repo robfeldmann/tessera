@@ -16,6 +16,18 @@ enum ANSIByteEncoding {
     buffer.append(contentsOf: body.utf8)
   }
 
+  /// Appends a 7-bit Application Program Command introducer: `ESC _` followed by `body`.
+  static func appendAPC(_ body: String, into buffer: inout [UInt8]) {
+    buffer.append(Self.escape)
+    buffer.append(0x5F)
+    buffer.append(contentsOf: body.utf8)
+  }
+
+  /// Appends a 7-bit String Terminator: `ESC \`.
+  static func appendST(into buffer: inout [UInt8]) {
+    buffer.append(contentsOf: Self.stringTerminator)
+  }
+
   /// Appends a 7-bit Operating System Command introducer: `ESC ]` followed by `body`.
   static func appendOSC(
     _ body: String,

@@ -103,6 +103,9 @@ public struct TerminalCapabilities: Equatable, Sendable {
   /// Mouse tracking advisory support.
   public var mouseTracking: CapabilityStatus
 
+  /// Kitty Graphics Protocol advisory support.
+  public var kittyGraphics: CapabilityStatus
+
   /// Kitty keyboard advisory support.
   public var kittyKeyboard: CapabilityStatus
 
@@ -126,6 +129,7 @@ public struct TerminalCapabilities: Equatable, Sendable {
     bracketedPaste: CapabilityStatus = .unknown,
     focusEvents: CapabilityStatus = .unknown,
     mouseTracking: CapabilityStatus = .unknown,
+    kittyGraphics: CapabilityStatus = .unknown,
     kittyKeyboard: CapabilityStatus = .unknown,
     osc8Hyperlinks: CapabilityStatus = .unknown,
     synchronizedOutput: CapabilityStatus = .unknown,
@@ -136,6 +140,7 @@ public struct TerminalCapabilities: Equatable, Sendable {
     self.bracketedPaste = bracketedPaste
     self.focusEvents = focusEvents
     self.mouseTracking = mouseTracking
+    self.kittyGraphics = kittyGraphics
     self.kittyKeyboard = kittyKeyboard
     self.osc8Hyperlinks = osc8Hyperlinks
     self.synchronizedOutput = synchronizedOutput

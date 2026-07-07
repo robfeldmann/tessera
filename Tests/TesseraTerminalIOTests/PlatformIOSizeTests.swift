@@ -19,6 +19,21 @@ func `size returns queried terminal size`() async throws {
 }
 
 @Test
+func `cell pixel size returns terminal device value`() async {
+  let io = PlatformIO(
+    terminalDevice: TerminalDevice(
+      cellPixelSize: { CellPixelSize(height: 18, width: 9) },
+      size: { TerminalSize(columns: 120, rows: 40) },
+      write: { $0.count }
+    )
+  )
+
+  let pixelSize = await io.cellPixelSize()
+
+  expectNoDifference(pixelSize, CellPixelSize(height: 18, width: 9))
+}
+
+@Test
 func `size changes yields terminal size notifications`() async throws {
   let io = PlatformIO(
     terminalDevice: TerminalDevice(

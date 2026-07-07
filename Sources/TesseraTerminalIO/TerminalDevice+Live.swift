@@ -48,6 +48,7 @@ extension TerminalDevice {
 
       return Self(
         bytes: { POSIXInputLoop.bytes(fileDescriptor: stdin) },
+        cellPixelSize: { readCellPixelSize(fileDescriptor: stdout) },
         cleanupState: PlatformCleanupState(
           inputFileDescriptor: stdin,
           outputFileDescriptor: stdout
@@ -78,6 +79,7 @@ extension TerminalDevice {
 
       return Self(
         bytes: { inputLoop.bytes() },
+        cellPixelSize: { nil },
         cleanupState: PlatformCleanupState(
           inputHandle: handles.inputHandle,
           outputHandle: outputHandle
@@ -154,6 +156,23 @@ extension TerminalDevice {
     return TerminalSize(
       columns: Int(windowSize.ws_col),
       rows: Int(windowSize.ws_row)
+    )
+  }
+
+  private func readCellPixelSize(fileDescriptor: CInt) -> CellPixelSize? {
+    var windowSize = winsize()
+    guard ioctl(fileDescriptor, UInt(TIOCGWINSZ), &windowSize) != -1,
+      windowSize.ws_col > 0,
+      windowSize.ws_row > 0,
+      windowSize.ws_xpixel > 0,
+      windowSize.ws_ypixel > 0
+    else {
+      return nil
+    }
+
+    return CellPixelSize(
+      height: Int(windowSize.ws_ypixel) / Int(windowSize.ws_row),
+      width: Int(windowSize.ws_xpixel) / Int(windowSize.ws_col)
     )
   }
 

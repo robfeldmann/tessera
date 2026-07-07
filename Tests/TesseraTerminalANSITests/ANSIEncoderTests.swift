@@ -497,6 +497,360 @@ func `synchronized output mode is accepted by virtual terminal`() {
 }
 
 @Test
+func `kitty graphics transmit formats and quiet levels encode exact APC bytes`() {
+  let payload: [UInt8] = [0, 1, 2]
+
+  for (quiet, wireValue) in kittyGraphicsQuietCases() {
+    let id = KittyImageID(rawValue: UInt32(40 + wireValue))
+
+    expectBytes(
+      .kittyGraphics(
+        .transmit(
+          KittyGraphicsTransmission(
+            id: id,
+            format: .rgb(width: 2, height: 3),
+            data: payload,
+            quiet: quiet
+          )
+        )
+      ),
+      kgp("a=t,i=\(id.rawValue),f=24,s=2,v=3,t=d,q=\(wireValue),m=0;AAEC")
+    )
+    expectBytes(
+      .kittyGraphics(
+        .transmit(
+          KittyGraphicsTransmission(
+            id: id,
+            format: .rgba(width: 2, height: 3),
+            data: payload,
+            quiet: quiet
+          )
+        )
+      ),
+      kgp("a=t,i=\(id.rawValue),f=32,s=2,v=3,t=d,q=\(wireValue),m=0;AAEC")
+    )
+    expectBytes(
+      .kittyGraphics(
+        .transmit(
+          KittyGraphicsTransmission(
+            id: id,
+            format: .png,
+            data: payload,
+            quiet: quiet
+          )
+        )
+      ),
+      kgp("a=t,i=\(id.rawValue),f=100,t=d,q=\(wireValue),m=0;AAEC")
+    )
+  }
+}
+
+@Test
+func `kitty graphics transmit chunks at base64 boundaries`() {
+  expectBytes(
+    .kittyGraphics(
+      .transmit(
+        KittyGraphicsTransmission(
+          id: KittyImageID(rawValue: 80),
+          format: .png,
+          data: zeros(3_069),
+          quiet: .verbose
+        )
+      )
+    ),
+    kgp(
+      "a=t,i=80,f=100,t=d,q=0,m=0;"
+        + String(repeating: "A", count: 4_092)
+    )
+  )
+  expectBytes(
+    .kittyGraphics(
+      .transmit(
+        KittyGraphicsTransmission(
+          id: KittyImageID(rawValue: 81),
+          format: .png,
+          data: zeros(3_072),
+          quiet: .verbose
+        )
+      )
+    ),
+    kgp(
+      "a=t,i=81,f=100,t=d,q=0,m=0;"
+        + String(repeating: "A", count: 4_096)
+    )
+  )
+  expectBytes(
+    .kittyGraphics(
+      .transmit(
+        KittyGraphicsTransmission(
+          id: KittyImageID(rawValue: 82),
+          format: .png,
+          data: zeros(3_073),
+          quiet: .verbose
+        )
+      )
+    ),
+    kgp(
+      "a=t,i=82,f=100,t=d,q=0,m=1;"
+        + String(repeating: "A", count: 4_096)
+    )
+      + kgp("m=0;AA==")
+  )
+}
+
+@Test
+func `kitty graphics transmit empty data emits one empty final chunk`() {
+  expectBytes(
+    .kittyGraphics(
+      .transmit(
+        KittyGraphicsTransmission(
+          id: KittyImageID(rawValue: 90),
+          format: .png,
+          data: []
+        )
+      )
+    ),
+    kgp("a=t,i=90,f=100,t=d,q=1,m=0;")
+  )
+}
+
+@Test
+func `kitty graphics place variants encode exact APC bytes`() {
+  expectBytes(
+    .kittyGraphics(
+      .place(
+        KittyGraphicsPlacement(
+          id: KittyImageID(rawValue: 100),
+          quiet: .verbose
+        )
+      )
+    ),
+    kgp("a=p,i=100,z=0,C=1,q=0")
+  )
+  expectBytes(
+    .kittyGraphics(
+      .place(
+        KittyGraphicsPlacement(
+          id: KittyImageID(rawValue: 101),
+          columns: 2,
+          rows: 3,
+          quiet: .suppressOK
+        )
+      )
+    ),
+    kgp("a=p,i=101,c=2,r=3,z=0,C=1,q=1")
+  )
+  expectBytes(
+    .kittyGraphics(
+      .place(
+        KittyGraphicsPlacement(
+          id: KittyImageID(rawValue: 102),
+          placement: KittyPlacementID(rawValue: 10),
+          zIndex: -4,
+          quiet: .suppressFailures
+        )
+      )
+    ),
+    kgp("a=p,i=102,p=10,z=-4,C=1,q=2")
+  )
+  expectBytes(
+    .kittyGraphics(
+      .place(
+        KittyGraphicsPlacement(
+          id: KittyImageID(rawValue: 103),
+          placement: KittyPlacementID(rawValue: 11),
+          columns: 4,
+          rows: 5,
+          zIndex: 6,
+          quiet: .verbose
+        )
+      )
+    ),
+    kgp("a=p,i=103,p=11,c=4,r=5,z=6,C=1,q=0")
+  )
+}
+
+@Test
+func `kitty graphics delete commands encode exact APC bytes`() {
+  expectBytes(.kittyGraphics(.delete(.all)), kgp("a=d,d=A"))
+  expectBytes(
+    .kittyGraphics(.delete(.image(KittyImageID(rawValue: 120)))),
+    kgp("a=d,d=I,i=120")
+  )
+  expectBytes(
+    .kittyGraphics(
+      .delete(
+        .placement(
+          KittyImageID(rawValue: 121),
+          KittyPlacementID(rawValue: 12)
+        )
+      )
+    ),
+    kgp("a=d,d=i,i=121,p=12")
+  )
+}
+
+@Test
+func `kitty graphics query encodes verified detection probe bytes`() {
+  expectBytes(
+    .kittyGraphics(.query(id: KittyImageID(rawValue: 130))),
+    kgp("i=130,s=1,v=1,a=q,t=d,f=24;AAAA")
+  )
+}
+
+@Test(
+  .disabled(
+    if: VirtualTerminal.isGhosttyUnavailable,
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
+)
+func `kitty graphics transmit place and replace move without duplication`() {
+  let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 4, rows: 2)
+  let imageID = KittyImageID(rawValue: 200)
+  let placementID = KittyPlacementID(rawValue: 201)
+
+  feed(
+    [
+      .kittyGraphics(
+        .transmit(
+          KittyGraphicsTransmission(
+            id: imageID,
+            format: .rgb(width: 1, height: 1),
+            data: [255, 0, 0],
+            quiet: .suppressFailures
+          )
+        )
+      ),
+      .cursorPosition(TerminalPosition(column: 1, row: 0)),
+      .kittyGraphics(
+        .place(
+          KittyGraphicsPlacement(
+            id: imageID,
+            placement: placementID,
+            columns: 1,
+            rows: 1,
+            zIndex: 3,
+            quiet: .suppressFailures
+          )
+        )
+      ),
+    ],
+    into: terminal
+  )
+
+  #expect(
+    terminal.kittyImages() == [
+      RenderedKittyImage(format: .rgb, height: 1, id: 200, width: 1)
+    ]
+  )
+  let initialPlacement = RenderedKittyPlacement(
+    column: 1,
+    columns: 1,
+    imageID: 200,
+    placementID: 201,
+    row: 0,
+    rows: 1,
+    zIndex: 3
+  )
+  #expect(terminal.kittyPlacements() == [initialPlacement])
+
+  feed(
+    [
+      .cursorPosition(TerminalPosition(column: 3, row: 1)),
+      .kittyGraphics(
+        .place(
+          KittyGraphicsPlacement(
+            id: imageID,
+            placement: placementID,
+            columns: 1,
+            rows: 1,
+            zIndex: 3,
+            quiet: .suppressFailures
+          )
+        )
+      ),
+    ],
+    into: terminal
+  )
+
+  #expect(
+    terminal.kittyImages() == [
+      RenderedKittyImage(format: .rgb, height: 1, id: 200, width: 1)
+    ]
+  )
+  let movedPlacement = RenderedKittyPlacement(
+    column: 3,
+    columns: 1,
+    imageID: 200,
+    placementID: 201,
+    row: 1,
+    rows: 1,
+    zIndex: 3
+  )
+  #expect(terminal.kittyPlacements() == [movedPlacement])
+}
+
+@Test(
+  .disabled(
+    if: VirtualTerminal.isGhosttyUnavailable,
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
+)
+func `kitty graphics delete all clears images and placements`() throws {
+  let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 2, rows: 1)
+  let imageID = KittyImageID(rawValue: 210)
+  let placementID = KittyPlacementID(rawValue: 211)
+
+  feed(
+    [
+      .kittyGraphics(
+        .transmit(
+          KittyGraphicsTransmission(
+            id: imageID,
+            format: .rgb(width: 1, height: 1),
+            data: [0, 255, 0],
+            quiet: .suppressFailures
+          )
+        )
+      ),
+      .kittyGraphics(
+        .place(
+          KittyGraphicsPlacement(
+            id: imageID,
+            placement: placementID,
+            columns: 1,
+            rows: 1,
+            zIndex: 0,
+            quiet: .suppressFailures
+          )
+        )
+      ),
+    ],
+    into: terminal
+  )
+  try #require(
+    terminal.kittyImages() == [
+      RenderedKittyImage(format: .rgb, height: 1, id: 210, width: 1)
+    ]
+  )
+  let expectedPlacement = RenderedKittyPlacement(
+    column: 0,
+    columns: 1,
+    imageID: 210,
+    placementID: 211,
+    row: 0,
+    rows: 1,
+    zIndex: 0
+  )
+  try #require(terminal.kittyPlacements() == [expectedPlacement])
+
+  feed([.kittyGraphics(.delete(.all))], into: terminal)
+
+  #expect(terminal.kittyImages().isEmpty)
+  #expect(terminal.kittyPlacements().isEmpty)
+}
+
+@Test
 func `window title encodes exact bytes`() {
   expectBytes(.setWindowTitle("Tessera"), esc("]2;Tessera") + [0x07])
   expectBytes(.setWindowTitle("A\u{07}B\u{1B}C"), esc("]2;ABC") + [0x07])
@@ -615,6 +969,26 @@ func `hyperlinks reject osc delimiters and unsafe identifiers`() throws {
     }
   }
 }
+func apc(_ body: String) -> [UInt8] {
+  esc("_" + body) + esc("\\")
+}
+
+func kgp(_ body: String) -> [UInt8] {
+  apc("G" + body)
+}
+
+func zeros(_ count: Int) -> [UInt8] {
+  Array(repeating: 0, count: count)
+}
+
+private func kittyGraphicsQuietCases() -> [(KittyGraphicsQuiet, Int)] {
+  [
+    (.verbose, 0),
+    (.suppressOK, 1),
+    (.suppressFailures, 2),
+  ]
+}
+
 func expectBytes(
   _ sequence: ControlSequence,
   _ expected: [UInt8]

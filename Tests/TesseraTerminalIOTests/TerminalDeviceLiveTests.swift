@@ -53,6 +53,30 @@ import Testing
     }
 
     @Test
+    func `live terminal reports per-cell pixel geometry from pty size`() async throws {
+      let pty = try PTYFixture()
+      defer { pty.closeAll() }
+      try pty.setSize(columns: 10, rows: 5, xPixels: 200, yPixels: 100)
+      let io = try PlatformIO(handles: pty.handles())
+
+      let pixelSize = await io.cellPixelSize()
+
+      expectNoDifference(pixelSize, CellPixelSize(height: 20, width: 20))
+    }
+
+    @Test
+    func `live terminal reports nil cell pixels for zero pixel fields`() async throws {
+      let pty = try PTYFixture()
+      defer { pty.closeAll() }
+      try pty.setSize(columns: 10, rows: 5, xPixels: 0, yPixels: 0)
+      let io = try PlatformIO(handles: pty.handles())
+
+      let pixelSize = await io.cellPixelSize()
+
+      expectNoDifference(pixelSize, nil)
+    }
+
+    @Test
     func `live terminal flush writes bytes to pty`() async throws {
       let pty = try PTYFixture()
       defer { pty.closeAll() }
@@ -138,8 +162,18 @@ import Testing
       }
     }
 
-    func setSize(columns: UInt16, rows: UInt16) throws {
-      var size = winsize(ws_row: rows, ws_col: columns, ws_xpixel: 0, ws_ypixel: 0)
+    func setSize(
+      columns: UInt16,
+      rows: UInt16,
+      xPixels: UInt16 = 0,
+      yPixels: UInt16 = 0
+    ) throws {
+      var size = winsize(
+        ws_row: rows,
+        ws_col: columns,
+        ws_xpixel: xPixels,
+        ws_ypixel: yPixels
+      )
       guard ioctl(replicaFileDescriptor, UInt(TIOCSWINSZ), &size) == 0 else {
         throw PlatformIOError.terminalSizeUnavailable(errno: .init(rawValue: errno))
       }

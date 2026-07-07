@@ -25,7 +25,7 @@ enum Phase3ProtocolsDemo {
     }
 
     let configuration = TerminalApplicationConfiguration(
-      mouseTracking: .buttonEvents,
+      mouseTracking: .anyEvent,
       keyboardProtocol: .kittyIfAvailable
     )
 
@@ -33,13 +33,13 @@ enum Phase3ProtocolsDemo {
       configuration: configuration
     ) { terminal in
       var state = DemoState()
-      try await draw(terminal: terminal, state: state)
+      try await draw(terminal: terminal, state: &state)
 
       for await event in terminal.events {
         if handle(event, state: &state, terminal: terminal) {
           return
         }
-        try await draw(terminal: terminal, state: state)
+        try await draw(terminal: terminal, state: &state)
       }
     }
   }
@@ -68,6 +68,10 @@ enum Phase3ProtocolsDemo {
         state.selectedPanel = .links
       } else if key == Key(code: .character("6")) {
         state.selectedPanel = .capabilities
+      } else if key == Key(code: .character("7")) {
+        state.selectedPanel = .graphics
+      } else if key == Key(code: .character("g")) {
+        state.forceKittyGraphicsOutput.toggle()
       } else if key == Key(code: .character("m")) {
         state.logsMouseMotionOutsideMousePanel.toggle()
       }
@@ -85,6 +89,17 @@ enum Phase3ProtocolsDemo {
       state.focusState = .unfocused
       state.lastFocusTransition = "focus lost at event \(state.formattedSequenceNumber)"
 
+    case .kittyGraphicsResponse(let response):
+      if state.graphicsProbe == .pending, response.id == GraphicsDemo.probeID {
+        state.graphicsProbe = response.success ? .supported : .unsupported
+      }
+      state.append(event)
+
+    case .primaryDeviceAttributes:
+      if state.graphicsProbe == .pending {
+        state.graphicsProbe = .unsupported
+      }
+      state.append(event)
     case .mouse(let event):
       if state.shouldAppendMouseEvent(event) {
         state.append(.mouse(event))
@@ -106,10 +121,35 @@ enum Phase3ProtocolsDemo {
 
   private static func draw(
     terminal: isolated TerminalSession,
-    state: DemoState
+    state: inout DemoState
   ) async throws {
+    let graphicsCapability = state.kittyGraphicsCapability(
+      from: terminal.capabilities.kittyGraphics
+    )
+    let shouldStartGraphicsProbe =
+      state.selectedPanel == .graphics && state.graphicsProbe == .notStarted
+      && !state.forceKittyGraphicsOutput
+    if shouldStartGraphicsProbe {
+      try await terminal.queryKittyGraphicsSupport(id: GraphicsDemo.probeID)
+      state.graphicsProbe = .pending
+    }
+    let graphicsOutputEnabled =
+      state.graphicsProbe == .supported || state.forceKittyGraphicsOutput
+    if state.selectedPanel == .graphics && graphicsOutputEnabled {
+      if !state.hasTransmittedGraphics {
+        try await terminal.transmitImage(GraphicsDemo.transmission)
+        state.hasTransmittedGraphics = true
+      }
+      state.hasVisibleGraphics = true
+    } else if state.hasVisibleGraphics {
+      try await terminal.deleteImages(
+        .placement(GraphicsDemo.imageID, GraphicsDemo.placementID)
+      )
+      state.hasVisibleGraphics = false
+    }
+    let cellPixelSize = await terminal.cellPixelSize
     try await terminal.draw { frame in
-      drawHeader(frame: frame, state: state)
+      drawHeader(frame: frame, state: state, cellPixelSize: cellPixelSize)
       let minimumSize = minimumTerminalSize(for: state.selectedPanel)
       guard
         frame.size.columns >= minimumSize.columns,
@@ -126,7 +166,8 @@ enum Phase3ProtocolsDemo {
           capabilities: terminal.capabilities,
           enabledModes: terminal.enabledProtocolModes,
           hyperlinkRendering: terminal.hyperlinkRendering,
-          synchronizedOutput: terminal.synchronizedOutput
+          synchronizedOutput: terminal.synchronizedOutput,
+          kittyGraphics: graphicsCapability
         )
 
       case .paste:
@@ -137,6 +178,15 @@ enum Phase3ProtocolsDemo {
 
       case .focus:
         drawFocusPanel(frame: frame, state: state)
+
+      case .graphics:
+        drawGraphicsPanel(
+          frame: frame,
+          state: state,
+          cellPixelSize: cellPixelSize,
+          graphicsCapability: graphicsCapability,
+          graphicsOutputEnabled: graphicsOutputEnabled
+        )
 
       case .mouse:
         drawMousePanel(frame: frame, state: state)
@@ -150,19 +200,23 @@ enum Phase3ProtocolsDemo {
     }
   }
 
-  private static func drawHeader(frame: borrowing Frame, state: DemoState) {
+  private static func drawHeader(
+    frame: borrowing Frame,
+    state: DemoState,
+    cellPixelSize: CellPixelSize?
+  ) {
     frame.write(
       "Phase3ProtocolsDemo — \(state.selectedPanel.title)",
       at: position(0, 0),
       style: Style(foreground: .ansi(.brightCyan), attributes: [.bold])
     )
-    frame.write(
-      "q quit · 1 paste · 2 focus · 3 mouse · 4 keys · 5 links · 6 caps · m motion",
-      at: position(0, 1),
-      style: Style(attributes: [.dim])
-    )
+    let navigation =
+      "q quit · 1 paste · 2 focus · 3 mouse · 4 keys · 5 links · 6 caps"
+      + " · 7 graphics · g opt-in graphics · m motion"
+    frame.write(navigation, at: position(0, 1), style: Style(attributes: [.dim]))
     let terminalStatus =
       "Terminal: \(frame.size.columns)x\(frame.size.rows)"
+      + " · cell pixels: \(describe(cellPixelSize))"
       + " · motion log outside mouse: \(state.motionLogDescription)"
     frame.write(terminalStatus, at: position(0, 2), style: Style(attributes: [.dim]))
   }
@@ -194,6 +248,8 @@ enum Phase3ProtocolsDemo {
     switch panel {
     case .capabilities, .focus, .keyboard, .links, .paste:
       return TerminalSize(columns: 12, rows: 20)
+    case .graphics:
+      return TerminalSize(columns: 48, rows: 20)
     case .mouse:
       return TerminalSize(columns: 32, rows: 22)
     }
@@ -407,7 +463,8 @@ enum Phase3ProtocolsDemo {
     capabilities: TerminalCapabilities,
     enabledModes: Set<ModeLifecycle.Mode>,
     hyperlinkRendering: HyperlinkRenderingMode,
-    synchronizedOutput: SynchronizedOutputPolicy
+    synchronizedOutput: SynchronizedOutputPolicy,
+    kittyGraphics: CapabilityStatus
   ) {
     frame.write(
       "Detected terminal",
@@ -443,28 +500,98 @@ enum Phase3ProtocolsDemo {
       at: position(2, 14)
     )
     frame.write(
+      "Kitty graphics:  \(describe(kittyGraphics))",
+      at: position(2, 15)
+    )
+    frame.write(
       "OSC 8 links:     \(describe(capabilities.osc8Hyperlinks))"
         + ", rendering \(describe(hyperlinkRendering))",
-      at: position(2, 15)
+      at: position(2, 16)
     )
     frame.write(
       "sync output:     \(describe(capabilities.synchronizedOutput))"
         + ", policy \(describe(synchronizedOutput))",
-      at: position(2, 16)
+      at: position(2, 17)
     )
 
     frame.write(
       "Enabled in this session",
-      at: position(0, 18),
+      at: position(0, 19),
       style: Style(attributes: [.bold])
     )
     let lines = wrappedLines(
       describeEnabledModes(enabledModes),
       width: max(frame.size.columns - 2, 1)
     )
-    for (offset, line) in lines.prefix(max(frame.size.rows - 19, 0)).enumerated() {
-      frame.write(line, at: position(2, 19 + offset))
+    for (offset, line) in lines.prefix(max(frame.size.rows - 20, 0)).enumerated() {
+      frame.write(line, at: position(2, 20 + offset))
     }
+  }
+
+  private static func drawGraphicsPanel(
+    frame: borrowing Frame,
+    state: DemoState,
+    cellPixelSize: CellPixelSize?,
+    graphicsCapability: CapabilityStatus,
+    graphicsOutputEnabled: Bool
+  ) {
+    frame.write(
+      "Kitty Graphics Protocol",
+      at: position(0, 4),
+      style: Style(attributes: [.bold])
+    )
+    frame.write(
+      "cell pixels: \(describe(cellPixelSize))",
+      at: position(2, 5),
+      style: Style(attributes: [.dim])
+    )
+    frame.write(
+      "demo image id \(GraphicsDemo.imageID.rawValue)"
+        + " (\(GraphicsDemo.width)x\(GraphicsDemo.height) RGBA gradient)",
+      at: position(2, 7)
+    )
+    frame.write(
+      "placement occupies \(GraphicsDemo.placementRegion.size.columns)x"
+        + "\(GraphicsDemo.placementRegion.size.rows) cells"
+        + " at column \(GraphicsDemo.placementRegion.origin.column),"
+        + " row \(GraphicsDemo.placementRegion.origin.row)",
+      at: position(2, 8)
+    )
+    frame.write(
+      "Kitty Graphics: \(describe(graphicsCapability))"
+        + " · probe \(state.graphicsProbe.description)"
+        + " · output \(state.forceKittyGraphicsOutput ? "forced on" : "auto")",
+      at: position(2, 9),
+      style: Style(attributes: [.dim])
+    )
+
+    guard graphicsOutputEnabled else {
+      frame.write(
+        state.graphicsProbe == .pending
+          ? "Probing KGP support; waiting for DA1 sentinel."
+          : "No KGP response arrived before DA1; image output is disabled.",
+        at: position(
+          GraphicsDemo.placementRegion.origin.column,
+          GraphicsDemo.placementRegion.origin.row + 1
+        ),
+        style: Style(attributes: [.dim])
+      )
+      drawRecentEvents(frame: frame, state: state, top: 17)
+      return
+    }
+
+    frame.placeImage(
+      GraphicsDemo.placement,
+      at: GraphicsDemo.placementRegion.origin,
+      occupying: GraphicsDemo.placementRegion
+    )
+    frame.write(
+      "[ image placement renders above on supporting terminals ]",
+      at: position(2, GraphicsDemo.placementRegion.maxRow + 1),
+      style: Style(attributes: [.dim])
+    )
+
+    drawRecentEvents(frame: frame, state: state, top: 17)
   }
 
   private static func writeLink(
@@ -546,6 +673,42 @@ enum Phase3ProtocolsDemo {
   }
 }
 
+private enum GraphicsDemo {
+  static let probeID = KittyImageID(rawValue: .max)
+
+  static let height = 32
+  static let imageID = KittyImageID(rawValue: 1)
+  static let placementID = KittyPlacementID(rawValue: 1)
+  static let placementRegion = Rect(column: 2, row: 11, columns: 8, rows: 4)
+  static let width = 32
+
+  static let placement = KittyGraphicsPlacement(
+    id: imageID,
+    placement: placementID,
+    columns: placementRegion.size.columns,
+    rows: placementRegion.size.rows
+  )
+  static let transmission = KittyGraphicsTransmission(
+    id: imageID,
+    format: .rgba(width: width, height: height),
+    data: rgbaData
+  )
+
+  private static let rgbaData: [UInt8] = {
+    var data: [UInt8] = []
+    data.reserveCapacity(width * height * 4)
+    for y in 0..<height {
+      for x in 0..<width {
+        data.append(UInt8(x * 255 / max(width - 1, 1)))
+        data.append(UInt8(y * 255 / max(height - 1, 1)))
+        data.append(180)
+        data.append(255)
+      }
+    }
+    return data
+  }()
+}
+
 private enum MouseGrid {
   static let top = 13
   static let headerRow = top + 1
@@ -577,6 +740,7 @@ private enum MouseGrid {
 private enum DemoPanel {
   case capabilities
   case focus
+  case graphics
   case keyboard
   case links
   case mouse
@@ -588,6 +752,8 @@ private enum DemoPanel {
       return "Capabilities"
     case .focus:
       return "Focus"
+    case .graphics:
+      return "Graphics"
     case .keyboard:
       return "Keyboard"
     case .links:
@@ -617,17 +783,41 @@ private enum DemoFocusState {
   }
 }
 
+private enum GraphicsProbeState {
+  case notStarted
+  case pending
+  case supported
+  case unsupported
+
+  var description: String {
+    switch self {
+    case .notStarted:
+      return "not started"
+    case .pending:
+      return "pending"
+    case .supported:
+      return "supported"
+    case .unsupported:
+      return "unsupported"
+    }
+  }
+}
+
 private struct DemoState {
   private(set) var recentEvents: [String] = []
   var selectedPanel = DemoPanel.paste
-  var focusState = DemoFocusState.unknown
-  var lastFocusTransition = "none"
+  var focusState = DemoFocusState.focused
+  var lastFocusTransition = "focused at startup"
   var lastKey: Key?
   var lastKeyDescription = "none"
   var lastMouseDescription = "none"
   var lastMouseEvent: MouseEvent?
   var pressedMouseGridCell: TerminalPosition?
   var logsMouseMotionOutsideMousePanel = false
+  var hasTransmittedGraphics = false
+  var hasVisibleGraphics = false
+  var forceKittyGraphicsOutput = false
+  var graphicsProbe = GraphicsProbeState.notStarted
   var lastPaste = ""
   var sequenceNumber = 0
 
@@ -641,6 +831,17 @@ private struct DemoState {
 
   var motionLogDescription: String {
     logsMouseMotionOutsideMousePanel ? "on" : "off"
+  }
+
+  func kittyGraphicsCapability(from passive: CapabilityStatus) -> CapabilityStatus {
+    switch graphicsProbe {
+    case .supported:
+      return .supported
+    case .unsupported:
+      return .unsupported
+    case .notStarted, .pending:
+      return passive
+    }
   }
 
   mutating func append(_ event: InputEvent) {
@@ -733,6 +934,13 @@ private func describe(_ policy: SynchronizedOutputPolicy) -> String {
   case .enabled:
     return "enabled"
   }
+}
+
+private func describe(_ cellPixelSize: CellPixelSize?) -> String {
+  guard let cellPixelSize else {
+    return "unknown"
+  }
+  return "\(cellPixelSize.width)x\(cellPixelSize.height) px/cell"
 }
 
 private func describe(_ identity: TerminalIdentity) -> String {
@@ -829,6 +1037,10 @@ private func describe(_ event: InputEvent) -> String {
     return "focus lost"
   case .key(let key):
     return "key \(describe(key))"
+  case .kittyGraphicsResponse(let response):
+    return "kitty graphics \(describe(response))"
+  case .primaryDeviceAttributes(let attributes):
+    return "DA1 ?\(attributes.map(String.init).joined(separator: ";"))"
   case .mouse(let event):
     return "mouse \(describe(event))"
   case .paste(let text):
@@ -860,6 +1072,13 @@ private func describe(_ key: Key) -> String {
 
 private func describeOptional(_ code: KeyCode?) -> String {
   code.map(String.init(describing:)) ?? "none"
+}
+
+private func describe(_ response: KittyGraphicsResponse) -> String {
+  let status = response.success ? "OK" : "ERR"
+  let id = response.id.map { String($0.rawValue) } ?? "none"
+  let placement = response.placement.map { String($0.rawValue) } ?? "none"
+  return "\(status) id=\(id) placement=\(placement) message=\(response.message)"
 }
 
 private func describe(_ event: MouseEvent) -> String {
