@@ -245,12 +245,26 @@ private struct GridPosition: Equatable {
 
 private func describe(_ event: InputEvent) -> String {
   switch event {
+  case .focusGained:
+    return "focus gained"
+  case .focusLost:
+    return "focus lost"
   case .key(let key):
     return "key code=\(key.code) modifiers=\(describe(key.modifiers))"
+  case .kittyGraphicsResponse(let response):
+    return "kitty graphics response success=\(response.success)"
+  case .kittyKeyboardEnhancementFlags(let flags):
+    return "kitty keyboard flags=\(flags)"
+  case .mouse(let event):
+    return "mouse \(event.kind) at \(event.position.column),\(event.position.row)"
   case .paste(let text):
     return "paste chars=\(text.count) lines=\(lineCount(text))"
   case .resize(let size):
     return "resize \(size.columns)x\(size.rows)"
+  case .primaryDeviceAttributes(let attributes):
+    return "DA1 ?\(attributes.map(String.init).joined(separator: ";"))"
+  case .privateModeStatus(let status):
+    return "DECRQM ?\(status.mode)"
   case .unknown(let bytes):
     return "unknown bytes=\(hex(bytes))"
   }

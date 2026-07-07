@@ -489,6 +489,12 @@ public struct InputParser: Sendable {
       if byte == 0x63, let event = primaryDeviceAttributesEvent(params) {
         return [event]
       }
+      if byte == 0x75, let event = kittyKeyboardEnhancementFlagsEvent(params) {
+        return [event]
+      }
+      if byte == 0x79, let event = privateModeStatusEvent(params) {
+        return [event]
+      }
       guard
         let code = csiCode(finalByte: byte, params: params, parameterBytes: parameterBytes)
       else {
@@ -974,6 +980,53 @@ private func primaryDeviceAttributesEvent(_ params: String) -> InputEvent? {
     values.append(value)
   }
   return .primaryDeviceAttributes(values)
+}
+
+private func kittyKeyboardEnhancementFlagsEvent(_ params: String) -> InputEvent? {
+  guard params.first == "?" else {
+    return nil
+  }
+  let flagsText = params.dropFirst()
+  guard !flagsText.isEmpty, let flags = Int(flagsText), flags >= 0 else {
+    return nil
+  }
+  return .kittyKeyboardEnhancementFlags(flags)
+}
+
+private func privateModeStatusEvent(_ params: String) -> InputEvent? {
+  guard params.first == "?", params.last == "$" else {
+    return nil
+  }
+  let body = params.dropFirst().dropLast()
+  let fields = body.split(separator: ";", omittingEmptySubsequences: false)
+  guard
+    fields.count == 2,
+    let mode = Int(fields[0]),
+    let rawState = Int(fields[1]),
+    let state = PrivateModeState(rawValue: rawState)
+  else {
+    return nil
+  }
+  return .privateModeStatus(PrivateModeStatus(mode: mode, state: state))
+}
+
+extension PrivateModeState {
+  fileprivate init?(rawValue: Int) {
+    switch rawValue {
+    case 0:
+      self = .notRecognized
+    case 1:
+      self = .set
+    case 2:
+      self = .reset
+    case 3:
+      self = .permanentlySet
+    case 4:
+      self = .permanentlyReset
+    default:
+      return nil
+    }
+  }
 }
 
 private func csiParameterValues(_ params: String) -> [Int] {

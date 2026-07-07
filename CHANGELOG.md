@@ -82,6 +82,13 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Changed Phase 3 terminal capability detection to use active, protocol-native probes
+  instead of terminal-name support decisions. Queryable protocols now report `.probing`,
+  `.supported`, `.unsupported`, or `.unknown` from parser-observed evidence; OSC 8 is
+  documented and tested as not actively detectable; `.kittyIfAvailable` only enables Kitty
+  keyboard after active support is observed; and the Phase 3 demo distinguishes unanswered
+  probes from observed protocol behavior.
+
 - Changed Windows terminal input to translate queued console key records through
   `ReadConsoleInputW`, so live Windows consoles deliver keystrokes and bracketed paste to
   Tessera apps without relying on `ReadFile`.

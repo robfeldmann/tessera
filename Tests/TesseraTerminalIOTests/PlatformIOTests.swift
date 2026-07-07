@@ -180,7 +180,7 @@ func `events preserves alt keys without intervening idle chunk`() async {
 }
 
 @Test
-func `events includes terminal resize notifications`() async {
+func `events includes terminal resize notifications`() async throws {
   let size = TerminalSize(columns: 80, rows: 24)
   let io = PlatformIO(
     terminalDevice: TerminalDevice(
@@ -199,7 +199,13 @@ func `events includes terminal resize notifications`() async {
 
   let event = await iterator.next()
 
-  expectNoDifference(event, .resize(size))
+  let receivedEvent = try #require(event)
+  switch receivedEvent {
+  case .resize(let actualSize):
+    #expect(actualSize == size)
+  default:
+    Issue.record("Expected resize event, got \(receivedEvent)")
+  }
 }
 
 @Test

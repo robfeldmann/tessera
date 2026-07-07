@@ -5281,9 +5281,10 @@ similar terminal identity hints to decide that a modern protocol is supported or
 unsupported. Terminal identity can be useful diagnostic metadata for an example panel, but
 production protocol policy must not branch on concrete emulator names.
 
-As of Slice 7, only `kittyGraphics` follows this rule: the remaining protocol fields still
-use terminal-identity inference until plan 015 step 3.4 replaces them with active,
-non-hard-coded probes.
+As of plan 015 step 3.4, production protocol support fields no longer use terminal-name
+inference. Queryable protocols stay `.unknown` or `.probing` until Tessera observes
+protocol-native evidence, and OSC 8 is reported as not actively detectable because it has
+no standard query.
 
 > [!note] Ratatui References
 >
@@ -5306,12 +5307,11 @@ non-hard-coded probes.
 >   602-607). Tessera can centralize that kind of passive hinting in
 >   `TerminalCapabilities`.
 
-Active query candidates include KGP `a=q` + DA1, Kitty keyboard query + DA1, DECRQM
-(`CSI ? Ps $ p`) for DEC private modes, primary/secondary device attributes, and
-terminfo-style queries such as XTGETTCAP. XTGETTCAP is typically expressed as a DCS query
-for named terminfo capabilities; it can be useful, but it also introduces parsing
-complexity and multiplexer edge cases. Treat it as an implementation option, not a
-required badge of sophistication.
+Implemented active queries include KGP `a=q` + DA1, Kitty keyboard query + DA1, and DECRQM
+(`CSI ? Ps $ p`) for the DEC private modes Tessera uses (`2004`, `1004`, `1000`, `1002`,
+`1003`, `1006`, and `2026`). Primary/secondary device attributes and terminfo-style
+queries such as XTGETTCAP remain possible future inputs, but they must not become
+terminal-name allowlists.
 
 #### Startup behavior
 
@@ -5328,10 +5328,11 @@ Rules:
 - Detection should not block raw-mode restoration or cleanup.
 - The app should be able to opt out of active queries entirely.
 
-A conservative implementation may expose `.unknown` until active probe responses arrive.
-The test for this slice is not “does Tessera know every terminal?” The test is “does
-Tessera expose useful capability state without terminal-name hard-coding or fragile
-startup behavior?”
+An active run exposes `.probing` while probes are in flight, `.supported` only after a
+protocol-native response, `.unsupported` only after a conclusive sentinel, and `.unknown`
+when there is no reliable answer. The test for this slice is not “does Tessera know every
+terminal?” The test is “does Tessera expose useful capability state without terminal-name
+hard-coding or fragile startup behavior?”
 
 #### Protocol enablement policy
 
@@ -5347,16 +5348,19 @@ Suggested policy:
   `TerminalSession.draw` already wraps frames in DEC 2026). If detection warrants it, add
   an `.automatic` case to that existing enum rather than a parallel type; always keep the
   disable knob for nested or buggy environments.
-- Bracketed paste: enable by default unless explicitly disabled.
-- Focus events: enable by default unless explicitly disabled.
-- SGR mouse: enable according to terminal/application configuration; many apps may want
-  it, but mouse tracking changes selection/scroll behavior enough that the runtime may
-  need a policy knob.
-- Kitty keyboard: enable by default only if the project is comfortable with the fallback
-  story and cleanup behavior; otherwise gate it behind configuration until slice 6 has
-  enough evidence.
-- OSC 8 hyperlinks: render when hyperlink metadata exists unless disabled; unsupported
-  terminals still show visible text.
+- Bracketed paste: explicit configuration may still request it directly; availability
+  reporting comes from DECRQM mode `2004`, not terminal identity.
+- Focus events: explicit configuration may still request them directly; availability
+  reporting comes from DECRQM mode `1004`, not terminal identity.
+- SGR mouse: enable according to terminal/application configuration; availability
+  reporting comes from DECRQM over the mouse modes Tessera emits (`1002`/`1003` plus
+  `1006`, with `1000` queried for compatibility context).
+- Kitty keyboard: `.kittyIfAvailable` enables Kitty keyboard only after active keyboard
+  query support is observed. `.kittyRequired` remains the explicit opt-in that requests
+  Kitty keyboard without waiting for capability evidence.
+- OSC 8 hyperlinks: render when hyperlink metadata exists unless disabled; visible text
+  remains useful on unsupported terminals, and support is reported as not actively
+  detectable until a future standard query exists.
 - Kitty graphics (Slice 7): active detection uses the protocol's `a=q` query immediately
   followed by DA1. Apps should not send large image transmit/place payloads until the KGP
   response is observed, unless the user explicitly opts in to blind output.
@@ -5386,7 +5390,7 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
     public var mouseTracking: MouseTrackingMode
 
     // New fields default to: .passive, .automatic, true, true, .enabled,
-    // .kittyIfAvailable, .disabled (mouse tracking stays opt-in; see Phase 3 Slice 3)
+    // .kittyIfAvailable, .disabled (mouse tracking stays opt-in; see Phase 3 Slice 3).
 }
 ```
 
@@ -5422,7 +5426,7 @@ public enum HyperlinkRenderingMode: Equatable, Sendable {
 public enum CapabilityDetectionMode: Equatable, Sendable {
     case disabled
     case passive
-    case active(timeout: Duration)
+    case active
 }
 ```
 
@@ -5881,14 +5885,14 @@ to free a large image an app no longer needs.
 
 #### Capability detection
 
-Slice 6's `TerminalCapabilities` gains a `kittyGraphics: CapabilityStatus` field (see the
-Slice 6 edits above), but passive detection must not infer this value from terminal names.
-Slice 7 ships the active KGP probe path it owns: `query(id:)` encodes the side-effect-free
-`a=q` command, `TerminalSession.queryKittyGraphicsSupport(id:)` writes that query followed
-by DA1, `InputParser` decodes both `KittyGraphicsResponse` and DA1, and the app can decide
-support based on response ordering.
+Slice 6's `TerminalCapabilities` includes `kittyGraphics: CapabilityStatus`, and passive
+detection must not infer this value from terminal names. Slice 7 ships the active KGP
+probe path it owns: `query(id:)` encodes the side-effect-free `a=q` command,
+`TerminalSession.queryKittyGraphicsSupport(id:)` writes that query followed by DA1,
+`InputParser` decodes both `KittyGraphicsResponse` and DA1, and the app can decide support
+based on response ordering.
 
-Current behavior: `kittyGraphics` remains `.unknown` until an active probe or passive KGP
+Current behavior: `kittyGraphics` remains `.unknown` until an active probe or observed KGP
 response provides evidence. Examples may run the probe when the graphics panel is selected
 and must not transmit/place image data until support is observed, unless the user
 explicitly opts in to blind output.

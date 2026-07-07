@@ -32,6 +32,14 @@ func shouldCoalesceInputEvents(
 
 /// A scoped live-terminal capability for Tessera applications.
 public actor TerminalSession {
+  nonisolated private static let kittyKeyboardProbeBytes: [UInt8] = [
+    0x1B, 0x5B, 0x3F, 0x75, 0x1B, 0x5B, 0x63,
+  ]
+
+  nonisolated private static let privateModeProbeModes = [
+    2_004, 1_004, 1_000, 1_002, 1_003, 1_006, 2_026,
+  ]
+
   private let inputEvents: AsyncEventBuffer<InputEvent>
   private let inputPump: Task<Void, Never>
   private let io: PlatformIO
@@ -114,6 +122,9 @@ public actor TerminalSession {
       enabledProtocolModes: resolution.enabledProtocolModes,
       hyperlinkRendering: resolution.hyperlinkRendering
     )
+    if resolution.runsActiveProbes {
+      try await session.queryActiveCapabilities()
+    }
     do {
       let result = try await body(session)
       try await session.restoreCursorVisibility()
@@ -190,6 +201,42 @@ public actor TerminalSession {
     try await io.flush()
   }
 
+  /// Sends the active capability probes that have protocol-native query mechanisms.
+  public func queryActiveCapabilities() async throws {
+    var bytes: [UInt8] = []
+    bytes.append(contentsOf: Self.kittyKeyboardProbeBytes)
+    for mode in Self.privateModeProbeModes {
+      bytes.append(contentsOf: privateModeStatusRequestBytes(mode))
+    }
+    await io.write(bytes)
+    try await io.flush()
+  }
+
+  /// Sends a Kitty keyboard support query followed by DA1 as a sentinel.
+  ///
+  /// Terminals that support progressive keyboard enhancement should respond with
+  /// `InputEvent.kittyKeyboardEnhancementFlags` before the DA1 sentinel. If DA1
+  /// arrives first, the terminal did not answer the keyboard query.
+  public func queryKittyKeyboardSupport() async throws {
+    await io.write(Self.kittyKeyboardProbeBytes)
+    try await io.flush()
+  }
+
+  /// Sends DECRQM requests for the DEC private modes used by Phase 3 protocols.
+  public func queryPrivateModeStatuses() async throws {
+    try await queryPrivateModeStatuses(Self.privateModeProbeModes)
+  }
+
+  /// Sends DECRQM requests for selected DEC private modes.
+  public func queryPrivateModeStatuses(_ modes: [Int]) async throws {
+    var bytes: [UInt8] = []
+    for mode in modes {
+      bytes.append(contentsOf: privateModeStatusRequestBytes(mode))
+    }
+    await io.write(bytes)
+    try await io.flush()
+  }
+
   /// Transmits image data over the tty. Session-scoped, outside draw.
   public func transmitImage(_ transmission: KittyGraphicsTransmission) async throws {
     await io.write(ControlSequence.kittyGraphics(.transmit(transmission)).bytes)
@@ -206,6 +253,10 @@ public actor TerminalSession {
   public func invalidateRenderer() {
     renderer.invalidate()
     lastDrawnBuffer = nil
+  }
+
+  nonisolated private func privateModeStatusRequestBytes(_ mode: Int) -> [UInt8] {
+    Array("\u{1B}[?\(mode)$p".utf8)
   }
 
   private func appendCursorState(

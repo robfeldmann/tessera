@@ -25,6 +25,7 @@ enum Phase3ProtocolsDemo {
     }
 
     let configuration = TerminalApplicationConfiguration(
+      capabilityDetection: .active,
       mouseTracking: .anyEvent,
       keyboardProtocol: .kittyIfAvailable
     )
@@ -78,13 +79,16 @@ enum Phase3ProtocolsDemo {
     case .paste(let text):
       state.append(event)
       state.lastPaste = text
+      state.observedPrivateModeSupport.insert(2_004)
 
     case .focusGained:
+      state.observedPrivateModeSupport.insert(1_004)
       state.append(event)
       state.focusState = .focused
       state.lastFocusTransition = "focus gained at event \(state.formattedSequenceNumber)"
 
     case .focusLost:
+      state.observedPrivateModeSupport.insert(1_004)
       state.append(event)
       state.focusState = .unfocused
       state.lastFocusTransition = "focus lost at event \(state.formattedSequenceNumber)"
@@ -95,12 +99,22 @@ enum Phase3ProtocolsDemo {
       }
       state.append(event)
 
+    case .kittyKeyboardEnhancementFlags:
+      state.keyboardProbe = .supported
+      state.append(event)
     case .primaryDeviceAttributes:
       if state.graphicsProbe == .pending {
         state.graphicsProbe = .unsupported
       }
+      if state.keyboardProbe == .probing {
+        state.keyboardProbe = .unsupported
+      }
+      state.append(event)
+    case .privateModeStatus(let status):
+      state.privateModeStatuses[status.mode] = status.state
       state.append(event)
     case .mouse(let event):
+      state.observedPrivateModeSupport.formUnion([1_002, 1_003, 1_006])
       if state.shouldAppendMouseEvent(event) {
         state.append(.mouse(event))
       }
@@ -167,7 +181,7 @@ enum Phase3ProtocolsDemo {
           enabledModes: terminal.enabledProtocolModes,
           hyperlinkRendering: terminal.hyperlinkRendering,
           synchronizedOutput: terminal.synchronizedOutput,
-          kittyGraphics: graphicsCapability
+          state: state
         )
 
       case .paste:
@@ -464,7 +478,7 @@ enum Phase3ProtocolsDemo {
     enabledModes: Set<ModeLifecycle.Mode>,
     hyperlinkRendering: HyperlinkRenderingMode,
     synchronizedOutput: SynchronizedOutputPolicy,
-    kittyGraphics: CapabilityStatus
+    state: DemoState
   ) {
     frame.write(
       "Detected terminal",
@@ -484,23 +498,24 @@ enum Phase3ProtocolsDemo {
       style: Style(attributes: [.bold])
     )
     frame.write(
-      "bracketed paste: \(describe(capabilities.bracketedPaste))",
+      "bracketed paste: \(state.privateModeDescription(2_004))",
       at: position(2, 11)
     )
     frame.write(
-      "focus events:    \(describe(capabilities.focusEvents))",
+      "focus events:    \(state.privateModeDescription(1_004))",
       at: position(2, 12)
     )
     frame.write(
-      "SGR mouse:       \(describe(capabilities.mouseTracking))",
+      "SGR mouse:       \(state.mouseCapabilityDescription)"
+        + " (1002/1003/1006)",
       at: position(2, 13)
     )
     frame.write(
-      "Kitty keyboard:  \(describe(capabilities.kittyKeyboard))",
+      "Kitty keyboard:  \(describe(state.keyboardProbe))",
       at: position(2, 14)
     )
     frame.write(
-      "Kitty graphics:  \(describe(kittyGraphics))",
+      "Kitty graphics:  \(describe(state.kittyGraphicsCapability(from: capabilities.kittyGraphics)))",
       at: position(2, 15)
     )
     frame.write(
@@ -509,7 +524,7 @@ enum Phase3ProtocolsDemo {
       at: position(2, 16)
     )
     frame.write(
-      "sync output:     \(describe(capabilities.synchronizedOutput))"
+      "sync output:     \(state.privateModeDescription(2_026))"
         + ", policy \(describe(synchronizedOutput))",
       at: position(2, 17)
     )
@@ -806,6 +821,8 @@ private enum GraphicsProbeState {
 private struct DemoState {
   private(set) var recentEvents: [String] = []
   var selectedPanel = DemoPanel.paste
+  var keyboardProbe = CapabilityStatus.probing
+  var privateModeStatuses: [Int: PrivateModeState] = [:]
   var focusState = DemoFocusState.focused
   var lastFocusTransition = "focused at startup"
   var lastKey: Key?
@@ -818,8 +835,17 @@ private struct DemoState {
   var hasVisibleGraphics = false
   var forceKittyGraphicsOutput = false
   var graphicsProbe = GraphicsProbeState.notStarted
+  var observedPrivateModeSupport: Set<Int> = []
   var lastPaste = ""
   var sequenceNumber = 0
+
+  var mouseCapability: CapabilityStatus {
+    combinedCapability(for: [1_002, 1_003, 1_006])
+  }
+
+  var mouseCapabilityDescription: String {
+    privateModesDescription([1_002, 1_003, 1_006], status: mouseCapability)
+  }
 
   var lastEventDescription: String {
     recentEvents.last ?? "none"
@@ -833,13 +859,54 @@ private struct DemoState {
     logsMouseMotionOutsideMousePanel ? "on" : "off"
   }
 
+  func privateModeCapability(_ mode: Int) -> CapabilityStatus {
+    if observedPrivateModeSupport.contains(mode) {
+      return .supported
+    }
+    guard let state = privateModeStatuses[mode] else {
+      return .probing
+    }
+    switch state {
+    case .notRecognized:
+      return .unknown
+    case .permanentlyReset, .permanentlySet, .reset, .set:
+      return .supported
+    }
+  }
+
+  func privateModeDescription(_ mode: Int) -> String {
+    privateModesDescription([mode], status: privateModeCapability(mode))
+  }
+
+  private func privateModesDescription(
+    _ modes: [Int],
+    status: CapabilityStatus
+  ) -> String {
+    let base = describe(status)
+    let hasUnansweredProbe = modes.contains { privateModeStatuses[$0] == nil }
+    return hasUnansweredProbe ? "\(base) (probe unanswered)" : base
+  }
+
+  private func combinedCapability(for modes: [Int]) -> CapabilityStatus {
+    let statuses = modes.map(privateModeCapability)
+    if statuses.allSatisfy({ $0 == .supported }) {
+      return .supported
+    }
+    if statuses.contains(.probing) {
+      return .probing
+    }
+    return .unknown
+  }
+
   func kittyGraphicsCapability(from passive: CapabilityStatus) -> CapabilityStatus {
     switch graphicsProbe {
     case .supported:
       return .supported
     case .unsupported:
       return .unsupported
-    case .notStarted, .pending:
+    case .pending:
+      return .probing
+    case .notStarted:
       return passive
     }
   }
@@ -894,12 +961,31 @@ private struct DemoState {
 
 private func describe(_ status: CapabilityStatus) -> String {
   switch status {
+  case .notDetectable:
+    return "not detectable"
+  case .probing:
+    return "probing"
   case .supported:
     return "supported"
   case .unknown:
     return "unknown"
   case .unsupported:
     return "unsupported"
+  }
+}
+
+private func describe(_ state: PrivateModeState) -> String {
+  switch state {
+  case .notRecognized:
+    return "not recognized"
+  case .permanentlyReset:
+    return "permanently reset"
+  case .permanentlySet:
+    return "permanently set"
+  case .reset:
+    return "reset"
+  case .set:
+    return "set"
   }
 }
 
@@ -1039,8 +1125,12 @@ private func describe(_ event: InputEvent) -> String {
     return "key \(describe(key))"
   case .kittyGraphicsResponse(let response):
     return "kitty graphics \(describe(response))"
+  case .kittyKeyboardEnhancementFlags(let flags):
+    return "kitty keyboard flags=\(flags)"
   case .primaryDeviceAttributes(let attributes):
     return "DA1 ?\(attributes.map(String.init).joined(separator: ";"))"
+  case .privateModeStatus(let status):
+    return "DECRQM ?\(status.mode) \(describe(status.state))"
   case .mouse(let event):
     return "mouse \(describe(event))"
   case .paste(let text):

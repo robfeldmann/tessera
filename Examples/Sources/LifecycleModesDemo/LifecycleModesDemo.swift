@@ -55,6 +55,12 @@ enum LifecycleModesDemo {
           lastEvent = "paste: \(text.count) characters"
           try await draw(terminal: terminal, lastEvent: lastEvent)
 
+        case .focusGained, .focusLost, .kittyGraphicsResponse,
+          .kittyKeyboardEnhancementFlags, .mouse, .primaryDeviceAttributes,
+          .privateModeStatus:
+          lastEvent = "protocol event"
+          try await draw(terminal: terminal, lastEvent: lastEvent)
+
         case .resize:
           terminal.invalidateRenderer()
           try await draw(terminal: terminal, lastEvent: lastEvent)
@@ -106,6 +112,11 @@ enum LifecycleModesDemo {
 
         case .paste(let text):
           writeRawLine("raw paste: \(text)")
+
+        case .focusGained, .focusLost, .kittyGraphicsResponse,
+          .kittyKeyboardEnhancementFlags, .mouse, .primaryDeviceAttributes,
+          .privateModeStatus:
+          writeRawLine("raw protocol event")
 
         case .resize:
           writeRawLine("raw resize")

@@ -3,7 +3,7 @@ name: Phase 3 Modern Terminal Protocols
 description:
   Coordinate the seven Phase 3 protocol slices so parser, lifecycle, renderer, tests, and
   the example app evolve consistently.
-status: in-progress
+status: pending
 created: 2026-07-02
 updated: 2026-07-07
 ---
@@ -18,11 +18,11 @@ updated: 2026-07-07
   - [x] 2.2 Implement focus events from plan 017
   - [x] 2.3 Implement SGR mouse tracking from plan 018
   - [x] 2.4 Implement Kitty keyboard and dynamic mode apply from plan 019
-- [ ] **Phase 3 — Execute output and capability slices**
+- [x] **Phase 3 — Execute output and capability slices**
   - [x] 3.1 Implement OSC 8 hyperlinks from plan 020
   - [x] 3.2 Implement terminal capability detection from plan 021
   - [x] 3.3 Implement Kitty graphics protocol from plan 022
-  - [ ] 3.4 Refactor capability detection to active, non-hard-coded probes
+  - [x] 3.4 Refactor capability detection to active, non-hard-coded probes
 - [ ] **Phase 4 — Close Phase 3 as one integrated substrate**
   - [ ] 4.1 Run the full Phase 3 validation sweep
   - [ ] 4.2 Review the example app across every protocol panel
@@ -246,7 +246,7 @@ policy does not depend on specific terminal names.
 
 Keep the KGP active probe added during Slice 7: send `a=q` Kitty graphics query bytes
 immediately followed by DA1 (`ESC [ c`). A KGP response before DA1 means supported; DA1
-first means unsupported; no response keeps the result unknown/pending. Do not replace this
+first means unsupported; no response keeps the result unknown/probing. Do not replace this
 with a terminal-name allowlist.
 
 Add equivalent active-probe infrastructure for the other queryable protocols:
@@ -267,12 +267,12 @@ Add equivalent active-probe infrastructure for the other queryable protocols:
 
 Update configuration policy so `.kittyIfAvailable` and any future "if available" mode
 intents consume active probe results rather than passive terminal-name confidence. Startup
-must not block indefinitely: probes must be represented as pending/unknown until terminal
+must not block indefinitely: probes must be represented as probing/unknown until terminal
 input produces responses. Unsupported or unknown probes must prevent enabling protocols
 that can corrupt input/output when blindly enabled.
 
 Revisit `Phase3ProtocolsDemo`:
-- Panel 6 (capabilities) must show active probe state per protocol: pending, supported,
+- Panel 6 (capabilities) must show active probe state per protocol: probing, supported,
   unsupported, unknown, or not detectable. It must not imply support because of the
   terminal name.
 - Panel 4 (keyboard) must still make sense after Kitty keyboard support becomes actively

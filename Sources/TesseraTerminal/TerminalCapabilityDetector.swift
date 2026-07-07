@@ -2,15 +2,6 @@ import Foundation
 
 /// Passive detector for advisory terminal capability hints.
 package enum TerminalCapabilityDetector {
-  private typealias ProtocolStatus = (
-    bracketedPaste: CapabilityStatus,
-    focusEvents: CapabilityStatus,
-    mouseTracking: CapabilityStatus,
-    kittyGraphics: CapabilityStatus,
-    kittyKeyboard: CapabilityStatus,
-    osc8Hyperlinks: CapabilityStatus,
-    synchronizedOutput: CapabilityStatus
-  )
   package static func currentEnvironment() -> [String: String] {
     ProcessInfo.processInfo.environment
   }
@@ -21,25 +12,18 @@ package enum TerminalCapabilityDetector {
 
   package static func detect(environment: [String: String]) -> TerminalCapabilities {
     let identity = identity(from: environment)
-    let isNested = isNestedEnvironment(environment)
-    let color = colorCapability(from: environment, identity: identity)
-    let status = protocolStatus(
-      identity: identity,
-      environment: environment,
-      isNested: isNested
-    )
 
     return TerminalCapabilities(
-      bracketedPaste: status.bracketedPaste,
-      focusEvents: status.focusEvents,
-      mouseTracking: status.mouseTracking,
-      kittyGraphics: status.kittyGraphics,
-      kittyKeyboard: status.kittyKeyboard,
-      osc8Hyperlinks: status.osc8Hyperlinks,
-      synchronizedOutput: status.synchronizedOutput,
-      color: color,
+      bracketedPaste: .unknown,
+      focusEvents: .unknown,
+      mouseTracking: .unknown,
+      kittyGraphics: .unknown,
+      kittyKeyboard: .unknown,
+      osc8Hyperlinks: .notDetectable,
+      synchronizedOutput: .unknown,
+      color: colorCapability(from: environment, identity: identity),
       identity: identity,
-      isNested: isNested
+      isNested: isNestedEnvironment(environment)
     )
   }
 
@@ -195,100 +179,5 @@ package enum TerminalCapabilityDetector {
       return false
     }
     return term.hasPrefix("screen") || term.hasPrefix("tmux")
-  }
-
-  private static func protocolStatus(
-    identity: TerminalIdentity,
-    environment: [String: String],
-    isNested: Bool
-  ) -> ProtocolStatus {
-    if identity.kind == .dumb {
-      return (
-        bracketedPaste: .unsupported,
-        focusEvents: .unsupported,
-        mouseTracking: .unsupported,
-        kittyGraphics: .unsupported,
-        kittyKeyboard: .unsupported,
-        osc8Hyperlinks: .unsupported,
-        synchronizedOutput: .unsupported
-      )
-    }
-
-    if isNested || hasContradictoryDumbTerm(identity: identity, environment: environment) {
-      return unknownProtocolStatus()
-    }
-
-    switch identity.kind {
-    case .ghostty, .kitty, .wezTerm:
-      return (
-        bracketedPaste: .supported,
-        focusEvents: .supported,
-        mouseTracking: .supported,
-        kittyGraphics: .unknown,
-        kittyKeyboard: .supported,
-        osc8Hyperlinks: .supported,
-        synchronizedOutput: .unknown
-      )
-
-    case .foot, .iTerm2, .windowsTerminal:
-      return (
-        bracketedPaste: .supported,
-        focusEvents: .supported,
-        mouseTracking: .supported,
-        kittyGraphics: .unknown,
-        kittyKeyboard: .unknown,
-        osc8Hyperlinks: .supported,
-        synchronizedOutput: .unknown
-      )
-
-    case .xterm:
-      return (
-        bracketedPaste: .supported,
-        focusEvents: .supported,
-        mouseTracking: .supported,
-        kittyGraphics: .unknown,
-        kittyKeyboard: .unknown,
-        osc8Hyperlinks: .unknown,
-        synchronizedOutput: .unknown
-      )
-
-    case .appleTerminal:
-      return (
-        bracketedPaste: .supported,
-        focusEvents: .unknown,
-        mouseTracking: .unknown,
-        kittyGraphics: .unknown,
-        kittyKeyboard: .unknown,
-        osc8Hyperlinks: .unknown,
-        synchronizedOutput: .unknown
-      )
-
-    case .dumb, .other, .screen, .tmux, .unknown:
-      return unknownProtocolStatus()
-    }
-  }
-
-  private static func hasContradictoryDumbTerm(
-    identity: TerminalIdentity,
-    environment: [String: String]
-  ) -> Bool {
-    guard let term = environmentValue("TERM", in: environment)?.lowercased() else {
-      return false
-    }
-    return (term == "dumb" || term.hasPrefix("dumb-"))
-      && identity.kind != .dumb
-      && identity.kind != .unknown
-  }
-
-  private static func unknownProtocolStatus() -> ProtocolStatus {
-    (
-      bracketedPaste: .unknown,
-      focusEvents: .unknown,
-      mouseTracking: .unknown,
-      kittyGraphics: .unknown,
-      kittyKeyboard: .unknown,
-      osc8Hyperlinks: .unknown,
-      synchronizedOutput: .unknown
-    )
   }
 }

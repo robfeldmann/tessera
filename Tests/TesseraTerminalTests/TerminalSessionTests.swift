@@ -30,10 +30,8 @@ func `application terminal returns body result and cleans up modes`() async thro
       enterAltScreen
       flush: enableBracketedPaste(true)
       flush: enableFocusTracking(true)
-      flush: pushKittyKeyboard
       flush: cursorVisible(true)
       flush: deleteKittyGraphicsAll
-      flush: popKittyKeyboard
       flush: enableFocusTracking(false)
       flush: enableBracketedPaste(false)
       exitAltScreen
@@ -113,6 +111,42 @@ func `query kitty graphics support writes query and DA1`() async throws {
 }
 
 @Test
+func `query Kitty keyboard support writes query and DA1`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let session = await makeSession(device)
+
+  try await session.queryKittyKeyboardSupport()
+
+  let events = await device.events
+
+  expectNoDifference(events, [.flush(kittyKeyboardProbeBytes)])
+}
+
+@Test
+func `query private modes writes phase 3 DECRQM requests`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let session = await makeSession(device)
+
+  try await session.queryPrivateModeStatuses()
+
+  let events = await device.events
+
+  expectNoDifference(events, [.flush(privateModeStatusProbeBytes)])
+}
+
+@Test
+func `query active capabilities writes keyboard and DEC mode probes`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let session = await makeSession(device)
+
+  try await session.queryActiveCapabilities()
+
+  let events = await device.events
+
+  expectNoDifference(events, [.flush(activeCapabilityProbeBytes)])
+}
+
+@Test
 func `application configuration stores synchronized output policy`() {
   let configuration = TerminalApplicationConfiguration(
     modes: [.rawMode],
@@ -179,10 +213,8 @@ func `application terminal rethrows body error after cleanup`() async throws {
       enterAltScreen
       flush: enableBracketedPaste(true)
       flush: enableFocusTracking(true)
-      flush: pushKittyKeyboard
       flush: cursorVisible(true)
       flush: deleteKittyGraphicsAll
-      flush: popKittyKeyboard
       flush: enableFocusTracking(false)
       flush: enableBracketedPaste(false)
       exitAltScreen
@@ -192,7 +224,7 @@ func `application terminal rethrows body error after cleanup`() async throws {
 }
 
 @Test
-func `app terminal exposes conservative Ghostty capabilities and modes`() async throws {
+func `app terminal keeps Kitty off for passive Ghostty`() async throws {
   let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
   let io = PlatformIO(terminalDevice: await device.terminalDevice)
   let configuration = TerminalApplicationConfiguration(
@@ -219,12 +251,12 @@ func `app terminal exposes conservative Ghostty capabilities and modes`() async 
   expectNoDifference(
     observed.0,
     TerminalCapabilities(
-      bracketedPaste: .supported,
-      focusEvents: .supported,
-      mouseTracking: .supported,
+      bracketedPaste: .unknown,
+      focusEvents: .unknown,
+      mouseTracking: .unknown,
       kittyGraphics: .unknown,
-      kittyKeyboard: .supported,
-      osc8Hyperlinks: .supported,
+      kittyKeyboard: .unknown,
+      osc8Hyperlinks: .notDetectable,
       synchronizedOutput: .unknown,
       color: .unknown,
       identity: TerminalIdentity(
@@ -235,7 +267,7 @@ func `app terminal exposes conservative Ghostty capabilities and modes`() async 
       isNested: false
     )
   )
-  expectNoDifference(observed.1, applicationModes(including: [.kittyKeyboard]))
+  expectNoDifference(observed.1, applicationModes())
 }
 
 @Test
@@ -269,6 +301,70 @@ func `app terminal accepts dumb hints without kitty keyboard`() async throws {
       enterAltScreen
       flush: enableBracketedPaste(true)
       flush: enableFocusTracking(true)
+      flush: cursorVisible(true)
+      flush: deleteKittyGraphicsAll
+      flush: enableFocusTracking(false)
+      flush: enableBracketedPaste(false)
+      exitAltScreen
+      exitRawMode
+      """
+  )
+}
+
+@Test
+func `active app terminal probes without enabling Kitty keyboard`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+  let configuration = TerminalApplicationConfiguration(
+    capabilityDetection: .active,
+    enableBracketedPaste: true,
+    enableFocusEvents: true,
+    mouseTracking: .disabled,
+    keyboardProtocol: .kittyIfAvailable,
+    hyperlinkRendering: .enabled,
+    synchronizedOutput: .enabled
+  )
+
+  let observed = try await TerminalSession.withApplicationTerminal(
+    configuration: configuration,
+    io: io,
+    environment: [
+      "TERM_PROGRAM": "Ghostty",
+      "TERM_PROGRAM_VERSION": "1.3.2",
+    ]
+  ) { session in
+    (session.capabilities, session.enabledProtocolModes)
+  }
+
+  let events = await device.events
+
+  expectNoDifference(
+    observed.0,
+    TerminalCapabilities(
+      bracketedPaste: .probing,
+      focusEvents: .probing,
+      mouseTracking: .probing,
+      kittyGraphics: .unknown,
+      kittyKeyboard: .probing,
+      osc8Hyperlinks: .notDetectable,
+      synchronizedOutput: .probing,
+      color: .unknown,
+      identity: TerminalIdentity(
+        kind: .ghostty,
+        source: .termProgram("Ghostty"),
+        version: "1.3.2"
+      ),
+      isNested: false
+    )
+  )
+  expectNoDifference(observed.1, applicationModes())
+  #expect(
+    terminalSessionEventLog(events) == """
+      enterRawMode
+      enterAltScreen
+      flush: enableBracketedPaste(true)
+      flush: enableFocusTracking(true)
+      flush: activeCapabilityProbes
       flush: cursorVisible(true)
       flush: deleteKittyGraphicsAll
       flush: enableFocusTracking(false)
@@ -982,6 +1078,15 @@ private func terminalFlushName(_ bytes: [UInt8]) -> String {
   if bytes == mouseDisableBytes {
     return "disableMouseTracking"
   }
+  if bytes == kittyKeyboardProbeBytes {
+    return "kittyKeyboardProbe"
+  }
+  if bytes == privateModeStatusProbeBytes {
+    return "privateModeStatusProbes"
+  }
+  if bytes == activeCapabilityProbeBytes {
+    return "activeCapabilityProbes"
+  }
   if bytes == kittyKeyboardPushBytes {
     return "pushKittyKeyboard"
   }
@@ -997,6 +1102,7 @@ private func terminalFlushName(_ bytes: [UInt8]) -> String {
 
 private let mouseDisableBytes =
   Array("\u{1B}[?1003l\u{1B}[?1002l\u{1B}[?1006l".utf8)
+private let kittyKeyboardProbeBytes = Array("\u{1B}[?u\u{1B}[c".utf8)
 private let kittyKeyboardPushBytes = Array("\u{1B}[>7u".utf8)
 private let kittyKeyboardPopBytes = Array("\u{1B}[<u".utf8)
 private let kittyGraphicsDeleteAllBytes = Array("\u{1B}_Ga=d,d=A\u{1B}\\".utf8)
@@ -1006,6 +1112,12 @@ private let kittyGraphicsTransmitBytes =
   Array("\u{1B}_Ga=t,i=7,f=100,t=d,q=1,m=0;SGk=\u{1B}\\".utf8)
 private let kittyGraphicsQueryProbeBytes =
   Array("\u{1B}_Gi=17,s=1,v=1,a=q,t=d,f=24;AAAA\u{1B}\\\u{1B}[c".utf8)
+private let privateModeProbeModes = [2_004, 1_004, 1_000, 1_002, 1_003, 1_006, 2_026]
+private let privateModeStatusProbeBytes = privateModeProbeModes.flatMap { mode in
+  Array("\u{1B}[?\(mode)$p".utf8)
+}
+private let activeCapabilityProbeBytes =
+  kittyKeyboardProbeBytes + privateModeStatusProbeBytes
 
 private func mouseEnableBytes(_ granularity: MouseTracking) -> [UInt8] {
   switch granularity {

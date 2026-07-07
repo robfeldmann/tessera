@@ -5,43 +5,34 @@ import Testing
 @testable import TesseraTerminal
 
 @Test
-func `empty passive environment yields conservative unknown capabilities`() {
+func `empty passive environment keeps protocols unknown`() {
   expectNoDifference(
     TerminalCapabilityDetector.detect(environment: [:]),
-    .conservativeDefault
+    TerminalCapabilities(osc8Hyperlinks: .notDetectable)
   )
 }
 
-@Test(arguments: modernTerminalCases)
-private func `modern terminals keep kitty graphics unknown`(
-  _ testCase: ModernTerminalCase
+@Test(arguments: namedTerminalProtocolCases)
+private func `passive named terminals do not infer active protocol support`(
+  _ testCase: NamedTerminalProtocolCase
 ) {
   let capabilities = TerminalCapabilityDetector.detect(environment: testCase.environment)
 
   expectNoDifference(
     capabilities,
     TerminalCapabilities(
-      bracketedPaste: .supported,
-      focusEvents: .supported,
-      mouseTracking: .supported,
+      bracketedPaste: .unknown,
+      focusEvents: .unknown,
+      mouseTracking: .unknown,
       kittyGraphics: .unknown,
-      kittyKeyboard: .supported,
-      osc8Hyperlinks: .supported,
+      kittyKeyboard: .unknown,
+      osc8Hyperlinks: .notDetectable,
       synchronizedOutput: .unknown,
-      color: .unknown,
+      color: testCase.color,
       identity: testCase.identity,
       isNested: false
     )
   )
-}
-
-@Test(arguments: passiveKittyGraphicsStatusCases)
-private func `passive detection does not infer kitty graphics from named terminals`(
-  _ testCase: PassiveKittyGraphicsStatusCase
-) {
-  let capabilities = TerminalCapabilityDetector.detect(environment: testCase.environment)
-
-  #expect(capabilities.kittyGraphics == testCase.status)
 }
 
 @Test(arguments: nestedTerminalCases)
@@ -58,7 +49,7 @@ private func `nested multiplexer hints keep protocol and kitty graphics support 
       mouseTracking: .unknown,
       kittyGraphics: .unknown,
       kittyKeyboard: .unknown,
-      osc8Hyperlinks: .unknown,
+      osc8Hyperlinks: .notDetectable,
       synchronizedOutput: .unknown,
       color: .indexed256,
       identity: testCase.identity,
@@ -101,7 +92,7 @@ func `unknown terminal protocols remain unknown instead of unsupported`() {
       mouseTracking: .unknown,
       kittyGraphics: .unknown,
       kittyKeyboard: .unknown,
-      osc8Hyperlinks: .unknown,
+      osc8Hyperlinks: .notDetectable,
       synchronizedOutput: .unknown,
       color: .ansi16,
       identity: .unknown,
@@ -128,7 +119,7 @@ func `contradictory dumb TERM keeps protocol support unknown despite Ghostty ide
       mouseTracking: .unknown,
       kittyGraphics: .unknown,
       kittyKeyboard: .unknown,
-      osc8Hyperlinks: .unknown,
+      osc8Hyperlinks: .notDetectable,
       synchronizedOutput: .unknown,
       color: .unknown,
       identity: TerminalIdentity(
@@ -141,130 +132,8 @@ func `contradictory dumb TERM keeps protocol support unknown despite Ghostty ide
   )
 }
 
-@Test(arguments: assumedModernTerminalCases)
-private func `known terminals keep kitty graphics and keyboard confidence unknown`(
-  _ testCase: ModernTerminalCase
-) {
-  let capabilities = TerminalCapabilityDetector.detect(environment: testCase.environment)
-
-  expectNoDifference(
-    capabilities,
-    TerminalCapabilities(
-      bracketedPaste: .supported,
-      focusEvents: .supported,
-      mouseTracking: .supported,
-      kittyGraphics: .unknown,
-      kittyKeyboard: .unknown,
-      osc8Hyperlinks: .supported,
-      synchronizedOutput: .unknown,
-      color: .unknown,
-      identity: testCase.identity,
-      isNested: false
-    )
-  )
-}
-
 @Test
-func `xterm reports kitty graphics unknown`() {
-  let capabilities = TerminalCapabilityDetector.detect(environment: ["TERM": "xterm"])
-
-  expectNoDifference(
-    capabilities,
-    TerminalCapabilities(
-      bracketedPaste: .supported,
-      focusEvents: .supported,
-      mouseTracking: .supported,
-      kittyGraphics: .unknown,
-      kittyKeyboard: .unknown,
-      osc8Hyperlinks: .unknown,
-      synchronizedOutput: .unknown,
-      color: .ansi16,
-      identity: TerminalIdentity(kind: .xterm, source: .term("xterm")),
-      isNested: false
-    )
-  )
-}
-
-@Test
-func `Apple Terminal reports kitty graphics unknown`() {
-  let capabilities = TerminalCapabilityDetector.detect(
-    environment: ["TERM_PROGRAM": "Apple_Terminal"]
-  )
-
-  expectNoDifference(
-    capabilities,
-    TerminalCapabilities(
-      bracketedPaste: .supported,
-      focusEvents: .unknown,
-      mouseTracking: .unknown,
-      kittyGraphics: .unknown,
-      kittyKeyboard: .unknown,
-      osc8Hyperlinks: .unknown,
-      synchronizedOutput: .unknown,
-      color: .unknown,
-      identity: TerminalIdentity(
-        kind: .appleTerminal,
-        source: .termProgram("Apple_Terminal")
-      ),
-      isNested: false
-    )
-  )
-}
-
-@Test
-func `KONSOLE_VERSION hint identifies Konsole without protocol confidence`() {
-  let capabilities = TerminalCapabilityDetector.detect(
-    environment: ["KONSOLE_VERSION": "23.08.4"]
-  )
-
-  expectNoDifference(
-    capabilities,
-    TerminalCapabilities(
-      bracketedPaste: .unknown,
-      focusEvents: .unknown,
-      mouseTracking: .unknown,
-      kittyGraphics: .unknown,
-      kittyKeyboard: .unknown,
-      osc8Hyperlinks: .unknown,
-      synchronizedOutput: .unknown,
-      color: .unknown,
-      identity: TerminalIdentity(
-        kind: .other("Konsole"),
-        source: .environmentVariable(name: "KONSOLE_VERSION", value: "23.08.4")
-      ),
-      isNested: false
-    )
-  )
-}
-
-@Test
-func `VTE_VERSION hint identifies VTE without protocol confidence`() {
-  let capabilities = TerminalCapabilityDetector.detect(
-    environment: ["VTE_VERSION": "6800"]
-  )
-
-  expectNoDifference(
-    capabilities,
-    TerminalCapabilities(
-      bracketedPaste: .unknown,
-      focusEvents: .unknown,
-      mouseTracking: .unknown,
-      kittyGraphics: .unknown,
-      kittyKeyboard: .unknown,
-      osc8Hyperlinks: .unknown,
-      synchronizedOutput: .unknown,
-      color: .unknown,
-      identity: TerminalIdentity(
-        kind: .other("VTE"),
-        source: .environmentVariable(name: "VTE_VERSION", value: "6800")
-      ),
-      isNested: false
-    )
-  )
-}
-
-@Test
-func `kitty-if-available intent resolves application modes when support is unknown`() {
+func `kitty-if-available intent omits kitty keyboard when support is unknown`() {
   let configuration = TerminalApplicationConfiguration(
     capabilityDetection: .passive,
     enableBracketedPaste: true,
@@ -280,13 +149,35 @@ func `kitty-if-available intent resolves application modes when support is unkno
   expectNoDifference(
     resolution,
     TerminalApplicationResolution(
-      capabilities: .conservativeDefault,
-      enabledProtocolModes: baseApplicationModes.union([.kittyKeyboard]),
+      capabilities: TerminalCapabilities(osc8Hyperlinks: .notDetectable),
+      enabledProtocolModes: baseApplicationModes,
       hyperlinkRendering: .enabled,
-      modes: baseApplicationModes.union([.kittyKeyboard]),
+      modes: baseApplicationModes,
+      runsActiveProbes: false,
       synchronizedOutput: .enabled
     )
   )
+}
+
+@Test(arguments: kittyIfAvailableCapabilityCases)
+private func `kitty-if-available intent only enables kitty keyboard for active support`(
+  _ testCase: KittyIfAvailableCapabilityCase
+) {
+  let configuration = TerminalApplicationConfiguration(
+    capabilityDetection: .passive,
+    enableBracketedPaste: true,
+    enableFocusEvents: true,
+    mouseTracking: .disabled,
+    keyboardProtocol: .kittyIfAvailable,
+    hyperlinkRendering: .enabled,
+    synchronizedOutput: .enabled
+  )
+
+  let resolution = configuration.resolve(
+    capabilities: TerminalCapabilities(kittyKeyboard: testCase.status)
+  )
+
+  #expect(resolution.modes.contains(.kittyKeyboard) == testCase.enablesKittyKeyboard)
 }
 
 @Test
@@ -366,7 +257,49 @@ func `disabled capability detection resolves conservative unknown capabilities`(
 }
 
 @Test
-func `dumb terminal marks kitty graphics unsupported`() {
+func `active detection marks protocols probing before support`() {
+  let configuration = TerminalApplicationConfiguration(
+    capabilityDetection: .active,
+    enableBracketedPaste: true,
+    enableFocusEvents: true,
+    mouseTracking: .disabled,
+    keyboardProtocol: .kittyIfAvailable,
+    hyperlinkRendering: .enabled,
+    synchronizedOutput: .enabled
+  )
+
+  let resolution = configuration.resolve(
+    environment: [
+      "TERM_PROGRAM": "Ghostty",
+      "TERM_PROGRAM_VERSION": "1.3.2",
+    ]
+  )
+
+  expectNoDifference(
+    resolution.capabilities,
+    TerminalCapabilities(
+      bracketedPaste: .probing,
+      focusEvents: .probing,
+      mouseTracking: .probing,
+      kittyGraphics: .unknown,
+      kittyKeyboard: .probing,
+      osc8Hyperlinks: .notDetectable,
+      synchronizedOutput: .probing,
+      color: .unknown,
+      identity: TerminalIdentity(
+        kind: .ghostty,
+        source: .termProgram("Ghostty"),
+        version: "1.3.2"
+      ),
+      isNested: false
+    )
+  )
+  expectNoDifference(resolution.modes, baseApplicationModes)
+  expectNoDifference(resolution.runsActiveProbes, true)
+}
+
+@Test
+func `dumb terminal keeps active protocol support unknown and OSC 8 not-detectable`() {
   let configuration = TerminalApplicationConfiguration(
     capabilityDetection: .passive,
     enableBracketedPaste: true,
@@ -382,13 +315,13 @@ func `dumb terminal marks kitty graphics unsupported`() {
   expectNoDifference(
     resolution.capabilities,
     TerminalCapabilities(
-      bracketedPaste: .unsupported,
-      focusEvents: .unsupported,
-      mouseTracking: .unsupported,
-      kittyGraphics: .unsupported,
-      kittyKeyboard: .unsupported,
-      osc8Hyperlinks: .unsupported,
-      synchronizedOutput: .unsupported,
+      bracketedPaste: .unknown,
+      focusEvents: .unknown,
+      mouseTracking: .unknown,
+      kittyGraphics: .unknown,
+      kittyKeyboard: .unknown,
+      osc8Hyperlinks: .notDetectable,
+      synchronizedOutput: .unknown,
       color: .noColor,
       identity: TerminalIdentity(kind: .dumb, source: .term("dumb")),
       isNested: false
@@ -436,8 +369,9 @@ private let colorCapabilityCases = [
   ),
 ]
 
-private let modernTerminalCases = [
-  ModernTerminalCase(
+private let namedTerminalProtocolCases = [
+  NamedTerminalProtocolCase(
+    name: "Ghostty",
     environment: [
       "TERM_PROGRAM": "Ghostty",
       "TERM_PROGRAM_VERSION": "1.3.2",
@@ -446,15 +380,71 @@ private let modernTerminalCases = [
       kind: .ghostty,
       source: .termProgram("Ghostty"),
       version: "1.3.2"
-    )
+    ),
+    color: .unknown
   ),
-  ModernTerminalCase(
-    environment: ["TERM_PROGRAM": "WezTerm"],
-    identity: TerminalIdentity(kind: .wezTerm, source: .termProgram("WezTerm"))
-  ),
-  ModernTerminalCase(
+  NamedTerminalProtocolCase(
+    name: "kitty",
     environment: ["TERM_PROGRAM": "kitty"],
-    identity: TerminalIdentity(kind: .kitty, source: .termProgram("kitty"))
+    identity: TerminalIdentity(kind: .kitty, source: .termProgram("kitty")),
+    color: .unknown
+  ),
+  NamedTerminalProtocolCase(
+    name: "WezTerm",
+    environment: ["TERM_PROGRAM": "WezTerm"],
+    identity: TerminalIdentity(kind: .wezTerm, source: .termProgram("WezTerm")),
+    color: .unknown
+  ),
+  NamedTerminalProtocolCase(
+    name: "Apple Terminal",
+    environment: ["TERM_PROGRAM": "Apple_Terminal"],
+    identity: TerminalIdentity(
+      kind: .appleTerminal,
+      source: .termProgram("Apple_Terminal")
+    ),
+    color: .unknown
+  ),
+  NamedTerminalProtocolCase(
+    name: "Windows Terminal",
+    environment: ["WT_SESSION": "abc123"],
+    identity: TerminalIdentity(kind: .windowsTerminal, source: .windowsTerminalSession),
+    color: .unknown
+  ),
+  NamedTerminalProtocolCase(
+    name: "iTerm2",
+    environment: ["TERM_PROGRAM": "iTerm.app"],
+    identity: TerminalIdentity(kind: .iTerm2, source: .termProgram("iTerm.app")),
+    color: .unknown
+  ),
+  NamedTerminalProtocolCase(
+    name: "foot",
+    environment: ["TERM": "foot"],
+    identity: TerminalIdentity(kind: .foot, source: .term("foot")),
+    color: .unknown
+  ),
+  NamedTerminalProtocolCase(
+    name: "xterm",
+    environment: ["TERM": "xterm"],
+    identity: TerminalIdentity(kind: .xterm, source: .term("xterm")),
+    color: .ansi16
+  ),
+  NamedTerminalProtocolCase(
+    name: "Konsole",
+    environment: ["KONSOLE_VERSION": "23.08.4"],
+    identity: TerminalIdentity(
+      kind: .other("Konsole"),
+      source: .environmentVariable(name: "KONSOLE_VERSION", value: "23.08.4")
+    ),
+    color: .unknown
+  ),
+  NamedTerminalProtocolCase(
+    name: "VTE",
+    environment: ["VTE_VERSION": "6800"],
+    identity: TerminalIdentity(
+      kind: .other("VTE"),
+      source: .environmentVariable(name: "VTE_VERSION", value: "6800")
+    ),
+    color: .unknown
   ),
 ]
 
@@ -475,106 +465,31 @@ private let nestedTerminalCases = [
   ),
 ]
 
-private let assumedModernTerminalCases = [
-  ModernTerminalCase(
-    environment: ["WT_SESSION": "abc123"],
-    identity: TerminalIdentity(kind: .windowsTerminal, source: .windowsTerminalSession)
-  ),
-  ModernTerminalCase(
-    environment: ["TERM_PROGRAM": "iTerm.app"],
-    identity: TerminalIdentity(kind: .iTerm2, source: .termProgram("iTerm.app"))
-  ),
-  ModernTerminalCase(
-    environment: ["TERM": "foot"],
-    identity: TerminalIdentity(kind: .foot, source: .term("foot"))
-  ),
+private let kittyIfAvailableCapabilityCases = [
+  KittyIfAvailableCapabilityCase(status: .supported, enablesKittyKeyboard: true),
+  KittyIfAvailableCapabilityCase(status: .unknown, enablesKittyKeyboard: false),
+  KittyIfAvailableCapabilityCase(status: .probing, enablesKittyKeyboard: false),
+  KittyIfAvailableCapabilityCase(status: .unsupported, enablesKittyKeyboard: false),
+  KittyIfAvailableCapabilityCase(status: .notDetectable, enablesKittyKeyboard: false),
 ]
 
-private let passiveKittyGraphicsStatusCases = [
-  PassiveKittyGraphicsStatusCase(
-    name: "Ghostty TERM_PROGRAM",
-    environment: ["TERM_PROGRAM": "Ghostty"],
-    status: .unknown
-  ),
-  PassiveKittyGraphicsStatusCase(
-    name: "Ghostty TERM",
-    environment: ["TERM": "ghostty"],
-    status: .unknown
-  ),
-  PassiveKittyGraphicsStatusCase(
-    name: "kitty TERM_PROGRAM",
-    environment: ["TERM_PROGRAM": "kitty"],
-    status: .unknown
-  ),
-  PassiveKittyGraphicsStatusCase(
-    name: "kitty TERM",
-    environment: ["TERM": "xterm-kitty"],
-    status: .unknown
-  ),
-  PassiveKittyGraphicsStatusCase(
-    name: "WezTerm TERM_PROGRAM",
-    environment: ["TERM_PROGRAM": "WezTerm"],
-    status: .unknown
-  ),
-  PassiveKittyGraphicsStatusCase(
-    name: "WezTerm TERM",
-    environment: ["TERM": "wezterm"],
-    status: .unknown
-  ),
-  PassiveKittyGraphicsStatusCase(
-    name: "iTerm2 TERM_PROGRAM",
-    environment: ["TERM_PROGRAM": "iTerm.app"],
-    status: .unknown
-  ),
-  PassiveKittyGraphicsStatusCase(
-    name: "Windows Terminal",
-    environment: ["WT_SESSION": "abc123"],
-    status: .unknown
-  ),
-  PassiveKittyGraphicsStatusCase(
-    name: "foot TERM",
-    environment: ["TERM": "foot"],
-    status: .unknown
-  ),
-  PassiveKittyGraphicsStatusCase(
-    name: "xterm TERM",
-    environment: ["TERM": "xterm"],
-    status: .unknown
-  ),
-  PassiveKittyGraphicsStatusCase(
-    name: "Apple Terminal TERM_PROGRAM",
-    environment: ["TERM_PROGRAM": "Apple_Terminal"],
-    status: .unknown
-  ),
-  PassiveKittyGraphicsStatusCase(
-    name: "Konsole VERSION",
-    environment: ["KONSOLE_VERSION": "23.08.4"],
-    status: .unknown
-  ),
-  PassiveKittyGraphicsStatusCase(
-    name: "VTE VERSION",
-    environment: ["VTE_VERSION": "6800"],
-    status: .unknown
-  ),
-  PassiveKittyGraphicsStatusCase(
-    name: "dumb TERM",
-    environment: ["TERM": "dumb"],
-    status: .unsupported
-  ),
-  PassiveKittyGraphicsStatusCase(
-    name: "dumb-prefixed TERM",
-    environment: ["TERM": "dumb-ansi"],
-    status: .unsupported
-  ),
-]
-
-private struct PassiveKittyGraphicsStatusCase: CustomStringConvertible, Sendable {
+private struct NamedTerminalProtocolCase: CustomStringConvertible, Sendable {
   let name: String
   let environment: [String: String]
-  let status: CapabilityStatus
+  let identity: TerminalIdentity
+  let color: ColorCapability
 
   var description: String {
     name
+  }
+}
+
+private struct KittyIfAvailableCapabilityCase: CustomStringConvertible, Sendable {
+  let status: CapabilityStatus
+  let enablesKittyKeyboard: Bool
+
+  var description: String {
+    "\(status)"
   }
 }
 
@@ -584,15 +499,6 @@ private struct ColorCapabilityCase: CustomStringConvertible, Sendable {
 
   var description: String {
     String(describing: color)
-  }
-}
-
-private struct ModernTerminalCase: CustomStringConvertible, Sendable {
-  let environment: [String: String]
-  let identity: TerminalIdentity
-
-  var description: String {
-    String(describing: identity.kind)
   }
 }
 

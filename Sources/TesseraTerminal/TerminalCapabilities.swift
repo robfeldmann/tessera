@@ -1,12 +1,18 @@
 /// Advisory support status for a terminal protocol or feature.
 public enum CapabilityStatus: Equatable, Sendable {
-  /// The capability is expected to work from conservative local hints.
+  /// Tessera knows there is no standard active probe for this capability.
+  case notDetectable
+
+  /// Tessera has sent an active probe and has not yet observed a conclusive response.
+  case probing
+
+  /// Tessera observed protocol-native evidence that the capability works.
   case supported
 
-  /// Tessera has no reliable local hint for this capability.
+  /// Tessera has no reliable protocol-native evidence for this capability.
   case unknown
 
-  /// The capability is expected not to work from conservative local hints.
+  /// Tessera observed protocol-native evidence that the capability is unavailable.
   case unsupported
 }
 

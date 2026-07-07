@@ -141,6 +141,69 @@ let malformedPrimaryDeviceAttributeCases: [ParserCase] = [
   ),
 ]
 
+let kittyKeyboardEnhancementFlagCases: [ParserCase] = [
+  ParserCase("\u{1B}[?0u", .kittyKeyboardEnhancementFlags(0)),
+  ParserCase("\u{1B}[?5u", .kittyKeyboardEnhancementFlags(5)),
+  ParserCase("\u{1B}[?127u", .kittyKeyboardEnhancementFlags(127)),
+]
+
+let malformedKittyKeyboardEnhancementFlagCases: [ParserCase] = [
+  ParserCase(
+    "\u{1B}[?u",
+    .unknown(Array("\u{1B}[?u".utf8))
+  ),
+  ParserCase(
+    "\u{1B}[?-1u",
+    .unknown(Array("\u{1B}[?-1u".utf8))
+  ),
+  ParserCase(
+    "\u{1B}[?1;2u",
+    .unknown(Array("\u{1B}[?1;2u".utf8))
+  ),
+]
+
+let privateModeStatusCases: [ParserCase] = [
+  ParserCase(
+    "\u{1B}[?2004;0$y",
+    .privateModeStatus(PrivateModeStatus(mode: 2_004, state: .notRecognized))
+  ),
+  ParserCase(
+    "\u{1B}[?1004;1$y",
+    .privateModeStatus(PrivateModeStatus(mode: 1_004, state: .set))
+  ),
+  ParserCase(
+    "\u{1B}[?1000;2$y",
+    .privateModeStatus(PrivateModeStatus(mode: 1_000, state: .reset))
+  ),
+  ParserCase(
+    "\u{1B}[?1002;3$y",
+    .privateModeStatus(PrivateModeStatus(mode: 1_002, state: .permanentlySet))
+  ),
+  ParserCase(
+    "\u{1B}[?1003;4$y",
+    .privateModeStatus(PrivateModeStatus(mode: 1_003, state: .permanentlyReset))
+  ),
+]
+
+let malformedPrivateModeStatusCases: [ParserCase] = [
+  ParserCase(
+    "\u{1B}[?2004$y",
+    .unknown(Array("\u{1B}[?2004$y".utf8))
+  ),
+  ParserCase(
+    "\u{1B}[2004;1$y",
+    .unknown(Array("\u{1B}[2004;1$y".utf8))
+  ),
+  ParserCase(
+    "\u{1B}[?2004;5$y",
+    .unknown(Array("\u{1B}[?2004;5$y".utf8))
+  ),
+  ParserCase(
+    "\u{1B}[?;1$y",
+    .unknown(Array("\u{1B}[?;1$y".utf8))
+  ),
+]
+
 let mouseReportCases: [MouseReportCase] = [
   MouseReportCase(
     "\u{1B}[<0;12;34M",
@@ -475,6 +538,68 @@ func `parser decodes primary device attributes byte by byte`() {
 
 @Test(arguments: malformedPrimaryDeviceAttributeCases)
 func `parser emits unknown for malformed or non private primary device attributes`(
+  _ testCase: ParserCase
+) {
+  var parser = InputParser()
+
+  #expect(parser.feed(contentsOf: testCase.bytes) == [testCase.event])
+}
+
+@Test(arguments: kittyKeyboardEnhancementFlagCases)
+func `parser decodes Kitty keyboard enhancement flags response`(
+  _ testCase: ParserCase
+) {
+  var parser = InputParser()
+
+  #expect(parser.feed(contentsOf: testCase.bytes) == [testCase.event])
+}
+
+@Test
+func `parser decodes Kitty keyboard enhancement flags byte by byte`() {
+  var parser = InputParser()
+  var events: [InputEvent] = []
+
+  for byte in "\u{1B}[?5u".utf8 {
+    events.append(contentsOf: parser.feed(byte))
+  }
+
+  #expect(events == [.kittyKeyboardEnhancementFlags(5)])
+}
+
+@Test(arguments: malformedKittyKeyboardEnhancementFlagCases)
+func `parser emits unknown for malformed Kitty keyboard enhancement flags responses`(
+  _ testCase: ParserCase
+) {
+  var parser = InputParser()
+
+  #expect(parser.feed(contentsOf: testCase.bytes) == [testCase.event])
+}
+
+@Test(arguments: privateModeStatusCases)
+func `parser decodes DEC private mode status responses`(_ testCase: ParserCase) {
+  var parser = InputParser()
+
+  #expect(parser.feed(contentsOf: testCase.bytes) == [testCase.event])
+}
+
+@Test
+func `parser decodes DEC private mode status byte by byte`() {
+  var parser = InputParser()
+  var events: [InputEvent] = []
+
+  for byte in "\u{1B}[?2004;1$y".utf8 {
+    events.append(contentsOf: parser.feed(byte))
+  }
+
+  #expect(
+    events == [
+      .privateModeStatus(PrivateModeStatus(mode: 2_004, state: .set))
+    ]
+  )
+}
+
+@Test(arguments: malformedPrivateModeStatusCases)
+func `parser emits unknown for malformed DEC private mode status responses`(
   _ testCase: ParserCase
 ) {
   var parser = InputParser()
@@ -1132,6 +1257,32 @@ func `parser preserves Kitty graphics response before following DA1`() {
   }
 }
 
+@Test
+func `parser preserves Kitty keyboard flags before following DA1`() {
+  var parser = InputParser()
+  let bytes = Array("\u{1B}[?5u\u{1B}[?1;2c".utf8)
+
+  assertInlineSnapshot(of: eventLog(parser.feed(contentsOf: bytes)), as: .lines) {
+    """
+    kitty keyboard enhancement flags(5)
+    primary device attributes([1, 2])
+    """
+  }
+}
+
+@Test
+func `parser preserves DEC private mode status before following DA1`() {
+  var parser = InputParser()
+  let bytes = Array("\u{1B}[?2004;1$y\u{1B}[?1;2c".utf8)
+
+  assertInlineSnapshot(of: eventLog(parser.feed(contentsOf: bytes)), as: .lines) {
+    """
+    private mode status(mode: 2004, state: set)
+    primary device attributes([1, 2])
+    """
+  }
+}
+
 private func kittyGraphicsResponse(from event: InputEvent) -> KittyGraphicsResponse? {
   guard case .kittyGraphicsResponse(let response) = event else {
     return nil
@@ -1176,9 +1327,15 @@ private func eventLogLine(_ event: InputEvent) -> String {
     return
       "kitty graphics response(id: \(id), placement: \(placement), success: \(response.success), message: \(String(reflecting: response.message)))"
 
+  case .kittyKeyboardEnhancementFlags(let flags):
+    return "kitty keyboard enhancement flags(\(flags))"
+
   case .primaryDeviceAttributes(let attributes):
     let values = attributes.map { String($0) }.joined(separator: ", ")
     return "primary device attributes([\(values)])"
+
+  case .privateModeStatus(let status):
+    return "private mode status(mode: \(status.mode), state: \(status.state))"
 
   case .mouse(let mouse):
     return

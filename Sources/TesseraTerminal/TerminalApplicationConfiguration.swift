@@ -3,6 +3,9 @@ import TesseraTerminalIO
 
 /// Controls whether terminal capabilities are detected before startup.
 public enum CapabilityDetectionMode: Equatable, Sendable {
+  /// Inspect local hints and send bounded protocol-native probes after startup.
+  case active
+
   /// Do not inspect local capability hints.
   case disabled
 
@@ -21,7 +24,7 @@ public enum HyperlinkRenderingMode: Equatable, Sendable {
 
 /// Controls keyboard protocol enablement.
 public enum KeyboardProtocolMode: Equatable, Sendable {
-  /// Enable Kitty keyboard when passive hints say supported or unknown.
+  /// Enable Kitty keyboard only after active probes report support.
   case kittyIfAvailable
 
   /// Always request Kitty keyboard.
@@ -168,13 +171,36 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
   }
 
   package func resolve(environment: [String: String]) -> TerminalApplicationResolution {
-    let capabilities: TerminalCapabilities =
-      switch capabilityDetection {
-      case .disabled:
-        .conservativeDefault
-      case .passive:
-        TerminalCapabilityDetector.detect(environment: environment)
-      }
+    let detectedCapabilities: TerminalCapabilities
+    let runsActiveProbes: Bool
+    switch capabilityDetection {
+    case .active:
+      detectedCapabilities = TerminalCapabilityDetector.detect(environment: environment)
+        .preparingActiveProbes()
+      runsActiveProbes = true
+    case .disabled:
+      detectedCapabilities = .conservativeDefault
+      runsActiveProbes = false
+    case .passive:
+      detectedCapabilities = TerminalCapabilityDetector.detect(environment: environment)
+      runsActiveProbes = false
+    }
+    return resolve(
+      capabilities: detectedCapabilities,
+      runsActiveProbes: runsActiveProbes
+    )
+  }
+
+  package func resolve(
+    capabilities: TerminalCapabilities
+  ) -> TerminalApplicationResolution {
+    resolve(capabilities: capabilities, runsActiveProbes: false)
+  }
+
+  private func resolve(
+    capabilities: TerminalCapabilities,
+    runsActiveProbes: Bool
+  ) -> TerminalApplicationResolution {
     let modes =
       switch modeSelection {
       case .explicit(let modes):
@@ -188,6 +214,7 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
       enabledProtocolModes: modes,
       hyperlinkRendering: hyperlinkRendering,
       modes: modes,
+      runsActiveProbes: runsActiveProbes,
       synchronizedOutput: synchronizedOutput
     )
   }
@@ -213,7 +240,7 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
     }
 
     switch keyboardProtocol {
-    case .kittyIfAvailable where capabilities.kittyKeyboard != .unsupported:
+    case .kittyIfAvailable where capabilities.kittyKeyboard == .supported:
       modes.insert(.kittyKeyboard)
     case .kittyRequired:
       modes.insert(.kittyKeyboard)
@@ -230,10 +257,24 @@ package struct TerminalApplicationResolution: Equatable, Sendable {
   package var enabledProtocolModes: Set<ModeLifecycle.Mode>
   package var hyperlinkRendering: HyperlinkRenderingMode
   package var modes: Set<ModeLifecycle.Mode>
+  package var runsActiveProbes: Bool
   package var synchronizedOutput: SynchronizedOutputPolicy
 }
 
 private enum ModeSelection: Equatable, Sendable {
   case explicit(Set<ModeLifecycle.Mode>)
   case intent
+}
+
+extension TerminalCapabilities {
+  package func preparingActiveProbes() -> Self {
+    var capabilities = self
+    capabilities.bracketedPaste = .probing
+    capabilities.focusEvents = .probing
+    capabilities.mouseTracking = .probing
+    capabilities.kittyKeyboard = .probing
+    capabilities.synchronizedOutput = .probing
+    capabilities.osc8Hyperlinks = .notDetectable
+    return capabilities
+  }
 }
