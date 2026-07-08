@@ -57,6 +57,10 @@ Use it selectively:
   - [Slice 5: OSC 8 hyperlinks](#slice-5-osc-8-hyperlinks)
   - [Slice 6: Terminal capability detection](#slice-6-terminal-capability-detection)
   - [Slice 7: Kitty graphics protocol](#slice-7-kitty-graphics-protocol)
+  - [Slice 8: Color degradation baseline](#slice-8-color-degradation-baseline)
+  - [Slice 9: OSC 52 clipboard](#slice-9-osc-52-clipboard)
+  - [Slice 10: Cursor styling](#slice-10-cursor-styling)
+  - [Slice 11: Underline extensions](#slice-11-underline-extensions)
 - [Phase 4 — View layer](#phase-4--view-layer-the-tessera-module)
   - [Slice 1: TesseraCore — View, ViewGraph, reconciliation, Text](#slice-1-tesseracore--view-viewgraph-reconciliation-text)
   - [Slice 2: The Layout protocol and stack containers](#slice-2-the-layout-protocol-and-stack-containers)
@@ -1289,7 +1293,8 @@ Concrete list of cases the encoder needs for Phase 2 (informed by the layer-by-l
 - `setForeground(Color)`, `setBackground(Color)` — 16-color, 256-color, and truecolor
   variants behind a single `Color` enum
 - `setBold(Bool)`, `setItalic(Bool)`, `setUnderline(Bool)`, `setReverse(Bool)`,
-  `setDim(Bool)`, `setStrikethrough(Bool)`
+  `setDim(Bool)`, `setStrikethrough(Bool)` (Phase 3 Slice 11 replaces `setUnderline(Bool)`
+  with `setUnderlineStyle(UnderlineStyle)` plus `setUnderlineColor(Color)`)
 
 ##### Modes
 
@@ -6042,6 +6047,506 @@ graphics protocol, decode graphics responses without corrupting the input event 
 self-heal placements across resize and first-draw erases, clean up unconditionally on
 every exit path, and degrade silently on the many terminals that do not implement the
 protocol — all end-to-end verifiable through the existing Ghostty-backed snapshot harness.
+
+### Slice 8: Color degradation baseline
+
+Slice 8 gives Tessera one consistent color policy across modern and conservative
+terminals. The public style model continues to let callers describe the color they mean —
+default terminal colors, named ANSI 16 colors, 256-color palette indexes, or 24-bit RGB —
+while the renderer decides what is safe to emit for the active terminal capability.
+
+This is renderer policy, not a new terminal mode. There is no enable sequence, no active
+probe, and no lifecycle cleanup. `TerminalCapabilities.color` is the only input: passive
+detection maps environment hints such as `COLORTERM=truecolor`, `TERM=xterm-256color`,
+`TERM=dumb`, and `NO_COLOR` into a capability, and `TerminalSession.draw` passes that
+capability into the damage renderer.
+
+The fallback ladder is:
+
+1. **Truecolor (`.truecolor`)** — render semantic RGB colors as 24-bit SGR (`38;2;r;g;b` /
+   `48;2;r;g;b`). Existing indexed and named ANSI colors may stay in their narrower wire
+   form because a truecolor terminal accepts them.
+2. **256-color (`.indexed256`)** — render semantic RGB colors as the nearest xterm
+   256-color palette index (`38;5;n` / `48;5;n`). Existing indexed colors stay indexed;
+   named ANSI colors stay named ANSI SGR.
+3. **ANSI 16 (`.ansi16`)** — render semantic RGB colors and high indexed colors as the
+   nearest named `ANSIColor`. Indexed values `0...15` map directly to their 16-color ANSI
+   equivalents. Existing named ANSI colors stay named.
+4. **Unknown (`.unknown`)** — render as ANSI 16, not as no-color. Unknown means Tessera
+   lacks a reliable local hint; it does not mean the terminal is incapable of basic ANSI
+   color. This keeps warning/status/demo output readable on ordinary terminals while
+   avoiding truecolor and 256-color sequences that are more likely to misrender.
+5. **No color (`.noColor`)** — suppress foreground and background color sequences by
+   resolving every non-default color to terminal default. This is selected for `NO_COLOR`
+   and `TERM=dumb` style inputs. It does not disable non-color SGR attributes, hyperlinks,
+   cursor movement, synchronized output, raw payloads, graphics cleanup, or the renderer's
+   final reset.
+
+Color capability precedence honors the `NO_COLOR` informal standard: a `NO_COLOR` or
+`TERM=dumb` environment selects `.noColor` as a hard override that cannot be re-enabled;
+otherwise an explicit application color override wins; otherwise passive detection
+decides. Applications may set an explicit level because many truecolor terminals never
+advertise `COLORTERM` and would otherwise land on the `.unknown` → ANSI 16 fallback.
+
+Color degradation must happen at the SGR emission boundary, not when writing cells.
+`Style` and `Buffer` continue to store the semantic color the caller requested.
+`BufferDiff` should still treat a semantic color change as damage, even if the active
+capability causes both old and new colors to resolve to the same fallback. The style
+encoder then avoids redundant color SGR when the resolved foreground/background state is
+unchanged.
+
+The resolver should be pure and deterministic. RGB-to-256 conversion uses the xterm
+256-color palette: the 6×6×6 cube (`16...231`) and grayscale ramp (`232...255`), with
+nearest color chosen by squared distance in sRGB byte space and ties broken by the lower
+palette index. RGB-to-ANSI 16 and indexed-to-ANSI 16 use canonical ANSI palette
+approximations and the same deterministic nearest-color rule. Indexed `0...15` maps
+directly to Tessera's named ANSI colors.
+
+The ANSI 16 fallback approximates against the pinned xterm default 16-color palette
+(`red cd0000`, `brightRed ff0000`, `blue 0000ee`, `brightBlue 5c5cff`, and so on). Because
+real terminals theme these slots, the fallback is a deterministic best-effort hue match
+against that reference table rather than a guarantee about on-screen pixels; it also
+yields deliberate asymmetries such as `rgb(0,0,255)` resolving to `blue` rather than
+`brightBlue`.
+
+The implementation should reuse existing Tessera color surfaces rather than adding a
+parallel style model:
+
+- `Sources/TesseraTerminalANSI/Color.swift` and `ANSIColor.swift` own semantic color and
+  SGR parameter generation.
+- `TerminalCapabilities.color` remains the session-level advisory capability.
+- `StyleEncoding.sgrDelta` and full-style encoding become capability-aware.
+- `Renderer.encodeFrame` accepts a color capability and `TerminalSession.draw` supplies
+  `capabilities.color`.
+
+Ratatui and crossterm are useful references but not templates to copy verbatim. Ratatui
+keeps semantic `Rgb`/`Indexed` colors and converts them at backend emission time;
+crossterm honors `NO_COLOR` by suppressing color output and uses environment hints for
+available color count. Tessera should borrow that posture while preserving its own
+`TerminalCapabilities` model and existing ECMA-48 named-color SGR encoding.
+
+Tests for this slice should cover:
+
+- `NO_COLOR` winning over truecolor and 256-color environment hints.
+- `TERM=dumb` producing `.noColor`.
+- missing or unknown environment producing `.unknown`, and `.unknown` rendering through
+  the ANSI 16 fallback.
+- RGB foreground/background under `.truecolor`, `.indexed256`, `.ansi16`, `.unknown`, and
+  `.noColor`.
+- exact xterm 256-color mappings for representative RGB cube and grayscale values.
+- exact ANSI 16 mappings for RGB primaries, grayscale samples, and indexed `0...15`.
+- no-color rendering suppressing foreground/background SGR while preserving visible text
+  and non-color attributes.
+- adjacent cells whose semantic colors degrade to the same resolved color not emitting
+  redundant color SGR.
+- full repaint and damage repaint using the same resolver.
+- composition with existing renderer features: hyperlinks can still open/close when color
+  is disabled, raw payloads are not rewritten, synchronized output wrappers are unchanged,
+  and final SGR reset remains.
+
+Sixel, iTerm2 image escape sequences, palette querying, dithering, theme detection,
+contrast correction, and active color probes are explicitly out of scope for this slice.
+
+#### End of Slice 8
+
+`TesseraTerminal` degrades color at render time from semantic app intent to the active
+terminal capability, preserving readable text on conservative terminals while still using
+truecolor when it is safe.
+
+### Slice 9: OSC 52 clipboard
+
+OSC 52 lets an application ask the terminal emulator to place data on the host clipboard
+by emitting an operating-system-command sequence:
+
+```text
+ESC ] 52 ; <Pc> ; <base64-data> ESC \
+```
+
+`Pc` selects the destination (`c` for the normal clipboard, `p` for primary selection, and
+other xterm-defined selections), and `base64-data` is the payload encoded with RFC 4648
+base64. This is useful precisely in remote terminal sessions: a Tessera app running over
+SSH can copy text to the user's local terminal clipboard without knowing anything about
+the local desktop environment.
+
+That usefulness is also the risk. Clipboard writes are side effects outside Tessera's
+screen model. A malicious or careless app could overwrite a user's clipboard unexpectedly.
+Tessera should support OSC 52, but it must do so as an explicit, policy-gated session
+operation — not as renderer output, not as a raw payload convenience, and not as a
+default-on feature.
+
+Add semantic clipboard-write types in `TesseraTerminalANSI`, and expose the write
+operation through `TerminalSession`:
+
+```swift
+public enum ClipboardTarget: Equatable, Hashable, Sendable {
+  case clipboard
+  case primary
+  case secondary
+  case select
+  case cutBuffer(UInt8)
+}
+
+public struct ClipboardSelection: Equatable, Hashable, Sendable {
+  public static let clipboard: Self
+  public static let primary: Self
+  public static let clipboardAndPrimary: Self
+
+  public let targets: [ClipboardTarget]
+}
+
+public struct ClipboardWrite: Equatable, Sendable {
+  public let selection: ClipboardSelection
+  public let bytes: [UInt8]
+}
+```
+
+`ClipboardSelection` should be non-empty. Xterm gives an empty `Pc` a legacy configurable
+primary/clipboard-plus-cut-buffer meaning, which is too surprising for Tessera's safe
+semantic API. The default target is `.clipboard`, encoded as `c`.
+
+Order matters for multi-target selections. Terminals differ for ordered target strings
+such as `cp` and `pc`, so Tessera should preserve caller order rather than normalizing to
+a set. Expose common presets and validate less common xterm targets instead of accepting
+arbitrary characters.
+
+String convenience APIs should copy the string's UTF-8 bytes. Byte APIs may also exist for
+applications that intentionally copy non-text payloads. The semantic API must not accept a
+caller-supplied pre-base64 string; the encoder owns base64 so delimiter safety, size
+accounting, and exact bytes are centralized.
+
+The control sequence layer should add one semantic encoder case:
+
+```swift
+case copyToClipboard(ClipboardWrite)
+```
+
+Encode it in `encodeOSC`, add it to every exhaustive `ControlSequence` switch, and
+terminate with ST (`ESC \`) to match Tessera's OSC 8 hyperlink policy. Do not use
+`RawTerminalPayload` for first-class clipboard writes; raw payloads remain the explicit
+escape hatch for terminal bytes Tessera does not model.
+
+Clipboard writing is disabled by default. Add a policy to
+`TerminalApplicationConfiguration` and carry it through `TerminalApplicationResolution`
+into `TerminalSession`:
+
+```swift
+public enum ClipboardWriteMode: Equatable, Sendable {
+  case disabled
+  case enabled(ClipboardWritePolicy)
+}
+
+public struct ClipboardWritePolicy: Equatable, Sendable {
+  public var maximumPayloadBytes: Int
+  public var allowedTargets: Set<ClipboardTarget>
+  public var allowsNestedTerminalPassthrough: Bool
+}
+```
+
+The conservative enabled preset should allow only the normal clipboard, cap raw payloads
+at 64 KiB before base64 encoding, and deny nested-terminal passthrough unless explicitly
+enabled. Clipboard write APIs should also require explicit per-call user intent, for
+example `intent: .userInitiated`, so unattended writes are visible in code review and
+testable in policy tests.
+
+OSC 52 writes are session-scoped side effects, similar to `TerminalSession.transmitImage`,
+not frame-scoped rendering operations. `Frame` should not gain clipboard methods.
+Clipboard writes should not write cells, reserve regions, mark opaque regions, alter
+cursor state, update `lastDrawnBuffer`, or be wrapped in synchronized output. Allowed
+writes emit exactly one OSC 52 sequence and flush immediately. Denied writes emit no
+bytes.
+
+A successful call can only mean Tessera flushed the OSC 52 bytes to the terminal device.
+It must not claim the host clipboard changed, because terminals and multiplexers may
+ignore or deny OSC 52 without an acknowledgement. Policy denials are expected behavior,
+not I/O failures:
+
+```swift
+public enum ClipboardWriteResult: Equatable, Sendable {
+  case sent(bytesWritten: Int)
+  case denied(ClipboardWriteDenialReason)
+}
+```
+
+Denial reasons should distinguish disabled configuration, missing user intent through any
+internal test seam, disallowed selection, oversize payload, and nested terminals requiring
+explicit passthrough. I/O write/flush errors still throw through the existing terminal
+device error path.
+
+`.sent(bytesWritten:)` reports the count of encoded OSC 52 bytes flushed to the terminal
+device, not the raw payload length and not proof the host clipboard changed.
+`payloadTooLarge` compares raw payload bytes before base64 against the policy limit.
+
+Apply the size limit to the raw payload before base64 encoding. Use RFC 4648 standard
+base64 with padding. Caller bytes may include BEL, ESC, NUL, newlines, or invalid UTF-8;
+those bytes are safe because only base64 text enters the OSC body. Do not implement
+automatic chunking: portable OSC 52 clipboard writes are one sequence, and partial/chunked
+clipboard updates are not a reliable terminal contract.
+
+OSC 52 is often used over SSH. Tessera should not deny solely because `SSH_CONNECTION` or
+`SSH_TTY` exists. Multiplexers need more care: default enabled policy should deny writes
+when identity is `.tmux` or `.screen`, or when `isNested == true`. Applications may allow
+nested terminal passthrough explicitly after warning the user that tmux/screen must also
+permit clipboard writes. This slice should not automatically wrap OSC 52 in tmux/screen
+DCS passthrough sequences.
+
+There is no portable acknowledgement that an OSC 52 write succeeded. Do not add an active
+probe. Add an advisory `osc52Clipboard` capability field for parity with `osc8Hyperlinks`
+and fix it to `.notDetectable`; neither passive detection nor active probing may promote
+it to `.supported`.
+
+Tests should cover encoder exact bytes, selection validation, base64 safety for arbitrary
+bytes, default policy denial, explicit opt-in, selection and size denial, SSH versus
+nested-terminal policy, no-output-on-denial behavior, and the guarantee that clipboard
+writes do not perturb renderer damage state.
+
+Extend `Phase3ProtocolsDemo` with a clipboard panel or a capabilities-panel clipboard
+section. It must never copy on startup or during draw. It may copy only in response to an
+explicit keypress while the clipboard UI is active, show the last `ClipboardWriteResult`,
+and warn that `.sent` means bytes were flushed, not that the host clipboard changed.
+
+#### Non-goals
+
+Do not add clipboard reads, pasteboard-native APIs, terminal-specific clipboard probes,
+auto-detected tmux/screen passthrough wrappers, Phase 4 view-layer copy widgets, or Sixel.
+
+#### End of Slice 9
+
+`TesseraTerminal` can perform safe, bounded, explicitly user-initiated OSC 52 clipboard
+writes as session side effects, while default applications remain unable to mutate the
+clipboard and nested terminal/multiplexer policy is respected.
+
+### Slice 10: Cursor styling
+
+Cursor styling is application/session policy. Tessera models cursor shape and cursor color
+as typed configuration that is applied by the session lifecycle and restored by lifecycle
+cleanup; apps must not use `RawTerminalPayload`, `Frame.writeRaw`, or ad-hoc terminal
+writes to change cursor shape or cursor color.
+
+Protocols in scope:
+
+- **DECSCUSR cursor shape**: `CSI Ps SP q`.
+  - `0` restores the terminal/user configured cursor shape.
+  - `1` selects blinking block.
+  - `2` selects steady block.
+  - `3` selects blinking underline.
+  - `4` selects steady underline.
+  - `5` selects blinking bar.
+  - `6` selects steady bar.
+- **OSC 12 cursor color**: `OSC 12;Pt ST`, where Tessera's `Pt` is restricted to an RGB
+  `#RRGGBB` color string generated from typed values. Tessera terminates its OSC 12/112
+  with ST (`ESC \`), the ECMA-48 standard terminator that OSC 8 hyperlinks already use, in
+  preference to BEL: ST is silent if a parser desyncs, whereas a stray BEL beeps or
+  flashes.
+- **OSC 112 cursor-color reset**: `OSC 112 ST`, used to return the text cursor color to
+  the terminal default.
+
+Add `CursorShape` in `TesseraTerminalANSI` with cases `defaultUserShape`, `blinkingBlock`,
+`steadyBlock`, `blinkingUnderline`, `steadyUnderline`, `blinkingBar`, and `steadyBar`. Add
+an RGB-only `CursorColor` value type. Do not accept arbitrary strings, named xterm colors,
+indexed palette values, or raw OSC fragments; cursor color is serialized only as uppercase
+`#RRGGBB`.
+
+Add `CursorStyle` with optional `shape` and optional `color` facets. `nil` means Tessera
+leaves that facet untouched. `CursorShape.defaultUserShape` is an explicit command to send
+DECSCUSR `0`; it is not the same as `nil`. Add semantic `ControlSequence` cases for cursor
+shape, cursor color, and cursor-color reset. These cases are the only supported way to
+produce DECSCUSR/OSC 12/OSC 112 bytes from Tessera APIs.
+
+Add cursor styling policy to `TerminalApplicationConfiguration`, disabled by default. This
+policy is the application's declaration that cursor style changes are allowed for the
+session; it is not limited to a single static startup style. The policy may include an
+optional default cursor style to apply when no focused component requests one.
+
+Future Phase 4 views must be able to request cursor style declaratively when they have
+focus — for example, a text input might request a steady bar while a normal command panel
+uses the default block. Phase 3 should therefore build the lower-level session and
+`ModeLifecycle.apply` machinery that can change cursor style dynamically, while still
+leaving the Phase 4 focused-component API out of scope.
+
+If cursor styling is enabled and a default or dynamically requested style has at least one
+non-`nil` facet, configuration/runtime resolution adds a session-owned lifecycle mode such
+as `.cursorStyle(cursorStyle)` and carries the effective style through
+`TerminalApplicationResolution` and `TerminalSession` for introspection. `nil` means
+Tessera leaves that facet untouched. Draw transactions continue to hide the cursor by
+default and show/move it when a frame requests a position; draw must not re-emit shape or
+color on every frame.
+
+Cursor styling is acquired after raw mode and alternate screen are entered, before
+higher-level application protocol modes such as bracketed paste, focus events, mouse
+tracking, and Kitty keyboard. Applying a cursor style sends one flush containing
+`setCursorShape` first, when `shape != nil`, followed by `setCursorColor`, when
+`color != nil`.
+
+Disabling a cursor style sends one flush containing DECSCUSR `0` when Tessera previously
+owned `shape`, followed by OSC 112 when Tessera previously owned `color`. Dynamic
+lifecycle reconciliation must treat cursor styling like other app protocol modes: applying
+the same style is idempotent; changing styles resets old owned facets before applying new
+facets; disabling style restores only the facets Tessera owned.
+
+Normal session exit restores cursor visibility as today, then lifecycle exit restores
+cursor shape/color before leaving the alternate screen and raw mode. Emergency cleanup
+bytes include cursor-shape reset and/or cursor-color reset only when requested or active
+cursor styling proves Tessera owns those facets.
+
+Unsupported terminals are not startup failures. DECSCUSR and OSC 12/112 have no required
+active probe in this slice; terminals that do not support them may ignore the sequences.
+Passive terminal identity hints must not be treated as proof of cursor-styling support. Do
+not add a terminal-name allowlist that changes failure behavior. `NO_COLOR` and SGR
+color-depth policy do not implicitly disable cursor color: cursor color is an explicit
+application opt-in and is not cell text color. Tessera does not query and restore the
+user's exact pre-existing cursor color; restore means terminal/user default via OSC 112.
+
+Tests should cover all DECSCUSR values, exact `CSI Ps SP q` bytes including the space
+byte, OSC 12 RGB serialization, OSC 112 reset, disabled-by-default configuration, enabled
+policy with no default style, enabled policy with a default style, focused/requested style
+overrides, enter/exit ordering, dynamic apply, shape-only/color-only behavior, failed
+enable rollback, unsupported-terminal no-failure policy, emergency cleanup reset bytes for
+owned facets only, and no per-frame shape/color emission.
+
+#### Non-goals
+
+Do not add Windows console API cursor styling, arbitrary OSC color strings, cursor style
+query/restore, terminal-name support allowlists, or Sixel. Do not implement the Phase 4
+focused-component cursor-style API in this slice, but keep the session/lifecycle machinery
+ready for it.
+
+#### End of Slice 10
+
+`TesseraTerminal` can opt into cursor shape and cursor color styling as session-owned
+lifecycle state, restore only the facets it owns, and leave user cursor preferences alone
+when applications do not request styling.
+
+### Slice 11: Underline extensions
+
+Slice 11 teaches Tessera the rest of modern underline SGR: underline style variants and
+underline colors. Phase 2 modeled underline as a boolean style bit and the renderer
+currently emits only SGR `4` and `24`. That is enough for straight underlines, but modern
+terminal UIs use richer underline semantics for diagnostics, spellcheck, links, search
+matches, and accessibility-friendly status decoration: double underline, curly undercurl,
+dotted underline, dashed underline, and an underline color that is independent of the
+foreground color.
+
+This slice is pure text styling. Underline metadata does not consume layout space, does
+not change grapheme width, does not affect raw payload occupancy, and does not need an
+active terminal probe. Unsupported terminals already degrade safely: they keep rendering
+the text, and may ignore the underline style, approximate it as a normal underline, ignore
+the underline color, or ignore underline entirely.
+
+The SGR forms Tessera should model are:
+
+```text
+CSI 4 m          single underline, legacy-compatible
+CSI 24 m         underline off
+CSI 4:2 m        double underline
+CSI 4:3 m        curly underline / undercurl
+CSI 4:4 m        dotted underline
+CSI 4:5 m        dashed underline
+CSI 58;5;<n> m   underline color from the 256-color palette
+CSI 58;2;<r>;<g>;<b> m
+                 underline truecolor
+CSI 59 m         reset underline color to the terminal default
+```
+
+Prefer `24` for disabling underline rather than `4:0`. Prefer `4` for single underline
+rather than `4:1`, because `4` is the widest-compatible spelling and matches Tessera's
+existing encoder. Do not use SGR `21` for double underline: many modern terminals and
+libraries treat `21` as bold/intensity off. Tessera's double underline spelling should be
+the unambiguous subparameter form `4:2`.
+
+Ratatui has an optional `underline_color` field on `Style` behind its `underline-color`
+feature, and crossterm exposes `DoubleUnderlined`, `Undercurled`, `Underdotted`,
+`Underdashed`, and `NoUnderline`. Tessera should preserve the variant instead of
+collapsing it to a boolean.
+
+Add a first-class underline style value to the terminal style model:
+
+```swift
+public enum UnderlineStyle: Equatable, Sendable {
+  case none
+  case single
+  case double
+  case curly
+  case dotted
+  case dashed
+}
+```
+
+`curly` is Tessera's API spelling for SGR `4:3` undercurl. Documentation can mention
+“undercurl” because that is the term many editors and terminals use, but the case name
+should describe the visual style rather than the implementation detail.
+
+Extend `Style` with underline-specific fields whose semantic defaults are no underline and
+default underline color. Because this API has not shipped yet, prefer the clean model over
+source compatibility: remove the boolean underline bit from `TextAttributes` if it still
+exists, update demos/tests/call sites to use `underlineStyle: .single`, and make
+`UnderlineStyle` the only representation of whether text is underlined.
+
+Underline color is independent state. `underlineColor != .default` does not turn underline
+on by itself; it only chooses the underline's color when the effective underline style is
+not `.none`. Reuse Tessera's existing `Color` type for underline colors, but add
+underline-specific SGR parameters. `Color.default` must mean SGR `59` in underline-color
+context, not foreground reset `39` or background reset `49`.
+
+There is no 16-color underline shorthand equivalent to foreground `30...37`/`90...97` or
+background `40...47`/`100...107`. Named ANSI colors should therefore map to their
+conventional 256-color palette indexes `0...15`.
+
+Add semantic control sequence support:
+
+```swift
+case setUnderlineStyle(UnderlineStyle)
+case setUnderlineColor(Color)
+```
+
+Replace the existing `setUnderline(Bool)` case rather than keeping it as an alias: for the
+same clean-model reason the boolean style bit is removed, single underline is
+`setUnderlineStyle(.single)` and underline off is `setUnderlineStyle(.none)`, so a
+parallel boolean spelling of the same two SGR bytes (`4`/`24`) would be redundant surface.
+The other boolean SGR toggles (`setBold`, `setItalic`, …) stay `Bool` because they remain
+genuinely two-state; underline is the one attribute that becomes a value type.
+`UnderlineStyle` is a wire-level type that lives alongside `Color` in the ANSI encoder
+layer so the encoder can reference it, and the buffer style layer reuses it.
+
+Renderer diffing must treat underline style and underline color as real SGR state. A cell
+whose only change is `.curly` to `.dashed`, or `indexed(196)` underline color to
+`rgb(1,2,3)`, is damaged and repainted just like a foreground color change.
+
+Reset behavior matters:
+
+- SGR `0` resets all graphic rendition state, including underline style and underline
+  color.
+- SGR `24` resets underline style only.
+- SGR `59` resets underline color only.
+- changing from one non-`.none` underline style to another should emit the target style
+  directly, without a broad reset unless another attribute transition already requires
+  one.
+- changing from any underline style to `.none` emits `24`.
+- changing from a custom underline color to `.default` emits `59`, even if the new style
+  also disables underline, so a terminal does not leak the old underline color into a
+  later default-colored underline.
+
+Buffer snapshots should include non-default underline metadata in a compact, readable form
+that distinguishes all variants and underline color forms. Ghostty-backed virtual-terminal
+snapshots should report underline variants and underline color only if the C shim exposes
+that state; otherwise exact byte tests remain the authority for variant/color correctness.
+
+Tessera should not actively probe for underline extension support and should not fail
+startup when support is absent. The bytes are harmless SGR styling. Applications must not
+use underline style or underline color as the only carrier of critical information; text
+content, symbols, labels, and accessible wording remain the source of truth.
+
+Tests should cover exact encoder bytes for all underline styles, underline color reset,
+indexed/RGB/named underline colors, the API migration away from boolean underline, style
+equality/damage tracking, renderer transitions, hyperlink composition, snapshot metadata
+where available, and precise `24`/`59` reset behavior.
+
+#### End of Slice 11
+
+`TesseraTerminal` exposes underline variants and colored underlines as ordinary semantic
+style state. Callers express single underline, undercurl, and underline color through the
+same `UnderlineStyle`/underline-color model without raw ANSI bytes, renderer diffing
+resets `24` and `59` precisely, and unsupported terminals degrade harmlessly by preserving
+readable text.
 
 **End of Phase 3:** `TesseraTerminal` is feature-complete for a modern terminal app.
 Everything above this is the view library.

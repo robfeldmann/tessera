@@ -1,7 +1,7 @@
 ---
 name: Phase 3 Modern Terminal Protocols
 description:
-  Coordinate the seven Phase 3 protocol slices so parser, lifecycle, renderer, tests, and
+  Coordinate the eleven Phase 3 protocol slices so parser, lifecycle, renderer, tests, and
   the example app evolve consistently.
 status: pending
 created: 2026-07-02
@@ -11,29 +11,32 @@ updated: 2026-07-07
 ## Progress
 
 - [x] **Phase 1 — Approve shared Phase 3 contracts**
-  - [x] 1.1 Review the seven-plan bundle and confirm slice order
+  - [x] 1.1 Review the expanded Phase 3 plan bundle and confirm slice order
   - [x] 1.2 Approve shared parser, lifecycle, renderer, and example-app rules
 - [x] **Phase 2 — Execute input protocol slices**
   - [x] 2.1 Implement bracketed paste from plan 016
   - [x] 2.2 Implement focus events from plan 017
   - [x] 2.3 Implement SGR mouse tracking from plan 018
   - [x] 2.4 Implement Kitty keyboard and dynamic mode apply from plan 019
-- [x] **Phase 3 — Execute output and capability slices**
+- [ ] **Phase 3 — Execute output, capability, and advanced styling slices**
   - [x] 3.1 Implement OSC 8 hyperlinks from plan 020
   - [x] 3.2 Implement terminal capability detection from plan 021
   - [x] 3.3 Implement Kitty graphics protocol from plan 022
   - [x] 3.4 Refactor capability detection to active, non-hard-coded probes
+  - [ ] 3.5 Implement color degradation baseline from plan 024
+  - [ ] 3.6 Implement OSC 52 clipboard from plan 025
+  - [ ] 3.7 Implement cursor styling from plan 026
+  - [ ] 3.8 Implement underline extensions from plan 027
 - [ ] **Phase 4 — Close Phase 3 as one integrated substrate**
   - [ ] 4.1 Run the full Phase 3 validation sweep
   - [ ] 4.2 Review the example app across every protocol panel
 
 ## Overview
 
-This is the coordination plan for `docs/Spec.md` Phase 3, lines 3644-6029. Phase 3 keeps
-the work inside `TesseraTerminal`: modern terminal protocols are added to input parsing,
-terminal mode lifecycle, rendering, configuration, tests, and examples. It does not
-introduce `View`, layout, widgets, shortcut routing, hit testing, or runtime state
-management.
+This is the coordination plan for `docs/Spec.md` Phase 3. Phase 3 keeps the work inside
+`TesseraTerminal`: modern terminal protocols are added to input parsing, terminal mode
+lifecycle, rendering, configuration, tests, and examples. It does not introduce `View`,
+layout, widgets, shortcut routing, hit testing, or runtime state management.
 
 The executable slice plans are separate review units:
 
@@ -44,13 +47,18 @@ The executable slice plans are separate review units:
 - `020-phase-3-slice-5-osc-8-hyperlinks.md`
 - `021-phase-3-slice-6-terminal-capability-detection.md`
 - `022-phase-3-slice-7-kitty-graphics-protocol.md`
+- `024-phase-3-slice-8-color-degradation-baseline.md`
+- `025-phase-3-slice-9-osc-52-clipboard.md`
+- `026-phase-3-slice-10-cursor-styling.md`
+- `027-phase-3-slice-11-underline-extensions.md`
 
 Implement them in numeric order. The order matters because each slice proves a contract
 that later slices reuse: bracketed paste establishes parser-mode isolation, focus proves
 small CSI event decoding, mouse expands event payloads, Kitty keyboard changes keyboard
-semantics, hyperlinks exercise output-side metadata, capabilities settle policy, and Kitty
-graphics builds on all of it — APC joins the parser modes, the encoder grows a chunked
-command family, and cleanup gains its first non-mode teardown bytes.
+semantics, hyperlinks exercise output-side metadata, capabilities settle policy, Kitty
+graphics builds on all of it, color degradation makes rendering capability-aware, OSC 52
+adds the first policy-gated session side effect, cursor styling extends lifecycle-owned
+terminal preferences, and underline extensions finish the modern text-decoration baseline.
 
 ## Implementation prompts
 
@@ -320,6 +328,102 @@ When complete, update plan progress, report changed files and validation results
 and wait for review.
 ```
 
+### Slice 8 prompt — Color degradation baseline
+
+```text
+Implement .agents/plans/024-phase-3-slice-8-color-degradation-baseline.md.
+
+Before editing, read these fully:
+- .agents/plans/015-phase-3-modern-terminal-protocols.md
+- docs/Spec.md lines 3644 through the end of Slice 8, covering the Phase 3 overview and
+  color degradation baseline
+- .agents/plans/024-phase-3-slice-8-color-degradation-baseline.md
+
+Treat plan 015 as the shared contract and completed prior slices as source of truth.
+Execute only plan 024. Do not implement OSC 52 clipboard, cursor styling, underline
+extensions, Sixel, or Phase 4 view-layer work.
+
+Write tests close to the production code they cover. Keep color degradation at the
+renderer/SGR emission boundary: buffers keep semantic colors, and the active color
+capability chooses the emitted SGR form. Run the validation commands from plan 024.
+
+When complete, update plan progress, report changed files and validation results, then stop
+and wait for review.
+```
+
+### Slice 9 prompt — OSC 52 clipboard
+
+```text
+Implement .agents/plans/025-phase-3-slice-9-osc-52-clipboard.md.
+
+Before editing, read these fully:
+- .agents/plans/015-phase-3-modern-terminal-protocols.md
+- docs/Spec.md lines 3644 through the end of Slice 9, covering the Phase 3 overview and
+  OSC 52 clipboard
+- .agents/plans/025-phase-3-slice-9-osc-52-clipboard.md
+
+Treat plan 015 as the shared contract and completed prior slices as source of truth.
+Execute only plan 025. Do not implement cursor styling, underline extensions, clipboard
+reads, Sixel, or Phase 4 view-layer work.
+
+Write tests close to the production code they cover. Keep OSC 52 as a policy-gated
+session side effect, disabled by default, never as frame rendering or automatic startup
+behavior. Run the validation commands from plan 025.
+
+When complete, update plan progress, report changed files and validation results, then stop
+and wait for review.
+```
+
+### Slice 10 prompt — Cursor styling
+
+```text
+Implement .agents/plans/026-phase-3-slice-10-cursor-styling.md.
+
+Before editing, read these fully:
+- .agents/plans/015-phase-3-modern-terminal-protocols.md
+- docs/Spec.md lines 3644 through the end of Slice 10, covering the Phase 3 overview and
+  cursor styling
+- .agents/plans/026-phase-3-slice-10-cursor-styling.md
+
+Treat plan 015 as the shared contract and completed prior slices as source of truth.
+Execute only plan 026. Do not implement underline extensions, OSC 52 clipboard reads,
+Sixel, or Phase 4 view-layer work.
+
+Write tests close to the production code they cover. Cursor styling must be explicit
+application/session policy with lifecycle-owned restore behavior; draw frames must not
+re-emit shape or color. The session/lifecycle seam must be ready for future focused
+components to request cursor-style changes when the application has enabled cursor styling.
+Run the validation commands from plan 026.
+
+When complete, update plan progress, report changed files and validation results, then stop
+and wait for review.
+```
+
+### Slice 11 prompt — Underline extensions
+
+```text
+Implement .agents/plans/027-phase-3-slice-11-underline-extensions.md.
+
+Before editing, read these fully:
+- .agents/plans/015-phase-3-modern-terminal-protocols.md
+- docs/Spec.md lines 3644 through the end of Slice 11, covering the Phase 3 overview and
+  underline extensions
+- .agents/plans/027-phase-3-slice-11-underline-extensions.md
+
+Treat plan 015 as the shared contract and completed prior slices as source of truth.
+Execute only plan 027. Do not implement Sixel, cursor styling beyond any completed slice,
+or Phase 4 view-layer work.
+
+Write tests close to the production code they cover. Prefer the clean underline API over
+source compatibility: remove the old boolean underline attribute if it still exists, update
+demos/tests/call sites to `UnderlineStyle.single`, and add semantic underline variants,
+underline colors, and precise `24`/`59` reset behavior. Run the validation commands from
+plan 027.
+
+When complete, update plan progress, report changed files and validation results, then stop
+and wait for review.
+```
+
 ## Shared source contracts
 
 ### Input parser and event model
@@ -454,7 +558,7 @@ review, but it is not the primary verification mechanism; tests remain the autho
 
 ## Integrated validation sweep
 
-Run narrow validation inside each slice first. After plan 022 is implemented, run:
+Run narrow validation inside each slice first. After plan 027 is implemented, run:
 
 ```fish
 swift test --filter TesseraTerminalInputTests
