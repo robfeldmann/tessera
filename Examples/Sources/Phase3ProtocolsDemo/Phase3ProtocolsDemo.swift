@@ -45,6 +45,16 @@ enum Phase3ProtocolsDemo {
     }
   }
 
+  private static let tabs: [DemoTab] = [
+    DemoTab(key: "1", label: "Paste", panel: .paste),
+    DemoTab(key: "2", label: "Focus", panel: .focus),
+    DemoTab(key: "3", label: "Mouse", panel: .mouse),
+    DemoTab(key: "4", label: "Keys", panel: .keyboard),
+    DemoTab(key: "5", label: "Links", panel: .links),
+    DemoTab(key: "6", label: "Caps", panel: .capabilities),
+    DemoTab(key: "7", label: "Graphics", panel: .graphics),
+  ]
+
   private static func handle(
     _ event: InputEvent,
     state: inout DemoState,
@@ -57,20 +67,9 @@ enum Phase3ProtocolsDemo {
     case .key(let key):
       state.append(event)
       state.lastKeyDescription = describe(key)
-      if key == Key(code: .character("1")) {
-        state.selectedPanel = .paste
-      } else if key == Key(code: .character("2")) {
-        state.selectedPanel = .focus
-      } else if key == Key(code: .character("3")) {
-        state.selectedPanel = .mouse
-      } else if key == Key(code: .character("4")) {
-        state.selectedPanel = .keyboard
-      } else if key == Key(code: .character("5")) {
-        state.selectedPanel = .links
-      } else if key == Key(code: .character("6")) {
-        state.selectedPanel = .capabilities
-      } else if key == Key(code: .character("7")) {
-        state.selectedPanel = .graphics
+      // Tabs past key "9" are reachable by mouse click.
+      if let tab = tabs.first(where: { key == Key(code: .character($0.key)) }) {
+        state.selectedPanel = tab.panel
       } else if key == Key(code: .character("g")) {
         state.forceKittyGraphicsOutput.toggle()
       } else if key == Key(code: .character("m")) {
@@ -115,6 +114,15 @@ enum Phase3ProtocolsDemo {
       state.append(event)
     case .mouse(let event):
       state.observedPrivateModeSupport.formUnion([1_002, 1_003, 1_006])
+      if case .press = event.kind,
+        let hit = state.tabHitRegions.first(where: { hit in
+          event.position.row == hit.region.origin.row
+            && event.position.column >= hit.region.origin.column
+            && event.position.column < hit.region.origin.column + hit.region.size.columns
+        })
+      {
+        state.selectedPanel = hit.panel
+      }
       if state.shouldAppendMouseEvent(event) {
         state.append(.mouse(event))
       }
@@ -163,13 +171,20 @@ enum Phase3ProtocolsDemo {
     }
     let cellPixelSize = await terminal.cellPixelSize
     try await terminal.draw { frame in
-      drawHeader(frame: frame, state: state, cellPixelSize: cellPixelSize)
+      let layout = drawHeader(frame: frame, state: state, cellPixelSize: cellPixelSize)
+      state.tabHitRegions = layout.tabHitRegions
+      state.contentRowOffset = layout.contentRowOffset
+      let contentTop = layout.contentTop
       let minimumSize = minimumTerminalSize(for: state.selectedPanel)
       guard
         frame.size.columns >= minimumSize.columns,
         frame.size.rows >= minimumSize.rows
       else {
-        drawSmallTerminalMessage(frame: frame, minimumSize: minimumSize)
+        drawSmallTerminalMessage(
+          frame: frame,
+          minimumSize: minimumSize,
+          top: contentTop
+        )
         return
       }
 
@@ -181,17 +196,18 @@ enum Phase3ProtocolsDemo {
           enabledModes: terminal.enabledProtocolModes,
           hyperlinkRendering: terminal.hyperlinkRendering,
           synchronizedOutput: terminal.synchronizedOutput,
-          state: state
+          state: state,
+          top: contentTop
         )
 
       case .paste:
-        drawLastEvent(frame: frame, state: state)
-        drawPastePreview(frame: frame, state: state)
-        drawKeySummary(frame: frame, state: state)
-        drawRecentEvents(frame: frame, state: state, top: 19)
+        drawLastEvent(frame: frame, state: state, top: contentTop)
+        drawPastePreview(frame: frame, state: state, top: contentTop)
+        drawKeySummary(frame: frame, state: state, top: contentTop)
+        drawRecentEvents(frame: frame, state: state, top: contentTop + 15)
 
       case .focus:
-        drawFocusPanel(frame: frame, state: state)
+        drawFocusPanel(frame: frame, state: state, top: contentTop)
 
       case .graphics:
         drawGraphicsPanel(
@@ -199,17 +215,18 @@ enum Phase3ProtocolsDemo {
           state: state,
           cellPixelSize: cellPixelSize,
           graphicsCapability: graphicsCapability,
-          graphicsOutputEnabled: graphicsOutputEnabled
+          graphicsOutputEnabled: graphicsOutputEnabled,
+          top: contentTop
         )
 
       case .mouse:
-        drawMousePanel(frame: frame, state: state)
+        drawMousePanel(frame: frame, state: state, top: contentTop)
 
       case .keyboard:
-        drawKeyboardPanel(frame: frame, state: state)
+        drawKeyboardPanel(frame: frame, state: state, top: contentTop)
 
       case .links:
-        drawLinksPanel(frame: frame, state: state)
+        drawLinksPanel(frame: frame, state: state, top: contentTop)
       }
     }
   }
@@ -218,28 +235,64 @@ enum Phase3ProtocolsDemo {
     frame: borrowing Frame,
     state: DemoState,
     cellPixelSize: CellPixelSize?
-  ) {
+  ) -> DemoLayout {
+    let title = "Phase3ProtocolsDemo — \(state.selectedPanel.title)"
     frame.write(
-      "Phase3ProtocolsDemo — \(state.selectedPanel.title)",
+      title,
       at: position(0, 0),
       style: Style(foreground: .ansi(.brightCyan), attributes: [.bold])
     )
-    let navigation =
-      "q quit · 1 paste · 2 focus · 3 mouse · 4 keys · 5 links · 6 caps"
-      + " · 7 graphics · g opt-in graphics · m motion"
-    frame.write(navigation, at: position(0, 1), style: Style(attributes: [.dim]))
-    let terminalStatus =
-      "Terminal: \(frame.size.columns)x\(frame.size.rows)"
-      + " · cell pixels: \(describe(cellPixelSize))"
-      + " · motion log outside mouse: \(state.motionLogDescription)"
-    frame.write(terminalStatus, at: position(0, 2), style: Style(attributes: [.dim]))
+    frame.write(
+      "   \(frame.size.columns)x\(frame.size.rows) · cell \(describe(cellPixelSize))",
+      at: position(title.count, 0),
+      style: Style(attributes: [.dim])
+    )
+
+    let availableColumns = max(frame.size.columns, 1)
+    var column = 0
+    var row = 1
+    var tabHitRegions: [(region: Rect, panel: DemoPanel)] = []
+    for tab in tabs {
+      let segment = " \(tab.key) \(tab.label) "
+      let segmentWidth = segment.count
+      if column > 0, column + segmentWidth > availableColumns {
+        row += 1
+        column = 0
+      }
+
+      let style =
+        tab.panel == state.selectedPanel
+        ? Style(attributes: [.reverse, .bold])
+        : Style(attributes: [.dim])
+      frame.write(segment, at: position(column, row), style: style)
+      tabHitRegions.append(
+        (
+          region: Rect(column: column, row: row, columns: segmentWidth, rows: 1),
+          panel: tab.panel
+        )
+      )
+      column += segmentWidth + 1
+    }
+
+    let tabBarRows = max(row, 1)
+    let hintsRow = 1 + tabBarRows
+    frame.write(
+      "q quit · g opt-in graphics · m motion (\(state.motionLogDescription))"
+        + " · click a tab or press its number to switch",
+      at: position(0, hintsRow),
+      style: Style(attributes: [.dim])
+    )
+
+    let contentTop = tabBarRows + 3
+    return DemoLayout(contentTop: contentTop, tabHitRegions: tabHitRegions)
   }
 
   private static func drawSmallTerminalMessage(
     frame: borrowing Frame,
-    minimumSize: TerminalSize
+    minimumSize: TerminalSize,
+    top: Int
   ) {
-    guard frame.size.rows > 4, frame.size.columns > 0 else {
+    guard frame.size.rows > top, frame.size.columns > 0 else {
       return
     }
 
@@ -247,12 +300,12 @@ enum Phase3ProtocolsDemo {
       "Resize to at least \(minimumSize.columns)x\(minimumSize.rows) for this panel.",
       width: frame.size.columns
     )
-    let availableRows = frame.size.rows - 4
+    let availableRows = frame.size.rows - top
 
     for (offset, line) in lines.prefix(availableRows).enumerated() {
       frame.write(
         line,
-        at: position(0, 4 + offset),
+        at: position(0, top + offset),
         style: Style(foreground: .ansi(.yellow), attributes: [.bold])
       )
     }
@@ -296,13 +349,21 @@ enum Phase3ProtocolsDemo {
     return lines
   }
 
-  private static func drawLastEvent(frame: borrowing Frame, state: DemoState) {
-    frame.write("Last event", at: position(0, 4), style: Style(attributes: [.bold]))
-    frame.write(state.lastEventDescription, at: position(2, 5))
+  private static func drawLastEvent(
+    frame: borrowing Frame,
+    state: DemoState,
+    top: Int
+  ) {
+    frame.write("Last event", at: position(0, top), style: Style(attributes: [.bold]))
+    frame.write(state.lastEventDescription, at: position(2, top + 1))
   }
 
-  private static func drawPastePreview(frame: borrowing Frame, state: DemoState) {
-    let top = 7
+  private static func drawPastePreview(
+    frame: borrowing Frame,
+    state: DemoState,
+    top contentTop: Int
+  ) {
+    let top = contentTop + 3
     frame.write(
       "Paste payload preview",
       at: position(0, top),
@@ -323,9 +384,9 @@ enum Phase3ProtocolsDemo {
     frame.write("└\(horizontal)┘", at: position(0, top + 7))
   }
 
-  private static func drawKeySummary(frame: borrowing Frame, state: DemoState) {
-    frame.write("Typed keys", at: position(0, 16), style: Style(attributes: [.bold]))
-    frame.write(state.lastKeyDescription, at: position(2, 17))
+  private static func drawKeySummary(frame: borrowing Frame, state: DemoState, top: Int) {
+    frame.write("Typed keys", at: position(0, top + 12), style: Style(attributes: [.bold]))
+    frame.write(state.lastKeyDescription, at: position(2, top + 13))
   }
 
   private static func drawRecentEvents(
@@ -350,91 +411,91 @@ enum Phase3ProtocolsDemo {
     }
   }
 
-  private static func drawFocusPanel(frame: borrowing Frame, state: DemoState) {
-    drawLastEvent(frame: frame, state: state)
+  private static func drawFocusPanel(frame: borrowing Frame, state: DemoState, top: Int) {
+    drawLastEvent(frame: frame, state: state, top: top)
 
-    frame.write("Terminal focus", at: position(0, 7), style: Style(attributes: [.bold]))
-    frame.write("state: \(state.focusState.description)", at: position(2, 8))
-    frame.write("last transition: \(state.lastFocusTransition)", at: position(2, 9))
+    frame.write("Terminal focus", at: position(0, top + 3), style: Style(attributes: [.bold]))
+    frame.write("state: \(state.focusState.description)", at: position(2, top + 4))
+    frame.write("last transition: \(state.lastFocusTransition)", at: position(2, top + 5))
 
-    frame.write("Try it", at: position(0, 12), style: Style(attributes: [.bold]))
+    frame.write("Try it", at: position(0, top + 8), style: Style(attributes: [.bold]))
     frame.write(
       "Switch to another terminal tab/window, then return here.",
-      at: position(2, 13)
+      at: position(2, top + 9)
     )
     frame.write(
       "Some terminals only report focus while the alternate screen is active.",
-      at: position(2, 16),
+      at: position(2, top + 12),
       style: Style(attributes: [.dim])
     )
 
-    drawRecentEvents(frame: frame, state: state, top: 17)
+    drawRecentEvents(frame: frame, state: state, top: top + 13)
   }
 
-  private static func drawMousePanel(frame: borrowing Frame, state: DemoState) {
-    drawLastEvent(frame: frame, state: state)
+  private static func drawMousePanel(frame: borrowing Frame, state: DemoState, top: Int) {
+    drawLastEvent(frame: frame, state: state, top: top)
 
     frame.write(
       "Latest mouse event",
-      at: position(0, 7),
+      at: position(0, top + 3),
       style: Style(attributes: [.bold])
     )
-    frame.write("kind: \(state.lastMouseDescription)", at: position(2, 8))
+    frame.write("kind: \(state.lastMouseDescription)", at: position(2, top + 4))
     if let mouse = state.lastMouseEvent {
       frame.write(
         "position: column \(mouse.position.column), row \(mouse.position.row)",
-        at: position(2, 9)
+        at: position(2, top + 5)
       )
-      frame.write("modifiers: \(describe(mouse.modifiers))", at: position(2, 10))
+      frame.write("modifiers: \(describe(mouse.modifiers))", at: position(2, top + 6))
     } else {
-      frame.write("move, click, drag, or scroll inside the terminal", at: position(2, 9))
+      frame.write("move, click, drag, or scroll inside the terminal", at: position(2, top + 5))
     }
 
-    drawMouseGrid(frame: frame, state: state)
-    drawRecentEvents(frame: frame, state: state, top: 20)
+    drawMouseGrid(frame: frame, state: state, offset: top - 4)
+    drawRecentEvents(frame: frame, state: state, top: top + 16)
   }
 
-  private static func drawKeyboardPanel(frame: borrowing Frame, state: DemoState) {
-    drawLastEvent(frame: frame, state: state)
+  private static func drawKeyboardPanel(frame: borrowing Frame, state: DemoState, top: Int) {
+    drawLastEvent(frame: frame, state: state, top: top)
 
-    frame.write("Latest key", at: position(0, 7), style: Style(attributes: [.bold]))
+    frame.write("Latest key", at: position(0, top + 3), style: Style(attributes: [.bold]))
     if let key = state.lastKey {
-      frame.write("code: \(key.code)", at: position(2, 8))
-      frame.write("kind: \(key.kind)", at: position(2, 9))
-      frame.write("modifiers: \(describe(key.modifiers))", at: position(2, 10))
-      frame.write("shifted: \(describeOptional(key.shiftedCode))", at: position(2, 11))
-      frame.write("base: \(describeOptional(key.baseLayoutCode))", at: position(2, 12))
+      frame.write("code: \(key.code)", at: position(2, top + 4))
+      frame.write("kind: \(key.kind)", at: position(2, top + 5))
+      frame.write("modifiers: \(describe(key.modifiers))", at: position(2, top + 6))
+      frame.write("shifted: \(describeOptional(key.shiftedCode))", at: position(2, top + 7))
+      frame.write("base: \(describeOptional(key.baseLayoutCode))", at: position(2, top + 8))
       frame.write(
         "text: \(key.associatedText.map(String.init(reflecting:)) ?? "none")",
-        at: position(2, 13)
+        at: position(2, top + 9)
       )
     } else {
-      frame.write("press keys now", at: position(2, 8), style: Style(attributes: [.dim]))
+      frame.write("press keys now", at: position(2, top + 4), style: Style(attributes: [.dim]))
     }
 
     frame.write(
       "Kitty protocol notes",
-      at: position(0, 15),
+      at: position(0, top + 11),
       style: Style(attributes: [.bold])
     )
     frame.write(
       "Press Escape, Tab, arrows, modified letters, and hold a key for repeat.",
-      at: position(2, 16)
+      at: position(2, top + 12)
     )
     frame.write(
       "Unsupported terminals should still show legacy key events below.",
-      at: position(2, 17)
+      at: position(2, top + 13)
     )
 
-    drawRecentEvents(frame: frame, state: state, top: 20)
+    drawRecentEvents(frame: frame, state: state, top: top + 16)
   }
 
-  private static func drawLinksPanel(frame: borrowing Frame, state: DemoState) {
-    drawLastEvent(frame: frame, state: state)
+  private static func drawLinksPanel(frame: borrowing Frame, state: DemoState, top: Int) {
+    drawLastEvent(frame: frame, state: state, top: top)
 
     frame.write(
       "OSC 8 hyperlink samples",
-      at: position(0, 7),
+      at: position(0, top + 3),
       style: Style(attributes: [.bold])
     )
     writeLink(
@@ -443,7 +504,7 @@ enum Phase3ProtocolsDemo {
       text: "Tessera Spec",
       uri: "https://github.com/robfeldmann/tessera/blob/main/docs/Spec.md",
       id: "docs",
-      row: 9
+      row: top + 5
     )
     writeLink(
       frame: frame,
@@ -451,7 +512,7 @@ enum Phase3ProtocolsDemo {
       text: "GH-123 terminal protocols",
       uri: "https://github.com/robfeldmann/tessera/issues/123",
       id: "issue-123",
-      row: 10
+      row: top + 6
     )
     writeLink(
       frame: frame,
@@ -459,17 +520,17 @@ enum Phase3ProtocolsDemo {
       text: "Sources/TesseraTerminalANSI/ControlSequence.swift",
       uri: "file://Sources/TesseraTerminalANSI/ControlSequence.swift",
       id: "control-sequence",
-      row: 11
+      row: top + 7
     )
 
-    frame.write("Plain fallback", at: position(0, 14), style: Style(attributes: [.bold]))
+    frame.write("Plain fallback", at: position(0, top + 10), style: Style(attributes: [.bold]))
     frame.write(
       "The visible text above remains readable even when OSC 8 is unsupported.",
-      at: position(2, 15),
+      at: position(2, top + 11),
       style: Style(attributes: [.dim])
     )
 
-    drawRecentEvents(frame: frame, state: state, top: 18)
+    drawRecentEvents(frame: frame, state: state, top: top + 14)
   }
 
   private static func drawCapabilitiesPanel(
@@ -478,68 +539,69 @@ enum Phase3ProtocolsDemo {
     enabledModes: Set<ModeLifecycle.Mode>,
     hyperlinkRendering: HyperlinkRenderingMode,
     synchronizedOutput: SynchronizedOutputPolicy,
-    state: DemoState
+    state: DemoState,
+    top: Int
   ) {
     frame.write(
       "Detected terminal",
-      at: position(0, 4),
+      at: position(0, top),
       style: Style(attributes: [.bold])
     )
-    frame.write("identity: \(describe(capabilities.identity))", at: position(2, 5))
+    frame.write("identity: \(describe(capabilities.identity))", at: position(2, top + 1))
     frame.write(
       "nested:   \(capabilities.isNested ? "yes" : "no")",
-      at: position(2, 6)
+      at: position(2, top + 2)
     )
-    frame.write("color:    \(describe(capabilities.color))", at: position(2, 7))
+    frame.write("color:    \(describe(capabilities.color))", at: position(2, top + 3))
 
     frame.write(
       "Protocol support",
-      at: position(0, 10),
+      at: position(0, top + 6),
       style: Style(attributes: [.bold])
     )
     frame.write(
       "bracketed paste: \(state.privateModeDescription(2_004))",
-      at: position(2, 11)
+      at: position(2, top + 7)
     )
     frame.write(
       "focus events:    \(state.privateModeDescription(1_004))",
-      at: position(2, 12)
+      at: position(2, top + 8)
     )
     frame.write(
       "SGR mouse:       \(state.mouseCapabilityDescription)"
         + " (1002/1003/1006)",
-      at: position(2, 13)
+      at: position(2, top + 9)
     )
     frame.write(
       "Kitty keyboard:  \(describe(state.keyboardProbe))",
-      at: position(2, 14)
+      at: position(2, top + 10)
     )
     frame.write(
       "Kitty graphics:  \(describe(state.kittyGraphicsCapability(from: capabilities.kittyGraphics)))",
-      at: position(2, 15)
+      at: position(2, top + 11)
     )
     frame.write(
       "OSC 8 links:     \(describe(capabilities.osc8Hyperlinks))"
         + ", rendering \(describe(hyperlinkRendering))",
-      at: position(2, 16)
+      at: position(2, top + 12)
     )
     frame.write(
       "sync output:     \(state.privateModeDescription(2_026))"
         + ", policy \(describe(synchronizedOutput))",
-      at: position(2, 17)
+      at: position(2, top + 13)
     )
 
     frame.write(
       "Enabled in this session",
-      at: position(0, 19),
+      at: position(0, top + 15),
       style: Style(attributes: [.bold])
     )
     let lines = wrappedLines(
       describeEnabledModes(enabledModes),
       width: max(frame.size.columns - 2, 1)
     )
-    for (offset, line) in lines.prefix(max(frame.size.rows - 20, 0)).enumerated() {
-      frame.write(line, at: position(2, 20 + offset))
+    for (offset, line) in lines.prefix(max(frame.size.rows - (top + 16), 0)).enumerated() {
+      frame.write(line, at: position(2, top + 16 + offset))
     }
   }
 
@@ -548,35 +610,44 @@ enum Phase3ProtocolsDemo {
     state: DemoState,
     cellPixelSize: CellPixelSize?,
     graphicsCapability: CapabilityStatus,
-    graphicsOutputEnabled: Bool
+    graphicsOutputEnabled: Bool,
+    top: Int
   ) {
+    let contentRowOffset = top - 4
+    let placementRegion = Rect(
+      column: GraphicsDemo.placementRegion.origin.column,
+      row: GraphicsDemo.placementRegion.origin.row + contentRowOffset,
+      columns: GraphicsDemo.placementRegion.size.columns,
+      rows: GraphicsDemo.placementRegion.size.rows
+    )
+
     frame.write(
       "Kitty Graphics Protocol",
-      at: position(0, 4),
+      at: position(0, top),
       style: Style(attributes: [.bold])
     )
     frame.write(
       "cell pixels: \(describe(cellPixelSize))",
-      at: position(2, 5),
+      at: position(2, top + 1),
       style: Style(attributes: [.dim])
     )
     frame.write(
       "demo image id \(GraphicsDemo.imageID.rawValue)"
         + " (\(GraphicsDemo.width)x\(GraphicsDemo.height) RGBA gradient)",
-      at: position(2, 7)
+      at: position(2, top + 3)
     )
     frame.write(
-      "placement occupies \(GraphicsDemo.placementRegion.size.columns)x"
-        + "\(GraphicsDemo.placementRegion.size.rows) cells"
-        + " at column \(GraphicsDemo.placementRegion.origin.column),"
-        + " row \(GraphicsDemo.placementRegion.origin.row)",
-      at: position(2, 8)
+      "placement occupies \(placementRegion.size.columns)x"
+        + "\(placementRegion.size.rows) cells"
+        + " at column \(placementRegion.origin.column),"
+        + " row \(placementRegion.origin.row)",
+      at: position(2, top + 4)
     )
     frame.write(
       "Kitty Graphics: \(describe(graphicsCapability))"
         + " · probe \(state.graphicsProbe.description)"
         + " · output \(state.forceKittyGraphicsOutput ? "forced on" : "auto")",
-      at: position(2, 9),
+      at: position(2, top + 5),
       style: Style(attributes: [.dim])
     )
 
@@ -585,28 +656,25 @@ enum Phase3ProtocolsDemo {
         state.graphicsProbe == .pending
           ? "Probing KGP support; waiting for DA1 sentinel."
           : "No KGP response arrived before DA1; image output is disabled.",
-        at: position(
-          GraphicsDemo.placementRegion.origin.column,
-          GraphicsDemo.placementRegion.origin.row + 1
-        ),
+        at: placementRegion.origin,
         style: Style(attributes: [.dim])
       )
-      drawRecentEvents(frame: frame, state: state, top: 17)
+      drawRecentEvents(frame: frame, state: state, top: top + 13)
       return
     }
 
     frame.placeImage(
       GraphicsDemo.placement,
-      at: GraphicsDemo.placementRegion.origin,
-      occupying: GraphicsDemo.placementRegion
+      at: placementRegion.origin,
+      occupying: placementRegion
     )
     frame.write(
       "[ image placement renders above on supporting terminals ]",
-      at: position(2, GraphicsDemo.placementRegion.maxRow + 1),
+      at: position(2, placementRegion.maxRow + 1),
       style: Style(attributes: [.dim])
     )
 
-    drawRecentEvents(frame: frame, state: state, top: 17)
+    drawRecentEvents(frame: frame, state: state, top: top + 13)
   }
 
   private static func writeLink(
@@ -631,7 +699,11 @@ enum Phase3ProtocolsDemo {
     frame.write(text, at: position(11, row), style: style)
   }
 
-  private static func drawMouseGrid(frame: borrowing Frame, state: DemoState) {
+  private static func drawMouseGrid(
+    frame: borrowing Frame,
+    state: DemoState,
+    offset: Int
+  ) {
     let pointer = state.lastMouseEvent?.position
     let normalStyle = Style(foreground: .ansi(.brightBlack))
     let hoverStyle = Style(foreground: .ansi(.brightWhite), attributes: [.bold])
@@ -640,30 +712,32 @@ enum Phase3ProtocolsDemo {
       background: .ansi(.cyan),
       attributes: [.bold]
     )
+    let headerRow = MouseGrid.headerRow(offset: offset)
+    let cellOrigin = MouseGrid.cellOrigin(offset: offset)
 
     frame.write(
       "Mouse grid",
-      at: position(0, MouseGrid.top),
+      at: position(0, MouseGrid.top + offset),
       style: Style(attributes: [.bold])
     )
     frame.write(
       "columns →",
-      at: position(2, MouseGrid.headerRow),
+      at: position(2, headerRow),
       style: Style(attributes: [.dim])
     )
     for column in 0..<MouseGrid.columnCount {
-      let cellPosition = MouseGrid.cellPosition(row: 0, column: column)
-      frame.write("\(column)", at: position(cellPosition.column, MouseGrid.headerRow))
+      let cellPosition = MouseGrid.cellPosition(row: 0, column: column, offset: offset)
+      frame.write("\(column)", at: position(cellPosition.column, headerRow))
     }
 
     for row in 0..<MouseGrid.rowCount {
       frame.write(
         "row \(row) →",
-        at: position(2, MouseGrid.cellOrigin.row + row),
+        at: position(2, cellOrigin.row + row),
         style: Style(attributes: [.dim])
       )
       for column in 0..<MouseGrid.columnCount {
-        let cellPosition = MouseGrid.cellPosition(row: row, column: column)
+        let cellPosition = MouseGrid.cellPosition(row: row, column: column, offset: offset)
         let isPointerOverCell = pointer == cellPosition
         let isPressedCell = state.pressedMouseGridCell == cellPosition
         let symbol: String
@@ -726,16 +800,14 @@ private enum GraphicsDemo {
 
 private enum MouseGrid {
   static let top = 13
-  static let headerRow = top + 1
-  static let cellOrigin = TerminalPosition(column: 13, row: top + 2)
   static let columnCount = 10
   static let rowCount = 3
   static let columnStride = 2
 
-  static func cell(at position: TerminalPosition) -> TerminalPosition? {
+  static func cell(at position: TerminalPosition, offset: Int) -> TerminalPosition? {
     for row in 0..<rowCount {
       for column in 0..<columnCount {
-        let cell = cellPosition(row: row, column: column)
+        let cell = cellPosition(row: row, column: column, offset: offset)
         if cell == position {
           return cell
         }
@@ -744,12 +816,36 @@ private enum MouseGrid {
     return nil
   }
 
-  static func cellPosition(row: Int, column: Int) -> TerminalPosition {
-    TerminalPosition(
-      column: cellOrigin.column + column * columnStride,
-      row: cellOrigin.row + row
+  static func cellOrigin(offset: Int) -> TerminalPosition {
+    TerminalPosition(column: 13, row: top + offset + 2)
+  }
+
+  static func cellPosition(row: Int, column: Int, offset: Int) -> TerminalPosition {
+    let origin = cellOrigin(offset: offset)
+    return TerminalPosition(
+      column: origin.column + column * columnStride,
+      row: origin.row + row
     )
   }
+
+  static func headerRow(offset: Int) -> Int {
+    top + offset + 1
+  }
+}
+
+private struct DemoLayout {
+  let contentTop: Int
+  let tabHitRegions: [(region: Rect, panel: DemoPanel)]
+
+  var contentRowOffset: Int {
+    contentTop - 4
+  }
+}
+
+private struct DemoTab {
+  let key: Character
+  let label: String
+  let panel: DemoPanel
 }
 
 private enum DemoPanel {
@@ -821,6 +917,8 @@ private enum GraphicsProbeState {
 private struct DemoState {
   private(set) var recentEvents: [String] = []
   var selectedPanel = DemoPanel.paste
+  var tabHitRegions: [(region: Rect, panel: DemoPanel)] = []
+  var contentRowOffset = 0
   var keyboardProbe = CapabilityStatus.probing
   var privateModeStatuses: [Int: PrivateModeState] = [:]
   var focusState = DemoFocusState.focused
@@ -931,7 +1029,7 @@ private struct DemoState {
   mutating func updateMouseGridPress(for event: MouseEvent) {
     switch event.kind {
     case .press:
-      pressedMouseGridCell = MouseGrid.cell(at: event.position)
+      pressedMouseGridCell = MouseGrid.cell(at: event.position, offset: contentRowOffset)
     case .release:
       pressedMouseGridCell = nil
     case .drag, .move, .scroll:
