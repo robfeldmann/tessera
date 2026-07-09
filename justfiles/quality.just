@@ -8,10 +8,12 @@ format: _format-json _format-markdown
     swift-format format -i -r Sources Tests Package.swift Examples/Sources Examples/Package.swift
     swiftlint lint --fix --quiet --config .swiftlint.yml
 
-# Sort JSON files when jq is available.
+# Sort regular JSON files when jq is available. Skips symlinks (e.g. the
+# Examples/.markdownlint.json → ../.markdownlint.json config links) so formatting never
+# clobbers a link with a materialized copy.
 _format-json:
     @if command -v jq &> /dev/null; then \
-        find . -name "*.json" -not -path "./.build/*" -not -path "./.git/*" | \
+        find . -type f -name "*.json" -not -path "*/.build/*" -not -path "*/.git/*" | \
         while read -r file; do \
             jq --sort-keys . "$file" > "$file.tmp" && mv "$file.tmp" "$file"; \
         done; \

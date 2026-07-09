@@ -87,7 +87,9 @@ enum InputInspector {
       terminal.invalidateRenderer()
       state.followLatest()
 
-    case .key, .paste, .unknown:
+    case .focusGained, .focusLost, .key, .kittyGraphicsResponse,
+      .kittyKeyboardEnhancementFlags, .mouse, .paste, .primaryDeviceAttributes,
+      .privateModeStatus, .unknown:
       state.append(event)
       state.followLatest()
     }

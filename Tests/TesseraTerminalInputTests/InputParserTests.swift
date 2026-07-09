@@ -106,7 +106,8 @@ let modifiedTildeKeyCases: [ParserCase] = [
   ParserCase("\u{1B}[3;5~", .key(Key(code: .delete, modifiers: .control))),
   ParserCase("\u{1B}[3;6~", .key(Key(code: .delete, modifiers: [.shift, .control]))),
   ParserCase("\u{1B}[3;7~", .key(Key(code: .delete, modifiers: [.alt, .control]))),
-  ParserCase("\u{1B}[3;8~", .key(Key(code: .delete, modifiers: [.shift, .alt, .control]))),
+  ParserCase(
+    "\u{1B}[3;8~", .key(Key(code: .delete, modifiers: [.shift, .alt, .control]))),
   ParserCase("\u{1B}[5;5~", .key(Key(code: .pageUp, modifiers: .control))),
   ParserCase("\u{1B}[6;5~", .key(Key(code: .pageDown, modifiers: .control))),
   ParserCase("\u{1B}[11;5~", .key(Key(code: .function(1), modifiers: .control))),

@@ -66,7 +66,8 @@ enum LifecycleModesDemo {
           try await draw(terminal: terminal, lastEvent: lastEvent)
 
         case .unknown(let bytes):
-          lastEvent = "unknown: \(bytes.map { String(format: "%02X", $0) }.joined(separator: " "))"
+          lastEvent =
+            "unknown: \(bytes.map { String(format: "%02X", $0) }.joined(separator: " "))"
           try await draw(terminal: terminal, lastEvent: lastEvent)
         }
 

@@ -66,6 +66,14 @@ Use these prompts one slice at a time. The umbrella plan is a shared contract; t
 slice plan is the executable checklist. After finishing one slice, stop for review and
 feedback before starting the next slice.
 
+Validation is two-staged. While implementing a slice, run only the focused commands the
+slice plan lists (`swift test --filter ...`, targeted builds) to iterate quickly. Before
+stopping to hand the slice off for review, run the full gate and make it pass: the
+complete `swift test` suite and `just quality lint` (strict formatting and linting,
+including Markdown). A slice is not ready for review until the full suite and strict lint
+are green, so the focused-only guidance in each slice plan applies during development, not
+at handoff.
+
 ### Slice 1 prompt — Bracketed paste
 
 ```text

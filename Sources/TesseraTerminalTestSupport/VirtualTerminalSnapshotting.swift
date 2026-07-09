@@ -91,7 +91,8 @@ private func linkLegend(_ snapshot: ScreenSnapshot) -> String {
     return "No hyperlink metadata exposed by backing terminal."
   }
 
-  let lines = entries
+  let lines =
+    entries
     .sorted { $0.value < $1.value }
     .map { "\($0.value) = \($0.key)" }
   return lines.joined(separator: "\n")
