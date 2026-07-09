@@ -54,6 +54,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   parsing, session image query/transmission/deletion APIs, frame-scoped placement, cell
   pixel geometry, unconditional cleanup, Ghostty-backed graphics snapshot inspection, and
   a graphics panel in the Phase 3 protocols demo.
+- Added Phase 3 color degradation baseline, including capability-aware color resolution
+  (`Color.resolved(for:)`), a pinned xterm 256-color and ANSI-16 palette for deterministic
+  RGB/indexed fallback, renderer SGR emission that degrades truecolor to 256-color, ANSI
+  16, or no-color per the active session capability, application color capability
+  override, and a color sample section in the Phase 3 demo capabilities panel.
 
 - Added Windows support for Ghostty-backed snapshot tests behind the
   `TESSERA_GHOSTTY_WINDOWS=1` package-manifest gate, linking the static
@@ -88,6 +93,13 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   documented and tested as not actively detectable; `.kittyIfAvailable` only enables Kitty
   keyboard after active support is observed; and the Phase 3 demo distinguishes unanswered
   probes from observed protocol behavior.
+- Changed terminal color capability detection to suppress color for the full `TERM=dumb`
+  family (`dumb`, `dumb-300`, …) rather than only exact `TERM=dumb`, closing a regression
+  where `dumb-` variants resolved to `.unknown` instead of `.noColor`.
+- Removed the redundant `TerminalApplicationResolution.colorCapability` and
+  `TerminalSession.colorCapability` mirrors; the effective color capability now lives
+  solely on `TerminalCapabilities.color`, and `sgrDelta`/`encodeFullStyle` resolve a style
+  once with an explicit precondition instead of passing a `.truecolor` sentinel.
 
 - Changed Windows terminal input to translate queued console key records through
   `ReadConsoleInputW`, so live Windows consoles deliver keystrokes and bracketed paste to

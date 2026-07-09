@@ -1,4 +1,5 @@
 import CustomDump
+import TesseraTerminalANSI
 import TesseraTerminalIO
 import Testing
 
@@ -71,6 +72,15 @@ func `NO_COLOR wins over true-color environment hints`() {
   #expect(capabilities.color == .noColor)
 }
 
+@Test
+func `dumb-family TERM suppresses color regardless of TERM_PROGRAM`() {
+  let capabilities = TerminalCapabilityDetector.detect(
+    environment: ["TERM": "dumb-300", "TERM_PROGRAM": "Ghostty"]
+  )
+
+  #expect(capabilities.color == .noColor)
+}
+
 @Test(arguments: colorCapabilityCases)
 private func `color hints map to the advertised color capability`(
   _ testCase: ColorCapabilityCase
@@ -78,6 +88,38 @@ private func `color hints map to the advertised color capability`(
   let capabilities = TerminalCapabilityDetector.detect(environment: testCase.environment)
 
   #expect(capabilities.color == testCase.color)
+}
+
+@Test
+func `color override wins when environment does not disable color`() {
+  let configuration = TerminalApplicationConfiguration(colorCapability: .force(.truecolor))
+
+  let resolution = configuration.resolve(environment: [:])
+  expectNoDifference(resolution.capabilities.color, .truecolor)
+}
+
+@Test
+func `NO_COLOR environment wins over color override`() {
+  let configuration = TerminalApplicationConfiguration(colorCapability: .force(.truecolor))
+
+  let resolution = configuration.resolve(
+    environment: [
+      "COLORTERM": "truecolor",
+      "NO_COLOR": "1",
+      "TERM": "xterm-256color",
+    ]
+  )
+
+  expectNoDifference(resolution.capabilities.color, .noColor)
+}
+
+@Test
+func `dumb TERM wins over color override`() {
+  let configuration = TerminalApplicationConfiguration(colorCapability: .force(.truecolor))
+
+  let resolution = configuration.resolve(environment: ["TERM": "dumb"])
+
+  expectNoDifference(resolution.capabilities.color, .noColor)
 }
 
 @Test
@@ -121,7 +163,7 @@ func `contradictory dumb TERM keeps protocol support unknown despite Ghostty ide
       kittyKeyboard: .unknown,
       osc8Hyperlinks: .notDetectable,
       synchronizedOutput: .unknown,
-      color: .unknown,
+      color: .noColor,
       identity: TerminalIdentity(
         kind: .ghostty,
         source: .termProgram("Ghostty"),

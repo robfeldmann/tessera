@@ -3,30 +3,30 @@ name: Phase 3 Slice 8 Color Degradation Baseline
 description:
   Add capability-aware color degradation so Tessera renders truecolor, 256-color, ANSI
   16-color, and no-color output safely from the same semantic styles.
-status: in-review
+status: complete
 created: 2026-07-07
-updated: 2026-07-07
+updated: 2026-07-08
 ---
 
 <!-- Allowed status values: planning, in-review, pending, in-progress, complete. -->
 
 ## Progress
 
-- [ ] **Phase 1 — Model and policy**
-  - [ ] 1.1 Move or expose `ColorCapability` where the renderer can depend on it
-  - [ ] 1.2 Document and test capability policy for truecolor, 256-color, ANSI 16,
+- [x] **Phase 1 — Model and policy**
+  - [x] 1.1 Move or expose `ColorCapability` where the renderer can depend on it
+  - [x] 1.2 Document and test capability policy for truecolor, 256-color, ANSI 16,
         unknown, and no-color
-- [ ] **Phase 2 — Resolver and palette math**
-  - [ ] 2.1 Add a pure color resolver with exact capability-level output
-  - [ ] 2.2 Implement deterministic RGB/indexed degradation math
-- [ ] **Phase 3 — Renderer integration**
-  - [ ] 3.1 Thread color capability into `sgrDelta` and full-style encoding
-  - [ ] 3.2 Pass session capabilities into renderer frames without changing unrelated
+- [x] **Phase 2 — Resolver and palette math**
+  - [x] 2.1 Add a pure color resolver with exact capability-level output
+  - [x] 2.2 Implement deterministic RGB/indexed degradation math
+- [x] **Phase 3 — Renderer integration**
+  - [x] 3.1 Thread color capability into `sgrDelta` and full-style encoding
+  - [x] 3.2 Pass session capabilities into renderer frames without changing unrelated
         protocols
-- [ ] **Phase 4 — Tests, docs, and example panel updates**
-  - [ ] 4.1 Add unit and renderer tests for every policy branch
-  - [ ] 4.2 Update the Phase 3 demo capabilities/color panel and insert the docs slice
-  - [ ] 4.3 Run narrow validation commands
+- [x] **Phase 4 — Tests, docs, and example panel updates**
+  - [x] 4.1 Add unit and renderer tests for every policy branch
+  - [x] 4.2 Update the Phase 3 demo capabilities/color panel and insert the docs slice
+  - [x] 4.3 Run narrow validation commands
 
 ## Overview
 

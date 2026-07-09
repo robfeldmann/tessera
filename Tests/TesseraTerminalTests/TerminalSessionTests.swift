@@ -533,6 +533,62 @@ func `draw writes rendered frame and flushes once`() async throws {
 }
 
 @Test
+func `draw uses session no-color capability for rendered output`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
+  let session = TerminalSession(
+    io: PlatformIO(terminalDevice: await device.terminalDevice),
+    synchronizedOutput: .disabled,
+    capabilities: TerminalCapabilities(color: .noColor)
+  )
+
+  try await session.draw { frame in
+    frame.write(
+      "R",
+      at: TerminalPosition(column: 0, row: 0),
+      style: Style(foreground: .rgb(255, 0, 0))
+    )
+  }
+
+  let bytes = await device.bytes
+
+  let expected = Array(
+    "\u{1B}[2J\u{1B}[1;1H\u{1B}[0mR\u{1B}[0m\u{1B}[?25l".utf8
+  )
+  #expect(bytes == expected)
+}
+
+@Test
+func `app NO_COLOR overrides forced truecolor draw output`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+  let configuration = TerminalApplicationConfiguration(
+    capabilityDetection: .passive,
+    colorCapability: .force(.truecolor)
+  )
+
+  let observed = try await TerminalSession.withApplicationTerminal(
+    configuration: configuration,
+    io: io,
+    environment: ["NO_COLOR": "1"]
+  ) { session in
+    try await session.draw { frame in
+      frame.write(
+        "R",
+        at: TerminalPosition(column: 0, row: 0),
+        style: Style(foreground: .rgb(255, 0, 0))
+      )
+    }
+    return session.capabilities.color
+  }
+
+  let bytes = await device.bytes
+  let truecolorPrefix = Array("\u{1B}[38;2;".utf8)
+
+  expectNoDifference(observed, .noColor)
+  #expect(containsBytes(truecolorPrefix, in: bytes) == false)
+}
+
+@Test
 func `next event returns first parsed input event`() async throws {
   let device = InMemoryTerminalDevice(inputBytes: [0x61])
   let session = await makeSession(device)

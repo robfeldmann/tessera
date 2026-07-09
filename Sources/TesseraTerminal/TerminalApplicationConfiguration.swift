@@ -13,6 +13,15 @@ public enum CapabilityDetectionMode: Equatable, Sendable {
   case passive
 }
 
+/// Controls the effective color capability used by renderer SGR emission.
+public enum ColorCapabilityOverride: Equatable, Sendable {
+  /// Use the color capability detected from local terminal hints.
+  case detect
+
+  /// Use an application-selected color capability unless user environment disables color.
+  case force(ColorCapability)
+}
+
 /// Controls OSC 8 hyperlink rendering.
 public enum HyperlinkRenderingMode: Equatable, Sendable {
   /// Do not encode OSC 8 hyperlink sequences.
@@ -92,6 +101,9 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
   /// Whether draw transactions should use DEC synchronized output wrappers.
   public var synchronizedOutput: SynchronizedOutputPolicy
 
+  /// Application override for renderer color degradation policy.
+  public var colorCapability: ColorCapabilityOverride
+
   private var modeSelection: ModeSelection
 
   /// Creates a terminal application configuration from protocol intent.
@@ -102,7 +114,8 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
     mouseTracking: MouseTrackingMode = .disabled,
     keyboardProtocol: KeyboardProtocolMode = .kittyIfAvailable,
     hyperlinkRendering: HyperlinkRenderingMode = .enabled,
-    synchronizedOutput: SynchronizedOutputPolicy = .enabled
+    synchronizedOutput: SynchronizedOutputPolicy = .enabled,
+    colorCapability: ColorCapabilityOverride = .detect
   ) {
     self.capabilityDetection = capabilityDetection
     self.enableBracketedPaste = enableBracketedPaste
@@ -111,13 +124,15 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
     self.keyboardProtocol = keyboardProtocol
     self.mouseTracking = mouseTracking
     self.synchronizedOutput = synchronizedOutput
+    self.colorCapability = colorCapability
     self.modeSelection = .intent
   }
 
   /// Creates a terminal application configuration from an exact mode set.
   public init(
     modes: Set<ModeLifecycle.Mode>,
-    synchronizedOutput: SynchronizedOutputPolicy = .enabled
+    synchronizedOutput: SynchronizedOutputPolicy = .enabled,
+    colorCapability: ColorCapabilityOverride = .detect
   ) {
     self.capabilityDetection = .passive
     self.enableBracketedPaste = modes.contains(.bracketedPaste)
@@ -135,6 +150,7 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
       }
     self.synchronizedOutput = synchronizedOutput
     self.modeSelection = .explicit(Self.normalized(modes))
+    self.colorCapability = colorCapability
   }
 
   private static func normalized(
@@ -187,30 +203,45 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
     }
     return resolve(
       capabilities: detectedCapabilities,
-      runsActiveProbes: runsActiveProbes
+      runsActiveProbes: runsActiveProbes,
+      preservesDetectedNoColor: detectedCapabilities.color == .noColor
     )
   }
 
   package func resolve(
     capabilities: TerminalCapabilities
   ) -> TerminalApplicationResolution {
-    resolve(capabilities: capabilities, runsActiveProbes: false)
+    resolve(
+      capabilities: capabilities,
+      runsActiveProbes: false,
+      preservesDetectedNoColor: false
+    )
   }
 
   private func resolve(
     capabilities: TerminalCapabilities,
-    runsActiveProbes: Bool
+    runsActiveProbes: Bool,
+    preservesDetectedNoColor: Bool
   ) -> TerminalApplicationResolution {
+    // A no-color signal observed by the environment detector overrides any
+    // application `force`. The package `resolve(capabilities:)` entry point
+    // passes no such signal, so it trusts the supplied capabilities verbatim.
+    var resolvedCapabilities = capabilities
+    resolvedCapabilities.color = resolvedColorCapability(
+      detected: capabilities.color,
+      preservesDetectedNoColor: preservesDetectedNoColor
+    )
+
     let modes =
       switch modeSelection {
       case .explicit(let modes):
         Self.normalized(modes)
       case .intent:
-        resolvedIntentModes(capabilities: capabilities)
+        resolvedIntentModes(capabilities: resolvedCapabilities)
       }
 
     return TerminalApplicationResolution(
-      capabilities: capabilities,
+      capabilities: resolvedCapabilities,
       enabledProtocolModes: modes,
       hyperlinkRendering: hyperlinkRendering,
       modes: modes,
@@ -249,6 +280,22 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
     }
 
     return modes
+  }
+
+  private func resolvedColorCapability(
+    detected: ColorCapability,
+    preservesDetectedNoColor: Bool
+  ) -> ColorCapability {
+    if preservesDetectedNoColor {
+      return .noColor
+    }
+
+    switch colorCapability {
+    case .detect:
+      return detected
+    case .force(let forced):
+      return forced
+    }
   }
 }
 

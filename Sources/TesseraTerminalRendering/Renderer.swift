@@ -12,17 +12,25 @@ package struct Renderer {
 
   package init() {}
 
-  package static func render(_ buffer: Buffer) -> [UInt8] {
-    render(previous: nil, current: buffer)
+  package static func render(
+    _ buffer: Buffer,
+    colorCapability: ColorCapability = .truecolor
+  ) -> [UInt8] {
+    render(previous: nil, current: buffer, colorCapability: colorCapability)
   }
 
-  package static func render(previous: Buffer?, current: Buffer) -> [UInt8] {
+  package static func render(
+    previous: Buffer?,
+    current: Buffer,
+    colorCapability: ColorCapability = .truecolor
+  ) -> [UInt8] {
     var renderer = Self()
     var bytes: [UInt8] = []
     renderer.encodeFrame(
       previous: previous,
       current: current,
       wrapInSynchronizedOutput: false,
+      colorCapability: colorCapability,
       renderHyperlinks: true,
       into: &bytes
     )
@@ -33,6 +41,7 @@ package struct Renderer {
     previous: Buffer?,
     current: Buffer,
     wrapInSynchronizedOutput: Bool,
+    colorCapability: ColorCapability,
     renderHyperlinks: Bool = true,
     into bytes: inout [UInt8]
   ) {
@@ -52,7 +61,13 @@ package struct Renderer {
 
     let damagePrevious = shouldErase ? nil : previous
     for run in BufferDiff.damageRuns(previous: damagePrevious, current: current) {
-      encode(run: run, from: current, renderHyperlinks: renderHyperlinks, into: &bytes)
+      encode(
+        run: run,
+        from: current,
+        colorCapability: colorCapability,
+        renderHyperlinks: renderHyperlinks,
+        into: &bytes
+      )
     }
 
     closeCurrentHyperlink(into: &bytes)
@@ -76,6 +91,7 @@ package struct Renderer {
   private mutating func encode(
     run: RowDamageRun,
     from buffer: Buffer,
+    colorCapability: ColorCapability,
     renderHyperlinks: Bool,
     into bytes: inout [UInt8]
   ) {
@@ -93,7 +109,12 @@ package struct Renderer {
 
       let hyperlink = renderHyperlinks ? cell.style.hyperlink : nil
       hyperlinkDelta(to: hyperlink, into: &bytes)
-      sgrDelta(from: currentStyle, to: cell.style, into: &bytes)
+      sgrDelta(
+        from: currentStyle,
+        to: cell.style,
+        colorCapability: colorCapability,
+        into: &bytes
+      )
       currentStyle = cell.style
       currentHyperlink = hyperlink
       encodeContent(cell.content, into: &bytes)

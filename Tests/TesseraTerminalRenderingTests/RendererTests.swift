@@ -56,6 +56,7 @@ func `stateful renderer encodes second frame as damage only`() {
     previous: previous,
     current: current,
     wrapInSynchronizedOutput: false,
+    colorCapability: .truecolor,
     into: &bytes
   )
 
@@ -75,6 +76,7 @@ func `stateful renderer returns to damage tracking after invalidate repaint`() {
     previous: initial,
     current: initial,
     wrapInSynchronizedOutput: false,
+    colorCapability: .truecolor,
     into: &bytes
   )
   bytes.removeAll()
@@ -82,6 +84,7 @@ func `stateful renderer returns to damage tracking after invalidate repaint`() {
     previous: initial,
     current: changed,
     wrapInSynchronizedOutput: false,
+    colorCapability: .truecolor,
     into: &bytes
   )
 
@@ -99,6 +102,7 @@ func `stateful renderer size changes repaint conservatively`() {
     previous: previous,
     current: current,
     wrapInSynchronizedOutput: false,
+    colorCapability: .truecolor,
     into: &bytes
   )
 
@@ -119,6 +123,7 @@ func `stateful renderer invalidate causes erase before repaint`() {
     previous: current,
     current: current,
     wrapInSynchronizedOutput: false,
+    colorCapability: .truecolor,
     into: &bytes
   )
 
@@ -296,6 +301,7 @@ func `renderer wraps frames when synchronized output is enabled`() {
     previous: current,
     current: current,
     wrapInSynchronizedOutput: true,
+    colorCapability: .truecolor,
     into: &bytes
   )
 
@@ -312,6 +318,7 @@ func `renderer omits synchronized output wrappers when disabled`() {
     previous: current,
     current: current,
     wrapInSynchronizedOutput: false,
+    colorCapability: .truecolor,
     into: &bytes
   )
 
@@ -325,6 +332,7 @@ func `sgr delta emits reset and full style for unknown old style`() {
   sgrDelta(
     from: nil,
     to: Style(foreground: .ansi(.red), attributes: [.bold, .underline]),
+    colorCapability: .truecolor,
     into: &bytes
   )
 
@@ -338,6 +346,7 @@ func `sgr delta emits only added attributes`() {
   sgrDelta(
     from: Style(attributes: [.bold]),
     to: Style(attributes: [.bold, .italic]),
+    colorCapability: .truecolor,
     into: &bytes
   )
 
@@ -351,6 +360,7 @@ func `sgr delta resets and reapplies style when attributes are removed`() {
   sgrDelta(
     from: Style(foreground: .ansi(.red), attributes: [.bold, .italic]),
     to: Style(foreground: .ansi(.red), attributes: [.bold]),
+    colorCapability: .truecolor,
     into: &bytes
   )
 
@@ -364,6 +374,7 @@ func `sgr delta emits foreground and background color changes`() {
   sgrDelta(
     from: Style(foreground: .ansi(.red), background: .default),
     to: Style(foreground: .ansi(.blue), background: .indexed(42)),
+    colorCapability: .truecolor,
     into: &bytes
   )
 
@@ -377,6 +388,7 @@ func `sgr delta resets for default color reset`() {
   sgrDelta(
     from: Style(foreground: .ansi(.red), background: .ansi(.blue)),
     to: Style(foreground: .default, background: .ansi(.blue)),
+    colorCapability: .truecolor,
     into: &bytes
   )
 
@@ -434,6 +446,7 @@ func `renderer disables OSC 8 but preserves text`() throws {
     previous: Buffer(size: buffer.size),
     current: buffer,
     wrapInSynchronizedOutput: false,
+    colorCapability: .truecolor,
     renderHyperlinks: false,
     into: &bytes
   )
@@ -487,6 +500,175 @@ func `damage render emits hyperlink only changes`() throws {
       + escape("[0m") + utf8("x") + escape("]8;;") + escape("\\") + escape("[0m")
   )
 }
+
+@Test
+func `renderer emits truecolor foreground when capability allows RGB`() {
+  var buffer = Buffer(size: TerminalSize(columns: 1, rows: 1))
+  buffer.write(
+    "R",
+    at: TerminalPosition(column: 0, row: 0),
+    style: Style(foreground: .rgb(255, 0, 0))
+  )
+
+  let bytes = Renderer.render(buffer, colorCapability: .truecolor)
+
+  #expect(bytes == fullRepaint(sgr: "[38;2;255;0;0m", text: "R"))
+}
+
+@Test
+func `renderer degrades RGB foreground to indexed color`() {
+  var buffer = Buffer(size: TerminalSize(columns: 1, rows: 1))
+  buffer.write(
+    "R",
+    at: TerminalPosition(column: 0, row: 0),
+    style: Style(foreground: .rgb(255, 0, 0))
+  )
+
+  let bytes = Renderer.render(buffer, colorCapability: .indexed256)
+
+  #expect(bytes == fullRepaint(sgr: "[38;5;196m", text: "R"))
+}
+
+@Test(arguments: [ColorCapability.ansi16, .unknown])
+func `renderer degrades RGB foreground to ANSI sixteen`(_ capability: ColorCapability) {
+  var buffer = Buffer(size: TerminalSize(columns: 1, rows: 1))
+  buffer.write(
+    "R",
+    at: TerminalPosition(column: 0, row: 0),
+    style: Style(foreground: .rgb(255, 0, 0))
+  )
+
+  let bytes = Renderer.render(buffer, colorCapability: capability)
+
+  #expect(bytes == fullRepaint(sgr: "[91m", text: "R"))
+}
+
+@Test
+func `renderer suppresses foreground color under no-color`() {
+  var buffer = Buffer(size: TerminalSize(columns: 1, rows: 1))
+  buffer.write(
+    "R",
+    at: TerminalPosition(column: 0, row: 0),
+    style: Style(foreground: .rgb(255, 0, 0))
+  )
+
+  let bytes = Renderer.render(buffer, colorCapability: .noColor)
+
+  #expect(bytes == fullRepaint(text: "R"))
+}
+
+@Test
+func `renderer degrades RGB background by color capability`() {
+  var buffer = Buffer(size: TerminalSize(columns: 1, rows: 1))
+  buffer.write(
+    "B",
+    at: TerminalPosition(column: 0, row: 0),
+    style: Style(background: .rgb(255, 0, 0))
+  )
+
+  #expect(
+    Renderer.render(buffer, colorCapability: .truecolor)
+      == fullRepaint(sgr: "[48;2;255;0;0m", text: "B")
+  )
+  #expect(
+    Renderer.render(buffer, colorCapability: .indexed256)
+      == fullRepaint(sgr: "[48;5;196m", text: "B")
+  )
+  #expect(
+    Renderer.render(buffer, colorCapability: .ansi16)
+      == fullRepaint(sgr: "[101m", text: "B")
+  )
+  #expect(
+    Renderer.render(buffer, colorCapability: .noColor) == fullRepaint(text: "B")
+  )
+}
+
+@Test
+func `renderer omits redundant colors that degrade to same ANSI color`() {
+  var buffer = Buffer(size: TerminalSize(columns: 2, rows: 1))
+  buffer.write(
+    "R",
+    at: TerminalPosition(column: 0, row: 0),
+    style: Style(foreground: .rgb(255, 0, 0))
+  )
+  buffer.write(
+    "I",
+    at: TerminalPosition(column: 1, row: 0),
+    style: Style(foreground: .indexed(196))
+  )
+
+  let bytes = Renderer.render(buffer, colorCapability: .ansi16)
+
+  #expect(bytes == fullRepaint(sgr: "[91m", text: "RI"))
+}
+
+@Test
+func `renderer still emits attributes under no-color`() {
+  var buffer = Buffer(size: TerminalSize(columns: 1, rows: 1))
+  buffer.write(
+    "B",
+    at: TerminalPosition(column: 0, row: 0),
+    style: Style(foreground: .rgb(255, 0, 0), attributes: [.bold])
+  )
+
+  let bytes = Renderer.render(buffer, colorCapability: .noColor)
+
+  #expect(bytes == fullRepaint(sgr: "[1m", text: "B"))
+}
+
+@Test
+func `renderer keeps hyperlinks while suppressing no-color SGR`() throws {
+  var buffer = Buffer(size: TerminalSize(columns: 1, rows: 1))
+  let link = try Hyperlink(uri: "https://example.com/color")
+  buffer.write(
+    "L",
+    at: TerminalPosition(column: 0, row: 0),
+    style: Style(foreground: .rgb(255, 0, 0), hyperlink: link)
+  )
+
+  let bytes = Renderer.render(buffer, colorCapability: .noColor)
+
+  #expect(
+    bytes == escape("[2J") + escape("[1;1H")
+      + escape("]8;;https://example.com/color") + escape("\\")
+      + escape("[0m") + utf8("L") + escape("]8;;") + escape("\\") + escape("[0m")
+  )
+}
+
+@Test
+func `damage render repaints semantic color changes that no-color suppresses`() {
+  var previous = Buffer(size: TerminalSize(columns: 1, rows: 1))
+  previous.write(
+    "x",
+    at: TerminalPosition(column: 0, row: 0),
+    style: Style(foreground: .rgb(255, 0, 0))
+  )
+  var current = previous
+  current.write(
+    "x",
+    at: TerminalPosition(column: 0, row: 0),
+    style: Style(foreground: .rgb(0, 255, 0))
+  )
+
+  let bytes = Renderer.render(
+    previous: previous,
+    current: current,
+    colorCapability: .noColor
+  )
+
+  #expect(bytes == escape("[1;1H") + escape("[0m") + utf8("x") + escape("[0m"))
+}
+
+private func fullRepaint(sgr: String? = nil, text: String) -> [UInt8] {
+  var bytes = escape("[2J") + escape("[1;1H") + escape("[0m")
+  if let sgr {
+    bytes += escape(sgr)
+  }
+  bytes += utf8(text)
+  bytes += escape("[0m")
+  return bytes
+}
+
 private func escape(_ suffix: String) -> [UInt8] {
   utf8("\u{1B}\(suffix)")
 }

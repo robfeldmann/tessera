@@ -6117,7 +6117,7 @@ parallel style model:
 - `TerminalCapabilities.color` remains the session-level advisory capability.
 - `StyleEncoding.sgrDelta` and full-style encoding become capability-aware.
 - `Renderer.encodeFrame` accepts a color capability and `TerminalSession.draw` supplies
-  `capabilities.color`.
+  the resolved session color capability.
 
 Ratatui and crossterm are useful references but not templates to copy verbatim. Ratatui
 keeps semantic `Rgb`/`Indexed` colors and converts them at backend emission time;

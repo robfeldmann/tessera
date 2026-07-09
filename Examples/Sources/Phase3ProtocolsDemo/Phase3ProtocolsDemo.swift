@@ -1,9 +1,20 @@
 import ExampleSupport
 import Foundation
 import TesseraTerminal
+import TesseraTerminalANSI
 
 @main
 enum Phase3ProtocolsDemo {
+  private static let tabs: [DemoTab] = [
+    DemoTab(key: "1", label: "Paste", panel: .paste),
+    DemoTab(key: "2", label: "Focus", panel: .focus),
+    DemoTab(key: "3", label: "Mouse", panel: .mouse),
+    DemoTab(key: "4", label: "Keys", panel: .keyboard),
+    DemoTab(key: "5", label: "Links", panel: .links),
+    DemoTab(key: "6", label: "Caps", panel: .capabilities),
+    DemoTab(key: "7", label: "Graphics", panel: .graphics),
+  ]
+
   static func main() async throws {
     guard TerminalExampleSupport.isRunningInInteractiveTerminal() else {
       TerminalExampleSupport.printTerminalRequiredMessage(
@@ -44,16 +55,6 @@ enum Phase3ProtocolsDemo {
       }
     }
   }
-
-  private static let tabs: [DemoTab] = [
-    DemoTab(key: "1", label: "Paste", panel: .paste),
-    DemoTab(key: "2", label: "Focus", panel: .focus),
-    DemoTab(key: "3", label: "Mouse", panel: .mouse),
-    DemoTab(key: "4", label: "Keys", panel: .keyboard),
-    DemoTab(key: "5", label: "Links", panel: .links),
-    DemoTab(key: "6", label: "Caps", panel: .capabilities),
-    DemoTab(key: "7", label: "Graphics", panel: .graphics),
-  ]
 
   private static func handle(
     _ event: InputEvent,
@@ -114,13 +115,12 @@ enum Phase3ProtocolsDemo {
       state.append(event)
     case .mouse(let event):
       state.observedPrivateModeSupport.formUnion([1_002, 1_003, 1_006])
-      if case .press = event.kind,
-        let hit = state.tabHitRegions.first(where: { hit in
-          event.position.row == hit.region.origin.row
-            && event.position.column >= hit.region.origin.column
-            && event.position.column < hit.region.origin.column + hit.region.size.columns
-        })
-      {
+      let hit = state.tabHitRegions.first { hit in
+        event.position.row == hit.region.origin.row
+          && event.position.column >= hit.region.origin.column
+          && event.position.column < hit.region.origin.column + hit.region.size.columns
+      }
+      if case .press = event.kind, let hit {
         state.selectedPanel = hit.panel
       }
       if state.shouldAppendMouseEvent(event) {
@@ -313,8 +313,10 @@ enum Phase3ProtocolsDemo {
 
   private static func minimumTerminalSize(for panel: DemoPanel) -> TerminalSize {
     switch panel {
-    case .capabilities, .focus, .keyboard, .links, .paste:
+    case .focus, .keyboard, .links, .paste:
       return TerminalSize(columns: 12, rows: 20)
+    case .capabilities:
+      return TerminalSize(columns: 42, rows: 24)
     case .graphics:
       return TerminalSize(columns: 48, rows: 20)
     case .mouse:
@@ -414,7 +416,11 @@ enum Phase3ProtocolsDemo {
   private static func drawFocusPanel(frame: borrowing Frame, state: DemoState, top: Int) {
     drawLastEvent(frame: frame, state: state, top: top)
 
-    frame.write("Terminal focus", at: position(0, top + 3), style: Style(attributes: [.bold]))
+    frame.write(
+      "Terminal focus",
+      at: position(0, top + 3),
+      style: Style(attributes: [.bold])
+    )
     frame.write("state: \(state.focusState.description)", at: position(2, top + 4))
     frame.write("last transition: \(state.lastFocusTransition)", at: position(2, top + 5))
 
@@ -448,14 +454,21 @@ enum Phase3ProtocolsDemo {
       )
       frame.write("modifiers: \(describe(mouse.modifiers))", at: position(2, top + 6))
     } else {
-      frame.write("move, click, drag, or scroll inside the terminal", at: position(2, top + 5))
+      frame.write(
+        "move, click, drag, or scroll inside the terminal",
+        at: position(2, top + 5)
+      )
     }
 
     drawMouseGrid(frame: frame, state: state, offset: top - 4)
     drawRecentEvents(frame: frame, state: state, top: top + 16)
   }
 
-  private static func drawKeyboardPanel(frame: borrowing Frame, state: DemoState, top: Int) {
+  private static func drawKeyboardPanel(
+    frame: borrowing Frame,
+    state: DemoState,
+    top: Int
+  ) {
     drawLastEvent(frame: frame, state: state, top: top)
 
     frame.write("Latest key", at: position(0, top + 3), style: Style(attributes: [.bold]))
@@ -470,7 +483,11 @@ enum Phase3ProtocolsDemo {
         at: position(2, top + 9)
       )
     } else {
-      frame.write("press keys now", at: position(2, top + 4), style: Style(attributes: [.dim]))
+      frame.write(
+        "press keys now",
+        at: position(2, top + 4),
+        style: Style(attributes: [.dim])
+      )
     }
 
     frame.write(
@@ -523,7 +540,11 @@ enum Phase3ProtocolsDemo {
       row: top + 7
     )
 
-    frame.write("Plain fallback", at: position(0, top + 10), style: Style(attributes: [.bold]))
+    frame.write(
+      "Plain fallback",
+      at: position(0, top + 10),
+      style: Style(attributes: [.bold])
+    )
     frame.write(
       "The visible text above remains readable even when OSC 8 is unsupported.",
       at: position(2, top + 11),
@@ -553,55 +574,81 @@ enum Phase3ProtocolsDemo {
       at: position(2, top + 2)
     )
     frame.write("color:    \(describe(capabilities.color))", at: position(2, top + 3))
+    frame.write(
+      "fallback: truecolor → 256 → 16 → no-color",
+      at: position(2, top + 4),
+      style: Style(attributes: [.dim])
+    )
+    frame.write(
+      "RGB",
+      at: position(2, top + 5),
+      style: Style(foreground: .rgb(255, 0, 0))
+    )
+    frame.write(
+      "indexed",
+      at: position(8, top + 5),
+      style: Style(foreground: .indexed(196))
+    )
+    frame.write(
+      "ANSI",
+      at: position(18, top + 5),
+      style: Style(foreground: .ansi(.brightRed))
+    )
+    frame.write("default", at: position(25, top + 5))
+    frame.write(
+      "NO_COLOR suppresses foreground/background; attributes and links remain.",
+      at: position(2, top + 6),
+      style: Style(attributes: [.dim])
+    )
 
     frame.write(
       "Protocol support",
-      at: position(0, top + 6),
+      at: position(0, top + 9),
       style: Style(attributes: [.bold])
     )
     frame.write(
       "bracketed paste: \(state.privateModeDescription(2_004))",
-      at: position(2, top + 7)
+      at: position(2, top + 10)
     )
     frame.write(
       "focus events:    \(state.privateModeDescription(1_004))",
-      at: position(2, top + 8)
+      at: position(2, top + 11)
     )
     frame.write(
       "SGR mouse:       \(state.mouseCapabilityDescription)"
         + " (1002/1003/1006)",
-      at: position(2, top + 9)
+      at: position(2, top + 12)
     )
     frame.write(
       "Kitty keyboard:  \(describe(state.keyboardProbe))",
-      at: position(2, top + 10)
+      at: position(2, top + 13)
     )
     frame.write(
       "Kitty graphics:  \(describe(state.kittyGraphicsCapability(from: capabilities.kittyGraphics)))",
-      at: position(2, top + 11)
+      at: position(2, top + 14)
     )
     frame.write(
       "OSC 8 links:     \(describe(capabilities.osc8Hyperlinks))"
         + ", rendering \(describe(hyperlinkRendering))",
-      at: position(2, top + 12)
+      at: position(2, top + 15)
     )
     frame.write(
       "sync output:     \(state.privateModeDescription(2_026))"
         + ", policy \(describe(synchronizedOutput))",
-      at: position(2, top + 13)
+      at: position(2, top + 16)
     )
 
     frame.write(
       "Enabled in this session",
-      at: position(0, top + 15),
+      at: position(0, top + 18),
       style: Style(attributes: [.bold])
     )
     let lines = wrappedLines(
       describeEnabledModes(enabledModes),
       width: max(frame.size.columns - 2, 1)
     )
-    for (offset, line) in lines.prefix(max(frame.size.rows - (top + 16), 0)).enumerated() {
-      frame.write(line, at: position(2, top + 16 + offset))
+    for (offset, line) in lines.prefix(max(frame.size.rows - (top + 19), 0)).enumerated() {
+      frame.write(line, at: position(2, top + 19 + offset))
     }
   }
 

@@ -4,35 +4,50 @@ import TesseraTerminalBuffer
 package func sgrDelta(
   from oldStyle: Style?,
   to newStyle: Style,
+  colorCapability: ColorCapability,
   into bytes: inout [UInt8]
 ) {
+  let resolvedNewStyle = newStyle.resolvedForSGR(colorCapability: colorCapability)
   guard let oldStyle else {
     ControlSequence.resetAttributes.encode(into: &bytes)
-    encodeFullStyle(newStyle, into: &bytes)
+    encodeFullStyle(resolvedNewStyle, into: &bytes)
     return
   }
 
-  guard oldStyle.sgrAttributes != newStyle.sgrAttributes else {
+  let resolvedOldStyle = oldStyle.resolvedForSGR(colorCapability: colorCapability)
+  guard resolvedOldStyle.sgrAttributes != resolvedNewStyle.sgrAttributes else {
     return
   }
 
-  if requiresReset(from: oldStyle, to: newStyle) {
+  if requiresReset(from: resolvedOldStyle, to: resolvedNewStyle) {
     ControlSequence.resetAttributes.encode(into: &bytes)
-    encodeFullStyle(newStyle, into: &bytes)
+    encodeFullStyle(resolvedNewStyle, into: &bytes)
     return
   }
 
-  if oldStyle.foreground != newStyle.foreground {
-    ControlSequence.setForeground(newStyle.foreground).encode(into: &bytes)
+  if resolvedOldStyle.foreground != resolvedNewStyle.foreground {
+    ControlSequence.setForeground(resolvedNewStyle.foreground).encode(into: &bytes)
   }
-  if oldStyle.background != newStyle.background {
-    ControlSequence.setBackground(newStyle.background).encode(into: &bytes)
+  if resolvedOldStyle.background != resolvedNewStyle.background {
+    ControlSequence.setBackground(resolvedNewStyle.background).encode(into: &bytes)
   }
 
-  encodeAddedAttributes(from: oldStyle.attributes, to: newStyle.attributes, into: &bytes)
+  encodeAddedAttributes(
+    from: resolvedOldStyle.attributes,
+    to: resolvedNewStyle.attributes,
+    into: &bytes
+  )
 }
 
-package func encodeFullStyle(_ style: Style, into bytes: inout [UInt8]) {
+/// Emits every non-default SGR facet of `style` from a clean reset state.
+///
+/// - Precondition: `style` colors must already be degraded to the terminal's
+///   `ColorCapability` (call `Style.resolvedForSGR` first). `sgrDelta` resolves
+///   both styles once at the top, so this function never re-resolves.
+package func encodeFullStyle(
+  _ style: Style,
+  into bytes: inout [UInt8]
+) {
   if style.foreground != .default {
     ControlSequence.setForeground(style.foreground).encode(into: &bytes)
   }
@@ -78,6 +93,15 @@ private func encodeAddedAttributes(
 extension Style {
   fileprivate var sgrAttributes: SGRAttributes {
     SGRAttributes(foreground: foreground, background: background, attributes: attributes)
+  }
+
+  fileprivate func resolvedForSGR(colorCapability: ColorCapability) -> Style {
+    Style(
+      foreground: foreground.resolved(for: colorCapability),
+      background: background.resolved(for: colorCapability),
+      attributes: attributes,
+      hyperlink: hyperlink
+    )
   }
 }
 

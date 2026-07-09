@@ -1,4 +1,5 @@
 import Foundation
+import TesseraTerminalANSI
 
 /// Passive detector for advisory terminal capability hints.
 package enum TerminalCapabilityDetector {
@@ -21,17 +22,20 @@ package enum TerminalCapabilityDetector {
       kittyKeyboard: .unknown,
       osc8Hyperlinks: .notDetectable,
       synchronizedOutput: .unknown,
-      color: colorCapability(from: environment, identity: identity),
+      color: colorCapability(from: environment),
       identity: identity,
       isNested: isNestedEnvironment(environment)
     )
   }
 
   private static func colorCapability(
-    from environment: [String: String],
-    identity: TerminalIdentity
+    from environment: [String: String]
   ) -> ColorCapability {
-    if environment.keys.contains("NO_COLOR") || identity.kind == .dumb {
+    let term = environmentValue("TERM", in: environment)?.lowercased()
+    // Match the dumb family (`dumb`, `dumb-300`, …) that `identityKindFromTerm`
+    // recognizes, so a dumb-derived TERM suppresses color regardless of TERM_PROGRAM.
+    let isDumbTerm = term.map { $0 == "dumb" || $0.hasPrefix("dumb-") } ?? false
+    if environment.keys.contains("NO_COLOR") || isDumbTerm {
       return .noColor
     }
 
@@ -40,7 +44,7 @@ package enum TerminalCapabilityDetector {
       return .truecolor
     }
 
-    guard let term = environmentValue("TERM", in: environment)?.lowercased() else {
+    guard let term = term else {
       return .unknown
     }
 

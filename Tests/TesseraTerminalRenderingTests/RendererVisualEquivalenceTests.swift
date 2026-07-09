@@ -176,6 +176,7 @@ func `invalidated render erases before repainting`() {
     previous: previous,
     current: current,
     wrapInSynchronizedOutput: false,
+    colorCapability: .truecolor,
     into: &bytes
   )
   terminal.feed(bytes)
@@ -205,6 +206,7 @@ func `synchronized damage render is visually equivalent`() {
     previous: previous,
     current: current,
     wrapInSynchronizedOutput: true,
+    colorCapability: .truecolor,
     into: &bytes
   )
   terminal.feed(bytes)

@@ -170,6 +170,7 @@ public actor TerminalSession {
       previous: lastDrawnBuffer,
       current: buffer,
       wrapInSynchronizedOutput: synchronizedOutput == .enabled,
+      colorCapability: capabilities.color,
       renderHyperlinks: hyperlinkRendering == .enabled,
       into: &bytes
     )

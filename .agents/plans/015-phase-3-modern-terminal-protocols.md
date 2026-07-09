@@ -5,7 +5,7 @@ description:
   the example app evolve consistently.
 status: pending
 created: 2026-07-02
-updated: 2026-07-07
+updated: 2026-07-08
 ---
 
 ## Progress
@@ -23,7 +23,7 @@ updated: 2026-07-07
   - [x] 3.2 Implement terminal capability detection from plan 021
   - [x] 3.3 Implement Kitty graphics protocol from plan 022
   - [x] 3.4 Refactor capability detection to active, non-hard-coded probes
-  - [ ] 3.5 Implement color degradation baseline from plan 024
+  - [x] 3.5 Implement color degradation baseline from plan 024
   - [ ] 3.6 Implement OSC 52 clipboard from plan 025
   - [ ] 3.7 Implement cursor styling from plan 026
   - [ ] 3.8 Implement underline extensions from plan 027
