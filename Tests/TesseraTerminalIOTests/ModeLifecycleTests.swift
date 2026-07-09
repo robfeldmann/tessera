@@ -44,6 +44,105 @@ func `enter allows bracketed paste and enables it after alternate screen`() asyn
 }
 
 @Test
+func `enter enables cursor style after alt screen before bracketed paste`() async throws {
+  let device = LifecycleTestDevice()
+  let lifecycle = await makeLifecycle(device)
+  let cursorStyle = CursorStyle(
+    shape: .steadyBar,
+    color: CursorColor(red: 0x12, green: 0xAB, blue: 0xF0)
+  )
+
+  try await lifecycle.enter([
+    .rawMode, .altScreen, .cursorStyle(cursorStyle), .bracketedPaste,
+  ])
+
+  let activeModes = await lifecycle.activeModes
+  let events = await device.events
+
+  expectNoDifference(
+    activeModes,
+    [.rawMode, .altScreen, .cursorStyle(cursorStyle), .bracketedPaste]
+  )
+  assertInlineSnapshot(of: lifecycleEventLog(events), as: .lines) {
+    """
+    enableRawMode
+    enableAltScreen
+    flush: 1B 5B 36 20 71 1B 5D 31 32 3B 23 31 32 41 42 46 30 1B 5C
+    flush: 1B 5B 3F 32 30 30 34 68
+    """
+  }
+}
+
+@Test
+func `exit resets cursor style before leaving alt screen and raw mode`() async throws {
+  let device = LifecycleTestDevice()
+  let lifecycle = await makeLifecycle(device)
+  let cursorStyle = CursorStyle(
+    shape: .steadyBar,
+    color: CursorColor(red: 0x12, green: 0xAB, blue: 0xF0)
+  )
+
+  try await lifecycle.enter([
+    .rawMode, .altScreen, .cursorStyle(cursorStyle), .bracketedPaste,
+  ])
+  try await lifecycle.exit()
+
+  let activeModes = await lifecycle.activeModes
+  let events = await device.events
+
+  expectNoDifference(activeModes, [])
+  assertInlineSnapshot(of: lifecycleEventLog(events), as: .lines) {
+    """
+    enableRawMode
+    enableAltScreen
+    flush: 1B 5B 36 20 71 1B 5D 31 32 3B 23 31 32 41 42 46 30 1B 5C
+    flush: 1B 5B 3F 32 30 30 34 68
+    flush: 1B 5F 47 61 3D 64 2C 64 3D 41 1B 5C
+    flush: 1B 5B 3F 32 30 30 34 6C
+    flush: 1B 5B 30 20 71 1B 5D 31 31 32 1B 5C
+    disableAltScreen
+    disableRawMode
+    """
+  }
+}
+
+@Test
+func `shape-only cursor style emits shape bytes without color bytes`() async throws {
+  let device = LifecycleTestDevice()
+  let lifecycle = await makeLifecycle(device)
+
+  try await lifecycle.enter([
+    .rawMode, .altScreen, .cursorStyle(CursorStyle(shape: .steadyBlock)),
+  ])
+  try await lifecycle.exit()
+
+  let flushes = await device.events.filter(\.isFlush).map(\.flushBytes)
+
+  #expect(flushes.contains(cursorShapeSteadyBlockBytes))
+  #expect(flushes.contains(cursorShapeResetBytes))
+  #expect(!flushes.contains { $0 == cursorColorSetBytes })
+  #expect(!flushes.contains { $0 == cursorColorResetBytes })
+}
+
+@Test
+func `color-only cursor style emits color bytes without shape bytes`() async throws {
+  let device = LifecycleTestDevice()
+  let lifecycle = await makeLifecycle(device)
+
+  try await lifecycle.enter([
+    .rawMode, .altScreen, .cursorStyle(CursorStyle(color: cursorColor)),
+  ])
+  try await lifecycle.exit()
+
+  let flushes = await device.events.filter(\.isFlush).map(\.flushBytes)
+
+  #expect(flushes.contains(cursorColorSetBytes))
+  #expect(flushes.contains(cursorColorResetBytes))
+  #expect(!flushes.contains { $0 == cursorShapeSteadyBlockBytes })
+  #expect(!flushes.contains { $0 == cursorShapeResetBytes })
+}
+
+@Test
 func `enter enables focus tracking after bracketed paste`() async throws {
   let device = LifecycleTestDevice()
   let lifecycle = await makeLifecycle(device)
@@ -419,6 +518,38 @@ func `apply switches mouse tracking granularity`() async throws {
 }
 
 @Test
+func `apply switches cursor style and applying same style is no-op`() async throws {
+  let device = LifecycleTestDevice()
+  let lifecycle = await makeLifecycle(device)
+  let styleA = CursorStyle(shape: .steadyBlock, color: cursorColor)
+  let styleB = CursorStyle(
+    shape: .steadyBar,
+    color: CursorColor(red: 0xFE, green: 0xDC, blue: 0xBA)
+  )
+
+  try await lifecycle.enter([.rawMode, .altScreen, .cursorStyle(styleA)])
+  let eventsAfterEnter = await device.events
+
+  try await lifecycle.apply(applicationModes: [.cursorStyle(styleA)])
+  let eventsAfterNoOp = await device.events
+
+  try await lifecycle.apply(applicationModes: [.cursorStyle(styleB)])
+  let activeModes = await lifecycle.activeModes
+  let flushes = await device.events.filter(\.isFlush).map(\.flushBytes)
+
+  expectNoDifference(eventsAfterNoOp, eventsAfterEnter)
+  expectNoDifference(activeModes, [.rawMode, .altScreen, .cursorStyle(styleB)])
+  expectNoDifference(
+    flushes,
+    [
+      cursorStyleABytes,
+      cursorStyleResetBytes,
+      cursorStyleBBytes,
+    ]
+  )
+}
+
+@Test
 func `apply rejects session fixed modes`() async throws {
   let device = LifecycleTestDevice()
   let lifecycle = await makeLifecycle(device)
@@ -542,6 +673,48 @@ func `enter rolls back optional modes when focus enable fails`() async throws {
     disableRawMode
     """
   }
+}
+
+@Test
+func `enter rolls back fixed modes when cursor style enable fails`() async throws {
+  let device = LifecycleTestDevice(failure: .writeOnAttempt(1))
+  let lifecycle = await makeLifecycle(device)
+
+  await #expect(throws: LifecycleTestDevice.Failure.write) {
+    try await lifecycle.enter([
+      .rawMode,
+      .altScreen,
+      .cursorStyle(CursorStyle(shape: .steadyBlock, color: cursorColor)),
+      .bracketedPaste,
+    ])
+  }
+
+  let activeModes = await lifecycle.activeModes
+  let events = await device.events
+
+  expectNoDifference(activeModes, [])
+  assertInlineSnapshot(of: lifecycleEventLog(events), as: .lines) {
+    """
+    enableRawMode
+    enableAltScreen
+    flush: 1B 5B 32 20 71 1B 5D 31 32 3B 23 31 32 41 42 46 30 1B 5C
+    disableAltScreen
+    disableRawMode
+    """
+  }
+}
+
+@Test
+func `cursor styling request succeeds without capability responses`() async throws {
+  let device = LifecycleTestDevice()
+  let lifecycle = await makeLifecycle(device)
+  let cursorStyle = CursorStyle(shape: .steadyBlock, color: cursorColor)
+
+  try await lifecycle.enter([.rawMode, .altScreen, .cursorStyle(cursorStyle)])
+
+  let activeModes = await lifecycle.activeModes
+
+  expectNoDifference(activeModes, [.rawMode, .altScreen, .cursorStyle(cursorStyle)])
 }
 
 @Test
@@ -741,6 +914,106 @@ func `alternate screen bytes round trip through virtual terminal`() async throws
         )
       }
     }
+
+    @Test
+    func `failed cursor style enable leaves no emergency cleanup bytes`() async throws {
+      try await CleanupRegistryTestIsolation.withExclusiveAccess {
+        let pipe = try LifecycleCleanupPipe()
+        defer {
+          CleanupRegistry.clear()
+          pipe.closeAll()
+        }
+        let device = LifecycleTestDevice(
+          cleanupState: PlatformCleanupState(
+            inputFileDescriptor: -1,
+            outputFileDescriptor: pipe.writeDescriptor
+          ) { nil },
+          failure: .writeOnAttempt(1)
+        )
+        let lifecycle = await makeLifecycle(device)
+
+        await #expect(throws: LifecycleTestDevice.Failure.write) {
+          try await lifecycle.enter([
+            .rawMode,
+            .altScreen,
+            .cursorStyle(CursorStyle(shape: .steadyBlock, color: cursorColor)),
+          ])
+        }
+        CleanupRegistry.performEmergencyCleanupForTesting()
+        pipe.closeWriteDescriptor()
+
+        let bytes = try pipe.readAll()
+        expectNoDifference(bytes, [])
+      }
+    }
+
+    @Test
+    func `cleanup bytes reset only requested cursor style facets`() async throws {
+      try await CleanupRegistryTestIsolation.withExclusiveAccess {
+        let shapePipe = try LifecycleCleanupPipe()
+        let colorPipe = try LifecycleCleanupPipe()
+        let unownedPipe = try LifecycleCleanupPipe()
+        defer {
+          CleanupRegistry.clear()
+          shapePipe.closeAll()
+          colorPipe.closeAll()
+          unownedPipe.closeAll()
+        }
+
+        let shapeDevice = LifecycleTestDevice(
+          cleanupState: PlatformCleanupState(
+            inputFileDescriptor: -1,
+            outputFileDescriptor: shapePipe.writeDescriptor
+          ) { nil }
+        )
+        let shapeLifecycle = await makeLifecycle(shapeDevice)
+        try await shapeLifecycle.enter([
+          .rawMode,
+          .altScreen,
+          .cursorStyle(CursorStyle(shape: .steadyBlock)),
+        ])
+        CleanupRegistry.performEmergencyCleanupForTesting()
+        shapePipe.closeWriteDescriptor()
+        let shapeBytes = try shapePipe.readAll()
+
+        CleanupRegistry.clear()
+        let colorDevice = LifecycleTestDevice(
+          cleanupState: PlatformCleanupState(
+            inputFileDescriptor: -1,
+            outputFileDescriptor: colorPipe.writeDescriptor
+          ) { nil }
+        )
+        let colorLifecycle = await makeLifecycle(colorDevice)
+        try await colorLifecycle.enter([
+          .rawMode,
+          .altScreen,
+          .cursorStyle(CursorStyle(color: cursorColor)),
+        ])
+        CleanupRegistry.performEmergencyCleanupForTesting()
+        colorPipe.closeWriteDescriptor()
+        let colorBytes = try colorPipe.readAll()
+
+        CleanupRegistry.clear()
+        let unownedDevice = LifecycleTestDevice(
+          cleanupState: PlatformCleanupState(
+            inputFileDescriptor: -1,
+            outputFileDescriptor: unownedPipe.writeDescriptor
+          ) { nil }
+        )
+        let unownedLifecycle = await makeLifecycle(unownedDevice)
+        try await unownedLifecycle.enter([.rawMode, .altScreen])
+        CleanupRegistry.performEmergencyCleanupForTesting()
+        unownedPipe.closeWriteDescriptor()
+        let unownedBytes = try unownedPipe.readAll()
+
+        #expect(shapeBytes.containsSubsequence(cursorShapeResetBytes))
+        #expect(!shapeBytes.containsSubsequence(cursorColorResetBytes))
+        #expect(colorBytes.containsSubsequence(cursorColorResetBytes))
+        #expect(!colorBytes.containsSubsequence(cursorShapeResetBytes))
+        #expect(!unownedBytes.containsSubsequence(cursorShapeResetBytes))
+        #expect(!unownedBytes.containsSubsequence(cursorColorResetBytes))
+      }
+    }
   }
 #endif
 
@@ -889,6 +1162,19 @@ private let mouseDisableBytes =
 private let kittyKeyboardPushBytes = Array("\u{1B}[>7u".utf8)
 private let kittyKeyboardPopBytes = Array("\u{1B}[<u".utf8)
 private let kittyGraphicsDeleteAllBytes = Array("\u{1B}_Ga=d,d=A\u{1B}\\".utf8)
+private let cursorColor = CursorColor(red: 0x12, green: 0xAB, blue: 0xF0)
+private let cursorShapeSteadyBlockBytes =
+  ControlSequence.setCursorShape(.steadyBlock).bytes
+private let cursorShapeResetBytes = ControlSequence.setCursorShape(.defaultUserShape).bytes
+private let cursorColorSetBytes = ControlSequence.setCursorColor(cursorColor).bytes
+private let cursorColorResetBytes = ControlSequence.resetCursorColor.bytes
+private let cursorStyleABytes =
+  cursorShapeSteadyBlockBytes + cursorColorSetBytes
+private let cursorStyleBBytes =
+  ControlSequence.setCursorShape(.steadyBar).bytes
+  + ControlSequence.setCursorColor(CursorColor(red: 0xFE, green: 0xDC, blue: 0xBA)).bytes
+private let cursorStyleResetBytes =
+  cursorShapeResetBytes + cursorColorResetBytes
 
 private func mouseEnableBytes(_ granularity: MouseTracking) -> [UInt8] {
   switch granularity {
@@ -912,6 +1198,18 @@ private func wrappedHex(_ bytes: [UInt8], bytesPerLine: Int) -> String {
       return hex(Array(bytes[index..<end]))
     }
     .joined(separator: "\n")
+}
+
+extension Array where Element == UInt8 {
+  fileprivate func containsSubsequence(_ needle: [UInt8]) -> Bool {
+    guard !needle.isEmpty else {
+      return true
+    }
+
+    return indices.contains { index in
+      self[index...].starts(with: needle)
+    }
+  }
 }
 
 #if os(macOS) || os(Linux)

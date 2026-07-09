@@ -67,6 +67,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   an advisory `osc52Clipboard` capability that stays not-detectable, and a clipboard panel
   in the Phase 3 protocols demo.
 
+- Added Phase 3 mode lifecycle handling to deterministically enter, apply, restore, and
+  clean up cursor styling state.
+
 - Added Windows support for Ghostty-backed snapshot tests behind the
   `TESSERA_GHOSTTY_WINDOWS=1` package-manifest gate, linking the static
   `ghostty-vt-static.lib` so no runtime DLL discovery is needed.

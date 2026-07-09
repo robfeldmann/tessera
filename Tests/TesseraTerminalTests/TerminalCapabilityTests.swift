@@ -400,6 +400,81 @@ private func `OSC 52 clipboard support is not inferred from identity or active p
   expectNoDifference(resolution.capabilities.osc52Clipboard, .notDetectable)
 }
 
+@Test
+func `default intent and exact modes keep cursor styling disabled`() {
+  let defaultResolution =
+    TerminalApplicationConfiguration.default.resolve(environment: [:])
+  let exactConfiguration = TerminalApplicationConfiguration(modes: baseApplicationModes)
+  let exactResolution = exactConfiguration.resolve(environment: [:])
+
+  expectNoDifference(TerminalApplicationConfiguration.default.cursorStyling, .disabled)
+  expectNoDifference(defaultResolution.cursorStyling, .disabled)
+  expectNoDifference(defaultResolution.cursorStyle, nil)
+  #expect(!containsCursorStyle(defaultResolution.modes))
+  expectNoDifference(exactConfiguration.cursorStyling, .disabled)
+  expectNoDifference(exactResolution.cursorStyling, .disabled)
+  expectNoDifference(exactResolution.cursorStyle, nil)
+  #expect(!containsCursorStyle(exactResolution.modes))
+}
+
+@Test
+func `enabled cursor styling without default is carried without cursor mode`() {
+  let configuration = TerminalApplicationConfiguration(
+    cursorStyling: .enabled(default: nil)
+  )
+
+  let resolution = configuration.resolve(environment: [:])
+
+  expectNoDifference(resolution.cursorStyling, .enabled(default: nil))
+  expectNoDifference(resolution.cursorStyle, nil)
+  #expect(!containsCursorStyle(resolution.modes))
+}
+
+@Test
+func `shape-only cursor styling default resolves one cursor style mode`() {
+  let cursorStyle = CursorStyle(shape: .steadyBar)
+  let configuration = TerminalApplicationConfiguration(
+    cursorStyling: .enabled(default: cursorStyle)
+  )
+
+  let resolution = configuration.resolve(environment: [:])
+
+  expectNoDifference(resolution.cursorStyling, .enabled(default: cursorStyle))
+  expectNoDifference(resolution.cursorStyle, cursorStyle)
+  expectNoDifference(cursorStyles(in: resolution.modes), [cursorStyle])
+}
+
+@Test
+func `color-only cursor styling default resolves one cursor style mode`() {
+  let cursorStyle = CursorStyle(color: CursorColor(red: 0x12, green: 0x34, blue: 0x56))
+  let configuration = TerminalApplicationConfiguration(
+    cursorStyling: .enabled(default: cursorStyle)
+  )
+
+  let resolution = configuration.resolve(environment: [:])
+
+  expectNoDifference(resolution.cursorStyling, .enabled(default: cursorStyle))
+  expectNoDifference(resolution.cursorStyle, cursorStyle)
+  expectNoDifference(cursorStyles(in: resolution.modes), [cursorStyle])
+}
+
+@Test
+func `exact modes round trip cursor styling policy`() {
+  let cursorStyle = CursorStyle(
+    shape: .steadyBlock,
+    color: CursorColor(red: 0xAA, green: 0xBB, blue: 0xCC)
+  )
+  let styledConfiguration = TerminalApplicationConfiguration(
+    modes: baseApplicationModes.union([.cursorStyle(cursorStyle)])
+  )
+  let unstyledConfiguration = TerminalApplicationConfiguration(modes: baseApplicationModes)
+
+  expectNoDifference(styledConfiguration.cursorStyling, .enabled(default: cursorStyle))
+  expectNoDifference(cursorStyles(in: styledConfiguration.modes), [cursorStyle])
+  expectNoDifference(unstyledConfiguration.cursorStyling, .disabled)
+  #expect(!containsCursorStyle(unstyledConfiguration.modes))
+}
+
 private let baseApplicationModes: Set<ModeLifecycle.Mode> = [
   .altScreen,
   .bracketedPaste,
@@ -553,6 +628,24 @@ private let osc52ClipboardDetectionCases =
       capabilityDetection: .active
     ),
   ]
+
+private func containsCursorStyle(_ modes: Set<ModeLifecycle.Mode>) -> Bool {
+  modes.contains { mode in
+    if case .cursorStyle = mode {
+      return true
+    }
+    return false
+  }
+}
+
+private func cursorStyles(in modes: Set<ModeLifecycle.Mode>) -> [CursorStyle] {
+  modes.compactMap { mode in
+    if case .cursorStyle(let style) = mode {
+      return style
+    }
+    return nil
+  }
+}
 
 private struct OSC52ClipboardDetectionCase: CustomStringConvertible, Sendable {
   let name: String

@@ -6433,6 +6433,14 @@ color-depth policy do not implicitly disable cursor color: cursor color is an ex
 application opt-in and is not cell text color. Tessera does not query and restore the
 user's exact pre-existing cursor color; restore means terminal/user default via OSC 112.
 
+Multiplexer behavior follows the same producer boundary. When Tessera runs inside a
+multiplexer that owns a virtual screen and renders its own host cursor, such as herdr, the
+multiplexer must either model child cursor color state and re-emit equivalent OSC 12/112
+for its host cursor, or intentionally leave cursor color unsupported. Tessera must not
+bypass that layer or invent tmux/screen-style passthrough wrappers for cursor styling; a
+flushed OSC 12/112 sequence only proves Tessera sent the request to its immediate terminal
+device.
+
 Tests should cover all DECSCUSR values, exact `CSI Ps SP q` bytes including the space
 byte, OSC 12 RGB serialization, OSC 112 reset, disabled-by-default configuration, enabled
 policy with no default style, enabled policy with a default style, focused/requested style

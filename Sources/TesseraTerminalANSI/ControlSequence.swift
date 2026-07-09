@@ -86,11 +86,20 @@ public enum ControlSequence: Equatable, Sendable {
   /// Reset all graphic rendition attributes using ECMA-48 SGR 0.
   case resetAttributes
 
+  /// Reset the text cursor color to the terminal default using OSC 112.
+  case resetCursorColor
+
   /// Set the background color using ECMA-48 SGR color parameters.
   case setBackground(Color)
 
   /// Enable or disable bold/intense text using ECMA-48 SGR 1/22.
   case setBold(Bool)
+
+  /// Set the text cursor color using OSC 12.
+  case setCursorColor(CursorColor)
+
+  /// Set the cursor shape using DECSCUSR (`CSI Ps SP q`).
+  case setCursorShape(CursorShape)
 
   /// Enable or disable dim/faint text using ECMA-48 SGR 2/22.
   case setDim(Bool)
@@ -136,7 +145,8 @@ public enum ControlSequence: Equatable, Sendable {
       .cursorRestore,
       .cursorSave,
       .cursorUp,
-      .cursorVisible:
+      .cursorVisible,
+      .setCursorShape:
       self.encodeCursor(into: &buffer)
 
     case .eraseInDisplay, .eraseInLine:
@@ -169,7 +179,12 @@ public enum ControlSequence: Equatable, Sendable {
     case .kittyGraphics:
       self.encodeKittyGraphics(into: &buffer)
 
-    case .closeHyperlink, .copyToClipboard, .openHyperlink, .setWindowTitle:
+    case .closeHyperlink,
+      .copyToClipboard,
+      .openHyperlink,
+      .resetCursorColor,
+      .setCursorColor,
+      .setWindowTitle:
       self.encodeOSC(into: &buffer)
     }
   }
@@ -216,6 +231,27 @@ public enum ControlSequence: Equatable, Sendable {
       // DEC private mode 25: show/hide cursor, `CSI ? 25 h/l`.
       ANSIByteEncoding.appendCSI(isVisible ? "?25h" : "?25l", into: &buffer)
 
+    case .setCursorShape(let shape):
+      // DECSCUSR: set cursor style, `CSI Ps SP q`.
+      let parameter =
+        switch shape {
+        case .defaultUserShape:
+          0
+        case .blinkingBlock:
+          1
+        case .steadyBlock:
+          2
+        case .blinkingUnderline:
+          3
+        case .steadyUnderline:
+          4
+        case .blinkingBar:
+          5
+        case .steadyBar:
+          6
+        }
+      ANSIByteEncoding.appendCSI("\(parameter) q", into: &buffer)
+
     case .bell,
       .closeHyperlink,
       .copyToClipboard,
@@ -236,8 +272,10 @@ public enum ControlSequence: Equatable, Sendable {
       .pushKittyKeyboard,
       .raw,
       .resetAttributes,
+      .resetCursorColor,
       .setBackground,
       .setBold,
+      .setCursorColor,
       .setDim,
       .setForeground,
       .setItalic,
@@ -286,8 +324,11 @@ public enum ControlSequence: Equatable, Sendable {
       .pushKittyKeyboard,
       .raw,
       .resetAttributes,
+      .resetCursorColor,
       .setBackground,
       .setBold,
+      .setCursorColor,
+      .setCursorShape,
       .setDim,
       .setForeground,
       .setItalic,
@@ -366,6 +407,9 @@ public enum ControlSequence: Equatable, Sendable {
       .popKittyKeyboard,
       .pushKittyKeyboard,
       .raw,
+      .resetCursorColor,
+      .setCursorColor,
+      .setCursorShape,
       .setWindowTitle,
       .text:
       break
@@ -448,8 +492,11 @@ public enum ControlSequence: Equatable, Sendable {
       .openHyperlink,
       .raw,
       .resetAttributes,
+      .resetCursorColor,
       .setBackground,
       .setBold,
+      .setCursorColor,
+      .setCursorShape,
       .setDim,
       .setForeground,
       .setItalic,
@@ -495,8 +542,11 @@ public enum ControlSequence: Equatable, Sendable {
       .pushKittyKeyboard,
       .raw,
       .resetAttributes,
+      .resetCursorColor,
       .setBackground,
       .setBold,
+      .setCursorColor,
+      .setCursorShape,
       .setDim,
       .setForeground,
       .setItalic,
@@ -529,6 +579,19 @@ public enum ControlSequence: Equatable, Sendable {
       let params = hyperlink.id.map { "id=\($0)" } ?? ""
       ANSIByteEncoding.appendOSC(
         "8;\(params);\(hyperlink.uri)",
+        terminator: .stringTerminator,
+        into: &buffer
+      )
+
+    case .resetCursorColor:
+      // OSC 112 resets the text cursor color to the terminal default.
+      ANSIByteEncoding.appendOSC("112", terminator: .stringTerminator, into: &buffer)
+
+    case .setCursorColor(let color):
+      // OSC 12 sets the text cursor color. Tessera owns RGB serialization and
+      // terminates with ST (`ESC \`) to match OSC 8 hyperlink handling.
+      ANSIByteEncoding.appendOSC(
+        "12;\(color.hexString)",
         terminator: .stringTerminator,
         into: &buffer
       )
@@ -569,6 +632,7 @@ public enum ControlSequence: Equatable, Sendable {
       .resetAttributes,
       .setBackground,
       .setBold,
+      .setCursorShape,
       .setDim,
       .setForeground,
       .setItalic,
@@ -622,8 +686,11 @@ public enum ControlSequence: Equatable, Sendable {
       .popKittyKeyboard,
       .pushKittyKeyboard,
       .resetAttributes,
+      .resetCursorColor,
       .setBackground,
       .setBold,
+      .setCursorColor,
+      .setCursorShape,
       .setDim,
       .setForeground,
       .setItalic,

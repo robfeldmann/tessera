@@ -10,6 +10,9 @@ public actor ModeLifecycle {
     /// Alternate screen buffer.
     case altScreen
 
+    /// Session-owned cursor shape and color styling.
+    case cursorStyle(CursorStyle)
+
     /// Bracketed paste.
     case bracketedPaste
 
@@ -26,6 +29,7 @@ public actor ModeLifecycle {
   private enum AcquisitionSlot: Sendable {
     case rawMode
     case altScreen
+    case cursorStyle
     case bracketedPaste
     case focusEvents
     case mouseTracking
@@ -35,6 +39,7 @@ public actor ModeLifecycle {
   private static let acquisitionOrder: [AcquisitionSlot] = [
     .rawMode,
     .altScreen,
+    .cursorStyle,
     .bracketedPaste,
     .focusEvents,
     .mouseTracking,
@@ -59,8 +64,8 @@ public actor ModeLifecycle {
 
   private static func isSupported(_ mode: Mode) -> Bool {
     switch mode {
-    case .rawMode, .altScreen, .bracketedPaste, .focusEvents, .mouseTracking,
-      .kittyKeyboard:
+    case .rawMode, .altScreen, .cursorStyle, .bracketedPaste, .focusEvents,
+      .mouseTracking, .kittyKeyboard:
       true
     }
   }
@@ -71,6 +76,8 @@ public actor ModeLifecycle {
       modes.contains(.rawMode) ? .rawMode : nil
     case .altScreen:
       modes.contains(.altScreen) ? .altScreen : nil
+    case .cursorStyle:
+      requestedCursorStyle(in: modes).map(Mode.cursorStyle)
     case .bracketedPaste:
       modes.contains(.bracketedPaste) ? .bracketedPaste : nil
     case .focusEvents:
@@ -84,16 +91,22 @@ public actor ModeLifecycle {
 
   private static func normalized(_ modes: Set<Mode>) -> Set<Mode> {
     var normalizedModes = modes.filter { mode in
-      if case .mouseTracking = mode {
+      switch mode {
+      case .mouseTracking, .cursorStyle:
         return false
+      case .rawMode, .altScreen, .bracketedPaste, .focusEvents, .kittyKeyboard:
+        return true
       }
-      return true
     }
 
     // A set may request both mouse granularities; any-event is a strict superset of
     // button-event tracking, so the broadest requested granularity wins.
     if let mouseTracking = requestedMouseTracking(in: modes) {
       normalizedModes.insert(.mouseTracking(mouseTracking))
+    }
+
+    if let cursorStyle = requestedCursorStyle(in: modes) {
+      normalizedModes.insert(.cursorStyle(cursorStyle))
     }
     return normalizedModes
   }
@@ -106,11 +119,66 @@ public actor ModeLifecycle {
         return .anyEvent
       case .mouseTracking(.buttonEvents):
         requestedButtonEvents = true
-      case .rawMode, .altScreen, .bracketedPaste, .focusEvents, .kittyKeyboard:
+      case .rawMode, .altScreen, .cursorStyle, .bracketedPaste, .focusEvents,
+        .kittyKeyboard:
         continue
       }
     }
     return requestedButtonEvents ? .buttonEvents : nil
+  }
+
+  /// Selects one requested cursor style deterministically when multiple payloads reach the
+  /// lifecycle. Cursor styles have no broadest-wins superset, so ties are resolved by a
+  /// private ordering over shape first, then RGB color components, with nil facets last.
+  private static func requestedCursorStyle(in modes: Set<Mode>) -> CursorStyle? {
+    var requestedStyle: CursorStyle?
+    for mode in modes {
+      switch mode {
+      case .cursorStyle(let style) where style.shape != nil || style.color != nil:
+        guard let currentStyle = requestedStyle else {
+          requestedStyle = style
+          continue
+        }
+        if cursorStyleSortValue(style) < cursorStyleSortValue(currentStyle) {
+          requestedStyle = style
+        }
+      case .cursorStyle:
+        continue
+      case .rawMode, .altScreen, .bracketedPaste, .focusEvents, .mouseTracking,
+        .kittyKeyboard:
+        continue
+      }
+    }
+    return requestedStyle
+  }
+
+  private static func cursorStyleSortValue(_ style: CursorStyle) -> (Int, Int, Int, Int) {
+    let color = style.color
+    return (
+      style.shape.map(cursorShapeSortValue) ?? .max,
+      color.map { Int($0.red) } ?? .max,
+      color.map { Int($0.green) } ?? .max,
+      color.map { Int($0.blue) } ?? .max
+    )
+  }
+
+  private static func cursorShapeSortValue(_ shape: CursorShape) -> Int {
+    switch shape {
+    case .defaultUserShape:
+      0
+    case .blinkingBlock:
+      1
+    case .steadyBlock:
+      2
+    case .blinkingUnderline:
+      3
+    case .steadyUnderline:
+      4
+    case .blinkingBar:
+      5
+    case .steadyBar:
+      6
+    }
   }
 
   private static func slot(for mode: Mode) -> AcquisitionSlot {
@@ -119,6 +187,8 @@ public actor ModeLifecycle {
       .rawMode
     case .altScreen:
       .altScreen
+    case .cursorStyle:
+      .cursorStyle
     case .bracketedPaste:
       .bracketedPaste
     case .focusEvents:
@@ -175,7 +245,8 @@ public actor ModeLifecycle {
     let normalizedApplicationModes = Self.normalized(requestedApplicationModes)
     let invalidModes = normalizedApplicationModes.filter { mode in
       switch mode {
-      case .bracketedPaste, .focusEvents, .mouseTracking, .kittyKeyboard:
+      case .cursorStyle, .bracketedPaste, .focusEvents, .mouseTracking,
+        .kittyKeyboard:
         return false
       case .rawMode, .altScreen:
         return true
@@ -189,14 +260,16 @@ public actor ModeLifecycle {
       switch mode {
       case .rawMode, .altScreen:
         return true
-      case .bracketedPaste, .focusEvents, .mouseTracking, .kittyKeyboard:
+      case .cursorStyle, .bracketedPaste, .focusEvents, .mouseTracking,
+        .kittyKeyboard:
         return false
       }
     }
     let desiredModes = fixedModes.union(normalizedApplicationModes)
     let applicationModes = modes.filter { mode in
       switch mode {
-      case .bracketedPaste, .focusEvents, .mouseTracking, .kittyKeyboard:
+      case .cursorStyle, .bracketedPaste, .focusEvents, .mouseTracking,
+        .kittyKeyboard:
         return true
       case .rawMode, .altScreen:
         return false
@@ -276,6 +349,17 @@ public actor ModeLifecycle {
     case .altScreen:
       try await io.disableAltScreen()
 
+    case .cursorStyle(let style):
+      var bytes: [UInt8] = []
+      if style.shape != nil {
+        ControlSequence.setCursorShape(.defaultUserShape).encode(into: &bytes)
+      }
+      if style.color != nil {
+        ControlSequence.resetCursorColor.encode(into: &bytes)
+      }
+      await io.write(bytes)
+      try await io.flush()
+
     case .bracketedPaste:
       await io.write(ControlSequence.enableBracketedPaste(false).bytes)
       try await io.flush()
@@ -301,6 +385,17 @@ public actor ModeLifecycle {
 
     case .altScreen:
       try await io.enableAltScreen()
+
+    case .cursorStyle(let style):
+      var bytes: [UInt8] = []
+      if let shape = style.shape {
+        ControlSequence.setCursorShape(shape).encode(into: &bytes)
+      }
+      if let color = style.color {
+        ControlSequence.setCursorColor(color).encode(into: &bytes)
+      }
+      await io.write(bytes)
+      try await io.flush()
 
     case .bracketedPaste:
       await io.write(ControlSequence.enableBracketedPaste(true).bytes)
@@ -345,6 +440,14 @@ public actor ModeLifecycle {
     // DEC private mode 2004: disable bracketed paste, `CSI ? 2004 l`.
     if modes.contains(.bracketedPaste) || requestedModes.contains(.bracketedPaste) {
       ControlSequence.enableBracketedPaste(false).encode(into: &teardownBytes)
+    }
+
+    let cursorStyle = Self.requestedCursorStyle(in: modes.union(requestedModes))
+    if cursorStyle?.shape != nil {
+      ControlSequence.setCursorShape(.defaultUserShape).encode(into: &teardownBytes)
+    }
+    if cursorStyle?.color != nil {
+      ControlSequence.resetCursorColor.encode(into: &teardownBytes)
     }
 
     // DEC private mode 1049: leave alternate screen, `CSI ? 1049 l`.

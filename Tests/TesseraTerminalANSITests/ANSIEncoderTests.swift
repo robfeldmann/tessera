@@ -30,6 +30,52 @@ func `cursor control sequences encode exact bytes`() {
 }
 
 @Test
+func `cursor shape control sequences encode exact bytes`() {
+  let cases: [(shape: CursorShape, expected: [UInt8])] = [
+    (.defaultUserShape, esc("[0 q")),
+    (.blinkingBlock, esc("[1 q")),
+    (.steadyBlock, esc("[2 q")),
+    (.blinkingUnderline, esc("[3 q")),
+    (.steadyUnderline, esc("[4 q")),
+    (.blinkingBar, esc("[5 q")),
+    (.steadyBar, esc("[6 q")),
+  ]
+
+  for testCase in cases {
+    #expect(testCase.expected[3] == 0x20)
+    expectBytes(.setCursorShape(testCase.shape), testCase.expected)
+  }
+}
+
+@Test
+func `cursor color control sequences encode exact bytes`() {
+  let stringTerminator = esc("\\")
+  let cases: [(color: CursorColor, expected: [UInt8])] = [
+    (
+      CursorColor(red: 0x12, green: 0xAB, blue: 0xF0),
+      esc("]12;#12ABF0") + stringTerminator
+    ),
+    (
+      CursorColor(red: 0x00, green: 0x00, blue: 0x00),
+      esc("]12;#000000") + stringTerminator
+    ),
+    (
+      CursorColor(red: 0xFF, green: 0xFF, blue: 0xFF),
+      esc("]12;#FFFFFF") + stringTerminator
+    ),
+  ]
+
+  for testCase in cases {
+    expectBytes(.setCursorColor(testCase.color), testCase.expected)
+  }
+}
+
+@Test
+func `cursor color reset encodes exact bytes`() {
+  expectBytes(.resetCursorColor, esc("]112") + esc("\\"))
+}
+
+@Test
 func `button-event mouse tracking enables button reports before SGR encoding`() {
   expectBytes(.enableMouseTracking(.buttonEvents), esc("[?1002h") + esc("[?1006h"))
 }

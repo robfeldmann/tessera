@@ -14,6 +14,25 @@ enum Phase3ProtocolsDemo {
     DemoTab(key: "6", label: "Caps", panel: .capabilities),
     DemoTab(key: "7", label: "Graphics", panel: .graphics),
     DemoTab(key: "8", label: "Clip", panel: .clip),
+    DemoTab(key: "9", label: "Cursor", panel: .cursor),
+  ]
+
+  private static let cursorColorPresets: [CursorColor?] = [
+    CursorColor(red: 0x7D, green: 0xFF, blue: 0xAF),
+    CursorColor(red: 0xFF, green: 0x5F, blue: 0x5F),
+    CursorColor(red: 0x5F, green: 0x87, blue: 0xFF),
+    CursorColor(red: 0x5F, green: 0xFF, blue: 0xFF),
+    nil,
+  ]
+
+  private static let cursorShapes: [CursorShape] = [
+    .blinkingBar,
+    .blinkingBlock,
+    .blinkingUnderline,
+    .defaultUserShape,
+    .steadyBar,
+    .steadyBlock,
+    .steadyUnderline,
   ]
 
   static func main() async throws {
@@ -29,6 +48,7 @@ enum Phase3ProtocolsDemo {
           "OSC 8 hyperlinks",
           "raw keyboard input",
           "alternate screen rendering",
+          "cursor shape and color styling",
         ],
         runCommand: "swift run --package-path Examples Phase3ProtocolsDemo",
         attachSchemeName: "Phase3ProtocolsDemo (Attach)"
@@ -40,7 +60,13 @@ enum Phase3ProtocolsDemo {
       capabilityDetection: .active,
       mouseTracking: .anyEvent,
       keyboardProtocol: .kittyIfAvailable,
-      clipboardWriting: .enabled(.default)
+      clipboardWriting: .enabled(.default),
+      cursorStyling: .enabled(
+        default: CursorStyle(
+          shape: .steadyBar,
+          color: CursorColor(red: 0x7D, green: 0xFF, blue: 0xAF)
+        )
+      )
     )
 
     try await TerminalSession.withApplicationTerminal(
@@ -71,6 +97,16 @@ enum Phase3ProtocolsDemo {
       state.append(event)
       state.lastKeyDescription = describe(key)
       // Tabs past key "9" are reachable by mouse click.
+      let didHandleCursorKey: Bool
+      if state.selectedPanel == .cursor {
+        didHandleCursorKey = await handleCursorKey(
+          key,
+          state: &state,
+          terminal: terminal
+        )
+      } else {
+        didHandleCursorKey = false
+      }
       if state.selectedPanel == .clip, key == Key(code: .character("c")) {
         do {
           state.lastClipboardResult = try await terminal.copyToClipboard(
@@ -82,6 +118,8 @@ enum Phase3ProtocolsDemo {
           state.lastClipboardResult = nil
           state.lastClipboardErrorDescription = String(describing: error)
         }
+      } else if didHandleCursorKey {
+        return false
       } else if let tab = tabs.first(where: { key == Key(code: .character($0.key)) }) {
         state.selectedPanel = tab.panel
       } else if key == Key(code: .character("g")) {
@@ -154,6 +192,80 @@ enum Phase3ProtocolsDemo {
     return false
   }
 
+  private static func handleCursorKey(
+    _ key: Key,
+    state: inout DemoState,
+    terminal: isolated TerminalSession
+  ) async -> Bool {
+    guard key.kind != .release else {
+      return false
+    }
+
+    switch key.code {
+    case .character("s"):
+      state.cursorShapeIndex = (state.cursorShapeIndex + 1) % cursorShapes.count
+      await applySelectedCursorStyle(state: &state, terminal: terminal)
+      return true
+
+    case .character("x"):
+      state.cursorColorIndex = (state.cursorColorIndex + 1) % cursorColorPresets.count
+      await applySelectedCursorStyle(state: &state, terminal: terminal)
+      return true
+
+    case .down:
+      moveCursorMarker(columnDelta: 0, rowDelta: 1, state: &state)
+      return true
+
+    case .left:
+      moveCursorMarker(columnDelta: -1, rowDelta: 0, state: &state)
+      return true
+
+    case .right:
+      moveCursorMarker(columnDelta: 1, rowDelta: 0, state: &state)
+      return true
+
+    case .up:
+      moveCursorMarker(columnDelta: 0, rowDelta: -1, state: &state)
+      return true
+
+    case .backspace, .capsLock, .character, .delete, .end, .enter, .escape,
+      .function, .home, .insert, .keypad, .media, .menu, .modifier, .numLock,
+      .pageDown, .pageUp, .pause, .printScreen, .scrollLock, .tab, .unidentified:
+      return false
+    }
+  }
+
+  private static func applySelectedCursorStyle(
+    state: inout DemoState,
+    terminal: isolated TerminalSession
+  ) async {
+    let style = CursorStyle(
+      shape: cursorShapes[state.cursorShapeIndex],
+      color: cursorColorPresets[state.cursorColorIndex]
+    )
+    do {
+      try await terminal.setCursorStyle(style)
+      state.lastCursorStyleErrorDescription = nil
+    } catch {
+      state.lastCursorStyleErrorDescription = String(describing: error)
+    }
+  }
+
+  private static func moveCursorMarker(
+    columnDelta: Int,
+    rowDelta: Int,
+    state: inout DemoState
+  ) {
+    let marker = TerminalPosition(
+      column: state.cursorMarker.column + columnDelta,
+      row: state.cursorMarker.row + rowDelta
+    )
+    state.cursorMarker = clampedCursorMarker(
+      marker,
+      contentTop: state.contentRowOffset + 4
+    )
+  }
+
   private static func draw(
     terminal: isolated TerminalSession,
     state: inout DemoState
@@ -183,6 +295,7 @@ enum Phase3ProtocolsDemo {
       state.hasVisibleGraphics = false
     }
     let cellPixelSize = await terminal.cellPixelSize
+    let effectiveCursorStyle = terminal.effectiveCursorStyle
     try await terminal.draw { frame in
       let layout = drawHeader(frame: frame, state: state, cellPixelSize: cellPixelSize)
       state.tabHitRegions = layout.tabHitRegions
@@ -219,6 +332,18 @@ enum Phase3ProtocolsDemo {
           state: state,
           clipboardWriting: terminal.clipboardWriting,
           capabilities: terminal.capabilities,
+          top: contentTop
+        )
+
+      case .cursor:
+        state.cursorMarker = clampedCursorMarker(
+          state.cursorMarker, contentTop: contentTop)
+        drawCursorPanel(
+          frame: frame,
+          cursorStyling: terminal.cursorStyling,
+          effectiveCursorStyle: effectiveCursorStyle,
+          cursorMarker: state.cursorMarker,
+          lastErrorDescription: state.lastCursorStyleErrorDescription,
           top: contentTop
         )
 
@@ -337,6 +462,8 @@ enum Phase3ProtocolsDemo {
     switch panel {
     case .clip, .focus, .keyboard, .links, .paste:
       return TerminalSize(columns: 50, rows: 24)
+    case .cursor:
+      return TerminalSize(columns: 60, rows: 30)
     case .capabilities:
       return TerminalSize(columns: 42, rows: 24)
     case .graphics:
@@ -498,8 +625,10 @@ enum Phase3ProtocolsDemo {
       frame.write("code: \(key.code)", at: position(2, top + 4))
       frame.write("kind: \(key.kind)", at: position(2, top + 5))
       frame.write("modifiers: \(describe(key.modifiers))", at: position(2, top + 6))
-      frame.write("shifted: \(describeOptional(key.shiftedCode))", at: position(2, top + 7))
-      frame.write("base: \(describeOptional(key.baseLayoutCode))", at: position(2, top + 8))
+      frame.write(
+        "shifted: \(describeOptional(key.shiftedCode))", at: position(2, top + 7))
+      frame.write(
+        "base: \(describeOptional(key.baseLayoutCode))", at: position(2, top + 8))
       frame.write(
         "text: \(key.associatedText.map(String.init(reflecting:)) ?? "none")",
         at: position(2, top + 9)
@@ -648,6 +777,110 @@ enum Phase3ProtocolsDemo {
         style: Style(attributes: [.dim])
       )
     }
+  }
+
+  private static func drawCursorPanel(
+    frame: borrowing Frame,
+    cursorStyling: CursorStylingPolicy,
+    effectiveCursorStyle: CursorStyle?,
+    cursorMarker: TerminalPosition,
+    lastErrorDescription: String?,
+    top: Int
+  ) {
+    frame.write(
+      "Cursor styling",
+      at: position(0, top),
+      style: Style(attributes: [.bold])
+    )
+    frame.write(
+      "Shape and color are session policy applied by the lifecycle.",
+      at: position(2, top + 2)
+    )
+    frame.write(
+      "Owned facets are restored on exit; other application modes are preserved.",
+      at: position(2, top + 3)
+    )
+    frame.write(
+      "The block/bar/underline you see in the playground is your real terminal cursor.",
+      at: position(2, top + 4),
+      style: Style(attributes: [.dim])
+    )
+
+    frame.write(
+      "Configured policy",
+      at: position(0, top + 7),
+      style: Style(attributes: [.bold])
+    )
+    let policyLines = wrappedLines(
+      describeCursorStylingPolicy(cursorStyling),
+      width: max(frame.size.columns - 2, 1)
+    )
+    for (offset, line) in policyLines.prefix(2).enumerated() {
+      frame.write(line, at: position(2, top + 8 + offset))
+    }
+
+    frame.write(
+      "Current effective style",
+      at: position(0, top + 11),
+      style: Style(attributes: [.bold])
+    )
+    frame.write(
+      currentCursorStyleSummary(effectiveCursorStyle),
+      at: position(2, top + 12)
+    )
+
+    frame.write(
+      "s shape · x color · arrows move · restored on exit",
+      at: position(2, top + 14),
+      style: Style(attributes: [.bold])
+    )
+
+    drawCursorPlayground(frame: frame, cursorMarker: cursorMarker, top: top)
+
+    if let lastErrorDescription {
+      frame.write(
+        "Last cursor update error",
+        at: position(0, top + 24),
+        style: Style(foreground: .ansi(.yellow), attributes: [.bold])
+      )
+      for (offset, line) in wrappedLines(
+        lastErrorDescription,
+        width: max(frame.size.columns - 2, 1)
+      ).prefix(3).enumerated() {
+        frame.write(
+          line,
+          at: position(2, top + 25 + offset),
+          style: Style(foreground: .ansi(.yellow))
+        )
+      }
+    }
+
+    frame.setCursorPosition(cursorMarker)
+  }
+
+  private static func drawCursorPlayground(
+    frame: borrowing Frame,
+    cursorMarker: TerminalPosition,
+    top: Int
+  ) {
+    let bounds = cursorMarkerBounds(contentTop: top)
+    let width = bounds.columns.count
+    let horizontal = String(repeating: "─", count: width)
+    frame.write(
+      "Cursor playground", at: position(0, top + 17), style: Style(attributes: [.bold]))
+    frame.write("┌\(horizontal)┐", at: position(bounds.columns.lowerBound - 1, top + 18))
+    for row in bounds.rows {
+      frame.write(
+        "│\(String(repeating: " ", count: width))│",
+        at: position(bounds.columns.lowerBound - 1, row)
+      )
+    }
+    frame.write("└\(horizontal)┘", at: position(bounds.columns.lowerBound - 1, top + 22))
+    frame.write(
+      "marker column \(cursorMarker.column), row \(cursorMarker.row)",
+      at: position(2, top + 23),
+      style: Style(attributes: [.dim])
+    )
   }
 
   private static func drawCapabilitiesPanel(
@@ -900,6 +1133,79 @@ enum Phase3ProtocolsDemo {
     }
   }
 
+  private static func clampedCursorMarker(
+    _ marker: TerminalPosition,
+    contentTop: Int
+  ) -> TerminalPosition {
+    let bounds = cursorMarkerBounds(contentTop: contentTop)
+    return TerminalPosition(
+      column: min(
+        max(marker.column, bounds.columns.lowerBound), bounds.columns.upperBound),
+      row: min(max(marker.row, bounds.rows.lowerBound), bounds.rows.upperBound)
+    )
+  }
+
+  private static func cursorMarkerBounds(
+    contentTop: Int
+  ) -> (columns: ClosedRange<Int>, rows: ClosedRange<Int>) {
+    (columns: 6...42, rows: (contentTop + 19)...(contentTop + 21))
+  }
+
+  private static func describeCursorShape(_ shape: CursorShape) -> String {
+    switch shape {
+    case .defaultUserShape:
+      return "terminal default"
+    case .blinkingBlock:
+      return "blinking block"
+    case .steadyBlock:
+      return "steady block"
+    case .blinkingUnderline:
+      return "blinking underline"
+    case .steadyUnderline:
+      return "steady underline"
+    case .blinkingBar:
+      return "blinking bar"
+    case .steadyBar:
+      return "steady bar"
+    }
+  }
+
+  private static func describeCursorStylingPolicy(
+    _ policy: CursorStylingPolicy
+  ) -> String {
+    switch policy {
+    case .disabled:
+      return "disabled"
+    case .enabled(let defaultStyle):
+      guard let defaultStyle,
+        defaultStyle.shape != nil || defaultStyle.color != nil
+      else {
+        return "enabled: no default (owns styling for future dynamic requests)"
+      }
+      return "enabled: default \(cursorStyleSummary(defaultStyle))"
+    }
+  }
+
+  private static func cursorStyleSummary(_ style: CursorStyle?) -> String {
+    guard let style, style.shape != nil || style.color != nil else {
+      return "none"
+    }
+
+    let shape = style.shape.map(describeCursorShape) ?? "untouched"
+    let color = style.color.map(hexString) ?? "untouched"
+    return "shape \(shape), color \(color)"
+  }
+
+  private static func currentCursorStyleSummary(_ style: CursorStyle?) -> String {
+    let shape = style?.shape.map(describeCursorShape) ?? "terminal default"
+    let color = style?.color.map(hexString) ?? "terminal default"
+    return "shape \(shape), color \(color)"
+  }
+
+  private static func hexString(_ color: CursorColor) -> String {
+    String(format: "#%02X%02X%02X", color.red, color.green, color.blue)
+  }
+
   private static func position(_ column: Int, _ row: Int) -> TerminalPosition {
     TerminalPosition(column: column, row: row)
   }
@@ -998,6 +1304,7 @@ private struct DemoTab {
 private enum DemoPanel {
   case capabilities
   case clip
+  case cursor
   case focus
   case graphics
   case keyboard
@@ -1011,6 +1318,8 @@ private enum DemoPanel {
       return "Capabilities"
     case .clip:
       return "Clipboard"
+    case .cursor:
+      return "Cursor"
     case .focus:
       return "Focus"
     case .graphics:
@@ -1084,9 +1393,13 @@ private struct DemoState {
   var forceKittyGraphicsOutput = false
   var graphicsProbe = GraphicsProbeState.notStarted
   var observedPrivateModeSupport: Set<Int> = []
+  var cursorMarker = TerminalPosition(column: 12, row: 24)
+  var cursorShapeIndex = 4
+  var cursorColorIndex = 0
   var lastPaste = ""
   var lastClipboardResult: ClipboardWriteResult?
   var lastClipboardErrorDescription: String?
+  var lastCursorStyleErrorDescription: String?
   var sequenceNumber = 0
 
   var mouseCapability: CapabilityStatus {

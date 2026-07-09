@@ -3,30 +3,30 @@ name: Phase 3 Slice 10 Cursor Styling
 description:
   Add first-class session-scoped cursor shape and cursor color policy using DECSCUSR and
   OSC 12/112, with deterministic enter/apply/restore behavior and cleanup.
-status: in-review
+status: complete
 created: 2026-07-07
-updated: 2026-07-07
+updated: 2026-07-09
 ---
 
 ## Progress
 
-- [ ] **Phase 1 — Cursor style model and ANSI encoding**
-  - [ ] 1.1 Add cursor shape and color policy types
-  - [ ] 1.2 Encode DECSCUSR, OSC 12, and OSC 112 as semantic `ControlSequence` cases
-  - [ ] 1.3 Add exact byte encoder tests
-- [ ] **Phase 2 — Application/session policy resolution**
-  - [ ] 2.1 Add explicit cursor styling opt-in to `TerminalApplicationConfiguration`
-  - [ ] 2.2 Carry the resolved cursor style through `TerminalApplicationResolution` and
+- [x] **Phase 1 — Cursor style model and ANSI encoding**
+  - [x] 1.1 Add cursor shape and color policy types
+  - [x] 1.2 Encode DECSCUSR, OSC 12, and OSC 112 as semantic `ControlSequence` cases
+  - [x] 1.3 Add exact byte encoder tests
+- [x] **Phase 2 — Application/session policy resolution**
+  - [x] 2.1 Add explicit cursor styling opt-in to `TerminalApplicationConfiguration`
+  - [x] 2.2 Carry the resolved cursor style through `TerminalApplicationResolution` and
         `TerminalSession`
-  - [ ] 2.3 Add configuration and session resolution tests
-- [ ] **Phase 3 — Lifecycle application and cleanup**
-  - [ ] 3.1 Teach `ModeLifecycle` to enter, apply, normalize, and disable cursor styling
-  - [ ] 3.2 Include cursor style reset bytes in emergency cleanup only when Tessera owns
+  - [x] 2.3 Add configuration and session resolution tests
+- [x] **Phase 3 — Lifecycle application and cleanup**
+  - [x] 3.1 Teach `ModeLifecycle` to enter, apply, normalize, and disable cursor styling
+  - [x] 3.2 Include cursor style reset bytes in emergency cleanup only when Tessera owns
         cursor styling
-  - [ ] 3.3 Add lifecycle ordering, rollback, apply, and emergency cleanup tests
-- [ ] **Phase 4 — Demo and validation**
-  - [ ] 4.1 Add a cursor styling panel to `Phase3ProtocolsDemo`
-  - [ ] 4.2 Run the narrow validation commands for encoder, configuration, session,
+  - [x] 3.3 Add lifecycle ordering, rollback, apply, and emergency cleanup tests
+- [x] **Phase 4 — Demo and validation**
+  - [x] 4.1 Add a cursor styling panel to `Phase3ProtocolsDemo`
+  - [x] 4.2 Run the narrow validation commands for encoder, configuration, session,
         lifecycle, and demo coverage
 
 ## Overview

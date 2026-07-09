@@ -41,6 +41,79 @@ func `application terminal returns body result and cleans up modes`() async thro
 }
 
 @Test
+func `application terminal exposes cursor styling and default style`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+  let cursorStyle = CursorStyle(shape: .steadyBlock)
+  let configuration = TerminalApplicationConfiguration(
+    cursorStyling: .enabled(default: cursorStyle)
+  )
+  var observedPolicy: CursorStylingPolicy?
+  var observedStyle: CursorStyle?
+
+  try await TerminalSession.withApplicationTerminal(
+    configuration: configuration,
+    io: io,
+    environment: [:]
+  ) { session in
+    observedPolicy = session.cursorStyling
+    observedStyle = session.effectiveCursorStyle
+  }
+
+  let events = await device.events
+
+  expectNoDifference(observedPolicy, .enabled(default: cursorStyle))
+  expectNoDifference(observedStyle, cursorStyle)
+  #expect(events.contains { $0.flushBytes == cursorShapeSteadyBlockBytes })
+}
+
+@Test
+func `set cursor style overrides then restores the default`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+  let defaultStyle = CursorStyle(shape: .steadyBlock)
+  let overrideStyle = CursorStyle(shape: .steadyBar, color: cursorColor)
+  let configuration = TerminalApplicationConfiguration(
+    cursorStyling: .enabled(default: defaultStyle)
+  )
+  var effectiveAfterOverride: CursorStyle?
+  var effectiveAfterRestore: CursorStyle?
+
+  try await TerminalSession.withApplicationTerminal(
+    configuration: configuration,
+    io: io,
+    environment: [:]
+  ) { session in
+    try await session.setCursorStyle(overrideStyle)
+    effectiveAfterOverride = session.effectiveCursorStyle
+    try await session.setCursorStyle(defaultStyle)
+    effectiveAfterRestore = session.effectiveCursorStyle
+  }
+
+  let flushes = await device.events.filter(\.isFlush).map(\.flushBytes)
+
+  expectNoDifference(effectiveAfterOverride, overrideStyle)
+  expectNoDifference(effectiveAfterRestore, defaultStyle)
+  expectNoDifference(
+    flushes,
+    [
+      cursorShapeSteadyBlockBytes,
+      bracketedPasteEnableBytes,
+      focusEnableBytes,
+      cursorShapeResetBytes,
+      cursorStyleOverrideBytes,
+      cursorStyleResetBytes,
+      cursorShapeSteadyBlockBytes,
+      cursorVisibleBytes,
+      kittyGraphicsDeleteAllBytes,
+      focusDisableBytes,
+      bracketedPasteDisableBytes,
+      cursorShapeResetBytes,
+    ]
+  )
+}
+
+@Test
 func `session exposes nil cell pixel size`() async {
   let device = InMemoryTerminalDevice(
     size: TerminalSize(columns: 4, rows: 2),
@@ -163,8 +236,10 @@ func `default configuration denies clipboard writes without flushing`() async th
 
   let events = await device.events
 
+  let hasFlush = events.contains(where: \.isFlush)
+
   expectNoDifference(result, .denied(.disabledByConfiguration))
-  try #expect(!events.contains(where: \.isFlush))
+  #expect(!hasFlush)
 }
 
 @Test
@@ -202,8 +277,10 @@ func `package clipboard seam denies writes without explicit user intent`() async
 
   let events = await device.events
 
+  let hasFlush = events.contains(where: \.isFlush)
+
   expectNoDifference(result, .denied(.missingUserIntent))
-  try #expect(!events.contains(where: \.isFlush))
+  #expect(!hasFlush)
 }
 
 @Test
@@ -223,8 +300,10 @@ func `clipboard policy rejects disallowed primary selection`() async throws {
 
   let events = await device.events
 
+  let hasFlush = events.contains(where: \.isFlush)
+
   expectNoDifference(result, .denied(.selectionNotAllowed(.primary)))
-  try #expect(!events.contains(where: \.isFlush))
+  #expect(!hasFlush)
 }
 
 @Test
@@ -255,13 +334,15 @@ func `clipboard payload at limit sends and one byte over limit is denied`() asyn
   let allowedEvents = await allowedDevice.events
   let deniedEvents = await deniedDevice.events
 
+  let deniedHasFlush = deniedEvents.contains(where: \.isFlush)
+
   expectNoDifference(allowedResult, .sent(bytesWritten: expectedBytes.count))
   expectNoDifference(allowedEvents, [.flush(expectedBytes)])
   expectNoDifference(
     deniedResult,
     .denied(.payloadTooLarge(actualBytes: 4, maximumBytes: 3))
   )
-  try #expect(!deniedEvents.contains(where: \.isFlush))
+  #expect(!deniedHasFlush)
 }
 
 @Test(arguments: clipboardNestedTerminalCases)
@@ -285,11 +366,13 @@ private func `nested clipboard writes require explicit passthrough`(
   }
 
   let deniedEvents = await deniedDevice.events
+  let deniedWroteExpectedBytes = deniedEvents.contains { $0.flushBytes == expectedBytes }
+
   expectNoDifference(
     deniedResult,
     .denied(.nestedTerminalRequiresExplicitPassthrough(testCase.identity))
   )
-  try #expect(!deniedEvents.contains { $0.flushBytes == expectedBytes })
+  #expect(!deniedWroteExpectedBytes)
 
   let allowedDevice = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
   let allowedIO = PlatformIO(terminalDevice: await allowedDevice.terminalDevice)
@@ -343,11 +426,13 @@ private func `nested clipboard capability hints require explicit passthrough`(
   let deniedEvents = await deniedDevice.events
   let allowedEvents = await allowedDevice.events
 
+  let deniedHasFlush = deniedEvents.contains(where: \.isFlush)
+
   expectNoDifference(
     deniedResult,
     .denied(.nestedTerminalRequiresExplicitPassthrough(testCase.capabilities.identity))
   )
-  try #expect(!deniedEvents.contains(where: \.isFlush))
+  #expect(!deniedHasFlush)
   expectNoDifference(allowedResult, .sent(bytesWritten: expectedBytes.count))
   expectNoDifference(allowedEvents, [.flush(expectedBytes)])
 }
@@ -1486,6 +1571,20 @@ private func terminalFlushName(_ bytes: [UInt8]) -> String {
 
 private let mouseDisableBytes =
   Array("\u{1B}[?1003l\u{1B}[?1002l\u{1B}[?1006l".utf8)
+private let bracketedPasteEnableBytes = Array("\u{1B}[?2004h".utf8)
+private let bracketedPasteDisableBytes = Array("\u{1B}[?2004l".utf8)
+private let focusEnableBytes = Array("\u{1B}[?1004h".utf8)
+private let focusDisableBytes = Array("\u{1B}[?1004l".utf8)
+private let cursorVisibleBytes = Array("\u{1B}[?25h".utf8)
+private let cursorColor = CursorColor(red: 0x12, green: 0xAB, blue: 0xF0)
+private let cursorShapeSteadyBlockBytes =
+  ControlSequence.setCursorShape(.steadyBlock).bytes
+private let cursorShapeResetBytes = ControlSequence.setCursorShape(.defaultUserShape).bytes
+private let cursorColorSetBytes = ControlSequence.setCursorColor(cursorColor).bytes
+private let cursorColorResetBytes = ControlSequence.resetCursorColor.bytes
+private let cursorStyleOverrideBytes =
+  ControlSequence.setCursorShape(.steadyBar).bytes + cursorColorSetBytes
+private let cursorStyleResetBytes = cursorShapeResetBytes + cursorColorResetBytes
 private let kittyKeyboardProbeBytes = Array("\u{1B}[?u\u{1B}[c".utf8)
 private let kittyKeyboardPushBytes = Array("\u{1B}[>7u".utf8)
 private let kittyKeyboardPopBytes = Array("\u{1B}[<u".utf8)

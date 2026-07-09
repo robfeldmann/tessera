@@ -57,6 +57,17 @@ public enum ColorCapabilityOverride: Equatable, Sendable {
   case force(ColorCapability)
 }
 
+/// Controls session-owned cursor shape and color styling.
+public enum CursorStylingPolicy: Equatable, Sendable {
+  /// Tessera emits no DECSCUSR/OSC 12/OSC 112 bytes and ignores cursor style requests.
+  case disabled
+
+  /// Tessera owns cursor styling. `default` is applied when no focused component or
+  /// runtime request overrides it; `.enabled(default: nil)` owns styling for future
+  /// dynamic requests but emits nothing at startup.
+  case enabled(default: CursorStyle?)
+}
+
 /// Controls OSC 8 hyperlink rendering.
 public enum HyperlinkRenderingMode: Equatable, Sendable {
   /// Do not encode OSC 8 hyperlink sequences.
@@ -121,6 +132,9 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
   /// OSC 52 clipboard write policy.
   public var clipboardWriting: ClipboardWriteMode
 
+  /// Cursor shape and color styling policy.
+  public var cursorStyling: CursorStylingPolicy
+
   /// Whether bracketed paste mode should be enabled.
   public var enableBracketedPaste: Bool
 
@@ -154,10 +168,12 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
     hyperlinkRendering: HyperlinkRenderingMode = .enabled,
     synchronizedOutput: SynchronizedOutputPolicy = .enabled,
     colorCapability: ColorCapabilityOverride = .detect,
-    clipboardWriting: ClipboardWriteMode = .disabled
+    clipboardWriting: ClipboardWriteMode = .disabled,
+    cursorStyling: CursorStylingPolicy = .disabled
   ) {
     self.capabilityDetection = capabilityDetection
     self.clipboardWriting = clipboardWriting
+    self.cursorStyling = cursorStyling
     self.enableBracketedPaste = enableBracketedPaste
     self.enableFocusEvents = enableFocusEvents
     self.hyperlinkRendering = hyperlinkRendering
@@ -177,6 +193,12 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
   ) {
     self.capabilityDetection = .passive
     self.clipboardWriting = clipboardWriting
+    self.cursorStyling =
+      if let cursorStyle = Self.requestedCursorStyle(in: modes) {
+        .enabled(default: cursorStyle)
+      } else {
+        .disabled
+      }
     self.enableBracketedPaste = modes.contains(.bracketedPaste)
     self.enableFocusEvents = modes.contains(.focusEvents)
     self.hyperlinkRendering = .enabled
@@ -199,14 +221,20 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
     _ modes: Set<ModeLifecycle.Mode>
   ) -> Set<ModeLifecycle.Mode> {
     var normalizedModes = modes.filter { mode in
-      if case .mouseTracking = mode {
+      switch mode {
+      case .mouseTracking, .cursorStyle:
         return false
+      case .altScreen, .bracketedPaste, .focusEvents, .kittyKeyboard, .rawMode:
+        return true
       }
-      return true
     }
 
     if let mouseTracking = requestedMouseTracking(in: modes) {
       normalizedModes.insert(.mouseTracking(mouseTracking))
+    }
+
+    if let cursorStyle = requestedCursorStyle(in: modes) {
+      normalizedModes.insert(.cursorStyle(cursorStyle))
     }
     return normalizedModes
   }
@@ -221,11 +249,70 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
         return .anyEvent
       case .mouseTracking(.buttonEvents):
         requestedButtonEvents = true
-      case .altScreen, .bracketedPaste, .focusEvents, .kittyKeyboard, .rawMode:
+      case .altScreen, .bracketedPaste, .cursorStyle, .focusEvents, .kittyKeyboard,
+        .rawMode:
         continue
       }
     }
     return requestedButtonEvents ? .buttonEvents : nil
+  }
+
+  /// Selects one requested cursor style deterministically when multiple payloads reach the
+  /// configuration. Cursor styles have no broadest-wins superset, so ties are resolved by
+  /// a private ordering over shape first, then RGB color components, with nil facets last.
+  private static func requestedCursorStyle(
+    in modes: Set<ModeLifecycle.Mode>
+  ) -> CursorStyle? {
+    var requestedStyle: CursorStyle?
+    for mode in modes {
+      switch mode {
+      case .cursorStyle(let style) where style.shape != nil || style.color != nil:
+        guard let currentStyle = requestedStyle else {
+          requestedStyle = style
+          continue
+        }
+        if cursorStyleSortValue(style) < cursorStyleSortValue(currentStyle) {
+          requestedStyle = style
+        }
+      case .cursorStyle:
+        continue
+      case .rawMode, .altScreen, .bracketedPaste, .focusEvents, .mouseTracking,
+        .kittyKeyboard:
+        continue
+      }
+    }
+    return requestedStyle
+  }
+
+  private static func cursorStyleSortValue(
+    _ style: CursorStyle
+  ) -> (Int, Int, Int, Int) {
+    let color = style.color
+    return (
+      style.shape.map(cursorShapeSortValue) ?? .max,
+      color.map { Int($0.red) } ?? .max,
+      color.map { Int($0.green) } ?? .max,
+      color.map { Int($0.blue) } ?? .max
+    )
+  }
+
+  private static func cursorShapeSortValue(_ shape: CursorShape) -> Int {
+    switch shape {
+    case .defaultUserShape:
+      0
+    case .blinkingBlock:
+      1
+    case .steadyBlock:
+      2
+    case .blinkingUnderline:
+      3
+    case .steadyUnderline:
+      4
+    case .blinkingBar:
+      5
+    case .steadyBar:
+      6
+    }
   }
 
   package func resolve(environment: [String: String]) -> TerminalApplicationResolution {
@@ -285,6 +372,8 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
     return TerminalApplicationResolution(
       capabilities: resolvedCapabilities,
       clipboardWriting: clipboardWriting,
+      cursorStyling: cursorStyling,
+      cursorStyle: Self.requestedCursorStyle(in: modes),
       enabledProtocolModes: modes,
       hyperlinkRendering: hyperlinkRendering,
       modes: modes,
@@ -322,6 +411,12 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
       break
     }
 
+    if case .enabled(let defaultStyle) = cursorStyling, let defaultStyle {
+      if defaultStyle.shape != nil || defaultStyle.color != nil {
+        modes.insert(.cursorStyle(defaultStyle))
+      }
+    }
+
     return modes
   }
 
@@ -345,6 +440,8 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
 package struct TerminalApplicationResolution: Equatable, Sendable {
   package var capabilities: TerminalCapabilities
   package var clipboardWriting: ClipboardWriteMode
+  package var cursorStyling: CursorStylingPolicy
+  package var cursorStyle: CursorStyle?
   package var enabledProtocolModes: Set<ModeLifecycle.Mode>
   package var hyperlinkRendering: HyperlinkRenderingMode
   package var modes: Set<ModeLifecycle.Mode>

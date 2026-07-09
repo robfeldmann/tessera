@@ -52,6 +52,9 @@ public actor TerminalSession {
   /// OSC 52 clipboard write policy for this session.
   nonisolated public let clipboardWriting: ClipboardWriteMode
 
+  /// Cursor shape and color styling policy for this session.
+  nonisolated public let cursorStyling: CursorStylingPolicy
+
   /// Terminal modes enabled for this session.
   nonisolated public let enabledProtocolModes: Set<ModeLifecycle.Mode>
 
@@ -66,6 +69,17 @@ public actor TerminalSession {
 
   /// DEC synchronized output policy applied to drawn frames.
   nonisolated public let synchronizedOutput: SynchronizedOutputPolicy
+
+  private let modeLifecycle: ModeLifecycle?
+  private var activeCursorStyle: CursorStyle?
+
+  /// The currently effective cursor style, if Tessera owns an active style.
+  ///
+  /// This is actor-isolated because dynamic cursor style requests can mutate it during the
+  /// session.
+  public var effectiveCursorStyle: CursorStyle? {
+    activeCursorStyle
+  }
 
   /// The terminal's per-cell pixel size, or `nil` when unknown.
   public var cellPixelSize: CellPixelSize? {
@@ -83,12 +97,16 @@ public actor TerminalSession {
     capabilities: TerminalCapabilities = .conservativeDefault,
     enabledProtocolModes: Set<ModeLifecycle.Mode> = [],
     hyperlinkRendering: HyperlinkRenderingMode = .enabled,
-    clipboardWriting: ClipboardWriteMode = .disabled
+    clipboardWriting: ClipboardWriteMode = .disabled,
+    cursorStyling: CursorStylingPolicy = .disabled,
+    cursorStyle: CursorStyle? = nil,
+    modeLifecycle: ModeLifecycle? = nil
   ) {
     let inputEvents = AsyncEventBuffer<InputEvent>(coalescing: shouldCoalesceInputEvents)
     let eventStream = AsyncStream<InputEvent>.makeStream()
     self.capabilities = capabilities
     self.clipboardWriting = clipboardWriting
+    self.cursorStyling = cursorStyling
     self.enabledProtocolModes = enabledProtocolModes
     self.events = eventStream.stream
     self.inputEvents = inputEvents
@@ -101,7 +119,9 @@ public actor TerminalSession {
       await inputEvents.finish()
     }
     self.io = io
+    self.activeCursorStyle = cursorStyle
     self.hyperlinkRendering = hyperlinkRendering
+    self.modeLifecycle = modeLifecycle
     self.synchronizedOutput = synchronizedOutput
     self.sizeChanges = io.sizeChanges
   }
@@ -132,7 +152,10 @@ public actor TerminalSession {
       capabilities: resolution.capabilities,
       enabledProtocolModes: resolution.enabledProtocolModes,
       hyperlinkRendering: resolution.hyperlinkRendering,
-      clipboardWriting: resolution.clipboardWriting
+      clipboardWriting: resolution.clipboardWriting,
+      cursorStyling: resolution.cursorStyling,
+      cursorStyle: resolution.cursorStyle,
+      modeLifecycle: lifecycle
     )
     if resolution.runsActiveProbes {
       try await session.queryActiveCapabilities()
@@ -213,6 +236,34 @@ public actor TerminalSession {
     await io.write(bytes)
     try await io.flush()
     return .sent(bytesWritten: bytes.count)
+  }
+
+  /// Changes this session's cursor style at runtime through the mode lifecycle.
+  ///
+  /// Applications call this public API after opting in to cursor styling. It is a no-op
+  /// when cursor styling is disabled. Passing `nil`, or a style whose facets are all
+  /// `nil`, tears down any Tessera-owned cursor style. All other application protocol
+  /// modes are preserved.
+  public func setCursorStyle(_ style: CursorStyle?) async throws {
+    guard case .enabled = cursorStyling, let modeLifecycle else {
+      return
+    }
+
+    var appModes = enabledProtocolModes.filter { mode in
+      switch mode {
+      case .rawMode, .altScreen, .cursorStyle:
+        return false
+      case .bracketedPaste, .focusEvents, .mouseTracking, .kittyKeyboard:
+        return true
+      }
+    }
+
+    if let style, style.shape != nil || style.color != nil {
+      appModes.insert(.cursorStyle(style))
+    }
+
+    try await modeLifecycle.apply(applicationModes: appModes)
+    activeCursorStyle = style
   }
 
   /// Draws one frame and flushes it to terminal output.
