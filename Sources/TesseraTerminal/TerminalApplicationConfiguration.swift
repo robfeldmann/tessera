@@ -13,6 +13,41 @@ public enum CapabilityDetectionMode: Equatable, Sendable {
   case passive
 }
 
+/// Controls OSC 52 clipboard write emission.
+public enum ClipboardWriteMode: Equatable, Sendable {
+  /// Do not emit OSC 52 clipboard writes.
+  case disabled
+
+  /// Emit OSC 52 clipboard writes that satisfy the supplied policy.
+  case enabled(ClipboardWritePolicy)
+}
+
+/// Policy gates for OSC 52 clipboard writes.
+public struct ClipboardWritePolicy: Equatable, Sendable {
+  /// Conservative enabled preset: 64 KiB raw cap, clipboard-only, no nested passthrough.
+  public static let `default` = Self()
+
+  /// Maximum raw payload size before base64 encoding.
+  public var maximumPayloadBytes: Int
+
+  /// Clipboard selections the application may write.
+  public var allowedTargets: Set<ClipboardTarget>
+
+  /// Whether writes may pass through nested terminal multiplexers.
+  public var allowsNestedTerminalPassthrough: Bool
+
+  /// Creates OSC 52 clipboard write policy gates.
+  public init(
+    maximumPayloadBytes: Int = 64 * 1_024,
+    allowedTargets: Set<ClipboardTarget> = [.clipboard],
+    allowsNestedTerminalPassthrough: Bool = false
+  ) {
+    self.maximumPayloadBytes = maximumPayloadBytes
+    self.allowedTargets = allowedTargets
+    self.allowsNestedTerminalPassthrough = allowsNestedTerminalPassthrough
+  }
+}
+
 /// Controls the effective color capability used by renderer SGR emission.
 public enum ColorCapabilityOverride: Equatable, Sendable {
   /// Use the color capability detected from local terminal hints.
@@ -83,6 +118,9 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
   /// Whether capability detection runs before startup.
   public var capabilityDetection: CapabilityDetectionMode
 
+  /// OSC 52 clipboard write policy.
+  public var clipboardWriting: ClipboardWriteMode
+
   /// Whether bracketed paste mode should be enabled.
   public var enableBracketedPaste: Bool
 
@@ -115,9 +153,11 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
     keyboardProtocol: KeyboardProtocolMode = .kittyIfAvailable,
     hyperlinkRendering: HyperlinkRenderingMode = .enabled,
     synchronizedOutput: SynchronizedOutputPolicy = .enabled,
-    colorCapability: ColorCapabilityOverride = .detect
+    colorCapability: ColorCapabilityOverride = .detect,
+    clipboardWriting: ClipboardWriteMode = .disabled
   ) {
     self.capabilityDetection = capabilityDetection
+    self.clipboardWriting = clipboardWriting
     self.enableBracketedPaste = enableBracketedPaste
     self.enableFocusEvents = enableFocusEvents
     self.hyperlinkRendering = hyperlinkRendering
@@ -132,9 +172,11 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
   public init(
     modes: Set<ModeLifecycle.Mode>,
     synchronizedOutput: SynchronizedOutputPolicy = .enabled,
-    colorCapability: ColorCapabilityOverride = .detect
+    colorCapability: ColorCapabilityOverride = .detect,
+    clipboardWriting: ClipboardWriteMode = .disabled
   ) {
     self.capabilityDetection = .passive
+    self.clipboardWriting = clipboardWriting
     self.enableBracketedPaste = modes.contains(.bracketedPaste)
     self.enableFocusEvents = modes.contains(.focusEvents)
     self.hyperlinkRendering = .enabled
@@ -242,6 +284,7 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
 
     return TerminalApplicationResolution(
       capabilities: resolvedCapabilities,
+      clipboardWriting: clipboardWriting,
       enabledProtocolModes: modes,
       hyperlinkRendering: hyperlinkRendering,
       modes: modes,
@@ -301,6 +344,7 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
 
 package struct TerminalApplicationResolution: Equatable, Sendable {
   package var capabilities: TerminalCapabilities
+  package var clipboardWriting: ClipboardWriteMode
   package var enabledProtocolModes: Set<ModeLifecycle.Mode>
   package var hyperlinkRendering: HyperlinkRenderingMode
   package var modes: Set<ModeLifecycle.Mode>
@@ -322,6 +366,7 @@ extension TerminalCapabilities {
     capabilities.kittyKeyboard = .probing
     capabilities.synchronizedOutput = .probing
     capabilities.osc8Hyperlinks = .notDetectable
+    capabilities.osc52Clipboard = .notDetectable
     return capabilities
   }
 }

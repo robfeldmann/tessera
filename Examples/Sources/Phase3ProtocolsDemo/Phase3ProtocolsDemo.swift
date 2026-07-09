@@ -13,6 +13,7 @@ enum Phase3ProtocolsDemo {
     DemoTab(key: "5", label: "Links", panel: .links),
     DemoTab(key: "6", label: "Caps", panel: .capabilities),
     DemoTab(key: "7", label: "Graphics", panel: .graphics),
+    DemoTab(key: "8", label: "Clip", panel: .clip),
   ]
 
   static func main() async throws {
@@ -38,7 +39,8 @@ enum Phase3ProtocolsDemo {
     let configuration = TerminalApplicationConfiguration(
       capabilityDetection: .active,
       mouseTracking: .anyEvent,
-      keyboardProtocol: .kittyIfAvailable
+      keyboardProtocol: .kittyIfAvailable,
+      clipboardWriting: .enabled(.default)
     )
 
     try await TerminalSession.withApplicationTerminal(
@@ -48,7 +50,7 @@ enum Phase3ProtocolsDemo {
       try await draw(terminal: terminal, state: &state)
 
       for await event in terminal.events {
-        if handle(event, state: &state, terminal: terminal) {
+        if await handle(event, state: &state, terminal: terminal) {
           return
         }
         try await draw(terminal: terminal, state: &state)
@@ -60,7 +62,7 @@ enum Phase3ProtocolsDemo {
     _ event: InputEvent,
     state: inout DemoState,
     terminal: isolated TerminalSession
-  ) -> Bool {
+  ) async -> Bool {
     switch event {
     case .key(let key) where key == Key(code: .character("q")):
       return true
@@ -69,7 +71,18 @@ enum Phase3ProtocolsDemo {
       state.append(event)
       state.lastKeyDescription = describe(key)
       // Tabs past key "9" are reachable by mouse click.
-      if let tab = tabs.first(where: { key == Key(code: .character($0.key)) }) {
+      if state.selectedPanel == .clip, key == Key(code: .character("c")) {
+        do {
+          state.lastClipboardResult = try await terminal.copyToClipboard(
+            ClipboardDemo.sampleText,
+            intent: .userInitiated
+          )
+          state.lastClipboardErrorDescription = nil
+        } catch {
+          state.lastClipboardResult = nil
+          state.lastClipboardErrorDescription = String(describing: error)
+        }
+      } else if let tab = tabs.first(where: { key == Key(code: .character($0.key)) }) {
         state.selectedPanel = tab.panel
       } else if key == Key(code: .character("g")) {
         state.forceKittyGraphicsOutput.toggle()
@@ -200,6 +213,15 @@ enum Phase3ProtocolsDemo {
           top: contentTop
         )
 
+      case .clip:
+        drawClipPanel(
+          frame: frame,
+          state: state,
+          clipboardWriting: terminal.clipboardWriting,
+          capabilities: terminal.capabilities,
+          top: contentTop
+        )
+
       case .paste:
         drawLastEvent(frame: frame, state: state, top: contentTop)
         drawPastePreview(frame: frame, state: state, top: contentTop)
@@ -313,8 +335,8 @@ enum Phase3ProtocolsDemo {
 
   private static func minimumTerminalSize(for panel: DemoPanel) -> TerminalSize {
     switch panel {
-    case .focus, .keyboard, .links, .paste:
-      return TerminalSize(columns: 12, rows: 20)
+    case .clip, .focus, .keyboard, .links, .paste:
+      return TerminalSize(columns: 50, rows: 24)
     case .capabilities:
       return TerminalSize(columns: 42, rows: 24)
     case .graphics:
@@ -552,6 +574,80 @@ enum Phase3ProtocolsDemo {
     )
 
     drawRecentEvents(frame: frame, state: state, top: top + 14)
+  }
+
+  private static func drawClipPanel(
+    frame: borrowing Frame,
+    state: DemoState,
+    clipboardWriting: ClipboardWriteMode,
+    capabilities: TerminalCapabilities,
+    top: Int
+  ) {
+    drawLastEvent(frame: frame, state: state, top: top)
+
+    frame.write(
+      "OSC 52 clipboard",
+      at: position(0, top + 3),
+      style: Style(attributes: [.bold])
+    )
+    frame.write(
+      "Press c to copy sample text with intent: .userInitiated.",
+      at: position(2, top + 5)
+    )
+    frame.write(
+      "Sample: \(ClipboardDemo.sampleText)",
+      at: position(2, top + 6),
+      style: Style(attributes: [.dim])
+    )
+    frame.write(
+      ".sent(bytesWritten:) means bytes flushed, not host clipboard acknowledgement.",
+      at: position(2, top + 7),
+      style: Style(attributes: [.dim])
+    )
+
+    frame.write(
+      "Last result",
+      at: position(0, top + 10),
+      style: Style(attributes: [.bold])
+    )
+    frame.write(state.clipboardStatusDescription, at: position(2, top + 11))
+
+    frame.write(
+      "Active policy",
+      at: position(0, top + 13),
+      style: Style(attributes: [.bold])
+    )
+    for (offset, line) in describeClipboardPolicy(clipboardWriting).enumerated() {
+      frame.write(line, at: position(2, top + 14 + offset))
+    }
+
+    let warningTop = top + 19
+    if isNestedClipboardEnvironment(capabilities) {
+      frame.write(
+        "Warning",
+        at: position(0, warningTop),
+        style: Style(foreground: .ansi(.yellow), attributes: [.bold])
+      )
+      let warning =
+        "Nested terminal or multiplexer detected (\(describe(capabilities.identity))). "
+        + "Default policy denies OSC 52 passthrough until the app opts in and the "
+        + "multiplexer is configured to allow clipboard writes."
+      let lines = wrappedLines(warning, width: max(frame.size.columns - 2, 1))
+      let visibleRows = max(frame.size.rows - (warningTop + 1), 0)
+      for (offset, line) in lines.prefix(visibleRows).enumerated() {
+        frame.write(
+          line,
+          at: position(2, warningTop + 1 + offset),
+          style: Style(foreground: .ansi(.yellow))
+        )
+      }
+    } else {
+      frame.write(
+        "No nested-terminal hints detected.",
+        at: position(0, warningTop),
+        style: Style(attributes: [.dim])
+      )
+    }
   }
 
   private static func drawCapabilitiesPanel(
@@ -880,6 +976,10 @@ private enum MouseGrid {
   }
 }
 
+private enum ClipboardDemo {
+  static let sampleText = "Copied from Tessera Phase3ProtocolsDemo via OSC 52"
+}
+
 private struct DemoLayout {
   let contentTop: Int
   let tabHitRegions: [(region: Rect, panel: DemoPanel)]
@@ -897,6 +997,7 @@ private struct DemoTab {
 
 private enum DemoPanel {
   case capabilities
+  case clip
   case focus
   case graphics
   case keyboard
@@ -908,6 +1009,8 @@ private enum DemoPanel {
     switch self {
     case .capabilities:
       return "Capabilities"
+    case .clip:
+      return "Clipboard"
     case .focus:
       return "Focus"
     case .graphics:
@@ -982,6 +1085,8 @@ private struct DemoState {
   var graphicsProbe = GraphicsProbeState.notStarted
   var observedPrivateModeSupport: Set<Int> = []
   var lastPaste = ""
+  var lastClipboardResult: ClipboardWriteResult?
+  var lastClipboardErrorDescription: String?
   var sequenceNumber = 0
 
   var mouseCapability: CapabilityStatus {
@@ -1002,6 +1107,16 @@ private struct DemoState {
 
   var motionLogDescription: String {
     logsMouseMotionOutsideMousePanel ? "on" : "off"
+  }
+
+  var clipboardStatusDescription: String {
+    if let lastClipboardErrorDescription {
+      return "error(\(lastClipboardErrorDescription))"
+    }
+    guard let lastClipboardResult else {
+      return "none yet"
+    }
+    return describe(lastClipboardResult)
   }
 
   func privateModeCapability(_ mode: Int) -> CapabilityStatus {
@@ -1228,6 +1343,74 @@ private func describe(_ source: TerminalIdentitySource) -> String {
   case .windowsTerminalSession:
     return "WT_SESSION"
   }
+}
+
+private func describe(_ result: ClipboardWriteResult) -> String {
+  switch result {
+  case .denied(let reason):
+    return "denied(\(describe(reason)))"
+  case .sent(let bytesWritten):
+    return "sent(bytesWritten: \(bytesWritten))"
+  }
+}
+
+private func describe(_ reason: ClipboardWriteDenialReason) -> String {
+  switch reason {
+  case .disabledByConfiguration:
+    return "disabledByConfiguration"
+  case .missingUserIntent:
+    return "missingUserIntent"
+  case .nestedTerminalRequiresExplicitPassthrough(let identity):
+    return "nestedTerminalRequiresExplicitPassthrough(\(describe(identity)))"
+  case .payloadTooLarge(let actualBytes, let maximumBytes):
+    return "payloadTooLarge(actualBytes: \(actualBytes), maximumBytes: \(maximumBytes))"
+  case .selectionNotAllowed(let selection):
+    return "selectionNotAllowed(\(describe(selection)))"
+  }
+}
+
+private func describe(_ selection: ClipboardSelection) -> String {
+  selection.targets.map(describe).joined(separator: "+")
+}
+
+private func describe(_ target: ClipboardTarget) -> String {
+  switch target {
+  case .clipboard:
+    return "clipboard"
+  case .cutBuffer(let buffer):
+    return "cutBuffer(\(buffer))"
+  case .primary:
+    return "primary"
+  case .secondary:
+    return "secondary"
+  case .select:
+    return "select"
+  }
+}
+
+private func describeClipboardPolicy(_ mode: ClipboardWriteMode) -> [String] {
+  switch mode {
+  case .disabled:
+    return ["mode: disabled"]
+  case .enabled(let policy):
+    return [
+      "mode: enabled",
+      "maximumPayloadBytes: \(policy.maximumPayloadBytes) raw bytes before base64",
+      "allowedTargets: \(describeClipboardTargets(policy.allowedTargets))",
+      "allowsNestedTerminalPassthrough: \(policy.allowsNestedTerminalPassthrough)",
+    ]
+  }
+}
+
+private func describeClipboardTargets(_ targets: Set<ClipboardTarget>) -> String {
+  let names = targets.map(describe).sorted()
+  return names.isEmpty ? "none" : names.joined(separator: ", ")
+}
+
+private func isNestedClipboardEnvironment(_ capabilities: TerminalCapabilities) -> Bool {
+  capabilities.isNested
+    || capabilities.identity.kind == .tmux
+    || capabilities.identity.kind == .screen
 }
 
 private func describeEnabledModes(_ modes: Set<ModeLifecycle.Mode>) -> String {

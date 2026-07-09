@@ -102,6 +102,9 @@ public struct TerminalCapabilities: Equatable, Sendable {
   /// OSC 8 hyperlink advisory support.
   public var osc8Hyperlinks: CapabilityStatus
 
+  /// OSC 52 clipboard advisory support.
+  public var osc52Clipboard: CapabilityStatus
+
   /// DEC synchronized output advisory support.
   public var synchronizedOutput: CapabilityStatus
 
@@ -122,6 +125,7 @@ public struct TerminalCapabilities: Equatable, Sendable {
     kittyGraphics: CapabilityStatus = .unknown,
     kittyKeyboard: CapabilityStatus = .unknown,
     osc8Hyperlinks: CapabilityStatus = .unknown,
+    osc52Clipboard: CapabilityStatus = .notDetectable,
     synchronizedOutput: CapabilityStatus = .unknown,
     color: ColorCapability = .unknown,
     identity: TerminalIdentity = .unknown,
@@ -133,6 +137,7 @@ public struct TerminalCapabilities: Equatable, Sendable {
     self.kittyGraphics = kittyGraphics
     self.kittyKeyboard = kittyKeyboard
     self.osc8Hyperlinks = osc8Hyperlinks
+    self.osc52Clipboard = osc52Clipboard
     self.synchronizedOutput = synchronizedOutput
     self.color = color
     self.identity = identity

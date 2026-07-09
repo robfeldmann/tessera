@@ -8,6 +8,9 @@ public enum ControlSequence: Equatable, Sendable {
   /// Close the current OSC 8 hyperlink.
   case closeHyperlink
 
+  /// Write bytes to a terminal clipboard selection using OSC 52.
+  case copyToClipboard(ClipboardWrite)
+
   /// Move the cursor backward using ECMA-48 CUB (`CSI Ps D`).
   case cursorBack(Int)
 
@@ -155,18 +158,18 @@ public enum ControlSequence: Equatable, Sendable {
       .enableFocusTracking,
       .enableLineWrap,
       .enableMouseTracking,
-      .popKittyKeyboard,
-      .pushKittyKeyboard,
       .enterAltScreen,
       .enterSynchronizedOutput,
       .exitAltScreen,
-      .exitSynchronizedOutput:
+      .exitSynchronizedOutput,
+      .popKittyKeyboard,
+      .pushKittyKeyboard:
       self.encodeMode(into: &buffer)
 
     case .kittyGraphics:
       self.encodeKittyGraphics(into: &buffer)
 
-    case .closeHyperlink, .openHyperlink, .setWindowTitle:
+    case .closeHyperlink, .copyToClipboard, .openHyperlink, .setWindowTitle:
       self.encodeOSC(into: &buffer)
     }
   }
@@ -215,14 +218,12 @@ public enum ControlSequence: Equatable, Sendable {
 
     case .bell,
       .closeHyperlink,
+      .copyToClipboard,
       .disableMouseTracking,
       .enableBracketedPaste,
       .enableFocusTracking,
-      .enableMouseTracking,
       .enableLineWrap,
-      .openHyperlink,
-      .popKittyKeyboard,
-      .pushKittyKeyboard,
+      .enableMouseTracking,
       .enterAltScreen,
       .enterSynchronizedOutput,
       .eraseInDisplay,
@@ -230,6 +231,9 @@ public enum ControlSequence: Equatable, Sendable {
       .exitAltScreen,
       .exitSynchronizedOutput,
       .kittyGraphics,
+      .openHyperlink,
+      .popKittyKeyboard,
+      .pushKittyKeyboard,
       .raw,
       .resetAttributes,
       .setBackground,
@@ -258,6 +262,7 @@ public enum ControlSequence: Equatable, Sendable {
 
     case .bell,
       .closeHyperlink,
+      .copyToClipboard,
       .cursorBack,
       .cursorDown,
       .cursorForward,
@@ -266,19 +271,19 @@ public enum ControlSequence: Equatable, Sendable {
       .cursorSave,
       .cursorUp,
       .cursorVisible,
-      .enableBracketedPaste,
       .disableMouseTracking,
+      .enableBracketedPaste,
       .enableFocusTracking,
-      .enableMouseTracking,
       .enableLineWrap,
-      .openHyperlink,
-      .popKittyKeyboard,
-      .pushKittyKeyboard,
+      .enableMouseTracking,
       .enterAltScreen,
       .enterSynchronizedOutput,
       .exitAltScreen,
       .exitSynchronizedOutput,
       .kittyGraphics,
+      .openHyperlink,
+      .popKittyKeyboard,
+      .pushKittyKeyboard,
       .raw,
       .resetAttributes,
       .setBackground,
@@ -336,6 +341,7 @@ public enum ControlSequence: Equatable, Sendable {
 
     case .bell,
       .closeHyperlink,
+      .copyToClipboard,
       .cursorBack,
       .cursorDown,
       .cursorForward,
@@ -344,14 +350,11 @@ public enum ControlSequence: Equatable, Sendable {
       .cursorSave,
       .cursorUp,
       .cursorVisible,
-      .enableBracketedPaste,
       .disableMouseTracking,
+      .enableBracketedPaste,
       .enableFocusTracking,
-      .enableMouseTracking,
       .enableLineWrap,
-      .openHyperlink,
-      .popKittyKeyboard,
-      .pushKittyKeyboard,
+      .enableMouseTracking,
       .enterAltScreen,
       .enterSynchronizedOutput,
       .eraseInDisplay,
@@ -359,6 +362,9 @@ public enum ControlSequence: Equatable, Sendable {
       .exitAltScreen,
       .exitSynchronizedOutput,
       .kittyGraphics,
+      .openHyperlink,
+      .popKittyKeyboard,
+      .pushKittyKeyboard,
       .raw,
       .setWindowTitle,
       .text:
@@ -427,6 +433,7 @@ public enum ControlSequence: Equatable, Sendable {
 
     case .bell,
       .closeHyperlink,
+      .copyToClipboard,
       .cursorBack,
       .cursorDown,
       .cursorForward,
@@ -463,6 +470,7 @@ public enum ControlSequence: Equatable, Sendable {
 
     case .bell,
       .closeHyperlink,
+      .copyToClipboard,
       .cursorBack,
       .cursorDown,
       .cursorForward,
@@ -508,6 +516,14 @@ public enum ControlSequence: Equatable, Sendable {
       // OSC 8 close: ESC ] 8 ; ; ESC \.
       ANSIByteEncoding.appendOSC("8;;", terminator: .stringTerminator, into: &buffer)
 
+    case .copyToClipboard(let write):
+      // OSC 52 clipboard write: ESC ] 52 ; Pc ; base64 ESC \.
+      ANSIByteEncoding.appendOSC(
+        write.oscBody,
+        terminator: .stringTerminator,
+        into: &buffer
+      )
+
     case .openHyperlink(let hyperlink):
       // OSC 8 open: ESC ] 8 ; params ; uri ESC \.
       let params = hyperlink.id.map { "id=\($0)" } ?? ""
@@ -527,7 +543,6 @@ public enum ControlSequence: Equatable, Sendable {
       )
 
     case .bell,
-      .disableMouseTracking,
       .cursorBack,
       .cursorDown,
       .cursorForward,
@@ -536,12 +551,11 @@ public enum ControlSequence: Equatable, Sendable {
       .cursorSave,
       .cursorUp,
       .cursorVisible,
+      .disableMouseTracking,
       .enableBracketedPaste,
       .enableFocusTracking,
-      .enableMouseTracking,
       .enableLineWrap,
-      .popKittyKeyboard,
-      .pushKittyKeyboard,
+      .enableMouseTracking,
       .enterAltScreen,
       .enterSynchronizedOutput,
       .eraseInDisplay,
@@ -549,6 +563,8 @@ public enum ControlSequence: Equatable, Sendable {
       .exitAltScreen,
       .exitSynchronizedOutput,
       .kittyGraphics,
+      .popKittyKeyboard,
+      .pushKittyKeyboard,
       .raw,
       .resetAttributes,
       .setBackground,
@@ -580,8 +596,9 @@ public enum ControlSequence: Equatable, Sendable {
       // Crossterm's Print analogue: append the string's UTF-8 bytes directly.
       buffer.append(contentsOf: text.utf8)
 
-    case .cursorBack,
-      .closeHyperlink,
+    case .closeHyperlink,
+      .copyToClipboard,
+      .cursorBack,
       .cursorDown,
       .cursorForward,
       .cursorPosition,
@@ -592,11 +609,8 @@ public enum ControlSequence: Equatable, Sendable {
       .disableMouseTracking,
       .enableBracketedPaste,
       .enableFocusTracking,
-      .enableMouseTracking,
       .enableLineWrap,
-      .openHyperlink,
-      .popKittyKeyboard,
-      .pushKittyKeyboard,
+      .enableMouseTracking,
       .enterAltScreen,
       .enterSynchronizedOutput,
       .eraseInDisplay,
@@ -604,6 +618,9 @@ public enum ControlSequence: Equatable, Sendable {
       .exitAltScreen,
       .exitSynchronizedOutput,
       .kittyGraphics,
+      .openHyperlink,
+      .popKittyKeyboard,
+      .pushKittyKeyboard,
       .resetAttributes,
       .setBackground,
       .setBold,

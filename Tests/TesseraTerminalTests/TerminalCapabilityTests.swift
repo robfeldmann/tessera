@@ -189,16 +189,14 @@ func `kitty-if-available intent omits kitty keyboard when support is unknown`() 
   let resolution = configuration.resolve(environment: [:])
 
   expectNoDifference(
-    resolution,
-    TerminalApplicationResolution(
-      capabilities: TerminalCapabilities(osc8Hyperlinks: .notDetectable),
-      enabledProtocolModes: baseApplicationModes,
-      hyperlinkRendering: .enabled,
-      modes: baseApplicationModes,
-      runsActiveProbes: false,
-      synchronizedOutput: .enabled
-    )
+    resolution.capabilities,
+    TerminalCapabilities(osc8Hyperlinks: .notDetectable)
   )
+  expectNoDifference(resolution.enabledProtocolModes, baseApplicationModes)
+  expectNoDifference(resolution.hyperlinkRendering, .enabled)
+  expectNoDifference(resolution.modes, baseApplicationModes)
+  expectNoDifference(resolution.runsActiveProbes, false)
+  expectNoDifference(resolution.synchronizedOutput, .enabled)
 }
 
 @Test(arguments: kittyIfAvailableCapabilityCases)
@@ -389,6 +387,19 @@ func `kitty-required intent requests kitty keyboard with unknown capabilities`()
   #expect(resolution.modes.contains(.kittyKeyboard))
 }
 
+@Test(arguments: osc52ClipboardDetectionCases)
+private func `OSC 52 clipboard support is not inferred from identity or active probes`(
+  _ testCase: OSC52ClipboardDetectionCase
+) {
+  let configuration = TerminalApplicationConfiguration(
+    capabilityDetection: testCase.capabilityDetection
+  )
+
+  let resolution = configuration.resolve(environment: testCase.environment)
+
+  expectNoDifference(resolution.capabilities.osc52Clipboard, .notDetectable)
+}
+
 private let baseApplicationModes: Set<ModeLifecycle.Mode> = [
   .altScreen,
   .bracketedPaste,
@@ -514,6 +525,44 @@ private let kittyIfAvailableCapabilityCases = [
   KittyIfAvailableCapabilityCase(status: .unsupported, enablesKittyKeyboard: false),
   KittyIfAvailableCapabilityCase(status: .notDetectable, enablesKittyKeyboard: false),
 ]
+
+private let osc52ClipboardDetectionCases =
+  namedTerminalProtocolCases.flatMap { terminalCase in
+    [
+      OSC52ClipboardDetectionCase(
+        name: "\(terminalCase.name) passive",
+        environment: terminalCase.environment,
+        capabilityDetection: .passive
+      ),
+      OSC52ClipboardDetectionCase(
+        name: "\(terminalCase.name) active",
+        environment: terminalCase.environment,
+        capabilityDetection: .active
+      ),
+    ]
+  }
+  + [
+    OSC52ClipboardDetectionCase(
+      name: "unknown passive",
+      environment: [:],
+      capabilityDetection: .passive
+    ),
+    OSC52ClipboardDetectionCase(
+      name: "unknown active",
+      environment: [:],
+      capabilityDetection: .active
+    ),
+  ]
+
+private struct OSC52ClipboardDetectionCase: CustomStringConvertible, Sendable {
+  let name: String
+  let environment: [String: String]
+  let capabilityDetection: CapabilityDetectionMode
+
+  var description: String {
+    name
+  }
+}
 
 private struct NamedTerminalProtocolCase: CustomStringConvertible, Sendable {
   let name: String

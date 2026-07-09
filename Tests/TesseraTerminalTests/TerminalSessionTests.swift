@@ -147,6 +147,268 @@ func `query active capabilities writes keyboard and DEC mode probes`() async thr
 }
 
 @Test
+func `default configuration denies clipboard writes without flushing`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let resolution = TerminalApplicationConfiguration.default.resolve(environment: [:])
+  let session = TerminalSession(
+    io: PlatformIO(terminalDevice: await device.terminalDevice),
+    synchronizedOutput: resolution.synchronizedOutput,
+    capabilities: resolution.capabilities,
+    enabledProtocolModes: resolution.enabledProtocolModes,
+    hyperlinkRendering: resolution.hyperlinkRendering,
+    clipboardWriting: resolution.clipboardWriting
+  )
+
+  let result = try await session.copyToClipboard("denied", intent: .userInitiated)
+
+  let events = await device.events
+
+  expectNoDifference(result, .denied(.disabledByConfiguration))
+  try #expect(!events.contains(where: \.isFlush))
+}
+
+@Test
+func `enabled user-initiated clipboard write emits OSC 52 bytes once`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let write = ClipboardWrite(selection: .clipboard, text: "Layer 2")
+  let expectedBytes = ControlSequence.copyToClipboard(write).bytes
+  let session = await makeSession(
+    device,
+    clipboardWriting: .enabled(.default)
+  )
+
+  let result = try await session.copyToClipboard(
+    "Layer 2",
+    selection: .clipboard,
+    intent: .userInitiated
+  )
+
+  let events = await device.events
+
+  expectNoDifference(result, .sent(bytesWritten: expectedBytes.count))
+  expectNoDifference(events, [.flush(expectedBytes)])
+}
+
+@Test
+func `package clipboard seam denies writes without explicit user intent`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let write = ClipboardWrite(text: "requires intent")
+  let session = await makeSession(
+    device,
+    clipboardWriting: .enabled(.default)
+  )
+
+  let result = try await session.clipboardWrite(write, intent: nil)
+
+  let events = await device.events
+
+  expectNoDifference(result, .denied(.missingUserIntent))
+  try #expect(!events.contains(where: \.isFlush))
+}
+
+@Test
+func `clipboard policy rejects disallowed primary selection`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let policy = ClipboardWritePolicy(allowedTargets: [.clipboard])
+  let session = await makeSession(
+    device,
+    clipboardWriting: .enabled(policy)
+  )
+
+  let result = try await session.copyToClipboard(
+    "primary",
+    selection: .primary,
+    intent: .userInitiated
+  )
+
+  let events = await device.events
+
+  expectNoDifference(result, .denied(.selectionNotAllowed(.primary)))
+  try #expect(!events.contains(where: \.isFlush))
+}
+
+@Test
+func `clipboard payload at limit sends and one byte over limit is denied`() async throws {
+  let allowedDevice = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let deniedDevice = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let policy = ClipboardWritePolicy(maximumPayloadBytes: 3)
+  let allowedWrite = ClipboardWrite(bytes: [0x41, 0x42, 0x43])
+  let expectedBytes = ControlSequence.copyToClipboard(allowedWrite).bytes
+  let allowedSession = await makeSession(
+    allowedDevice,
+    clipboardWriting: .enabled(policy)
+  )
+  let deniedSession = await makeSession(
+    deniedDevice,
+    clipboardWriting: .enabled(policy)
+  )
+
+  let allowedResult = try await allowedSession.copyToClipboard(
+    [0x41, 0x42, 0x43],
+    intent: .userInitiated
+  )
+  let deniedResult = try await deniedSession.copyToClipboard(
+    [0x41, 0x42, 0x43, 0x44],
+    intent: .userInitiated
+  )
+
+  let allowedEvents = await allowedDevice.events
+  let deniedEvents = await deniedDevice.events
+
+  expectNoDifference(allowedResult, .sent(bytesWritten: expectedBytes.count))
+  expectNoDifference(allowedEvents, [.flush(expectedBytes)])
+  expectNoDifference(
+    deniedResult,
+    .denied(.payloadTooLarge(actualBytes: 4, maximumBytes: 3))
+  )
+  try #expect(!deniedEvents.contains(where: \.isFlush))
+}
+
+@Test(arguments: clipboardNestedTerminalCases)
+private func `nested clipboard writes require explicit passthrough`(
+  _ testCase: ClipboardNestedTerminalCase
+) async throws {
+  let write = ClipboardWrite(text: "nested")
+  let expectedBytes = ControlSequence.copyToClipboard(write).bytes
+  let deniedDevice = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let deniedIO = PlatformIO(terminalDevice: await deniedDevice.terminalDevice)
+  let deniedConfiguration = TerminalApplicationConfiguration(
+    clipboardWriting: .enabled(.default)
+  )
+
+  let deniedResult = try await TerminalSession.withApplicationTerminal(
+    configuration: deniedConfiguration,
+    io: deniedIO,
+    environment: testCase.environment
+  ) { session in
+    try await session.copyToClipboard("nested", intent: .userInitiated)
+  }
+
+  let deniedEvents = await deniedDevice.events
+  expectNoDifference(
+    deniedResult,
+    .denied(.nestedTerminalRequiresExplicitPassthrough(testCase.identity))
+  )
+  try #expect(!deniedEvents.contains { $0.flushBytes == expectedBytes })
+
+  let allowedDevice = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let allowedIO = PlatformIO(terminalDevice: await allowedDevice.terminalDevice)
+  let allowedPolicy = ClipboardWritePolicy(allowsNestedTerminalPassthrough: true)
+  let allowedConfiguration = TerminalApplicationConfiguration(
+    clipboardWriting: .enabled(allowedPolicy)
+  )
+
+  let allowedResult = try await TerminalSession.withApplicationTerminal(
+    configuration: allowedConfiguration,
+    io: allowedIO,
+    environment: testCase.environment
+  ) { session in
+    try await session.copyToClipboard("nested", intent: .userInitiated)
+  }
+
+  let allowedEvents = await allowedDevice.events
+  expectNoDifference(allowedResult, .sent(bytesWritten: expectedBytes.count))
+  #expect(allowedEvents.filter { $0.flushBytes == expectedBytes }.count == 1)
+}
+
+@Test(arguments: clipboardNestedCapabilityCases)
+private func `nested clipboard capability hints require explicit passthrough`(
+  _ testCase: ClipboardNestedCapabilityCase
+) async throws {
+  let write = ClipboardWrite(text: "nested")
+  let expectedBytes = ControlSequence.copyToClipboard(write).bytes
+  let deniedDevice = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let allowedDevice = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let deniedSession = await makeSession(
+    deniedDevice,
+    capabilities: testCase.capabilities,
+    clipboardWriting: .enabled(.default)
+  )
+  let allowedPolicy = ClipboardWritePolicy(allowsNestedTerminalPassthrough: true)
+  let allowedSession = await makeSession(
+    allowedDevice,
+    capabilities: testCase.capabilities,
+    clipboardWriting: .enabled(allowedPolicy)
+  )
+
+  let deniedResult = try await deniedSession.copyToClipboard(
+    "nested",
+    intent: .userInitiated
+  )
+  let allowedResult = try await allowedSession.copyToClipboard(
+    "nested",
+    intent: .userInitiated
+  )
+
+  let deniedEvents = await deniedDevice.events
+  let allowedEvents = await allowedDevice.events
+
+  expectNoDifference(
+    deniedResult,
+    .denied(.nestedTerminalRequiresExplicitPassthrough(testCase.capabilities.identity))
+  )
+  try #expect(!deniedEvents.contains(where: \.isFlush))
+  expectNoDifference(allowedResult, .sent(bytesWritten: expectedBytes.count))
+  expectNoDifference(allowedEvents, [.flush(expectedBytes)])
+}
+
+@Test
+func `SSH-only environment allows clipboard writes`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+  let write = ClipboardWrite(text: "ssh")
+  let expectedBytes = ControlSequence.copyToClipboard(write).bytes
+  let configuration = TerminalApplicationConfiguration(
+    clipboardWriting: .enabled(.default)
+  )
+
+  let result = try await TerminalSession.withApplicationTerminal(
+    configuration: configuration,
+    io: io,
+    environment: [
+      "SSH_CONNECTION": "192.0.2.1 50000 192.0.2.2 22",
+      "SSH_TTY": "/dev/ttys001",
+    ]
+  ) { session in
+    try await session.copyToClipboard("ssh", intent: .userInitiated)
+  }
+
+  let events = await device.events
+
+  expectNoDifference(result, .sent(bytesWritten: expectedBytes.count))
+  #expect(events.filter { $0.flushBytes == expectedBytes }.count == 1)
+}
+
+@Test
+func `clipboard write does not invalidate rendered frame cache`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
+  let write = ClipboardWrite(text: "copy")
+  let expectedClipboardBytes = ControlSequence.copyToClipboard(write).bytes
+  let session = await makeSession(
+    device,
+    synchronizedOutput: .disabled,
+    clipboardWriting: .enabled(.default)
+  )
+
+  try await session.draw { frame in
+    frame.write("x", at: TerminalPosition(column: 0, row: 0))
+  }
+  let result = try await session.copyToClipboard("copy", intent: .userInitiated)
+  try await session.draw { frame in
+    frame.write("x", at: TerminalPosition(column: 0, row: 0))
+  }
+
+  let flushes = await device.events.filter(\.isFlush).map(\.flushBytes)
+  let clipboardFlush = try #require(flushes.dropFirst().first)
+  let secondDrawFlush = try #require(flushes.last)
+
+  expectNoDifference(result, .sent(bytesWritten: expectedClipboardBytes.count))
+  #expect(flushes.count == 3)
+  #expect(clipboardFlush == expectedClipboardBytes)
+  #expect(secondDrawFlush == Array("\u{1B}[0m\u{1B}[?25l".utf8))
+}
+
+@Test
 func `application configuration stores synchronized output policy`() {
   let configuration = TerminalApplicationConfiguration(
     modes: [.rawMode],
@@ -1075,12 +1337,78 @@ private func mouseInputEvent(
 
 private func makeSession(
   _ device: InMemoryTerminalDevice,
-  synchronizedOutput: SynchronizedOutputPolicy = .enabled
+  synchronizedOutput: SynchronizedOutputPolicy = .enabled,
+  capabilities: TerminalCapabilities = .conservativeDefault,
+  clipboardWriting: ClipboardWriteMode = .disabled
 ) async -> TerminalSession {
   TerminalSession(
     io: PlatformIO(terminalDevice: await device.terminalDevice),
-    synchronizedOutput: synchronizedOutput
+    synchronizedOutput: synchronizedOutput,
+    capabilities: capabilities,
+    clipboardWriting: clipboardWriting
   )
+}
+
+private let clipboardNestedTerminalCases = [
+  ClipboardNestedTerminalCase(
+    name: "tmux",
+    environment: [
+      "TERM": "tmux-256color",
+      "TMUX": "/private/tmp/tmux-501/default,123,0",
+    ],
+    identity: TerminalIdentity(kind: .tmux, source: .term("tmux-256color"))
+  ),
+  ClipboardNestedTerminalCase(
+    name: "screen",
+    environment: [
+      "STY": "1234.pts-0.host",
+      "TERM": "screen-256color",
+    ],
+    identity: TerminalIdentity(kind: .screen, source: .term("screen-256color"))
+  ),
+]
+
+private let clipboardNestedCapabilityCases = [
+  ClipboardNestedCapabilityCase(
+    name: "nested flag",
+    capabilities: TerminalCapabilities(
+      identity: TerminalIdentity(kind: .unknown, source: .none),
+      isNested: true
+    )
+  ),
+  ClipboardNestedCapabilityCase(
+    name: "screen identity",
+    capabilities: TerminalCapabilities(
+      identity: TerminalIdentity(kind: .screen, source: .term("screen-256color")),
+      isNested: false
+    )
+  ),
+  ClipboardNestedCapabilityCase(
+    name: "tmux identity",
+    capabilities: TerminalCapabilities(
+      identity: TerminalIdentity(kind: .tmux, source: .term("tmux-256color")),
+      isNested: false
+    )
+  ),
+]
+
+private struct ClipboardNestedCapabilityCase: CustomStringConvertible, Sendable {
+  let name: String
+  let capabilities: TerminalCapabilities
+
+  var description: String {
+    name
+  }
+}
+
+private struct ClipboardNestedTerminalCase: CustomStringConvertible, Sendable {
+  let name: String
+  let environment: [String: String]
+  let identity: TerminalIdentity
+
+  var description: String {
+    name
+  }
 }
 
 private enum TerminalSessionTestError: Error, Equatable {

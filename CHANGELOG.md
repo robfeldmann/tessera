@@ -60,6 +60,13 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   16, or no-color per the active session capability, application color capability
   override, and a color sample section in the Phase 3 demo capabilities panel.
 
+- Added Phase 3 OSC 52 clipboard support, including semantic clipboard value types with
+  validated selections and base64-owning encoding, exact OSC 52 control-sequence emission,
+  a denied-by-default session write policy requiring explicit per-call user intent,
+  payload size limits, SSH-permissive but nested tmux/screen-guarded passthrough policy,
+  an advisory `osc52Clipboard` capability that stays not-detectable, and a clipboard panel
+  in the Phase 3 protocols demo.
+
 - Added Windows support for Ghostty-backed snapshot tests behind the
   `TESSERA_GHOSTTY_WINDOWS=1` package-manifest gate, linking the static
   `ghostty-vt-static.lib` so no runtime DLL discovery is needed.

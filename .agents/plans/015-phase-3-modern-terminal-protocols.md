@@ -24,7 +24,7 @@ updated: 2026-07-08
   - [x] 3.3 Implement Kitty graphics protocol from plan 022
   - [x] 3.4 Refactor capability detection to active, non-hard-coded probes
   - [x] 3.5 Implement color degradation baseline from plan 024
-  - [ ] 3.6 Implement OSC 52 clipboard from plan 025
+  - [x] 3.6 Implement OSC 52 clipboard from plan 025
   - [ ] 3.7 Implement cursor styling from plan 026
   - [ ] 3.8 Implement underline extensions from plan 027
 - [ ] **Phase 4 — Close Phase 3 as one integrated substrate**

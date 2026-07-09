@@ -49,6 +49,9 @@ public actor TerminalSession {
   /// Capability hints resolved for this session.
   nonisolated public let capabilities: TerminalCapabilities
 
+  /// OSC 52 clipboard write policy for this session.
+  nonisolated public let clipboardWriting: ClipboardWriteMode
+
   /// Terminal modes enabled for this session.
   nonisolated public let enabledProtocolModes: Set<ModeLifecycle.Mode>
 
@@ -68,16 +71,24 @@ public actor TerminalSession {
   public var cellPixelSize: CellPixelSize? {
     get async { await io.cellPixelSize() }
   }
+
+  private var isNestedClipboardTerminal: Bool {
+    capabilities.isNested
+      || capabilities.identity.kind == .tmux
+      || capabilities.identity.kind == .screen
+  }
   package init(
     io: PlatformIO,
     synchronizedOutput: SynchronizedOutputPolicy = .enabled,
     capabilities: TerminalCapabilities = .conservativeDefault,
     enabledProtocolModes: Set<ModeLifecycle.Mode> = [],
-    hyperlinkRendering: HyperlinkRenderingMode = .enabled
+    hyperlinkRendering: HyperlinkRenderingMode = .enabled,
+    clipboardWriting: ClipboardWriteMode = .disabled
   ) {
     let inputEvents = AsyncEventBuffer<InputEvent>(coalescing: shouldCoalesceInputEvents)
     let eventStream = AsyncStream<InputEvent>.makeStream()
     self.capabilities = capabilities
+    self.clipboardWriting = clipboardWriting
     self.enabledProtocolModes = enabledProtocolModes
     self.events = eventStream.stream
     self.inputEvents = inputEvents
@@ -120,7 +131,8 @@ public actor TerminalSession {
       synchronizedOutput: resolution.synchronizedOutput,
       capabilities: resolution.capabilities,
       enabledProtocolModes: resolution.enabledProtocolModes,
-      hyperlinkRendering: resolution.hyperlinkRendering
+      hyperlinkRendering: resolution.hyperlinkRendering,
+      clipboardWriting: resolution.clipboardWriting
     )
     if resolution.runsActiveProbes {
       try await session.queryActiveCapabilities()
@@ -141,6 +153,66 @@ public actor TerminalSession {
       }
       throw error
     }
+  }
+
+  /// Writes text to a terminal clipboard selection using OSC 52.
+  public func copyToClipboard(
+    _ text: String,
+    selection: ClipboardSelection = .clipboard,
+    intent: ClipboardUserIntent
+  ) async throws -> ClipboardWriteResult {
+    try await clipboardWrite(
+      ClipboardWrite(selection: selection, text: text),
+      intent: intent
+    )
+  }
+
+  /// Writes bytes to a terminal clipboard selection using OSC 52.
+  public func copyToClipboard(
+    _ bytes: [UInt8],
+    selection: ClipboardSelection = .clipboard,
+    intent: ClipboardUserIntent
+  ) async throws -> ClipboardWriteResult {
+    try await clipboardWrite(
+      ClipboardWrite(selection: selection, bytes: bytes),
+      intent: intent
+    )
+  }
+
+  /// Applies session OSC 52 clipboard policy and emits an allowed clipboard write.
+  package func clipboardWrite(
+    _ write: ClipboardWrite,
+    intent: ClipboardUserIntent?
+  ) async throws -> ClipboardWriteResult {
+    guard case .enabled(let policy) = clipboardWriting else {
+      return .denied(.disabledByConfiguration)
+    }
+
+    guard intent != nil else {
+      return .denied(.missingUserIntent)
+    }
+
+    if isNestedClipboardTerminal && !policy.allowsNestedTerminalPassthrough {
+      return .denied(.nestedTerminalRequiresExplicitPassthrough(capabilities.identity))
+    }
+
+    if write.selection.targets.contains(where: { !policy.allowedTargets.contains($0) }) {
+      return .denied(.selectionNotAllowed(write.selection))
+    }
+
+    if write.bytes.count > policy.maximumPayloadBytes {
+      return .denied(
+        .payloadTooLarge(
+          actualBytes: write.bytes.count,
+          maximumBytes: policy.maximumPayloadBytes
+        )
+      )
+    }
+
+    let bytes = ControlSequence.copyToClipboard(write).bytes
+    await io.write(bytes)
+    try await io.flush()
+    return .sent(bytesWritten: bytes.count)
   }
 
   /// Draws one frame and flushes it to terminal output.

@@ -3,26 +3,26 @@ name: Phase 3 Slice 9 OSC 52 Clipboard
 description:
   Add policy-gated OSC 52 clipboard writes with semantic encoding, session integration,
   multiplexer-aware defaults, tests, docs, and demo coverage.
-status: in-review
+status: complete
 created: 2026-07-07
-updated: 2026-07-07
+updated: 2026-07-09
 ---
 
 <!-- Allowed status values: planning, in-review, pending, in-progress, complete. -->
 
 ## Progress
 
-- [ ] **Phase 1 — Clipboard model and OSC 52 encoder**
-  - [ ] 1.1 Add semantic clipboard value types
-  - [ ] 1.2 Encode OSC 52 writes exactly and safely
-- [ ] **Phase 2 — Policy, configuration, and session integration**
-  - [ ] 2.1 Add safe default clipboard policy to application configuration
-  - [ ] 2.2 Add session-scoped clipboard write API and result semantics
-  - [ ] 2.3 Handle SSH, tmux, and screen-oriented behavior through explicit policy
-- [ ] **Phase 3 — Tests, docs, and example updates**
-  - [ ] 3.1 Add focused encoder, policy, and session tests
-  - [ ] 3.2 Update docs and `Phase3ProtocolsDemo`
-  - [ ] 3.3 Run narrow validation commands
+- [x] **Phase 1 — Clipboard model and OSC 52 encoder**
+  - [x] 1.1 Add semantic clipboard value types
+  - [x] 1.2 Encode OSC 52 writes exactly and safely
+- [x] **Phase 2 — Policy, configuration, and session integration**
+  - [x] 2.1 Add safe default clipboard policy to application configuration
+  - [x] 2.2 Add session-scoped clipboard write API and result semantics
+  - [x] 2.3 Handle SSH, tmux, and screen-oriented behavior through explicit policy
+- [x] **Phase 3 — Tests, docs, and example updates**
+  - [x] 3.1 Add focused encoder, policy, and session tests
+  - [x] 3.2 Update docs and `Phase3ProtocolsDemo`
+  - [x] 3.3 Run narrow validation commands
 
 ## Overview
 
