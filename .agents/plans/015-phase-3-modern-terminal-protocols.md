@@ -1,11 +1,11 @@
 ---
 name: Phase 3 Modern Terminal Protocols
 description:
-  Coordinate the eleven Phase 3 protocol slices so parser, lifecycle, renderer, tests, and
-  the example app evolve consistently.
+  Coordinate the twelve Phase 3 protocol slices so parser, lifecycle, renderer, live
+  session policy, tests, and the example app evolve consistently.
 status: pending
 created: 2026-07-02
-updated: 2026-07-09
+updated: 2026-07-10
 ---
 
 ## Progress
@@ -22,11 +22,12 @@ updated: 2026-07-09
   - [x] 3.1 Implement OSC 8 hyperlinks from plan 020
   - [x] 3.2 Implement terminal capability detection from plan 021
   - [x] 3.3 Implement Kitty graphics protocol from plan 022
-  - [x] 3.4 Refactor capability detection to active, non-hard-coded probes
+  - [x] 3.4 Add active, non-hard-coded probe encoding and parsing foundations
   - [x] 3.5 Implement color degradation baseline from plan 024
   - [x] 3.6 Implement OSC 52 clipboard from plan 025
   - [x] 3.7 Implement cursor styling from plan 026
   - [x] 3.8 Implement underline extensions from plan 027
+  - [ ] 3.9 Implement runtime protocol control and capability reconciliation from plan 028
 - [ ] **Phase 4 — Close Phase 3 as one integrated substrate**
   - [ ] 4.1 Run the full Phase 3 validation sweep
   - [ ] 4.2 Review the example app across every protocol panel
@@ -36,7 +37,8 @@ updated: 2026-07-09
 This is the coordination plan for `docs/Spec.md` Phase 3. Phase 3 keeps the work inside
 `TesseraTerminal`: modern terminal protocols are added to input parsing, terminal mode
 lifecycle, rendering, configuration, tests, and examples. It does not introduce `View`,
-layout, widgets, shortcut routing, hit testing, or runtime state management.
+layout, widgets, shortcut routing, hit testing, or UI/business-state runtime management;
+terminal-session policy and mode state remain Phase 3 substrate responsibilities.
 
 The executable slice plans are separate review units:
 
@@ -51,14 +53,16 @@ The executable slice plans are separate review units:
 - `025-phase-3-slice-9-osc-52-clipboard.md`
 - `026-phase-3-slice-10-cursor-styling.md`
 - `027-phase-3-slice-11-underline-extensions.md`
+- `028-phase-3-runtime-protocol-control.md` (Slice 12)
 
 Implement them in numeric order. The order matters because each slice proves a contract
 that later slices reuse: bracketed paste establishes parser-mode isolation, focus proves
 small CSI event decoding, mouse expands event payloads, Kitty keyboard changes keyboard
-semantics, hyperlinks exercise output-side metadata, capabilities settle policy, Kitty
+semantics, hyperlinks exercise output-side metadata, capabilities settle evidence, Kitty
 graphics builds on all of it, color degradation makes rendering capability-aware, OSC 52
-adds the first policy-gated session side effect, cursor styling extends lifecycle-owned
-terminal preferences, and underline extensions finish the modern text-decoration baseline.
+adds the first policy-gated session side effect, cursor and underline styling add live
+output policy, and Slice 12 runtime protocol control makes evidence and effective modes
+authoritative before views declare terminal requirements.
 
 ## Implementation prompts
 
@@ -433,6 +437,50 @@ When complete, update plan progress, report changed files and validation results
 and wait for review.
 ```
 
+### Step 3.9 / Slice 12 prompt — Runtime protocol control and capability reconciliation
+
+```text
+Implement .agents/plans/028-phase-3-runtime-protocol-control.md.
+
+Before editing, read these fully:
+- .agents/plans/015-phase-3-modern-terminal-protocols.md
+- docs/Spec.md Phase 3 overview and Slices 3 through 11
+- .agents/plans/028-phase-3-runtime-protocol-control.md
+- .agents/investigations/015-apple-terminal-underline-corruption.md
+- .agents/investigations/016-phase-3-runtime-configurability.md
+- Sources/TesseraTerminal/TerminalApplicationConfiguration.swift
+- Sources/TesseraTerminal/TerminalSession.swift
+- Sources/TesseraTerminalIO/ModeLifecycle.swift
+- Sources/TesseraTerminalIO/PlatformIO.swift
+- Sources/TesseraTerminalIO/CleanupRegistry.swift
+- Sources/TesseraTerminalInput/InputParser.swift
+- Sources/TesseraTerminal/TerminalCapabilityDetector.swift
+- Examples/Sources/Phase3ProtocolsDemo/Phase3ProtocolsDemo.swift
+
+Treat completed Phase 3 slices as source of truth, but close the active-probe reconciliation
+gap left after Step 3.4 and replace startup snapshots with authoritative live session state
+where plan 028 requires it. Plan 028 is Slice 12. Execute only its earliest incomplete
+numbered phase; land that phase's production behavior and tests together, run its focused
+checks and required repository gate, then stop for review before advancing to its next
+phase. Do not begin umbrella Phase 4 or view-layer work. Bracketed paste, raw mode,
+alternate screen, and clipboard policy remain outside runtime-setting scope; graphics
+transmission remains an operation rather than a setting.
+
+Underline rendering remains `.extended` by default. Plan 028 may add opt-in
+terminfo-database `Smulx`/`Setulc` compatibility without terminal-name inference; missing
+or unknown declaration evidence must not silently downgrade the modern default, and
+explicit runtime policy wins. Every runtime mode change goes through the non-reentrant
+`ModeLifecycle` transaction path. Requested policy commits only after success; effective and
+possibly-active state must still reflect lifecycle belief after partial failure, and
+emergency cleanup must remain safe. Renderer policy changes repaint when terminal-cell
+metadata can become stale. Update Phase3ProtocolsDemo plus docs/Spec.md and every affected
+prior plan. Run the focused commands and required repository gate for the phase being
+executed.
+
+When complete, update plan progress, report changed files and validation results, then stop
+and wait for review.
+```
+
 ## Shared source contracts
 
 ### Input parser and event model
@@ -559,15 +607,19 @@ review, but it is not the primary verification mechanism; tests remain the autho
   parser still decodes valid Kitty reports if a terminal sends them.
 - OSC 8 rendering is enabled when style metadata asks for it. Unsupported terminals still
   show the visible text.
-- Capability detection starts conservative. It exposes hints and policy, not promises.
-  Startup must not fail because a terminal does not answer a query.
-- Kitty graphics is never probed or transmitted by default. Apps opt in by calling the
-  session/frame graphics API; teardown always over-cleans with delete-all, and blind
-  emission is safe on terminals that ignore APC.
+- Capability detection begins with unknown evidence and exposes evidence separately from
+  application policy. No response leaves a bounded active probe unknown rather than
+  failing startup or implying support.
+- Kitty graphics is never transmitted by default. Passive detection sends no query;
+  explicit active detection may send the KGP query, and apps still opt into image
+  transmission through session APIs. Teardown always over-cleans with delete-all.
+- Underline rendering remains `.extended` by default. Apps opt into `.terminfoDatabase`
+  compatibility; valid missing declarations may downgrade each axis, unavailable evidence
+  preserves requested output, and no terminal-brand branches are permitted.
 
 ## Integrated validation sweep
 
-Run narrow validation inside each slice first. After plan 027 is implemented, run:
+Run narrow validation inside each slice first. After plan 028 is implemented, run:
 
 ```fish
 swift test --filter TesseraTerminalInputTests
@@ -576,6 +628,7 @@ swift test --filter TesseraTerminalIOTests
 swift test --filter TesseraTerminalRenderingTests
 swift test --filter TesseraTerminalSnapshotSupportTests
 swift test --filter TesseraTerminalTests
+swift test --package-path Examples --filter Phase3ProtocolsDemoSupportTests
 swift build --package-path Examples --product Phase3ProtocolsDemo
 ```
 
