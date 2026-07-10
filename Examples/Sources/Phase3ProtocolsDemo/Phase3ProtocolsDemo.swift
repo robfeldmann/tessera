@@ -6,6 +6,7 @@ import TesseraTerminalANSI
 @main
 enum Phase3ProtocolsDemo {
   private static let tabs: [DemoTab] = [
+    DemoTab(key: "0", label: "Underline", panel: .underline),
     DemoTab(key: "1", label: "Paste", panel: .paste),
     DemoTab(key: "2", label: "Focus", panel: .focus),
     DemoTab(key: "3", label: "Mouse", panel: .mouse),
@@ -49,6 +50,7 @@ enum Phase3ProtocolsDemo {
           "raw keyboard input",
           "alternate screen rendering",
           "cursor shape and color styling",
+          "underline style and color degradation",
         ],
         runCommand: "swift run --package-path Examples Phase3ProtocolsDemo",
         attachSchemeName: "Phase3ProtocolsDemo (Attach)"
@@ -60,6 +62,7 @@ enum Phase3ProtocolsDemo {
       capabilityDetection: .active,
       mouseTracking: .anyEvent,
       keyboardProtocol: .kittyIfAvailable,
+      underlineRendering: .extended,
       clipboardWriting: .enabled(.default),
       cursorStyling: .enabled(
         default: CursorStyle(
@@ -96,7 +99,6 @@ enum Phase3ProtocolsDemo {
     case .key(let key):
       state.append(event)
       state.lastKeyDescription = describe(key)
-      // Tabs past key "9" are reachable by mouse click.
       let didHandleCursorKey: Bool
       if state.selectedPanel == .cursor {
         didHandleCursorKey = await handleCursorKey(
@@ -106,6 +108,12 @@ enum Phase3ProtocolsDemo {
         )
       } else {
         didHandleCursorKey = false
+      }
+      let didHandleUnderlineKey: Bool
+      if state.selectedPanel == .underline {
+        didHandleUnderlineKey = handleUnderlineKey(key, terminal: terminal)
+      } else {
+        didHandleUnderlineKey = false
       }
       if state.selectedPanel == .clip, key == Key(code: .character("c")) {
         do {
@@ -118,6 +126,8 @@ enum Phase3ProtocolsDemo {
           state.lastClipboardResult = nil
           state.lastClipboardErrorDescription = String(describing: error)
         }
+      } else if didHandleUnderlineKey {
+        return false
       } else if didHandleCursorKey {
         return false
       } else if let tab = tabs.first(where: { key == Key(code: .character($0.key)) }) {
@@ -235,6 +245,35 @@ enum Phase3ProtocolsDemo {
     }
   }
 
+  private static func handleUnderlineKey(
+    _ key: Key,
+    terminal: isolated TerminalSession
+  ) -> Bool {
+    guard key.kind != .release else {
+      return false
+    }
+
+    switch key.code {
+    case .character("s"):
+      var policy = terminal.underlineRendering
+      policy.style = policy.style == .preserveVariants ? .singleOnly : .preserveVariants
+      terminal.setUnderlineRendering(policy)
+      return true
+
+    case .character("c"):
+      var policy = terminal.underlineRendering
+      policy.color = policy.color == .emit ? .omit : .emit
+      terminal.setUnderlineRendering(policy)
+      return true
+
+    case .backspace, .capsLock, .character, .delete, .down, .end, .enter, .escape,
+      .function, .home, .insert, .keypad, .left, .media, .menu, .modifier, .numLock,
+      .pageDown, .pageUp, .pause, .printScreen, .right, .scrollLock, .tab, .unidentified,
+      .up:
+      return false
+    }
+  }
+
   private static func applySelectedCursorStyle(
     state: inout DemoState,
     terminal: isolated TerminalSession
@@ -321,6 +360,7 @@ enum Phase3ProtocolsDemo {
           capabilities: terminal.capabilities,
           enabledModes: terminal.enabledProtocolModes,
           hyperlinkRendering: terminal.hyperlinkRendering,
+          underlineRendering: terminal.underlineRendering,
           synchronizedOutput: terminal.synchronizedOutput,
           state: state,
           top: contentTop
@@ -374,6 +414,13 @@ enum Phase3ProtocolsDemo {
 
       case .links:
         drawLinksPanel(frame: frame, state: state, top: contentTop)
+
+      case .underline:
+        drawUnderlinePanel(
+          frame: frame,
+          underlineRendering: terminal.underlineRendering,
+          top: contentTop
+        )
       }
     }
   }
@@ -462,6 +509,8 @@ enum Phase3ProtocolsDemo {
     switch panel {
     case .clip, .focus, .keyboard, .links, .paste:
       return TerminalSize(columns: 50, rows: 24)
+    case .underline:
+      return TerminalSize(columns: 72, rows: 20)
     case .cursor:
       return TerminalSize(columns: 60, rows: 30)
     case .capabilities:
@@ -705,6 +754,73 @@ enum Phase3ProtocolsDemo {
     drawRecentEvents(frame: frame, state: state, top: top + 14)
   }
 
+  private static func drawUnderlinePanel(
+    frame: borrowing Frame,
+    underlineRendering: UnderlineRenderingPolicy,
+    top: Int
+  ) {
+    frame.write(
+      "Underline semantic matrix",
+      at: position(0, top),
+      style: Style(attributes: [.bold])
+    )
+    frame.write(
+      "style: \(describe(underlineRendering.style)) · color: \(describe(underlineRendering.color))",
+      at: position(2, top + 1),
+      style: Style(attributes: [.dim])
+    )
+    frame.write(
+      "controls: s toggle style · c toggle color",
+      at: position(2, top + 2),
+      style: Style(attributes: [.dim])
+    )
+
+    frame.write(
+      "single — default underline color",
+      at: position(2, top + 4),
+      style: Style(underlineStyle: .single)
+    )
+    frame.write(
+      "double — default underline color",
+      at: position(2, top + 5),
+      style: Style(underlineStyle: .double)
+    )
+    frame.write(
+      "curly — ANSI bright magenta underline color",
+      at: position(2, top + 6),
+      style: Style(underlineStyle: .curly, underlineColor: .ansi(.brightMagenta))
+    )
+    frame.write(
+      "dotted — indexed 196 underline color",
+      at: position(2, top + 7),
+      style: Style(underlineStyle: .dotted, underlineColor: .indexed(196))
+    )
+    frame.write(
+      "dashed — RGB #5FAFFF underline color",
+      at: position(2, top + 8),
+      style: Style(underlineStyle: .dashed, underlineColor: .rgb(95, 175, 255))
+    )
+
+    frame.write(
+      "Policy behavior",
+      at: position(0, top + 10),
+      style: Style(attributes: [.bold])
+    )
+    frame.write(
+      "Baseline: single underline style with underline colors omitted.",
+      at: position(2, top + 11)
+    )
+    frame.write(
+      "Extended: style variants preserved with underline colors emitted.",
+      at: position(2, top + 12)
+    )
+    frame.write(
+      "Mixed settings apply the selected style and color axes independently.",
+      at: position(2, top + 13),
+      style: Style(attributes: [.dim])
+    )
+  }
+
   private static func drawClipPanel(
     frame: borrowing Frame,
     state: DemoState,
@@ -888,6 +1004,7 @@ enum Phase3ProtocolsDemo {
     capabilities: TerminalCapabilities,
     enabledModes: Set<ModeLifecycle.Mode>,
     hyperlinkRendering: HyperlinkRenderingMode,
+    underlineRendering: UnderlineRenderingPolicy,
     synchronizedOutput: SynchronizedOutputPolicy,
     state: DemoState,
     top: Int
@@ -904,29 +1021,34 @@ enum Phase3ProtocolsDemo {
     )
     frame.write("color:    \(describe(capabilities.color))", at: position(2, top + 3))
     frame.write(
-      "fallback: truecolor → 256 → 16 → no-color",
+      "underline: \(describeCompact(underlineRendering))",
       at: position(2, top + 4),
       style: Style(attributes: [.dim])
     )
     frame.write(
-      "RGB",
+      "fallback: truecolor → 256 → 16 → no-color",
       at: position(2, top + 5),
+      style: Style(attributes: [.dim])
+    )
+    frame.write(
+      "RGB",
+      at: position(2, top + 6),
       style: Style(foreground: .rgb(255, 0, 0))
     )
     frame.write(
       "indexed",
-      at: position(8, top + 5),
+      at: position(8, top + 6),
       style: Style(foreground: .indexed(196))
     )
     frame.write(
       "ANSI",
-      at: position(18, top + 5),
+      at: position(18, top + 6),
       style: Style(foreground: .ansi(.brightRed))
     )
-    frame.write("default", at: position(25, top + 5))
+    frame.write("default", at: position(25, top + 6))
     frame.write(
       "NO_COLOR suppresses foreground/background; attributes and links remain.",
-      at: position(2, top + 6),
+      at: position(2, top + 7),
       style: Style(attributes: [.dim])
     )
 
@@ -1066,11 +1188,11 @@ enum Phase3ProtocolsDemo {
     do {
       style = try Style(
         foreground: .ansi(.brightBlue),
-        attributes: [.underline],
+        underlineStyle: .single,
         hyperlink: Hyperlink(uri: uri, id: id)
       )
     } catch {
-      style = Style(foreground: .ansi(.brightBlue), attributes: [.underline])
+      style = Style(foreground: .ansi(.brightBlue), underlineStyle: .single)
     }
     frame.write(text, at: position(11, row), style: style)
   }
@@ -1311,6 +1433,7 @@ private enum DemoPanel {
   case links
   case mouse
   case paste
+  case underline
 
   var title: String {
     switch self {
@@ -1328,6 +1451,8 @@ private enum DemoPanel {
       return "Keyboard"
     case .links:
       return "Links"
+    case .underline:
+      return "Underline"
     case .mouse:
       return "Mouse"
     case .paste:
@@ -1574,6 +1699,50 @@ private func describe(_ color: ColorCapability) -> String {
     return "truecolor"
   case .unknown:
     return "unknown"
+  }
+}
+
+private func describe(_ policy: UnderlineRenderingPolicy) -> String {
+  switch (policy.style, policy.color) {
+  case (.preserveVariants, .emit):
+    return "extended (variants preserved, color emitted)"
+  case (.preserveVariants, .omit):
+    return "variants preserved, color omitted"
+  case (.singleOnly, .emit):
+    return "single-only, color emitted"
+  case (.singleOnly, .omit):
+    return "baseline (single-only, color omitted)"
+  }
+}
+
+private func describeCompact(_ policy: UnderlineRenderingPolicy) -> String {
+  switch (policy.style, policy.color) {
+  case (.preserveVariants, .emit):
+    return "extended"
+  case (.preserveVariants, .omit):
+    return "variants, no color"
+  case (.singleOnly, .emit):
+    return "single-only, color"
+  case (.singleOnly, .omit):
+    return "baseline"
+  }
+}
+
+private func describe(_ color: UnderlineColorRendering) -> String {
+  switch color {
+  case .emit:
+    return "emitted"
+  case .omit:
+    return "omitted"
+  }
+}
+
+private func describe(_ style: UnderlineStyleRendering) -> String {
+  switch style {
+  case .preserveVariants:
+    return "variants preserved"
+  case .singleOnly:
+    return "single only"
   }
 }
 

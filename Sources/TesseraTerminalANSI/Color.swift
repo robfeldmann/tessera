@@ -47,6 +47,28 @@ public enum Color: Equatable, Sendable {
       [48, 2, Int(red), Int(green), Int(blue)]
     }
   }
+
+  /// The ECMA-48 SGR body for setting this value as the underline color.
+  ///
+  /// The default underline color is reset with SGR 59. Non-default colors use the
+  /// colon-subparameter forms `58:5:n` and `58:2::r:g:b` rather than semicolon forms:
+  /// parsers unaware of SGR 58 skip an unrecognized colon group wholesale, while a
+  /// semicolon form splits into separate parameters and misapplies `5` (blink) or `2`
+  /// (dim); see Terminal.app 2.15 and mintty, which also only parses the colon form.
+  /// Named ANSI colors use their xterm palette indices because underline color has no
+  /// 16-color shorthand.
+  var underlineSGRBody: String {
+    switch self {
+    case .ansi(let color):
+      "58:5:\(color.ansiPaletteIndex)"
+    case .default:
+      "59"
+    case .indexed(let index):
+      "58:5:\(index)"
+    case .rgb(let red, let green, let blue):
+      "58:2::\(red):\(green):\(blue)"
+    }
+  }
 }
 
 extension Color {

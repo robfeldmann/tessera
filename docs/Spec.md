@@ -5286,6 +5286,11 @@ similar terminal identity hints to decide that a modern protocol is supported or
 unsupported. Terminal identity can be useful diagnostic metadata for an example panel, but
 production protocol policy must not branch on concrete emulator names.
 
+Underline rendering is an application-selected output policy rather than a detected
+protocol capability. Terminal identity never changes that policy; it remains diagnostic
+metadata only. `TerminalApplicationConfiguration` defaults to extended underline output,
+and applications can explicitly select the baseline policy or a custom combination.
+
 As of plan 015 step 3.4, production protocol support fields no longer use terminal-name
 inference. Queryable protocols stay `.unknown` or `.probing` until Tessera observes
 protocol-native evidence, and OSC 8 is reported as not actively detectable because it has
@@ -6463,34 +6468,58 @@ when applications do not request styling.
 
 ### Slice 11: Underline extensions
 
-Slice 11 teaches Tessera the rest of modern underline SGR: underline style variants and
-underline colors. Phase 2 modeled underline as a boolean style bit and the renderer
-currently emits only SGR `4` and `24`. That is enough for straight underlines, but modern
-terminal UIs use richer underline semantics for diagnostics, spellcheck, links, search
-matches, and accessibility-friendly status decoration: double underline, curly undercurl,
-dotted underline, dashed underline, and an underline color that is independent of the
-foreground color.
+Slice 11 equips Tessera with modern underline SGR: underline style variants and underline
+colors. The style model represents underline explicitly, and the renderer emits SGR `4`,
+`24`, and the extension forms below. Modern terminal UIs use richer underline semantics
+for diagnostics, spellcheck, links, search matches, and accessibility-friendly status
+decoration: double underline, curly undercurl, dotted underline, dashed underline, and an
+underline color that is independent of the foreground color.
 
 This slice is pure text styling. Underline metadata does not consume layout space, does
-not change grapheme width, does not affect raw payload occupancy, and does not need an
-active terminal probe. Unsupported terminals already degrade safely: they keep rendering
-the text, and may ignore the underline style, approximate it as a normal underline, ignore
-the underline color, or ignore underline entirely.
+not change grapheme width, and does not affect raw payload occupancy. There is no standard
+active probe for underline extensions. Unsupported terminals are not uniformly safe,
+however: Terminal.app 2.15 misparses `4:2` through `4:5` as background colors and SGR `58`
+can trigger blink or conceal behavior. Tessera therefore resolves semantic underline state
+through an output-safety policy before rendering.
 
-The SGR forms Tessera should model are:
+Tessera models the following SGR forms:
 
 ```text
-CSI 4 m          single underline, legacy-compatible
+CSI 4 m          single underline
 CSI 24 m         underline off
 CSI 4:2 m        double underline
 CSI 4:3 m        curly underline / undercurl
 CSI 4:4 m        dotted underline
 CSI 4:5 m        dashed underline
-CSI 58;5;<n> m   underline color from the 256-color palette
-CSI 58;2;<r>;<g>;<b> m
+CSI 58:5:<n> m   underline color from the 256-color palette
+CSI 58:2::<r>:<g>:<b> m
                  underline truecolor
 CSI 59 m         reset underline color to the terminal default
 ```
+
+Underline colors use colon subparameters on the wire. Parsers that predate SGR 58 skip an
+unrecognized colon group wholesale, while the semicolon forms split into separate
+parameters and can misapply blink (5) or dim (2); mintty additionally parses only the
+colon form. The double colon in the RGB form is the empty colorspace subparameter.
+
+The low-level `ControlSequence` API always preserves these exact bytes. Session rendering
+uses `UnderlineRenderingPolicy`, which separates two output decisions:
+
+- `UnderlineStyleRendering.preserveVariants` preserves the requested style, while
+  `.singleOnly` maps every non-`.none` style to `.single`.
+- `UnderlineColorRendering.emit` emits semantic underline color, while `.omit` projects it
+  to `.default` without writing SGR `58` or `59`.
+
+The `.extended` preset combines `.preserveVariants` and `.emit`; the `.baseline` preset
+combines `.singleOnly` and `.omit`. Applications can also construct mixed policies. The
+default `TerminalApplicationConfiguration` uses `.extended`, and terminal identity or
+passive capability detection never changes the application-selected policy.
+
+`TerminalSession` owns the active policy as actor-isolated state. Applications can call
+`setUnderlineRendering(_:)` while a session is running; a changed policy invalidates
+cached renderer state so the next draw erases and repaints under the new projection.
+Setting the already-active policy is a no-op and does not force a repaint. The Phase 3
+demo exposes independent runtime controls for the style and color axes.
 
 Prefer `24` for disabling underline rather than `4:0`. Prefer `4` for single underline
 rather than `4:1`, because `4` is the widest-compatible spelling and matches Tessera's
@@ -6500,10 +6529,10 @@ the unambiguous subparameter form `4:2`.
 
 Ratatui has an optional `underline_color` field on `Style` behind its `underline-color`
 feature, and crossterm exposes `DoubleUnderlined`, `Undercurled`, `Underdotted`,
-`Underdashed`, and `NoUnderline`. Tessera should preserve the variant instead of
-collapsing it to a boolean.
+`Underdashed`, and `NoUnderline`. Tessera preserves the variant rather than collapsing it
+to a boolean.
 
-Add a first-class underline style value to the terminal style model:
+Tessera exposes a first-class underline style value in the terminal style model:
 
 ```swift
 public enum UnderlineStyle: Equatable, Sendable {
@@ -6520,39 +6549,37 @@ public enum UnderlineStyle: Equatable, Sendable {
 “undercurl” because that is the term many editors and terminals use, but the case name
 should describe the visual style rather than the implementation detail.
 
-Extend `Style` with underline-specific fields whose semantic defaults are no underline and
-default underline color. Because this API has not shipped yet, prefer the clean model over
-source compatibility: remove the boolean underline bit from `TextAttributes` if it still
-exists, update demos/tests/call sites to use `underlineStyle: .single`, and make
-`UnderlineStyle` the only representation of whether text is underlined.
+`Style` exposes underline-specific fields whose semantic defaults are no underline and
+default underline color. The clean model has no boolean underline bit in `TextAttributes`;
+callers use `underlineStyle: .single`, and `UnderlineStyle` is the only representation of
+whether text is underlined.
 
 Underline color is independent state. `underlineColor != .default` does not turn underline
 on by itself; it only chooses the underline's color when the effective underline style is
-not `.none`. Reuse Tessera's existing `Color` type for underline colors, but add
-underline-specific SGR parameters. `Color.default` must mean SGR `59` in underline-color
+not `.none`. Underline colors reuse Tessera's existing `Color` type and use
+underline-specific SGR parameters. `Color.default` means SGR `59` in underline-color
 context, not foreground reset `39` or background reset `49`.
 
 There is no 16-color underline shorthand equivalent to foreground `30...37`/`90...97` or
 background `40...47`/`100...107`. Named ANSI colors should therefore map to their
 conventional 256-color palette indexes `0...15`.
 
-Add semantic control sequence support:
+Tessera exposes semantic control sequence support:
 
 ```swift
 case setUnderlineStyle(UnderlineStyle)
 case setUnderlineColor(Color)
 ```
 
-Replace the existing `setUnderline(Bool)` case rather than keeping it as an alias: for the
-same clean-model reason the boolean style bit is removed, single underline is
+`setUnderline(Bool)` was replaced rather than kept as an alias: single underline is
 `setUnderlineStyle(.single)` and underline off is `setUnderlineStyle(.none)`, so a
 parallel boolean spelling of the same two SGR bytes (`4`/`24`) would be redundant surface.
-The other boolean SGR toggles (`setBold`, `setItalic`, …) stay `Bool` because they remain
-genuinely two-state; underline is the one attribute that becomes a value type.
+The other boolean SGR toggles (`setBold`, `setItalic`, …) remain `Bool` because they are
+genuinely two-state; underline is the one attribute represented by a value type.
 `UnderlineStyle` is a wire-level type that lives alongside `Color` in the ANSI encoder
 layer so the encoder can reference it, and the buffer style layer reuses it.
 
-Renderer diffing must treat underline style and underline color as real SGR state. A cell
+Renderer diffing treats underline style and underline color as real SGR state. A cell
 whose only change is `.curly` to `.dashed`, or `indexed(196)` underline color to
 `rgb(1,2,3)`, is damaged and repainted just like a foreground color change.
 
@@ -6569,18 +6596,24 @@ Reset behavior matters:
 - changing from a custom underline color to `.default` emits `59`, even if the new style
   also disables underline, so a terminal does not leak the old underline color into a
   later default-colored underline.
+- under `.singleOnly`, the renderer projects both old and new underline styles before
+  diffing, so variant changes that collapse to single underline emit no redundant SGR.
+- under `.omit`, underline color changes project to `.default` and emit no SGR `58` or
+  `59`.
 
-Buffer snapshots should include non-default underline metadata in a compact, readable form
-that distinguishes all variants and underline color forms. Ghostty-backed virtual-terminal
-snapshots should report underline variants and underline color only if the C shim exposes
-that state; otherwise exact byte tests remain the authority for variant/color correctness.
+Buffer snapshots include non-default underline metadata in a compact, readable form that
+distinguishes all variants and underline color forms. Ghostty-backed virtual-terminal
+snapshots report underline variants and underline color from Ghostty's C API; exact byte
+tests remain the authority for variant/color correctness.
 
-Tessera should not actively probe for underline extension support and should not fail
-startup when support is absent. The bytes are harmless SGR styling. Applications must not
-use underline style or underline color as the only carrier of critical information; text
-content, symbols, labels, and accessible wording remain the source of truth.
+Tessera does not actively probe for underline extension support and does not fail startup
+when support is absent. Raw extension bytes are not universally harmless, so applications
+that target output paths limited to ordinary underline can select `.baseline`. Tessera
+does not infer that choice from emulator identity. Applications must not use underline
+style or underline color as the only carrier of critical information; text content,
+symbols, labels, and accessible wording remain the source of truth.
 
-Tests should cover exact encoder bytes for all underline styles, underline color reset,
+Coverage exercises exact encoder bytes for all underline styles, underline color reset,
 indexed/RGB/named underline colors, the API migration away from boolean underline, style
 equality/damage tracking, renderer transitions, hyperlink composition, snapshot metadata
 where available, and precise `24`/`59` reset behavior.
@@ -6589,9 +6622,9 @@ where available, and precise `24`/`59` reset behavior.
 
 `TesseraTerminal` exposes underline variants and colored underlines as ordinary semantic
 style state. Callers express single underline, undercurl, and underline color through the
-same `UnderlineStyle`/underline-color model without raw ANSI bytes, renderer diffing
-resets `24` and `59` precisely, and unsupported terminals degrade harmlessly by preserving
-readable text.
+same `UnderlineStyle`/underline-color model without raw ANSI bytes. Extended rendering
+preserves the requested variants and colors with precise `24`/`59` resets; baseline
+rendering emits ordinary underline only.
 
 **End of Phase 3:** `TesseraTerminal` is feature-complete for a modern terminal app.
 Everything above this is the view library.

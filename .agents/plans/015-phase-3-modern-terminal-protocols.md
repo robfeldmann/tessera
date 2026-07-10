@@ -5,7 +5,7 @@ description:
   the example app evolve consistently.
 status: pending
 created: 2026-07-02
-updated: 2026-07-08
+updated: 2026-07-09
 ---
 
 ## Progress
@@ -26,7 +26,7 @@ updated: 2026-07-08
   - [x] 3.5 Implement color degradation baseline from plan 024
   - [x] 3.6 Implement OSC 52 clipboard from plan 025
   - [x] 3.7 Implement cursor styling from plan 026
-  - [ ] 3.8 Implement underline extensions from plan 027
+  - [x] 3.8 Implement underline extensions from plan 027
 - [ ] **Phase 4 — Close Phase 3 as one integrated substrate**
   - [ ] 4.1 Run the full Phase 3 validation sweep
   - [ ] 4.2 Review the example app across every protocol panel
@@ -256,9 +256,10 @@ Before editing, read these fully:
 Treat completed Slice 6 and Slice 7 code as source of truth, but remove their remaining
 passive terminal-name protocol assumptions. The final production capability system must not
 branch on concrete terminal names such as Ghostty, kitty, WezTerm, Apple Terminal, Windows
-Terminal, iTerm2, foot, xterm, Konsole, or VTE to decide whether a protocol is supported or
-unsupported. Terminal identity may remain as diagnostic/display metadata only if capability
-policy does not depend on specific terminal names.
+Terminal, iTerm2, foot, xterm, Konsole, or VTE to infer protocol support or select output
+policy. Terminal identity remains diagnostic metadata. Underline rendering is an explicit,
+runtime-adjustable application policy with extended output by default and a baseline preset
+for applications that target output paths limited to ordinary underline.
 
 Keep the KGP active probe added during Slice 7: send `a=q` Kitty graphics query bytes
 immediately followed by DA1 (`ESC [ c`). A KGP response before DA1 means supported; DA1
@@ -576,7 +577,12 @@ swift test --filter TesseraTerminalRenderingTests
 swift test --filter TesseraTerminalSnapshotSupportTests
 swift test --filter TesseraTerminalTests
 swift build --package-path Examples --product Phase3ProtocolsDemo
-just quality changed
 ```
 
-Before committing Phase 3, run `just quality lint`.
+Before review, run the repository gate in order:
+
+```fish
+just quality format
+swift test
+just quality lint
+```

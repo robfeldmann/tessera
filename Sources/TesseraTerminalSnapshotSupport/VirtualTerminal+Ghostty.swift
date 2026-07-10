@@ -4,6 +4,7 @@
   import IssueReporting
   import Synchronization
   import TesseraTerminalCore
+  import TesseraTerminalANSI
 
   extension VirtualTerminal {
     /// Creates a Ghostty-backed virtual terminal session.
@@ -559,7 +560,10 @@
         italic: style.italic,
         reverse: style.inverse,
         strikethrough: style.strikethrough,
-        underline: style.underline != 0
+        underlineStyle: UnderlineStyle(
+          GhosttySgrUnderline(rawValue: UInt32(bitPattern: style.underline))
+        ),
+        underlineColor: RenderedColor(style.underline_color)
       )
     }
 
@@ -646,6 +650,27 @@
         self = .rgb(color.value.rgb.r, color.value.rgb.g, color.value.rgb.b)
       default:
         self = .default
+      }
+    }
+  }
+
+  extension UnderlineStyle {
+    init(_ ghosttyUnderline: GhosttySgrUnderline) {
+      switch ghosttyUnderline {
+      case GHOSTTY_SGR_UNDERLINE_SINGLE:
+        self = .single
+      case GHOSTTY_SGR_UNDERLINE_DOUBLE:
+        self = .double
+      case GHOSTTY_SGR_UNDERLINE_CURLY:
+        self = .curly
+      case GHOSTTY_SGR_UNDERLINE_DOTTED:
+        self = .dotted
+      case GHOSTTY_SGR_UNDERLINE_DASHED:
+        self = .dashed
+      case GHOSTTY_SGR_UNDERLINE_NONE:
+        self = .none
+      default:
+        self = .none
       }
     }
   }

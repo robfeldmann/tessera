@@ -4,39 +4,39 @@ description:
   Add semantic SGR underline style variants and colored underlines: undercurl and other
   SGR 4:x styles, underline color/reset, renderer diffing, compatibility with the legacy
   underline bit, snapshots, exact byte tests, and documentation.
-status: in-review
+status: complete
 created: 2026-07-07
-updated: 2026-07-07
+updated: 2026-07-09
 ---
 
 <!-- Allowed status values: planning, in-review, pending, in-progress, complete. -->
 
 ## Progress
 
-- [ ] **Phase 1 — Model and clean API**
-  - [ ] 1.1 Read the Phase 3 protocol context before editing
-  - [ ] 1.2 Add the underline style value model and remove the boolean underline bit
-  - [ ] 1.3 Add the underline color model without changing text width or raw payload
+- [x] **Phase 1 — Model and clean API**
+  - [x] 1.1 Read the Phase 3 protocol context before editing
+  - [x] 1.2 Add the underline style value model and remove the boolean underline bit
+  - [x] 1.3 Add the underline color model without changing text width or raw payload
         semantics
-- [ ] **Phase 2 — ANSI encoding and renderer integration**
-  - [ ] 2.1 Add semantic underline style/color control sequences
-  - [ ] 2.2 Teach style diffing to transition underline state with targeted SGR resets
-  - [ ] 2.3 Keep renderer damage tracking sensitive to underline-only changes
-- [ ] **Phase 3 — Tests, snapshots, docs, and demo visibility**
-  - [ ] 3.1 Add exact byte and renderer diff tests
-  - [ ] 3.2 Extend buffer and virtual-terminal snapshot support where the harness exposes
+- [x] **Phase 2 — ANSI encoding and renderer integration**
+  - [x] 2.1 Add semantic underline style/color control sequences
+  - [x] 2.2 Teach style diffing to transition underline state with targeted SGR resets
+  - [x] 2.3 Keep renderer damage tracking sensitive to underline-only changes
+- [x] **Phase 3 — Tests, snapshots, docs, and demo visibility**
+  - [x] 3.1 Add exact byte and renderer diff tests
+  - [x] 3.2 Extend buffer and virtual-terminal snapshot support where the harness exposes
         data
-  - [ ] 3.3 Update the Phase 3 docs and example surface
+  - [x] 3.3 Update the Phase 3 docs and example surface
 
 ## Overview
 
-This plan implements `docs/Spec.md` Phase 3 Slice 11. Tessera currently models underline
-as a boolean style bit and encodes only SGR `4`/`24`; because this API has not shipped,
-this slice should replace that boolean with semantic underline variants (`4:2` double,
-`4:3` curly/undercurl, `4:4` dotted, `4:5` dashed) and underline colors (`58` plus `59`
-reset) as the single underline model. The work is output-only: visible text remains
-ordinary cells, underline metadata consumes no layout columns, and unsupported terminals
-degrade by ignoring or approximating the SGR attributes while the text stays readable.
+This plan implemented `docs/Spec.md` Phase 3 Slice 11. Tessera models semantic underline
+variants (`4:2` double, `4:3` curly/undercurl, `4:4` dotted, `4:5` dashed) and underline
+colors (`58` plus `59` reset) independently from two-state text attributes. The work is
+output-only: visible text remains ordinary cells and underline metadata consumes no layout
+columns. Session rendering applies an application-selected `UnderlineRenderingPolicy` that
+can preserve or collapse variants independently from emitting or omitting underline color.
+The extended preset is the default; baseline rendering is explicit.
 
 Before making code changes, future implementers must read these four sources in order:
 
@@ -52,7 +52,7 @@ Before making code changes, future implementers must read these four sources in 
 - Do not implement Sixel, iTerm2 OSC 1337, or any graphics protocol work; those remain out
   of scope for this slice.
 - Do not add active terminal probing for underline style or underline color support.
-  Unsupported terminals should ignore or approximate harmless SGR styling.
+  Applications select the underline rendering policy explicitly.
 - Do not parse terminal input for underline styles; Tessera's input parser does not
   receive style state from ordinary terminal output.
 - Do not replace foreground/background color APIs, rewrite the broader color model, or add
@@ -77,10 +77,10 @@ Before making code changes, future implementers must read these four sources in 
   - `.none` resets with `24`; prefer `24` over `4:0` for the off transition.
 - Underline colors use the extended underline color SGR family:
   - default/reset: `59`
-  - 256-color/indexed: `58;5;n`
-  - truecolor: `58;2;r;g;b`
+  - 256-color/indexed: `58:5:n`
+  - truecolor: `58:2::r:g:b`
   - named 16-color ANSI colors should map to their equivalent palette index `0...15` and
-    encode with `58;5;n`; there is no `30...37`/`90...97` shorthand for underline color.
+    encode with `58:5:n`; there is no `30...37`/`90...97` shorthand for underline color.
 - A full SGR reset (`0`) resets underline style and underline color. Targeted diffs should
   prefer `24` and `59` so renderer transitions do not needlessly drop unrelated
   attributes.
@@ -138,9 +138,13 @@ Before making code changes, future implementers must read these four sources in 
 - When transitioning between non-`.none` underline styles, emit the target style (`4`,
   `4:2`, `4:3`, `4:4`, or `4:5`) without a full `0` reset unless some other attribute
   transition already requires a reset.
-- If a terminal does not support `4:x` variants or `58` colors, Tessera still emits the
-  semantic SGR. The terminal may render a straight underline, ignore the variant/color, or
-  ignore underline entirely. Tessera must not fail startup or hide the text.
+- Under `.extended`, Tessera preserves the semantic style and color SGR. Under
+  `.baseline`, Tessera maps every non-`.none` style to `.single` and omits underline
+  color, emitting only SGR `4`/`24`. Custom policies can control the style and color axes
+  independently.
+- `TerminalSession.setUnderlineRendering(_:)` may change the application policy at
+  runtime. A changed policy invalidates renderer state so the next draw repaints under the
+  new projection; assigning the active policy is a no-op.
 
 ## Phase 1 — Model and clean API
 
@@ -261,8 +265,8 @@ diffs transition state without broad, avoidable resets.
   `ANSIByteEncoding.appendSGR([Int])` joins parameters with `;`, so it cannot emit the
   colon subparameter forms (`4:2`, `4:3`, `4:4`, `4:5`). Add a colon-aware emit path (or
   emit the style token as a preformatted parameter) so `.setUnderlineStyle(.curly)`
-  produces `4:3`, never `4;3`. The `58`/`59` underline-color forms stay semicolon-joined
-  and can reuse `appendSGR`.
+  produces `4:3`, never `4;3`. The `58`/`59` underline-color forms use colon subparameters
+  (`58:5:n`, `58:2::r:g:b`) via the colon-aware emit path; only `59` reuses `appendSGR`.
 - Add exact byte tests:
   - `.setUnderlineStyle(.single)` -> `ESC[4m`
   - `.setUnderlineStyle(.double)` -> `ESC[4:2m`
@@ -271,16 +275,15 @@ diffs transition state without broad, avoidable resets.
   - `.setUnderlineStyle(.dashed)` -> `ESC[4:5m`
   - `.setUnderlineStyle(.none)` -> `ESC[24m`
   - `.setUnderlineColor(.default)` -> `ESC[59m`
-  - `.setUnderlineColor(.indexed(196))` -> `ESC[58;5;196m`
-  - `.setUnderlineColor(.rgb(1, 2, 3))` -> `ESC[58;2;1;2;3m`
-  - `.setUnderlineColor(.ansi(.red))` -> `ESC[58;5;1m`
+  - `.setUnderlineColor(.indexed(196))` -> `ESC[58:5:196m`
+  - `.setUnderlineColor(.rgb(1, 2, 3))` -> `ESC[58:2::1:2:3m`
+  - `.setUnderlineColor(.ansi(.red))` -> `ESC[58:5:1m`
 
 Acceptance:
 
 - Underline variants and underline colors can be emitted through semantic
   `ControlSequence` cases; users do not need `RawTerminalPayload` for this feature.
-- Exact byte tests pin colon subparameters for `4:x` and semicolon extended-color forms
-  for `58`/`59`.
+- Exact byte tests pin colon subparameters for `4:x`, `58:5`, and `58:2`, plus plain `59`.
 
 ### Step 2.2 — Teach style diffing to transition underline state with targeted SGR resets
 
@@ -338,7 +341,7 @@ Acceptance:
   - plain -> curly underline emits cursor move, reset/full style, `4:3`, text/blank, final
     reset
   - single -> dashed emits targeted `4:5`
-  - indexed underline color -> RGB underline color emits targeted `58;2;...`
+  - indexed underline color -> RGB underline color emits targeted `58:2::...`
   - custom underline color -> default no underline emits `59` and `24`
 - Keep hyperlink deltas independent. Underline changes must not spuriously open/close OSC
   8 hyperlinks, and hyperlink-only changes must not spuriously reset underline state.
@@ -423,15 +426,19 @@ Acceptance:
   - curly/undercurl underline
   - dotted/dashed underline
   - colored underline using indexed and RGB colors
-- Do not add a demo-only terminal probe. The demo should state that unsupported terminals
-  may show plain or straight underlines.
+- Do not add a demo-only terminal probe. The demo should explicitly use and display the
+  extended application rendering policy while describing the baseline alternative.
+- On the Underline panel, `s` toggles variant preservation/single-only rendering and `c`
+  toggles underline color emission/omission. The panel displays both active axes.
 - Keep Sixel out of the docs and demo for this slice.
 
 Acceptance:
 
-- Docs explain the clean underline API, SGR bytes, `24`/`59` resets, and
-  unsupported-terminal degradation.
-- Any example remains text-only and safe on terminals that ignore underline extensions.
+- Docs explain the clean underline API, SGR bytes, `24`/`59` resets, independent
+  style/color output decisions, the extended/baseline presets, and runtime policy
+  mutation.
+- Any example remains text-only, displays its active output policy, and supports
+  independent style/color toggles.
 
 ## Test/validation commands
 
@@ -455,8 +462,8 @@ new project-wide validation command.
   the old visual default of no underline.
 - `TextAttributes` no longer carries underline state; single underline is modeled as
   `UnderlineStyle.single`.
-- Semantic `ControlSequence` APIs emit `4`, `24`, `4:2`, `4:3`, `4:4`, `4:5`, `58;5`,
-  `58;2`, and `59` exactly as specified.
+- Semantic `ControlSequence` APIs emit `4`, `24`, `4:2`, `4:3`, `4:4`, `4:5`, `58:5`,
+  `58:2`, and `59` exactly as specified.
 - Renderer diffing treats underline style and underline color as real style state and
   emits targeted `24`/`59` resets where possible.
 - Buffer diffing repaints cells whose only change is underline style or underline color.
@@ -464,8 +471,9 @@ new project-wide validation command.
   far as the harness can observe it.
 - Docs include the finalized `### Slice 11: Underline extensions` text and keep Sixel out
   of scope.
-- Unsupported terminals degrade harmlessly: text remains visible, startup does not fail,
-  and no active probe is required.
+- Extended rendering is the application default, baseline rendering remains explicitly
+  selectable at startup or runtime, terminal identity does not alter policy, and no active
+  probe is required.
 
 ## References
 

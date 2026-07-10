@@ -116,8 +116,11 @@ public enum ControlSequence: Equatable, Sendable {
   /// Enable or disable crossed-out text using ECMA-48 SGR 9/29.
   case setStrikethrough(Bool)
 
-  /// Enable or disable underline using ECMA-48 SGR 4/24.
-  case setUnderline(Bool)
+  /// Set the underline color using ECMA-48 SGR 58 or reset it with SGR 59.
+  case setUnderlineColor(Color)
+
+  /// Set the semantic underline style using ECMA-48 SGR 4 variants or SGR 24.
+  case setUnderlineStyle(UnderlineStyle)
 
   /// Set the terminal window title using OSC 2 terminated by BEL.
   case setWindowTitle(String)
@@ -160,7 +163,8 @@ public enum ControlSequence: Equatable, Sendable {
       .setItalic,
       .setReverse,
       .setStrikethrough,
-      .setUnderline:
+      .setUnderlineColor,
+      .setUnderlineStyle:
       self.encodeSGR(into: &buffer)
 
     case .disableMouseTracking,
@@ -281,7 +285,8 @@ public enum ControlSequence: Equatable, Sendable {
       .setItalic,
       .setReverse,
       .setStrikethrough,
-      .setUnderline,
+      .setUnderlineColor,
+      .setUnderlineStyle,
       .setWindowTitle,
       .text:
       break
@@ -334,7 +339,8 @@ public enum ControlSequence: Equatable, Sendable {
       .setItalic,
       .setReverse,
       .setStrikethrough,
-      .setUnderline,
+      .setUnderlineColor,
+      .setUnderlineStyle,
       .setWindowTitle,
       .text:
       break
@@ -376,9 +382,26 @@ public enum ControlSequence: Equatable, Sendable {
       // ECMA-48 SGR 9 enables crossed-out text; SGR 29 disables it.
       ANSIByteEncoding.appendSGR([isEnabled ? 9 : 29], into: &buffer)
 
-    case .setUnderline(let isEnabled):
-      // ECMA-48 SGR 4 enables underline; SGR 24 disables underline.
-      ANSIByteEncoding.appendSGR([isEnabled ? 4 : 24], into: &buffer)
+    case .setUnderlineColor(let color):
+      ANSIByteEncoding.appendCSI(color.underlineSGRBody + "m", into: &buffer)
+
+    case .setUnderlineStyle(let style):
+      switch style {
+      case .none:
+        // ECMA-48 SGR 24 disables every underline style.
+        ANSIByteEncoding.appendSGR([24], into: &buffer)
+      case .single:
+        // SGR 4 remains the interoperable spelling for a single underline.
+        ANSIByteEncoding.appendSGR([4], into: &buffer)
+      case .double:
+        ANSIByteEncoding.appendCSI("4:2m", into: &buffer)
+      case .curly:
+        ANSIByteEncoding.appendCSI("4:3m", into: &buffer)
+      case .dotted:
+        ANSIByteEncoding.appendCSI("4:4m", into: &buffer)
+      case .dashed:
+        ANSIByteEncoding.appendCSI("4:5m", into: &buffer)
+      }
 
     case .bell,
       .closeHyperlink,
@@ -502,7 +525,8 @@ public enum ControlSequence: Equatable, Sendable {
       .setItalic,
       .setReverse,
       .setStrikethrough,
-      .setUnderline,
+      .setUnderlineColor,
+      .setUnderlineStyle,
       .setWindowTitle,
       .text:
       break
@@ -552,7 +576,8 @@ public enum ControlSequence: Equatable, Sendable {
       .setItalic,
       .setReverse,
       .setStrikethrough,
-      .setUnderline,
+      .setUnderlineColor,
+      .setUnderlineStyle,
       .setWindowTitle,
       .text:
       break
@@ -638,7 +663,8 @@ public enum ControlSequence: Equatable, Sendable {
       .setItalic,
       .setReverse,
       .setStrikethrough,
-      .setUnderline,
+      .setUnderlineColor,
+      .setUnderlineStyle,
       .text:
       break
     }
@@ -696,7 +722,8 @@ public enum ControlSequence: Equatable, Sendable {
       .setItalic,
       .setReverse,
       .setStrikethrough,
-      .setUnderline,
+      .setUnderlineColor,
+      .setUnderlineStyle,
       .setWindowTitle:
       break
     }

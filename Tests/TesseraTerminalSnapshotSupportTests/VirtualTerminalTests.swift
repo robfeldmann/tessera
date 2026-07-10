@@ -73,21 +73,58 @@ func `erase in line clears visible cells`() {
     "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
   )
 )
-func `sgr style and colors are inspectable`() {
+func `sgr styles colors and underline extensions are inspectable`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 4, rows: 1)
 
-  terminal.feed("\u{1B}[1;2;3;4;7;9;38;5;196;48;2;1;2;3mX")
+  terminal.feed("\u{1B}[1;2;3;4:2;7;9;38;5;196;48;2;1;2;3;58:2::4:5:6mX")
   let cell = terminal.cell(row: 0, column: 0)
 
   #expect(cell.character == "X")
   #expect(cell.bold)
   #expect(cell.dim)
   #expect(cell.italic)
-  #expect(cell.underline)
+  #expect(cell.underlineStyle == .double)
+  #expect(cell.underlineColor == .rgb(4, 5, 6))
   #expect(cell.reverse)
   #expect(cell.strikethrough)
   #expect(cell.foreground == RenderedColor.indexed(196))
   #expect(cell.background == RenderedColor.rgb(1, 2, 3))
+}
+
+@Test(
+  .disabled(
+    if: VirtualTerminal.isGhosttyUnavailable,
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
+)
+func `Ghostty exposes every underline variant`() {
+  let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 6, rows: 1)
+
+  terminal.feed("\u{1B}[4mS\u{1B}[4:2mD\u{1B}[4:3mC\u{1B}[4:4mO\u{1B}[4:5mA\u{1B}[24mN")
+
+  #expect(terminal.cell(row: 0, column: 0).underlineStyle == .single)
+  #expect(terminal.cell(row: 0, column: 1).underlineStyle == .double)
+  #expect(terminal.cell(row: 0, column: 2).underlineStyle == .curly)
+  #expect(terminal.cell(row: 0, column: 3).underlineStyle == .dotted)
+  #expect(terminal.cell(row: 0, column: 4).underlineStyle == .dashed)
+  #expect(terminal.cell(row: 0, column: 5).underlineStyle == .none)
+}
+
+@Test(
+  .disabled(
+    if: VirtualTerminal.isGhosttyUnavailable,
+    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+  )
+)
+func `Ghostty exposes RGB indexed and reset underline colors`() {
+  let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 3, rows: 1)
+
+  terminal.feed("\u{1B}[4:3;58:2::1:2:3mR\u{1B}[58:5:1mP\u{1B}[59mD")
+
+  #expect(terminal.cell(row: 0, column: 0).underlineColor == .rgb(1, 2, 3))
+  #expect(terminal.cell(row: 0, column: 1).underlineColor == .indexed(1))
+  #expect(terminal.cell(row: 0, column: 2).underlineColor == .default)
+  #expect(terminal.cell(row: 0, column: 2).underlineStyle == .curly)
 }
 
 @Test(

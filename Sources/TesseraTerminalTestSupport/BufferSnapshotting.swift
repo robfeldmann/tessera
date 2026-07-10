@@ -62,6 +62,12 @@ private func bufferStyleSuffix(for style: Style) -> String {
     components.append("bg=\(bufferColorDescription(style.background))")
   }
   components.append(contentsOf: bufferAttributeDescriptions(style.attributes))
+  if style.underlineStyle != .none {
+    components.append("underline=\(bufferUnderlineStyleDescription(style.underlineStyle))")
+  }
+  if style.underlineColor != .default {
+    components.append("underlineColor=\(bufferColorDescription(style.underlineColor))")
+  }
   if let hyperlink = style.hyperlink {
     if let id = hyperlink.id {
       components.append("link=\(id):\(hyperlink.uri)")
@@ -90,10 +96,24 @@ private func bufferAttributeDescriptions(_ attributes: TextAttributes) -> [Strin
   if attributes.contains(.strikethrough) {
     descriptions.append("strikethrough")
   }
-  if attributes.contains(.underline) {
-    descriptions.append("underline")
-  }
   return descriptions
+}
+
+private func bufferUnderlineStyleDescription(_ style: UnderlineStyle) -> String {
+  switch style {
+  case .none:
+    "none"
+  case .single:
+    "single"
+  case .double:
+    "double"
+  case .curly:
+    "curly"
+  case .dotted:
+    "dotted"
+  case .dashed:
+    "dashed"
+  }
 }
 
 private func bufferColorDescription(_ color: Color) -> String {

@@ -400,7 +400,7 @@ func `colors round trip through virtual terminal`() {
 }
 
 @Test
-func `attributes encode exact bytes`() {
+func `non underline attributes encode exact bytes`() {
   expectBytes(.resetAttributes, sgr(0))
   expectBytes(.setBold(true), sgr(1))
   expectBytes(.setBold(false), sgr(22))
@@ -412,8 +412,30 @@ func `attributes encode exact bytes`() {
   expectBytes(.setReverse(false), sgr(27))
   expectBytes(.setStrikethrough(true), sgr(9))
   expectBytes(.setStrikethrough(false), sgr(29))
-  expectBytes(.setUnderline(true), sgr(4))
-  expectBytes(.setUnderline(false), sgr(24))
+}
+
+@Test
+func `underline styles and colors encode exact bytes`() {
+  let styles: [(UnderlineStyle, [UInt8])] = [
+    (.none, sgr(24)),
+    (.single, sgr(4)),
+    (.double, esc("[4:2m")),
+    (.curly, esc("[4:3m")),
+    (.dotted, esc("[4:4m")),
+    (.dashed, esc("[4:5m")),
+  ]
+  for (style, expected) in styles {
+    expectBytes(.setUnderlineStyle(style), expected)
+  }
+
+  for (color, paletteIndex) in ansiUnderlineColorParameters() {
+    expectBytes(.setUnderlineColor(.ansi(color)), esc("[58:5:\(paletteIndex)m"))
+  }
+  expectBytes(.setUnderlineColor(.default), sgr(59))
+  expectBytes(.setUnderlineColor(.indexed(0)), esc("[58:5:0m"))
+  expectBytes(.setUnderlineColor(.indexed(15)), esc("[58:5:15m"))
+  expectBytes(.setUnderlineColor(.indexed(255)), esc("[58:5:255m"))
+  expectBytes(.setUnderlineColor(.rgb(0, 127, 255)), esc("[58:2::0:127:255m"))
 }
 
 @Test(
@@ -422,7 +444,7 @@ func `attributes encode exact bytes`() {
     "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
   )
 )
-func `attributes round trip through virtual terminal`() {
+func `attributes and underline extensions round trip through virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 8, rows: 1)
 
   feed(
@@ -432,9 +454,12 @@ func `attributes round trip through virtual terminal`() {
       .setItalic(true),
       .setReverse(true),
       .setStrikethrough(true),
-      .setUnderline(true),
+      .setUnderlineStyle(.curly),
+      .setUnderlineColor(.rgb(1, 2, 3)),
       .text("X"),
       .resetAttributes,
+      .setUnderlineStyle(.none),
+      .setUnderlineColor(.default),
       .text("Y"),
     ],
     into: terminal
@@ -447,13 +472,15 @@ func `attributes round trip through virtual terminal`() {
   #expect(styledCell.italic)
   #expect(styledCell.reverse)
   #expect(styledCell.strikethrough)
-  #expect(styledCell.underline)
+  #expect(styledCell.underlineStyle == .curly)
+  #expect(styledCell.underlineColor == .rgb(1, 2, 3))
   #expect(!resetCell.bold)
   #expect(!resetCell.dim)
   #expect(!resetCell.italic)
   #expect(!resetCell.reverse)
   #expect(!resetCell.strikethrough)
-  #expect(!resetCell.underline)
+  #expect(resetCell.underlineStyle == .none)
+  #expect(resetCell.underlineColor == .default)
 }
 
 @Test(
@@ -1110,6 +1137,27 @@ private func ansiBackgroundParameters() -> [(ANSIColor, Int)] {
     (.red, 41),
     (.white, 47),
     (.yellow, 43),
+  ]
+}
+
+private func ansiUnderlineColorParameters() -> [(ANSIColor, Int)] {
+  [
+    (.black, 0),
+    (.blue, 4),
+    (.brightBlack, 8),
+    (.brightBlue, 12),
+    (.brightCyan, 14),
+    (.brightGreen, 10),
+    (.brightMagenta, 13),
+    (.brightRed, 9),
+    (.brightWhite, 15),
+    (.brightYellow, 11),
+    (.cyan, 6),
+    (.green, 2),
+    (.magenta, 5),
+    (.red, 1),
+    (.white, 7),
+    (.yellow, 3),
   ]
 }
 

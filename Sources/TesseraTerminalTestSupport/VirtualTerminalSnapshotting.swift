@@ -191,7 +191,7 @@ private func styleGlyph(_ cell: RenderedCell) -> Character {
   if cell.strikethrough {
     return "S"
   }
-  if cell.underline {
+  if cell.underlineStyle != .none {
     return "U"
   }
   return "T"
@@ -215,8 +215,11 @@ private func attributesDescription(_ cell: RenderedCell) -> String {
   if cell.italic {
     attributes.append("italic")
   }
-  if cell.underline {
-    attributes.append("underline")
+  if cell.underlineStyle != .none {
+    attributes.append("underline=\(underlineStyleDescription(cell))")
+  }
+  if cell.underlineColor != .default {
+    attributes.append("underlineColor=\(colorDescription(cell.underlineColor))")
   }
   if cell.reverse {
     attributes.append("reverse")
@@ -229,6 +232,23 @@ private func attributesDescription(_ cell: RenderedCell) -> String {
     attributes.append("link=\(hyperlinkURI)")
   }
   return attributes.isEmpty ? "default" : attributes.joined(separator: ",")
+}
+
+private func underlineStyleDescription(_ cell: RenderedCell) -> String {
+  switch cell.underlineStyle {
+  case .none:
+    "none"
+  case .single:
+    "single"
+  case .double:
+    "double"
+  case .curly:
+    "curly"
+  case .dotted:
+    "dotted"
+  case .dashed:
+    "dashed"
+  }
 }
 
 private func colorDescription(_ color: RenderedColor) -> String {

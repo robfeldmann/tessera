@@ -315,6 +315,23 @@ func `buffer state snapshots include hyperlink metadata`() throws {
     """
   }
 }
+
+@Test
+func `buffer state snapshots include underline style and color metadata`() {
+  var buffer = Buffer(size: TerminalSize(columns: 2, rows: 1))
+
+  buffer.write(
+    "U",
+    at: TerminalPosition(column: 0, row: 0),
+    style: Style(underlineStyle: .dotted, underlineColor: .indexed(196))
+  )
+
+  assertInlineSnapshot(of: buffer, as: .bufferState) {
+    """
+    U{underline=dotted,underlineColor=indexed(196)} ·
+    """
+  }
+}
 @Test
 func `raw payload clips occupied region`() {
   var buffer = Buffer(size: TerminalSize(columns: 3, rows: 2))

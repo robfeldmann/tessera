@@ -905,6 +905,218 @@ func `draw uses session no-color capability for rendered output`() async throws 
 }
 
 @Test
+func `session threads explicit baseline underline rendering to drawing`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 1))
+  let session = TerminalSession(
+    io: PlatformIO(terminalDevice: await device.terminalDevice),
+    synchronizedOutput: .disabled,
+    underlineRendering: .baseline
+  )
+
+  let underlineRendering = await session.underlineRendering
+  expectNoDifference(underlineRendering, .baseline)
+
+  try await session.draw { frame in
+    frame.write(
+      "D",
+      at: TerminalPosition(column: 0, row: 0),
+      style: Style(underlineStyle: .double, underlineColor: .indexed(196))
+    )
+    frame.write(
+      "C",
+      at: TerminalPosition(column: 1, row: 0),
+      style: Style(underlineStyle: .curly, underlineColor: .indexed(196))
+    )
+    frame.write(
+      "O",
+      at: TerminalPosition(column: 2, row: 0),
+      style: Style(underlineStyle: .dotted, underlineColor: .indexed(196))
+    )
+    frame.write(
+      "H",
+      at: TerminalPosition(column: 3, row: 0),
+      style: Style(underlineStyle: .dashed, underlineColor: .indexed(196))
+    )
+  }
+
+  let bytes = await device.bytes
+  let expected = Array(
+    "\u{1B}[2J\u{1B}[1;1H\u{1B}[0m\u{1B}[4mDCOH\u{1B}[0m\u{1B}[?25l".utf8
+  )
+
+  #expect(bytes == expected)
+}
+
+@Test
+func `session defaults to extended underline rendering and exact bytes`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
+  let session = TerminalSession(
+    io: PlatformIO(terminalDevice: await device.terminalDevice),
+    synchronizedOutput: .disabled,
+    capabilities: TerminalCapabilities(color: .indexed256)
+  )
+
+  let underlineRendering = await session.underlineRendering
+  expectNoDifference(underlineRendering, .extended)
+
+  try await session.draw { frame in
+    frame.write(
+      "C",
+      at: TerminalPosition(column: 0, row: 0),
+      style: Style(underlineStyle: .curly, underlineColor: .indexed(196))
+    )
+  }
+
+  let bytes = await device.bytes
+  let expected = Array(
+    "\u{1B}[2J\u{1B}[1;1H\u{1B}[0m\u{1B}[58:5:196m\u{1B}[4:3mC\u{1B}[0m\u{1B}[?25l".utf8
+  )
+
+  #expect(bytes == expected)
+}
+
+@Test
+func `application terminal threads custom underline rendering to session`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
+  let underlineRendering = UnderlineRenderingPolicy(style: .singleOnly, color: .emit)
+  let configuration = TerminalApplicationConfiguration(
+    underlineRendering: underlineRendering)
+
+  let observed = try await TerminalSession.withApplicationTerminal(
+    configuration: configuration,
+    io: PlatformIO(terminalDevice: await device.terminalDevice),
+    environment: ["TERM_PROGRAM": "Apple_Terminal"]
+  ) { session in
+    session.underlineRendering
+  }
+
+  expectNoDifference(observed, underlineRendering)
+}
+
+@Test
+func `runtime underline change repaints unchanged frame exactly`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
+  let session = TerminalSession(
+    io: PlatformIO(terminalDevice: await device.terminalDevice),
+    synchronizedOutput: .disabled,
+    capabilities: TerminalCapabilities(color: .indexed256)
+  )
+
+  try await session.draw { frame in
+    frame.write(
+      "C",
+      at: TerminalPosition(column: 0, row: 0),
+      style: Style(underlineStyle: .curly, underlineColor: .indexed(196))
+    )
+  }
+  await session.setUnderlineRendering(.baseline)
+  try await session.draw { frame in
+    frame.write(
+      "C",
+      at: TerminalPosition(column: 0, row: 0),
+      style: Style(underlineStyle: .curly, underlineColor: .indexed(196))
+    )
+  }
+
+  let policy = await session.underlineRendering
+  let flushes = await device.events.filter(\.isFlush).map(\.flushBytes)
+  let extended = Array(
+    "\u{1B}[2J\u{1B}[1;1H\u{1B}[0m\u{1B}[58:5:196m\u{1B}[4:3mC\u{1B}[0m\u{1B}[?25l".utf8
+  )
+  let baseline = Array(
+    "\u{1B}[2J\u{1B}[1;1H\u{1B}[0m\u{1B}[4mC\u{1B}[0m\u{1B}[?25l".utf8
+  )
+
+  expectNoDifference(policy, .baseline)
+  expectNoDifference(flushes, [extended, baseline])
+}
+
+@Test
+func `runtime underline axes emit exact mixed bytes`() async throws {
+  let styleDevice = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
+  let colorDevice = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
+  let styleSession = TerminalSession(
+    io: PlatformIO(terminalDevice: await styleDevice.terminalDevice),
+    synchronizedOutput: .disabled,
+    capabilities: TerminalCapabilities(color: .indexed256)
+  )
+  let colorSession = TerminalSession(
+    io: PlatformIO(terminalDevice: await colorDevice.terminalDevice),
+    synchronizedOutput: .disabled,
+    capabilities: TerminalCapabilities(color: .indexed256)
+  )
+  let styleOnly = UnderlineRenderingPolicy(style: .singleOnly, color: .emit)
+  let colorOnly = UnderlineRenderingPolicy(style: .preserveVariants, color: .omit)
+
+  await styleSession.setUnderlineRendering(styleOnly)
+  await colorSession.setUnderlineRendering(colorOnly)
+  try await styleSession.draw { frame in
+    frame.write(
+      "C",
+      at: TerminalPosition(column: 0, row: 0),
+      style: Style(underlineStyle: .curly, underlineColor: .indexed(196))
+    )
+  }
+  try await colorSession.draw { frame in
+    frame.write(
+      "C",
+      at: TerminalPosition(column: 0, row: 0),
+      style: Style(underlineStyle: .curly, underlineColor: .indexed(196))
+    )
+  }
+
+  let stylePolicy = await styleSession.underlineRendering
+  let colorPolicy = await colorSession.underlineRendering
+  let styleFlushes = await styleDevice.events.filter(\.isFlush).map(\.flushBytes)
+  let colorFlushes = await colorDevice.events.filter(\.isFlush).map(\.flushBytes)
+  let expectedStyleOnly = Array(
+    "\u{1B}[2J\u{1B}[1;1H\u{1B}[0m\u{1B}[58:5:196m\u{1B}[4mC\u{1B}[0m\u{1B}[?25l".utf8
+  )
+  let expectedColorOnly = Array(
+    "\u{1B}[2J\u{1B}[1;1H\u{1B}[0m\u{1B}[4:3mC\u{1B}[0m\u{1B}[?25l".utf8
+  )
+
+  expectNoDifference(stylePolicy, styleOnly)
+  expectNoDifference(colorPolicy, colorOnly)
+  expectNoDifference(styleFlushes, [expectedStyleOnly])
+  expectNoDifference(colorFlushes, [expectedColorOnly])
+}
+
+@Test
+func `equal runtime underline policy does not repaint`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
+  let session = TerminalSession(
+    io: PlatformIO(terminalDevice: await device.terminalDevice),
+    synchronizedOutput: .disabled,
+    capabilities: TerminalCapabilities(color: .indexed256)
+  )
+
+  try await session.draw { frame in
+    frame.write(
+      "C",
+      at: TerminalPosition(column: 0, row: 0),
+      style: Style(underlineStyle: .curly, underlineColor: .indexed(196))
+    )
+  }
+  await session.setUnderlineRendering(.extended)
+  try await session.draw { frame in
+    frame.write(
+      "C",
+      at: TerminalPosition(column: 0, row: 0),
+      style: Style(underlineStyle: .curly, underlineColor: .indexed(196))
+    )
+  }
+
+  let flushes = await device.events.filter(\.isFlush).map(\.flushBytes)
+  let initialFrame = Array(
+    "\u{1B}[2J\u{1B}[1;1H\u{1B}[0m\u{1B}[58:5:196m\u{1B}[4:3mC\u{1B}[0m\u{1B}[?25l".utf8
+  )
+  let unchangedFrame = Array("\u{1B}[0m\u{1B}[?25l".utf8)
+
+  expectNoDifference(flushes, [initialFrame, unchangedFrame])
+}
+
+@Test
 func `app NO_COLOR overrides forced truecolor draw output`() async throws {
   let device = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
   let io = PlatformIO(terminalDevice: await device.terminalDevice)

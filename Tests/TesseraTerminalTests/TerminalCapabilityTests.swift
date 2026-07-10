@@ -13,6 +13,34 @@ func `empty passive environment keeps protocols unknown`() {
   )
 }
 
+@Test
+func `application underline rendering defaults to extended`() {
+  let configuration = TerminalApplicationConfiguration()
+  let resolution = configuration.resolve(environment: [:])
+
+  expectNoDifference(configuration.underlineRendering, .extended)
+  expectNoDifference(resolution.underlineRendering, .extended)
+}
+
+@Test
+func `terminal identities do not alter configured underline rendering`() {
+  let underlineRendering = UnderlineRenderingPolicy(style: .preserveVariants, color: .omit)
+  let configuration = TerminalApplicationConfiguration(
+    underlineRendering: underlineRendering
+  )
+  let environments: [[String: String]] = [
+    [:],
+    ["TERM_PROGRAM": "Apple_Terminal"],
+    ["TERM_PROGRAM": "Ghostty"],
+  ]
+
+  for environment in environments {
+    let resolution = configuration.resolve(environment: environment)
+
+    expectNoDifference(resolution.underlineRendering, underlineRendering)
+  }
+}
+
 @Test(arguments: namedTerminalProtocolCases)
 private func `passive named terminals do not infer active protocol support`(
   _ testCase: NamedTerminalProtocolCase

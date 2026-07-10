@@ -70,6 +70,9 @@ public actor TerminalSession {
   /// DEC synchronized output policy applied to drawn frames.
   nonisolated public let synchronizedOutput: SynchronizedOutputPolicy
 
+  /// Underline rendering policy applied to drawn frames.
+  public private(set) var underlineRendering: UnderlineRenderingPolicy
+
   private let modeLifecycle: ModeLifecycle?
   private var activeCursorStyle: CursorStyle?
 
@@ -97,6 +100,7 @@ public actor TerminalSession {
     capabilities: TerminalCapabilities = .conservativeDefault,
     enabledProtocolModes: Set<ModeLifecycle.Mode> = [],
     hyperlinkRendering: HyperlinkRenderingMode = .enabled,
+    underlineRendering: UnderlineRenderingPolicy = .extended,
     clipboardWriting: ClipboardWriteMode = .disabled,
     cursorStyling: CursorStylingPolicy = .disabled,
     cursorStyle: CursorStyle? = nil,
@@ -122,6 +126,7 @@ public actor TerminalSession {
     self.activeCursorStyle = cursorStyle
     self.hyperlinkRendering = hyperlinkRendering
     self.modeLifecycle = modeLifecycle
+    self.underlineRendering = underlineRendering
     self.synchronizedOutput = synchronizedOutput
     self.sizeChanges = io.sizeChanges
   }
@@ -152,6 +157,7 @@ public actor TerminalSession {
       capabilities: resolution.capabilities,
       enabledProtocolModes: resolution.enabledProtocolModes,
       hyperlinkRendering: resolution.hyperlinkRendering,
+      underlineRendering: resolution.underlineRendering,
       clipboardWriting: resolution.clipboardWriting,
       cursorStyling: resolution.cursorStyling,
       cursorStyle: resolution.cursorStyle,
@@ -266,6 +272,19 @@ public actor TerminalSession {
     activeCursorStyle = style
   }
 
+  /// Updates the underline rendering policy applied to future drawn frames.
+  ///
+  /// A changed policy invalidates cached terminal state so the next draw erases and
+  /// repaints with the new policy. Passing the current policy has no effect.
+  public func setUnderlineRendering(_ underlineRendering: UnderlineRenderingPolicy) {
+    guard self.underlineRendering != underlineRendering else {
+      return
+    }
+
+    self.underlineRendering = underlineRendering
+    renderer.invalidate()
+  }
+
   /// Draws one frame and flushes it to terminal output.
   public func draw<R>(
     _ body: (borrowing Frame) throws -> sending R
@@ -294,6 +313,7 @@ public actor TerminalSession {
       current: buffer,
       wrapInSynchronizedOutput: synchronizedOutput == .enabled,
       colorCapability: capabilities.color,
+      underlineRendering: underlineRendering,
       renderHyperlinks: hyperlinkRendering == .enabled,
       into: &bytes
     )

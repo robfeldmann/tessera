@@ -14,15 +14,22 @@ package struct Renderer {
 
   package static func render(
     _ buffer: Buffer,
-    colorCapability: ColorCapability = .truecolor
+    colorCapability: ColorCapability = .truecolor,
+    underlineRendering: UnderlineRenderingPolicy = .extended
   ) -> [UInt8] {
-    render(previous: nil, current: buffer, colorCapability: colorCapability)
+    render(
+      previous: nil,
+      current: buffer,
+      colorCapability: colorCapability,
+      underlineRendering: underlineRendering
+    )
   }
 
   package static func render(
     previous: Buffer?,
     current: Buffer,
-    colorCapability: ColorCapability = .truecolor
+    colorCapability: ColorCapability = .truecolor,
+    underlineRendering: UnderlineRenderingPolicy = .extended
   ) -> [UInt8] {
     var renderer = Self()
     var bytes: [UInt8] = []
@@ -31,6 +38,7 @@ package struct Renderer {
       current: current,
       wrapInSynchronizedOutput: false,
       colorCapability: colorCapability,
+      underlineRendering: underlineRendering,
       renderHyperlinks: true,
       into: &bytes
     )
@@ -42,6 +50,7 @@ package struct Renderer {
     current: Buffer,
     wrapInSynchronizedOutput: Bool,
     colorCapability: ColorCapability,
+    underlineRendering: UnderlineRenderingPolicy = .extended,
     renderHyperlinks: Bool = true,
     into bytes: inout [UInt8]
   ) {
@@ -65,6 +74,7 @@ package struct Renderer {
         run: run,
         from: current,
         colorCapability: colorCapability,
+        underlineRendering: underlineRendering,
         renderHyperlinks: renderHyperlinks,
         into: &bytes
       )
@@ -92,6 +102,7 @@ package struct Renderer {
     run: RowDamageRun,
     from buffer: Buffer,
     colorCapability: ColorCapability,
+    underlineRendering: UnderlineRenderingPolicy,
     renderHyperlinks: Bool,
     into bytes: inout [UInt8]
   ) {
@@ -113,6 +124,7 @@ package struct Renderer {
         from: currentStyle,
         to: cell.style,
         colorCapability: colorCapability,
+        underlineRendering: underlineRendering,
         into: &bytes
       )
       currentStyle = cell.style

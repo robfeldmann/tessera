@@ -243,6 +243,25 @@ func `damage render emits style only changes`() throws {
 }
 
 @Test
+func `damage render repaints underline style and color only changes`() {
+  var previous = Buffer(size: TerminalSize(columns: 1, rows: 1))
+  previous.write("x", at: TerminalPosition(column: 0, row: 0))
+  var current = previous
+  current.write(
+    "x",
+    at: TerminalPosition(column: 0, row: 0),
+    style: Style(underlineStyle: .curly, underlineColor: .indexed(196))
+  )
+
+  let bytes = Renderer.render(previous: previous, current: current)
+
+  #expect(
+    bytes == escape("[1;1H") + escape("[0m") + escape("[58:5:196m") + escape("[4:3m")
+      + utf8("x") + escape("[0m")
+  )
+}
+
+@Test
 func `damage render clears previous wide content with blanks`() {
   var previous = Buffer(size: TerminalSize(columns: 3, rows: 1))
   previous.write("你", at: TerminalPosition(column: 0, row: 0))
@@ -331,12 +350,65 @@ func `sgr delta emits reset and full style for unknown old style`() {
 
   sgrDelta(
     from: nil,
-    to: Style(foreground: .ansi(.red), attributes: [.bold, .underline]),
+    to: Style(foreground: .ansi(.red), attributes: [.bold], underlineStyle: .single),
     colorCapability: .truecolor,
     into: &bytes
   )
 
   #expect(bytes == escape("[0m") + escape("[31m") + escape("[1m") + escape("[4m"))
+}
+
+@Test
+func `sgr delta full style preserves extended underline facets`() {
+  var bytes: [UInt8] = []
+
+  sgrDelta(
+    from: nil,
+    to: Style(
+      foreground: .ansi(.red),
+      attributes: [.bold],
+      underlineStyle: .curly,
+      underlineColor: .indexed(196)
+    ),
+    colorCapability: .truecolor,
+    underlineRendering: .extended,
+    into: &bytes
+  )
+
+  #expect(
+    bytes == escape("[0m") + escape("[31m") + escape("[58:5:196m") + escape("[1m")
+      + escape("[4:3m")
+  )
+}
+
+@Test
+func `sgr delta custom style-only policy preserves variants while omitting color`() {
+  var bytes: [UInt8] = []
+
+  sgrDelta(
+    from: nil,
+    to: Style(underlineStyle: .curly, underlineColor: .indexed(196)),
+    colorCapability: .truecolor,
+    underlineRendering: UnderlineRenderingPolicy(style: .preserveVariants, color: .omit),
+    into: &bytes
+  )
+
+  #expect(bytes == escape("[0m") + escape("[4:3m"))
+}
+
+@Test
+func `sgr delta custom color-only policy emits color while reducing variants`() {
+  var bytes: [UInt8] = []
+
+  sgrDelta(
+    from: nil,
+    to: Style(underlineStyle: .curly, underlineColor: .indexed(196)),
+    colorCapability: .truecolor,
+    underlineRendering: UnderlineRenderingPolicy(style: .singleOnly, color: .emit),
+    into: &bytes
+  )
+
+  #expect(bytes == escape("[0m") + escape("[58:5:196m") + escape("[4m"))
 }
 
 @Test
@@ -393,6 +465,198 @@ func `sgr delta resets for default color reset`() {
   )
 
   #expect(bytes == escape("[0m") + escape("[44m"))
+}
+
+@Test
+func `sgr delta switches plain text to curly underline without reset`() {
+  var bytes: [UInt8] = []
+
+  sgrDelta(
+    from: Style(),
+    to: Style(underlineStyle: .curly),
+    colorCapability: .truecolor,
+    into: &bytes
+  )
+
+  #expect(bytes == escape("[4:3m"))
+}
+
+@Test
+func `sgr delta switches single underline to dashed underline without reset`() {
+  var bytes: [UInt8] = []
+
+  sgrDelta(
+    from: Style(underlineStyle: .single),
+    to: Style(underlineStyle: .dashed),
+    colorCapability: .truecolor,
+    into: &bytes
+  )
+
+  #expect(bytes == escape("[4:5m"))
+}
+
+@Test
+func `sgr delta switches indexed underline color to RGB`() {
+  var bytes: [UInt8] = []
+
+  sgrDelta(
+    from: Style(underlineColor: .indexed(196)),
+    to: Style(underlineColor: .rgb(1, 2, 3)),
+    colorCapability: .truecolor,
+    into: &bytes
+  )
+
+  #expect(bytes == escape("[58:2::1:2:3m"))
+}
+
+@Test
+func `sgr delta resets custom underline facets without broad reset`() {
+  var bytes: [UInt8] = []
+
+  sgrDelta(
+    from: Style(underlineStyle: .curly, underlineColor: .rgb(1, 2, 3)),
+    to: Style(),
+    colorCapability: .truecolor,
+    into: &bytes
+  )
+
+  #expect(bytes == escape("[59m") + escape("[24m"))
+}
+
+@Test
+func `sgr delta resets underline color while keeping the style`() {
+  var bytes: [UInt8] = []
+
+  sgrDelta(
+    from: Style(underlineStyle: .curly, underlineColor: .rgb(1, 2, 3)),
+    to: Style(underlineStyle: .curly),
+    colorCapability: .truecolor,
+    into: &bytes
+  )
+
+  #expect(bytes == escape("[59m"))
+}
+
+@Test
+func `sgr delta disables underline with a targeted reset only`() {
+  var bytes: [UInt8] = []
+
+  sgrDelta(
+    from: Style(underlineStyle: .curly),
+    to: Style(),
+    colorCapability: .truecolor,
+    into: &bytes
+  )
+
+  #expect(bytes == escape("[24m"))
+}
+
+@Test
+func `sgr delta omits projection-equivalent baseline underline transitions`() {
+  var bytes: [UInt8] = []
+
+  sgrDelta(
+    from: Style(underlineStyle: .curly, underlineColor: .indexed(196)),
+    to: Style(underlineStyle: .dashed, underlineColor: .rgb(1, 2, 3)),
+    colorCapability: .truecolor,
+    underlineRendering: .baseline,
+    into: &bytes
+  )
+
+  #expect(bytes.isEmpty)
+}
+
+@Test
+func `sgr delta resets baseline underline without an extended color reset`() {
+  var bytes: [UInt8] = []
+
+  sgrDelta(
+    from: Style(underlineStyle: .dotted, underlineColor: .rgb(1, 2, 3)),
+    to: Style(),
+    colorCapability: .truecolor,
+    underlineRendering: .baseline,
+    into: &bytes
+  )
+
+  #expect(bytes == escape("[24m"))
+}
+
+@Test
+func `sgr delta replays underline facets after broad reset`() {
+  var bytes: [UInt8] = []
+
+  sgrDelta(
+    from: Style(
+      foreground: .ansi(.red),
+      background: .ansi(.blue),
+      attributes: [.bold, .italic],
+      underlineStyle: .single,
+      underlineColor: .indexed(42)
+    ),
+    to: Style(
+      foreground: .ansi(.red),
+      background: .ansi(.blue),
+      attributes: [.bold],
+      underlineStyle: .dotted,
+      underlineColor: .rgb(1, 2, 3)
+    ),
+    colorCapability: .truecolor,
+    into: &bytes
+  )
+
+  #expect(
+    bytes == escape("[0m") + escape("[31m") + escape("[44m") + escape("[58:2::1:2:3m")
+      + escape("[1m") + escape("[4:4m")
+  )
+}
+
+@Test
+func `renderer defaults to extended underline output`() {
+  var buffer = Buffer(size: TerminalSize(columns: 1, rows: 1))
+  buffer.write(
+    "C",
+    at: TerminalPosition(column: 0, row: 0),
+    style: Style(underlineStyle: .curly, underlineColor: .indexed(196))
+  )
+
+  let bytes = Renderer.render(buffer)
+
+  #expect(
+    bytes == escape("[2J") + escape("[1;1H") + escape("[0m") + escape("[58:5:196m")
+      + escape("[4:3m") + utf8("C") + escape("[0m")
+  )
+}
+
+@Test
+func `renderer baseline underline output retains SGR 4 and visible text`() {
+  var buffer = Buffer(size: TerminalSize(columns: 4, rows: 1))
+  buffer.write(
+    "D",
+    at: TerminalPosition(column: 0, row: 0),
+    style: Style(underlineStyle: .double, underlineColor: .indexed(196))
+  )
+  buffer.write(
+    "C",
+    at: TerminalPosition(column: 1, row: 0),
+    style: Style(underlineStyle: .curly, underlineColor: .indexed(196))
+  )
+  buffer.write(
+    "O",
+    at: TerminalPosition(column: 2, row: 0),
+    style: Style(underlineStyle: .dotted, underlineColor: .indexed(196))
+  )
+  buffer.write(
+    "H",
+    at: TerminalPosition(column: 3, row: 0),
+    style: Style(underlineStyle: .dashed, underlineColor: .indexed(196))
+  )
+
+  let bytes = Renderer.render(buffer, underlineRendering: .baseline)
+
+  #expect(
+    bytes == escape("[2J") + escape("[1;1H") + escape("[0m") + escape("[4m")
+      + utf8("DCOH") + escape("[0m")
+  )
 }
 
 @Test
@@ -498,6 +762,111 @@ func `damage render emits hyperlink only changes`() throws {
   #expect(
     bytes == escape("[1;1H") + escape("]8;;https://example.com/x") + escape("\\")
       + escape("[0m") + utf8("x") + escape("]8;;") + escape("\\") + escape("[0m")
+  )
+}
+
+@Test
+func `renderer keeps underline SGR independent from hyperlinks`() throws {
+  var buffer = Buffer(size: TerminalSize(columns: 1, rows: 1))
+  let link = try Hyperlink(uri: "https://example.com/underline")
+  buffer.write(
+    "U",
+    at: TerminalPosition(column: 0, row: 0),
+    style: Style(
+      underlineStyle: .curly,
+      underlineColor: .indexed(196),
+      hyperlink: link
+    )
+  )
+
+  let bytes = Renderer.render(previous: Buffer(size: buffer.size), current: buffer)
+
+  #expect(
+    bytes == escape("[1;1H") + escape("]8;;https://example.com/underline") + escape("\\")
+      + escape("[0m") + escape("[58:5:196m") + escape("[4:3m") + utf8("U")
+      + escape("]8;;") + escape("\\") + escape("[0m")
+  )
+}
+
+@Test
+func `damage render keeps an unchanged hyperlink while underline style changes`() throws {
+  let link = try Hyperlink(uri: "https://example.com/underline")
+  var previous = Buffer(size: TerminalSize(columns: 1, rows: 1))
+  previous.write(
+    "U",
+    at: TerminalPosition(column: 0, row: 0),
+    style: Style(underlineStyle: .curly, hyperlink: link)
+  )
+  var current = previous
+  current.write(
+    "U",
+    at: TerminalPosition(column: 0, row: 0),
+    style: Style(underlineStyle: .dashed, hyperlink: link)
+  )
+
+  let bytes = Renderer.render(previous: previous, current: current)
+
+  #expect(
+    bytes == escape("[1;1H") + escape("]8;;https://example.com/underline") + escape("\\")
+      + escape("[0m") + escape("[4:5m") + utf8("U") + escape("]8;;") + escape("\\")
+      + escape("[0m")
+  )
+}
+
+@Test
+func `damage render keeps underline state while only the hyperlink changes`() throws {
+  var previous = Buffer(size: TerminalSize(columns: 1, rows: 1))
+  previous.write(
+    "U",
+    at: TerminalPosition(column: 0, row: 0),
+    style: Style(
+      underlineStyle: .curly, hyperlink: try Hyperlink(uri: "https://example.com/a"))
+  )
+  var current = previous
+  current.write(
+    "U",
+    at: TerminalPosition(column: 0, row: 0),
+    style: Style(
+      underlineStyle: .curly, hyperlink: try Hyperlink(uri: "https://example.com/b"))
+  )
+
+  let bytes = Renderer.render(previous: previous, current: current)
+
+  #expect(
+    bytes == escape("[1;1H") + escape("]8;;https://example.com/b") + escape("\\")
+      + escape("[0m") + escape("[4:3m") + utf8("U") + escape("]8;;") + escape("\\")
+      + escape("[0m")
+  )
+}
+
+@Test
+func `renderer resolves underline color by color capability`() {
+  var buffer = Buffer(size: TerminalSize(columns: 1, rows: 1))
+  buffer.write(
+    "U",
+    at: TerminalPosition(column: 0, row: 0),
+    style: Style(underlineStyle: .curly, underlineColor: .rgb(255, 0, 0))
+  )
+
+  #expect(
+    Renderer.render(buffer, colorCapability: .truecolor)
+      == escape("[2J") + escape("[1;1H") + escape("[0m") + escape("[58:2::255:0:0m")
+      + escape("[4:3m") + utf8("U") + escape("[0m")
+  )
+  #expect(
+    Renderer.render(buffer, colorCapability: .indexed256)
+      == escape("[2J") + escape("[1;1H") + escape("[0m") + escape("[58:5:196m")
+      + escape("[4:3m") + utf8("U") + escape("[0m")
+  )
+  #expect(
+    Renderer.render(buffer, colorCapability: .ansi16)
+      == escape("[2J") + escape("[1;1H") + escape("[0m") + escape("[58:5:9m")
+      + escape("[4:3m") + utf8("U") + escape("[0m")
+  )
+  #expect(
+    Renderer.render(buffer, colorCapability: .noColor)
+      == escape("[2J") + escape("[1;1H") + escape("[0m") + escape("[4:3m") + utf8("U")
+      + escape("[0m")
   )
 }
 

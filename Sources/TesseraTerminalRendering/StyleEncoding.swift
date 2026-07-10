@@ -5,16 +5,23 @@ package func sgrDelta(
   from oldStyle: Style?,
   to newStyle: Style,
   colorCapability: ColorCapability,
+  underlineRendering: UnderlineRenderingPolicy = .extended,
   into bytes: inout [UInt8]
 ) {
-  let resolvedNewStyle = newStyle.resolvedForSGR(colorCapability: colorCapability)
+  let resolvedNewStyle = newStyle.resolvedForSGR(
+    colorCapability: colorCapability,
+    underlineRendering: underlineRendering
+  )
   guard let oldStyle else {
     ControlSequence.resetAttributes.encode(into: &bytes)
     encodeFullStyle(resolvedNewStyle, into: &bytes)
     return
   }
 
-  let resolvedOldStyle = oldStyle.resolvedForSGR(colorCapability: colorCapability)
+  let resolvedOldStyle = oldStyle.resolvedForSGR(
+    colorCapability: colorCapability,
+    underlineRendering: underlineRendering
+  )
   guard resolvedOldStyle.sgrAttributes != resolvedNewStyle.sgrAttributes else {
     return
   }
@@ -31,12 +38,19 @@ package func sgrDelta(
   if resolvedOldStyle.background != resolvedNewStyle.background {
     ControlSequence.setBackground(resolvedNewStyle.background).encode(into: &bytes)
   }
+  if resolvedOldStyle.underlineColor != resolvedNewStyle.underlineColor {
+    ControlSequence.setUnderlineColor(resolvedNewStyle.underlineColor).encode(into: &bytes)
+  }
 
   encodeAddedAttributes(
     from: resolvedOldStyle.attributes,
     to: resolvedNewStyle.attributes,
     into: &bytes
   )
+
+  if resolvedOldStyle.underlineStyle != resolvedNewStyle.underlineStyle {
+    ControlSequence.setUnderlineStyle(resolvedNewStyle.underlineStyle).encode(into: &bytes)
+  }
 }
 
 /// Emits every non-default SGR facet of `style` from a clean reset state.
@@ -54,7 +68,13 @@ package func encodeFullStyle(
   if style.background != .default {
     ControlSequence.setBackground(style.background).encode(into: &bytes)
   }
+  if style.underlineColor != .default {
+    ControlSequence.setUnderlineColor(style.underlineColor).encode(into: &bytes)
+  }
   encodeAddedAttributes(from: [], to: style.attributes, into: &bytes)
+  if style.underlineStyle != .none {
+    ControlSequence.setUnderlineStyle(style.underlineStyle).encode(into: &bytes)
+  }
 }
 
 private func requiresReset(from oldStyle: Style, to newStyle: Style) -> Bool {
@@ -85,21 +105,45 @@ private func encodeAddedAttributes(
   if addedAttributes.contains(.strikethrough) {
     ControlSequence.setStrikethrough(true).encode(into: &bytes)
   }
-  if addedAttributes.contains(.underline) {
-    ControlSequence.setUnderline(true).encode(into: &bytes)
-  }
 }
 
 extension Style {
   fileprivate var sgrAttributes: SGRAttributes {
-    SGRAttributes(foreground: foreground, background: background, attributes: attributes)
+    SGRAttributes(
+      foreground: foreground,
+      background: background,
+      attributes: attributes,
+      underlineStyle: underlineStyle,
+      underlineColor: underlineColor
+    )
   }
 
-  fileprivate func resolvedForSGR(colorCapability: ColorCapability) -> Style {
-    Style(
+  fileprivate func resolvedForSGR(
+    colorCapability: ColorCapability,
+    underlineRendering: UnderlineRenderingPolicy
+  ) -> Style {
+    let resolvedUnderlineStyle: UnderlineStyle
+    let resolvedUnderlineColor: Color
+    switch underlineRendering.style {
+    case .preserveVariants:
+      resolvedUnderlineStyle = underlineStyle
+    case .singleOnly:
+      resolvedUnderlineStyle = underlineStyle == .none ? .none : .single
+    }
+
+    switch underlineRendering.color {
+    case .emit:
+      resolvedUnderlineColor = underlineColor.resolved(for: colorCapability)
+    case .omit:
+      resolvedUnderlineColor = .default
+    }
+
+    return Style(
       foreground: foreground.resolved(for: colorCapability),
       background: background.resolved(for: colorCapability),
       attributes: attributes,
+      underlineStyle: resolvedUnderlineStyle,
+      underlineColor: resolvedUnderlineColor,
       hyperlink: hyperlink
     )
   }
@@ -109,4 +153,6 @@ private struct SGRAttributes: Equatable {
   var foreground: Color
   var background: Color
   var attributes: TextAttributes
+  var underlineStyle: UnderlineStyle
+  var underlineColor: Color
 }

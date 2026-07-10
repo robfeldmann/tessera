@@ -153,6 +153,9 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
   /// Whether draw transactions should use DEC synchronized output wrappers.
   public var synchronizedOutput: SynchronizedOutputPolicy
 
+  /// Underline rendering policy applied to drawn frames.
+  public var underlineRendering: UnderlineRenderingPolicy
+
   /// Application override for renderer color degradation policy.
   public var colorCapability: ColorCapabilityOverride
 
@@ -168,6 +171,7 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
     hyperlinkRendering: HyperlinkRenderingMode = .enabled,
     synchronizedOutput: SynchronizedOutputPolicy = .enabled,
     colorCapability: ColorCapabilityOverride = .detect,
+    underlineRendering: UnderlineRenderingPolicy = .extended,
     clipboardWriting: ClipboardWriteMode = .disabled,
     cursorStyling: CursorStylingPolicy = .disabled
   ) {
@@ -181,6 +185,7 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
     self.mouseTracking = mouseTracking
     self.synchronizedOutput = synchronizedOutput
     self.colorCapability = colorCapability
+    self.underlineRendering = underlineRendering
     self.modeSelection = .intent
   }
 
@@ -189,6 +194,7 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
     modes: Set<ModeLifecycle.Mode>,
     synchronizedOutput: SynchronizedOutputPolicy = .enabled,
     colorCapability: ColorCapabilityOverride = .detect,
+    underlineRendering: UnderlineRenderingPolicy = .extended,
     clipboardWriting: ClipboardWriteMode = .disabled
   ) {
     self.capabilityDetection = .passive
@@ -215,6 +221,7 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
     self.synchronizedOutput = synchronizedOutput
     self.modeSelection = .explicit(Self.normalized(modes))
     self.colorCapability = colorCapability
+    self.underlineRendering = underlineRendering
   }
 
   private static func normalized(
@@ -378,7 +385,8 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
       hyperlinkRendering: hyperlinkRendering,
       modes: modes,
       runsActiveProbes: runsActiveProbes,
-      synchronizedOutput: synchronizedOutput
+      synchronizedOutput: synchronizedOutput,
+      underlineRendering: underlineRendering,
     )
   }
 
@@ -447,6 +455,7 @@ package struct TerminalApplicationResolution: Equatable, Sendable {
   package var modes: Set<ModeLifecycle.Mode>
   package var runsActiveProbes: Bool
   package var synchronizedOutput: SynchronizedOutputPolicy
+  package var underlineRendering: UnderlineRenderingPolicy
 }
 
 private enum ModeSelection: Equatable, Sendable {
