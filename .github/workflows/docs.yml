@@ -17,10 +17,6 @@ concurrency:
 jobs:
   docs-gate:
     name: Documentation gate
-    # Skip this branch entirely while PR 1 conserves hosted minutes for Windows CI.
-    if: >
-      ${{ github.event_name != 'pull_request' ||
-      github.head_ref != 'modern-terminal-protocols' }}
     runs-on: ubuntu-latest
     timeout-minutes: 1
     steps:
@@ -35,11 +31,9 @@ jobs:
   docc:
     name: DocC validation
     needs: docs-gate
-    # Temporary while PR 1 conserves hosted minutes for Windows-only validation.
     if: >
-      ${{ (github.event_name != 'pull_request' ||
-      github.head_ref != 'modern-terminal-protocols') && (github.event_name !=
-      'pull_request' || !contains(github.event.pull_request.labels.*.name, 'skip-ci')) }}
+      ${{ github.event_name != 'pull_request' ||
+      !contains(github.event.pull_request.labels.*.name, 'skip-ci') }}
     runs-on: macos-26
     timeout-minutes: 20
     steps:
@@ -62,10 +56,9 @@ jobs:
             ~/.cache/tessera/libghostty-vt
             !~/.cache/tessera/libghostty-vt/source
             !~/.cache/tessera/libghostty-vt/cmake
+          # Exact-only to match CI and prevent a stale native install from being relabeled.
           # prettier-ignore
-          key: libghostty-vt-v2-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
-          restore-keys: |
-            libghostty-vt-v2-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-
+          key: libghostty-vt-v3-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
 
       - name: Install just
         uses: taiki-e/install-action@v2
