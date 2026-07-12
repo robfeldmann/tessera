@@ -12,6 +12,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Added DocC icon and card artwork placeholders for the Tessera package and module
   documentation catalogs.
 
+- Added comprehensive DocC catalogs, conceptual articles, and symbol extensions across the
+  TesseraTerminal module family, covering the terminal substrate, modern protocols, ANSI
+  encoding, buffers and styles, geometry, lifecycle management, semantic input, and
+  terminal snapshot testing.
+
 - Added a project-local Windows smoke-testing skill and expanded the Windows Frost doctor
   with UTM GUI VM IPv4 discovery plus a PowerShell fallback command for manual lookup.
 

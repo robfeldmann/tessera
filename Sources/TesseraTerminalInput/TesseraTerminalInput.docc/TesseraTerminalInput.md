@@ -7,9 +7,40 @@
 
 Terminal input events and parsing.
 
+`TesseraTerminalInput` converts caller-supplied terminal bytes into a bounded vocabulary
+of semantic ``InputEvent`` values. ``InputParser`` retains only the parsing state needed
+between byte chunks, so callers can feed input as it arrives without treating terminal
+escape sequences as complete messages.
+
+The module performs no terminal I/O. An application or another module owns the byte source,
+feeds its bytes to the parser, and handles the resulting events.
+
 ## Topics
 
-### Events
+### Articles
+
+- <doc:Understanding-Terminal-Input>
+
+### Parsing
+
+- ``InputParser``
+
+### Input events and protocol responses
 
 - ``InputEvent``
-- ``InputParser``
+- ``PrivateModeStatus``
+- ``PrivateModeState``
+
+### Keyboard values and modifiers
+
+- ``Key``
+- ``KeyCode``
+- ``KeyEventKind``
+- ``Modifiers``
+
+### Mouse values
+
+- ``MouseEvent``
+- ``MouseEventKind``
+- ``MouseButton``
+- ``MouseScrollDirection``

@@ -5,11 +5,21 @@
     @PageImage(purpose: card, source: "terminal-core-card", alt: "Module card.")
 }
 
-Shared terminal foundation types.
+Value types shared across terminal encoding, buffers, input, I/O, and rendering.
+
+Use terminal geometry types to describe cell-based sizes, positions, pixel dimensions, and regions. Use Kitty graphics types to identify images and placements and represent parsed graphics responses.
 
 ## Topics
 
-### Geometry
+### Terminal Geometry
 
 - ``TerminalSize``
 - ``TerminalPosition``
+- ``CellPixelSize``
+- ``Rect``
+
+### Kitty Graphics Responses
+
+- ``KittyImageID``
+- ``KittyPlacementID``
+- ``KittyGraphicsResponse``
