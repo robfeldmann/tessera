@@ -129,31 +129,35 @@ enum GhosttyKittyKeyEncoder {
       ghostty_key_event_set_action(event, action.ghosttyAction)
       ghostty_key_event_set_mods(event, GhosttyMods(mods))
       ghostty_key_event_set_unshifted_codepoint(event, unshiftedCodepoint)
-      if let utf8 {
-        utf8.withCString { pointer in
-          ghostty_key_event_set_utf8(event, pointer, utf8.utf8.count)
+      func encodedBytes() throws -> [UInt8] {
+        var bytes = [CChar](repeating: 0, count: 128)
+        var written = 0
+        let result = ghostty_key_encoder_encode(
+          encoder,
+          event,
+          &bytes,
+          bytes.count,
+          &written
+        )
+        if result == GHOSTTY_OUT_OF_SPACE {
+          bytes = [CChar](repeating: 0, count: written)
+          try ghosttyCheck(
+            ghostty_key_encoder_encode(encoder, event, &bytes, bytes.count, &written),
+            "ghostty_key_encoder_encode"
+          )
+        } else {
+          try ghosttyCheck(result, "ghostty_key_encoder_encode")
         }
+        return bytes.prefix(written).map { UInt8(bitPattern: $0) }
       }
 
-      var bytes = [CChar](repeating: 0, count: 128)
-      var written = 0
-      let result = ghostty_key_encoder_encode(
-        encoder,
-        event,
-        &bytes,
-        bytes.count,
-        &written
-      )
-      if result == GHOSTTY_OUT_OF_SPACE {
-        bytes = [CChar](repeating: 0, count: written)
-        try ghosttyCheck(
-          ghostty_key_encoder_encode(encoder, event, &bytes, bytes.count, &written),
-          "ghostty_key_encoder_encode"
-        )
-      } else {
-        try ghosttyCheck(result, "ghostty_key_encoder_encode")
+      if let utf8 {
+        return try utf8.withCString { pointer in
+          ghostty_key_event_set_utf8(event, pointer, utf8.utf8.count)
+          return try encodedBytes()
+        }
       }
-      return bytes.prefix(written).map { UInt8(bitPattern: $0) }
+      return try encodedBytes()
     #else
       throw GhosttyKittyKeyEncoderError.unavailable
     #endif

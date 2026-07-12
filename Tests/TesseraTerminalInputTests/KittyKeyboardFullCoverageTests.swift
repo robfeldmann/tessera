@@ -327,14 +327,14 @@ private let ghosttyOracleCases: [GhosttyOracleCase] = [
   GhosttyOracleCase(
     testDescription: "k text press",
     keyRawValue: GhosttyKittyKeyEncoder.KeyRawValue.k,
-    expected: Key(code: .character("k")),
+    expected: Key(code: .character("k"), associatedText: "k"),
     utf8: "k",
     unshiftedCodepoint: 0x6B
   ),
   GhosttyOracleCase(
     testDescription: "k text repeat",
     keyRawValue: GhosttyKittyKeyEncoder.KeyRawValue.k,
-    expected: Key(code: .character("k"), kind: .repeat),
+    expected: Key(code: .character("k"), kind: .repeat, associatedText: "k"),
     action: .repeat,
     utf8: "k",
     unshiftedCodepoint: 0x6B
@@ -350,7 +350,12 @@ private let ghosttyOracleCases: [GhosttyOracleCase] = [
   GhosttyOracleCase(
     testDescription: "k text shift",
     keyRawValue: GhosttyKittyKeyEncoder.KeyRawValue.k,
-    expected: Key(code: .character("k"), modifiers: .shift),
+    expected: Key(
+      code: .character("k"),
+      modifiers: .shift,
+      shiftedCode: .character("K"),
+      associatedText: "K"
+    ),
     mods: GhosttyKittyKeyEncoder.ModRawValue.shift,
     utf8: "K",
     unshiftedCodepoint: 0x6B
