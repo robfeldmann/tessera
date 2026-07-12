@@ -561,7 +561,7 @@
         reverse: style.inverse,
         strikethrough: style.strikethrough,
         underlineStyle: UnderlineStyle(
-          GhosttySgrUnderline(rawValue: UInt32(bitPattern: style.underline))
+          GhosttySgrUnderline(rawValue: numericCast(style.underline))
         ),
         underlineColor: RenderedColor(style.underline_color)
       )
