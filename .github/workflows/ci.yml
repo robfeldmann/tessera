@@ -78,7 +78,7 @@ jobs:
           tool: just
 
       - name: Lint Swift formatting
-        run: just quality swift
+        run: just quality _swift-format
 
       - name: Run SwiftLint
         run: just quality swiftlint
