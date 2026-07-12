@@ -125,7 +125,7 @@ enum GhosttyKittyKeyEncoder {
       try ghosttyCheck(ghostty_key_event_new(nil, &event), "ghostty_key_event_new")
       defer { ghostty_key_event_free(event) }
 
-      ghostty_key_event_set_key(event, GhosttyKey(rawValue: keyRawValue))
+      ghostty_key_event_set_key(event, GhosttyKey(rawValue: numericCast(keyRawValue)))
       ghostty_key_event_set_action(event, action.ghosttyAction)
       ghostty_key_event_set_mods(event, GhosttyMods(mods))
       ghostty_key_event_set_unshifted_codepoint(event, unshiftedCodepoint)
