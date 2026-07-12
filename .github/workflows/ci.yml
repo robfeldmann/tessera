@@ -17,7 +17,7 @@ concurrency:
 jobs:
   ci-gate:
     name: CI gate
-    runs-on: ubuntu-latest
+    runs-on: windows-latest # Temporary Windows-only PR validation.
     timeout-minutes: 1
     steps:
       - name: Block CI while skip-ci label is applied
@@ -31,9 +31,11 @@ jobs:
   conventional-commits:
     name: conventional commits
     needs: ci-gate
+    # Temporary while PR 1 conserves hosted minutes for Windows-only validation.
     if: >
-      ${{ github.event_name != 'pull_request' ||
-      !contains(github.event.pull_request.labels.*.name, 'skip-ci') }}
+      ${{ (github.event_name != 'pull_request' ||
+      github.head_ref != 'modern-terminal-protocols') && (github.event_name !=
+      'pull_request' || !contains(github.event.pull_request.labels.*.name, 'skip-ci')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -57,10 +59,12 @@ jobs:
   lint:
     name: lint
     needs: ci-gate
+    # Temporary while PR 1 conserves hosted minutes for Windows-only validation.
     if: >
       ${{ (github.event_name != 'pull_request' ||
-      !contains(github.event.pull_request.labels.*.name, 'skip-ci')) && (github.event_name
-      != 'pull_request' || github.event.action != 'edited') }}
+      github.head_ref != 'modern-terminal-protocols') && (github.event_name !=
+      'pull_request' || !contains(github.event.pull_request.labels.*.name, 'skip-ci')) &&
+      (github.event_name != 'pull_request' || github.event.action != 'edited') }}
     runs-on: macos-26
     timeout-minutes: 15
     steps:
@@ -94,10 +98,10 @@ jobs:
     # Windows pays a one-time Zig build of libghostty-vt on cache miss.
     timeout-minutes: ${{ matrix.os == 'windows-latest' && 45 || 20 }}
     strategy:
-      # Cancel sibling OS jobs on first failure to save hosted minutes.
       fail-fast: true
+      # Temporary while PR 1 validates Windows without spending macOS/Linux test minutes.
       matrix:
-        os: [macos-26, ubuntu-latest, windows-latest]
+        os: [windows-latest]
     env:
       # Enables the CGhosttyVT target on Windows (no-op elsewhere); see Package.swift.
       TESSERA_GHOSTTY_WINDOWS: "1"

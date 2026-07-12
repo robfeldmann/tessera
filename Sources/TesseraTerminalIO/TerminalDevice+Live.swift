@@ -74,7 +74,11 @@ extension TerminalDevice {
         outputHandle: handles.outputHandle,
         system: system
       )
-      let inputLoop = WindowsInputLoop(inputHandle: handles.inputHandle, system: system)
+      let inputLoop = WindowsInputLoop(
+        inputHandle: handles.inputHandle,
+        system: system,
+        requiresByteAndSizeConsumers: true
+      )
       let outputHandle = handles.outputHandle
 
       return Self(

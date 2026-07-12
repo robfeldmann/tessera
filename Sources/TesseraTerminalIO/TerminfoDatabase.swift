@@ -171,25 +171,21 @@ public struct TerminfoDatabase: Sendable {
   public func underlineDeclarations(
     for terminal: String? = nil
   ) -> TerminfoUnderlineDeclarations {
-    #if os(Windows)
+    guard let terminal = terminal ?? environment["TERM"],
+      Self.isSafeTerminalName(terminal)
+    else {
       return .unknown
-    #else
-      guard let terminal = terminal ?? environment["TERM"],
-        Self.isSafeTerminalName(terminal)
-      else {
-        return .unknown
-      }
+    }
 
-      for root in searchRoots() {
-        for path in Self.entryPaths(root: root, terminal: terminal) {
-          guard let entry = readFile(path) else {
-            continue
-          }
-          return Self.parse(entry) ?? .unknown
+    for root in searchRoots() {
+      for path in Self.entryPaths(root: root, terminal: terminal) {
+        guard let entry = readFile(path) else {
+          continue
         }
+        return Self.parse(entry) ?? .unknown
       }
-      return .unknown
-    #endif
+    }
+    return .unknown
   }
 
   private func searchRoots() -> [String] {

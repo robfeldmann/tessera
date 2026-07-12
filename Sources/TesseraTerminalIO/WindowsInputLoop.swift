@@ -15,6 +15,7 @@
     private let peekRecordLimit: UInt32
     private let pollTimeoutMilliseconds: UInt32
     private let system: WindowsConsoleSystem
+    private let requiresByteAndSizeConsumers: Bool
 
     private var byteContinuations: [Int: AsyncStream<[UInt8]>.Continuation] = [:]
     private var nextContinuationID = 0
@@ -25,11 +26,13 @@
       inputHandle: UInt,
       system: WindowsConsoleSystem = .current,
       pollTimeoutMilliseconds: UInt32 = 25,
+      requiresByteAndSizeConsumers: Bool = false,
       peekRecordLimit: UInt32 = 32
     ) {
       self.inputHandle = inputHandle
       self.system = system
       self.pollTimeoutMilliseconds = pollTimeoutMilliseconds
+      self.requiresByteAndSizeConsumers = requiresByteAndSizeConsumers
       self.peekRecordLimit = peekRecordLimit
     }
 
@@ -148,6 +151,10 @@
 
     private func startIfNeeded() {
       guard task == nil else {
+        return
+      }
+      if requiresByteAndSizeConsumers,
+        byteContinuations.isEmpty || sizeContinuations.isEmpty {
         return
       }
 

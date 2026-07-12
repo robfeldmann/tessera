@@ -17,6 +17,10 @@ concurrency:
 jobs:
   docs-gate:
     name: Documentation gate
+    # Skip this branch entirely while PR 1 conserves hosted minutes for Windows CI.
+    if: >
+      ${{ github.event_name != 'pull_request' ||
+      github.head_ref != 'modern-terminal-protocols' }}
     runs-on: ubuntu-latest
     timeout-minutes: 1
     steps:
@@ -31,9 +35,11 @@ jobs:
   docc:
     name: DocC validation
     needs: docs-gate
+    # Temporary while PR 1 conserves hosted minutes for Windows-only validation.
     if: >
-      ${{ github.event_name != 'pull_request' ||
-      !contains(github.event.pull_request.labels.*.name, 'skip-ci') }}
+      ${{ (github.event_name != 'pull_request' ||
+      github.head_ref != 'modern-terminal-protocols') && (github.event_name !=
+      'pull_request' || !contains(github.event.pull_request.labels.*.name, 'skip-ci')) }}
     runs-on: macos-26
     timeout-minutes: 20
     steps:
