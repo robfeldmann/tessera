@@ -123,12 +123,12 @@ jobs:
           restore-keys: |
             swiftpm-v2-${{ runner.os }}-${{ runner.arch }}-
 
-      - name: Remove restored Windows SwiftPM debug alias
+      - name: Remove restored Windows build tree
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          if (Test-Path -LiteralPath .build/debug) {
-            Remove-Item -LiteralPath .build/debug -Recurse -Force
+          if (Test-Path -LiteralPath .build) {
+            Remove-Item -LiteralPath .build -Recurse -Force
           }
 
       - name: Set up Zig on Linux
