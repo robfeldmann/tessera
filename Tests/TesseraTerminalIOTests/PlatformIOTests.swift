@@ -291,6 +291,29 @@ func `flush removes only bytes written before a later failure`() async throws {
 }
 
 @Test
+func `discard buffered output removes unwritten suffix after failure`() async throws {
+  let output = CountingOutputWriter(
+    results: [
+      .success(1),
+      .failure(PlatformIOError.writeFailed(errno: .ioError)),
+      .success(2),
+    ]
+  )
+  let io = PlatformIO(terminalDevice: await output.terminalDevice)
+
+  await io.write([0x41, 0x42, 0x43])
+  await #expect(throws: PlatformIOError.writeFailed(errno: .ioError)) {
+    try await io.flush()
+  }
+  await io.discardBufferedOutput()
+  await io.write([0x44, 0x45])
+  try await io.flush()
+
+  let writes = await output.writes
+  expectNoDifference(writes, [[0x41, 0x42, 0x43], [0x42, 0x43], [0x44, 0x45]])
+}
+
+@Test
 func `flush retries after transient write errors`() async throws {
   let output = CountingOutputWriter(
     results: [

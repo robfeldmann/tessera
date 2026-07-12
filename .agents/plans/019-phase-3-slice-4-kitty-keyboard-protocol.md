@@ -199,10 +199,14 @@ dynamically alongside the other Phase 3 application modes.
 - Move `.kittyKeyboard` out of the unsupported path.
 - Extend `acquisitionOrder` after mouse tracking: raw mode, alternate screen, bracketed
   paste, focus events, mouse tracking, Kitty keyboard.
-- Enable with `ControlSequence.pushKittyKeyboard(.tesseraDefault)`.
+- Enable with `ControlSequence.pushKittyKeyboard(configuration.kittyKeyboardFlags)`; the
+  configuration defaults to `.tesseraDefault`, while protocol demos may request an exact
+  broader mask.
 - Disable with `ControlSequence.popKittyKeyboard`.
-- Cleanup bytes include Kitty pop whenever the mode was requested or active.
-- Rollback after partial startup pops Kitty keyboard if it was pushed.
+- Cleanup bytes include Kitty pop whenever the mode was requested, active, or possibly
+  active after ambiguous I/O.
+- Rollback retains the defensive Kitty pop if the push bytes may have reached the
+  terminal.
 - Keep Kitty keyboard out of `TerminalApplicationConfiguration.default` until plan 021
   settles capability policy.
 
@@ -238,11 +242,14 @@ Acceptance:
   - disabling modes use reverse acquisition order
   - enabling modes use acquisition order
   - no-op apply emits no bytes
-- Update registered cleanup bytes after every successful apply.
-- If a partial apply fails, leave lifecycle state consistent with the operations that
-  actually succeeded and make a later `exit()` still safe.
-- Expose a `TerminalSession` method only if it is needed before Phase 4. Otherwise keep
-  the lifecycle API package-scoped and add tests through package seams.
+- Install cleanup for the requested/possibly-active application modes before mutating
+  bytes. Retain it after ambiguous I/O, then refresh lifecycle-effective and
+  possibly-active state after each successful apply.
+- If a partial apply fails, preserve lifecycle belief for completed operations, mark any
+  ambiguous slot possibly active, and make a later `exit()` still safe.
+- Expose `TerminalSession.setKeyboardProtocol(_:)` as the live keyboard-policy setter. It
+  uses the same serialized lifecycle reconciler and public requested/effective/
+  possibly-active report as the other runtime application-mode setters.
 
 Add tests for:
 
@@ -259,7 +266,9 @@ Prefer snapshot-style transcripts for byte order.
 Acceptance:
 
 - Phase 4 can request protocol-mode changes without touching raw mode or alternate screen.
-- Session-fixed modes are unrepresentable through dynamic apply.
+- Only raw mode and alternate screen remain session-fixed and unrepresentable through
+  dynamic apply; selected application protocol modes are controlled through session
+  setters.
 
 ### Step 3.3 — Add the keyboard panel to `Phase3ProtocolsDemo`
 
@@ -276,7 +285,7 @@ Wireframe:
 
 ```text
 Phase3ProtocolsDemo — Keyboard                                   80x24
-q quit · 1 paste · 2 focus · 3 mouse · 4 keys · press keys now
+q quit · g graphics · m mouse log · d/y/h/t/f/k/s/c/x live controls
 
 Latest key
   code: character("K")

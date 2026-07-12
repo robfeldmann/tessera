@@ -257,7 +257,7 @@ Wireframe:
 
 ```text
 Phase3ProtocolsDemo — Links                                      80x24
-q quit · 1 paste · 2 focus · 3 mouse · 4 keys · 5 links
+q quit · g graphics · m mouse log · d/y/h/t/f/k/s/c/x live controls
 
 OSC 8 hyperlink samples
   Docs:    Tessera Spec

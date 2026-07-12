@@ -3,36 +3,36 @@ name: Phase 3 Slice 12 Runtime Protocol Control
 description:
   Reconcile active protocol evidence and make selected rendering policies and terminal
   modes adjustable during a live application session.
-status: pending
+status: complete
 created: 2026-07-09
-updated: 2026-07-10
+updated: 2026-07-11
 ---
 
 <!-- Allowed status values: planning, in-review, pending, in-progress, complete. -->
 
 ## Progress
 
-- [ ] **Phase 1 — Lifecycle transaction safety**
-  - [ ] 1.1 Make mode writes and emergency cleanup failure-safe
-  - [ ] 1.2 Guard startup, teardown, and concurrent mode transitions
-- [ ] **Phase 2 — Live capability evidence and Kitty negotiation**
-  - [ ] 2.1 Make evidence and effective mode state authoritative at runtime
-  - [ ] 2.2 Add bounded single-generation active-probe reconciliation
-  - [ ] 2.3 Complete conditional Kitty keyboard negotiation
-- [ ] **Phase 3 — Runtime rendering policies**
-  - [ ] 3.1 Add runtime color rendering control
-  - [ ] 3.2 Add runtime hyperlink rendering control
-  - [ ] 3.3 Add runtime synchronized-output control
-  - [ ] 3.4 Add opt-in terminfo-database underline compatibility
-- [ ] **Phase 4 — Runtime application modes**
-  - [ ] 4.1 Centralize requested, effective, and ambiguous mode state
-  - [ ] 4.2 Add runtime mouse tracking control
-  - [ ] 4.3 Add runtime focus-event control
-  - [ ] 4.4 Add runtime Kitty keyboard policy control
-- [ ] **Phase 5 — Integrated demo, specification, and validation**
-  - [ ] 5.1 Complete the runtime-control demo surfaces
-  - [ ] 5.2 Update the specification and affected plans
-  - [ ] 5.3 Run focused checks and the complete repository gate
+- [x] **Phase 1 — Lifecycle transaction safety**
+  - [x] 1.1 Make mode writes and emergency cleanup failure-safe
+  - [x] 1.2 Guard startup, teardown, and concurrent mode transitions
+- [x] **Phase 2 — Live capability evidence and Kitty negotiation**
+  - [x] 2.1 Make evidence and effective mode state authoritative at runtime
+  - [x] 2.2 Add bounded single-generation active-probe reconciliation
+  - [x] 2.3 Complete conditional Kitty keyboard negotiation
+- [x] **Phase 3 — Runtime rendering policies**
+  - [x] 3.1 Add runtime color rendering control
+  - [x] 3.2 Add runtime hyperlink rendering control
+  - [x] 3.3 Add runtime synchronized-output control
+  - [x] 3.4 Add opt-in terminfo-database underline compatibility
+- [x] **Phase 4 — Runtime application modes**
+  - [x] 4.1 Centralize requested, effective, and ambiguous mode state
+  - [x] 4.2 Add runtime mouse tracking control
+  - [x] 4.3 Add runtime focus-event control
+  - [x] 4.4 Add runtime Kitty keyboard policy control
+- [x] **Phase 5 — Integrated demo, specification, and validation**
+  - [x] 5.1 Complete the runtime-control demo surfaces
+  - [x] 5.2 Update the specification and affected plans
+  - [x] 5.3 Run focused checks and the complete repository gate
 
 ## Overview
 
@@ -268,8 +268,9 @@ leaving stale cell metadata, or changing a draw transaction halfway through enco
   effective depth does not repaint. Draw passes the effective value, never the evidence
   field.
 - Define the draw policy commit point after `io.size()` returns and before the synchronous
-  frame body/encoding. A setter that runs while size is suspended affects that draw; a
-  setter after bytes are encoded affects the next draw and its invalidation remains armed.
+  frame body/encoding. A setter queued while size is suspended may affect that draw; the
+  commit point guarantees only that no policy change is observed after it. A setter after
+  bytes are encoded affects the next draw and its invalidation remains armed.
 - Tests in this same step cover every depth transition, delayed-size actor interleaving,
   unchanged-buffer repaint, equality/no-effective-change no-op, underline-color
   interaction, SGR replay, evidence immutability, separately identified `NO_COLOR` and
@@ -290,15 +291,18 @@ leaving stale cell metadata, or changing a draw transaction halfway through enco
 - Make `hyperlinkRendering` actor-isolated `public private(set)` state and add a public
   setter. Apply the same draw commit-point rule as color.
 - Enabling/disabling invalidates and repaints unchanged cells so OSC 8 metadata is added
-  or removed. Preserve the contract that a frame emits a close sequence. Record the
-  current flush-failure risk: `Renderer.invalidate()` clears `currentHyperlink`, so it
-  must not forget a possibly delivered open. Before invalidation, solve it through
-  retained-suffix delivery before subsequent frame bytes or a conservative close if that
-  suffix is discarded; document the closure path.
+  or removed. Preserve the contract that a frame emits a close sequence. Every
+  `Renderer.encodeFrame` already ends with an unconditional hyperlink close, and
+  `PlatformIO.flush` retains the unwritten suffix and replays it before any subsequent
+  bytes, so a failed flush cannot strand an open OSC 8 across frames on the draw path.
+  Preserve retained-suffix ordering as the invariant: never discard the suffix on this
+  path, and do not add a conservative close, which would emit a duplicate close. Test
+  every flush-failure byte offset to prove the close within the retained suffix is
+  delivered before the next frame's bytes.
 - Tests in this same step cover both transitions, equal assignment, unchanged visible
   text, Ghostty-observed hyperlink metadata removal/addition, exact close ordering,
-  delayed-size interleaving, partial failure after OSC 8 open, retained-suffix retry, and
-  invalidation.
+  delayed-size interleaving, partial failure after OSC 8 open, every-offset
+  close-precedes-retry retained-suffix assertion, and invalidation.
 - Acceptance: hyperlink output changes live without stale clickable cells, leaked OSC
   state, or hidden text.
 
@@ -343,7 +347,7 @@ downgrade without brand checks.
   - `Tests/TesseraTerminalTests/TerminalCapabilityTests.swift`
   - `Tests/TesseraTerminalTests/TerminalSessionTests.swift`
 - Keep `TerminalApplicationConfiguration.underlineRendering` concrete and default
-  `.extended`. Add `UnderlineCompatibilityMode` with `.disabled` (default) and
+  `.extended`. Add `UnderlineCompatibilityMode` with `.off` (default) and
   `.terminfoDatabase`; it selects initial startup policy only.
   `TerminalSession.setUnderlineRendering(_:)` is an explicit runtime override and is not
   reprojected through the terminfo database.
@@ -356,19 +360,25 @@ downgrade without brand checks.
   unchanged. It never upgrades a requested omitted/single-only axis. `.disabled` uses the
   requested policy unchanged.
 - Implement a bounded pure-Swift ncurses directory-tree reader. Search injected
-  environment in this precedence: `TERMINFO`, `HOME/.terminfo`, `TERMINFO_DIRS` (an empty
-  component means system roots), then documented system roots. Support first-character and
-  two-digit hexadecimal subdirectories. Parse legacy and extended-number magics, Boolean
+  environment in this precedence: `TERMINFO`, `HOME/.terminfo`, then `TERMINFO_DIRS`; a
+  nonempty `TERMINFO_DIRS` list replaces the default search path, and only an empty
+  component reinstates documented system roots. Support first-character and two-digit
+  hexadecimal subdirectories. Parse little-endian storage only; any other byte order is
+  malformed and yields unknown evidence. Parse legacy and extended-number magics, Boolean
   alignment, extended header/table/name ordering, checked arithmetic, and ncurses limits.
-  Ignore or reject hashed databases and unsupported/non-ncurses formats as unknown. Never
-  spawn `infocmp`/`tput`, link ncurses, or mutate process-global curses state.
+  The `Su` boolean capability, where present, is not Setulc evidence; only an actual
+  `Setulc` extended string declaration counts. Ignore or reject hashed databases and
+  unsupported/non-ncurses formats as unknown. Never spawn `infocmp`/`tput`, link ncurses,
+  or mutate process-global curses state.
 - On Windows, no `TERM`, missing/unreadable/malformed/hashed databases, return unknown
   evidence and leave requested policy unchanged. Do not branch on terminal brand.
 - Deterministic tests use injected environment/filesystem and fixture bytes for both
-  magics, odd Boolean padding, all four Smulx/Setulc combinations,
-  malformed/truncated/oversized/ invalid offsets, search precedence, first-character and
-  hex layouts, hashed/unsupported unknown, startup resolution, default-disabled modern
-  behavior, terminfo-database mixed-axis downgrade, and runtime explicit override.
+  magics, big-endian/foreign byte order rejected as unknown, odd Boolean padding, all four
+  Smulx/Setulc combinations, `Su` without `Setulc` resolving the color axis to
+  `notDeclared`, malformed/truncated/oversized/invalid offsets, search precedence,
+  first-character and hex layouts, hashed/unsupported unknown, startup resolution,
+  default-disabled modern behavior, terminfo-database mixed-axis downgrade, and runtime
+  explicit override.
 - Demo capability and underline panels display declaration evidence separately from
   active-probe evidence and active concrete policy; do not auto-probe.
 - Acceptance: `.extended` remains the normal default; `.terminfoDatabase` is explicit
@@ -443,8 +453,10 @@ Bracketed paste remains startup-only.
   - `Tests/TesseraTerminalTests/TerminalSessionTests.swift`
   - `Tests/TesseraTerminalIOTests/ModeLifecycleTests.swift`
 - Add a public setter for `.legacyOnly`, `.kittyIfAvailable`, and `.kittyRequired`.
-  Conditional mode consumes cached one-generation evidence; it does not start an ambiguous
-  repeated query. The parser continues to accept valid Kitty reports in every mode.
+  Conditional mode consumes the probe coordinator's permanently cached resolved generation
+  (`cachedEvidence()`); it does not start an ambiguous repeated query. The setter must not
+  derive keyboard support from aggregate `capabilities` state, which can include passive
+  evidence. The parser continues to accept valid Kitty reports in every mode.
 - Preserve push/pop balance through repeated transitions and teardown. Update the Keyboard
   panel with `k`, showing requested policy, evidence, and effective/possible mode
   separately.
@@ -478,14 +490,17 @@ before umbrella Phase 4 begins.
   - Keyboard: panel-local `k` cycles legacy/if-available/required.
   - Underline/Cursor retain existing `s`/`c` and `s`/`x`; Clip `c` is panel-local.
     Graphics `g`, numeric tabs, `q`, and `m` remain global.
+  - Existing global `q`, `g`, and `m` controls currently act on key release events; add
+    release guards in this step.
 - Display evidence, requested policy, effective state, and possibly-active state
   separately. Capabilities shows detected color apart from override/effective depth and
   displays terminfo-database underline declarations separately from active-probe evidence
   and active concrete policy. Keyboard shows policy, evidence, and effective mode.
   Terminal identity remains diagnostic only.
 - Extract pure key-routing/cycle helpers into the support target; test all control
-  transitions, panel-local routing, global `g`/`m` behavior, release-event no-op, and
-  collisions in the same step. Build the executable as the integration smoke check.
+  transitions, panel-local routing, global `q`/`g`/`m` behavior, release-event no-op for
+  global and panel-local controls, and collisions in the same step. Build the executable
+  as the integration smoke check.
 - Keep bracketed paste startup-only, clipboard policy fixed, and graphics operational.
 - Acceptance: every planned setting is observable/tested without importing
   executable-private state or using source-text assertions.
@@ -528,8 +543,10 @@ before umbrella Phase 4 begins.
 
   ```fish
   swift test --filter TesseraTerminalInputTests
+  swift test --filter TesseraTerminalANSITests
   swift test --filter TesseraTerminalIOTests
   swift test --filter TesseraTerminalRenderingTests
+  swift test --filter TesseraTerminalSnapshotSupportTests
   swift test --filter TesseraTerminalTests
   swift test --package-path Examples --filter Phase3ProtocolsDemoSupportTests
   swift build --package-path Examples --product Phase3ProtocolsDemo

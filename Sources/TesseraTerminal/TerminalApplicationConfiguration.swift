@@ -101,6 +101,15 @@ public enum MouseTrackingMode: Equatable, Sendable {
   case disabled
 }
 
+/// Controls whether startup consults terminfo underline declarations.
+public enum UnderlineCompatibilityMode: Equatable, Sendable {
+  /// Use the application's concrete underline rendering policy unchanged.
+  case off
+
+  /// Downgrade only axes absent from a valid ncurses terminfo entry.
+  case terminfoDatabase
+}
+
 /// Configuration for a scoped live terminal application session.
 public struct TerminalApplicationConfiguration: Equatable, Sendable {
   /// The default terminal application configuration.
@@ -128,6 +137,8 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
 
   /// Whether capability detection runs before startup.
   public var capabilityDetection: CapabilityDetectionMode
+  /// Maximum time to await each serialized active-probe round.
+  public var activeProbeTimeout: Duration
 
   /// OSC 52 clipboard write policy.
   public var clipboardWriting: ClipboardWriteMode
@@ -147,11 +158,17 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
   /// Keyboard protocol policy.
   public var keyboardProtocol: KeyboardProtocolMode
 
+  /// Progressive-enhancement flags requested whenever Kitty keyboard mode is active.
+  public var kittyKeyboardFlags: KittyKeyboardFlags
+
   /// Mouse tracking policy.
   public var mouseTracking: MouseTrackingMode
 
   /// Whether draw transactions should use DEC synchronized output wrappers.
   public var synchronizedOutput: SynchronizedOutputPolicy
+
+  /// Optional startup-only compatibility projection from terminfo declarations.
+  public var underlineCompatibility: UnderlineCompatibilityMode
 
   /// Underline rendering policy applied to drawn frames.
   public var underlineRendering: UnderlineRenderingPolicy
@@ -163,18 +180,22 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
 
   /// Creates a terminal application configuration from protocol intent.
   public init(
+    activeProbeTimeout: Duration = .milliseconds(250),
     capabilityDetection: CapabilityDetectionMode = .passive,
     enableBracketedPaste: Bool = true,
     enableFocusEvents: Bool = true,
     mouseTracking: MouseTrackingMode = .disabled,
     keyboardProtocol: KeyboardProtocolMode = .kittyIfAvailable,
+    kittyKeyboardFlags: KittyKeyboardFlags = .tesseraDefault,
     hyperlinkRendering: HyperlinkRenderingMode = .enabled,
     synchronizedOutput: SynchronizedOutputPolicy = .enabled,
     colorCapability: ColorCapabilityOverride = .detect,
     underlineRendering: UnderlineRenderingPolicy = .extended,
+    underlineCompatibility: UnderlineCompatibilityMode = .off,
     clipboardWriting: ClipboardWriteMode = .disabled,
     cursorStyling: CursorStylingPolicy = .disabled
   ) {
+    self.activeProbeTimeout = activeProbeTimeout
     self.capabilityDetection = capabilityDetection
     self.clipboardWriting = clipboardWriting
     self.cursorStyling = cursorStyling
@@ -182,21 +203,27 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
     self.enableFocusEvents = enableFocusEvents
     self.hyperlinkRendering = hyperlinkRendering
     self.keyboardProtocol = keyboardProtocol
+    self.kittyKeyboardFlags = kittyKeyboardFlags
     self.mouseTracking = mouseTracking
     self.synchronizedOutput = synchronizedOutput
     self.colorCapability = colorCapability
     self.underlineRendering = underlineRendering
+    self.underlineCompatibility = underlineCompatibility
     self.modeSelection = .intent
   }
 
   /// Creates a terminal application configuration from an exact mode set.
   public init(
+    activeProbeTimeout: Duration = .milliseconds(250),
     modes: Set<ModeLifecycle.Mode>,
+    kittyKeyboardFlags: KittyKeyboardFlags = .tesseraDefault,
     synchronizedOutput: SynchronizedOutputPolicy = .enabled,
     colorCapability: ColorCapabilityOverride = .detect,
     underlineRendering: UnderlineRenderingPolicy = .extended,
+    underlineCompatibility: UnderlineCompatibilityMode = .off,
     clipboardWriting: ClipboardWriteMode = .disabled
   ) {
+    self.activeProbeTimeout = activeProbeTimeout
     self.capabilityDetection = .passive
     self.clipboardWriting = clipboardWriting
     self.cursorStyling =
@@ -209,6 +236,7 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
     self.enableFocusEvents = modes.contains(.focusEvents)
     self.hyperlinkRendering = .enabled
     self.keyboardProtocol = modes.contains(.kittyKeyboard) ? .kittyRequired : .legacyOnly
+    self.kittyKeyboardFlags = kittyKeyboardFlags
     self.mouseTracking =
       switch Self.requestedMouseTracking(in: modes) {
       case .anyEvent:
@@ -222,6 +250,7 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
     self.modeSelection = .explicit(Self.normalized(modes))
     self.colorCapability = colorCapability
     self.underlineRendering = underlineRendering
+    self.underlineCompatibility = underlineCompatibility
   }
 
   private static func normalized(
@@ -322,8 +351,26 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
     }
   }
 
+  private static func hasDumbTerminal(in environment: [String: String]) -> Bool {
+    guard let term = environment["TERM"]?.lowercased() else {
+      return false
+    }
+
+    return term == "dumb" || term.hasPrefix("dumb-")
+  }
+
   package func resolve(environment: [String: String]) -> TerminalApplicationResolution {
-    let detectedCapabilities: TerminalCapabilities
+    resolve(
+      environment: environment,
+      terminfoDatabase: .system(environment: environment)
+    )
+  }
+
+  package func resolve(
+    environment: [String: String],
+    terminfoDatabase: TerminfoDatabase
+  ) -> TerminalApplicationResolution {
+    var detectedCapabilities: TerminalCapabilities
     let runsActiveProbes: Bool
     switch capabilityDetection {
     case .active:
@@ -337,10 +384,17 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
       detectedCapabilities = TerminalCapabilityDetector.detect(environment: environment)
       runsActiveProbes = false
     }
+
+    if underlineCompatibility == .terminfoDatabase {
+      detectedCapabilities.underlineDeclarations =
+        terminfoDatabase.underlineDeclarations()
+    }
+
     return resolve(
       capabilities: detectedCapabilities,
       runsActiveProbes: runsActiveProbes,
-      preservesDetectedNoColor: detectedCapabilities.color == .noColor
+      hasDumbTerminal: Self.hasDumbTerminal(in: environment),
+      hasNoColorEnvironment: environment.keys.contains("NO_COLOR")
     )
   }
 
@@ -350,22 +404,25 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
     resolve(
       capabilities: capabilities,
       runsActiveProbes: false,
-      preservesDetectedNoColor: false
+      hasDumbTerminal: false,
+      hasNoColorEnvironment: false
     )
   }
 
   private func resolve(
     capabilities: TerminalCapabilities,
     runsActiveProbes: Bool,
-    preservesDetectedNoColor: Bool
+    hasDumbTerminal: Bool,
+    hasNoColorEnvironment: Bool
   ) -> TerminalApplicationResolution {
-    // A no-color signal observed by the environment detector overrides any
-    // application `force`. The package `resolve(capabilities:)` entry point
-    // passes no such signal, so it trusts the supplied capabilities verbatim.
-    var resolvedCapabilities = capabilities
-    resolvedCapabilities.color = resolvedColorCapability(
+    let effectiveColorCapability = colorCapability.effectiveColorCapability(
       detected: capabilities.color,
-      preservesDetectedNoColor: preservesDetectedNoColor
+      hasDumbTerminal: hasDumbTerminal,
+      hasNoColorEnvironment: hasNoColorEnvironment
+    )
+    let resolvedUnderlineRendering = underlineRendering.resolved(
+      compatibility: underlineCompatibility,
+      declarations: capabilities.underlineDeclarations
     )
 
     let modes =
@@ -373,20 +430,27 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
       case .explicit(let modes):
         Self.normalized(modes)
       case .intent:
-        resolvedIntentModes(capabilities: resolvedCapabilities)
+        resolvedIntentModes(capabilities: capabilities)
       }
 
     return TerminalApplicationResolution(
-      capabilities: resolvedCapabilities,
+      activeProbeTimeout: activeProbeTimeout,
+      capabilities: capabilities,
       clipboardWriting: clipboardWriting,
+      colorCapability: colorCapability,
       cursorStyling: cursorStyling,
       cursorStyle: Self.requestedCursorStyle(in: modes),
+      effectiveColorCapability: effectiveColorCapability,
       enabledProtocolModes: modes,
+      hasDumbTerminal: hasDumbTerminal,
+      hasNoColorEnvironment: hasNoColorEnvironment,
       hyperlinkRendering: hyperlinkRendering,
+      keyboardProtocol: keyboardProtocol,
+      kittyKeyboardFlags: kittyKeyboardFlags,
       modes: modes,
       runsActiveProbes: runsActiveProbes,
       synchronizedOutput: synchronizedOutput,
-      underlineRendering: underlineRendering,
+      underlineRendering: resolvedUnderlineRendering,
     )
   }
 
@@ -427,31 +491,22 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
 
     return modes
   }
-
-  private func resolvedColorCapability(
-    detected: ColorCapability,
-    preservesDetectedNoColor: Bool
-  ) -> ColorCapability {
-    if preservesDetectedNoColor {
-      return .noColor
-    }
-
-    switch colorCapability {
-    case .detect:
-      return detected
-    case .force(let forced):
-      return forced
-    }
-  }
 }
 
 package struct TerminalApplicationResolution: Equatable, Sendable {
+  package var activeProbeTimeout: Duration
   package var capabilities: TerminalCapabilities
   package var clipboardWriting: ClipboardWriteMode
+  package var colorCapability: ColorCapabilityOverride
   package var cursorStyling: CursorStylingPolicy
   package var cursorStyle: CursorStyle?
+  package var effectiveColorCapability: ColorCapability
   package var enabledProtocolModes: Set<ModeLifecycle.Mode>
+  package var hasDumbTerminal: Bool
+  package var hasNoColorEnvironment: Bool
   package var hyperlinkRendering: HyperlinkRenderingMode
+  package var keyboardProtocol: KeyboardProtocolMode
+  package var kittyKeyboardFlags: KittyKeyboardFlags
   package var modes: Set<ModeLifecycle.Mode>
   package var runsActiveProbes: Bool
   package var synchronizedOutput: SynchronizedOutputPolicy
@@ -463,12 +518,52 @@ private enum ModeSelection: Equatable, Sendable {
   case intent
 }
 
+extension ColorCapabilityOverride {
+  package func effectiveColorCapability(
+    detected: ColorCapability,
+    hasDumbTerminal: Bool,
+    hasNoColorEnvironment: Bool
+  ) -> ColorCapability {
+    guard !hasDumbTerminal, !hasNoColorEnvironment else {
+      return .noColor
+    }
+
+    switch self {
+    case .detect:
+      return detected
+    case .force(let capability):
+      return capability
+    }
+  }
+}
+
+extension UnderlineRenderingPolicy {
+  fileprivate func resolved(
+    compatibility: UnderlineCompatibilityMode,
+    declarations: TerminfoUnderlineDeclarations
+  ) -> Self {
+    guard compatibility == .terminfoDatabase else {
+      return self
+    }
+
+    var resolved = self
+    if declarations.style == .notDeclared {
+      resolved.style = .singleOnly
+    }
+    if declarations.color == .notDeclared {
+      resolved.color = .omit
+    }
+    return resolved
+  }
+}
+
 extension TerminalCapabilities {
   package func preparingActiveProbes() -> Self {
     var capabilities = self
     capabilities.bracketedPaste = .probing
     capabilities.focusEvents = .probing
     capabilities.mouseTracking = .probing
+    capabilities.kittyGraphics = .probing
     capabilities.kittyKeyboard = .probing
     capabilities.synchronizedOutput = .probing
     capabilities.osc8Hyperlinks = .notDetectable

@@ -146,6 +146,18 @@ Before making code changes, future implementers must read these four sources in 
   runtime. A changed policy invalidates renderer state so the next draw repaints under the
   new projection; assigning the active policy is a no-op.
 
+### Compatibility evidence contract
+
+- `.terminfoDatabase` is an explicit startup compatibility opt-in. Its valid `Smulx` and
+  `Setulc` declarations may project the configured underline policy; `.disabled` leaves
+  the `.extended` default unchanged.
+- Terminfo declarations, terminal identity, and missing declaration data are advisory
+  evidence, not proof of support. Unknown, malformed, truncated, or absent declarations
+  must not silently downgrade modern underline output.
+- `TerminalSession.setUnderlineRendering(_:)` is the runtime override. Once called, its
+  explicit policy takes precedence over the startup terminfo projection and invalidates
+  the renderer when the projected output changes.
+
 ## Phase 1 — Model and clean API
 
 **Goal**: buffers can carry underline style and underline color metadata through the clean

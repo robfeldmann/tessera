@@ -3,6 +3,7 @@ import TesseraTerminalInput
 
 /// Owned platform terminal I/O.
 package actor PlatformIO {
+  nonisolated private let cleanupRegistry: CleanupRegistryClient
   private let terminalDevice: TerminalDevice
   private var outputBuffer: [UInt8] = []
 
@@ -19,16 +20,25 @@ package actor PlatformIO {
 
   /// Creates platform I/O from the live terminal device.
   package init() {
-    self.init(terminalDevice: .live)
+    self.init(terminalDevice: .live, cleanupRegistry: .live)
   }
 
   /// Creates platform I/O from owned platform handles.
   package init(handles: consuming PlatformHandles) throws {
-    self.init(terminalDevice: .live(handles: handles))
+    self.init(terminalDevice: .live(handles: handles), cleanupRegistry: .live)
   }
 
   /// Creates platform I/O from an owned package-internal terminal device seam.
   package init(terminalDevice: TerminalDevice) {
+    self.init(terminalDevice: terminalDevice, cleanupRegistry: .disabled)
+  }
+
+  /// Creates platform I/O with an injected emergency-cleanup registry.
+  package init(
+    terminalDevice: TerminalDevice,
+    cleanupRegistry: CleanupRegistryClient
+  ) {
+    self.cleanupRegistry = cleanupRegistry
     self.terminalDevice = terminalDevice
     self.bytes = terminalDevice.bytes()
     self.sizeChanges = terminalDevice.sizeChanges()
@@ -120,13 +130,21 @@ package actor PlatformIO {
   }
 
   /// Installs emergency cleanup state for the current terminal modes.
+  package nonisolated func installCleanupHandlers() {
+    cleanupRegistry.installHandlers()
+  }
+
+  /// Installs emergency cleanup state for the current terminal modes.
   package func installCleanup(teardownBytes: [UInt8]) async {
-    await terminalDevice.cleanupState.install(teardownBytes: teardownBytes)
+    await terminalDevice.cleanupState.install(
+      teardownBytes: teardownBytes,
+      in: cleanupRegistry
+    )
   }
 
   /// Clears emergency cleanup state for this terminal session.
-  package func clearCleanup() {
-    CleanupRegistry.clear()
+  package func clearCleanup() async {
+    await cleanupRegistry.clear()
   }
 
   /// Reads the terminal's per-cell pixel size, or `nil` when unknown.

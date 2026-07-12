@@ -10,7 +10,7 @@ import Testing
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+    "Ghostty virtual terminal support is unavailable in this build."
   )
 )
 func `initial screen is blank`() {
@@ -24,7 +24,7 @@ func `initial screen is blank`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+    "Ghostty virtual terminal support is unavailable in this build."
   )
 )
 func `characters write into visible cells`() {
@@ -40,7 +40,7 @@ func `characters write into visible cells`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+    "Ghostty virtual terminal support is unavailable in this build."
   )
 )
 func `cursor movement writes at requested position`() {
@@ -55,7 +55,7 @@ func `cursor movement writes at requested position`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+    "Ghostty virtual terminal support is unavailable in this build."
   )
 )
 func `erase in line clears visible cells`() {
@@ -70,7 +70,7 @@ func `erase in line clears visible cells`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+    "Ghostty virtual terminal support is unavailable in this build."
   )
 )
 func `sgr styles colors and underline extensions are inspectable`() {
@@ -94,7 +94,7 @@ func `sgr styles colors and underline extensions are inspectable`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+    "Ghostty virtual terminal support is unavailable in this build."
   )
 )
 func `Ghostty exposes every underline variant`() {
@@ -113,7 +113,7 @@ func `Ghostty exposes every underline variant`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+    "Ghostty virtual terminal support is unavailable in this build."
   )
 )
 func `Ghostty exposes RGB indexed and reset underline colors`() {
@@ -130,7 +130,7 @@ func `Ghostty exposes RGB indexed and reset underline colors`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+    "Ghostty virtual terminal support is unavailable in this build."
   )
 )
 func `cursor position is inspectable`() {
@@ -144,7 +144,7 @@ func `cursor position is inspectable`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+    "Ghostty virtual terminal support is unavailable in this build."
   )
 )
 func `kitty graphics transmit and place are inspectable`() {
@@ -198,7 +198,106 @@ func `kitty graphics transmit and place are inspectable`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+    "Ghostty virtual terminal support is unavailable in this build."
+  )
+)
+func `Kitty graphics accepts the demo RGBA image and placement`() {
+  let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 20, rows: 10)
+  let imageID = KittyImageID(rawValue: 1)
+  let placementID = KittyPlacementID(rawValue: 1)
+  let pixels = [UInt8](repeating: 255, count: 32 * 32 * 4)
+
+  terminal.feed(
+    ControlSequence.kittyGraphics(
+      .transmit(
+        KittyGraphicsTransmission(
+          id: imageID,
+          format: .rgba(width: 32, height: 32),
+          data: pixels
+        )
+      )
+    ).bytes
+  )
+  terminal.feed(ControlSequence.cursorPosition(TerminalPosition(column: 2, row: 3)).bytes)
+  terminal.feed(
+    ControlSequence.kittyGraphics(
+      .place(
+        KittyGraphicsPlacement(
+          id: imageID,
+          placement: placementID,
+          columns: 8,
+          rows: 4
+        )
+      )
+    ).bytes
+  )
+
+  #expect(
+    terminal.kittyImages() == [
+      RenderedKittyImage(format: .rgba, height: 32, id: 1, width: 32)
+    ]
+  )
+  #expect(
+    terminal.kittyPlacements() == [
+      RenderedKittyPlacement(
+        column: 2,
+        columns: 8,
+        imageID: 1,
+        placementID: 1,
+        row: 3,
+        rows: 4,
+        zIndex: 0
+      ),
+    ]
+  )
+}
+
+@Test(
+  .disabled(
+    if: VirtualTerminal.isGhosttyUnavailable,
+    "Ghostty virtual terminal support is unavailable in this build."
+  )
+)
+func `Ghostty screen erase removes transmitted Kitty image data`() {
+  let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 8, rows: 4)
+  let imageID = KittyImageID(rawValue: 1)
+  let pixels = [UInt8](repeating: 255, count: 32 * 32 * 4)
+
+  terminal.feed(
+    ControlSequence.kittyGraphics(
+      .transmit(
+        KittyGraphicsTransmission(
+          id: imageID,
+          format: .rgba(width: 32, height: 32),
+          data: pixels
+        )
+      )
+    ).bytes
+  )
+  terminal.feed(
+    ControlSequence.kittyGraphics(
+      .place(
+        KittyGraphicsPlacement(
+          id: imageID,
+          placement: KittyPlacementID(rawValue: 1),
+          columns: 2,
+          rows: 2
+        )
+      )
+    ).bytes
+  )
+  #expect(terminal.kittyImages().count == 1)
+  #expect(terminal.kittyPlacements().count == 1)
+
+  terminal.feed(ControlSequence.eraseInDisplay(.all).bytes)
+
+  #expect(terminal.kittyImages().isEmpty)
+  #expect(terminal.kittyPlacements().isEmpty)
+}
+@Test(
+  .disabled(
+    if: VirtualTerminal.isGhosttyUnavailable,
+    "Ghostty virtual terminal support is unavailable in this build."
   )
 )
 func `kitty graphics delete all clears images and placements`() {
@@ -243,7 +342,7 @@ func `kitty graphics delete all clears images and placements`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+    "Ghostty virtual terminal support is unavailable in this build."
   )
 )
 func `text outside frame image region remains visible on same row`() async throws {

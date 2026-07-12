@@ -1,6 +1,8 @@
 import CustomDump
+import Foundation
 import TesseraTerminalANSI
 import TesseraTerminalIO
+import TesseraTerminalInput
 import Testing
 
 @testable import TesseraTerminal
@@ -20,6 +22,134 @@ func `application underline rendering defaults to extended`() {
 
   expectNoDifference(configuration.underlineRendering, .extended)
   expectNoDifference(resolution.underlineRendering, .extended)
+}
+
+@Test
+func `Kitty keyboard flags default conservatively and resolve exact overrides`() {
+  let defaultConfiguration = TerminalApplicationConfiguration()
+  let requestedFlags: KittyKeyboardFlags = [
+    .disambiguateEscapeCodes,
+    .reportEventTypes,
+    .reportAlternateKeys,
+    .reportAllKeysAsEscapeCodes,
+    .reportAssociatedText,
+  ]
+  let overriddenConfiguration = TerminalApplicationConfiguration(
+    kittyKeyboardFlags: requestedFlags
+  )
+
+  expectNoDifference(defaultConfiguration.kittyKeyboardFlags, .tesseraDefault)
+  expectNoDifference(
+    defaultConfiguration.resolve(environment: [:]).kittyKeyboardFlags,
+    .tesseraDefault
+  )
+  expectNoDifference(overriddenConfiguration.kittyKeyboardFlags, requestedFlags)
+  expectNoDifference(
+    overriddenConfiguration.resolve(environment: [:]).kittyKeyboardFlags,
+    requestedFlags
+  )
+}
+
+@Test
+func `off terminfo compatibility preserves the modern default`() {
+  let configuration = TerminalApplicationConfiguration()
+  let capabilities = TerminalCapabilities(
+    underlineDeclarations: .init(style: .notDeclared, color: .notDeclared)
+  )
+
+  let resolution = configuration.resolve(capabilities: capabilities)
+
+  expectNoDifference(configuration.underlineCompatibility, .off)
+  expectNoDifference(resolution.underlineRendering, .extended)
+  expectNoDifference(
+    resolution.capabilities.underlineDeclarations, capabilities.underlineDeclarations)
+}
+
+@Test
+func `terminfo compatibility intersects underline axes independently`() {
+  let configuration = TerminalApplicationConfiguration(
+    underlineRendering: .extended,
+    underlineCompatibility: .terminfoDatabase
+  )
+  let cases: [(TerminfoUnderlineDeclarations, UnderlineRenderingPolicy)] = [
+    (
+      .init(style: .declared, color: .declared),
+      .extended
+    ),
+    (
+      .init(style: .notDeclared, color: .declared),
+      .init(style: .singleOnly, color: .emit)
+    ),
+    (
+      .init(style: .declared, color: .notDeclared),
+      .init(style: .preserveVariants, color: .omit)
+    ),
+    (
+      .init(style: .notDeclared, color: .notDeclared),
+      .baseline
+    ),
+    (
+      .unknown,
+      .extended
+    ),
+  ]
+
+  for (declarations, expected) in cases {
+    let capabilities = TerminalCapabilities(underlineDeclarations: declarations)
+    let resolution = configuration.resolve(capabilities: capabilities)
+
+    expectNoDifference(resolution.underlineRendering, expected)
+    expectNoDifference(resolution.capabilities.underlineDeclarations, declarations)
+  }
+}
+
+@Test
+func `terminfo database evidence drives startup underline resolution`() {
+  let environment = ["TERM": "xterm", "TERMINFO": "/terms"]
+  let entry = Data([
+    0x1A, 0x01,
+    0x02, 0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+    0x78, 0x00,
+  ])
+  let database = TerminfoDatabase(
+    environment: environment,
+    readFile: { path in path == "/terms/x/xterm" ? entry : nil },
+    systemRoots: []
+  )
+  let configuration = TerminalApplicationConfiguration(
+    underlineCompatibility: .terminfoDatabase
+  )
+
+  let resolution = configuration.resolve(
+    environment: environment,
+    terminfoDatabase: database
+  )
+
+  expectNoDifference(
+    resolution.capabilities.underlineDeclarations,
+    .init(style: .notDeclared, color: .notDeclared)
+  )
+  expectNoDifference(resolution.underlineRendering, .baseline)
+}
+
+@Test
+func `terminfo compatibility never upgrades a conservative underline request`() {
+  let requested = UnderlineRenderingPolicy(style: .singleOnly, color: .omit)
+  let configuration = TerminalApplicationConfiguration(
+    underlineRendering: requested,
+    underlineCompatibility: .terminfoDatabase
+  )
+  let capabilities = TerminalCapabilities(
+    underlineDeclarations: .init(style: .declared, color: .declared)
+  )
+
+  let resolution = configuration.resolve(capabilities: capabilities)
+
+  expectNoDifference(resolution.underlineRendering, requested)
 }
 
 @Test
@@ -88,7 +218,7 @@ private func `nested multiplexer hints keep protocol and kitty graphics support 
 }
 
 @Test
-func `NO_COLOR wins over true-color environment hints`() {
+func `NO_COLOR does not overwrite true-color detection evidence`() {
   let capabilities = TerminalCapabilityDetector.detect(
     environment: [
       "COLORTERM": "truecolor",
@@ -97,16 +227,16 @@ func `NO_COLOR wins over true-color environment hints`() {
     ]
   )
 
-  #expect(capabilities.color == .noColor)
+  #expect(capabilities.color == .truecolor)
 }
 
 @Test
-func `dumb-family TERM suppresses color regardless of TERM_PROGRAM`() {
+func `dumb-family TERM remains unknown color evidence`() {
   let capabilities = TerminalCapabilityDetector.detect(
     environment: ["TERM": "dumb-300", "TERM_PROGRAM": "Ghostty"]
   )
 
-  #expect(capabilities.color == .noColor)
+  #expect(capabilities.color == .unknown)
 }
 
 @Test(arguments: colorCapabilityCases)
@@ -119,15 +249,16 @@ private func `color hints map to the advertised color capability`(
 }
 
 @Test
-func `color override wins when environment does not disable color`() {
+func `color override wins when no environment constraint is present`() {
   let configuration = TerminalApplicationConfiguration(colorCapability: .force(.truecolor))
 
   let resolution = configuration.resolve(environment: [:])
-  expectNoDifference(resolution.capabilities.color, .truecolor)
+  expectNoDifference(resolution.capabilities.color, .unknown)
+  expectNoDifference(resolution.effectiveColorCapability, .truecolor)
 }
 
 @Test
-func `NO_COLOR environment wins over color override`() {
+func `NO_COLOR records separate provenance and pins forced color output`() {
   let configuration = TerminalApplicationConfiguration(colorCapability: .force(.truecolor))
 
   let resolution = configuration.resolve(
@@ -138,16 +269,34 @@ func `NO_COLOR environment wins over color override`() {
     ]
   )
 
-  expectNoDifference(resolution.capabilities.color, .noColor)
+  expectNoDifference(resolution.capabilities.color, .truecolor)
+  expectNoDifference(resolution.hasNoColorEnvironment, true)
+  expectNoDifference(resolution.hasDumbTerminal, false)
+  expectNoDifference(resolution.effectiveColorCapability, .noColor)
 }
 
 @Test
-func `dumb TERM wins over color override`() {
+func `dumb TERM records separate provenance and pins forced color output`() {
   let configuration = TerminalApplicationConfiguration(colorCapability: .force(.truecolor))
 
   let resolution = configuration.resolve(environment: ["TERM": "dumb"])
 
-  expectNoDifference(resolution.capabilities.color, .noColor)
+  expectNoDifference(resolution.capabilities.color, .unknown)
+  expectNoDifference(resolution.hasNoColorEnvironment, false)
+  expectNoDifference(resolution.hasDumbTerminal, true)
+  expectNoDifference(resolution.effectiveColorCapability, .noColor)
+}
+
+@Test
+func `forcing unknown color capability remains unknown`() {
+  let configuration = TerminalApplicationConfiguration(colorCapability: .force(.unknown))
+
+  let resolution = configuration.resolve(
+    capabilities: TerminalCapabilities(color: .truecolor)
+  )
+
+  expectNoDifference(resolution.capabilities.color, .truecolor)
+  expectNoDifference(resolution.effectiveColorCapability, .unknown)
 }
 
 @Test
@@ -191,7 +340,7 @@ func `contradictory dumb TERM keeps protocol support unknown despite Ghostty ide
       kittyKeyboard: .unknown,
       osc8Hyperlinks: .notDetectable,
       synchronizedOutput: .unknown,
-      color: .noColor,
+      color: .unknown,
       identity: TerminalIdentity(
         kind: .ghostty,
         source: .termProgram("Ghostty"),
@@ -349,7 +498,7 @@ func `active detection marks protocols probing before support`() {
       bracketedPaste: .probing,
       focusEvents: .probing,
       mouseTracking: .probing,
-      kittyGraphics: .unknown,
+      kittyGraphics: .probing,
       kittyKeyboard: .probing,
       osc8Hyperlinks: .notDetectable,
       synchronizedOutput: .probing,
@@ -364,6 +513,60 @@ func `active detection marks protocols probing before support`() {
   )
   expectNoDifference(resolution.modes, baseApplicationModes)
   expectNoDifference(resolution.runsActiveProbes, true)
+}
+
+@Test
+func `DECRQM evidence aggregates direct and mouse capabilities deterministically`() {
+  var capabilities = TerminalCapabilities()
+
+  capabilities.recordPrivateModeStatus(
+    PrivateModeStatus(mode: 2_004, state: .reset)
+  )
+  capabilities.recordPrivateModeStatus(
+    PrivateModeStatus(mode: 1_002, state: .set)
+  )
+  capabilities.recordPrivateModeStatus(
+    PrivateModeStatus(mode: 1_006, state: .permanentlySet)
+  )
+
+  expectNoDifference(capabilities.bracketedPaste, .supported)
+  expectNoDifference(capabilities.mouseTracking, .unknown)
+
+  capabilities.recordPrivateModeStatus(
+    PrivateModeStatus(mode: 1_003, state: .notRecognized)
+  )
+
+  expectNoDifference(capabilities.mouseTracking, .unsupported)
+  expectNoDifference(
+    capabilities.privateModeStates,
+    [
+      1_002: .set,
+      1_003: .notRecognized,
+      1_006: .permanentlySet,
+      2_004: .reset,
+    ]
+  )
+}
+
+@Test
+func `DECRQM normal tracking evidence is explicitly excluded`() {
+  var capabilities = TerminalCapabilities()
+
+  capabilities.recordPrivateModeStatus(
+    PrivateModeStatus(mode: 1_000, state: .set)
+  )
+
+  expectNoDifference(capabilities.privateModeStates, [:])
+  expectNoDifference(capabilities.mouseTracking, .unknown)
+}
+
+@Test
+func `active probe timeout defaults to two hundred fifty milliseconds`() {
+  let configuration = TerminalApplicationConfiguration(capabilityDetection: .active)
+  let resolution = configuration.resolve(environment: [:])
+
+  expectNoDifference(configuration.activeProbeTimeout, .milliseconds(250))
+  expectNoDifference(resolution.activeProbeTimeout, .milliseconds(250))
 }
 
 @Test
@@ -390,12 +593,14 @@ func `dumb terminal keeps active protocol support unknown and OSC 8 not-detectab
       kittyKeyboard: .unknown,
       osc8Hyperlinks: .notDetectable,
       synchronizedOutput: .unknown,
-      color: .noColor,
+      color: .unknown,
       identity: TerminalIdentity(kind: .dumb, source: .term("dumb")),
       isNested: false
     )
   )
   expectNoDifference(resolution.modes, baseApplicationModes)
+  expectNoDifference(resolution.hasDumbTerminal, true)
+  expectNoDifference(resolution.effectiveColorCapability, .noColor)
 }
 
 @Test

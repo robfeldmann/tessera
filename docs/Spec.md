@@ -61,6 +61,7 @@ Use it selectively:
   - [Slice 9: OSC 52 clipboard](#slice-9-osc-52-clipboard)
   - [Slice 10: Cursor styling](#slice-10-cursor-styling)
   - [Slice 11: Underline extensions](#slice-11-underline-extensions)
+  - [Slice 12: Runtime protocol control](#slice-12-runtime-protocol-control)
 - [Phase 4 — View layer](#phase-4--view-layer-the-tessera-module)
   - [Slice 1: TesseraCore — View, ViewGraph, reconciliation, Text](#slice-1-tesseracore--view-viewgraph-reconciliation-text)
   - [Slice 2: The Layout protocol and stack containers](#slice-2-the-layout-protocol-and-stack-containers)
@@ -4759,13 +4760,14 @@ or non-keyboard sequences Tessera cannot parse at all.
 #### Protocol level
 
 Kitty keyboard mode is enabled with CSI `> ... u` progressive-enhancement flags and reset
-with CSI `< u` / protocol-pop behavior. The exact flag set should be chosen during
-implementation against the current Kitty spec, but Tessera's baseline target should be:
-
-- disambiguate escape codes
-- report event types where available
-- report alternate keys where useful
-- report all modifiers, including Super/Hyper/Meta where available
+with CSI `< u` / protocol-pop behavior. `KittyKeyboardFlags.tesseraDefault` requests
+disambiguated escape codes, event types, and alternate keys (mask 7). Applications can set
+`TerminalApplicationConfiguration.kittyKeyboardFlags` to an exact startup mask; the value
+defaults to `.tesseraDefault`, is exposed by `TerminalSession.kittyKeyboardFlags`, and is
+used whenever the runtime keyboard policy activates Kitty mode. The Phase 3 protocol demo
+deliberately requests all five defined flags (mask 31) so modifier-only and text-key
+release events plus associated text are observable. This startup flag selection is
+independent of the live legacy/conditional/required keyboard policy.
 
 Keep the enable operation explicit and semantic, mirroring the protocol's push/pop stack
 shape (`CSI > flags u` pushes, `CSI < u` pops):
@@ -4803,6 +4805,9 @@ Parsing requirements:
 
 - Decode basic `CSI number ; modifiers u` key reports.
 - Decode richer progressive reports according to the enabled feature flags.
+- Accept an omitted default modifier field in CSI-u only when the third associated-text
+  parameter is present, as in Ghostty's valid `CSI 113;;113u` encoding for an unmodified q
+  press under mask 31; keep omitted modifiers invalid in legacy modified-CSI forms.
 - Map modifier fields into Tessera's `Modifiers` option set.
 - Map event-type fields into `KeyEventKind`.
 - Preserve legacy decoding for terminals that ignore Kitty keyboard enablement.
@@ -5148,8 +5153,10 @@ attribute it can encode.
 Do not add hyperlink click handling. OSC 8 lets the terminal handle clicks on links; it
 does not report link-click events back to the application.
 
-Do not attempt capability detection yet. If a terminal ignores OSC 8, the visible text
-still renders normally.
+OSC 8 has no standard capability query, so Tessera records it as `.notDetectable` rather
+than pretending that terminal identity, declarations, or a successful write proves
+support. Rendering remains an explicit policy: when it is enabled, the visible text still
+renders usefully if the terminal ignores OSC 8.
 
 #### End of Slice 5
 
@@ -5159,14 +5166,16 @@ tracking, or leaking hyperlink state into unrelated output.
 
 ### Slice 6: Terminal capability detection
 
-Slice 6 decides whether Tessera needs active terminal capability detection, and if so,
-implements the smallest reliable version.
+Slice 6 establishes conservative, inspectable capability evidence and the policy boundary
+that consumes it. It does not promise that terminal behavior can be known perfectly in
+advance. The current runtime also supports one bounded active-probe generation per
+session; that work is reconciled in Slice 12 rather than treated as a startup-only
+snapshot.
 
-The first five Phase 3 slices intentionally avoid making startup depend on terminal
-introspection. Tessera enables modern protocols, decodes what arrives, and falls back when
-a terminal ignores an opt-in sequence. That is the right default. Capability detection is
-last because it is easy to overbuild, easy to make fragile, and easy to confuse with a
-promise that terminal behavior can be known perfectly in advance.
+The first five Phase 3 slices established the intentionally opportunistic baseline:
+Tessera can enable or encode a protocol without introspection, and a terminal that ignores
+an opt-in sequence should leave the app usable. Detection remains deliberately bounded,
+optional, and observable so it improves policy without making startup fragile.
 
 But some questions eventually matter:
 
@@ -5196,74 +5205,45 @@ promise. Prefer a report that communicates confidence and source:
 
 ```swift
 public struct TerminalCapabilities: Equatable, Sendable {
-    public var identity: TerminalIdentity?
-    public var color: ColorCapability
+    public var bracketedPaste: CapabilityStatus
     public var focusEvents: CapabilityStatus
-    public var hyperlinks: CapabilityStatus
-    public var keyboardProtocol: CapabilityStatus
-    public var kittyGraphics: CapabilityStatus
     public var mouseTracking: CapabilityStatus
+    public var kittyGraphics: CapabilityStatus
+    public var kittyKeyboard: CapabilityStatus
+    public var osc8Hyperlinks: CapabilityStatus
+    public var osc52Clipboard: CapabilityStatus
     public var synchronizedOutput: CapabilityStatus
-    public var nestedEnvironment: NestedTerminalEnvironment?
-
-    public init(
-        identity: TerminalIdentity? = nil,
-        color: ColorCapability = .unknown,
-        focusEvents: CapabilityStatus = .unknown,
-        hyperlinks: CapabilityStatus = .unknown,
-        keyboardProtocol: CapabilityStatus = .unknown,
-        kittyGraphics: CapabilityStatus = .unknown,
-        mouseTracking: CapabilityStatus = .unknown,
-        synchronizedOutput: CapabilityStatus = .unknown,
-        nestedEnvironment: NestedTerminalEnvironment? = nil
-    )
-}
-
-public enum ColorCapability: Equatable, Sendable {
-    case unknown
-    case noColor
-    case monochrome
-    case ansi16
-    case indexed256
-    case truecolor
+    public var underlineDeclarations: TerminfoUnderlineDeclarations
+    public var privateModeStates: [Int: PrivateModeState]
+    public var color: ColorCapability
+    public var identity: TerminalIdentity
+    public var isNested: Bool
 }
 
 public enum CapabilityStatus: Equatable, Sendable {
+    case notDetectable
+    case probing
+    case supported
     case unknown
-    case assumed
-    case detected
-    case unavailable
-}
-
-public struct TerminalIdentity: Equatable, Sendable {
-    public var name: String?
-    public var version: String?
-    public var source: TerminalIdentitySource
-
-    public init(name: String?, version: String?, source: TerminalIdentitySource)
-}
-
-public enum TerminalIdentitySource: Equatable, Sendable {
-    case environment
-    case deviceAttributes
-    case queryResponse
-    case userOverride
-}
-
-public struct NestedTerminalEnvironment: Equatable, Sendable {
-    public var kind: NestedTerminalKind
-    public var outerIdentity: TerminalIdentity?
-
-    public init(kind: NestedTerminalKind, outerIdentity: TerminalIdentity? = nil)
-}
-
-public enum NestedTerminalKind: Equatable, Sendable {
-    case tmux
-    case screen
-    case ssh
-    case other(String)
+    case unsupported
 }
 ```
+
+`CapabilityStatus` is protocol-native evidence, not requested policy and not a record of
+what Tessera successfully enabled. `.supported` and `.unsupported` require conclusive
+protocol-native evidence; `.unknown` means there is no reliable answer; `.probing` is
+transient while the single active generation is running; and `.notDetectable` means the
+protocol has no standard active query. OSC 8 and OSC 52 are `.notDetectable`.
+
+`TerminalIdentity` and `isNested` are passive diagnostic hints. They may help a status
+panel explain the surrounding environment, but they never prove protocol support or choose
+production protocol policy. Color is likewise detected environmental evidence, distinct
+from the application's `ColorCapabilityOverride` and the renderer's effective color depth.
+
+`underlineDeclarations` is a third kind of evidence, separate from both `CapabilityStatus`
+and identity: a bounded terminfo reader can report `.declared`, `.notDeclared`, or
+`.unknown` independently for extended underline style and color. A declaration is
+compatibility metadata, not proof that the active terminal implements the feature.
 
 This is only a suggested shape. The important API decision is that detection results are
 advisory and inspectable, not hidden global switches that make behavior mysterious.
@@ -5286,15 +5266,16 @@ similar terminal identity hints to decide that a modern protocol is supported or
 unsupported. Terminal identity can be useful diagnostic metadata for an example panel, but
 production protocol policy must not branch on concrete emulator names.
 
-Underline rendering is an application-selected output policy rather than a detected
-protocol capability. Terminal identity never changes that policy; it remains diagnostic
-metadata only. `TerminalApplicationConfiguration` defaults to extended underline output,
-and applications can explicitly select the baseline policy or a custom combination.
+Output policy is separate from evidence. Environment and protocol-native observations are
+reported in `TerminalCapabilities`; requested policy is owned by the
+configuration/session; and the session exposes the policy that is actually effective for a
+frame or lifecycle transition. Terminal identity never selects output policy.
 
-As of plan 015 step 3.4, production protocol support fields no longer use terminal-name
-inference. Queryable protocols stay `.unknown` or `.probing` until Tessera observes
-protocol-native evidence, and OSC 8 is reported as not actively detectable because it has
-no standard query.
+In particular, underline rendering is application-selected output policy, not detected
+protocol support. Its default is extended output. The optional terminfo-database
+compatibility projection is discussed in Slice 11; it is an explicit startup opt-in, not
+terminal-name inference. OSC 8 and OSC 52 remain not actively detectable because neither
+has a standard query.
 
 > [!note] Ratatui References
 >
@@ -5381,73 +5362,56 @@ Suggested policy:
 The exact defaults can change, but they must be documented. Users should be able to ask:
 “what did Tessera enable, what did it merely assume, and why?”
 
-#### Public configuration
+#### Public configuration and state
 
-If capability detection is implemented, add configuration rather than hidden behavior. The
-knobs below are illustrative fields to grow on the existing
-`TerminalApplicationConfiguration` (which already has `modes` and `synchronizedOutput`);
-some replace direct `modes` manipulation with intent-level policy:
+`TerminalApplicationConfiguration` is the one startup configuration surface. Its intent
+fields include `capabilityDetection`, `activeProbeTimeout`, bracketed paste, focus, mouse,
+keyboard, OSC 8, synchronized output, color, underline rendering and underline
+compatibility, clipboard writing, and cursor styling. The intent initializer defaults to
+passive detection, a 250 ms active-probe round timeout, enabled bracketed paste/focus/OSC
+8/synchronized output, disabled mouse and clipboard writing, `.kittyIfAvailable`,
+`.detect` color, `.extended` underline rendering, disabled underline compatibility, and
+disabled cursor styling. The low-level `modes` initializer remains for exact test and
+protocol-demo mode sets; normal applications should use the intent fields.
 
-```swift
-public struct TerminalApplicationConfiguration: Equatable, Sendable {
-    // Existing: modes, synchronizedOutput...
-    public var capabilityDetection: CapabilityDetectionMode
-    public var colorPolicy: ColorPolicy
-    public var enableBracketedPaste: Bool
-    public var enableFocusEvents: Bool
-    public var hyperlinkRendering: HyperlinkRenderingMode
-    public var keyboardProtocol: KeyboardProtocolMode
-    public var mouseTracking: MouseTrackingMode
+The configuration is a request, not a claim that bytes reached the terminal. During a
+session, inspect these distinct facts rather than collapsing them into one “capability”
+value:
 
-    // New fields default to: .passive, .automatic, true, true, .enabled,
-    // .kittyIfAvailable, .disabled (mouse tracking stays opt-in; see Phase 3 Slice 3).
-}
-```
+- `capabilities` contains passive, active, and declaration evidence only.
+- `colorCapability` is the application's requested override, while
+  `effectiveColorCapability` is the depth used to encode the next committed frame.
+  `NO_COLOR` and dumb `TERM` pin that effective value to `.noColor`, even for a forced
+  color request.
+- `protocolModeReport.requested` is the accepted application-mode policy; `.effective` is
+  the lifecycle's successfully active belief; and `.possiblyActive` is the union that may
+  have reached the terminal during ambiguous I/O. The latter is not omitted merely because
+  a setter threw.
+- `underlineDeclarations` reports terminfo declarations; `underlineRendering` is the
+  concrete output policy selected for draws. They are intentionally independent.
 
-The supporting policy enums:
+`TerminalSession` exposes live, actor-isolated setters for output policy:
+`setColorCapability(_:)`, `setHyperlinkRendering(_:)`, `setSynchronizedOutput(_:)`, and
+`setUnderlineRendering(_:)`. A changed effective color, hyperlink, or underline policy
+invalidates renderer state so unchanged cells are erased and repainted under the new
+projection; an equal assignment is a no-op. A color request that remains pinned to the
+same effective depth also does not repaint. Synchronized output changes frame boundaries
+only and therefore does not invalidate cell state.
 
-```swift
-public enum ColorPolicy: Equatable, Sendable {
-    case automatic
-    case noColor
-    case monochrome
-    case ansi16
-    case indexed256
-    case truecolor
-}
+The session exposes throwing runtime setters for lifecycle-owned application modes:
+`setMouseTracking(_:)`, `setFocusEvents(_:)`, `setKeyboardProtocol(_:)`, and
+`setCursorStyle(_:)`. They share one non-reentrant, cancellation-safe transition gate and
+one reconciliation path; no setter reconstructs desired modes from a stale effective
+snapshot. Raw mode and alternate screen are fixed session ownership and cannot be mutated
+through that path. Bracketed paste is startup-only because changing it while the parser is
+collecting an in-flight paste has no settled contract.
 
-public enum MouseTrackingMode: Equatable, Sendable {
-    case anyEvent      // Enable hover/move events with DECSET 1003 + SGR 1006.
-    case buttonEvents  // Enable press/release/drag/scroll with DECSET 1002 + SGR 1006.
-    case disabled
-}
-
-public enum KeyboardProtocolMode: Equatable, Sendable {
-    case legacyOnly
-    case kittyIfAvailable
-    case kittyRequired
-}
-
-public enum HyperlinkRenderingMode: Equatable, Sendable {
-    case disabled
-    case enabled
-}
-
-public enum CapabilityDetectionMode: Equatable, Sendable {
-    case disabled
-    case passive
-    case active
-}
-```
-
-These knobs fold into the `TerminalApplicationConfiguration` that Phase 2 Slice 3 already
-shipped as the `withApplicationTerminal(configuration:)` parameter — do not introduce a
-second public configuration type, and reconcile the intent-level knobs with the
-lower-level `modes` set (either compute `modes` from the knobs or deprecate direct `modes`
-construction; pick one and document it). The principle is more important than the exact
-shape: protocol enablement should be configurable, defaults should be visible, and
-detection should be something users can disable when it causes problems under SSH, tmux,
-CI, or unusual terminals.
+The application's explicit mode policy wins over advisory DECRQM evidence: focus and mouse
+settings request their modes even when evidence is unknown, while evidence remains
+inspectable. `.kittyRequired` always requests Kitty keyboard, `.legacyOnly` disables it,
+and `.kittyIfAvailable` enables it only after positive active keyboard evidence.
+Conditional Kitty policy never infers support from identity or passive metadata.
+Synchronized output is also explicit application policy; its DECRQM evidence is advisory.
 
 #### Parser behavior
 
@@ -5509,11 +5473,10 @@ Do not fail startup because a terminal does not answer a query.
 Do not promise perfect support detection. The result is an advisory report, not a
 contract.
 
-#### End of Slice 6
-
-`TesseraTerminal` exposes conservative, configurable capability hints and protocol
-enablement policy without making startup fragile, blocking cleanup, or undermining the
-opportunistic fallback behavior established by the rest of Phase 3.
+`TesseraTerminal` exposes conservative, configurable live evidence and output/application
+policy without making startup fragile. Evidence, requested policy, effective lifecycle
+belief, and possibly-active cleanup state remain distinguishable, so callers can reason
+about a terminal session without terminal-name hard-coding or a false capability promise.
 
 ### Slice 7: Kitty graphics protocol
 
@@ -5818,22 +5781,20 @@ anchor's raw bytes after positioning the cursor at the anchor cell
 the current cursor position.
 
 The default `repaintPolicy` for `placeImage` is `.alwaysRepaint`, and that default is
-deliberate, not incidental. `Renderer.encodeFrame` emits `eraseInDisplay(.all)` whenever
-`previous == nil` or the terminal size changed (`Renderer.swift:41-44`), and per the KGP
-spec, `ESC [ 2 J` clears every image on screen — placements do NOT survive resize or first
-draw. Re-sending an identical `(image id, placement id)` pair REPLACES the placement,
-flicker-free, per the protocol spec's own wording ("resize or move placements around the
-screen, without flicker"). Because `.alwaysRepaint` cells are re-included in every damage
-pass (`BufferDiff.swift:77-101`), any frame that calls `placeImage` again after an ED
-clear silently re-establishes the same placement. Placements are self-healing across
-`eraseInDisplay(.all)` for free — no special-case renderer code, no resize hook, just the
-ordinary damage pass re-emitting an `.alwaysRepaint` cell.
+deliberate, not incidental: equal frame buffers still re-emit placement anchors so
+ordinary damage redraws preserve placement intent. A full renderer invalidation is
+different. `Renderer.encodeFrame` emits `eraseInDisplay(.all)` whenever `previous == nil`
+or the terminal size changed, and terminals may discard both placements and stored image
+data after `ESC [ 2 J`. Ghostty does so: a later `a=p` for the old image id returns
+`ENOENT: image not found`.
 
-One caveat this self-healing does NOT cover: the transmitted image DATA itself may still
-be evicted by the terminal under memory pressure, independent of screen clears. A later
-`a=p` against an evicted image comes back as an `ENOENT` `KittyGraphicsResponse` — the
-app's job is to notice that and call `transmitImage` again, not Tessera's; Tessera only
-reports what the terminal said.
+An app that invalidates before showing an image must therefore consume the erase/repaint
+first, then call `transmitImage`, then draw a placement frame. Transmitting before the
+invalidated draw lets `ED 2` delete the freshly transmitted data. Re-emitting a failed
+`.alwaysRepaint` placement from each graphics response creates a response/redraw feedback
+loop, so apps must match asynchronous failures to their image and placement ids, stop
+placement, retain the complete error, and require an explicit retry. Terminals may also
+evict image data under memory pressure; the same `ENOENT` recovery rule applies.
 
 The caller keeps `occupying` and `columns`/`rows` consistent with each other; Tessera does
 not compute one from the other in this slice. Phase 4's future `Image` view will, once
@@ -6511,15 +6472,23 @@ uses `UnderlineRenderingPolicy`, which separates two output decisions:
   to `.default` without writing SGR `58` or `59`.
 
 The `.extended` preset combines `.preserveVariants` and `.emit`; the `.baseline` preset
-combines `.singleOnly` and `.omit`. Applications can also construct mixed policies. The
-default `TerminalApplicationConfiguration` uses `.extended`, and terminal identity or
-passive capability detection never changes the application-selected policy.
+combines `.singleOnly` and `.omit`. Applications can also construct mixed policies.
+`TerminalApplicationConfiguration.underlineRendering` defaults to `.extended`.
 
-`TerminalSession` owns the active policy as actor-isolated state. Applications can call
-`setUnderlineRendering(_:)` while a session is running; a changed policy invalidates
-cached renderer state so the next draw erases and repaints under the new projection.
-Setting the already-active policy is a no-op and does not force a repaint. The Phase 3
-demo exposes independent runtime controls for the style and color axes.
+`UnderlineCompatibilityMode.off` is the default and uses that requested policy unchanged.
+`.terminfoDatabase` is an explicit startup-only compatibility opt-in: a valid entry that
+does not declare `Smulx` projects the style axis to `.singleOnly`, and one that does not
+declare `Setulc` projects the color axis to `.omit`. A declared axis preserves the
+requested axis; an unknown declaration leaves it unchanged; and the projection never
+upgrades a requested baseline or omitted axis. Terminal identity and passive capability
+detection never select this mode or prove underline support.
+
+`TerminalSession` owns the active concrete policy as actor-isolated state. Applications
+can call `setUnderlineRendering(_:)` while a session is running; this explicit runtime
+setter wins over the startup compatibility projection. A changed policy invalidates cached
+renderer state so the next draw erases and repaints under the new projection. Setting the
+already-active policy is a no-op and does not force a repaint. The Phase 3 demo exposes
+independent runtime controls for the style and color axes.
 
 Prefer `24` for disabling underline rather than `4:0`. Prefer `4` for single underline
 rather than `4:1`, because `4` is the widest-compatible spelling and matches Tessera's
@@ -6607,11 +6576,16 @@ snapshots report underline variants and underline color from Ghostty's C API; ex
 tests remain the authority for variant/color correctness.
 
 Tessera does not actively probe for underline extension support and does not fail startup
-when support is absent. Raw extension bytes are not universally harmless, so applications
-that target output paths limited to ordinary underline can select `.baseline`. Tessera
-does not infer that choice from emulator identity. Applications must not use underline
-style or underline color as the only carrier of critical information; text content,
-symbols, labels, and accessible wording remain the source of truth.
+when support is absent. The terminfo reader reports independent advisory declarations for
+the style (`Smulx`) and color (`Setulc`) axes; `.unknown` does not dumb down the default
+extended output, and `.declared` is not proof of active support. Raw extension bytes are
+not universally harmless, so an application that targets ordinary underline can select
+`.baseline` directly or opt into the startup-only `.terminfoDatabase` projection. A later
+`setUnderlineRendering(_:)` is an explicit runtime choice and is not reprojected through
+terminfo. Tessera does not infer any of these choices from emulator identity. Applications
+must not use underline style or underline color as the only carrier of critical
+information; text content, symbols, labels, and accessible wording remain the source of
+truth.
 
 Coverage exercises exact encoder bytes for all underline styles, underline color reset,
 indexed/RGB/named underline colors, the API migration away from boolean underline, style
@@ -6625,6 +6599,133 @@ style state. Callers express single underline, undercurl, and underline color th
 same `UnderlineStyle`/underline-color model without raw ANSI bytes. Extended rendering
 preserves the requested variants and colors with precise `24`/`59` resets; baseline
 rendering emits ordinary underline only.
+
+### Slice 12: Runtime protocol control
+
+Slice 12 closes Phase 3's live-session contract. It makes the distinction between advisory
+evidence, application request, effective terminal state, and ambiguous state observable;
+it also lets an application adjust selected output policies and application modes without
+violating terminal cleanup or a frame transaction.
+
+#### Lifecycle transaction and cleanup
+
+Every lifecycle mutation is serialized through one non-reentrant, cancellation-safe
+transition gate. Actor isolation alone is not enough because a lifecycle write, flush, or
+mode setter can suspend; the gate gives `enter`, application-mode reconciliation, cursor
+changes, and `exit` one total order.
+
+Before the first mutating byte for a mode can reach the terminal, Tessera registers
+defensive cleanup for every requested/possibly-active mode. A successful write records the
+mode as active. A partial write or flush failure is ambiguous: Tessera preserves modes
+known to have completed, marks the affected slot possibly active, discards the stale
+unwritten suffix where recovery requires it, and disables the defensive union of active,
+requested, and possibly-active modes on cleanup. A Kitty push failure schedules a matching
+pop; graphics cleanup failure discards retained stale bytes before mode teardown.
+
+On a failed disable or exit, Tessera retains or reinstalls emergency cleanup and retains
+the ambiguous lifecycle belief. It clears lifecycle state and cleanup registration only
+after teardown succeeds. Repeated cleanup is idempotent. Startup—including session
+construction, active reconciliation, initial application modes, and cursor restoration—is
+inside the same cleanup transaction, so a failure before the application body cannot leak
+raw mode, alternate screen, or an application protocol mode.
+
+#### Evidence, probes, and mode precedence
+
+`TerminalCapabilities` is live evidence, not configuration. It records passive color and
+identity hints, protocol-native events and query results, DEC private-mode observations,
+and separate terminfo underline declarations. Identity/declarations are advisory; neither
+is proof of active support. `TerminalProtocolModeReport` separately reports accepted
+requested mode policy, lifecycle-effective modes, and modes that may be active after
+ambiguous I/O.
+
+Active detection is one bounded, permanently cached generation per session. Its serialized
+rounds are DECRQM, Kitty keyboard with DA1, then Kitty Graphics `a=q` with a unique image
+ID and DA1. Parsed events are observed by the existing input pump before their normal
+single delivery to both public input APIs; probes do not create a second parser or consume
+user input. Each round ends on its protocol-native evidence, a DA1 sentinel where defined,
+or the configured deadline. A timed-out untagged DA1 round retires later untagged DA1
+rounds so a late response cannot satisfy a newer generation.
+
+Public active-query entry points return the cached result once resolved, or an explicit
+in-progress result while the one generation runs; they do not emit indistinguishable
+repeated queries. This is why `.kittyIfAvailable` consults cached active keyboard evidence
+instead of probing again. Kitty Graphics is part of active evidence, but its ordinary
+query/transmit/place/delete operations remain operational rather than a persistent
+setting. OSC 8 and OSC 52 remain `.notDetectable`: neither has a standard query.
+
+Explicit application policy has the following precedence:
+
+- `NO_COLOR` and dumb `TERM` pin effective color output to `.noColor`; otherwise the
+  requested `ColorCapabilityOverride` resolves against detected color evidence.
+- Explicit bracketed-paste, focus, and mouse requests remain application instructions.
+  DECRQM evidence is displayed but never silently overrides them.
+- `.kittyRequired` requests Kitty keyboard regardless of evidence; `.kittyIfAvailable`
+  requires positive active keyboard evidence; `.legacyOnly` disables it.
+- Synchronized output is explicit output policy; its DEC 2026 evidence is advisory.
+- Underline defaults to `.extended`; `.terminfoDatabase` is explicit startup
+  compatibility, declaration evidence is advisory, and the runtime underline setter wins.
+
+#### Draw commit points and runtime APIs
+
+`TerminalSession.draw` awaits terminal size first, then commits effective color,
+hyperlink, synchronized-output, and underline policies before the synchronous borrowed
+frame body and byte encoding begin. A setter that runs while the size operation is
+suspended may affect that frame; after this commit point, no setter can change its bytes.
+A setter after encoding affects the next draw and leaves invalidation armed as
+appropriate.
+
+The session's public runtime policy setters are:
+
+- `setColorCapability(_:)`
+- `setHyperlinkRendering(_:)`
+- `setSynchronizedOutput(_:)`
+- `setUnderlineRendering(_:)`
+- `setMouseTracking(_:)`
+- `setFocusEvents(_:)`
+- `setKeyboardProtocol(_:)`
+- `setCursorStyle(_:)`
+
+Color, hyperlink, and underline changes that alter effective output invalidate and repaint
+an unchanged buffer. Hyperlink disablement repaints cells without OSC 8 metadata; every
+frame still includes the terminal-state close sequence. A partial flush retains its
+unwritten suffix, including that close, ahead of future frame bytes; Tessera does not
+discard it or append a duplicate speculative close. Synchronized output is committed for
+the whole frame: its enter byte precedes renderer encoding, cursor bytes remain inside the
+wrapper, and its exit byte is the final frame byte. It changes no cell state and therefore
+does not itself invalidate.
+
+Mode setters either commit requested policy after successful lifecycle application or
+throw while preserving the prior accepted request. In either outcome, effective and
+possibly-active state are refreshed from lifecycle belief rather than claimed from an old
+startup snapshot. Equal setters are no-ops. Fixed raw/alternate ownership and startup-only
+bracketed paste are rejected rather than silently changed.
+
+#### Demo and operational boundaries
+
+The Phase 3 protocols demo makes every live control observable. Panel-local controls are
+`d` for detected/forced color cycling, `y` for synchronized output, `h` for OSC 8
+rendering, `t` for actual mouse tracking, `f` for focus reporting, and `k` for keyboard
+policy. Underline and cursor retain their panel-local `s`/`c` and `s`/`x` controls; the
+clipboard panel's `c` is also panel-local. The global `m` remains a separately labeled
+mouse logging filter, while global `q`, `g`, and `m` retain their quit, graphics, and
+logging roles outside panel-local routing; numeric tab selection is global. Global and
+panel-local actions accept press/repeat events and ignore key-release events. The demo
+displays evidence, requested policy, effective state, and possibly-active state
+separately; identity remains diagnostic.
+
+Deliberate exclusions preserve safe ownership boundaries: raw mode and alternate screen
+are fixed for the session; bracketed paste is startup-only; clipboard policy is
+startup-fixed and security-sensitive; no terminal-name allowlist decides a protocol; and
+graphics stays an explicit operation, not an enabled-mode toggle. Errors from lifecycle
+I/O, probes, or reconciliation are surfaced to the caller while cleanup and public
+effective/possible state remain truthful. The demo keeps graphics operational and does not
+offer an unsafe repeated active-probe refresh.
+
+#### End of Slice 12
+
+`TesseraTerminal` provides live, bounded, and inspectable protocol control without
+conflating evidence with policy, changing a frame halfway through encoding, or abandoning
+cleanup after ambiguous terminal I/O.
 
 **End of Phase 3:** `TesseraTerminal` is feature-complete for a modern terminal app.
 Everything above this is the view library.

@@ -27,10 +27,10 @@ This plan implements `docs/Spec.md` Phase 3 Slice 6. Capabilities are advisory h
 truth. A terminal that does not answer a query or advertises an unknown identity must
 still start cleanly, draw visible text, parse legacy input, and restore modes on exit.
 
-Decision for this slice: implement passive, environment-based detection only. Do not
-expose an `.active(timeout:)` public mode until active protocol queries are implemented
-end to end with bounded I/O, response parsing, and startup-time tests. This avoids
-shipping a knob that looks real but does nothing.
+Historical Slice 6 began with passive, environment-based detection. The current contract
+adds `.active` bounded protocol-native probing and runtime reconciliation, but treats both
+environment-derived identity and declarations as advisory evidence rather than proof of
+protocol support.
 
 ## Phase 1 — Capability model and passive detection
 
@@ -47,6 +47,8 @@ surrounding terminal without changing startup behavior yet.
 
 ```swift
 public enum CapabilityStatus: Equatable, Sendable {
+  case notDetectable
+  case probing
   case supported
   case unsupported
   case unknown
@@ -97,12 +99,10 @@ Acceptance:
   - `COLORTERM=truecolor` or `24bit` into true-color support
   - `NO_COLOR` into color disabled or restricted policy input
   - `TMUX` or `STY` into `isNested = true`
-- Keep protocol support conservative:
-  - bracketed paste, focus events, and OSC 8 may be `supported` for known modern terminals
-    or `unknown` otherwise
-  - mouse tracking is at least `unknown` unless a known terminal hint supports SGR mouse
-  - Kitty keyboard is `supported` only for clear Kitty/Ghostty/WezTerm-style hints, and
-    `unknown` otherwise
+- Keep protocol support conservative: environment-derived terminal identity is diagnostic
+  metadata, not support evidence. Passive detection leaves queryable protocol status
+  `.unknown` until protocol-native evidence is observed; it never marks a protocol
+  supported or unsupported merely because of a terminal name.
 - Do not fail when environment variables are missing or contradictory.
 
 Add tests for:
@@ -143,6 +143,7 @@ capabilities, and users can inspect what Tessera enabled.
 public enum CapabilityDetectionMode: Equatable, Sendable {
   case disabled
   case passive
+  case active
 }
 
 public enum KeyboardProtocolMode: Equatable, Sendable {
@@ -203,9 +204,9 @@ Acceptance:
 - Include `.bracketedPaste` when `enableBracketedPaste` is true.
 - Include `.focusEvents` when `enableFocusEvents` is true.
 - Include `.mouseTracking` only when `mouseTracking == .buttonEvents`.
-- Include `.kittyKeyboard` when `keyboardProtocol == .kittyIfAvailable` and passive hints
-  say supported or unknown. Unknown should degrade by trying and relying on harmless
-  terminal ignore behavior plus cleanup.
+- Include `.kittyKeyboard` for `.kittyIfAvailable` only after positive, protocol-native
+  Kitty keyboard evidence. Unknown, missing, or advisory identity/declaration evidence
+  leaves the requested policy pending and Kitty keyboard disabled.
 - Include `.kittyKeyboard` when `keyboardProtocol == .kittyRequired`.
 - Exclude `.kittyKeyboard` when `keyboardProtocol == .legacyOnly`.
 - Keep capability detection advisory. Resolver tests should name every conservative
@@ -215,14 +216,15 @@ Acceptance:
 
 Add tests for:
 
-- default config resolves raw, alt, paste, focus, and Kitty keyboard
+- default config resolves raw, alternate screen, bracketed paste, and focus; conditional
+  Kitty keyboard remains pending until positive protocol-native evidence
 - mouse stays disabled by default
 - explicit mouse button events add mouse tracking
 - legacy-only keyboard excludes Kitty
 - disabled paste/focus remove those modes
 - disabled capability detection uses conservative unknown capabilities
-- passive known unsupported hints do not fail startup
-- cleanup bytes still cover every enabled protocol mode
+- passive identity hints do not imply protocol support or cause startup failure
+- cleanup bytes cover every requested, active, or possibly-active protocol mode
 
 Use snapshot-style resolver dumps for related mode and capability output.
 
@@ -237,22 +239,26 @@ Acceptance:
   - `Sources/TesseraTerminal/TerminalSession.swift`
   - `Sources/TesseraTerminal/TerminalApplicationConfiguration.swift`
   - `Tests/TesseraTerminalTests/TerminalSessionTests.swift`
-- Expose immutable session inspection values:
+- Expose actor-isolated live session inspection values:
 
 ```swift
-public nonisolated let capabilities: TerminalCapabilities
-public nonisolated let enabledProtocolModes: Set<ModeLifecycle.Mode>
+public private(set) var capabilities: TerminalCapabilities
+public private(set) var enabledProtocolModes: Set<ModeLifecycle.Mode>
+public private(set) var possiblyActiveProtocolModes: Set<ModeLifecycle.Mode>
+public var protocolModeReport: TerminalProtocolModeReport { get }
 ```
 
-- If public exposure of `ModeLifecycle.Mode` is too low-level, introduce a small
-  `EnabledTerminalProtocols` value instead. Prefer a typed report over a raw byte list.
-- The example app uses these values for the capabilities panel.
-- Do not let callers mutate lifecycle modes through these inspection values.
+- `capabilities` records detected evidence; requested policy and effective/possibly-active
+  lifecycle state remain separate. If public exposure of `ModeLifecycle.Mode` is too
+  low-level, expose an equivalent typed report rather than raw bytes.
+- The example app uses this live report for the capabilities panel.
+- Inspection is read-only to callers and does not leak raw handles or output authority.
 
 Acceptance:
 
-- Apps can inspect what Tessera assumed and enabled.
-- Inspection does not leak raw handles or output authority.
+- Apps can inspect advisory evidence, requested policy, effective modes, and modes that
+  may require defensive cleanup.
+- Inspection does not grant output authority.
 
 ## Phase 3 — Example app and validation
 
@@ -264,34 +270,37 @@ Acceptance:
 - Add panel navigation: `1` paste, `2` focus, `3` mouse, `4` keys, `5` links, `6`
   capabilities.
 - Show:
-  - detected identity
+  - detected identity, labeled diagnostic
   - nested terminal status
-  - color capability
-  - support status for paste, focus, mouse, Kitty keyboard, OSC 8, and synchronized output
-  - enabled protocol modes for this session
+  - detected and effective color capability
+  - live protocol evidence for paste, focus, mouse, Kitty keyboard, OSC 8, and
+    synchronized output, without deriving support from identity
+  - requested, effective, and possibly-active protocol modes for this session
 - Keep the display compact and stable. This panel should be usable as a manual smoke test.
 
 Wireframe:
 
 ```text
 Phase3ProtocolsDemo — Capabilities                               80x24
-q quit · 1 paste · 2 focus · 3 mouse · 4 keys · 5 links · 6 caps
+q quit · g graphics · m mouse log · d/y/h/t/f/k/s/c/x live controls
 
 Detected terminal
-  identity: Ghostty from TERM_PROGRAM
+  identity: Ghostty from TERM_PROGRAM (diagnostic)
   nested:   no
-  color:    truecolor
+  color:    detected truecolor · effective truecolor
 
-Protocol support
-  bracketed paste: supported
-  focus events:    supported
-  SGR mouse:       supported
-  Kitty keyboard:  supported
-  OSC 8 links:     supported
+Protocol evidence
+  bracketed paste: unknown
+  focus events:    unknown
+  SGR mouse:       unknown
+  Kitty keyboard:  probing
+  OSC 8 links:     not detectable
   sync output:     unknown
 
-Enabled in this session
-  raw mode · alt screen · bracketed paste · focus events · mouse · kitty keyboard
+Session state
+  requested: bracketed paste · focus events · kitty if available
+  effective: raw mode · alt screen · bracketed paste · focus events
+  possibly active: none
 ```
 
 Acceptance:

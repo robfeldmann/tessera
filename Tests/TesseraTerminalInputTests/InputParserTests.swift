@@ -184,6 +184,14 @@ let privateModeStatusCases: [ParserCase] = [
     "\u{1B}[?1003;4$y",
     .privateModeStatus(PrivateModeStatus(mode: 1_003, state: .permanentlyReset))
   ),
+  ParserCase(
+    "\u{1B}[?1006;1$y",
+    .privateModeStatus(PrivateModeStatus(mode: 1_006, state: .set))
+  ),
+  ParserCase(
+    "\u{1B}[?2026;2$y",
+    .privateModeStatus(PrivateModeStatus(mode: 2_026, state: .reset))
+  ),
 ]
 
 let malformedPrivateModeStatusCases: [ParserCase] = [
@@ -1170,6 +1178,19 @@ func `parser emits one unknown event for non G APC`() {
   let bytes = apc("Xhello")
 
   #expect(parser.feed(contentsOf: bytes) == [.unknown(bytes)])
+}
+
+@Test
+func `parser preserves foreign Kitty graphics responses as semantic events`() {
+  var parser = InputParser()
+
+  #expect(
+    parser.feed(contentsOf: kittyGraphicsAPC("a=q,i=99;OK")) == [
+      .kittyGraphicsResponse(
+        KittyGraphicsResponse(id: KittyImageID(rawValue: 99), message: "OK")
+      ),
+    ]
+  )
 }
 
 @Test(arguments: malformedKittyGraphicsAPCCases)

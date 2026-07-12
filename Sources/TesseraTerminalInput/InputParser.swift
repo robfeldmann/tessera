@@ -402,6 +402,7 @@ public struct InputParser: Sendable {
 
   private func parseModifierAndKind(
     parameters: CSIParameters,
+    allowingOmittedModifiers: Bool = false,
     into modifiers: inout Modifiers,
     and kind: inout KeyEventKind
   ) -> Bool {
@@ -416,18 +417,25 @@ public struct InputParser: Sendable {
     }
 
     let modifierParameter = parameters.parameters[1]
-    guard
-      let encodedModifiers = modifierParameter.first.flatMap(\.self),
-      encodedModifiers > 0
-    else {
-      return false
+    if let encodedModifiers = modifierParameter.first.flatMap(\.self) {
+      guard encodedModifiers > 0 else {
+        return false
+      }
+      let rawModifiers = encodedModifiers - 1
+      guard rawModifiers >= 0, rawModifiers <= Int(UInt8.max) else {
+        return false
+      }
+      modifiers = Modifiers(rawValue: UInt8(rawModifiers))
+    } else {
+      guard
+        allowingOmittedModifiers,
+        parameters.parameters.count == 3,
+        modifierParameter == [nil]
+      else {
+        return false
+      }
+      modifiers = []
     }
-
-    let rawModifiers = encodedModifiers - 1
-    guard rawModifiers >= 0, rawModifiers <= Int(UInt8.max) else {
-      return false
-    }
-    modifiers = Modifiers(rawValue: UInt8(rawModifiers))
 
     if modifierParameter.count > 1 {
       guard let encodedKind = modifierParameter[1], modifierParameter.count == 2 else {
@@ -658,7 +666,14 @@ public struct InputParser: Sendable {
 
     var modifiers: Modifiers = []
     var kind: KeyEventKind = .press
-    guard parseModifierAndKind(parameters: parameters, into: &modifiers, and: &kind) else {
+    guard
+      parseModifierAndKind(
+        parameters: parameters,
+        allowingOmittedModifiers: true,
+        into: &modifiers,
+        and: &kind
+      )
+    else {
       return nil
     }
 

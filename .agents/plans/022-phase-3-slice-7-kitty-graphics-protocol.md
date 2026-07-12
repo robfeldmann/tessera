@@ -52,9 +52,11 @@ demonstrated demand.
 
 Implemented in this slice: `ANSIByteEncoding` now has APC/ST helpers, `InputParser` has a
 bounded APC state, `TerminalDevice`/`TerminalSession` expose cell pixel geometry,
-`TerminalSession.queryKittyGraphicsSupport(id:)` writes a KGP query followed by DA1 for a
-bounded active support probe, and `Frame.placeImage` is backed by first-class KGP command
-encoding and Ghostty snapshot inspection.
+`TerminalSession.queryKittyGraphicsSupport(id:)` supplies the KGP request/DA1 evidence
+used by the session's one permanently cached, bounded active-probe generation. Parser
+evidence—not sending the query or terminal identity—reconciles its support state, and
+`Frame.placeImage` is backed by first-class KGP command encoding and Ghostty snapshot
+inspection.
 
 ### Module placement (resolved, matches the spec exactly)
 
@@ -79,9 +81,9 @@ must not drift from it.
 - Image decoding, scaling, dithering, or any raster processing — Tessera transports bytes;
   PNG/pixel production is the caller's (or Phase 4's) concern.
 - The Phase 4 `Image` view, layout, and hit-testing (Phase 4 work; requires this slice).
-- Non-KGP active probes, terminal-name inference removal, and the broader Phase 3.4
-  capability-detector refactor. This slice owns KGP's `a=q` + DA1 support probe plus APC
-  response parsing.
+- Non-KGP active probes and the broader capability-detector refactor. The current
+  reconciler incorporates this slice's KGP `a=q` + DA1 request and APC response parsing in
+  one bounded cached generation; terminal identity is advisory and never support proof.
 
 ## Phase 1 — APC encoding and the KGP command model
 
@@ -1121,7 +1123,7 @@ Wireframe:
 
 ```text
 Phase3ProtocolsDemo — Graphics                                    80x24
-q quit · 1 paste · ... · N graphics
+q quit · g graphics · m mouse log · d/y/h/t/f/k/s/c/x live controls
 Terminal: 80x24 · cell pixels: 9x18 px
 
 Kitty Graphics Protocol

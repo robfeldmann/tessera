@@ -34,8 +34,8 @@ updated: 2026-07-09
 This plan implements `docs/Spec.md` Phase 3 Slice 10 after the docs slice has been merged.
 Tessera should model cursor styling as application/session policy, not as arbitrary raw
 terminal bytes in a frame. The app explicitly enables cursor styling for the session; once
-enabled, future runtime/view-layer focus changes can request an effective cursor style
-through lifecycle reconciliation. The slice adds semantic support for DECSCUSR cursor
+enabled, live application or future view-layer focus changes use
+`TerminalSession.setCursorStyle(_:)` through lifecycle reconciliation. The slice adds
 shapes (`CSI Ps SP q`) and OSC 12 cursor color (`OSC 12;Pt BEL`), restores shape with
 DECSCUSR `0`, restores cursor color with OSC 112, and includes those resets in
 abnormal-exit cleanup only after an app explicitly opts in.
@@ -71,8 +71,8 @@ machinery those requests will use, but it must not implement the Phase 4 view AP
   queries are not required, can block or vary by terminal, and do not fit the current
   bounded capability-probe model. Restore means terminal/user default via OSC 112.
 - No per-cell or per-frame cursor styling. `Frame.setCursorPosition(_:)` continues to
-  control visibility/position only; focused component requests are future runtime policy,
-  not draw-buffer bytes.
+  control visibility/position only; focused component requests use the live session setter
+  rather than draw-buffer bytes.
 - No terminal-name allowlist that treats passive identity hints as proof of support.
 - No failure when cursor styling is unsupported by the terminal; local I/O write/flush
   errors still behave like existing mode lifecycle errors.
@@ -244,9 +244,10 @@ existing configuration and session-resolution path.
 - Pass the resolved policy/style through
   `TerminalSession.withApplicationTerminal(configuration:io:environment:_:)` into the
   session initializer.
-- Preserve a small package/internal dynamic-apply seam that a future runtime can call when
-  focus changes and a component requests a cursor style. It should reconcile through
-  `ModeLifecycle.apply(applicationModes:)`, not write raw bytes from a view.
+- Expose the live `TerminalSession.setCursorStyle(_:)` setter for enabled cursor-styling
+  policy. It reconciles through `ModeLifecycle.apply`, preserves unrelated application
+  modes and requested/effective/possibly-active lifecycle state, and never writes raw
+  bytes from a view.
 - Keep per-frame cursor visibility untouched: `TerminalSession.draw` still appends
   `cursorVisible(false)` when no frame cursor position is requested and
   `cursorVisible(true)` plus CUP when one is requested. It must not append shape/color on
@@ -266,8 +267,8 @@ existing configuration and session-resolution path.
     no startup cursor-style bytes;
   - enabled policy with a shape-only default resolves to one `.cursorStyle` mode;
   - enabled policy with a color-only default resolves to one `.cursorStyle` mode;
-  - a future dynamic request can override the default through the package/internal apply
-    seam and then restore to the default style;
+  - `setCursorStyle(_:)` overrides or clears the default through the live serialized
+    lifecycle transaction and then can restore the default style;
   - `withApplicationTerminal` exposes cursor-style policy/effective-style introspection.
 - Update existing exact `TerminalApplicationResolution` expectations to include the new
   cursor styling policy/effective-style fields.
@@ -391,8 +392,8 @@ commands verify the slice.
 ### Step 4.1 — Add a cursor styling panel to `Phase3ProtocolsDemo`
 
 - File: `Examples/Sources/Phase3ProtocolsDemo/Phase3ProtocolsDemo.swift`
-- Add a panel after graphics or according to the merged docs slice navigation, e.g. key
-  `8 cursor`.
+- Keep the shared live-control legend (`d/y/h/t/f/k/s/c/x`, with global `q/g/m`) rather
+  than numeric panel navigation; cursor presentation uses the session's live setter.
 - Configure the demo's `TerminalApplicationConfiguration` with a visible opt-in style, for
   example:
 

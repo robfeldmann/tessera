@@ -74,6 +74,16 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and other SGR 4:x styles, underline color/reset, renderer diffing, compatibility with
   the legacy underline bit, snapshots, exact byte tests, and documentation.
 
+- Added Phase 3 runtime protocol control and capability reconciliation: one bounded,
+  permanently cached active-probe generation; serialized failure-safe mode transactions
+  with requested, effective, and possibly-active state; live color, hyperlink,
+  synchronized-output, underline, cursor, mouse, focus, and Kitty keyboard policy
+  controls; configurable Kitty enhancement flags and advisory terminfo underline
+  compatibility; injected emergency-cleanup storage for deterministic tests; and a tested
+  runtime-control demo covering full-mask Kitty input, terminal-specific hyperlink and
+  underline behavior, stable Kitty graphics failure recovery, and explicit full-screen
+  repaint.
+
 - Added Windows support for Ghostty-backed snapshot tests behind the
   `TESSERA_GHOSTTY_WINDOWS=1` package-manifest gate, linking the static
   `ghostty-vt-static.lib` so no runtime DLL discovery is needed.

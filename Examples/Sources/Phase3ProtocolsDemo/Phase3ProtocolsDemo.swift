@@ -1,23 +1,11 @@
 import ExampleSupport
 import Foundation
+import Phase3ProtocolsDemoSupport
 import TesseraTerminal
 import TesseraTerminalANSI
 
 @main
 enum Phase3ProtocolsDemo {
-  private static let tabs: [DemoTab] = [
-    DemoTab(key: "0", label: "Underline", panel: .underline),
-    DemoTab(key: "1", label: "Paste", panel: .paste),
-    DemoTab(key: "2", label: "Focus", panel: .focus),
-    DemoTab(key: "3", label: "Mouse", panel: .mouse),
-    DemoTab(key: "4", label: "Keys", panel: .keyboard),
-    DemoTab(key: "5", label: "Links", panel: .links),
-    DemoTab(key: "6", label: "Caps", panel: .capabilities),
-    DemoTab(key: "7", label: "Graphics", panel: .graphics),
-    DemoTab(key: "8", label: "Clip", panel: .clip),
-    DemoTab(key: "9", label: "Cursor", panel: .cursor),
-  ]
-
   private static let cursorColorPresets: [CursorColor?] = [
     CursorColor(red: 0x7D, green: 0xFF, blue: 0xAF),
     CursorColor(red: 0xFF, green: 0x5F, blue: 0x5F),
@@ -25,6 +13,20 @@ enum Phase3ProtocolsDemo {
     CursorColor(red: 0x5F, green: 0xFF, blue: 0xFF),
     nil,
   ]
+
+  private static let controlSequenceFileURI: String = {
+    let sourceFile = URL(fileURLWithPath: #filePath)
+    let repositoryRoot =
+      sourceFile
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+    return
+      repositoryRoot
+      .appendingPathComponent("Sources/TesseraTerminalANSI/ControlSequence.swift")
+      .absoluteString
+  }()
 
   private static let cursorShapes: [CursorShape] = [
     .blinkingBar,
@@ -62,7 +64,9 @@ enum Phase3ProtocolsDemo {
       capabilityDetection: .active,
       mouseTracking: .anyEvent,
       keyboardProtocol: .kittyIfAvailable,
+      kittyKeyboardFlags: DemoControls.kittyKeyboardFlags,
       underlineRendering: .extended,
+      underlineCompatibility: .terminfoDatabase,
       clipboardWriting: .enabled(.default),
       cursorStyling: .enabled(
         default: CursorStyle(
@@ -93,50 +97,13 @@ enum Phase3ProtocolsDemo {
     terminal: isolated TerminalSession
   ) async -> Bool {
     switch event {
-    case .key(let key) where key == Key(code: .character("q")):
-      return true
-
     case .key(let key):
       state.append(event)
       state.lastKeyDescription = describe(key)
-      let didHandleCursorKey: Bool
-      if state.selectedPanel == .cursor {
-        didHandleCursorKey = await handleCursorKey(
-          key,
-          state: &state,
-          terminal: terminal
-        )
-      } else {
-        didHandleCursorKey = false
+      guard let action = DemoControls.action(for: key, panel: state.selectedPanel) else {
+        break
       }
-      let didHandleUnderlineKey: Bool
-      if state.selectedPanel == .underline {
-        didHandleUnderlineKey = handleUnderlineKey(key, terminal: terminal)
-      } else {
-        didHandleUnderlineKey = false
-      }
-      if state.selectedPanel == .clip, key == Key(code: .character("c")) {
-        do {
-          state.lastClipboardResult = try await terminal.copyToClipboard(
-            ClipboardDemo.sampleText,
-            intent: .userInitiated
-          )
-          state.lastClipboardErrorDescription = nil
-        } catch {
-          state.lastClipboardResult = nil
-          state.lastClipboardErrorDescription = String(describing: error)
-        }
-      } else if didHandleUnderlineKey {
-        return false
-      } else if didHandleCursorKey {
-        return false
-      } else if let tab = tabs.first(where: { key == Key(code: .character($0.key)) }) {
-        state.selectedPanel = tab.panel
-      } else if key == Key(code: .character("g")) {
-        state.forceKittyGraphicsOutput.toggle()
-      } else if key == Key(code: .character("m")) {
-        state.logsMouseMotionOutsideMousePanel.toggle()
-      }
+      return await handle(action, state: &state, terminal: terminal)
     case .paste(let text):
       state.append(event)
       state.lastPaste = text
@@ -158,17 +125,18 @@ enum Phase3ProtocolsDemo {
       if state.graphicsProbe == .pending, response.id == GraphicsDemo.probeID {
         state.graphicsProbe = response.success ? .supported : .unsupported
       }
+      if response.id == GraphicsDemo.imageID, !response.success {
+        state.graphicsFailure = response
+        state.hasTransmittedGraphics = false
+        state.hasVisibleGraphics = false
+      }
       state.append(event)
 
     case .kittyKeyboardEnhancementFlags:
-      state.keyboardProbe = .supported
       state.append(event)
     case .primaryDeviceAttributes:
       if state.graphicsProbe == .pending {
         state.graphicsProbe = .unsupported
-      }
-      if state.keyboardProbe == .probing {
-        state.keyboardProbe = .unsupported
       }
       state.append(event)
     case .privateModeStatus(let status):
@@ -183,6 +151,10 @@ enum Phase3ProtocolsDemo {
       }
       if case .press = event.kind, let hit {
         state.selectedPanel = hit.panel
+        if hit.panel == .graphics {
+          state.resetGraphicsForFullRepaint()
+        }
+        terminal.invalidateRenderer()
       }
       if state.shouldAppendMouseEvent(event) {
         state.append(.mouse(event))
@@ -202,76 +174,130 @@ enum Phase3ProtocolsDemo {
     return false
   }
 
-  private static func handleCursorKey(
-    _ key: Key,
+  private static func handle(
+    _ action: DemoKeyAction,
     state: inout DemoState,
     terminal: isolated TerminalSession
   ) async -> Bool {
-    guard key.kind != .release else {
-      return false
-    }
+    switch action {
+    case .copyClipboard:
+      do {
+        state.lastClipboardResult = try await terminal.copyToClipboard(
+          ClipboardDemo.sampleText,
+          intent: .userInitiated
+        )
+        state.lastClipboardErrorDescription = nil
+      } catch {
+        state.lastClipboardResult = nil
+        state.lastClipboardErrorDescription = String(describing: error)
+      }
 
-    switch key.code {
-    case .character("s"):
-      state.cursorShapeIndex = (state.cursorShapeIndex + 1) % cursorShapes.count
+    case .cycleColorCapability:
+      terminal.setColorCapability(
+        DemoControls.nextColorCapability(after: terminal.colorCapability)
+      )
+
+    case .cycleCursorColor:
+      state.cursorColorIndex = DemoControls.nextIndex(
+        after: state.cursorColorIndex,
+        count: cursorColorPresets.count
+      )
       await applySelectedCursorStyle(state: &state, terminal: terminal)
-      return true
 
-    case .character("x"):
-      state.cursorColorIndex = (state.cursorColorIndex + 1) % cursorColorPresets.count
+    case .cycleCursorShape:
+      state.cursorShapeIndex = DemoControls.nextIndex(
+        after: state.cursorShapeIndex,
+        count: cursorShapes.count
+      )
       await applySelectedCursorStyle(state: &state, terminal: terminal)
+
+    case .cycleKeyboardProtocol:
+      do {
+        try await terminal.setKeyboardProtocol(
+          DemoControls.nextKeyboardProtocol(after: terminal.keyboardProtocol)
+        )
+        state.lastRuntimeControlErrorDescription = nil
+      } catch {
+        state.lastRuntimeControlErrorDescription = String(describing: error)
+      }
+
+    case .cycleMouseTracking:
+      do {
+        try await terminal.setMouseTracking(
+          DemoControls.nextMouseTracking(after: terminal.mouseTracking)
+        )
+        state.lastRuntimeControlErrorDescription = nil
+      } catch {
+        state.lastRuntimeControlErrorDescription = String(describing: error)
+      }
+
+    case .moveCursor(let movement):
+      switch movement {
+      case .down:
+        moveCursorMarker(columnDelta: 0, rowDelta: 1, state: &state)
+      case .left:
+        moveCursorMarker(columnDelta: -1, rowDelta: 0, state: &state)
+      case .right:
+        moveCursorMarker(columnDelta: 1, rowDelta: 0, state: &state)
+      case .up:
+        moveCursorMarker(columnDelta: 0, rowDelta: -1, state: &state)
+      }
+
+    case .repaintAllCells:
+      if state.selectedPanel == .graphics {
+        state.resetGraphicsForFullRepaint()
+      }
+      terminal.invalidateRenderer()
+
+    case .quit:
       return true
 
-    case .down:
-      moveCursorMarker(columnDelta: 0, rowDelta: 1, state: &state)
-      return true
+    case .selectPanel(let panel):
+      state.selectedPanel = panel
+      if panel == .graphics {
+        state.resetGraphicsForFullRepaint()
+      }
+      terminal.invalidateRenderer()
 
-    case .left:
-      moveCursorMarker(columnDelta: -1, rowDelta: 0, state: &state)
-      return true
+    case .toggleFocusEvents:
+      do {
+        try await terminal.setFocusEvents(
+          DemoControls.nextFocusEventsEnabled(after: terminal.focusEventsEnabled)
+        )
+        state.lastRuntimeControlErrorDescription = nil
+      } catch {
+        state.lastRuntimeControlErrorDescription = String(describing: error)
+      }
 
-    case .right:
-      moveCursorMarker(columnDelta: 1, rowDelta: 0, state: &state)
-      return true
+    case .toggleGraphicsOutput:
+      state.forceKittyGraphicsOutput.toggle()
+      state.resetGraphicsForFullRepaint()
+      terminal.invalidateRenderer()
 
-    case .up:
-      moveCursorMarker(columnDelta: 0, rowDelta: -1, state: &state)
-      return true
+    case .toggleHyperlinks:
+      terminal.setHyperlinkRendering(
+        DemoControls.nextHyperlinkRendering(after: terminal.hyperlinkRendering)
+      )
 
-    case .backspace, .capsLock, .character, .delete, .end, .enter, .escape,
-      .function, .home, .insert, .keypad, .media, .menu, .modifier, .numLock,
-      .pageDown, .pageUp, .pause, .printScreen, .scrollLock, .tab, .unidentified:
-      return false
+    case .toggleMouseLogging:
+      state.logsMouseMotionOutsideMousePanel.toggle()
+
+    case .toggleSynchronizedOutput:
+      terminal.setSynchronizedOutput(
+        DemoControls.nextSynchronizedOutput(after: terminal.synchronizedOutput)
+      )
+
+    case .toggleUnderlineColor:
+      terminal.setUnderlineRendering(
+        DemoControls.togglingUnderlineColor(in: terminal.underlineRendering)
+      )
+
+    case .toggleUnderlineStyle:
+      terminal.setUnderlineRendering(
+        DemoControls.togglingUnderlineStyle(in: terminal.underlineRendering)
+      )
     }
-  }
-
-  private static func handleUnderlineKey(
-    _ key: Key,
-    terminal: isolated TerminalSession
-  ) -> Bool {
-    guard key.kind != .release else {
-      return false
-    }
-
-    switch key.code {
-    case .character("s"):
-      var policy = terminal.underlineRendering
-      policy.style = policy.style == .preserveVariants ? .singleOnly : .preserveVariants
-      terminal.setUnderlineRendering(policy)
-      return true
-
-    case .character("c"):
-      var policy = terminal.underlineRendering
-      policy.color = policy.color == .emit ? .omit : .emit
-      terminal.setUnderlineRendering(policy)
-      return true
-
-    case .backspace, .capsLock, .character, .delete, .down, .end, .enter, .escape,
-      .function, .home, .insert, .keypad, .left, .media, .menu, .modifier, .numLock,
-      .pageDown, .pageUp, .pause, .printScreen, .right, .scrollLock, .tab, .unidentified,
-      .up:
-      return false
-    }
+    return false
   }
 
   private static func applySelectedCursorStyle(
@@ -309,25 +335,34 @@ enum Phase3ProtocolsDemo {
     terminal: isolated TerminalSession,
     state: inout DemoState
   ) async throws {
+    if state.graphicsProbe == .notStarted {
+      state.graphicsProbe =
+        switch terminal.capabilities.kittyGraphics {
+        case .supported:
+          .supported
+        case .unsupported:
+          .unsupported
+        case .probing:
+          .pending
+        case .notDetectable, .unknown:
+          .unknown
+        }
+    }
     let graphicsCapability = state.kittyGraphicsCapability(
       from: terminal.capabilities.kittyGraphics
     )
-    let shouldStartGraphicsProbe =
-      state.selectedPanel == .graphics && state.graphicsProbe == .notStarted
-      && !state.forceKittyGraphicsOutput
-    if shouldStartGraphicsProbe {
-      try await terminal.queryKittyGraphicsSupport(id: GraphicsDemo.probeID)
-      state.graphicsProbe = .pending
-    }
-    let graphicsOutputEnabled =
+    let graphicsRequested =
       state.graphicsProbe == .supported || state.forceKittyGraphicsOutput
-    if state.selectedPanel == .graphics && graphicsOutputEnabled {
-      if !state.hasTransmittedGraphics {
-        try await terminal.transmitImage(GraphicsDemo.transmission)
-        state.hasTransmittedGraphics = true
-      }
-      state.hasVisibleGraphics = true
-    } else if state.hasVisibleGraphics {
+    let graphicsOutputEnabled = graphicsRequested && state.graphicsFailure == nil
+    let shouldTransmitGraphics =
+      state.selectedPanel == .graphics
+      && graphicsOutputEnabled
+      && !state.hasTransmittedGraphics
+    let shouldPlaceGraphics =
+      state.selectedPanel == .graphics
+      && graphicsOutputEnabled
+      && state.hasTransmittedGraphics
+    if state.selectedPanel != .graphics, state.hasVisibleGraphics {
       try await terminal.deleteImages(
         .placement(GraphicsDemo.imageID, GraphicsDemo.placementID)
       )
@@ -335,6 +370,7 @@ enum Phase3ProtocolsDemo {
     }
     let cellPixelSize = await terminal.cellPixelSize
     let effectiveCursorStyle = terminal.effectiveCursorStyle
+    let modeReport = terminal.protocolModeReport
     try await terminal.draw { frame in
       let layout = drawHeader(frame: frame, state: state, cellPixelSize: cellPixelSize)
       state.tabHitRegions = layout.tabHitRegions
@@ -358,7 +394,9 @@ enum Phase3ProtocolsDemo {
         drawCapabilitiesPanel(
           frame: frame,
           capabilities: terminal.capabilities,
-          enabledModes: terminal.enabledProtocolModes,
+          colorCapability: terminal.colorCapability,
+          effectiveColorCapability: terminal.effectiveColorCapability,
+          modeReport: modeReport,
           hyperlinkRendering: terminal.hyperlinkRendering,
           underlineRendering: terminal.underlineRendering,
           synchronizedOutput: terminal.synchronizedOutput,
@@ -394,7 +432,14 @@ enum Phase3ProtocolsDemo {
         drawRecentEvents(frame: frame, state: state, top: contentTop + 15)
 
       case .focus:
-        drawFocusPanel(frame: frame, state: state, top: contentTop)
+        drawFocusPanel(
+          frame: frame,
+          focusEventsEnabled: terminal.focusEventsEnabled,
+          modeReport: modeReport,
+          lastErrorDescription: state.lastRuntimeControlErrorDescription,
+          state: state,
+          top: contentTop
+        )
 
       case .graphics:
         drawGraphicsPanel(
@@ -403,25 +448,57 @@ enum Phase3ProtocolsDemo {
           cellPixelSize: cellPixelSize,
           graphicsCapability: graphicsCapability,
           graphicsOutputEnabled: graphicsOutputEnabled,
+          graphicsPlacementEnabled: shouldPlaceGraphics,
+          graphicsFailure: state.graphicsFailure,
           top: contentTop
         )
 
       case .mouse:
-        drawMousePanel(frame: frame, state: state, top: contentTop)
+        drawMousePanel(
+          frame: frame,
+          mouseTracking: terminal.mouseTracking,
+          modeReport: modeReport,
+          lastErrorDescription: state.lastRuntimeControlErrorDescription,
+          state: state,
+          top: contentTop
+        )
 
       case .keyboard:
-        drawKeyboardPanel(frame: frame, state: state, top: contentTop)
+        drawKeyboardPanel(
+          frame: frame,
+          keyboardProtocol: terminal.keyboardProtocol,
+          keyboardFlags: terminal.kittyKeyboardFlags,
+          keyboardEvidence: terminal.capabilities.kittyKeyboard,
+          modeReport: modeReport,
+          lastErrorDescription: state.lastRuntimeControlErrorDescription,
+          state: state,
+          top: contentTop
+        )
 
       case .links:
-        drawLinksPanel(frame: frame, state: state, top: contentTop)
+        drawLinksPanel(
+          frame: frame,
+          hyperlinkRendering: terminal.hyperlinkRendering,
+          state: state,
+          top: contentTop
+        )
 
       case .underline:
         drawUnderlinePanel(
           frame: frame,
           underlineRendering: terminal.underlineRendering,
+          declarations: terminal.capabilities.underlineDeclarations,
           top: contentTop
         )
       }
+    }
+    if shouldPlaceGraphics {
+      state.hasVisibleGraphics = true
+    }
+    if shouldTransmitGraphics {
+      try await terminal.transmitImage(GraphicsDemo.transmission)
+      state.hasTransmittedGraphics = true
+      try await draw(terminal: terminal, state: &state)
     }
   }
 
@@ -446,19 +523,32 @@ enum Phase3ProtocolsDemo {
     var column = 0
     var row = 1
     var tabHitRegions: [(region: Rect, panel: DemoPanel)] = []
-    for tab in tabs {
-      let segment = " \(tab.key) \(tab.label) "
-      let segmentWidth = segment.count
+    for tab in DemoControls.tabs {
+      let prefix = " "
+      let key = String(tab.key)
+      let suffix = " \(tab.label) "
+      let segmentWidth = prefix.count + key.count + suffix.count
       if column > 0, column + segmentWidth > availableColumns {
         row += 1
         column = 0
       }
 
-      let style =
-        tab.panel == state.selectedPanel
+      let selected = tab.panel == state.selectedPanel
+      let labelStyle =
+        selected
         ? Style(attributes: [.reverse, .bold])
         : Style(attributes: [.dim])
-      frame.write(segment, at: position(column, row), style: style)
+      let keyStyle =
+        selected
+        ? Style(foreground: .ansi(.brightCyan), attributes: [.reverse, .bold])
+        : Style(foreground: .ansi(.brightCyan), attributes: [.bold])
+      frame.write(prefix, at: position(column, row), style: labelStyle)
+      frame.write(key, at: position(column + prefix.count, row), style: keyStyle)
+      frame.write(
+        suffix,
+        at: position(column + prefix.count + key.count, row),
+        style: labelStyle
+      )
       tabHitRegions.append(
         (
           region: Rect(column: column, row: row, columns: segmentWidth, rows: 1),
@@ -470,15 +560,45 @@ enum Phase3ProtocolsDemo {
 
     let tabBarRows = max(row, 1)
     let hintsRow = 1 + tabBarRows
-    frame.write(
-      "q quit · g opt-in graphics · m motion (\(state.motionLogDescription))"
-        + " · click a tab or press its number to switch",
+    drawKeyboardHints(
+      frame: frame,
+      hints: [
+        ("q", " quit"),
+        ("r", " repaint all cells"),
+        ("g", " force graphics output"),
+        ("m", " pointer motion outside Mouse (\(state.outsideMotionLogDescription))"),
+        ("0–9", " switch panels"),
+      ],
       at: position(0, hintsRow),
       style: Style(attributes: [.dim])
     )
 
     let contentTop = tabBarRows + 3
     return DemoLayout(contentTop: contentTop, tabHitRegions: tabHitRegions)
+  }
+
+  private static func drawKeyboardHints(
+    frame: borrowing Frame,
+    hints: [(key: String, label: String)],
+    at origin: TerminalPosition,
+    style: Style
+  ) {
+    var column = origin.column
+    for (index, hint) in hints.enumerated() {
+      if index > 0 {
+        let separator = " · "
+        frame.write(separator, at: position(column, origin.row), style: style)
+        column += separator.count
+      }
+      frame.write(
+        hint.key,
+        at: position(column, origin.row),
+        style: Style(foreground: .ansi(.brightCyan), attributes: [.bold])
+      )
+      column += hint.key.count
+      frame.write(hint.label, at: position(column, origin.row), style: style)
+      column += hint.label.count
+    }
   }
 
   private static func drawSmallTerminalMessage(
@@ -507,18 +627,22 @@ enum Phase3ProtocolsDemo {
 
   private static func minimumTerminalSize(for panel: DemoPanel) -> TerminalSize {
     switch panel {
-    case .clip, .focus, .keyboard, .links, .paste:
+    case .clip, .links, .paste:
       return TerminalSize(columns: 50, rows: 24)
+    case .focus:
+      return TerminalSize(columns: 64, rows: 28)
+    case .keyboard:
+      return TerminalSize(columns: 76, rows: 34)
     case .underline:
       return TerminalSize(columns: 72, rows: 20)
     case .cursor:
       return TerminalSize(columns: 60, rows: 30)
     case .capabilities:
-      return TerminalSize(columns: 42, rows: 24)
+      return TerminalSize(columns: 76, rows: 34)
     case .graphics:
       return TerminalSize(columns: 48, rows: 20)
     case .mouse:
-      return TerminalSize(columns: 32, rows: 22)
+      return TerminalSize(columns: 76, rows: 30)
     }
   }
 
@@ -611,7 +735,14 @@ enum Phase3ProtocolsDemo {
     }
   }
 
-  private static func drawFocusPanel(frame: borrowing Frame, state: DemoState, top: Int) {
+  private static func drawFocusPanel(
+    frame: borrowing Frame,
+    focusEventsEnabled: Bool,
+    modeReport: TerminalProtocolModeReport,
+    lastErrorDescription: String?,
+    state: DemoState,
+    top: Int
+  ) {
     drawLastEvent(frame: frame, state: state, top: top)
 
     frame.write(
@@ -619,24 +750,46 @@ enum Phase3ProtocolsDemo {
       at: position(0, top + 3),
       style: Style(attributes: [.bold])
     )
-    frame.write("state: \(state.focusState.description)", at: position(2, top + 4))
+    frame.write(
+      "observed state: \(state.focusState.description)", at: position(2, top + 4))
     frame.write("last transition: \(state.lastFocusTransition)", at: position(2, top + 5))
+    drawKeyboardHints(
+      frame: frame,
+      hints: [("f", " focus reporting · requested \(focusEventsEnabled ? "on" : "off")")],
+      at: position(2, top + 7),
+      style: Style(attributes: [.bold])
+    )
+    frame.write(
+      modeStateDescription(.focusEvents, report: modeReport),
+      at: position(2, top + 8)
+    )
+    drawRuntimeControlError(
+      frame: frame,
+      description: lastErrorDescription,
+      row: top + 9
+    )
 
-    frame.write("Try it", at: position(0, top + 8), style: Style(attributes: [.bold]))
+    frame.write("Try it", at: position(0, top + 11), style: Style(attributes: [.bold]))
     frame.write(
       "Switch to another terminal tab/window, then return here.",
-      at: position(2, top + 9)
+      at: position(2, top + 12)
     )
     frame.write(
-      "Some terminals only report focus while the alternate screen is active.",
-      at: position(2, top + 12),
+      "An event parsed before disabling remains queued for the application.",
+      at: position(2, top + 13),
       style: Style(attributes: [.dim])
     )
-
-    drawRecentEvents(frame: frame, state: state, top: top + 13)
+    drawRecentEvents(frame: frame, state: state, top: top + 15)
   }
 
-  private static func drawMousePanel(frame: borrowing Frame, state: DemoState, top: Int) {
+  private static func drawMousePanel(
+    frame: borrowing Frame,
+    mouseTracking: MouseTrackingMode,
+    modeReport: TerminalProtocolModeReport,
+    lastErrorDescription: String?,
+    state: DemoState,
+    top: Int
+  ) {
     drawLastEvent(frame: frame, state: state, top: top)
 
     frame.write(
@@ -653,17 +806,38 @@ enum Phase3ProtocolsDemo {
       frame.write("modifiers: \(describe(mouse.modifiers))", at: position(2, top + 6))
     } else {
       frame.write(
-        "move, click, drag, or scroll inside the terminal",
-        at: position(2, top + 5)
-      )
+        "move, click, drag, or scroll inside the terminal", at: position(2, top + 5))
     }
+    drawKeyboardHints(
+      frame: frame,
+      hints: [
+        ("t", " tracking: \(describe(mouseTracking))"),
+        ("m", " logging: \(state.motionLogDescription)"),
+      ],
+      at: position(2, top + 7),
+      style: Style(attributes: [.bold])
+    )
+    frame.write(
+      mouseModeStateDescription(modeReport),
+      at: position(2, top + 8)
+    )
+    drawRuntimeControlError(
+      frame: frame,
+      description: lastErrorDescription,
+      row: top + 9
+    )
 
-    drawMouseGrid(frame: frame, state: state, offset: top - 4)
-    drawRecentEvents(frame: frame, state: state, top: top + 16)
+    drawMouseGrid(frame: frame, state: state, offset: top - 1)
+    drawRecentEvents(frame: frame, state: state, top: top + 19)
   }
 
   private static func drawKeyboardPanel(
     frame: borrowing Frame,
+    keyboardProtocol: KeyboardProtocolMode,
+    keyboardFlags: KittyKeyboardFlags,
+    keyboardEvidence: CapabilityStatus,
+    modeReport: TerminalProtocolModeReport,
+    lastErrorDescription: String?,
     state: DemoState,
     top: Int
   ) {
@@ -684,30 +858,61 @@ enum Phase3ProtocolsDemo {
       )
     } else {
       frame.write(
-        "press keys now",
-        at: position(2, top + 4),
-        style: Style(attributes: [.dim])
-      )
+        "press keys now", at: position(2, top + 4), style: Style(attributes: [.dim]))
     }
 
-    frame.write(
-      "Kitty protocol notes",
-      at: position(0, top + 11),
+    drawKeyboardHints(
+      frame: frame,
+      hints: [
+        (
+          "k",
+          " policy: \(describe(keyboardProtocol)) · evidence: \(describe(keyboardEvidence))"
+        ),
+      ],
+      at: position(2, top + 11),
       style: Style(attributes: [.bold])
     )
     frame.write(
-      "Press Escape, Tab, arrows, modified letters, and hold a key for repeat.",
+      "requested flags: \(keyboardFlags.rawValue)",
       at: position(2, top + 12)
     )
+    frame.write(describe(keyboardFlags), at: position(4, top + 13))
     frame.write(
-      "Unsupported terminals should still show legacy key events below.",
-      at: position(2, top + 13)
+      "effective Kitty: \(modeStateDescription(.kittyKeyboard, report: modeReport))",
+      at: position(2, top + 14)
     )
-
-    drawRecentEvents(frame: frame, state: state, top: top + 16)
+    drawRuntimeControlError(
+      frame: frame,
+      description: lastErrorDescription,
+      row: top + 15
+    )
+    frame.write(
+      "Report All Keys is requested; bare modifiers and text-key releases are observable.",
+      at: position(2, top + 17),
+      style: Style(attributes: [.dim])
+    )
+    drawKeyboardHints(
+      frame: frame,
+      hints: [
+        ("Shift", ""),
+        ("Ctrl", ""),
+        ("Option", ""),
+        ("Cmd", ""),
+        ("Esc", ""),
+        ("arrows", " show event kinds and modifier state"),
+      ],
+      at: position(2, top + 18),
+      style: Style()
+    )
+    drawRecentEvents(frame: frame, state: state, top: top + 22)
   }
 
-  private static func drawLinksPanel(frame: borrowing Frame, state: DemoState, top: Int) {
+  private static func drawLinksPanel(
+    frame: borrowing Frame,
+    hyperlinkRendering: HyperlinkRenderingMode,
+    state: DemoState,
+    top: Int
+  ) {
     drawLastEvent(frame: frame, state: state, top: top)
 
     frame.write(
@@ -721,6 +926,7 @@ enum Phase3ProtocolsDemo {
       text: "Tessera Spec",
       uri: "https://github.com/robfeldmann/tessera/blob/main/docs/Spec.md",
       id: "docs",
+      enabled: hyperlinkRendering == .enabled,
       row: top + 5
     )
     writeLink(
@@ -729,34 +935,43 @@ enum Phase3ProtocolsDemo {
       text: "GH-123 terminal protocols",
       uri: "https://github.com/robfeldmann/tessera/issues/123",
       id: "issue-123",
+      enabled: hyperlinkRendering == .enabled,
       row: top + 6
     )
     writeLink(
       frame: frame,
       label: "File:",
       text: "Sources/TesseraTerminalANSI/ControlSequence.swift",
-      uri: "file://Sources/TesseraTerminalANSI/ControlSequence.swift",
+      uri: controlSequenceFileURI,
       id: "control-sequence",
+      enabled: hyperlinkRendering == .enabled,
       row: top + 7
     )
-
-    frame.write(
-      "Plain fallback",
-      at: position(0, top + 10),
+    drawKeyboardHints(
+      frame: frame,
+      hints: [("h", " rendering: \(describe(hyperlinkRendering))")],
+      at: position(2, top + 9),
       style: Style(attributes: [.bold])
     )
     frame.write(
-      "The visible text above remains readable even when OSC 8 is unsupported.",
+      "Visible text remains readable when rendering is disabled or unsupported.",
+      at: position(2, top + 10),
+      style: Style(attributes: [.dim])
+    )
+    frame.write(
+      hyperlinkRendering == .enabled
+        ? "Command-click a link to open it; hover affordances belong to the terminal."
+        : "Links are dimmed and carry no OSC 8 metadata while rendering is disabled.",
       at: position(2, top + 11),
       style: Style(attributes: [.dim])
     )
-
-    drawRecentEvents(frame: frame, state: state, top: top + 14)
+    drawRecentEvents(frame: frame, state: state, top: top + 13)
   }
 
   private static func drawUnderlinePanel(
     frame: borrowing Frame,
     underlineRendering: UnderlineRenderingPolicy,
+    declarations: TerminfoUnderlineDeclarations,
     top: Int
   ) {
     frame.write(
@@ -770,8 +985,14 @@ enum Phase3ProtocolsDemo {
       style: Style(attributes: [.dim])
     )
     frame.write(
-      "controls: s toggle style · c toggle color",
+      "terminfo declaration: \(describe(declarations)) (advisory)",
       at: position(2, top + 2),
+      style: Style(attributes: [.dim])
+    )
+    drawKeyboardHints(
+      frame: frame,
+      hints: [("s", " toggle style"), ("c", " toggle color")],
+      at: position(2, top + 3),
       style: Style(attributes: [.dim])
     )
 
@@ -819,6 +1040,11 @@ enum Phase3ProtocolsDemo {
       at: position(2, top + 13),
       style: Style(attributes: [.dim])
     )
+    frame.write(
+      "Extension toggles are experiments; unsupported terminals may render corrupt cells.",
+      at: position(2, top + 14),
+      style: Style(attributes: [.dim])
+    )
   }
 
   private static func drawClipPanel(
@@ -835,9 +1061,11 @@ enum Phase3ProtocolsDemo {
       at: position(0, top + 3),
       style: Style(attributes: [.bold])
     )
-    frame.write(
-      "Press c to copy sample text with intent: .userInitiated.",
-      at: position(2, top + 5)
+    drawKeyboardHints(
+      frame: frame,
+      hints: [("c", " copy sample text with intent: .userInitiated")],
+      at: position(2, top + 5),
+      style: Style()
     )
     frame.write(
       "Sample: \(ClipboardDemo.sampleText)",
@@ -945,8 +1173,13 @@ enum Phase3ProtocolsDemo {
       at: position(2, top + 12)
     )
 
-    frame.write(
-      "s shape · x color · arrows move · restored on exit",
+    drawKeyboardHints(
+      frame: frame,
+      hints: [
+        ("s", " shape"),
+        ("x", " color"),
+        ("arrows", " move · restored on exit"),
+      ],
       at: position(2, top + 14),
       style: Style(attributes: [.bold])
     )
@@ -1002,7 +1235,9 @@ enum Phase3ProtocolsDemo {
   private static func drawCapabilitiesPanel(
     frame: borrowing Frame,
     capabilities: TerminalCapabilities,
-    enabledModes: Set<ModeLifecycle.Mode>,
+    colorCapability: ColorCapabilityOverride,
+    effectiveColorCapability: ColorCapability,
+    modeReport: TerminalProtocolModeReport,
     hyperlinkRendering: HyperlinkRenderingMode,
     underlineRendering: UnderlineRenderingPolicy,
     synchronizedOutput: SynchronizedOutputPolicy,
@@ -1010,97 +1245,163 @@ enum Phase3ProtocolsDemo {
     top: Int
   ) {
     frame.write(
-      "Detected terminal",
+      "Evidence and rendering policy",
       at: position(0, top),
       style: Style(attributes: [.bold])
     )
-    frame.write("identity: \(describe(capabilities.identity))", at: position(2, top + 1))
     frame.write(
-      "nested:   \(capabilities.isNested ? "yes" : "no")",
+      "identity hint: \(describe(capabilities.identity)) (diagnostic only)",
+      at: position(2, top + 1)
+    )
+    frame.write(
+      "nested hint: \(capabilities.isNested ? "yes" : "no")",
       at: position(2, top + 2)
     )
-    frame.write("color:    \(describe(capabilities.color))", at: position(2, top + 3))
     frame.write(
-      "underline: \(describeCompact(underlineRendering))",
+      "color declaration: \(describe(capabilities.color))",
+      at: position(2, top + 3)
+    )
+    drawKeyboardHints(
+      frame: frame,
+      hints: [("d", " color override: \(describe(colorCapability))")],
       at: position(2, top + 4),
-      style: Style(attributes: [.dim])
-    )
-    frame.write(
-      "fallback: truecolor → 256 → 16 → no-color",
-      at: position(2, top + 5),
-      style: Style(attributes: [.dim])
-    )
-    frame.write(
-      "RGB",
-      at: position(2, top + 6),
-      style: Style(foreground: .rgb(255, 0, 0))
-    )
-    frame.write(
-      "indexed",
-      at: position(8, top + 6),
-      style: Style(foreground: .indexed(196))
-    )
-    frame.write(
-      "ANSI",
-      at: position(18, top + 6),
-      style: Style(foreground: .ansi(.brightRed))
-    )
-    frame.write("default", at: position(25, top + 6))
-    frame.write(
-      "NO_COLOR suppresses foreground/background; attributes and links remain.",
-      at: position(2, top + 7),
-      style: Style(attributes: [.dim])
-    )
-
-    frame.write(
-      "Protocol support",
-      at: position(0, top + 9),
       style: Style(attributes: [.bold])
     )
     frame.write(
-      "bracketed paste: \(state.privateModeDescription(2_004))",
-      at: position(2, top + 10)
+      "effective color: \(describe(effectiveColorCapability))",
+      at: position(2, top + 5)
     )
     frame.write(
-      "focus events:    \(state.privateModeDescription(1_004))",
+      "underline declaration: \(describe(capabilities.underlineDeclarations)) (advisory)",
+      at: position(2, top + 6)
+    )
+    frame.write(
+      "active underline: \(describeCompact(underlineRendering))",
+      at: position(2, top + 7)
+    )
+    let declarations = capabilities.underlineDeclarations
+    frame.write(
+      declarations.style == .unknown || declarations.color == .unknown
+        ? "unknown means no readable terminfo entry; it is not a support verdict"
+        : "terminfo declarations are advisory and never prove active terminal support",
+      at: position(2, top + 9),
+      style: Style(attributes: [.dim])
+    )
+    drawKeyboardHints(
+      frame: frame,
+      hints: [("y", " synchronized output: \(describe(synchronizedOutput))")],
+      at: position(2, top + 8),
+      style: Style(attributes: [.bold])
+    )
+
+    frame.write(
+      "Protocol-native evidence",
+      at: position(0, top + 10),
+      style: Style(attributes: [.bold])
+    )
+    frame.write(
+      "paste \(state.privateModeDescription(2_004)) · focus \(state.privateModeDescription(1_004))",
       at: position(2, top + 11)
     )
     frame.write(
-      "SGR mouse:       \(state.mouseCapabilityDescription)"
-        + " (1002/1003/1006)",
+      "mouse \(state.mouseCapabilityDescription) · Kitty keys \(describe(capabilities.kittyKeyboard))",
       at: position(2, top + 12)
     )
     frame.write(
-      "Kitty keyboard:  \(describe(state.keyboardProbe))",
+      "Kitty graphics \(describe(state.kittyGraphicsCapability(from: capabilities.kittyGraphics)))",
       at: position(2, top + 13)
     )
     frame.write(
-      "Kitty graphics:  \(describe(state.kittyGraphicsCapability(from: capabilities.kittyGraphics)))",
+      "OSC 8 \(describe(capabilities.osc8Hyperlinks)) · rendering \(describe(hyperlinkRendering))",
       at: position(2, top + 14)
     )
     frame.write(
-      "OSC 8 links:     \(describe(capabilities.osc8Hyperlinks))"
-        + ", rendering \(describe(hyperlinkRendering))",
+      "sync \(state.privateModeDescription(2_026))",
       at: position(2, top + 15)
     )
-    frame.write(
-      "sync output:     \(state.privateModeDescription(2_026))"
-        + ", policy \(describe(synchronizedOutput))",
-      at: position(2, top + 16)
-    )
 
-    frame.write(
-      "Enabled in this session",
-      at: position(0, top + 18),
-      style: Style(attributes: [.bold])
+    drawModeSet(
+      frame: frame,
+      title: "Requested application modes",
+      modes: modeReport.requested,
+      row: top + 17
     )
+    drawModeSet(
+      frame: frame,
+      title: "Effective terminal modes",
+      modes: modeReport.effective,
+      row: top + 21
+    )
+    drawModeSet(
+      frame: frame,
+      title: "Possibly active after failure",
+      modes: modeReport.possiblyActive,
+      row: top + 25
+    )
+  }
+
+  private static func drawModeSet(
+    frame: borrowing Frame,
+    title: String,
+    modes: Set<ModeLifecycle.Mode>,
+    row: Int
+  ) {
+    frame.write(title, at: position(0, row), style: Style(attributes: [.bold]))
     let lines = wrappedLines(
-      describeEnabledModes(enabledModes),
+      describeEnabledModes(modes),
       width: max(frame.size.columns - 2, 1)
     )
-    for (offset, line) in lines.prefix(max(frame.size.rows - (top + 19), 0)).enumerated() {
-      frame.write(line, at: position(2, top + 19 + offset))
+    for (offset, line) in lines.prefix(2).enumerated() {
+      frame.write(line, at: position(2, row + 1 + offset))
     }
+  }
+
+  private static func drawRuntimeControlError(
+    frame: borrowing Frame,
+    description: String?,
+    row: Int
+  ) {
+    if let description {
+      frame.write(
+        "last update error: \(description)",
+        at: position(2, row),
+        style: Style(foreground: .ansi(.yellow))
+      )
+    } else {
+      frame.write(
+        "last update: ok", at: position(2, row), style: Style(attributes: [.dim]))
+    }
+  }
+
+  private static func modeStateDescription(
+    _ mode: ModeLifecycle.Mode,
+    report: TerminalProtocolModeReport
+  ) -> String {
+    "requested \(report.requested.contains(mode) ? "yes" : "no")"
+      + " · effective \(report.effective.contains(mode) ? "yes" : "no")"
+      + " · possible \(report.possiblyActive.contains(mode) ? "yes" : "no")"
+  }
+
+  private static func mouseModeStateDescription(
+    _ report: TerminalProtocolModeReport
+  ) -> String {
+    let effective =
+      if report.effective.contains(.mouseTracking(.anyEvent)) {
+        "any-event"
+      } else if report.effective.contains(.mouseTracking(.buttonEvents)) {
+        "button-event"
+      } else {
+        "disabled"
+      }
+    let possible =
+      if report.possiblyActive.contains(.mouseTracking(.anyEvent)) {
+        "any-event"
+      } else if report.possiblyActive.contains(.mouseTracking(.buttonEvents)) {
+        "button-event"
+      } else {
+        "none"
+      }
+    return "effective \(effective) · possibly active \(possible)"
   }
 
   private static func drawGraphicsPanel(
@@ -1109,6 +1410,8 @@ enum Phase3ProtocolsDemo {
     cellPixelSize: CellPixelSize?,
     graphicsCapability: CapabilityStatus,
     graphicsOutputEnabled: Bool,
+    graphicsPlacementEnabled: Bool,
+    graphicsFailure: KittyGraphicsResponse?,
     top: Int
   ) {
     let contentRowOffset = top - 4
@@ -1149,11 +1452,37 @@ enum Phase3ProtocolsDemo {
       style: Style(attributes: [.dim])
     )
 
+    if let graphicsFailure {
+      frame.write(
+        "Graphics command failed: \(graphicsFailure.message)",
+        at: placementRegion.origin,
+        style: Style(foreground: .ansi(.yellow), attributes: [.bold])
+      )
+      drawKeyboardHints(
+        frame: frame,
+        hints: [("g", " retry transmission")],
+        at: position(placementRegion.origin.column, placementRegion.origin.row + 2),
+        style: Style(attributes: [.dim])
+      )
+      drawRecentEvents(frame: frame, state: state, top: top + 13)
+      return
+    }
+
     guard graphicsOutputEnabled else {
       frame.write(
         state.graphicsProbe == .pending
           ? "Probing KGP support; waiting for DA1 sentinel."
           : "No KGP response arrived before DA1; image output is disabled.",
+        at: placementRegion.origin,
+        style: Style(attributes: [.dim])
+      )
+      drawRecentEvents(frame: frame, state: state, top: top + 13)
+      return
+    }
+
+    guard graphicsPlacementEnabled else {
+      frame.write(
+        "Repainting before image transmission...",
         at: placementRegion.origin,
         style: Style(attributes: [.dim])
       )
@@ -1181,18 +1510,22 @@ enum Phase3ProtocolsDemo {
     text: String,
     uri: String,
     id: String,
+    enabled: Bool,
     row: Int
   ) {
     frame.write(label, at: position(2, row), style: Style(attributes: [.bold]))
     let style: Style
-    do {
-      style = try Style(
-        foreground: .ansi(.brightBlue),
-        underlineStyle: .single,
-        hyperlink: Hyperlink(uri: uri, id: id)
-      )
-    } catch {
-      style = Style(foreground: .ansi(.brightBlue), underlineStyle: .single)
+    if enabled {
+      do {
+        style = try Style(
+          foreground: .ansi(.brightBlue),
+          hyperlink: Hyperlink(uri: uri, id: id)
+        )
+      } catch {
+        style = Style(foreground: .ansi(.brightBlue))
+      }
+    } else {
+      style = Style(attributes: [.dim])
     }
     frame.write(text, at: position(11, row), style: style)
   }
@@ -1205,7 +1538,7 @@ enum Phase3ProtocolsDemo {
     let pointer = state.lastMouseEvent?.position
     let normalStyle = Style(foreground: .ansi(.brightBlack))
     let hoverStyle = Style(foreground: .ansi(.brightWhite), attributes: [.bold])
-    let pressedStyle = Style(
+    let selectedStyle = Style(
       foreground: .ansi(.brightWhite),
       background: .ansi(.cyan),
       attributes: [.bold]
@@ -1237,12 +1570,12 @@ enum Phase3ProtocolsDemo {
       for column in 0..<MouseGrid.columnCount {
         let cellPosition = MouseGrid.cellPosition(row: row, column: column, offset: offset)
         let isPointerOverCell = pointer == cellPosition
-        let isPressedCell = state.pressedMouseGridCell == cellPosition
+        let isSelectedCell = state.selectedMouseGridCell == cellPosition
         let symbol: String
         let style: Style
-        if isPressedCell {
+        if isSelectedCell {
           symbol = "●"
-          style = pressedStyle
+          style = selectedStyle
         } else if isPointerOverCell {
           symbol = "●"
           style = hoverStyle
@@ -1417,50 +1750,6 @@ private struct DemoLayout {
   }
 }
 
-private struct DemoTab {
-  let key: Character
-  let label: String
-  let panel: DemoPanel
-}
-
-private enum DemoPanel {
-  case capabilities
-  case clip
-  case cursor
-  case focus
-  case graphics
-  case keyboard
-  case links
-  case mouse
-  case paste
-  case underline
-
-  var title: String {
-    switch self {
-    case .capabilities:
-      return "Capabilities"
-    case .clip:
-      return "Clipboard"
-    case .cursor:
-      return "Cursor"
-    case .focus:
-      return "Focus"
-    case .graphics:
-      return "Graphics"
-    case .keyboard:
-      return "Keyboard"
-    case .links:
-      return "Links"
-    case .underline:
-      return "Underline"
-    case .mouse:
-      return "Mouse"
-    case .paste:
-      return "Paste"
-    }
-  }
-}
-
 private enum DemoFocusState {
   case focused
   case unfocused
@@ -1482,6 +1771,7 @@ private enum GraphicsProbeState {
   case notStarted
   case pending
   case supported
+  case unknown
   case unsupported
 
   var description: String {
@@ -1494,16 +1784,17 @@ private enum GraphicsProbeState {
       return "supported"
     case .unsupported:
       return "unsupported"
+    case .unknown:
+      return "unknown"
     }
   }
 }
 
 private struct DemoState {
   private(set) var recentEvents: [String] = []
-  var selectedPanel = DemoPanel.paste
+  var selectedPanel = DemoControls.defaultPanel
   var tabHitRegions: [(region: Rect, panel: DemoPanel)] = []
   var contentRowOffset = 0
-  var keyboardProbe = CapabilityStatus.probing
   var privateModeStatuses: [Int: PrivateModeState] = [:]
   var focusState = DemoFocusState.focused
   var lastFocusTransition = "focused at startup"
@@ -1511,11 +1802,12 @@ private struct DemoState {
   var lastKeyDescription = "none"
   var lastMouseDescription = "none"
   var lastMouseEvent: MouseEvent?
-  var pressedMouseGridCell: TerminalPosition?
+  var selectedMouseGridCell: TerminalPosition?
   var logsMouseMotionOutsideMousePanel = false
   var hasTransmittedGraphics = false
   var hasVisibleGraphics = false
   var forceKittyGraphicsOutput = false
+  var graphicsFailure: KittyGraphicsResponse?
   var graphicsProbe = GraphicsProbeState.notStarted
   var observedPrivateModeSupport: Set<Int> = []
   var cursorMarker = TerminalPosition(column: 12, row: 24)
@@ -1525,6 +1817,7 @@ private struct DemoState {
   var lastClipboardResult: ClipboardWriteResult?
   var lastClipboardErrorDescription: String?
   var lastCursorStyleErrorDescription: String?
+  var lastRuntimeControlErrorDescription: String?
   var sequenceNumber = 0
 
   var mouseCapability: CapabilityStatus {
@@ -1544,6 +1837,13 @@ private struct DemoState {
   }
 
   var motionLogDescription: String {
+    if selectedPanel == .mouse {
+      return "all here; outside \(logsMouseMotionOutsideMousePanel ? "on" : "off")"
+    }
+    return logsMouseMotionOutsideMousePanel ? "on" : "off"
+  }
+
+  var outsideMotionLogDescription: String {
     logsMouseMotionOutsideMousePanel ? "on" : "off"
   }
 
@@ -1555,6 +1855,12 @@ private struct DemoState {
       return "none yet"
     }
     return describe(lastClipboardResult)
+  }
+
+  mutating func resetGraphicsForFullRepaint() {
+    graphicsFailure = nil
+    hasTransmittedGraphics = false
+    hasVisibleGraphics = false
   }
 
   func privateModeCapability(_ mode: Int) -> CapabilityStatus {
@@ -1604,6 +1910,8 @@ private struct DemoState {
       return .unsupported
     case .pending:
       return .probing
+    case .unknown:
+      return .unknown
     case .notStarted:
       return passive
     }
@@ -1627,14 +1935,15 @@ private struct DemoState {
   }
 
   mutating func updateMouseGridPress(for event: MouseEvent) {
-    switch event.kind {
-    case .press:
-      pressedMouseGridCell = MouseGrid.cell(at: event.position, offset: contentRowOffset)
-    case .release:
-      pressedMouseGridCell = nil
-    case .drag, .move, .scroll:
-      break
-    }
+    let hitCell = MouseGrid.cell(
+      at: event.position,
+      offset: contentRowOffset + 3
+    )
+    selectedMouseGridCell = DemoControls.mouseGridSelection(
+      after: selectedMouseGridCell,
+      eventKind: event.kind,
+      hitCell: hitCell
+    )
   }
 
   func pastePreviewLines(limit: Int, width: Int) -> [String] {
@@ -1697,6 +2006,72 @@ private func describe(_ color: ColorCapability) -> String {
     return "no color"
   case .truecolor:
     return "truecolor"
+  case .unknown:
+    return "unknown"
+  }
+}
+
+private func describe(_ capability: ColorCapabilityOverride) -> String {
+  switch capability {
+  case .detect:
+    return "detect"
+  case .force(let color):
+    return "force \(describe(color))"
+  }
+}
+
+private func describe(_ flags: KittyKeyboardFlags) -> String {
+  var names: [String] = []
+  if flags.contains(.disambiguateEscapeCodes) {
+    names.append("disambiguate")
+  }
+  if flags.contains(.reportEventTypes) {
+    names.append("event types")
+  }
+  if flags.contains(.reportAlternateKeys) {
+    names.append("alternate")
+  }
+  if flags.contains(.reportAllKeysAsEscapeCodes) {
+    names.append("all keys")
+  }
+  if flags.contains(.reportAssociatedText) {
+    names.append("associated text")
+  }
+  return names.isEmpty ? "none" : names.joined(separator: " · ")
+}
+
+private func describe(_ mode: KeyboardProtocolMode) -> String {
+  switch mode {
+  case .kittyIfAvailable:
+    return "Kitty if available"
+  case .kittyRequired:
+    return "Kitty required"
+  case .legacyOnly:
+    return "legacy only"
+  }
+}
+
+private func describe(_ mode: MouseTrackingMode) -> String {
+  switch mode {
+  case .anyEvent:
+    return "any-event"
+  case .buttonEvents:
+    return "button-event"
+  case .disabled:
+    return "disabled"
+  }
+}
+
+private func describe(_ declarations: TerminfoUnderlineDeclarations) -> String {
+  "style \(describe(declarations.style)), color \(describe(declarations.color))"
+}
+
+private func describe(_ declaration: TerminfoCapabilityDeclaration) -> String {
+  switch declaration {
+  case .declared:
+    return "declared"
+  case .notDeclared:
+    return "not declared"
   case .unknown:
     return "unknown"
   }

@@ -1,4 +1,6 @@
 import TesseraTerminalANSI
+import TesseraTerminalIO
+import TesseraTerminalInput
 
 /// Advisory support status for a terminal protocol or feature.
 public enum CapabilityStatus: Equatable, Sendable {
@@ -108,6 +110,17 @@ public struct TerminalCapabilities: Equatable, Sendable {
   /// DEC synchronized output advisory support.
   public var synchronizedOutput: CapabilityStatus
 
+  /// Terminfo-database declarations for extended underline style and color output.
+  ///
+  /// These declarations are advisory compatibility metadata, not protocol support proof.
+  public var underlineDeclarations: TerminfoUnderlineDeclarations
+  /// Protocol-native DECRQM evidence keyed by DEC private mode number.
+  ///
+  /// Tessera records only the modes it queries for application protocol support. A
+  /// recognized set/reset state proves that the mode is queryable; it does not override
+  /// explicit application policy.
+  public var privateModeStates: [Int: PrivateModeState]
+
   /// Terminal color advisory support.
   public var color: ColorCapability
 
@@ -127,6 +140,8 @@ public struct TerminalCapabilities: Equatable, Sendable {
     osc8Hyperlinks: CapabilityStatus = .unknown,
     osc52Clipboard: CapabilityStatus = .notDetectable,
     synchronizedOutput: CapabilityStatus = .unknown,
+    underlineDeclarations: TerminfoUnderlineDeclarations = .unknown,
+    privateModeStates: [Int: PrivateModeState] = [:],
     color: ColorCapability = .unknown,
     identity: TerminalIdentity = .unknown,
     isNested: Bool = false
@@ -139,8 +154,58 @@ public struct TerminalCapabilities: Equatable, Sendable {
     self.osc8Hyperlinks = osc8Hyperlinks
     self.osc52Clipboard = osc52Clipboard
     self.synchronizedOutput = synchronizedOutput
+    self.underlineDeclarations = underlineDeclarations
+    self.privateModeStates = privateModeStates
     self.color = color
     self.identity = identity
     self.isNested = isNested
+  }
+}
+
+extension TerminalCapabilities {
+  private static let probedPrivateModeNumbers: Set<Int> = [
+    1_002, 1_003, 1_004, 1_006, 2_004, 2_026,
+  ]
+
+  private static func capabilityStatus(
+    for requiredModes: [Int],
+    in evidence: [Int: PrivateModeState]
+  ) -> CapabilityStatus {
+    if requiredModes.contains(where: { evidence[$0] == .notRecognized }) {
+      return .unsupported
+    }
+    guard requiredModes.allSatisfy({ evidence[$0] != nil }) else {
+      return .unknown
+    }
+    return .supported
+  }
+
+  package mutating func recordPrivateModeStatus(_ status: PrivateModeStatus) {
+    guard Self.probedPrivateModeNumbers.contains(status.mode) else {
+      return
+    }
+    privateModeStates[status.mode] = status.state
+    reconcilePrivateModeCapabilities()
+  }
+
+  package mutating func applyActiveProbeEvidence(
+    _ evidence: ActiveCapabilityProbeEvidence
+  ) {
+    for (mode, state) in evidence.privateModes {
+      recordPrivateModeStatus(PrivateModeStatus(mode: mode, state: state))
+    }
+    kittyGraphics = evidence.kittyGraphics
+    kittyKeyboard = evidence.kittyKeyboard
+    reconcilePrivateModeCapabilities()
+  }
+
+  private mutating func reconcilePrivateModeCapabilities() {
+    bracketedPaste = Self.capabilityStatus(for: [2_004], in: privateModeStates)
+    focusEvents = Self.capabilityStatus(for: [1_004], in: privateModeStates)
+    mouseTracking = Self.capabilityStatus(
+      for: [1_002, 1_003, 1_006],
+      in: privateModeStates
+    )
+    synchronizedOutput = Self.capabilityStatus(for: [2_026], in: privateModeStates)
   }
 }

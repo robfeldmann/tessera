@@ -38,12 +38,17 @@
       self.savedTermios = savedTermios
     }
 
-    package func install(teardownBytes: [UInt8]) async {
-      CleanupRegistry.install(
-        inputFileDescriptor: inputFileDescriptor,
-        outputFileDescriptor: outputFileDescriptor,
-        teardownBytes: teardownBytes,
-        savedTermios: await savedTermios()
+    package func install(
+      teardownBytes: [UInt8],
+      in cleanupRegistry: CleanupRegistryClient
+    ) async {
+      await cleanupRegistry.install(
+        PlatformCleanupRegistration(
+          inputFileDescriptor: inputFileDescriptor,
+          outputFileDescriptor: outputFileDescriptor,
+          savedTermios: await savedTermios(),
+          teardownBytes: teardownBytes
+        )
       )
     }
   }
@@ -97,17 +102,22 @@
       self.savedConsoleModes = savedConsoleModes
     }
 
-    package func install(teardownBytes: [UInt8]) async {
+    package func install(
+      teardownBytes: [UInt8],
+      in cleanupRegistry: CleanupRegistryClient
+    ) async {
       guard let modes = await savedConsoleModes() else {
         return
       }
 
-      CleanupRegistry.install(
-        inputHandle: inputHandle,
-        outputHandle: outputHandle,
-        teardownBytes: teardownBytes,
-        savedInputMode: modes.input,
-        savedOutputMode: modes.output
+      await cleanupRegistry.install(
+        PlatformCleanupRegistration(
+          inputHandle: inputHandle,
+          outputHandle: outputHandle,
+          savedInputMode: modes.input,
+          savedOutputMode: modes.output,
+          teardownBytes: teardownBytes
+        )
       )
     }
   }
@@ -122,6 +132,9 @@
   package struct PlatformCleanupState: Sendable {
     package static let unavailable = Self()
 
-    package func install(teardownBytes: [UInt8]) async {}
+    package func install(
+      teardownBytes: [UInt8],
+      in cleanupRegistry: CleanupRegistryClient
+    ) async {}
   }
 #endif

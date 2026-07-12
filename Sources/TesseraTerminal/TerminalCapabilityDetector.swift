@@ -32,12 +32,6 @@ package enum TerminalCapabilityDetector {
     from environment: [String: String]
   ) -> ColorCapability {
     let term = environmentValue("TERM", in: environment)?.lowercased()
-    // Match the dumb family (`dumb`, `dumb-300`, …) that `identityKindFromTerm`
-    // recognizes, so a dumb-derived TERM suppresses color regardless of TERM_PROGRAM.
-    let isDumbTerm = term.map { $0 == "dumb" || $0.hasPrefix("dumb-") } ?? false
-    if environment.keys.contains("NO_COLOR") || isDumbTerm {
-      return .noColor
-    }
 
     let colorTerm = environmentValue("COLORTERM", in: environment)?.lowercased()
     if colorTerm == "truecolor" || colorTerm == "24bit" {

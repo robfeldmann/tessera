@@ -101,6 +101,31 @@ func `parser decodes explicit empty associated text field as empty string`() {
   )
 }
 
+@Test
+func `parser decodes Ghostty all-keys presses with omitted default modifiers`() {
+  #expect(
+    parseKey("\u{1B}[113;;113u")
+      == Key(code: .character("q"), associatedText: "q")
+  )
+  for (offset, character) in "0123456789".enumerated() {
+    let scalar = 48 + offset
+    #expect(
+      parseKey("\u{1B}[\(scalar);;\(scalar)u")
+        == Key(code: .character(character), associatedText: String(character))
+    )
+  }
+  #expect(
+    parseKey("\u{1B}[107;;u")
+      == Key(code: .character("k"), associatedText: "")
+  )
+}
+
+@Test
+func `parser keeps omitted modifiers invalid without associated text`() {
+  assertUnknown("\u{1B}[107;u")
+  assertUnknown("\u{1B}[1;;A")
+}
+
 @Test(arguments: Array(1...256))
 func `parser decodes every Kitty modifier wire value`(_ wireValue: Int) {
   let expectedModifiers = Modifiers(rawValue: UInt8(wireValue - 1))

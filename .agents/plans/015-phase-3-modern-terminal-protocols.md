@@ -3,9 +3,9 @@ name: Phase 3 Modern Terminal Protocols
 description:
   Coordinate the twelve Phase 3 protocol slices so parser, lifecycle, renderer, live
   session policy, tests, and the example app evolve consistently.
-status: pending
+status: complete
 created: 2026-07-02
-updated: 2026-07-10
+updated: 2026-07-11
 ---
 
 ## Progress
@@ -18,7 +18,7 @@ updated: 2026-07-10
   - [x] 2.2 Implement focus events from plan 017
   - [x] 2.3 Implement SGR mouse tracking from plan 018
   - [x] 2.4 Implement Kitty keyboard and dynamic mode apply from plan 019
-- [ ] **Phase 3 — Execute output, capability, and advanced styling slices**
+- [x] **Phase 3 — Execute output, capability, and advanced styling slices**
   - [x] 3.1 Implement OSC 8 hyperlinks from plan 020
   - [x] 3.2 Implement terminal capability detection from plan 021
   - [x] 3.3 Implement Kitty graphics protocol from plan 022
@@ -27,10 +27,10 @@ updated: 2026-07-10
   - [x] 3.6 Implement OSC 52 clipboard from plan 025
   - [x] 3.7 Implement cursor styling from plan 026
   - [x] 3.8 Implement underline extensions from plan 027
-  - [ ] 3.9 Implement runtime protocol control and capability reconciliation from plan 028
-- [ ] **Phase 4 — Close Phase 3 as one integrated substrate**
-  - [ ] 4.1 Run the full Phase 3 validation sweep
-  - [ ] 4.2 Review the example app across every protocol panel
+  - [x] 3.9 Implement runtime protocol control and capability reconciliation from plan 028
+- [x] **Phase 4 — Close Phase 3 as one integrated substrate**
+  - [x] 4.1 Run the full Phase 3 validation sweep
+  - [x] 4.2 Review the example app across every protocol panel
 
 ## Overview
 
@@ -457,28 +457,38 @@ Before editing, read these fully:
 - Sources/TesseraTerminal/TerminalCapabilityDetector.swift
 - Examples/Sources/Phase3ProtocolsDemo/Phase3ProtocolsDemo.swift
 
-Treat completed Phase 3 slices as source of truth, but close the active-probe reconciliation
-gap left after Step 3.4 and replace startup snapshots with authoritative live session state
-where plan 028 requires it. Plan 028 is Slice 12. Execute only its earliest incomplete
-numbered phase; land that phase's production behavior and tests together, run its focused
-checks and required repository gate, then stop for review before advancing to its next
-phase. Do not begin umbrella Phase 4 or view-layer work. Bracketed paste, raw mode,
-alternate screen, and clipboard policy remain outside runtime-setting scope; graphics
-transmission remains an operation rather than a setting.
+Treat completed Phase 3 slices as source of truth. Step 5.2 is a record-reconciliation
+phase: update the specification, prior slice plans, and investigations to the implemented
+Slice 12 contract; do not begin Step 5.3, umbrella Phase 4, or view-layer work.
+Bracketed paste, raw mode, alternate screen, and clipboard policy remain outside
+runtime-setting scope; graphics transmission remains an operation rather than a setting.
 
-Underline rendering remains `.extended` by default. Plan 028 may add opt-in
-terminfo-database `Smulx`/`Setulc` compatibility without terminal-name inference; missing
-or unknown declaration evidence must not silently downgrade the modern default, and
-explicit runtime policy wins. Every runtime mode change goes through the non-reentrant
-`ModeLifecycle` transaction path. Requested policy commits only after success; effective and
-possibly-active state must still reflect lifecycle belief after partial failure, and
-emergency cleanup must remain safe. Renderer policy changes repaint when terminal-cell
-metadata can become stale. Update Phase3ProtocolsDemo plus docs/Spec.md and every affected
-prior plan. Run the focused commands and required repository gate for the phase being
-executed.
+Runtime protocol control keeps requested policy, lifecycle-effective modes, and
+possibly-active modes distinct. Every lifecycle mutation is serialized through the
+non-reentrant `ModeLifecycle` transaction path. Cleanup for requested and possibly-active
+modes is installed before any mutating byte reaches the terminal, remains installed after
+an ambiguous failure, and is cleared only after successful teardown. Requested policy
+commits only after a successful apply; effective and possibly-active state always report
+lifecycle belief after a failure.
 
-When complete, update plan progress, report changed files and validation results, then stop
-and wait for review.
+Active detection is one permanently cached, bounded probe generation whose parser evidence
+reconciles live state; sending a query alone is not reconciliation. Terminal identity and
+terminfo declarations are advisory evidence, never proof of protocol support. Selected
+rendering policies and mouse, focus, and keyboard application modes have live setters;
+raw mode and alternate screen remain fixed, bracketed paste remains startup-only, clipboard
+policy remains fixed, and graphics remains operational.
+
+Underline rendering remains `.extended` by default. `.terminfoDatabase` is explicit opt-in
+and may project valid declaration evidence only; absent, malformed, or unknown declarations
+must not silently downgrade the modern default. `TerminalSession.setUnderlineRendering(_:)`
+is the runtime override and wins over startup compatibility projection. Renderer policy
+changes repaint when terminal-cell metadata can become stale. Update
+`Phase3ProtocolsDemo`, `docs/Spec.md`, and every affected prior record. Do not run Step
+5.3 validation commands as part of this documentation-only phase.
+
+When Step 5.2 is complete, report changed records and any focused verification to the
+reviewer, but leave the umbrella plan `pending` and Step 3.9 unchecked until all Slice 12
+work, including Step 5.3, is complete.
 ```
 
 ## Shared source contracts
@@ -516,6 +526,10 @@ and wait for review.
 - Cleanup may over-disable optional protocol modes and always includes the Kitty graphics
   delete-all sequence. It must never leave a mode enabled — or an image placed — after
   normal or abnormal exit.
+- Lifecycle writes are non-reentrant and failure-safe. Before any mutating byte, install
+  cleanup for requested and possibly-active modes; after ambiguous I/O, retain that
+  cleanup and lifecycle belief until a successful teardown clears it. Runtime reports
+  distinguish requested policy, effective modes, and possibly-active modes.
 - `ModeLifecycle.apply(applicationModes:)` is implemented after the four input modes
   exist, in the Kitty plan. Earlier slices shape their enable/disable helpers so `apply`
   can reuse them.
@@ -576,12 +590,14 @@ Add one evolving example executable instead of seven small apps:
 - Validation command: `swift build --package-path Examples --product Phase3ProtocolsDemo`.
 - The app stays terminal-substrate-only. It writes directly through `Frame`, like the
   current examples, and does not introduce a view layer.
+- Demo controls are `d/y/h/t/f/k/s/c/x`, with global `q/g/m`; handlers ignore release
+  events so a key release cannot repeat a policy change.
 
 High-level wireframe:
 
 ```text
 ┌─ Phase3ProtocolsDemo ───────────────────────────────────────────────────────┐
-│ q quit · 1 paste · 2 focus · 3 mouse · 4 keys · 5 links · 6 caps · 7 image  │
+│ q quit · g graphics · m mouse log · d/y/h/t/f/k/s/c/x live controls          │
 ├─ Active protocol panel ─────────────────────────────────────────────────────┤
 │ Status line for the selected protocol                                       │
 │                                                                            │
@@ -613,9 +629,10 @@ review, but it is not the primary verification mechanism; tests remain the autho
 - Kitty graphics is never transmitted by default. Passive detection sends no query;
   explicit active detection may send the KGP query, and apps still opt into image
   transmission through session APIs. Teardown always over-cleans with delete-all.
-- Underline rendering remains `.extended` by default. Apps opt into `.terminfoDatabase`
-  compatibility; valid missing declarations may downgrade each axis, unavailable evidence
-  preserves requested output, and no terminal-brand branches are permitted.
+- Underline rendering remains `.extended` by default. Apps explicitly opt into
+  `.terminfoDatabase` compatibility; only valid declarations may project the configured
+  policy, unavailable or malformed evidence preserves it, and the runtime setter wins. No
+  terminal-brand branches are permitted.
 
 ## Integrated validation sweep
 

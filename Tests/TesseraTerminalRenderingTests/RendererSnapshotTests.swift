@@ -11,7 +11,7 @@ import Testing
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+    "Ghostty virtual terminal support is unavailable in this build."
   )
 )
 func `renderer output can be inspected as terminal text`() {
@@ -33,7 +33,7 @@ func `renderer output can be inspected as terminal text`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+    "Ghostty virtual terminal support is unavailable in this build."
   )
 )
 func `renderer output can be inspected as styled terminal state`() {
@@ -65,7 +65,7 @@ func `renderer output can be inspected as styled terminal state`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+    "Ghostty virtual terminal support is unavailable in this build."
   )
 )
 func `terminal debug dump includes cursor and styled cell metadata`() {

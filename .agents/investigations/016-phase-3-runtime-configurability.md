@@ -9,109 +9,76 @@ status: resolved
 ## Question
 
 Which Phase 3 application configuration values can change during a live `TerminalSession`,
-which remain startup-only, and which missing runtime controls are useful candidates before
-the view layer?
+which remain intentionally fixed, and how do live evidence and failure-safe mode
+reconciliation behave after Slice 12?
 
 ## Findings
 
-`TerminalApplicationConfiguration` is resolved once by
-`TerminalSession.withApplicationTerminal`. Mutating the caller's configuration value after
-startup has no effect. Current session state falls into four groups.
+Slice 12 closed the prior runtime-control gaps. Configuration still expresses startup
+intent, but the session now owns actor-isolated live policy, evidence, and lifecycle
+state. The following reflects the implemented post-plan-028 contract.
 
-### Runtime-adjustable policy or mode
+### Runtime rendering policy
 
-| Configuration        | Current runtime behavior                                                                                                                                                                 |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `underlineRendering` | `setUnderlineRendering(_:)` mutates actor-isolated state and invalidates the renderer so the next draw repaints.                                                                         |
-| `cursorStyling`      | The enable/disable policy is fixed, but `setCursorStyle(_:)` changes or clears the active style when startup policy is enabled. `ModeLifecycle.apply` preserves other application modes. |
+| Policy              | Current runtime behavior                                                                                                                                                                                                                                                                                  |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Color               | `setColorCapability(_:)` updates application override intent. The session keeps detected `capabilities.color` separate from `effectiveColorCapability`; it invalidates the renderer only if the effective depth changes. `NO_COLOR` and dumb-terminal constraints pin the effective result to `.noColor`. |
+| Hyperlinks          | `setHyperlinkRendering(_:)` changes OSC 8 rendering and invalidates the renderer, so unchanged semantic cells are repainted with or without link metadata.                                                                                                                                                |
+| Synchronized output | `setSynchronizedOutput(_:)` changes only future frame wrappers and requires no renderer invalidation.                                                                                                                                                                                                     |
+| Underlines          | `setUnderlineRendering(_:)` immediately overrides the startup projection and invalidates the renderer when the output projection changes.                                                                                                                                                                 |
+| Cursor style        | `setCursorStyle(_:)` changes or clears the effective style when cursor styling is enabled, through the serialized lifecycle reconciler.                                                                                                                                                                   |
 
-### Runtime operation behind a fixed policy
+### Runtime application modes
 
-| Configuration or protocol | Current runtime behavior                                                                                                                                                                                  |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `clipboardWriting`        | The policy and `ClipboardWritePolicy` limits are immutable, but `copyToClipboard` is an immediate policy-gated operation.                                                                                 |
-| Kitty Graphics            | No application configuration policy exists. Query, transmit, and delete are already immediate session APIs; teardown deletes images.                                                                      |
-| Capability queries        | `queryActiveCapabilities`, `queryKittyKeyboardSupport`, `queryPrivateModeStatuses`, and `queryKittyGraphicsSupport` emit queries at runtime, but do not mutate `TerminalCapabilities` or reconcile modes. |
+| Policy         | Current runtime behavior                                                                                                                                                                              |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mouse tracking | `setMouseTracking(_:)` changes disabled, button-event, or any-event tracking through the lifecycle transaction.                                                                                       |
+| Focus events   | `setFocusEvents(_:)` enables or disables focus reporting through the lifecycle transaction.                                                                                                           |
+| Kitty keyboard | `setKeyboardProtocol(_:)` applies explicit required/legacy policy immediately. Conditional `.kittyIfAvailable` remains requested but enables only after positively observed protocol-native evidence. |
 
-### Startup-only output policy
+Raw mode and alternate screen remain fixed scoped-session ownership. Bracketed paste
+remains startup-only because changing it during an in-flight paste has no settled parser
+contract. Clipboard-writing policy remains fixed and security-sensitive. Kitty Graphics
+remains operational (`query`, `transmit`, `delete`) rather than a persistent application
+mode.
 
-| Configuration        | Missing runtime behavior                                                                            | Required implementation seam                                                                                                |
-| -------------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `colorCapability`    | Effective renderer color depth is frozen in `capabilities.color`; override provenance is discarded. | Keep detected metadata separate from actor-isolated effective rendering color. Changing it must invalidate and repaint.     |
-| `hyperlinkRendering` | Immutable `TerminalSession` value passed to every draw.                                             | Actor-isolated setter plus renderer invalidation/repaint so existing terminal cells lose or gain OSC 8 metadata.            |
-| `synchronizedOutput` | Immutable per-frame wrapper choice.                                                                 | Actor-isolated setter; no renderer invalidation is required because it changes future transaction wrappers, not cell state. |
+### Live evidence and reconciliation
 
-### Startup-only terminal modes
+- `TerminalSession.capabilities` and `enabledProtocolModes` are actor-isolated live
+  values, not immutable startup snapshots. `protocolModeReport` distinguishes requested
+  policy, effective lifecycle modes, and possibly-active modes after ambiguous I/O.
+- Environment-derived terminal identity is diagnostic only. It does not prove support or
+  select protocol policy. Active evidence is protocol-native parser evidence.
+- Active probing is one permanently cached, bounded generation. Query bytes alone do not
+  reconcile a capability: parsed responses update evidence and conditional Kitty
+  negotiation. Later setters never launch another probe or trust passive metadata.
+- `.terminfoDatabase` is an explicit startup opt-in for underline compatibility. Its
+  `Smulx`/`Setulc` declarations are advisory, as are missing, malformed, or unknown
+  declarations. They do not silently downgrade `.extended`; the runtime underline setter
+  takes precedence over its startup projection.
 
-| Configuration          | Current state                                                                                                    |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `enableBracketedPaste` | Resolved into `.bracketedPaste`; no public session setter.                                                       |
-| `enableFocusEvents`    | Resolved into `.focusEvents`; no public session setter.                                                          |
-| `mouseTracking`        | Resolved into disabled/button/any-event mode; no public session setter. The demo's `m` key changes logging only. |
-| `keyboardProtocol`     | Resolved into legacy/conditional/required startup intent; no public session setter.                              |
-| `modes`                | Exact application mode set is entered once. Raw mode and alternate screen are fixed for the scoped session.      |
+### Lifecycle safety invariants
 
-The internal `ModeLifecycle.apply(applicationModes:)` already reconciles cursor style,
-bracketed paste, focus events, mouse tracking, and Kitty keyboard after startup. It
-disables in reverse order, enables in canonical order, updates emergency cleanup, and
-rejects raw mode or alternate-screen mutation. It is package-only and
-`TerminalSession.enabledProtocolModes` is currently an immutable startup snapshot, so
-there is no authoritative public runtime mode state.
+- Every lifecycle write is serialized by a non-reentrant transaction gate. Startup,
+  teardown, and concurrent setters cannot interleave a mode transition across suspension.
+- Cleanup for requested and possibly-active modes is installed before the first mutating
+  byte can reach the terminal. After an ambiguous write or flush failure it remains
+  installed, while lifecycle belief records the uncertain mode.
+- A requested runtime policy commits only after successful apply. Failure preserves
+  successfully effective state, records ambiguity where needed, and keeps defensive
+  cleanup until successful teardown; retry and repeated cleanup remain safe.
 
-### Startup-only by design
+### Demo surface
 
-- `capabilityDetection` resolves environment hints and decides whether initial probes are
-  sent before the application body. Public query methods can send probes later, but the
-  detected `TerminalCapabilities` value remains advisory and immutable.
-- Raw mode and alternate screen define the scoped session boundary and should not become
-  ordinary runtime toggles.
-- Clipboard policy mutation is possible between writes but is security-sensitive and has
-  less user-visible value than rendering or mode controls.
-
-### Probe reconciliation gap
-
-With `capabilityDetection: .active` and `keyboardProtocol: .kittyIfAvailable`, resolution
-marks Kitty keyboard as `.probing`, so the initial mode set does not enable Kitty
-keyboard. The session sends the query, but a later `kittyKeyboardEnhancementFlags` event
-does not update capabilities or enable the mode automatically. The demo observes the event
-in its own state only. This is a correctness gap distinct from merely exposing a runtime
-setter.
-
-### Mutation invariants
-
-- Color and hyperlink changes require renderer invalidation; otherwise an unchanged
-  semantic buffer can retain stale SGR or OSC 8 state.
-- Synchronized-output changes affect only future draw wrappers and need no repaint.
-- Mode changes must go through `ModeLifecycle.apply`; writing enable/disable bytes
-  directly would desynchronize cleanup state.
-- Runtime mode state must be committed only after `apply` succeeds. A failure can leave a
-  partially reconciled lifecycle with safe cleanup installed.
-- Cursor style must be preserved while changing unrelated modes.
-- Bracketed-paste mutation needs an explicit policy for an in-flight paste because the
-  input parser is configuration-independent and may already be collecting pasted bytes.
-- Kitty keyboard mutation must define negotiation and flag-stack behavior, not only emit
-  an enable sequence.
+`Phase3ProtocolsDemo` exposes live controls `d`, `y`, `h`, `t`, `f`, `k`, `s`, `c`, and
+`x`, with global `q`, `g`, and `m`. Controls accept press/repeat events and ignore
+releases; the capability and protocol panels display live requested/effective/
+possibly-active state rather than support inferred from terminal identity.
 
 ## Conclusion
 
-Three follow-up slices are credible before the view layer, ordered by value and risk:
-
-1. **Runtime rendering policies** — add actor-isolated effective color,
-   hyperlink-rendering, and synchronized-output setters. Color and hyperlink setters
-   invalidate/repaint; sync affects subsequent draw wrappers. Add independent Phase 3 demo
-   controls. This is the closest analogue to the underline controls and directly supports
-   diagnosing rendering behavior across output paths.
-2. **Runtime application modes** — establish authoritative actor-isolated application mode
-   state and typed setters for mouse tracking and focus events first. Add bracketed paste
-   only after defining in-flight paste behavior. Every setter must use
-   `ModeLifecycle.apply`, preserve cursor style, commit after success, and remain
-   teardown-safe.
-3. **Kitty keyboard reconciliation** — make conditional keyboard negotiation a real state
-   machine: consume probe evidence, enable only after support, expose runtime policy,
-   handle timeout/unsupported results, and keep parser/mode state coherent. This closes
-   the current `.kittyIfAvailable` active-detection gap.
-
-A synchronized-output toggle is technically easy but lower-value and can remain part of
-the first slice rather than receiving its own phase. Clipboard-policy mutation, graphics
-configuration, raw/alternate-screen toggles, and mutable terminal identity/capability
-metadata are not recommended as pre-view-layer phases.
+The earlier startup-only policy and send-only-probe characterizations are obsolete.
+Selected rendering policies and mouse/focus/keyboard modes are now live session controls
+with authoritative state and failure-safe lifecycle reconciliation. The deliberately fixed
+boundaries are bracketed paste, raw mode, alternate screen, clipboard policy, and graphics
+configuration; graphics operations themselves remain available at runtime.

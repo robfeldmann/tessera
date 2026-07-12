@@ -29,9 +29,9 @@ Terminal.app, and where should Tessera degrade them safely?
 - There is no standard active underline-support probe in Tessera. Existing active probes
   cover Kitty keyboard/graphics and DEC private modes, not SGR underline variants or SGR
   58/59.
-- `TERM_PROGRAM=Apple_Terminal` already maps to `TerminalIdentityKind.appleTerminal`.
-  Identity is advisory and may be inherited or spoofed, but it is the available hint for a
-  narrow known-bad output workaround.
+- `TERM_PROGRAM=Apple_Terminal` maps to `TerminalIdentityKind.appleTerminal`, but identity
+  is advisory diagnostic metadata that may be inherited or spoofed. It is not support
+  proof and does not select an underline rendering policy.
 - Local `Apple_Terminal` and `xterm-256color` terminfo entries advertise only ordinary
   `smul`/`rmul`; the local Ghostty entry advertises `Smulx` and `Setulc`. Newer ncurses
   sources can advertise `Smulx` for Apple Terminal despite the observed corruption, so
@@ -87,11 +87,11 @@ Terminal.app, and where should Tessera degrade them safely?
   The colon forms therefore degraded safely on this build but did not provide underline
   color, while both semicolon forms were unsafe.
 
-- Style variants and underline color are independent output-policy fields. Tessera now
-  exposes `.extended` (preserve variants and emit color) and `.baseline` (single-only and
-  omit color) presets plus custom combinations. The application owns this policy, extended
-  output is the default, and terminal identity does not change it. DECRQSS remains a
-  possible future signal rather than part of the current policy.
+- Style variants and underline color are independent output-policy fields. Tessera
+  defaults to `.extended` and offers `.baseline` plus custom combinations. Applications
+  may explicitly opt into `.terminfoDatabase` startup compatibility projection, but its
+  declarations are advisory; terminal identity and missing declaration evidence do not
+  alter the modern default. `setUnderlineRendering(_:)` is the runtime override.
 - Following the manual test and the Vim issue, Tessera switched its emitted underline
   color grammar to the colon subparameter forms `58:5:n` and `58:2::r:g:b` (the double
   colon is the empty colorspace subparameter). Ghostty's own terminfo `Setulc`, herdr's
@@ -105,8 +105,12 @@ Terminal.app, and where should Tessera degrade them safely?
 Keep the renderer policy seam and exact low-level semantic encoders. The implemented
 `UnderlineRenderingPolicy` splits style handling from color emission, defaults application
 sessions to `.extended`, and provides `.baseline` for output paths limited to ordinary
-underline. Underline colors are emitted with colon subparameters so parsers without SGR 58
-support degrade by ignoring the sequence rather than corrupting text; the `4:x` style
-variants have no safer spelling, which is what `.baseline` is for. Terminal identity is
-diagnostic only; there is no Apple-specific rendering branch. DECRQSS may be considered
-later as an optional signal, but it is not required for the explicit application policy.
+underline. Underline colors use colon subparameters so parsers without SGR 58 support
+ignore the sequence rather than misapply blink or dim; the `4:x` style variants have no
+safer spelling, which is what `.baseline` is for.
+
+`.terminfoDatabase` is an explicit opt-in compatibility projection. Valid `Smulx` and
+`Setulc` declarations are advisory evidence, not proof; unknown, malformed, missing, or
+identity-derived data never silently downgrades `.extended`. A later
+`TerminalSession.setUnderlineRendering(_:)` takes precedence and repaints projected
+output. DECRQSS remains a possible future signal rather than required policy.

@@ -276,7 +276,7 @@ func `enter rejects overlapping active modes`() async throws {
 }
 
 @Test
-func `enter rolls back raw mode when alternate screen fails`() async throws {
+func `enter retains successful state when alternate screen fails`() async throws {
   let device = LifecycleTestDevice(failure: .enableAltScreen)
   let lifecycle = await makeLifecycle(device)
 
@@ -285,10 +285,12 @@ func `enter rolls back raw mode when alternate screen fails`() async throws {
   }
 
   let activeModes = await lifecycle.activeModes
+  let possiblyActiveModes = await lifecycle.possiblyActiveModesForTesting
   let events = await device.events
 
-  expectNoDifference(activeModes, [])
-  expectNoDifference(events, [.enableRawMode, .enableAltScreen, .disableRawMode])
+  expectNoDifference(activeModes, [.rawMode])
+  expectNoDifference(possiblyActiveModes, [.altScreen])
+  expectNoDifference(events, [.enableRawMode, .enableAltScreen])
 }
 
 @Test
@@ -425,6 +427,24 @@ func `enter enables kitty keyboard after mouse tracking`() async throws {
     flush: 1B 5B 3E 37 75
     """
   }
+}
+
+@Test
+func `enter pushes configured Kitty keyboard flags`() async throws {
+  let device = LifecycleTestDevice()
+  let flags: KittyKeyboardFlags = [
+    .disambiguateEscapeCodes,
+    .reportEventTypes,
+    .reportAlternateKeys,
+    .reportAllKeysAsEscapeCodes,
+    .reportAssociatedText,
+  ]
+  let lifecycle = await makeLifecycle(device, kittyKeyboardFlags: flags)
+
+  try await lifecycle.enter([.kittyKeyboard])
+
+  let flushes = await device.events.filter(\.isFlush).map(\.flushBytes)
+  expectNoDifference(flushes, [Array("\u{1B}[>31u".utf8)])
 }
 
 @Test
@@ -573,20 +593,19 @@ func `apply failure leaves exit safe for succeeded operations`() async throws {
   try await lifecycle.exit()
 
   let events = await device.events
-  // swiftlint:disable line_length
   assertInlineSnapshot(of: lifecycleEventLog(events), as: .lines) {
     """
     enableRawMode
     enableAltScreen
     flush: 1B 5B 3F 31 30 30 34 68
     flush: 1B 5B 3F 31 30 30 33 68 1B 5B 3F 31 30 30 36 68
-    flush: 1B 5B 3F 31 30 30 33 68 1B 5B 3F 31 30 30 36 68 1B 5F 47 61 3D 64 2C 64 3D 41 1B 5C
+    flush: 1B 5F 47 61 3D 64 2C 64 3D 41 1B 5C
+    flush: 1B 5B 3F 31 30 30 33 6C 1B 5B 3F 31 30 30 32 6C 1B 5B 3F 31 30 30 36 6C
     flush: 1B 5B 3F 31 30 30 34 6C
     disableAltScreen
     disableRawMode
     """
   }
-  // swiftlint:enable line_length
 }
 
 @Test(arguments: [MouseTracking.buttonEvents, .anyEvent])
@@ -623,7 +642,7 @@ func `exit disables mouse before focus`(_ granularity: MouseTracking) async thro
 }
 
 @Test
-func `exit keeps cleaning up after alternate screen cleanup fails`() async throws {
+func `exit retains failed teardown state while continuing cleanup`() async throws {
   let device = LifecycleTestDevice(failure: .disableAltScreen)
   let lifecycle = await makeLifecycle(device)
 
@@ -634,9 +653,11 @@ func `exit keeps cleaning up after alternate screen cleanup fails`() async throw
   }
 
   let activeModes = await lifecycle.activeModes
+  let possiblyActiveModes = await lifecycle.possiblyActiveModesForTesting
   let events = await device.events
 
-  expectNoDifference(activeModes, [])
+  expectNoDifference(activeModes, [.altScreen])
+  expectNoDifference(possiblyActiveModes, [.altScreen])
   expectNoDifference(
     events,
     [
@@ -650,7 +671,7 @@ func `exit keeps cleaning up after alternate screen cleanup fails`() async throw
 }
 
 @Test
-func `enter rolls back optional modes when focus enable fails`() async throws {
+func `focus enable failure retains successful and possible modes`() async throws {
   let device = LifecycleTestDevice(failure: .writeOnAttempt(2))
   let lifecycle = await makeLifecycle(device)
 
@@ -659,24 +680,23 @@ func `enter rolls back optional modes when focus enable fails`() async throws {
   }
 
   let activeModes = await lifecycle.activeModes
+  let possiblyActiveModes = await lifecycle.possiblyActiveModesForTesting
   let events = await device.events
 
-  expectNoDifference(activeModes, [])
+  expectNoDifference(activeModes, [.rawMode, .altScreen, .bracketedPaste])
+  expectNoDifference(possiblyActiveModes, [.focusEvents])
   assertInlineSnapshot(of: lifecycleEventLog(events), as: .lines) {
     """
     enableRawMode
     enableAltScreen
     flush: 1B 5B 3F 32 30 30 34 68
     flush: 1B 5B 3F 31 30 30 34 68
-    flush: 1B 5B 3F 32 30 30 34 6C
-    disableAltScreen
-    disableRawMode
     """
   }
 }
 
 @Test
-func `enter rolls back fixed modes when cursor style enable fails`() async throws {
+func `cursor enable failure retains successful and possible fixed modes`() async throws {
   let device = LifecycleTestDevice(failure: .writeOnAttempt(1))
   let lifecycle = await makeLifecycle(device)
 
@@ -690,16 +710,19 @@ func `enter rolls back fixed modes when cursor style enable fails`() async throw
   }
 
   let activeModes = await lifecycle.activeModes
+  let possiblyActiveModes = await lifecycle.possiblyActiveModesForTesting
   let events = await device.events
 
-  expectNoDifference(activeModes, [])
+  expectNoDifference(activeModes, [.rawMode, .altScreen])
+  expectNoDifference(
+    possiblyActiveModes,
+    [.cursorStyle(CursorStyle(shape: .steadyBlock, color: cursorColor))]
+  )
   assertInlineSnapshot(of: lifecycleEventLog(events), as: .lines) {
     """
     enableRawMode
     enableAltScreen
     flush: 1B 5B 32 20 71 1B 5D 31 32 3B 23 31 32 41 42 46 30 1B 5C
-    disableAltScreen
-    disableRawMode
     """
   }
 }
@@ -718,7 +741,7 @@ func `cursor styling request succeeds without capability responses`() async thro
 }
 
 @Test
-func `enter rolls back protocol modes when mouse enable fails`() async throws {
+func `mouse enable failure retains successful and possible protocol modes`() async throws {
   let device = LifecycleTestDevice(failure: .writeOnAttempt(3))
   let lifecycle = await makeLifecycle(device)
 
@@ -733,9 +756,11 @@ func `enter rolls back protocol modes when mouse enable fails`() async throws {
   }
 
   let activeModes = await lifecycle.activeModes
+  let possiblyActiveModes = await lifecycle.possiblyActiveModesForTesting
   let events = await device.events
 
-  expectNoDifference(activeModes, [])
+  expectNoDifference(activeModes, [.rawMode, .altScreen, .bracketedPaste, .focusEvents])
+  expectNoDifference(possiblyActiveModes, [.mouseTracking(.anyEvent)])
   assertInlineSnapshot(of: lifecycleEventLog(events), as: .lines) {
     """
     enableRawMode
@@ -743,12 +768,126 @@ func `enter rolls back protocol modes when mouse enable fails`() async throws {
     flush: 1B 5B 3F 32 30 30 34 68
     flush: 1B 5B 3F 31 30 30 34 68
     flush: 1B 5B 3F 31 30 30 33 68 1B 5B 3F 31 30 30 36 68
-    flush: 1B 5B 3F 31 30 30 34 6C
-    flush: 1B 5B 3F 32 30 30 34 6C
-    disableAltScreen
-    disableRawMode
     """
   }
+}
+
+@Test
+func `apply discards stale partial enable suffix before exit recovery`() async throws {
+  let device = LifecycleTestDevice(failure: .partialWriteThenFailOnAttempt(1, 4))
+  let lifecycle = await makeLifecycle(device)
+
+  try await lifecycle.enter([.rawMode, .altScreen])
+  await #expect(throws: LifecycleTestDevice.Failure.write) {
+    try await lifecycle.apply(applicationModes: [.focusEvents])
+  }
+  try await lifecycle.exit()
+
+  let bytes = await device.bytes
+  let possiblyActiveModes = await lifecycle.possiblyActiveModesForTesting
+
+  expectNoDifference(possiblyActiveModes, [])
+  #expect(!bytes.containsSubsequence(focusEnableBytes))
+  #expect(bytes.containsSubsequence(kittyGraphicsDeleteAllBytes))
+  #expect(bytes.containsSubsequence(focusDisableBytes))
+}
+
+@Test
+func `failed Kitty push remains possible and exits with pop`() async throws {
+  let device = LifecycleTestDevice(failure: .writeOnAttempt(1))
+  let lifecycle = await makeLifecycle(device)
+
+  try await lifecycle.enter([.rawMode, .altScreen])
+  await #expect(throws: LifecycleTestDevice.Failure.write) {
+    try await lifecycle.apply(applicationModes: [.kittyKeyboard])
+  }
+  let possiblyActiveModes = await lifecycle.possiblyActiveModesForTesting
+  expectNoDifference(possiblyActiveModes, [.kittyKeyboard])
+
+  try await lifecycle.exit()
+
+  let flushes = await device.events.filter(\.isFlush).map(\.flushBytes)
+  expectNoDifference(
+    flushes,
+    [kittyKeyboardPushBytes, kittyGraphicsDeleteAllBytes, kittyKeyboardPopBytes]
+  )
+}
+
+@Test
+func `failed exit keeps cleanup belief until a successful retry`() async throws {
+  let device = LifecycleTestDevice(failure: .disableAltScreenOnce)
+  let lifecycle = await makeLifecycle(device)
+
+  try await lifecycle.enter([.rawMode, .altScreen])
+  await #expect(throws: LifecycleTestDevice.Failure.disableAltScreen) {
+    try await lifecycle.exit()
+  }
+  let activeModesAfterFailure = await lifecycle.activeModes
+  let possiblyActiveModesAfterFailure = await lifecycle.possiblyActiveModesForTesting
+  expectNoDifference(activeModesAfterFailure, [.altScreen])
+  expectNoDifference(possiblyActiveModesAfterFailure, [.altScreen])
+
+  try await lifecycle.exit()
+
+  let activeModesAfterRetry = await lifecycle.activeModes
+  let possiblyActiveModesAfterRetry = await lifecycle.possiblyActiveModesForTesting
+  expectNoDifference(activeModesAfterRetry, [])
+  expectNoDifference(possiblyActiveModesAfterRetry, [])
+}
+
+@Test
+func `concurrent apply transitions serialize`() async throws {
+  let device = LifecycleTestDevice(suspendWriteOnAttempt: 1)
+  let lifecycle = await makeLifecycle(device)
+
+  try await lifecycle.enter([.rawMode, .altScreen])
+  let first = Task {
+    try await lifecycle.apply(applicationModes: [.focusEvents])
+  }
+  await device.waitForWriteSuspension()
+  let second = Task {
+    try await lifecycle.apply(applicationModes: [.focusEvents, .mouseTracking(.anyEvent)])
+  }
+  await Task.yield()
+
+  let flushesBeforeResume = await device.events.filter(\.isFlush).map(\.flushBytes)
+  expectNoDifference(flushesBeforeResume, [focusEnableBytes])
+
+  await device.resumeWrite()
+  try await first.value
+  try await second.value
+
+  let activeModes = await lifecycle.activeModes
+  expectNoDifference(
+    activeModes,
+    [.rawMode, .altScreen, .focusEvents, .mouseTracking(.anyEvent)]
+  )
+}
+
+@Test
+func `cancelled queued transition does not mutate lifecycle state`() async throws {
+  let device = LifecycleTestDevice(suspendWriteOnAttempt: 1)
+  let lifecycle = await makeLifecycle(device)
+
+  try await lifecycle.enter([.rawMode, .altScreen])
+  let first = Task {
+    try await lifecycle.apply(applicationModes: [.focusEvents])
+  }
+  await device.waitForWriteSuspension()
+  let queued = Task {
+    try await lifecycle.apply(applicationModes: [.focusEvents, .mouseTracking(.anyEvent)])
+  }
+  await Task.yield()
+  queued.cancel()
+
+  await device.resumeWrite()
+  try await first.value
+  await #expect(throws: CancellationError.self) {
+    try await queued.value
+  }
+
+  let activeModes = await lifecycle.activeModes
+  expectNoDifference(activeModes, [.rawMode, .altScreen, .focusEvents])
 }
 
 @Test
@@ -781,7 +920,7 @@ func `exit is idempotent after focus cleanup`() async throws {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+    "Ghostty virtual terminal support is unavailable in this build."
   )
 )
 func `alternate screen bytes round trip through virtual terminal`() async throws {
@@ -799,226 +938,217 @@ func `alternate screen bytes round trip through virtual terminal`() async throws
   expectNoDifference(terminal.text(row: 1), "    ")
 }
 
-#if os(macOS) || os(Linux)
-  @Suite(.serialized)
-  struct ModeLifecycleEmergencyCleanupTests {
-    @Test
-    func `cleanup bytes disable focus before bracketed paste`() async throws {
-      try await CleanupRegistryTestIsolation.withExclusiveAccess {
-        let pipe = try LifecycleCleanupPipe()
-        defer {
-          CleanupRegistry.clear()
-          pipe.closeAll()
-        }
-        let device = LifecycleTestDevice(
-          cleanupState: PlatformCleanupState(
-            inputFileDescriptor: -1,
-            outputFileDescriptor: pipe.writeDescriptor
-          ) { nil }
-        )
-        let lifecycle = await makeLifecycle(device)
+@Suite
+struct ModeLifecycleEmergencyCleanupTests {
+  @Test
+  func `cleanup bytes disable focus before bracketed paste`() async throws {
+    let registry = TestCleanupRegistry()
+    let lifecycle = await makeLifecycle(
+      LifecycleTestDevice(cleanupState: testCleanupState()),
+      cleanupRegistry: registry.client
+    )
 
-        try await lifecycle.enter([.rawMode, .altScreen, .bracketedPaste, .focusEvents])
-        CleanupRegistry.performEmergencyCleanupForTesting()
-        pipe.closeWriteDescriptor()
+    try await lifecycle.enter([.rawMode, .altScreen, .bracketedPaste, .focusEvents])
 
-        let bytes = try pipe.readAll()
-        assertInlineSnapshot(of: wrappedHex(bytes, bytesPerLine: 16), as: .lines) {
-          """
-          1B 5F 47 61 3D 64 2C 64 3D 41 1B 5C 1B 5B 3F 31
-          30 30 34 6C 1B 5B 3F 32 30 30 34 6C 1B 5B 3F 31
-          30 34 39 6C 1B 5B 3F 32 35 68
-          """
-        }
-      }
-    }
-
-    @Test(arguments: [MouseTracking.buttonEvents, .anyEvent])
-    func `cleanup bytes defensively disable mouse tracking for either granularity`(
-      _ granularity: MouseTracking
-    ) async throws {
-      try await CleanupRegistryTestIsolation.withExclusiveAccess {
-        let pipe = try LifecycleCleanupPipe()
-        defer {
-          CleanupRegistry.clear()
-          pipe.closeAll()
-        }
-        let device = LifecycleTestDevice(
-          cleanupState: PlatformCleanupState(
-            inputFileDescriptor: -1,
-            outputFileDescriptor: pipe.writeDescriptor
-          ) { nil }
-        )
-        let lifecycle = await makeLifecycle(device)
-
-        try await lifecycle.enter([
-          .rawMode,
-          .altScreen,
-          .bracketedPaste,
-          .focusEvents,
-          .mouseTracking(granularity),
-        ])
-        CleanupRegistry.performEmergencyCleanupForTesting()
-        pipe.closeWriteDescriptor()
-
-        let bytes = try pipe.readAll()
-        expectNoDifference(
-          bytes,
-          kittyGraphicsDeleteAllBytes
-            + mouseDisableBytes
-            + focusDisableBytes
-            + bracketedPasteDisableBytes
-            + Array("\u{1B}[?1049l".utf8)
-            + Array("\u{1B}[?25h".utf8)
-        )
-      }
-    }
-
-    @Test
-    func `cleanup bytes pop kitty keyboard before mouse focus and paste`() async throws {
-      try await CleanupRegistryTestIsolation.withExclusiveAccess {
-        let pipe = try LifecycleCleanupPipe()
-        defer {
-          CleanupRegistry.clear()
-          pipe.closeAll()
-        }
-        let device = LifecycleTestDevice(
-          cleanupState: PlatformCleanupState(
-            inputFileDescriptor: -1,
-            outputFileDescriptor: pipe.writeDescriptor
-          ) { nil }
-        )
-        let lifecycle = await makeLifecycle(device)
-
-        try await lifecycle.enter([
-          .rawMode,
-          .altScreen,
-          .bracketedPaste,
-          .focusEvents,
-          .mouseTracking(.anyEvent),
-          .kittyKeyboard,
-        ])
-        CleanupRegistry.performEmergencyCleanupForTesting()
-        pipe.closeWriteDescriptor()
-
-        let bytes = try pipe.readAll()
-        expectNoDifference(
-          bytes,
-          kittyGraphicsDeleteAllBytes
-            + kittyKeyboardPopBytes
-            + mouseDisableBytes
-            + focusDisableBytes
-            + bracketedPasteDisableBytes
-            + Array("\u{1B}[?1049l".utf8)
-            + Array("\u{1B}[?25h".utf8)
-        )
-      }
-    }
-
-    @Test
-    func `failed cursor style enable leaves no emergency cleanup bytes`() async throws {
-      try await CleanupRegistryTestIsolation.withExclusiveAccess {
-        let pipe = try LifecycleCleanupPipe()
-        defer {
-          CleanupRegistry.clear()
-          pipe.closeAll()
-        }
-        let device = LifecycleTestDevice(
-          cleanupState: PlatformCleanupState(
-            inputFileDescriptor: -1,
-            outputFileDescriptor: pipe.writeDescriptor
-          ) { nil },
-          failure: .writeOnAttempt(1)
-        )
-        let lifecycle = await makeLifecycle(device)
-
-        await #expect(throws: LifecycleTestDevice.Failure.write) {
-          try await lifecycle.enter([
-            .rawMode,
-            .altScreen,
-            .cursorStyle(CursorStyle(shape: .steadyBlock, color: cursorColor)),
-          ])
-        }
-        CleanupRegistry.performEmergencyCleanupForTesting()
-        pipe.closeWriteDescriptor()
-
-        let bytes = try pipe.readAll()
-        expectNoDifference(bytes, [])
-      }
-    }
-
-    @Test
-    func `cleanup bytes reset only requested cursor style facets`() async throws {
-      try await CleanupRegistryTestIsolation.withExclusiveAccess {
-        let shapePipe = try LifecycleCleanupPipe()
-        let colorPipe = try LifecycleCleanupPipe()
-        let unownedPipe = try LifecycleCleanupPipe()
-        defer {
-          CleanupRegistry.clear()
-          shapePipe.closeAll()
-          colorPipe.closeAll()
-          unownedPipe.closeAll()
-        }
-
-        let shapeDevice = LifecycleTestDevice(
-          cleanupState: PlatformCleanupState(
-            inputFileDescriptor: -1,
-            outputFileDescriptor: shapePipe.writeDescriptor
-          ) { nil }
-        )
-        let shapeLifecycle = await makeLifecycle(shapeDevice)
-        try await shapeLifecycle.enter([
-          .rawMode,
-          .altScreen,
-          .cursorStyle(CursorStyle(shape: .steadyBlock)),
-        ])
-        CleanupRegistry.performEmergencyCleanupForTesting()
-        shapePipe.closeWriteDescriptor()
-        let shapeBytes = try shapePipe.readAll()
-
-        CleanupRegistry.clear()
-        let colorDevice = LifecycleTestDevice(
-          cleanupState: PlatformCleanupState(
-            inputFileDescriptor: -1,
-            outputFileDescriptor: colorPipe.writeDescriptor
-          ) { nil }
-        )
-        let colorLifecycle = await makeLifecycle(colorDevice)
-        try await colorLifecycle.enter([
-          .rawMode,
-          .altScreen,
-          .cursorStyle(CursorStyle(color: cursorColor)),
-        ])
-        CleanupRegistry.performEmergencyCleanupForTesting()
-        colorPipe.closeWriteDescriptor()
-        let colorBytes = try colorPipe.readAll()
-
-        CleanupRegistry.clear()
-        let unownedDevice = LifecycleTestDevice(
-          cleanupState: PlatformCleanupState(
-            inputFileDescriptor: -1,
-            outputFileDescriptor: unownedPipe.writeDescriptor
-          ) { nil }
-        )
-        let unownedLifecycle = await makeLifecycle(unownedDevice)
-        try await unownedLifecycle.enter([.rawMode, .altScreen])
-        CleanupRegistry.performEmergencyCleanupForTesting()
-        unownedPipe.closeWriteDescriptor()
-        let unownedBytes = try unownedPipe.readAll()
-
-        #expect(shapeBytes.containsSubsequence(cursorShapeResetBytes))
-        #expect(!shapeBytes.containsSubsequence(cursorColorResetBytes))
-        #expect(colorBytes.containsSubsequence(cursorColorResetBytes))
-        #expect(!colorBytes.containsSubsequence(cursorShapeResetBytes))
-        #expect(!unownedBytes.containsSubsequence(cursorShapeResetBytes))
-        #expect(!unownedBytes.containsSubsequence(cursorColorResetBytes))
-      }
+    let bytes = await registry.teardownBytes
+    assertInlineSnapshot(of: wrappedHex(bytes, bytesPerLine: 16), as: .lines) {
+      """
+      1B 5F 47 61 3D 64 2C 64 3D 41 1B 5C 1B 5B 3F 31
+      30 30 34 6C 1B 5B 3F 32 30 30 34 6C 1B 5B 3F 31
+      30 34 39 6C 1B 5B 3F 32 35 68
+      """
     }
   }
-#endif
 
-private func makeLifecycle(_ device: LifecycleTestDevice) async -> ModeLifecycle {
-  ModeLifecycle(io: PlatformIO(terminalDevice: await device.terminalDevice))
+  @Test(arguments: [MouseTracking.buttonEvents, .anyEvent])
+  func `cleanup bytes defensively disable mouse tracking for either granularity`(
+    _ granularity: MouseTracking
+  ) async throws {
+    let registry = TestCleanupRegistry()
+    let lifecycle = await makeLifecycle(
+      LifecycleTestDevice(cleanupState: testCleanupState()),
+      cleanupRegistry: registry.client
+    )
+
+    try await lifecycle.enter([
+      .rawMode,
+      .altScreen,
+      .bracketedPaste,
+      .focusEvents,
+      .mouseTracking(granularity),
+    ])
+
+    let bytes = await registry.teardownBytes
+    expectNoDifference(
+      bytes,
+      kittyGraphicsDeleteAllBytes
+        + mouseDisableBytes
+        + focusDisableBytes
+        + bracketedPasteDisableBytes
+        + Array("\u{1B}[?1049l".utf8)
+        + Array("\u{1B}[?25h".utf8)
+    )
+  }
+
+  @Test
+  func `cleanup bytes pop kitty keyboard before mouse focus and paste`() async throws {
+    let registry = TestCleanupRegistry()
+    let lifecycle = await makeLifecycle(
+      LifecycleTestDevice(cleanupState: testCleanupState()),
+      cleanupRegistry: registry.client
+    )
+
+    try await lifecycle.enter([
+      .rawMode,
+      .altScreen,
+      .bracketedPaste,
+      .focusEvents,
+      .mouseTracking(.anyEvent),
+      .kittyKeyboard,
+    ])
+
+    let bytes = await registry.teardownBytes
+    expectNoDifference(
+      bytes,
+      kittyGraphicsDeleteAllBytes
+        + kittyKeyboardPopBytes
+        + mouseDisableBytes
+        + focusDisableBytes
+        + bracketedPasteDisableBytes
+        + Array("\u{1B}[?1049l".utf8)
+        + Array("\u{1B}[?25h".utf8)
+    )
+  }
+
+  @Test
+  func `failed cursor enable installs cleanup before output`() async throws {
+    let registry = TestCleanupRegistry()
+    let lifecycle = await makeLifecycle(
+      LifecycleTestDevice(
+        cleanupState: testCleanupState(),
+        failure: .writeOnAttempt(1)
+      ),
+      cleanupRegistry: registry.client
+    )
+
+    await #expect(throws: LifecycleTestDevice.Failure.write) {
+      try await lifecycle.enter([
+        .rawMode,
+        .altScreen,
+        .cursorStyle(CursorStyle(shape: .steadyBlock, color: cursorColor)),
+      ])
+    }
+
+    let bytes = await registry.teardownBytes
+    expectNoDifference(
+      bytes,
+      kittyGraphicsDeleteAllBytes
+        + cursorShapeResetBytes
+        + cursorColorResetBytes
+        + Array("\u{1B}[?1049l".utf8)
+        + Array("\u{1B}[?25h".utf8)
+    )
+  }
+
+  @Test
+  func `failed exit retains emergency cleanup until retry succeeds`() async throws {
+    let registry = TestCleanupRegistry()
+    let lifecycle = await makeLifecycle(
+      LifecycleTestDevice(
+        cleanupState: testCleanupState(),
+        failure: .disableAltScreenOnce
+      ),
+      cleanupRegistry: registry.client
+    )
+
+    try await lifecycle.enter([.rawMode, .altScreen])
+    await #expect(throws: LifecycleTestDevice.Failure.disableAltScreen) {
+      try await lifecycle.exit()
+    }
+
+    let retainedBytes = await registry.teardownBytes
+    expectNoDifference(
+      retainedBytes,
+      kittyGraphicsDeleteAllBytes
+        + Array("\u{1B}[?1049l".utf8)
+        + Array("\u{1B}[?25h".utf8)
+    )
+
+    try await lifecycle.exit()
+    #expect(await registry.hasRegistration == false)
+  }
+
+  @Test
+  func `cleanup bytes reset only requested cursor style facets`() async throws {
+    let shapeRegistry = TestCleanupRegistry()
+    let shapeLifecycle = await makeLifecycle(
+      LifecycleTestDevice(cleanupState: testCleanupState()),
+      cleanupRegistry: shapeRegistry.client
+    )
+    try await shapeLifecycle.enter([
+      .rawMode,
+      .altScreen,
+      .cursorStyle(CursorStyle(shape: .steadyBlock)),
+    ])
+    let shapeBytes = await shapeRegistry.teardownBytes
+
+    let colorRegistry = TestCleanupRegistry()
+    let colorLifecycle = await makeLifecycle(
+      LifecycleTestDevice(cleanupState: testCleanupState()),
+      cleanupRegistry: colorRegistry.client
+    )
+    try await colorLifecycle.enter([
+      .rawMode,
+      .altScreen,
+      .cursorStyle(CursorStyle(color: cursorColor)),
+    ])
+    let colorBytes = await colorRegistry.teardownBytes
+
+    let unownedRegistry = TestCleanupRegistry()
+    let unownedLifecycle = await makeLifecycle(
+      LifecycleTestDevice(cleanupState: testCleanupState()),
+      cleanupRegistry: unownedRegistry.client
+    )
+    try await unownedLifecycle.enter([.rawMode, .altScreen])
+    let unownedBytes = await unownedRegistry.teardownBytes
+
+    #expect(shapeBytes.containsSubsequence(cursorShapeResetBytes))
+    #expect(!shapeBytes.containsSubsequence(cursorColorResetBytes))
+    #expect(colorBytes.containsSubsequence(cursorColorResetBytes))
+    #expect(!colorBytes.containsSubsequence(cursorShapeResetBytes))
+    #expect(!unownedBytes.containsSubsequence(cursorShapeResetBytes))
+    #expect(!unownedBytes.containsSubsequence(cursorColorResetBytes))
+  }
+}
+
+private func testCleanupState() -> PlatformCleanupState {
+  #if os(macOS) || os(Linux)
+    PlatformCleanupState(
+      inputFileDescriptor: -1,
+      outputFileDescriptor: -1
+    ) { nil }
+  #elseif os(Windows)
+    PlatformCleanupState(
+      inputHandle: 0,
+      outputHandle: 0
+    ) { .init(input: 0, output: 0) }
+  #else
+    .unavailable
+  #endif
+}
+
+private func makeLifecycle(
+  _ device: LifecycleTestDevice,
+  kittyKeyboardFlags: KittyKeyboardFlags = .tesseraDefault,
+  cleanupRegistry: CleanupRegistryClient = .disabled
+) async -> ModeLifecycle {
+  ModeLifecycle(
+    io: PlatformIO(
+      terminalDevice: await device.terminalDevice,
+      cleanupRegistry: cleanupRegistry
+    ),
+    kittyKeyboardFlags: kittyKeyboardFlags
+  )
 }
 
 private actor LifecycleTestDevice {
@@ -1046,17 +1176,24 @@ private actor LifecycleTestDevice {
 
   enum Failure: Error, Equatable {
     case disableAltScreen
+    case disableAltScreenOnce
     case disableRawMode
     case enableAltScreen
     case enableRawMode
     case write
     case writeOnAttempt(Int)
+    case partialWriteThenFailOnAttempt(Int, Int)
   }
 
   private let cleanupState: PlatformCleanupState
   private let failure: Failure?
+  private let suspendWriteOnAttempt: Int?
+  private var didFailAltScreen = false
+  private var didSuspendWrite = false
   private var recordedBytes: [UInt8] = []
   private var recordedEvents: [Event] = []
+  private var suspendedWriteContinuation: CheckedContinuation<Void, Never>?
+  private var suspensionObserver: CheckedContinuation<Void, Never>?
   private var writeCount = 0
 
   var bytes: [UInt8] {
@@ -1081,15 +1218,21 @@ private actor LifecycleTestDevice {
 
   init(
     cleanupState: PlatformCleanupState = .unavailable,
-    failure: Failure? = nil
+    failure: Failure? = nil,
+    suspendWriteOnAttempt: Int? = nil
   ) {
     self.cleanupState = cleanupState
     self.failure = failure
+    self.suspendWriteOnAttempt = suspendWriteOnAttempt
   }
 
   private func disableAltScreen() throws {
     recordedEvents.append(.disableAltScreen)
     if failure == .disableAltScreen {
+      throw Failure.disableAltScreen
+    }
+    if failure == .disableAltScreenOnce, !didFailAltScreen {
+      didFailAltScreen = true
       throw Failure.disableAltScreen
     }
     // DEC private mode 1049: leave alternate screen, `CSI ? 1049 l`.
@@ -1119,10 +1262,43 @@ private actor LifecycleTestDevice {
     }
   }
 
-  private func write(_ bytes: ArraySlice<UInt8>) throws -> Int {
+  func waitForWriteSuspension() async {
+    guard !didSuspendWrite else {
+      return
+    }
+    await withCheckedContinuation { continuation in
+      suspensionObserver = continuation
+    }
+  }
+
+  func resumeWrite() {
+    suspendedWriteContinuation?.resume()
+    suspendedWriteContinuation = nil
+  }
+
+  private func write(_ bytes: ArraySlice<UInt8>) async throws -> Int {
     let bytes = Array(bytes)
     recordedEvents.append(.flush(bytes))
     writeCount += 1
+
+    if suspendWriteOnAttempt == writeCount {
+      didSuspendWrite = true
+      suspensionObserver?.resume()
+      suspensionObserver = nil
+      await withCheckedContinuation { continuation in
+        suspendedWriteContinuation = continuation
+      }
+    }
+
+    if case .partialWriteThenFailOnAttempt(let attempt, let count) = failure {
+      if writeCount == attempt {
+        recordedBytes.append(contentsOf: bytes.prefix(count))
+        return count
+      }
+      if writeCount == attempt + 1 {
+        throw Failure.write
+      }
+    }
     if failure == .write || failure == .writeOnAttempt(writeCount) {
       throw Failure.write
     }
@@ -1211,64 +1387,3 @@ extension Array where Element == UInt8 {
     }
   }
 }
-
-#if os(macOS) || os(Linux)
-  private struct LifecycleCleanupReadError: Error, Equatable, CustomStringConvertible {
-    let errno: CInt
-
-    var description: String {
-      "read failed while draining lifecycle cleanup pipe (errno: \(errno))"
-    }
-  }
-
-  private final class LifecycleCleanupPipe: @unchecked Sendable {
-    private var descriptors: [CInt] = [-1, -1]
-
-    var writeDescriptor: CInt {
-      descriptors[1]
-    }
-
-    init() throws {
-      guard pipe(&descriptors) == 0 else {
-        throw PlatformIOError.writeFailed(errno: .init(rawValue: errno))
-      }
-    }
-
-    func closeAll() {
-      if descriptors[0] >= 0 {
-        close(descriptors[0])
-        descriptors[0] = -1
-      }
-      closeWriteDescriptor()
-    }
-
-    func closeWriteDescriptor() {
-      if descriptors[1] >= 0 {
-        close(descriptors[1])
-        descriptors[1] = -1
-      }
-    }
-
-    func readAll() throws -> [UInt8] {
-      var bytes: [UInt8] = []
-      var buffer = [UInt8](repeating: 0, count: 32)
-
-      while true {
-        let capacity = buffer.count
-        let count = buffer.withUnsafeMutableBufferPointer { pointer in
-          read(descriptors[0], pointer.baseAddress, capacity)
-        }
-
-        if count > 0 {
-          bytes.append(contentsOf: buffer.prefix(count))
-        } else if count == 0 {
-          return bytes
-        } else if errno == EINTR {
-          continue
-        } else {
-          throw LifecycleCleanupReadError(errno: errno)
-        }
-      }
-    }
-  }
-#endif

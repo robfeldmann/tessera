@@ -12,7 +12,7 @@ import Testing
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+    "Ghostty virtual terminal support is unavailable in this build."
   )
 )
 func `damage render is visually equivalent for ascii edits`() {
@@ -36,7 +36,7 @@ func `damage render is visually equivalent for ascii edits`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+    "Ghostty virtual terminal support is unavailable in this build."
   )
 )
 func `damage render is visually equivalent for styled text`() {
@@ -64,7 +64,7 @@ func `damage render is visually equivalent for styled text`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+    "Ghostty virtual terminal support is unavailable in this build."
   )
 )
 func `damage render is visually equivalent for wide grapheme replacement`() {
@@ -85,7 +85,7 @@ func `damage render is visually equivalent for wide grapheme replacement`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+    "Ghostty virtual terminal support is unavailable in this build."
   )
 )
 func `damage render is visually equivalent for row changes`() {
@@ -111,7 +111,7 @@ func `damage render is visually equivalent for row changes`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+    "Ghostty virtual terminal support is unavailable in this build."
   )
 )
 func `damage render is visually equivalent for visible raw payloads`() {
@@ -136,7 +136,7 @@ func `damage render is visually equivalent for visible raw payloads`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+    "Ghostty virtual terminal support is unavailable in this build."
   )
 )
 func `damage render preserves opaque regions`() {
@@ -159,7 +159,7 @@ func `damage render preserves opaque regions`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+    "Ghostty virtual terminal support is unavailable in this build."
   )
 )
 func `invalidated render erases before repainting`() {
@@ -191,7 +191,7 @@ func `invalidated render erases before repainting`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+    "Ghostty virtual terminal support is unavailable in this build."
   )
 )
 func `synchronized damage render is visually equivalent`() {
@@ -222,7 +222,7 @@ func `synchronized damage render is visually equivalent`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows."
+    "Ghostty virtual terminal support is unavailable in this build."
   )
 )
 func `zero width raw control payload does not affect visual state`() {

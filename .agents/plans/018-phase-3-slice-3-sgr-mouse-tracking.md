@@ -42,9 +42,9 @@ Tessera exposes mouse tracking through a `MouseTracking` granularity:
   makes hover possible.
 
 Disabling mouse tracking always emits the same defensive, idempotent sequence regardless
-of which granularity (if any) was enabled — `ESC [ ? 1003 l`, `ESC [ ? 1002 l`, then
-`ESC [ ? 1006 l` — so teardown, rollback, and emergency cleanup never need to remember
-which granularity was active.
+of which granularity was requested, active, or possibly active after ambiguous I/O —
+`ESC [ ? 1003 l`, `ESC [ ? 1002 l`, then `ESC [ ? 1006 l` — so teardown, rollback, and
+emergency cleanup cover every potentially enabled granularity.
 
 Mouse tracking remains opt-in: it changes terminal selection and scrollback behavior, so
 it must not silently become part of `TerminalApplicationConfiguration.default` in this
@@ -366,11 +366,12 @@ case mouseTracking(MouseTracking)
   `ControlSequence.disableMouseTracking`; both through `io.write` plus `io.flush()`.
 - Normal teardown disables mouse before focus and bracketed paste by reverse acquisition
   order, always emitting the full `ControlSequence.disableMouseTracking` bytes (never a
-  granularity-specific disable) whenever any mouse mode was requested or active.
+  granularity-specific disable) whenever any mouse mode was requested, active, or possibly
+  active after ambiguous I/O.
 - Emergency cleanup bytes include `ControlSequence.disableMouseTracking` whenever any
-  mouse mode was requested or active.
-- Rollback after partial startup emits `ControlSequence.disableMouseTracking` if mouse
-  tracking, in either granularity, was enabled before the failure.
+  mouse mode was requested, active, or possibly active.
+- Rollback after partial startup retains `ControlSequence.disableMouseTracking` if mouse
+  enable bytes for either granularity may have reached the terminal before the failure.
 
 Add lifecycle tests for:
 
@@ -383,7 +384,8 @@ Add lifecycle tests for:
 - teardown emits the full defensive mouse disable before focus and paste disables,
   regardless of which granularity was active
 - cleanup bytes include mouse disable for mouse-enabled sessions of either granularity
-- partial startup failure leaves no optional protocol mode active
+- partial startup failure retains defensive cleanup for every optional protocol mode that
+  may be active
 
 Snapshot the lifecycle byte transcript for the all-modes case, including any-event mouse
 tracking.
@@ -453,7 +455,7 @@ Wireframe:
 
 ```text
 Phase3ProtocolsDemo — Mouse                                      80x24
-q quit · 1 paste · 2 focus · 3 mouse · move, click, drag, or scroll here
+q quit · g graphics · m mouse log · d/y/h/t/f/k/s/c/x live controls
 
 Latest mouse event
   kind: move

@@ -128,15 +128,18 @@ Acceptance:
   plus `io.flush()`.
 - Normal teardown disables focus before bracketed paste if the reverse acquisition order
   is used.
-- Emergency cleanup bytes include focus disable whenever focus was requested or active.
-- Rollback disables focus if a later mode fails after focus was enabled.
+- Emergency cleanup bytes include focus disable whenever focus was requested, active, or
+  possibly active after ambiguous I/O.
+- Rollback retains that defensive focus cleanup if a later mode fails after focus enable
+  bytes may have reached the terminal.
 
 Add lifecycle tests for:
 
 - startup emits focus enable after bracketed-paste enable
 - teardown emits focus disable before bracketed-paste disable
 - cleanup bytes include focus disable and bracketed-paste disable
-- rollback after focus acquisition leaves no optional mode active
+- rollback retains defensive cleanup for every optional mode that may be active after an
+  ambiguous failure
 - disabled focus cleanup is idempotent
 
 Use snapshot-style lifecycle transcripts for the ordered bytes and events.
@@ -179,7 +182,7 @@ Wireframe:
 
 ```text
 Phase3ProtocolsDemo — Focus                                      80x24
-q quit · 1 paste · 2 focus
+q quit · g graphics · m mouse log · d/y/h/t/f/k/s/c/x live controls
 
 Terminal focus
   state: focused

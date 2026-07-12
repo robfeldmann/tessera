@@ -114,6 +114,352 @@ func `set cursor style overrides then restores the default`() async throws {
 }
 
 @Test
+func `application threads configured Kitty flags into lifecycle and session state`()
+  async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+  let flags: KittyKeyboardFlags = [
+    .disambiguateEscapeCodes,
+    .reportEventTypes,
+    .reportAlternateKeys,
+    .reportAllKeysAsEscapeCodes,
+    .reportAssociatedText,
+  ]
+  let configuration = TerminalApplicationConfiguration(
+    keyboardProtocol: .kittyRequired,
+    kittyKeyboardFlags: flags
+  )
+  var observedFlags = KittyKeyboardFlags()
+
+  try await TerminalSession.withApplicationTerminal(
+    configuration: configuration,
+    io: io,
+    environment: [:]
+  ) { session in
+    observedFlags = session.kittyKeyboardFlags
+  }
+
+  let flushes = await device.events.filter(\.isFlush).map(\.flushBytes)
+  expectNoDifference(observedFlags, flags)
+  #expect(flushes.contains(Array("\u{1B}[>31u".utf8)))
+}
+
+@Test
+func `set cursor style preserves configured application mode requests`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+  let style = CursorStyle(shape: .steadyBar, color: cursorColor)
+  let configuration = TerminalApplicationConfiguration(
+    mouseTracking: .anyEvent,
+    keyboardProtocol: .kittyRequired,
+    cursorStyling: .enabled(default: nil)
+  )
+
+  try await TerminalSession.withApplicationTerminal(
+    configuration: configuration,
+    io: io,
+    environment: [:]
+  ) { session in
+    try await session.setCursorStyle(style)
+  }
+
+  let flushes = await device.events.filter(\.isFlush).map(\.flushBytes)
+
+  expectNoDifference(
+    flushes,
+    [
+      bracketedPasteEnableBytes,
+      focusEnableBytes,
+      mouseEnableBytes(.anyEvent),
+      kittyKeyboardPushBytes,
+      cursorStyleOverrideBytes,
+      cursorVisibleBytes,
+      kittyGraphicsDeleteAllBytes,
+      kittyKeyboardPopBytes,
+      mouseDisableBytes,
+      focusDisableBytes,
+      bracketedPasteDisableBytes,
+      cursorStyleResetBytes,
+    ]
+  )
+}
+
+@Test
+func `runtime application mode setters preserve policy and lifecycle state`()
+  async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+  let cursorStyle = CursorStyle(shape: .steadyBlock)
+  let configuration = TerminalApplicationConfiguration(
+    keyboardProtocol: .legacyOnly,
+    cursorStyling: .enabled(default: cursorStyle)
+  )
+  var reports: [TerminalProtocolModeReport] = []
+
+  try await TerminalSession.withApplicationTerminal(
+    configuration: configuration,
+    io: io,
+    environment: [:]
+  ) { session in
+    reports.append(session.protocolModeReport)
+    try await session.setMouseTracking(.buttonEvents)
+    #expect(session.mouseTracking == .buttonEvents)
+    reports.append(session.protocolModeReport)
+    try await session.setMouseTracking(.anyEvent)
+    #expect(session.mouseTracking == .anyEvent)
+    try await session.setFocusEvents(false)
+    #expect(session.focusEventsEnabled == false)
+    try await session.setKeyboardProtocol(.kittyRequired)
+    #expect(session.keyboardProtocol == .kittyRequired)
+    try await session.setMouseTracking(.disabled)
+    try await session.setFocusEvents(true)
+    try await session.setKeyboardProtocol(.legacyOnly)
+    reports.append(session.protocolModeReport)
+    #expect(session.effectiveCursorStyle == cursorStyle)
+  }
+
+  expectNoDifference(
+    reports,
+    [
+      TerminalProtocolModeReport(
+        requested: [.cursorStyle(cursorStyle), .bracketedPaste, .focusEvents],
+        effective: [
+          .rawMode, .altScreen, .cursorStyle(cursorStyle), .bracketedPaste, .focusEvents,
+        ],
+        possiblyActive: []
+      ),
+      TerminalProtocolModeReport(
+        requested: [
+          .cursorStyle(cursorStyle), .bracketedPaste, .focusEvents,
+          .mouseTracking(.buttonEvents),
+        ],
+        effective: [
+          .rawMode, .altScreen, .cursorStyle(cursorStyle), .bracketedPaste, .focusEvents,
+          .mouseTracking(.buttonEvents),
+        ],
+        possiblyActive: []
+      ),
+      TerminalProtocolModeReport(
+        requested: [.cursorStyle(cursorStyle), .bracketedPaste, .focusEvents],
+        effective: [
+          .rawMode, .altScreen, .cursorStyle(cursorStyle), .bracketedPaste, .focusEvents,
+        ],
+        possiblyActive: []
+      ),
+    ]
+  )
+
+  let flushes = await device.events.filter(\.isFlush).map(\.flushBytes)
+  expectNoDifference(
+    flushes,
+    [
+      cursorShapeSteadyBlockBytes,
+      bracketedPasteEnableBytes,
+      focusEnableBytes,
+      mouseEnableBytes(.buttonEvents),
+      mouseDisableBytes,
+      mouseEnableBytes(.anyEvent),
+      focusDisableBytes,
+      kittyKeyboardPushBytes,
+      mouseDisableBytes,
+      focusEnableBytes,
+      kittyKeyboardPopBytes,
+      cursorVisibleBytes,
+      kittyGraphicsDeleteAllBytes,
+      focusDisableBytes,
+      bracketedPasteDisableBytes,
+      cursorShapeResetBytes,
+    ]
+  )
+}
+
+@Test
+func `equal runtime application mode assignments emit no bytes`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+
+  try await TerminalSession.withApplicationTerminal(
+    configuration: .default,
+    io: io,
+    environment: [:]
+  ) { session in
+    let before = await device.events
+    try await session.setMouseTracking(.disabled)
+    try await session.setFocusEvents(true)
+    try await session.setKeyboardProtocol(.kittyIfAvailable)
+    let after = await device.events
+    expectNoDifference(after, before)
+  }
+}
+
+@Test
+func `disabling focus preserves an event parsed before the transition`() async throws {
+  let device = InMemoryTerminalDevice(
+    size: TerminalSize(columns: 4, rows: 2),
+    inputBytes: Array("\u{1B}[I".utf8)
+  )
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+
+  try await TerminalSession.withApplicationTerminal(
+    configuration: .default,
+    io: io,
+    environment: [:]
+  ) { session in
+    try await session.setFocusEvents(false)
+    let event = try await session.nextEvent()
+    expectNoDifference(event, .focusGained)
+  }
+}
+
+@Test
+func `conditional keyboard setter ignores passive supported metadata`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+  let lifecycle = ModeLifecycle(io: io)
+  let initialModes: Set<ModeLifecycle.Mode> = [.rawMode, .altScreen, .kittyKeyboard]
+  try await lifecycle.enter(initialModes)
+  let session = TerminalSession(
+    io: io,
+    capabilities: TerminalCapabilities(kittyKeyboard: .supported),
+    enabledProtocolModes: initialModes,
+    requestedProtocolModes: [.kittyKeyboard],
+    keyboardProtocol: .kittyRequired,
+    modeLifecycle: lifecycle
+  )
+
+  try await session.setKeyboardProtocol(.kittyIfAvailable)
+
+  #expect(await session.keyboardProtocol == .kittyIfAvailable)
+  #expect(await session.enabledProtocolModes.contains(.kittyKeyboard) == false)
+  #expect(await session.protocolModeReport.requested.contains(.kittyKeyboard) == false)
+  try await lifecycle.exit()
+}
+
+@Test
+func `conditional keyboard setter consumes cached supported probe evidence`()
+  async throws {
+  let device = KeyboardProbeResponseTerminalDevice(
+    size: TerminalSize(columns: 4, rows: 2),
+    keyboardSupported: true
+  )
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+  let lifecycle = ModeLifecycle(io: io)
+  let fixedModes: Set<ModeLifecycle.Mode> = [.rawMode, .altScreen]
+  try await lifecycle.enter(fixedModes)
+  let session = TerminalSession(
+    io: io,
+    enabledProtocolModes: fixedModes,
+    keyboardProtocol: .legacyOnly,
+    activeProbeTimeout: .milliseconds(1),
+    modeLifecycle: lifecycle
+  )
+  _ = try await session.queryActiveCapabilities()
+
+  try await session.setKeyboardProtocol(.kittyIfAvailable)
+
+  #expect(await session.keyboardProtocol == .kittyIfAvailable)
+  #expect(await session.enabledProtocolModes.contains(.kittyKeyboard))
+  #expect(await session.protocolModeReport.requested.contains(.kittyKeyboard))
+  try await session.setKeyboardProtocol(.legacyOnly)
+  #expect(await session.enabledProtocolModes.contains(.kittyKeyboard) == false)
+  try await lifecycle.exit()
+}
+
+@Test
+func `queued runtime mode setters preserve unrelated requests`() async throws {
+  let device = RuntimeModeTerminalDevice()
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+
+  try await TerminalSession.withApplicationTerminal(
+    configuration: .default,
+    io: io,
+    environment: [:]
+  ) { session in
+    await device.suspendNextWrite(matching: mouseEnableBytes(.buttonEvents))
+    let mouseTask = Task {
+      try await session.setMouseTracking(.buttonEvents)
+    }
+    await device.waitForSuspension()
+    let focusTask = Task {
+      try await session.setFocusEvents(false)
+    }
+    await Task.yield()
+    await device.resumeSuspendedWrite()
+
+    try await mouseTask.value
+    try await focusTask.value
+
+    let report = session.protocolModeReport
+    #expect(report.requested.contains(.mouseTracking(.buttonEvents)))
+    #expect(report.effective.contains(.mouseTracking(.buttonEvents)))
+    #expect(report.requested.contains(.focusEvents) == false)
+    #expect(report.effective.contains(.focusEvents) == false)
+    #expect(report.possiblyActive.isEmpty)
+  }
+}
+
+@Test
+func `cancelled queued runtime setter does not mutate requested policy`() async throws {
+  let device = RuntimeModeTerminalDevice()
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+
+  try await TerminalSession.withApplicationTerminal(
+    configuration: .default,
+    io: io,
+    environment: [:]
+  ) { session in
+    await device.suspendNextWrite(matching: mouseEnableBytes(.buttonEvents))
+    let mouseTask = Task {
+      try await session.setMouseTracking(.buttonEvents)
+    }
+    await device.waitForSuspension()
+    let focusTask = Task {
+      try await session.setFocusEvents(false)
+    }
+    await Task.yield()
+    focusTask.cancel()
+    await device.resumeSuspendedWrite()
+
+    try await mouseTask.value
+    await #expect(throws: CancellationError.self) {
+      try await focusTask.value
+    }
+    let focusEventsEnabled = session.focusEventsEnabled
+    let report = session.protocolModeReport
+    #expect(focusEventsEnabled)
+    #expect(report.effective.contains(.focusEvents))
+  }
+}
+
+@Test
+func `failed runtime mode transition publishes ambiguity and retries`() async throws {
+  let device = RuntimeModeTerminalDevice()
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+
+  try await TerminalSession.withApplicationTerminal(
+    configuration: .default,
+    io: io,
+    environment: [:]
+  ) { session in
+    await device.failPartwayThroughNextWrite(matching: mouseEnableBytes(.buttonEvents))
+
+    await #expect(throws: PlatformIOError.writeFailed(errno: .ioError)) {
+      try await session.setMouseTracking(.buttonEvents)
+    }
+    var report = session.protocolModeReport
+    #expect(report.requested.contains(.mouseTracking(.buttonEvents)) == false)
+    #expect(report.effective.contains(.mouseTracking(.buttonEvents)) == false)
+    #expect(report.possiblyActive.contains(.mouseTracking(.buttonEvents)))
+
+    try await session.setMouseTracking(.buttonEvents)
+    report = session.protocolModeReport
+    #expect(report.requested.contains(.mouseTracking(.buttonEvents)))
+    #expect(report.effective.contains(.mouseTracking(.buttonEvents)))
+    #expect(report.possiblyActive.isEmpty)
+  }
+}
+
+@Test
 func `session exposes nil cell pixel size`() async {
   let device = InMemoryTerminalDevice(
     size: TerminalSize(columns: 4, rows: 2),
@@ -172,51 +518,57 @@ func `delete images writes exact kitty graphics bytes and flushes`() async throw
 }
 
 @Test
-func `query kitty graphics support writes query and DA1`() async throws {
-  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+func `graphics query runs one serialized active probe generation`() async throws {
+  let device = KeyboardProbeResponseTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
   let session = await makeSession(device)
 
-  try await session.queryKittyGraphicsSupport(id: KittyImageID(rawValue: 17))
+  let result = try await session.queryKittyGraphicsSupport(id: KittyImageID(rawValue: 17))
 
   let events = await device.events
 
-  expectNoDifference(events, [.flush(kittyGraphicsQueryProbeBytes)])
+  expectNoDifference(result, .resolved)
+  expectNoDifference(events, serializedActiveProbeEvents)
 }
 
 @Test
-func `query Kitty keyboard support writes query and DA1`() async throws {
-  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+func `keyboard query runs one serialized active probe generation`() async throws {
+  let device = KeyboardProbeResponseTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
   let session = await makeSession(device)
 
-  try await session.queryKittyKeyboardSupport()
+  let result = try await session.queryKittyKeyboardSupport()
 
   let events = await device.events
 
-  expectNoDifference(events, [.flush(kittyKeyboardProbeBytes)])
+  expectNoDifference(result, .resolved)
+  expectNoDifference(events, serializedActiveProbeEvents)
 }
 
 @Test
-func `query private modes writes phase 3 DECRQM requests`() async throws {
-  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+func `private mode query runs one serialized active probe generation`() async throws {
+  let device = KeyboardProbeResponseTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
   let session = await makeSession(device)
 
-  try await session.queryPrivateModeStatuses()
+  let result = try await session.queryPrivateModeStatuses()
 
   let events = await device.events
 
-  expectNoDifference(events, [.flush(privateModeStatusProbeBytes)])
+  expectNoDifference(result, .resolved)
+  expectNoDifference(events, serializedActiveProbeEvents)
 }
 
 @Test
-func `query active capabilities writes keyboard and DEC mode probes`() async throws {
-  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+func `active capability query serializes rounds and caches the generation`() async throws {
+  let device = KeyboardProbeResponseTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
   let session = await makeSession(device)
 
-  try await session.queryActiveCapabilities()
+  let first = try await session.queryActiveCapabilities()
+  let second = try await session.queryActiveCapabilities()
 
   let events = await device.events
 
-  expectNoDifference(events, [.flush(activeCapabilityProbeBytes)])
+  expectNoDifference(first, .resolved)
+  expectNoDifference(second, .alreadyResolved)
+  expectNoDifference(events, serializedActiveProbeEvents)
 }
 
 @Test
@@ -571,6 +923,101 @@ func `application terminal rethrows body error after cleanup`() async throws {
 }
 
 @Test
+func `probe failure exits before application body`() async throws {
+  let device = LifecycleFailureTerminalDevice(failures: [.probe])
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+  let configuration = TerminalApplicationConfiguration(capabilityDetection: .active)
+  var bodyRan = false
+
+  await #expect(throws: LifecycleFailureTerminalDevice.Failure.probe) {
+    try await TerminalSession.withApplicationTerminal(
+      configuration: configuration,
+      io: io,
+      environment: [:]
+    ) { _ in
+      bodyRan = true
+    }
+  }
+
+  let events = await device.events
+
+  #expect(!bodyRan)
+  expectNoDifference(
+    Array(events.prefix(3)),
+    [.enterRawMode, .enterAltScreen, .flush(privateModeStatusProbeBytes)]
+  )
+  #expect(events.contains(.exitAltScreen))
+  #expect(events.contains(.exitRawMode))
+  #expect(!events.contains(.flush(bracketedPasteEnableBytes)))
+}
+
+@Test
+func `initial application mode failure exits before application body`() async throws {
+  let device = LifecycleFailureTerminalDevice(failures: [.applicationMode])
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+  var bodyRan = false
+
+  await #expect(throws: LifecycleFailureTerminalDevice.Failure.applicationMode) {
+    try await TerminalSession.withApplicationTerminal(
+      configuration: .default,
+      io: io,
+      environment: [:]
+    ) { _ in
+      bodyRan = true
+    }
+  }
+
+  let events = await device.events
+
+  #expect(!bodyRan)
+  expectNoDifference(
+    Array(events.prefix(3)),
+    [.enterRawMode, .enterAltScreen, .flush(bracketedPasteEnableBytes)]
+  )
+  #expect(events.contains(.exitAltScreen))
+  #expect(events.contains(.exitRawMode))
+}
+
+@Test
+func `body error remains primary when cursor restoration and exit fail`() async throws {
+  let device = LifecycleFailureTerminalDevice(failures: [.cursorRestore, .exitRawMode])
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+
+  await #expect(throws: TerminalSessionTestError.bodyFailed) {
+    try await TerminalSession.withApplicationTerminal(
+      configuration: .default,
+      io: io,
+      environment: [:]
+    ) { _ in
+      throw TerminalSessionTestError.bodyFailed
+    }
+  }
+
+  let events = await device.events
+
+  #expect(events.contains(.flush(cursorVisibleBytes)))
+  #expect(events.contains(.exitRawMode))
+}
+
+@Test
+func `cursor restoration error remains primary after exit failure`() async throws {
+  let device = LifecycleFailureTerminalDevice(failures: [.cursorRestore, .exitRawMode])
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+
+  await #expect(throws: LifecycleFailureTerminalDevice.Failure.cursorRestore) {
+    try await TerminalSession.withApplicationTerminal(
+      configuration: .default,
+      io: io,
+      environment: [:]
+    ) { _ in }
+  }
+
+  let events = await device.events
+
+  #expect(events.contains(.exitRawMode))
+}
+
+@Test
 func `app terminal keeps Kitty off for passive Ghostty`() async throws {
   let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
   let io = PlatformIO(terminalDevice: await device.terminalDevice)
@@ -688,13 +1135,13 @@ func `active app terminal probes without enabling Kitty keyboard`() async throws
   expectNoDifference(
     observed.0,
     TerminalCapabilities(
-      bracketedPaste: .probing,
-      focusEvents: .probing,
-      mouseTracking: .probing,
+      bracketedPaste: .unknown,
+      focusEvents: .unknown,
+      mouseTracking: .unknown,
       kittyGraphics: .unknown,
-      kittyKeyboard: .probing,
+      kittyKeyboard: .unknown,
       osc8Hyperlinks: .notDetectable,
-      synchronizedOutput: .probing,
+      synchronizedOutput: .unknown,
       color: .unknown,
       identity: TerminalIdentity(
         kind: .ghostty,
@@ -709,9 +1156,10 @@ func `active app terminal probes without enabling Kitty keyboard`() async throws
     terminalSessionEventLog(events) == """
       enterRawMode
       enterAltScreen
+      flush: privateModeStatusProbes
+      flush: kittyKeyboardProbe
       flush: enableBracketedPaste(true)
       flush: enableFocusTracking(true)
-      flush: activeCapabilityProbes
       flush: cursorVisible(true)
       flush: deleteKittyGraphicsAll
       flush: enableFocusTracking(false)
@@ -1117,7 +1565,7 @@ func `equal runtime underline policy does not repaint`() async throws {
 }
 
 @Test
-func `app NO_COLOR overrides forced truecolor draw output`() async throws {
+func `NO_COLOR pins output without overwriting color evidence`() async throws {
   let device = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
   let io = PlatformIO(terminalDevice: await device.terminalDevice)
   let configuration = TerminalApplicationConfiguration(
@@ -1128,7 +1576,7 @@ func `app NO_COLOR overrides forced truecolor draw output`() async throws {
   let observed = try await TerminalSession.withApplicationTerminal(
     configuration: configuration,
     io: io,
-    environment: ["NO_COLOR": "1"]
+    environment: ["COLORTERM": "truecolor", "NO_COLOR": "1"]
   ) { session in
     try await session.draw { frame in
       frame.write(
@@ -1137,14 +1585,253 @@ func `app NO_COLOR overrides forced truecolor draw output`() async throws {
         style: Style(foreground: .rgb(255, 0, 0))
       )
     }
-    return session.capabilities.color
+    return (
+      session.capabilities.color,
+      session.effectiveColorCapability,
+      session.hasNoColorEnvironment,
+      session.hasDumbTerminal
+    )
   }
 
   let bytes = await device.bytes
   let truecolorPrefix = Array("\u{1B}[38;2;".utf8)
 
-  expectNoDifference(observed, .noColor)
+  expectNoDifference(observed.0, .truecolor)
+  expectNoDifference(observed.1, .noColor)
+  expectNoDifference(observed.2, true)
+  expectNoDifference(observed.3, false)
   #expect(containsBytes(truecolorPrefix, in: bytes) == false)
+}
+
+@Test
+func `runtime color changes repaint unchanged frames but equal policies do not`()
+  async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
+  let session = TerminalSession(
+    io: PlatformIO(terminalDevice: await device.terminalDevice),
+    synchronizedOutput: .disabled,
+    capabilities: TerminalCapabilities(color: .truecolor)
+  )
+
+  try await session.draw { frame in
+    frame.write(
+      "R",
+      at: TerminalPosition(column: 0, row: 0),
+      style: Style(foreground: .rgb(255, 0, 0))
+    )
+  }
+  await session.setColorCapability(.force(.ansi16))
+  try await session.draw { frame in
+    frame.write(
+      "R",
+      at: TerminalPosition(column: 0, row: 0),
+      style: Style(foreground: .rgb(255, 0, 0))
+    )
+  }
+  await session.setColorCapability(.force(.ansi16))
+  try await session.draw { frame in
+    frame.write(
+      "R",
+      at: TerminalPosition(column: 0, row: 0),
+      style: Style(foreground: .rgb(255, 0, 0))
+    )
+  }
+
+  let flushes = await device.events.filter(\.isFlush).map(\.flushBytes)
+  let effectiveColorCapability = await session.effectiveColorCapability
+  let evidence = await session.capabilities.color
+
+  expectNoDifference(effectiveColorCapability, .ansi16)
+  expectNoDifference(evidence, .truecolor)
+  #expect(containsBytes(Array("\u{1B}[2J".utf8), in: flushes[1]))
+  #expect(containsBytes(Array("\u{1B}[38;2;".utf8), in: flushes[1]) == false)
+  expectNoDifference(flushes[2], Array("\u{1B}[0m\u{1B}[?25l".utf8))
+}
+
+@Test
+func `color policy pinned by NO_COLOR does not repaint unchanged frames`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
+  let session = TerminalSession(
+    io: PlatformIO(terminalDevice: await device.terminalDevice),
+    synchronizedOutput: .disabled,
+    capabilities: TerminalCapabilities(color: .truecolor),
+    hasNoColorEnvironment: true
+  )
+
+  try await session.draw { frame in
+    frame.write(
+      "R",
+      at: TerminalPosition(column: 0, row: 0),
+      style: Style(foreground: .rgb(255, 0, 0))
+    )
+  }
+  await session.setColorCapability(.force(.ansi16))
+  try await session.draw { frame in
+    frame.write(
+      "R",
+      at: TerminalPosition(column: 0, row: 0),
+      style: Style(foreground: .rgb(255, 0, 0))
+    )
+  }
+
+  let flushes = await device.events.filter(\.isFlush).map(\.flushBytes)
+  let policy = await session.colorCapability
+  let effectiveColorCapability = await session.effectiveColorCapability
+
+  expectNoDifference(policy, .force(.ansi16))
+  expectNoDifference(effectiveColorCapability, .noColor)
+  expectNoDifference(flushes[1], Array("\u{1B}[0m\u{1B}[?25l".utf8))
+}
+
+@Test
+func `runtime hyperlink rendering repaints unchanged cells and equal assignment does not`()
+  async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
+  let session = TerminalSession(
+    io: PlatformIO(terminalDevice: await device.terminalDevice),
+    synchronizedOutput: .disabled
+  )
+  let hyperlink = try Hyperlink(uri: "https://example.com")
+
+  try await session.draw { frame in
+    frame.write(
+      "L", at: TerminalPosition(column: 0, row: 0), style: Style(hyperlink: hyperlink))
+  }
+  await session.setHyperlinkRendering(.disabled)
+  try await session.draw { frame in
+    frame.write(
+      "L", at: TerminalPosition(column: 0, row: 0), style: Style(hyperlink: hyperlink))
+  }
+  await session.setHyperlinkRendering(.disabled)
+  try await session.draw { frame in
+    frame.write(
+      "L", at: TerminalPosition(column: 0, row: 0), style: Style(hyperlink: hyperlink))
+  }
+
+  let flushes = await device.events.filter(\.isFlush).map(\.flushBytes)
+  let disabledHyperlinks = await session.hyperlinkRendering
+  let osc8Open = Array("\u{1B}]8;;https://example.com\u{1B}\\".utf8)
+
+  expectNoDifference(disabledHyperlinks, .disabled)
+  #expect(containsBytes(Array("\u{1B}[2J".utf8), in: flushes[1]))
+  #expect(containsBytes(osc8Open, in: flushes[1]) == false)
+  expectNoDifference(flushes[2], Array("\u{1B}[0m\u{1B}[?25l".utf8))
+}
+
+@Test
+func `draw commits runtime policies after delayed size resolution`() async throws {
+  let device = DelayedSizeTerminalDevice()
+  let session = TerminalSession(
+    io: PlatformIO(terminalDevice: await device.terminalDevice),
+    capabilities: TerminalCapabilities(color: .truecolor)
+  )
+  let hyperlink = try Hyperlink(uri: "https://example.com")
+  let drawing = Task {
+    try await session.draw { frame in
+      frame.write(
+        "R",
+        at: TerminalPosition(column: 0, row: 0),
+        style: Style(foreground: .rgb(255, 0, 0), hyperlink: hyperlink)
+      )
+    }
+  }
+
+  await device.waitForSizeRequest()
+  await session.setColorCapability(.force(.ansi16))
+  await session.setHyperlinkRendering(.disabled)
+  await session.setSynchronizedOutput(.disabled)
+  await device.resolveSize(TerminalSize(columns: 1, rows: 1))
+  try await drawing.value
+
+  let bytes = await device.bytes
+
+  #expect(containsBytes(Array("\u{1B}[38;2;".utf8), in: bytes) == false)
+  #expect(
+    containsBytes(
+      Array("\u{1B}]8;;https://example.com\u{1B}\\".utf8),
+      in: bytes
+    ) == false
+  )
+  #expect(bytes.starts(with: Array("\u{1B}[?2026h".utf8)) == false)
+}
+
+@Test
+func `failed frame replays hyperlink close and synchronized exit first`() async throws {
+  let device = PartialFailureTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
+  let session = TerminalSession(
+    io: PlatformIO(terminalDevice: await device.terminalDevice))
+  let hyperlink = try Hyperlink(uri: "https://example.com")
+
+  await #expect(throws: PlatformIOError.writeFailed(errno: .ioError)) {
+    try await session.draw { frame in
+      frame.write(
+        "L", at: TerminalPosition(column: 0, row: 0), style: Style(hyperlink: hyperlink))
+    }
+  }
+  await session.setSynchronizedOutput(.disabled)
+  try await session.draw { frame in
+    frame.write("Y", at: TerminalPosition(column: 0, row: 0))
+  }
+
+  let bytes = await device.bytes
+  let hyperlinkClose = Array("\u{1B}]8;;\u{1B}\\".utf8)
+  let syncExit = Array("\u{1B}[?2026l".utf8)
+  let yIndex = try #require(bytes.firstIndex(of: 89))
+  let hyperlinkCloseRange = try #require(firstByteRange(hyperlinkClose, in: bytes))
+  let syncExitRange = try #require(firstByteRange(syncExit, in: bytes))
+
+  #expect(hyperlinkCloseRange.lowerBound < yIndex)
+  #expect(syncExitRange.lowerBound < yIndex)
+}
+
+@Test
+func `every partial hyperlink frame offset replays close and synchronized exit first`()
+  async throws {
+  let hyperlink = try Hyperlink(uri: "https://example.com")
+  let referenceDevice = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
+  let referenceSession = TerminalSession(
+    io: PlatformIO(terminalDevice: await referenceDevice.terminalDevice)
+  )
+  try await referenceSession.draw { frame in
+    frame.write(
+      "L", at: TerminalPosition(column: 0, row: 0), style: Style(hyperlink: hyperlink))
+  }
+  let expectedFirstFrame = try #require(
+    await referenceDevice.events.first(where: \.isFlush)?.flushBytes
+  )
+  let hyperlinkClose = Array("\u{1B}]8;;\u{1B}\\".utf8)
+  let syncExit = Array("\u{1B}[?2026l".utf8)
+
+  for failureOffset in expectedFirstFrame.indices {
+    let device = OffsetFailureTerminalDevice(
+      failureOffset: failureOffset,
+      size: TerminalSize(columns: 1, rows: 1)
+    )
+    let session = TerminalSession(
+      io: PlatformIO(terminalDevice: await device.terminalDevice))
+
+    await #expect(throws: PlatformIOError.writeFailed(errno: .ioError)) {
+      try await session.draw { frame in
+        frame.write(
+          "L",
+          at: TerminalPosition(column: 0, row: 0),
+          style: Style(hyperlink: hyperlink)
+        )
+      }
+    }
+    await session.setSynchronizedOutput(.disabled)
+    try await session.draw { frame in
+      frame.write("Y", at: TerminalPosition(column: 0, row: 0))
+    }
+
+    let bytes = await device.bytes
+    let yIndex = try #require(bytes.firstIndex(of: 89))
+    let hyperlinkCloseRange = try #require(firstByteRange(hyperlinkClose, in: bytes))
+    let syncExitRange = try #require(firstByteRange(syncExit, in: bytes))
+    #expect(bytes.starts(with: expectedFirstFrame))
+    #expect(hyperlinkCloseRange.lowerBound < yIndex)
+    #expect(syncExitRange.lowerBound < yIndex)
+  }
 }
 
 @Test
@@ -1457,25 +2144,59 @@ func `next event returns control key events`() async throws {
 }
 
 @Test
-func `draw honors synchronized output policy`() async throws {
+func `draw owns complete synchronized output wrapper around renderer and cursor bytes`()
+  async throws {
   let enabledDevice = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
   let enabledSession = await makeSession(enabledDevice, synchronizedOutput: .enabled)
   let disabledDevice = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
   let disabledSession = await makeSession(disabledDevice, synchronizedOutput: .disabled)
 
-  try await enabledSession.draw { _ in }
+  try await enabledSession.draw { frame in
+    frame.setCursorPosition(TerminalPosition(column: 0, row: 0))
+  }
   try await disabledSession.draw { _ in }
 
   let enabledBytes = await enabledDevice.bytes
   let disabledBytes = await disabledDevice.bytes
-
   let syncEnter = Array("\u{1B}[?2026h".utf8)
   let syncExit = Array("\u{1B}[?2026l".utf8)
+  let expectedEnabled = Array(
+    ("\u{1B}[?2026h\u{1B}[2J\u{1B}[1;1H\u{1B}[0m "
+      + "\u{1B}[0m\u{1B}[?25h\u{1B}[1;1H\u{1B}[?2026l").utf8
+  )
 
-  #expect(enabledBytes.starts(with: syncEnter))
-  #expect(containsBytes(syncExit, in: enabledBytes))
+  expectNoDifference(enabledBytes, expectedEnabled)
   #expect(disabledBytes.starts(with: syncEnter) == false)
   #expect(containsBytes(syncExit, in: disabledBytes) == false)
+}
+
+@Test
+func `runtime synchronized output changes frame boundaries without repainting cells`()
+  async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
+  let session = await makeSession(device, synchronizedOutput: .disabled)
+
+  try await session.draw { frame in
+    frame.write("S", at: TerminalPosition(column: 0, row: 0))
+  }
+  await session.setSynchronizedOutput(.enabled)
+  try await session.draw { frame in
+    frame.write("S", at: TerminalPosition(column: 0, row: 0))
+  }
+  await session.setSynchronizedOutput(.enabled)
+  try await session.draw { frame in
+    frame.write("S", at: TerminalPosition(column: 0, row: 0))
+  }
+
+  let flushes = await device.events.filter(\.isFlush).map(\.flushBytes)
+  let policy = await session.synchronizedOutput
+  let syncEnter = Array("\u{1B}[?2026h".utf8)
+  let syncExit = Array("\u{1B}[?2026l".utf8)
+  let unchangedFrame = syncEnter + Array("\u{1B}[0m\u{1B}[?25l".utf8) + syncExit
+
+  expectNoDifference(policy, .enabled)
+  expectNoDifference(flushes[1], unchangedFrame)
+  expectNoDifference(flushes[2], unchangedFrame)
 }
 
 @Test
@@ -1642,7 +2363,16 @@ private func makeSession(
     io: PlatformIO(terminalDevice: await device.terminalDevice),
     synchronizedOutput: synchronizedOutput,
     capabilities: capabilities,
-    clipboardWriting: clipboardWriting
+    clipboardWriting: clipboardWriting,
+    probeImageID: KittyImageID(rawValue: 17)
+  )
+}
+
+private func makeSession(_ device: KeyboardProbeResponseTerminalDevice) async
+  -> TerminalSession {
+  TerminalSession(
+    io: PlatformIO(terminalDevice: await device.terminalDevice),
+    probeImageID: KittyImageID(rawValue: 17)
   )
 }
 
@@ -1765,8 +2495,9 @@ private func terminalFlushName(_ bytes: [UInt8]) -> String {
   if bytes == privateModeStatusProbeBytes {
     return "privateModeStatusProbes"
   }
-  if bytes == activeCapabilityProbeBytes {
-    return "activeCapabilityProbes"
+  if containsBytes(Array(",a=q,".utf8), in: bytes)
+    && bytes.suffix(3) == [0x1B, 0x5B, 0x63] {
+    return "kittyGraphicsQueryProbe"
   }
   if bytes == kittyKeyboardPushBytes {
     return "pushKittyKeyboard"
@@ -1807,12 +2538,15 @@ private let kittyGraphicsTransmitBytes =
   Array("\u{1B}_Ga=t,i=7,f=100,t=d,q=1,m=0;SGk=\u{1B}\\".utf8)
 private let kittyGraphicsQueryProbeBytes =
   Array("\u{1B}_Gi=17,s=1,v=1,a=q,t=d,f=24;AAAA\u{1B}\\\u{1B}[c".utf8)
-private let privateModeProbeModes = [2_004, 1_004, 1_000, 1_002, 1_003, 1_006, 2_026]
+private let privateModeProbeModes = [2_004, 1_004, 1_002, 1_003, 1_006, 2_026]
 private let privateModeStatusProbeBytes = privateModeProbeModes.flatMap { mode in
   Array("\u{1B}[?\(mode)$p".utf8)
 }
-private let activeCapabilityProbeBytes =
-  kittyKeyboardProbeBytes + privateModeStatusProbeBytes
+private let serializedActiveProbeEvents: [InMemoryTerminalDeviceEvent] = [
+  .flush(privateModeStatusProbeBytes),
+  .flush(kittyKeyboardProbeBytes),
+  .flush(kittyGraphicsQueryProbeBytes),
+]
 
 private func mouseEnableBytes(_ granularity: MouseTracking) -> [UInt8] {
   switch granularity {
@@ -1834,6 +2568,186 @@ private func containsBytes(_ needle: [UInt8], in haystack: [UInt8]) -> Bool {
       return false
     }
     return Array(haystack[index..<endIndex]) == needle
+  }
+}
+
+private func firstByteRange(_ needle: [UInt8], in haystack: [UInt8]) -> Range<Int>? {
+  guard needle.isEmpty == false, haystack.count >= needle.count else {
+    return nil
+  }
+
+  return haystack.indices.lazy.compactMap { index in
+    let endIndex = index + needle.count
+    guard endIndex <= haystack.endIndex, Array(haystack[index..<endIndex]) == needle else {
+      return nil
+    }
+    return index..<endIndex
+  }.first
+}
+
+private actor KeyboardProbeResponseTerminalDevice {
+  private let inputContinuation: AsyncStream<[UInt8]>.Continuation
+  private let inputStream: AsyncStream<[UInt8]>
+  private var recordedEvents: [InMemoryTerminalDeviceEvent] = []
+  private let keyboardSupported: Bool
+  private let storedSize: TerminalSize
+
+  var events: [InMemoryTerminalDeviceEvent] {
+    recordedEvents
+  }
+
+  var terminalDevice: TerminalDevice {
+    let inputStream = inputStream
+    return TerminalDevice(
+      bytes: { inputStream },
+      size: { self.storedSize },
+      write: { try await self.write($0) }
+    )
+  }
+  init(size: TerminalSize, keyboardSupported: Bool = false) {
+    let stream = AsyncStream<[UInt8]>.makeStream()
+    self.inputContinuation = stream.continuation
+    self.inputStream = stream.stream
+    self.keyboardSupported = keyboardSupported
+    self.storedSize = size
+  }
+
+  private func write(_ byteSlice: ArraySlice<UInt8>) throws -> Int {
+    let bytes = Array(byteSlice)
+    recordedEvents.append(.flush(bytes))
+    if bytes == kittyKeyboardProbeBytes {
+      let response =
+        keyboardSupported ? "\u{1B}[?7u\u{1B}[?1;2c" : "\u{1B}[?1;2c"
+      inputContinuation.yield(Array(response.utf8))
+    }
+    return bytes.count
+  }
+}
+
+private actor DelayedSizeTerminalDevice {
+  private var recordedBytes: [UInt8] = []
+  private var sizeContinuation: CheckedContinuation<TerminalSize, Never>?
+  private var sizeRequestWaiters: [CheckedContinuation<Void, Never>] = []
+  private var sizeRequested = false
+
+  var bytes: [UInt8] {
+    recordedBytes
+  }
+
+  var terminalDevice: TerminalDevice {
+    TerminalDevice(
+      size: { await self.size() },
+      write: { await self.write($0) }
+    )
+  }
+
+  func waitForSizeRequest() async {
+    guard !sizeRequested else {
+      return
+    }
+
+    await withCheckedContinuation { continuation in
+      sizeRequestWaiters.append(continuation)
+    }
+  }
+
+  func resolveSize(_ size: TerminalSize) {
+    sizeContinuation?.resume(returning: size)
+    sizeContinuation = nil
+  }
+
+  private func size() async -> TerminalSize {
+    sizeRequested = true
+    let waiters = sizeRequestWaiters
+    sizeRequestWaiters.removeAll()
+    for waiter in waiters {
+      waiter.resume()
+    }
+
+    return await withCheckedContinuation { continuation in
+      sizeContinuation = continuation
+    }
+  }
+
+  private func write(_ byteSlice: ArraySlice<UInt8>) -> Int {
+    let bytes = Array(byteSlice)
+    recordedBytes.append(contentsOf: bytes)
+    return bytes.count
+  }
+}
+
+private actor PartialFailureTerminalDevice {
+  private var attempts = 0
+  private var recordedBytes: [UInt8] = []
+  private let storedSize: TerminalSize
+
+  var bytes: [UInt8] {
+    recordedBytes
+  }
+
+  var terminalDevice: TerminalDevice {
+    TerminalDevice(
+      size: { self.storedSize },
+      write: { try await self.write($0) }
+    )
+  }
+
+  init(size: TerminalSize) {
+    self.storedSize = size
+  }
+
+  private func write(_ byteSlice: ArraySlice<UInt8>) throws -> Int {
+    defer { attempts += 1 }
+    switch attempts {
+    case 0:
+      let firstByte = byteSlice.prefix(1)
+      recordedBytes.append(contentsOf: firstByte)
+      return firstByte.count
+    case 1:
+      throw PlatformIOError.writeFailed(errno: .ioError)
+    default:
+      recordedBytes.append(contentsOf: byteSlice)
+      return byteSlice.count
+    }
+  }
+}
+
+private actor OffsetFailureTerminalDevice {
+  private var didFail = false
+  private var recordedBytes: [UInt8] = []
+  private var remainingBytesBeforeFailure: Int
+  private let storedSize: TerminalSize
+
+  var bytes: [UInt8] {
+    recordedBytes
+  }
+
+  var terminalDevice: TerminalDevice {
+    TerminalDevice(
+      size: { self.storedSize },
+      write: { try await self.write($0) }
+    )
+  }
+
+  init(failureOffset: Int, size: TerminalSize) {
+    self.remainingBytesBeforeFailure = failureOffset
+    self.storedSize = size
+  }
+
+  private func write(_ byteSlice: ArraySlice<UInt8>) throws -> Int {
+    if didFail {
+      recordedBytes.append(contentsOf: byteSlice)
+      return byteSlice.count
+    }
+    guard remainingBytesBeforeFailure > 0 else {
+      didFail = true
+      throw PlatformIOError.writeFailed(errno: .ioError)
+    }
+
+    let writeCount = min(remainingBytesBeforeFailure, byteSlice.count)
+    recordedBytes.append(contentsOf: byteSlice.prefix(writeCount))
+    remainingBytesBeforeFailure -= writeCount
+    return writeCount
   }
 }
 
@@ -1865,6 +2779,158 @@ private actor FailOnceTerminalDevice {
 
     storedBytes.append(contentsOf: bytes)
     return bytes.count
+  }
+}
+
+private actor LifecycleFailureTerminalDevice {
+  enum Event: Equatable, Sendable {
+    case enterAltScreen
+    case enterRawMode
+    case exitAltScreen
+    case exitRawMode
+    case flush([UInt8])
+  }
+
+  enum Failure: Error, Equatable, Hashable, Sendable {
+    case applicationMode
+    case cursorRestore
+    case exitRawMode
+    case probe
+  }
+
+  private var remainingFailures: Set<Failure>
+  private var recordedEvents: [Event] = []
+
+  var events: [Event] {
+    recordedEvents
+  }
+
+  var terminalDevice: TerminalDevice {
+    TerminalDevice(
+      enterAltScreen: { await self.enterAltScreen() },
+      enterRawMode: { await self.enterRawMode() },
+      exitAltScreen: { await self.exitAltScreen() },
+      exitRawMode: { try await self.exitRawMode() },
+      size: { TerminalSize(columns: 4, rows: 2) },
+      write: { try await self.write($0) }
+    )
+  }
+
+  init(failures: Set<Failure>) {
+    self.remainingFailures = failures
+  }
+
+  private func enterAltScreen() {
+    recordedEvents.append(.enterAltScreen)
+  }
+
+  private func enterRawMode() {
+    recordedEvents.append(.enterRawMode)
+  }
+
+  private func exitAltScreen() {
+    recordedEvents.append(.exitAltScreen)
+  }
+
+  private func exitRawMode() throws {
+    recordedEvents.append(.exitRawMode)
+    if consume(.exitRawMode) {
+      throw Failure.exitRawMode
+    }
+  }
+
+  private func write(_ byteSlice: ArraySlice<UInt8>) throws -> Int {
+    let bytes = Array(byteSlice)
+    recordedEvents.append(.flush(bytes))
+
+    if bytes == privateModeStatusProbeBytes, consume(.probe) {
+      throw Failure.probe
+    }
+    if bytes == bracketedPasteEnableBytes, consume(.applicationMode) {
+      throw Failure.applicationMode
+    }
+    if bytes == cursorVisibleBytes, consume(.cursorRestore) {
+      throw Failure.cursorRestore
+    }
+
+    return bytes.count
+  }
+
+  private func consume(_ failure: Failure) -> Bool {
+    remainingFailures.remove(failure) != nil
+  }
+}
+
+private actor RuntimeModeTerminalDevice {
+  private var bytesToFailPartwayThrough: [UInt8] = []
+  private var bytesToSuspend: [UInt8] = []
+  private var failsNextWrite = false
+  private var isWriteSuspended = false
+  private var suspensionWaiters: [CheckedContinuation<Void, Never>] = []
+  private var writeContinuation: CheckedContinuation<Void, Never>?
+
+  var terminalDevice: TerminalDevice {
+    TerminalDevice(
+      enterAltScreen: {},
+      enterRawMode: {},
+      exitAltScreen: {},
+      exitRawMode: {},
+      size: { TerminalSize(columns: 4, rows: 2) },
+      write: { try await self.write($0) }
+    )
+  }
+
+  func failPartwayThroughNextWrite(matching bytes: [UInt8]) {
+    bytesToFailPartwayThrough = bytes
+  }
+
+  func suspendNextWrite(matching bytes: [UInt8]) {
+    bytesToSuspend = bytes
+  }
+
+  func waitForSuspension() async {
+    guard !isWriteSuspended else {
+      return
+    }
+    await withCheckedContinuation { continuation in
+      suspensionWaiters.append(continuation)
+    }
+  }
+
+  func resumeSuspendedWrite() {
+    writeContinuation?.resume()
+    writeContinuation = nil
+    isWriteSuspended = false
+  }
+
+  private func write(_ byteSlice: ArraySlice<UInt8>) async throws -> Int {
+    if failsNextWrite {
+      failsNextWrite = false
+      throw PlatformIOError.writeFailed(errno: .ioError)
+    }
+
+    let bytes = Array(byteSlice)
+    if !bytesToFailPartwayThrough.isEmpty,
+      bytes == bytesToFailPartwayThrough,
+      bytes.count > 1 {
+      bytesToFailPartwayThrough.removeAll()
+      failsNextWrite = true
+      return 1
+    }
+
+    if !bytesToSuspend.isEmpty, bytes == bytesToSuspend {
+      bytesToSuspend.removeAll()
+      await withCheckedContinuation { continuation in
+        writeContinuation = continuation
+        isWriteSuspended = true
+        let waiters = suspensionWaiters
+        suspensionWaiters.removeAll()
+        for waiter in waiters {
+          waiter.resume()
+        }
+      }
+    }
+    return byteSlice.count
   }
 }
 

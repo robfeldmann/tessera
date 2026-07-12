@@ -340,24 +340,21 @@ Acceptance:
   omission. Default `.truecolor` only on the static
   `Renderer.render`/`render(previous:current:)` test helpers, so existing direct renderer
   byte tests keep covering exact ANSI/RGB output unless they opt into degradation.
-- Have `TerminalSession.draw` pass `capabilities.color` into `renderer.encodeFrame`.
+- Have `TerminalSession.draw` pass actor-isolated `effectiveColorCapability` into
+  `renderer.encodeFrame`; `TerminalCapabilities.color` remains detected advisory metadata
+  and is not itself the live rendering policy.
 - Do not add a new terminal mode or lifecycle step. Color degradation is renderer policy,
   not a protocol enable sequence.
-- Do not make `NO_COLOR` a renderer environment read. The detector already turns the
-  environment into `TerminalCapabilities.color`; tests should inject capabilities rather
-  than reading the developer machine's environment.
-- Add an application-level color override so apps are not stuck with passive detection.
-  Many truecolor terminals never set `COLORTERM`, so detection alone lands them on the
-  `.unknown` → ANSI 16 fallback. Add an optional intent to
-  `TerminalApplicationConfiguration`, e.g. `colorCapability: ColorCapabilityOverride`
-  defaulting to `.detect`, where an explicit `.force(.truecolor)` / `.force(.noColor)` / …
-  overrides the detected value inside `resolve(...)`. Precedence, honoring the `NO_COLOR`
-  informal standard: a `NO_COLOR` / `TERM=dumb` environment forces `.noColor` and cannot
-  be overridden; otherwise an explicit application override wins; otherwise passive
-  detection decides. Surface the resolved value on `TerminalApplicationResolution`
-  (derived, tested it cannot diverge) so `TerminalSession.draw` reads one field. The
-  `NO_COLOR`-wins precedence is a settled decision: a user's `NO_COLOR` cannot be
-  overridden by an app.
+- Do not make `NO_COLOR` a renderer environment read. The detector records environment
+  evidence; tests inject capabilities and user constraints rather than read the developer
+  machine's environment.
+- Add an application-level `ColorCapabilityOverride` intent, defaulting to `.detect`.
+  `TerminalSession.setColorCapability(_:)` changes that live policy. It derives a separate
+  effective renderer capability from detected metadata and user constraints, invalidating
+  the renderer only when that effective capability changes.
+- `NO_COLOR` and `TERM=dumb` pin the effective result to `.noColor`; otherwise an explicit
+  application override wins over detected capability metadata. Surface both detected and
+  effective values distinctly so callers cannot mistake evidence for policy.
 
 Acceptance:
 
@@ -419,6 +416,7 @@ Acceptance:
 - In `Phase3ProtocolsDemo`, add a small color degradation panel or extend the existing
   capabilities panel with:
   - detected `capabilities.color`
+  - selected `effectiveColorCapability`, distinct from detected metadata
   - the effective fallback ladder (`truecolor → 256 → 16 → no-color`)
   - sample swatches/text written as RGB, indexed, ANSI 16, and default colors so reviewers
     can see degradation under `NO_COLOR`, `TERM=dumb`, and ordinary terminals

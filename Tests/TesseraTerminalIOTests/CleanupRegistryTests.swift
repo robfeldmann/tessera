@@ -49,6 +49,31 @@ import Testing
     }
 
     @Test
+    func `test terminal device cleanup client cannot clear live registry`() async {
+      await CleanupRegistryTestIsolation.withExclusiveAccess {
+        var saved = termios()
+        saved.c_lflag = tcflag_t(ICANON | ECHO)
+        defer { CleanupRegistry.clear() }
+        CleanupRegistry.install(
+          inputFileDescriptor: -1,
+          outputFileDescriptor: -1,
+          teardownBytes: [],
+          savedTermios: saved
+        )
+        let io = PlatformIO(
+          terminalDevice: TerminalDevice(
+            size: { .init(columns: 1, rows: 1) },
+            write: { _ in 0 }
+          )
+        )
+
+        await io.clearCleanup()
+
+        #expect(CleanupRegistry.hasSavedTermiosForTesting())
+      }
+    }
+
+    @Test
     func `cleanup registry clear removes installed teardown bytes`() async throws {
       try await CleanupRegistryTestIsolation.withExclusiveAccess {
         let pipe = try FileDescriptorPipe()
@@ -213,7 +238,8 @@ import Testing
           cleanupState: cleanupState,
           size: { .init(columns: 1, rows: 1) },
           write: { _ in 0 }
-        )
+        ),
+        cleanupRegistry: .live
       )
       defer { CleanupRegistry.clear() }
 
@@ -223,6 +249,38 @@ import Testing
     }
   }
 #endif
+
+actor TestCleanupRegistry {
+  private var registration: PlatformCleanupRegistration?
+
+  nonisolated var client: CleanupRegistryClient {
+    CleanupRegistryClient(
+      installHandlers: {},
+      install: { registration in
+        await self.install(registration)
+      },
+      clear: {
+        await self.clear()
+      }
+    )
+  }
+
+  var hasRegistration: Bool {
+    registration != nil
+  }
+
+  var teardownBytes: [UInt8] {
+    registration?.teardownBytes ?? []
+  }
+
+  private func clear() {
+    registration = nil
+  }
+
+  private func install(_ registration: PlatformCleanupRegistration) {
+    self.registration = registration
+  }
+}
 
 enum CleanupRegistryTestIsolation {
   private static let lock = CleanupRegistryAsyncLock()
