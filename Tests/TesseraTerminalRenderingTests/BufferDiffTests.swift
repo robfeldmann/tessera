@@ -130,6 +130,44 @@ func `style only changes are dirty`() throws {
 }
 
 @Test
+func `underline style only changes are dirty`() throws {
+  let previous = Buffer(size: TerminalSize(columns: 3, rows: 1))
+  var current = previous
+  try current.set(
+    Cell(content: .blank, style: Style(underlineStyle: .curly)),
+    row: 0,
+    column: 1
+  )
+
+  expectRuns(
+    previous: previous,
+    current: current,
+    expected: [
+      RowDamageRun(row: 0, columns: 1..<2)
+    ]
+  )
+}
+
+@Test
+func `underline color only changes are dirty`() throws {
+  let previous = Buffer(size: TerminalSize(columns: 3, rows: 1))
+  var current = previous
+  try current.set(
+    Cell(content: .blank, style: Style(underlineColor: .indexed(196))),
+    row: 0,
+    column: 1
+  )
+
+  expectRuns(
+    previous: previous,
+    current: current,
+    expected: [
+      RowDamageRun(row: 0, columns: 1..<2)
+    ]
+  )
+}
+
+@Test
 func `wide grapheme continuations participate in damage`() {
   var previous = Buffer(size: TerminalSize(columns: 4, rows: 1))
   previous.write("你", at: TerminalPosition(column: 1, row: 0))

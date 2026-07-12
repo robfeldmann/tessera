@@ -19,6 +19,21 @@ func `size returns queried terminal size`() async throws {
 }
 
 @Test
+func `cell pixel size returns terminal device value`() async {
+  let io = PlatformIO(
+    terminalDevice: TerminalDevice(
+      cellPixelSize: { CellPixelSize(height: 18, width: 9) },
+      size: { TerminalSize(columns: 120, rows: 40) },
+      write: { $0.count }
+    )
+  )
+
+  let pixelSize = await io.cellPixelSize()
+
+  expectNoDifference(pixelSize, CellPixelSize(height: 18, width: 9))
+}
+
+@Test
 func `size changes yields terminal size notifications`() async throws {
   let io = PlatformIO(
     terminalDevice: TerminalDevice(
@@ -61,15 +76,15 @@ func `size propagates unavailable size errors`() async {
 #if os(Windows)
   @Test
   func `windows live terminal reads console window size`() async throws {
-    let system = WindowsConsoleSystem.stub(
-      terminalSize: { handle in
-        handle == 0x20 ? TerminalSize(columns: 132, rows: 43) : nil
-      }
-    )
+    let system = WindowsConsoleSystem.terminalSizeStub { handle in
+      handle == 0x20 ? TerminalSize(columns: 132, rows: 43) : nil
+    }
 
     try await WindowsConsoleSystem.$override.withValue(system) {
       let io = PlatformIO(
-        terminalDevice: .live(handles: PlatformHandles(inputHandle: 0x10, outputHandle: 0x20))
+        terminalDevice: .live(
+          handles: PlatformHandles(inputHandle: 0x10, outputHandle: 0x20)
+        )
       )
 
       let size = try await io.size()
@@ -93,7 +108,9 @@ func `size propagates unavailable size errors`() async {
     ) {
       try await WindowsConsoleSystem.$override.withValue(system) {
         let io = PlatformIO(
-          terminalDevice: .live(handles: PlatformHandles(inputHandle: 0x10, outputHandle: 0x20))
+          terminalDevice: .live(
+            handles: PlatformHandles(inputHandle: 0x10, outputHandle: 0x20)
+          )
         )
 
         try await io.size()

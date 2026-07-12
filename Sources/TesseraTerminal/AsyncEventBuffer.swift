@@ -4,18 +4,26 @@ package actor AsyncEventBuffer<Element: Sendable> {
     id: Int,
     continuation: CheckedContinuation<Element?, any Error>
   )
+  package typealias CoalescingPredicate =
+    @Sendable (
+      _ buffered: Element,
+      _ incoming: Element
+    ) -> Bool
 
   private var cancelledWaiterIDs: Set<Int> = []
   private var elements: [Element] = []
   private var finished = false
   private var nextWaiterID = 0
   private var waiters: [Waiter] = []
+  private let coalescing: CoalescingPredicate?
 
   package var waiterCount: Int {
     waiters.count
   }
 
-  package init() {}
+  package init(coalescing: CoalescingPredicate? = nil) {
+    self.coalescing = coalescing
+  }
 
   package func finish() {
     guard finished == false else {
@@ -70,9 +78,18 @@ package actor AsyncEventBuffer<Element: Sendable> {
     if waiters.isEmpty == false {
       let waiter = waiters.removeFirst()
       waiter.continuation.resume(returning: element)
+    } else if shouldCoalesce(elements.last, with: element) {
+      elements[elements.index(before: elements.endIndex)] = element
     } else {
       elements.append(element)
     }
+  }
+
+  private func shouldCoalesce(_ buffered: Element?, with incoming: Element) -> Bool {
+    guard let buffered, let coalescing else {
+      return false
+    }
+    return coalescing(buffered, incoming)
   }
 
   private func cancelWaiter(id: Int) {

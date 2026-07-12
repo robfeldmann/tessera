@@ -9,6 +9,17 @@ public struct TerminalSize: Equatable, Hashable, Sendable {
   }
 }
 
+/// The terminal's per-cell pixel dimensions, when the platform reports them.
+public struct CellPixelSize: Equatable, Hashable, Sendable {
+  public var height: Int
+  public var width: Int
+
+  public init(height: Int, width: Int) {
+    self.height = height
+    self.width = width
+  }
+}
+
 /// A zero-based position in terminal character-cell coordinates.
 public struct TerminalPosition: Equatable, Hashable, Sendable {
   public let column: Int

@@ -5,16 +5,17 @@
   /// Shared Windows console input owner that fans out bytes and resize events.
   ///
   /// Windows byte input and `WINDOW_BUFFER_SIZE_EVENT` records share one console input
-  /// queue. This loop is intentionally single-owner: it peeks the queue, drains only
-  /// non-character records with `ReadConsoleInputW`, and calls `ReadFile` only after a
-  /// queued key record proves byte input is available. That prevents a resize-only record
-  /// from blocking `ReadFile` while waiting for a later keypress, and prevents independent
-  /// byte/resize loops from stealing records from each other.
+  /// queue. This loop is intentionally single-owner: it drains queued console records with
+  /// `ReadConsoleInputW`, translates key records into UTF-8 bytes, and fans resize records
+  /// out separately. That prevents a resize-only record from blocking byte input while
+  /// waiting for a later keypress, and prevents independent byte/resize loops from
+  /// stealing records from each other.
   package actor WindowsInputLoop {
     private let inputHandle: UInt
     private let peekRecordLimit: UInt32
     private let pollTimeoutMilliseconds: UInt32
     private let system: WindowsConsoleSystem
+    private let requiresByteAndSizeConsumers: Bool
 
     private var byteContinuations: [Int: AsyncStream<[UInt8]>.Continuation] = [:]
     private var nextContinuationID = 0
@@ -25,12 +26,71 @@
       inputHandle: UInt,
       system: WindowsConsoleSystem = .current,
       pollTimeoutMilliseconds: UInt32 = 25,
+      requiresByteAndSizeConsumers: Bool = false,
       peekRecordLimit: UInt32 = 32
     ) {
       self.inputHandle = inputHandle
       self.system = system
       self.pollTimeoutMilliseconds = pollTimeoutMilliseconds
+      self.requiresByteAndSizeConsumers = requiresByteAndSizeConsumers
       self.peekRecordLimit = peekRecordLimit
+    }
+
+    private static func run(
+      inputHandle: UInt,
+      system: WindowsConsoleSystem,
+      pollTimeoutMilliseconds: UInt32,
+      peekRecordLimit: UInt32,
+      loop: WindowsInputLoop
+    ) async {
+      while !Task.isCancelled {
+        let waitResult = system.waitForSingleObject(inputHandle, pollTimeoutMilliseconds)
+        if waitResult == WindowsWaitStatus.timeout {
+          await loop.yieldBytes([])
+          continue
+        }
+        guard waitResult == WindowsWaitStatus.object else {
+          await loop.finishAll()
+          return
+        }
+
+        let records: [WindowsInputRecord]
+        do {
+          records = try system.peekConsoleInput(inputHandle, peekRecordLimit)
+        } catch {
+          await loop.finishAll()
+          return
+        }
+        guard records.isEmpty == false else {
+          continue
+        }
+
+        let drainedRecords: [WindowsInputRecord]
+        do {
+          drainedRecords = try system.readConsoleInput(
+            inputHandle,
+            UInt32(records.count)
+          )
+        } catch {
+          await loop.finishAll()
+          return
+        }
+
+        for record in drainedRecords {
+          switch record {
+          case .key(let bytes) where bytes.isEmpty == false:
+            await loop.yieldBytes(bytes)
+
+          case .resize(let size):
+            await loop.yieldSize(size)
+
+          case .key, .other:
+            break
+          }
+        }
+      }
+
+      await loop.finishAll()
     }
 
     package nonisolated func bytes() -> AsyncStream<[UInt8]> {
@@ -93,6 +153,10 @@
       guard task == nil else {
         return
       }
+      if requiresByteAndSizeConsumers,
+        byteContinuations.isEmpty || sizeContinuations.isEmpty {
+        return
+      }
 
       let inputHandle = inputHandle
       let peekRecordLimit = peekRecordLimit
@@ -141,71 +205,6 @@
       for continuation in sizeContinuations {
         continuation.finish()
       }
-    }
-
-    private static func run(
-      inputHandle: UInt,
-      system: WindowsConsoleSystem,
-      pollTimeoutMilliseconds: UInt32,
-      peekRecordLimit: UInt32,
-      loop: WindowsInputLoop
-    ) async {
-      var buffer = [UInt8](repeating: 0, count: 256)
-
-      while !Task.isCancelled {
-        let waitResult = system.waitForSingleObject(inputHandle, pollTimeoutMilliseconds)
-        if waitResult == WindowsWaitStatus.timeout {
-          await loop.yieldBytes([])
-          continue
-        }
-        guard waitResult == WindowsWaitStatus.object else {
-          await loop.finishAll()
-          return
-        }
-
-        guard let records = system.peekConsoleInput(inputHandle, peekRecordLimit) else {
-          await loop.finishAll()
-          return
-        }
-        guard records.isEmpty == false else {
-          continue
-        }
-
-        let firstKeyIndex = records.firstIndex { $0.isKey }
-        let drainCount = firstKeyIndex ?? records.count
-        if drainCount > 0 {
-          guard let drainedRecords = system.readConsoleInput(inputHandle, UInt32(drainCount))
-          else {
-            await loop.finishAll()
-            return
-          }
-          for record in drainedRecords {
-            if case .resize(let size) = record {
-              await loop.yieldSize(size)
-            }
-          }
-        }
-
-        guard firstKeyIndex != nil else {
-          continue
-        }
-
-        let readCount = buffer.withUnsafeMutableBufferPointer { pointer in
-          system.readFile(inputHandle, pointer.baseAddress, UInt32(pointer.count))
-        }
-        guard let readCount else {
-          await loop.finishAll()
-          return
-        }
-        guard readCount > 0 else {
-          await loop.finishAll()
-          return
-        }
-
-        await loop.yieldBytes(Array(buffer.prefix(readCount)))
-      }
-
-      await loop.finishAll()
     }
   }
 

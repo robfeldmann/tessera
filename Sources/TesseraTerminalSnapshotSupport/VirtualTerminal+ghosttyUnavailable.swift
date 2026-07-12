@@ -31,6 +31,14 @@ extension VirtualTerminal {
         "VirtualTerminal.cursor: \(reason)",
         placeholder: TerminalPosition(column: 0, row: 0)
       ),
+      kittyImages: unimplemented(
+        "VirtualTerminal.kittyImages: \(reason)",
+        placeholder: []
+      ),
+      kittyPlacements: unimplemented(
+        "VirtualTerminal.kittyPlacements: \(reason)",
+        placeholder: []
+      ),
       snapshot: unimplemented(
         "VirtualTerminal.snapshot: \(reason)",
         placeholder: ScreenSnapshot.empty

@@ -2,6 +2,30 @@
   @testable import TesseraTerminalIO
 
   extension POSIXSystem {
+    static func pipeStub(
+      _ pipe: @escaping @Sendable (UnsafeMutablePointer<CInt>) -> CInt
+    ) -> Self {
+      stub(pipe: pipe)
+    }
+
+    static func pollStub(
+      _ poll:
+        @escaping @Sendable (
+          UnsafeMutablePointer<pollfd>?, nfds_t, CInt
+        ) -> CInt
+    ) -> Self {
+      stub(poll: poll)
+    }
+
+    static func writeStub(
+      _ write:
+        @escaping @Sendable (
+          CInt, UnsafeRawPointer?, Int
+        ) -> Int
+    ) -> Self {
+      stub(write: write)
+    }
+
     /// A syscall surface whose calls default to harmless no-ops for tests.
     static func stub(
       close: @escaping @Sendable (CInt) -> CInt = { _ in 0 },
@@ -12,11 +36,18 @@
         descriptors[1] = 101
         return 0
       },
-      poll: @escaping @Sendable (UnsafeMutablePointer<pollfd>?, nfds_t, CInt) -> CInt = {
-        _, _, _ in 0
-      },
-      read: @escaping @Sendable (CInt, UnsafeMutableRawPointer?, Int) -> Int = { _, _, _ in 0 },
-      write: @escaping @Sendable (CInt, UnsafeRawPointer?, Int) -> Int = { _, _, count in count }
+      poll:
+        @escaping @Sendable (
+          UnsafeMutablePointer<pollfd>?, nfds_t, CInt
+        ) -> CInt = { _, _, _ in 0 },
+      read:
+        @escaping @Sendable (
+          CInt, UnsafeMutableRawPointer?, Int
+        ) -> Int = { _, _, _ in 0 },
+      write:
+        @escaping @Sendable (
+          CInt, UnsafeRawPointer?, Int
+        ) -> Int = { _, _, count in count }
     ) -> Self {
       Self(
         close: close,

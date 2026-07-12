@@ -61,7 +61,7 @@ done
 if [[ ${#swift_files[@]} -gt 0 ]]; then
   echo "▶ Linting changed Swift files"
   swift-format lint "${swift_files[@]}"
-  swiftlint lint --config .swiftlint.yml "${swift_files[@]}"
+  swiftlint lint --strict --config .swiftlint.yml "${swift_files[@]}"
 fi
 
 if [[ ${#markdown_files[@]} -gt 0 ]]; then

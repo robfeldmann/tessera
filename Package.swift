@@ -326,6 +326,7 @@ package.targets.append(contentsOf: [
       SnapshotTesting,
       SnapshotTestingCustomDump,
       TesseraTerminalInput,
+      TesseraTerminalSnapshotSupport,
     ]
   ),
 ])
@@ -402,8 +403,10 @@ package.targets.append(contentsOf: [
   .testTarget(
     name: "TesseraTerminalSnapshotSupportTests",
     dependencies: [
+      TesseraTerminal,
       TesseraTerminalCore,
       TesseraTerminalSnapshotSupport,
+      TesseraTerminalTestSupport,
     ]
   ),
 ])

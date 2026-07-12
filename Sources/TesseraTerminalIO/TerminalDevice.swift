@@ -5,6 +5,9 @@ package struct TerminalDevice: Sendable {
   /// Reads raw input byte chunks from terminal input.
   package var bytes: @Sendable () -> AsyncStream<[UInt8]>
 
+  /// Reads the terminal's current per-cell pixel size, or `nil` when unknown.
+  package var cellPixelSize: @Sendable () async -> CellPixelSize?
+
   /// Emergency cleanup state for terminal modes acquired by this device.
   package var cleanupState: PlatformCleanupState
 
@@ -30,7 +33,10 @@ package struct TerminalDevice: Sendable {
   package var write: @Sendable (ArraySlice<UInt8>) async throws -> Int
 
   package init(
-    bytes: @escaping @Sendable () -> AsyncStream<[UInt8]> = { AsyncStream { $0.finish() } },
+    bytes: @escaping @Sendable () -> AsyncStream<[UInt8]> = {
+      AsyncStream { $0.finish() }
+    },
+    cellPixelSize: @escaping @Sendable () async -> CellPixelSize? = { nil },
     cleanupState: PlatformCleanupState = .unavailable,
     enterAltScreen: @escaping @Sendable () async throws -> Void = {},
     enterRawMode: @escaping @Sendable () async throws -> Void = {},
@@ -43,6 +49,7 @@ package struct TerminalDevice: Sendable {
     write: @escaping @Sendable (ArraySlice<UInt8>) async throws -> Int
   ) {
     self.bytes = bytes
+    self.cellPixelSize = cellPixelSize
     self.cleanupState = cleanupState
     self.enterAltScreen = enterAltScreen
     self.enterRawMode = enterRawMode

@@ -299,6 +299,40 @@ func `raw payload stores anchor and occupied continuations`() {
 }
 
 @Test
+func `buffer state snapshots include hyperlink metadata`() throws {
+  var buffer = Buffer(size: TerminalSize(columns: 4, rows: 1))
+  let link = try Hyperlink(uri: "https://example.com/docs", id: "docs")
+
+  buffer.write(
+    "Hi",
+    at: TerminalPosition(column: 0, row: 0),
+    style: Style(hyperlink: link)
+  )
+
+  assertInlineSnapshot(of: buffer, as: .bufferState) {
+    """
+    H{link=docs:https://example.com/docs} i{link=docs:https://example.com/docs} · ·
+    """
+  }
+}
+
+@Test
+func `buffer state snapshots include underline style and color metadata`() {
+  var buffer = Buffer(size: TerminalSize(columns: 2, rows: 1))
+
+  buffer.write(
+    "U",
+    at: TerminalPosition(column: 0, row: 0),
+    style: Style(underlineStyle: .dotted, underlineColor: .indexed(196))
+  )
+
+  assertInlineSnapshot(of: buffer, as: .bufferState) {
+    """
+    U{underline=dotted,underlineColor=indexed(196)} ·
+    """
+  }
+}
+@Test
 func `raw payload clips occupied region`() {
   var buffer = Buffer(size: TerminalSize(columns: 3, rows: 2))
   let payload = RawTerminalPayload(bytes: [0x1B], declaredWidth: 4)

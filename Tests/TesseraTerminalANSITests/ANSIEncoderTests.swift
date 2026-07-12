@@ -29,10 +29,92 @@ func `cursor control sequences encode exact bytes`() {
   expectBytes(.cursorRestore, esc("8"))
 }
 
+@Test
+func `cursor shape control sequences encode exact bytes`() {
+  let cases: [(shape: CursorShape, expected: [UInt8])] = [
+    (.defaultUserShape, esc("[0 q")),
+    (.blinkingBlock, esc("[1 q")),
+    (.steadyBlock, esc("[2 q")),
+    (.blinkingUnderline, esc("[3 q")),
+    (.steadyUnderline, esc("[4 q")),
+    (.blinkingBar, esc("[5 q")),
+    (.steadyBar, esc("[6 q")),
+  ]
+
+  for testCase in cases {
+    #expect(testCase.expected[3] == 0x20)
+    expectBytes(.setCursorShape(testCase.shape), testCase.expected)
+  }
+}
+
+@Test
+func `cursor color control sequences encode exact bytes`() {
+  let stringTerminator = esc("\\")
+  let cases: [(color: CursorColor, expected: [UInt8])] = [
+    (
+      CursorColor(red: 0x12, green: 0xAB, blue: 0xF0),
+      esc("]12;#12ABF0") + stringTerminator
+    ),
+    (
+      CursorColor(red: 0x00, green: 0x00, blue: 0x00),
+      esc("]12;#000000") + stringTerminator
+    ),
+    (
+      CursorColor(red: 0xFF, green: 0xFF, blue: 0xFF),
+      esc("]12;#FFFFFF") + stringTerminator
+    ),
+  ]
+
+  for testCase in cases {
+    expectBytes(.setCursorColor(testCase.color), testCase.expected)
+  }
+}
+
+@Test
+func `cursor color reset encodes exact bytes`() {
+  expectBytes(.resetCursorColor, esc("]112") + esc("\\"))
+}
+
+@Test
+func `button-event mouse tracking enables button reports before SGR encoding`() {
+  expectBytes(.enableMouseTracking(.buttonEvents), esc("[?1002h") + esc("[?1006h"))
+}
+
+@Test
+func `any-event mouse tracking enables any-event reports before SGR encoding`() {
+  expectBytes(.enableMouseTracking(.anyEvent), esc("[?1003h") + esc("[?1006h"))
+}
+
+@Test
+func `disable mouse tracking always resets both granularities defensively`() {
+  expectBytes(.disableMouseTracking, esc("[?1003l") + esc("[?1002l") + esc("[?1006l"))
+}
+
+@Test
+func `kitty keyboard flags expose protocol bit masks`() {
+  #expect(KittyKeyboardFlags.disambiguateEscapeCodes.rawValue == 1)
+  #expect(KittyKeyboardFlags.reportEventTypes.rawValue == 2)
+  #expect(KittyKeyboardFlags.reportAlternateKeys.rawValue == 4)
+  #expect(KittyKeyboardFlags.reportAllKeysAsEscapeCodes.rawValue == 8)
+  #expect(KittyKeyboardFlags.reportAssociatedText.rawValue == 16)
+  #expect(KittyKeyboardFlags.tesseraDefault.rawValue == 7)
+}
+
+@Test
+func `kitty keyboard control sequences encode exact bytes`() {
+  expectBytes(.pushKittyKeyboard(.tesseraDefault), esc("[>7u"))
+  expectBytes(
+    .pushKittyKeyboard([.disambiguateEscapeCodes, .reportAssociatedText]),
+    esc("[>17u")
+  )
+  expectBytes(.popKittyKeyboard, esc("[<u"))
+}
+
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Ghostty virtual terminal support is unavailable in this build."
+  )
 )
 func `cursor position round trips through virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 8, rows: 4)
@@ -45,7 +127,8 @@ func `cursor position round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Ghostty virtual terminal support is unavailable in this build."
+  )
 )
 func `relative cursor movement round trips through virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 10, rows: 5)
@@ -67,7 +150,8 @@ func `relative cursor movement round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Ghostty virtual terminal support is unavailable in this build."
+  )
 )
 func `cursor save and restore round trips through virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 6, rows: 2)
@@ -90,7 +174,8 @@ func `cursor save and restore round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Ghostty virtual terminal support is unavailable in this build."
+  )
 )
 func `cursor visibility sequences are accepted by virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 4, rows: 1)
@@ -122,7 +207,8 @@ func `erase line sequences encode exact bytes`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Ghostty virtual terminal support is unavailable in this build."
+  )
 )
 func `erase to end of line round trips through virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 5, rows: 1)
@@ -142,7 +228,8 @@ func `erase to end of line round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Ghostty virtual terminal support is unavailable in this build."
+  )
 )
 func `erase to beginning of line round trips through virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 5, rows: 1)
@@ -162,7 +249,8 @@ func `erase to beginning of line round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Ghostty virtual terminal support is unavailable in this build."
+  )
 )
 func `erase all of line round trips through virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 5, rows: 1)
@@ -182,7 +270,8 @@ func `erase all of line round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Ghostty virtual terminal support is unavailable in this build."
+  )
 )
 func `erase display to end round trips through virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 5, rows: 2)
@@ -203,7 +292,8 @@ func `erase display to end round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Ghostty virtual terminal support is unavailable in this build."
+  )
 )
 func `erase display to beginning round trips through virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 5, rows: 2)
@@ -224,7 +314,8 @@ func `erase display to beginning round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Ghostty virtual terminal support is unavailable in this build."
+  )
 )
 func `erase display all round trips through virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 5, rows: 2)
@@ -238,7 +329,8 @@ func `erase display all round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Ghostty virtual terminal support is unavailable in this build."
+  )
 )
 func `erase display all and scrollback is accepted by virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 5, rows: 2)
@@ -287,7 +379,8 @@ func `ansi colors and indexed colors stay distinct`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Ghostty virtual terminal support is unavailable in this build."
+  )
 )
 func `colors round trip through virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 3, rows: 1)
@@ -307,7 +400,7 @@ func `colors round trip through virtual terminal`() {
 }
 
 @Test
-func `attributes encode exact bytes`() {
+func `non underline attributes encode exact bytes`() {
   expectBytes(.resetAttributes, sgr(0))
   expectBytes(.setBold(true), sgr(1))
   expectBytes(.setBold(false), sgr(22))
@@ -319,16 +412,39 @@ func `attributes encode exact bytes`() {
   expectBytes(.setReverse(false), sgr(27))
   expectBytes(.setStrikethrough(true), sgr(9))
   expectBytes(.setStrikethrough(false), sgr(29))
-  expectBytes(.setUnderline(true), sgr(4))
-  expectBytes(.setUnderline(false), sgr(24))
+}
+
+@Test
+func `underline styles and colors encode exact bytes`() {
+  let styles: [(UnderlineStyle, [UInt8])] = [
+    (.none, sgr(24)),
+    (.single, sgr(4)),
+    (.double, esc("[4:2m")),
+    (.curly, esc("[4:3m")),
+    (.dotted, esc("[4:4m")),
+    (.dashed, esc("[4:5m")),
+  ]
+  for (style, expected) in styles {
+    expectBytes(.setUnderlineStyle(style), expected)
+  }
+
+  for (color, paletteIndex) in ansiUnderlineColorParameters() {
+    expectBytes(.setUnderlineColor(.ansi(color)), esc("[58:5:\(paletteIndex)m"))
+  }
+  expectBytes(.setUnderlineColor(.default), sgr(59))
+  expectBytes(.setUnderlineColor(.indexed(0)), esc("[58:5:0m"))
+  expectBytes(.setUnderlineColor(.indexed(15)), esc("[58:5:15m"))
+  expectBytes(.setUnderlineColor(.indexed(255)), esc("[58:5:255m"))
+  expectBytes(.setUnderlineColor(.rgb(0, 127, 255)), esc("[58:2::0:127:255m"))
 }
 
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Ghostty virtual terminal support is unavailable in this build."
+  )
 )
-func `attributes round trip through virtual terminal`() {
+func `attributes and underline extensions round trip through virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 8, rows: 1)
 
   feed(
@@ -338,9 +454,12 @@ func `attributes round trip through virtual terminal`() {
       .setItalic(true),
       .setReverse(true),
       .setStrikethrough(true),
-      .setUnderline(true),
+      .setUnderlineStyle(.curly),
+      .setUnderlineColor(.rgb(1, 2, 3)),
       .text("X"),
       .resetAttributes,
+      .setUnderlineStyle(.none),
+      .setUnderlineColor(.default),
       .text("Y"),
     ],
     into: terminal
@@ -353,19 +472,22 @@ func `attributes round trip through virtual terminal`() {
   #expect(styledCell.italic)
   #expect(styledCell.reverse)
   #expect(styledCell.strikethrough)
-  #expect(styledCell.underline)
+  #expect(styledCell.underlineStyle == .curly)
+  #expect(styledCell.underlineColor == .rgb(1, 2, 3))
   #expect(!resetCell.bold)
   #expect(!resetCell.dim)
   #expect(!resetCell.italic)
   #expect(!resetCell.reverse)
   #expect(!resetCell.strikethrough)
-  #expect(!resetCell.underline)
+  #expect(resetCell.underlineStyle == .none)
+  #expect(resetCell.underlineColor == .default)
 }
 
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Ghostty virtual terminal support is unavailable in this build."
+  )
 )
 func `normal intensity disables bold and dim`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 8, rows: 1)
@@ -383,6 +505,10 @@ func `mode sequences encode exact bytes`() {
   expectBytes(.exitAltScreen, esc("[?1049l"))
   expectBytes(.enterSynchronizedOutput, esc("[?2026h"))
   expectBytes(.exitSynchronizedOutput, esc("[?2026l"))
+  expectBytes(.enableBracketedPaste(true), esc("[?2004h"))
+  expectBytes(.enableBracketedPaste(false), esc("[?2004l"))
+  expectBytes(.enableFocusTracking(true), esc("[?1004h"))
+  expectBytes(.enableFocusTracking(false), esc("[?1004l"))
   expectBytes(.enableLineWrap(true), esc("[?7h"))
   expectBytes(.enableLineWrap(false), esc("[?7l"))
 }
@@ -390,7 +516,8 @@ func `mode sequences encode exact bytes`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Ghostty virtual terminal support is unavailable in this build."
+  )
 )
 func `alternate screen round trips through virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 5, rows: 1)
@@ -405,7 +532,8 @@ func `alternate screen round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Ghostty virtual terminal support is unavailable in this build."
+  )
 )
 func `line wrap mode round trips through virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 4, rows: 2)
@@ -426,15 +554,373 @@ func `line wrap mode round trips through virtual terminal`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Ghostty virtual terminal support is unavailable in this build."
+  )
 )
 func `synchronized output mode is accepted by virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 6, rows: 1)
 
-  feed([.enterSynchronizedOutput, .text("Sync"), .exitSynchronizedOutput], into: terminal)
+  feed(
+    [.enterSynchronizedOutput, .text("Sync"), .exitSynchronizedOutput],
+    into: terminal
+  )
 
   #expect(terminal.text(row: 0) == "Sync  ")
   #expect(terminal.cursorPosition() == TerminalPosition(column: 4, row: 0))
+}
+
+@Test
+func `kitty graphics transmit formats and quiet levels encode exact APC bytes`() {
+  let payload: [UInt8] = [0, 1, 2]
+
+  for (quiet, wireValue) in kittyGraphicsQuietCases() {
+    let id = KittyImageID(rawValue: UInt32(40 + wireValue))
+
+    expectBytes(
+      .kittyGraphics(
+        .transmit(
+          KittyGraphicsTransmission(
+            id: id,
+            format: .rgb(width: 2, height: 3),
+            data: payload,
+            quiet: quiet
+          )
+        )
+      ),
+      kgp("a=t,i=\(id.rawValue),f=24,s=2,v=3,t=d,q=\(wireValue),m=0;AAEC")
+    )
+    expectBytes(
+      .kittyGraphics(
+        .transmit(
+          KittyGraphicsTransmission(
+            id: id,
+            format: .rgba(width: 2, height: 3),
+            data: payload,
+            quiet: quiet
+          )
+        )
+      ),
+      kgp("a=t,i=\(id.rawValue),f=32,s=2,v=3,t=d,q=\(wireValue),m=0;AAEC")
+    )
+    expectBytes(
+      .kittyGraphics(
+        .transmit(
+          KittyGraphicsTransmission(
+            id: id,
+            format: .png,
+            data: payload,
+            quiet: quiet
+          )
+        )
+      ),
+      kgp("a=t,i=\(id.rawValue),f=100,t=d,q=\(wireValue),m=0;AAEC")
+    )
+  }
+}
+
+@Test
+func `kitty graphics transmit chunks at base64 boundaries`() {
+  expectBytes(
+    .kittyGraphics(
+      .transmit(
+        KittyGraphicsTransmission(
+          id: KittyImageID(rawValue: 80),
+          format: .png,
+          data: zeros(3_069),
+          quiet: .verbose
+        )
+      )
+    ),
+    kgp(
+      "a=t,i=80,f=100,t=d,q=0,m=0;"
+        + String(repeating: "A", count: 4_092)
+    )
+  )
+  expectBytes(
+    .kittyGraphics(
+      .transmit(
+        KittyGraphicsTransmission(
+          id: KittyImageID(rawValue: 81),
+          format: .png,
+          data: zeros(3_072),
+          quiet: .verbose
+        )
+      )
+    ),
+    kgp(
+      "a=t,i=81,f=100,t=d,q=0,m=0;"
+        + String(repeating: "A", count: 4_096)
+    )
+  )
+  expectBytes(
+    .kittyGraphics(
+      .transmit(
+        KittyGraphicsTransmission(
+          id: KittyImageID(rawValue: 82),
+          format: .png,
+          data: zeros(3_073),
+          quiet: .verbose
+        )
+      )
+    ),
+    kgp(
+      "a=t,i=82,f=100,t=d,q=0,m=1;"
+        + String(repeating: "A", count: 4_096)
+    )
+      + kgp("m=0;AA==")
+  )
+}
+
+@Test
+func `kitty graphics transmit empty data emits one empty final chunk`() {
+  expectBytes(
+    .kittyGraphics(
+      .transmit(
+        KittyGraphicsTransmission(
+          id: KittyImageID(rawValue: 90),
+          format: .png,
+          data: []
+        )
+      )
+    ),
+    kgp("a=t,i=90,f=100,t=d,q=1,m=0;")
+  )
+}
+
+@Test
+func `kitty graphics place variants encode exact APC bytes`() {
+  expectBytes(
+    .kittyGraphics(
+      .place(
+        KittyGraphicsPlacement(
+          id: KittyImageID(rawValue: 100),
+          quiet: .verbose
+        )
+      )
+    ),
+    kgp("a=p,i=100,z=0,C=1,q=0")
+  )
+  expectBytes(
+    .kittyGraphics(
+      .place(
+        KittyGraphicsPlacement(
+          id: KittyImageID(rawValue: 101),
+          columns: 2,
+          rows: 3,
+          quiet: .suppressOK
+        )
+      )
+    ),
+    kgp("a=p,i=101,c=2,r=3,z=0,C=1,q=1")
+  )
+  expectBytes(
+    .kittyGraphics(
+      .place(
+        KittyGraphicsPlacement(
+          id: KittyImageID(rawValue: 102),
+          placement: KittyPlacementID(rawValue: 10),
+          zIndex: -4,
+          quiet: .suppressFailures
+        )
+      )
+    ),
+    kgp("a=p,i=102,p=10,z=-4,C=1,q=2")
+  )
+  expectBytes(
+    .kittyGraphics(
+      .place(
+        KittyGraphicsPlacement(
+          id: KittyImageID(rawValue: 103),
+          placement: KittyPlacementID(rawValue: 11),
+          columns: 4,
+          rows: 5,
+          zIndex: 6,
+          quiet: .verbose
+        )
+      )
+    ),
+    kgp("a=p,i=103,p=11,c=4,r=5,z=6,C=1,q=0")
+  )
+}
+
+@Test
+func `kitty graphics delete commands encode exact APC bytes`() {
+  expectBytes(.kittyGraphics(.delete(.all)), kgp("a=d,d=A"))
+  expectBytes(
+    .kittyGraphics(.delete(.image(KittyImageID(rawValue: 120)))),
+    kgp("a=d,d=I,i=120")
+  )
+  expectBytes(
+    .kittyGraphics(
+      .delete(
+        .placement(
+          KittyImageID(rawValue: 121),
+          KittyPlacementID(rawValue: 12)
+        )
+      )
+    ),
+    kgp("a=d,d=i,i=121,p=12")
+  )
+}
+
+@Test
+func `kitty graphics query encodes verified detection probe bytes`() {
+  expectBytes(
+    .kittyGraphics(.query(id: KittyImageID(rawValue: 130))),
+    kgp("i=130,s=1,v=1,a=q,t=d,f=24;AAAA")
+  )
+}
+
+@Test(
+  .disabled(
+    if: VirtualTerminal.isGhosttyUnavailable,
+    "Ghostty virtual terminal support is unavailable in this build."
+  )
+)
+func `kitty graphics transmit place and replace move without duplication`() {
+  let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 4, rows: 2)
+  let imageID = KittyImageID(rawValue: 200)
+  let placementID = KittyPlacementID(rawValue: 201)
+
+  feed(
+    [
+      .kittyGraphics(
+        .transmit(
+          KittyGraphicsTransmission(
+            id: imageID,
+            format: .rgb(width: 1, height: 1),
+            data: [255, 0, 0],
+            quiet: .suppressFailures
+          )
+        )
+      ),
+      .cursorPosition(TerminalPosition(column: 1, row: 0)),
+      .kittyGraphics(
+        .place(
+          KittyGraphicsPlacement(
+            id: imageID,
+            placement: placementID,
+            columns: 1,
+            rows: 1,
+            zIndex: 3,
+            quiet: .suppressFailures
+          )
+        )
+      ),
+    ],
+    into: terminal
+  )
+
+  #expect(
+    terminal.kittyImages() == [
+      RenderedKittyImage(format: .rgb, height: 1, id: 200, width: 1)
+    ]
+  )
+  let initialPlacement = RenderedKittyPlacement(
+    column: 1,
+    columns: 1,
+    imageID: 200,
+    placementID: 201,
+    row: 0,
+    rows: 1,
+    zIndex: 3
+  )
+  #expect(terminal.kittyPlacements() == [initialPlacement])
+
+  feed(
+    [
+      .cursorPosition(TerminalPosition(column: 3, row: 1)),
+      .kittyGraphics(
+        .place(
+          KittyGraphicsPlacement(
+            id: imageID,
+            placement: placementID,
+            columns: 1,
+            rows: 1,
+            zIndex: 3,
+            quiet: .suppressFailures
+          )
+        )
+      ),
+    ],
+    into: terminal
+  )
+
+  #expect(
+    terminal.kittyImages() == [
+      RenderedKittyImage(format: .rgb, height: 1, id: 200, width: 1)
+    ]
+  )
+  let movedPlacement = RenderedKittyPlacement(
+    column: 3,
+    columns: 1,
+    imageID: 200,
+    placementID: 201,
+    row: 1,
+    rows: 1,
+    zIndex: 3
+  )
+  #expect(terminal.kittyPlacements() == [movedPlacement])
+}
+
+@Test(
+  .disabled(
+    if: VirtualTerminal.isGhosttyUnavailable,
+    "Ghostty virtual terminal support is unavailable in this build."
+  )
+)
+func `kitty graphics delete all clears images and placements`() throws {
+  let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 2, rows: 1)
+  let imageID = KittyImageID(rawValue: 210)
+  let placementID = KittyPlacementID(rawValue: 211)
+
+  feed(
+    [
+      .kittyGraphics(
+        .transmit(
+          KittyGraphicsTransmission(
+            id: imageID,
+            format: .rgb(width: 1, height: 1),
+            data: [0, 255, 0],
+            quiet: .suppressFailures
+          )
+        )
+      ),
+      .kittyGraphics(
+        .place(
+          KittyGraphicsPlacement(
+            id: imageID,
+            placement: placementID,
+            columns: 1,
+            rows: 1,
+            zIndex: 0,
+            quiet: .suppressFailures
+          )
+        )
+      ),
+    ],
+    into: terminal
+  )
+  try #require(
+    terminal.kittyImages() == [
+      RenderedKittyImage(format: .rgb, height: 1, id: 210, width: 1)
+    ]
+  )
+  let expectedPlacement = RenderedKittyPlacement(
+    column: 0,
+    columns: 1,
+    imageID: 210,
+    placementID: 211,
+    row: 0,
+    rows: 1,
+    zIndex: 0
+  )
+  try #require(terminal.kittyPlacements() == [expectedPlacement])
+
+  feed([.kittyGraphics(.delete(.all))], into: terminal)
+
+  #expect(terminal.kittyImages().isEmpty)
+  #expect(terminal.kittyPlacements().isEmpty)
 }
 
 @Test
@@ -446,7 +932,8 @@ func `window title encodes exact bytes`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Ghostty virtual terminal support is unavailable in this build."
+  )
 )
 func `window title is accepted without changing visible state`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 4, rows: 1)
@@ -473,7 +960,8 @@ func `text bell and raw payload sequences encode exact bytes`() {
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
-    "Windows snapshot coverage is deferred until libghostty-vt builds on Windows.")
+    "Ghostty virtual terminal support is unavailable in this build."
+  )
 )
 func `text bell and raw payloads round trip through virtual terminal`() {
   let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 6, rows: 1)
@@ -520,6 +1008,58 @@ func `window title strips osc terminators and uses bel terminator`() {
     .setWindowTitle("A\u{07}B\u{1B}C"),
     esc("]2;ABC") + [0x07]
   )
+}
+
+@Test
+func `osc 8 hyperlinks encode exact open and close bytes`() throws {
+  expectBytes(
+    .openHyperlink(try Hyperlink(uri: "https://example.com/docs")),
+    esc("]8;;https://example.com/docs") + esc("\\")
+  )
+  expectBytes(
+    .openHyperlink(try Hyperlink(uri: "file:///tmp/source.swift", id: "source")),
+    esc("]8;id=source;file:///tmp/source.swift") + esc("\\")
+  )
+  expectBytes(.closeHyperlink, esc("]8;;") + esc("\\"))
+}
+
+@Test
+func `hyperlinks reject osc delimiters and unsafe identifiers`() throws {
+  #expect(throws: Hyperlink.ValidationError.emptyURI) {
+    try Hyperlink(uri: "")
+  }
+  for unsafeURI in ["a\u{00}b", "a\u{07}b", "a\u{1B}b", "a\u{7F}b"] {
+    #expect(throws: Hyperlink.ValidationError.unsafeURI) {
+      try Hyperlink(uri: unsafeURI)
+    }
+  }
+  #expect(throws: Hyperlink.ValidationError.emptyID) {
+    try Hyperlink(uri: "https://example.com", id: "")
+  }
+  for unsafeID in ["a\u{00}b", "a\u{1B}b", "a;b", "a\u{7F}b"] {
+    #expect(throws: Hyperlink.ValidationError.unsafeID) {
+      try Hyperlink(uri: "https://example.com", id: unsafeID)
+    }
+  }
+}
+func apc(_ body: String) -> [UInt8] {
+  esc("_" + body) + esc("\\")
+}
+
+func kgp(_ body: String) -> [UInt8] {
+  apc("G" + body)
+}
+
+func zeros(_ count: Int) -> [UInt8] {
+  Array(repeating: 0, count: count)
+}
+
+private func kittyGraphicsQuietCases() -> [(KittyGraphicsQuiet, Int)] {
+  [
+    (.verbose, 0),
+    (.suppressOK, 1),
+    (.suppressFailures, 2),
+  ]
 }
 
 func expectBytes(
@@ -597,6 +1137,27 @@ private func ansiBackgroundParameters() -> [(ANSIColor, Int)] {
     (.red, 41),
     (.white, 47),
     (.yellow, 43),
+  ]
+}
+
+private func ansiUnderlineColorParameters() -> [(ANSIColor, Int)] {
+  [
+    (.black, 0),
+    (.blue, 4),
+    (.brightBlack, 8),
+    (.brightBlue, 12),
+    (.brightCyan, 14),
+    (.brightGreen, 10),
+    (.brightMagenta, 13),
+    (.brightRed, 9),
+    (.brightWhite, 15),
+    (.brightYellow, 11),
+    (.cyan, 6),
+    (.green, 2),
+    (.magenta, 5),
+    (.red, 1),
+    (.white, 7),
+    (.yellow, 3),
   ]
 }
 

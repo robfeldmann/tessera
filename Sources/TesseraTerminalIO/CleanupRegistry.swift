@@ -1,5 +1,87 @@
 import CTesseraTerminalPlatform
 
+#if os(macOS) || os(Linux)
+  /// Immutable POSIX state registered for emergency terminal restoration.
+  package struct PlatformCleanupRegistration: @unchecked Sendable {
+    package var inputFileDescriptor: CInt
+    package var outputFileDescriptor: CInt
+    package var savedTermios: termios?
+    package var teardownBytes: [UInt8]
+  }
+#elseif os(Windows)
+  /// Immutable Windows state registered for emergency terminal restoration.
+  package struct PlatformCleanupRegistration: Sendable {
+    package var inputHandle: UInt
+    package var outputHandle: UInt
+    package var savedInputMode: UInt32
+    package var savedOutputMode: UInt32
+    package var teardownBytes: [UInt8]
+  }
+#else
+  /// Unsupported-platform emergency cleanup placeholder.
+  package struct PlatformCleanupRegistration: Sendable {
+    package var teardownBytes: [UInt8]
+  }
+#endif
+
+/// Injectable emergency-cleanup storage used by terminal lifecycle ownership.
+package struct CleanupRegistryClient: Sendable {
+  package static let disabled = Self(
+    installHandlers: {},
+    install: { _ in },
+    clear: {}
+  )
+
+  package static let live = Self(
+    installHandlers: { CleanupRegistry.installHandlers() },
+    install: { registration in
+      #if os(macOS) || os(Linux)
+        CleanupRegistry.install(
+          inputFileDescriptor: registration.inputFileDescriptor,
+          outputFileDescriptor: registration.outputFileDescriptor,
+          teardownBytes: registration.teardownBytes,
+          savedTermios: registration.savedTermios
+        )
+      #elseif os(Windows)
+        CleanupRegistry.install(
+          inputHandle: registration.inputHandle,
+          outputHandle: registration.outputHandle,
+          teardownBytes: registration.teardownBytes,
+          savedInputMode: registration.savedInputMode,
+          savedOutputMode: registration.savedOutputMode
+        )
+      #endif
+    },
+    clear: { CleanupRegistry.clear() }
+  )
+
+  private let clearOperation: @Sendable () async -> Void
+  private let installHandlersOperation: @Sendable () -> Void
+  private let installOperation: @Sendable (PlatformCleanupRegistration) async -> Void
+
+  package init(
+    installHandlers: @escaping @Sendable () -> Void,
+    install: @escaping @Sendable (PlatformCleanupRegistration) async -> Void,
+    clear: @escaping @Sendable () async -> Void
+  ) {
+    self.clearOperation = clear
+    self.installHandlersOperation = installHandlers
+    self.installOperation = install
+  }
+
+  package func clear() async {
+    await clearOperation()
+  }
+
+  package func install(_ registration: PlatformCleanupRegistration) async {
+    await installOperation(registration)
+  }
+
+  package func installHandlers() {
+    installHandlersOperation()
+  }
+}
+
 /// Registers signal-safe terminal cleanup state for catastrophic exits.
 ///
 /// POSIX signal handlers may only perform a very small set of async-signal-safe

@@ -62,6 +62,46 @@ public struct Frame: ~Copyable, ~Escapable {
     buffer.pointee.markOpaque(region)
   }
 
+  /// Encodes an `a=p` Kitty image placement anchored at `position` and reserves `region`.
+  ///
+  /// `position` must equal `region.origin`: KGP places images extending right and down
+  /// from the cursor, so the anchor is always the placement's top-left cell. The anchor
+  /// is always repainted because re-sending the same image/placement pair is a
+  /// flicker-free in-place replacement; this self-heals after terminal clears and resizes.
+  /// The terminal can still evict underlying image data under quota pressure; apps should
+  /// watch `KittyGraphicsResponse` failures and retransmit when needed.
+  public borrowing func placeImage(
+    _ placement: KittyGraphicsPlacement,
+    at position: TerminalPosition,
+    occupying region: Rect
+  ) {
+    let payload = RawTerminalPayload(
+      bytes: ControlSequence.kittyGraphics(.place(placement)).bytes
+    )
+    writeRaw(payload, at: position, occupying: region, repaintPolicy: .alwaysRepaint)
+
+    if region.size.columns > 1 {
+      markOpaque(
+        Rect(
+          column: position.column + 1,
+          row: position.row,
+          columns: region.size.columns - 1,
+          rows: 1
+        )
+      )
+    }
+    if region.size.rows > 1 {
+      markOpaque(
+        Rect(
+          column: region.origin.column,
+          row: position.row + 1,
+          columns: region.size.columns,
+          rows: region.size.rows - 1
+        )
+      )
+    }
+  }
+
   /// Makes the cursor visible at `position` after this frame is drawn.
   ///
   /// Frames hide the cursor by default. Text-input UIs should call this once per frame

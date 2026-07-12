@@ -9,6 +9,86 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Added DocC icon and card artwork placeholders for the Tessera package and module
+  documentation catalogs.
+
+- Added comprehensive DocC catalogs, conceptual articles, and symbol extensions across the
+  TesseraTerminal module family, covering the terminal substrate, modern protocols, ANSI
+  encoding, buffers and styles, geometry, lifecycle management, semantic input, and
+  terminal snapshot testing.
+
+- Added a project-local Windows smoke-testing skill and expanded the Windows Frost doctor
+  with UTM GUI VM IPv4 discovery plus a PowerShell fallback command for manual lookup.
+
+- Added `.worktreeinclude` so Worktrunk copies the gitignored Windows Frost env file into
+  future worktrees, and clarified the Windows Frost source-sync message for unstaged
+  deletes.
+
+- Added the Phase 3 modern terminal protocols implementation plan bundle, with an umbrella
+  coordination plan and separate executable slice plans for bracketed paste, focus events,
+  SGR mouse tracking, Kitty keyboard, OSC 8 hyperlinks, and capability detection.
+
+- Added Phase 3 bracketed paste support, including semantic paste input events, DEC
+  private mode 2004 encoding and lifecycle cleanup, default app enablement, parser
+  performance coverage, and the initial Phase 3 protocols demo panel.
+
+- Added Phase 3 focus event support, including semantic focus gained/lost input events,
+  DEC private mode 1004 encoding and lifecycle cleanup, default app enablement, parser
+  paste-isolation coverage, and a focus panel in the Phase 3 protocols demo.
+
+- Added Phase 3 SGR mouse tracking, including semantic mouse input events, SGR mouse
+  control-sequence encoding, explicit opt-in lifecycle cleanup, bounded motion coalescing,
+  parser coverage, and a mouse panel in the Phase 3 protocols demo.
+
+- Added Phase 3 Kitty keyboard protocol support, including push/pop mode lifecycle,
+  semantic press/repeat/release key events, expanded Kitty key-code coverage,
+  alternate-key and associated-text preservation, Ghostty key-encoder oracle coverage,
+  dynamic protocol mode application, and a keyboard panel in the Phase 3 protocols demo.
+
+- Added Phase 3 OSC 8 hyperlink support, including validated hyperlink metadata, OSC 8
+  open/close encoding, renderer hyperlink transitions independent from SGR state,
+  hyperlink-aware buffer and virtual-terminal snapshot surfaces, and a links panel in the
+  Phase 3 protocols demo.
+
+- Added Phase 3 terminal capability detection, including passive environment-based
+  capability hints, explicit protocol policy configuration, session inspection of detected
+  and enabled terminal protocol state, hyperlink rendering policy control, and a
+  capabilities panel in the Phase 3 protocols demo.
+
+- Added Phase 3 Kitty Graphics Protocol support, including first-class APC encoding and
+  parsing, session image query/transmission/deletion APIs, frame-scoped placement, cell
+  pixel geometry, unconditional cleanup, Ghostty-backed graphics snapshot inspection, and
+  a graphics panel in the Phase 3 protocols demo.
+- Added Phase 3 color degradation baseline, including capability-aware color resolution
+  (`Color.resolved(for:)`), a pinned xterm 256-color and ANSI-16 palette for deterministic
+  RGB/indexed fallback, renderer SGR emission that degrades truecolor to 256-color, ANSI
+  16, or no-color per the active session capability, application color capability
+  override, and a color sample section in the Phase 3 demo capabilities panel.
+
+- Added Phase 3 OSC 52 clipboard support, including semantic clipboard value types with
+  validated selections and base64-owning encoding, exact OSC 52 control-sequence emission,
+  a denied-by-default session write policy requiring explicit per-call user intent,
+  payload size limits, SSH-permissive but nested tmux/screen-guarded passthrough policy,
+  an advisory `osc52Clipboard` capability that stays not-detectable, and a clipboard panel
+  in the Phase 3 protocols demo.
+
+- Added Phase 3 mode lifecycle handling to deterministically enter, apply, restore, and
+  clean up cursor styling state.
+
+- Added Phase 3 semantic SGR underline style variants and colored underlines: undercurl
+  and other SGR 4:x styles, underline color/reset, renderer diffing, compatibility with
+  the legacy underline bit, snapshots, exact byte tests, and documentation.
+
+- Added Phase 3 runtime protocol control and capability reconciliation: one bounded,
+  permanently cached active-probe generation; serialized failure-safe mode transactions
+  with requested, effective, and possibly-active state; live color, hyperlink,
+  synchronized-output, underline, cursor, mouse, focus, and Kitty keyboard policy
+  controls; configurable Kitty enhancement flags and advisory terminfo underline
+  compatibility; injected emergency-cleanup storage for deterministic tests; and a tested
+  runtime-control demo covering full-mask Kitty input, terminal-specific hyperlink and
+  underline behavior, stable Kitty graphics failure recovery, and explicit full-screen
+  repaint.
+
 - Added Windows support for Ghostty-backed snapshot tests behind the
   `TESSERA_GHOSTTY_WINDOWS=1` package-manifest gate, linking the static
   `ghostty-vt-static.lib` so no runtime DLL discovery is needed.
@@ -35,6 +115,41 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   state scopes.
 
 ### Changed
+
+- Changed Phase 3 terminal capability detection to use active, protocol-native probes
+  instead of terminal-name support decisions. Queryable protocols now report `.probing`,
+  `.supported`, `.unsupported`, or `.unknown` from parser-observed evidence; OSC 8 is
+  documented and tested as not actively detectable; `.kittyIfAvailable` only enables Kitty
+  keyboard after active support is observed; and the Phase 3 demo distinguishes unanswered
+  probes from observed protocol behavior.
+- Changed terminal color capability detection to suppress color for the full `TERM=dumb`
+  family (`dumb`, `dumb-300`, …) rather than only exact `TERM=dumb`, closing a regression
+  where `dumb-` variants resolved to `.unknown` instead of `.noColor`.
+- Removed the redundant `TerminalApplicationResolution.colorCapability` and
+  `TerminalSession.colorCapability` mirrors; the effective color capability now lives
+  solely on `TerminalCapabilities.color`, and `sgrDelta`/`encodeFullStyle` resolve a style
+  once with an explicit precondition instead of passing a `.truecolor` sentinel.
+
+- Changed Windows terminal input to translate queued console key records through
+  `ReadConsoleInputW`, so live Windows consoles deliver keystrokes and bracketed paste to
+  Tessera apps without relying on `ReadFile`.
+- Changed renderer text emission to canonical-precompose decomposed combining graphemes
+  when possible, improving cell alignment in Windows Terminal while preserving buffer
+  width accounting.
+- Updated the example demos' Windows smoke-test behavior: terminal availability checks are
+  platform-aware, lifecycle input is routed through Tessera events instead of `readLine`,
+  raw-mode status lines use CRLF, and the renderer width page avoids terminal-dependent
+  ZWJ/flag ruler samples.
+- Changed Windows Frost source sync to suppress macOS AppleDouble metadata, preventing
+  `._*` headers from reaching the Windows checkout and triggering Swift/Clang umbrella
+  header warnings.
+- Changed Windows Frost tests to persist SwiftPM's dependency cache on the host and
+  restore it into disposable overlays, avoiding repeated GitHub dependency downloads when
+  resolved dependencies are unchanged.
+
+- Centralized SwiftLint coverage in the root config so example sources lint with the main
+  package, removed the redundant example config symlink, and disabled cyclomatic
+  complexity warnings.
 
 - Enabled Ghostty-backed snapshot tests on hosted Windows CI: the test job now builds
   libghostty-vt on all three platforms (Windows via `scripts/build-libghostty-vt.ps1`) and
@@ -72,6 +187,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `#if canImport(CGhosttyVT)` instead of `#if !os(Windows)`.
 
 ### Fixed
+
+- Fixed the Linux Lima test recipe to forward zero or more `swift test` arguments without
+  tripping Bash `nounset` on an empty array.
 
 - Fixed CI and docs workflows to restore the shared Ghostty VT cache from the new default
   location.

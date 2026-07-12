@@ -1,3 +1,4 @@
+import Foundation
 import TesseraTerminalANSI
 import TesseraTerminalBuffer
 import TesseraTerminalCore
@@ -5,22 +6,40 @@ import TesseraTerminalCore
 /// Encodes damage-tracked terminal buffer frames.
 package struct Renderer {
   private var currentStyle: Style?
+  private var currentHyperlink: Hyperlink?
   private var eraseBeforeNextRepaint = false
   private var believedCursorPosition: TerminalPosition?
 
   package init() {}
 
-  package static func render(_ buffer: Buffer) -> [UInt8] {
-    render(previous: nil, current: buffer)
+  package static func render(
+    _ buffer: Buffer,
+    colorCapability: ColorCapability = .truecolor,
+    underlineRendering: UnderlineRenderingPolicy = .extended
+  ) -> [UInt8] {
+    render(
+      previous: nil,
+      current: buffer,
+      colorCapability: colorCapability,
+      underlineRendering: underlineRendering
+    )
   }
 
-  package static func render(previous: Buffer?, current: Buffer) -> [UInt8] {
+  package static func render(
+    previous: Buffer?,
+    current: Buffer,
+    colorCapability: ColorCapability = .truecolor,
+    underlineRendering: UnderlineRenderingPolicy = .extended
+  ) -> [UInt8] {
     var renderer = Self()
     var bytes: [UInt8] = []
     renderer.encodeFrame(
       previous: previous,
       current: current,
       wrapInSynchronizedOutput: false,
+      colorCapability: colorCapability,
+      underlineRendering: underlineRendering,
+      renderHyperlinks: true,
       into: &bytes
     )
     return bytes
@@ -30,6 +49,9 @@ package struct Renderer {
     previous: Buffer?,
     current: Buffer,
     wrapInSynchronizedOutput: Bool,
+    colorCapability: ColorCapability,
+    underlineRendering: UnderlineRenderingPolicy = .extended,
+    renderHyperlinks: Bool = true,
     into bytes: inout [UInt8]
   ) {
     if wrapInSynchronizedOutput {
@@ -39,18 +61,29 @@ package struct Renderer {
     let shouldErase =
       eraseBeforeNextRepaint || previous == nil || previous?.size != current.size
     if shouldErase {
+      closeCurrentHyperlink(into: &bytes)
       ControlSequence.eraseInDisplay(.all).encode(into: &bytes)
       believedCursorPosition = nil
       currentStyle = nil
+      currentHyperlink = nil
     }
 
     let damagePrevious = shouldErase ? nil : previous
     for run in BufferDiff.damageRuns(previous: damagePrevious, current: current) {
-      encode(run: run, from: current, into: &bytes)
+      encode(
+        run: run,
+        from: current,
+        colorCapability: colorCapability,
+        underlineRendering: underlineRendering,
+        renderHyperlinks: renderHyperlinks,
+        into: &bytes
+      )
     }
 
+    closeCurrentHyperlink(into: &bytes)
     ControlSequence.resetAttributes.encode(into: &bytes)
     currentStyle = Style()
+    currentHyperlink = nil
     eraseBeforeNextRepaint = false
 
     if wrapInSynchronizedOutput {
@@ -61,12 +94,16 @@ package struct Renderer {
   package mutating func invalidate() {
     currentStyle = nil
     believedCursorPosition = nil
+    currentHyperlink = nil
     eraseBeforeNextRepaint = true
   }
 
   private mutating func encode(
     run: RowDamageRun,
     from buffer: Buffer,
+    colorCapability: ColorCapability,
+    underlineRendering: UnderlineRenderingPolicy,
+    renderHyperlinks: Bool,
     into bytes: inout [UInt8]
   ) {
     for column in run.columns {
@@ -81,11 +118,38 @@ package struct Renderer {
         believedCursorPosition = position
       }
 
-      sgrDelta(from: currentStyle, to: cell.style, into: &bytes)
+      let hyperlink = renderHyperlinks ? cell.style.hyperlink : nil
+      hyperlinkDelta(to: hyperlink, into: &bytes)
+      sgrDelta(
+        from: currentStyle,
+        to: cell.style,
+        colorCapability: colorCapability,
+        underlineRendering: underlineRendering,
+        into: &bytes
+      )
       currentStyle = cell.style
+      currentHyperlink = hyperlink
       encodeContent(cell.content, into: &bytes)
       believedCursorPosition = TerminalPosition(column: column + cell.width, row: run.row)
     }
+  }
+
+  private mutating func hyperlinkDelta(to target: Hyperlink?, into bytes: inout [UInt8]) {
+    guard currentHyperlink != target else {
+      return
+    }
+    closeCurrentHyperlink(into: &bytes)
+    if let target {
+      ControlSequence.openHyperlink(target).encode(into: &bytes)
+    }
+  }
+
+  private mutating func closeCurrentHyperlink(into bytes: inout [UInt8]) {
+    guard currentHyperlink != nil else {
+      return
+    }
+    ControlSequence.closeHyperlink.encode(into: &bytes)
+    currentHyperlink = nil
   }
 
   private func encodeContent(_ content: Cell.Content, into bytes: inout [UInt8]) {
@@ -95,9 +159,17 @@ package struct Renderer {
     case .continuation:
       break
     case .grapheme(let grapheme):
-      ControlSequence.text(grapheme).encode(into: &bytes)
+      ControlSequence.text(terminalText(for: grapheme)).encode(into: &bytes)
     case .raw(let payload):
       ControlSequence.raw(payload).encode(into: &bytes)
     }
+  }
+
+  private func terminalText(for grapheme: String) -> String {
+    guard grapheme.unicodeScalars.count > 1 else {
+      return grapheme
+    }
+
+    return grapheme.precomposedStringWithCanonicalMapping
   }
 }

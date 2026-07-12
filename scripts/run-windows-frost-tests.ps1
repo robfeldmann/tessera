@@ -6,7 +6,8 @@ Run Tessera tests inside a Windows Frost guest.
 param(
     [string]$RepoPath = "C:\Users\tester\tessera",
     [string]$SwiftTestArgsBase64 = "",
-    [string]$GhosttyOutputDir = ""
+    [string]$GhosttyOutputDir = "",
+    [string]$SwiftPMCachePath = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -58,7 +59,11 @@ Write-Host "==> Swift"
 swift --version
 
 $swiftTestArgs = Decode-SwiftTestArgs -EncodedArgs $SwiftTestArgsBase64
-$swiftArgs = @("test", "--no-parallel") + $swiftTestArgs
+$swiftArgs = @("test", "--no-parallel", "--enable-dependency-cache")
+if ($SwiftPMCachePath) {
+    $swiftArgs += @("--cache-path", $SwiftPMCachePath)
+}
+$swiftArgs += $swiftTestArgs
 
 Write-Host "==> swift $($swiftArgs -join ' ')"
 & swift @swiftArgs

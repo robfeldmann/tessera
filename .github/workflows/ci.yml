@@ -78,7 +78,7 @@ jobs:
           tool: just
 
       - name: Lint Swift formatting
-        run: just quality swift
+        run: just quality _swift-format
 
       - name: Run SwiftLint
         run: just quality swiftlint
@@ -123,6 +123,14 @@ jobs:
           restore-keys: |
             swiftpm-v2-${{ runner.os }}-${{ runner.arch }}-
 
+      - name: Remove restored Windows build tree
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (Test-Path -LiteralPath .build) {
+            Remove-Item -LiteralPath .build -Recurse -Force
+          }
+
       - name: Set up Zig on Linux
         if: runner.os == 'Linux'
         uses: mlugg/setup-zig@v2
@@ -160,10 +168,10 @@ jobs:
             !~/.cache/tessera/libghostty-vt/cmake
             ~/AppData/Local/tessera/libghostty-vt
             !~/AppData/Local/tessera/libghostty-vt/source
+          # Exact-only: a script or pinned-revision change must rebuild rather than
+          # relabeling a restored stale install under the new key.
           # prettier-ignore
-          key: libghostty-vt-v2-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
-          restore-keys: |
-            libghostty-vt-v2-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-
+          key: libghostty-vt-v3-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
 
       - name: Install just
         uses: taiki-e/install-action@v2
@@ -192,7 +200,7 @@ jobs:
             ~/AppData/Local/tessera/libghostty-vt
             !~/AppData/Local/tessera/libghostty-vt/source
           # prettier-ignore
-          key: libghostty-vt-v2-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
+          key: libghostty-vt-v3-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
 
       - name: Build
         run: swift build

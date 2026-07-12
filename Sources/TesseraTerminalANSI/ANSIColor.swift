@@ -17,6 +17,44 @@ public enum ANSIColor: CaseIterable, Equatable, Sendable {
   case white
   case yellow
 
+  /// The conventional xterm palette index for this named ANSI color.
+  var ansiPaletteIndex: Int {
+    switch self {
+    case .black:
+      0
+    case .blue:
+      4
+    case .brightBlack:
+      8
+    case .brightBlue:
+      12
+    case .brightCyan:
+      14
+    case .brightGreen:
+      10
+    case .brightMagenta:
+      13
+    case .brightRed:
+      9
+    case .brightWhite:
+      15
+    case .brightYellow:
+      11
+    case .cyan:
+      6
+    case .green:
+      2
+    case .magenta:
+      5
+    case .red:
+      1
+    case .white:
+      7
+    case .yellow:
+      3
+    }
+  }
+
   /// The ECMA-48 SGR foreground parameter for this 16-color ANSI palette entry.
   var foregroundSGRParameter: Int {
     switch self {

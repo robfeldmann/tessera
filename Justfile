@@ -6,6 +6,7 @@ set fallback
 
 # ── Default ──────────────────────────────────────────────────────────────────
 
+# List available recipe modules and commands.
 default:
     @just --list --list-submodules
 

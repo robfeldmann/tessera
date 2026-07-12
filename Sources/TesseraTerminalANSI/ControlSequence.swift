@@ -5,6 +5,12 @@ public enum ControlSequence: Equatable, Sendable {
   /// Ring the terminal bell using the C0 BEL control character.
   case bell
 
+  /// Close the current OSC 8 hyperlink.
+  case closeHyperlink
+
+  /// Write bytes to a terminal clipboard selection using OSC 52.
+  case copyToClipboard(ClipboardWrite)
+
   /// Move the cursor backward using ECMA-48 CUB (`CSI Ps D`).
   case cursorBack(Int)
 
@@ -29,8 +35,20 @@ public enum ControlSequence: Equatable, Sendable {
   /// Show or hide the cursor using DEC private mode 25 (`CSI ? 25 h/l`).
   case cursorVisible(Bool)
 
+  /// Disable all SGR mouse tracking modes defensively.
+  case disableMouseTracking
+
+  /// Enable or disable bracketed paste using DEC private mode 2004.
+  case enableBracketedPaste(Bool)
+
+  /// Enable or disable focus event reports using DEC private mode 1004.
+  case enableFocusTracking(Bool)
+
   /// Enable or disable automatic line wrap using DEC private mode 7.
   case enableLineWrap(Bool)
+
+  /// Enable SGR mouse tracking at the requested granularity.
+  case enableMouseTracking(MouseTracking)
 
   /// Enter the alternate screen buffer using DEC private mode 1049.
   case enterAltScreen
@@ -50,17 +68,38 @@ public enum ControlSequence: Equatable, Sendable {
   /// End synchronized output using DEC private mode 2026.
   case exitSynchronizedOutput
 
+  /// Sends a Kitty Graphics Protocol command as an APC-wrapped sequence.
+  case kittyGraphics(KittyGraphicsCommand)
+
+  /// Open an OSC 8 hyperlink.
+  case openHyperlink(Hyperlink)
+
+  /// Pop one Kitty keyboard protocol level.
+  case popKittyKeyboard
+
+  /// Push one Kitty keyboard protocol level with the requested flags.
+  case pushKittyKeyboard(KittyKeyboardFlags)
+
   /// Append explicit raw bytes Tessera does not semantically model yet.
   case raw(RawTerminalPayload)
 
   /// Reset all graphic rendition attributes using ECMA-48 SGR 0.
   case resetAttributes
 
+  /// Reset the text cursor color to the terminal default using OSC 112.
+  case resetCursorColor
+
   /// Set the background color using ECMA-48 SGR color parameters.
   case setBackground(Color)
 
   /// Enable or disable bold/intense text using ECMA-48 SGR 1/22.
   case setBold(Bool)
+
+  /// Set the text cursor color using OSC 12.
+  case setCursorColor(CursorColor)
+
+  /// Set the cursor shape using DECSCUSR (`CSI Ps SP q`).
+  case setCursorShape(CursorShape)
 
   /// Enable or disable dim/faint text using ECMA-48 SGR 2/22.
   case setDim(Bool)
@@ -77,8 +116,11 @@ public enum ControlSequence: Equatable, Sendable {
   /// Enable or disable crossed-out text using ECMA-48 SGR 9/29.
   case setStrikethrough(Bool)
 
-  /// Enable or disable underline using ECMA-48 SGR 4/24.
-  case setUnderline(Bool)
+  /// Set the underline color using ECMA-48 SGR 58 or reset it with SGR 59.
+  case setUnderlineColor(Color)
+
+  /// Set the semantic underline style using ECMA-48 SGR 4 variants or SGR 24.
+  case setUnderlineStyle(UnderlineStyle)
 
   /// Set the terminal window title using OSC 2 terminated by BEL.
   case setWindowTitle(String)
@@ -106,7 +148,8 @@ public enum ControlSequence: Equatable, Sendable {
       .cursorRestore,
       .cursorSave,
       .cursorUp,
-      .cursorVisible:
+      .cursorVisible,
+      .setCursorShape:
       self.encodeCursor(into: &buffer)
 
     case .eraseInDisplay, .eraseInLine:
@@ -120,17 +163,32 @@ public enum ControlSequence: Equatable, Sendable {
       .setItalic,
       .setReverse,
       .setStrikethrough,
-      .setUnderline:
+      .setUnderlineColor,
+      .setUnderlineStyle:
       self.encodeSGR(into: &buffer)
 
-    case .enableLineWrap,
+    case .disableMouseTracking,
+      .enableBracketedPaste,
+      .enableFocusTracking,
+      .enableLineWrap,
+      .enableMouseTracking,
       .enterAltScreen,
       .enterSynchronizedOutput,
       .exitAltScreen,
-      .exitSynchronizedOutput:
+      .exitSynchronizedOutput,
+      .popKittyKeyboard,
+      .pushKittyKeyboard:
       self.encodeMode(into: &buffer)
 
-    case .setWindowTitle:
+    case .kittyGraphics:
+      self.encodeKittyGraphics(into: &buffer)
+
+    case .closeHyperlink,
+      .copyToClipboard,
+      .openHyperlink,
+      .resetCursorColor,
+      .setCursorColor,
+      .setWindowTitle:
       self.encodeOSC(into: &buffer)
     }
   }
@@ -177,24 +235,58 @@ public enum ControlSequence: Equatable, Sendable {
       // DEC private mode 25: show/hide cursor, `CSI ? 25 h/l`.
       ANSIByteEncoding.appendCSI(isVisible ? "?25h" : "?25l", into: &buffer)
 
+    case .setCursorShape(let shape):
+      // DECSCUSR: set cursor style, `CSI Ps SP q`.
+      let parameter =
+        switch shape {
+        case .defaultUserShape:
+          0
+        case .blinkingBlock:
+          1
+        case .steadyBlock:
+          2
+        case .blinkingUnderline:
+          3
+        case .steadyUnderline:
+          4
+        case .blinkingBar:
+          5
+        case .steadyBar:
+          6
+        }
+      ANSIByteEncoding.appendCSI("\(parameter) q", into: &buffer)
+
     case .bell,
+      .closeHyperlink,
+      .copyToClipboard,
+      .disableMouseTracking,
+      .enableBracketedPaste,
+      .enableFocusTracking,
       .enableLineWrap,
+      .enableMouseTracking,
       .enterAltScreen,
       .enterSynchronizedOutput,
       .eraseInDisplay,
       .eraseInLine,
       .exitAltScreen,
       .exitSynchronizedOutput,
+      .kittyGraphics,
+      .openHyperlink,
+      .popKittyKeyboard,
+      .pushKittyKeyboard,
       .raw,
       .resetAttributes,
+      .resetCursorColor,
       .setBackground,
       .setBold,
+      .setCursorColor,
       .setDim,
       .setForeground,
       .setItalic,
       .setReverse,
       .setStrikethrough,
-      .setUnderline,
+      .setUnderlineColor,
+      .setUnderlineStyle,
       .setWindowTitle,
       .text:
       break
@@ -212,6 +304,8 @@ public enum ControlSequence: Equatable, Sendable {
       ANSIByteEncoding.appendCSI(mode.lineEraseParameter + "K", into: &buffer)
 
     case .bell,
+      .closeHyperlink,
+      .copyToClipboard,
       .cursorBack,
       .cursorDown,
       .cursorForward,
@@ -220,21 +314,33 @@ public enum ControlSequence: Equatable, Sendable {
       .cursorSave,
       .cursorUp,
       .cursorVisible,
+      .disableMouseTracking,
+      .enableBracketedPaste,
+      .enableFocusTracking,
       .enableLineWrap,
+      .enableMouseTracking,
       .enterAltScreen,
       .enterSynchronizedOutput,
       .exitAltScreen,
       .exitSynchronizedOutput,
+      .kittyGraphics,
+      .openHyperlink,
+      .popKittyKeyboard,
+      .pushKittyKeyboard,
       .raw,
       .resetAttributes,
+      .resetCursorColor,
       .setBackground,
       .setBold,
+      .setCursorColor,
+      .setCursorShape,
       .setDim,
       .setForeground,
       .setItalic,
       .setReverse,
       .setStrikethrough,
-      .setUnderline,
+      .setUnderlineColor,
+      .setUnderlineStyle,
       .setWindowTitle,
       .text:
       break
@@ -276,11 +382,30 @@ public enum ControlSequence: Equatable, Sendable {
       // ECMA-48 SGR 9 enables crossed-out text; SGR 29 disables it.
       ANSIByteEncoding.appendSGR([isEnabled ? 9 : 29], into: &buffer)
 
-    case .setUnderline(let isEnabled):
-      // ECMA-48 SGR 4 enables underline; SGR 24 disables underline.
-      ANSIByteEncoding.appendSGR([isEnabled ? 4 : 24], into: &buffer)
+    case .setUnderlineColor(let color):
+      ANSIByteEncoding.appendCSI(color.underlineSGRBody + "m", into: &buffer)
+
+    case .setUnderlineStyle(let style):
+      switch style {
+      case .none:
+        // ECMA-48 SGR 24 disables every underline style.
+        ANSIByteEncoding.appendSGR([24], into: &buffer)
+      case .single:
+        // SGR 4 remains the interoperable spelling for a single underline.
+        ANSIByteEncoding.appendSGR([4], into: &buffer)
+      case .double:
+        ANSIByteEncoding.appendCSI("4:2m", into: &buffer)
+      case .curly:
+        ANSIByteEncoding.appendCSI("4:3m", into: &buffer)
+      case .dotted:
+        ANSIByteEncoding.appendCSI("4:4m", into: &buffer)
+      case .dashed:
+        ANSIByteEncoding.appendCSI("4:5m", into: &buffer)
+      }
 
     case .bell,
+      .closeHyperlink,
+      .copyToClipboard,
       .cursorBack,
       .cursorDown,
       .cursorForward,
@@ -289,14 +414,25 @@ public enum ControlSequence: Equatable, Sendable {
       .cursorSave,
       .cursorUp,
       .cursorVisible,
+      .disableMouseTracking,
+      .enableBracketedPaste,
+      .enableFocusTracking,
       .enableLineWrap,
+      .enableMouseTracking,
       .enterAltScreen,
       .enterSynchronizedOutput,
       .eraseInDisplay,
       .eraseInLine,
       .exitAltScreen,
       .exitSynchronizedOutput,
+      .kittyGraphics,
+      .openHyperlink,
+      .popKittyKeyboard,
+      .pushKittyKeyboard,
       .raw,
+      .resetCursorColor,
+      .setCursorColor,
+      .setCursorShape,
       .setWindowTitle,
       .text:
       break
@@ -306,9 +442,45 @@ public enum ControlSequence: Equatable, Sendable {
   /// Encodes terminal modes using DEC private mode set/reset (`CSI ? Ps h/l`).
   private func encodeMode(into buffer: inout [UInt8]) {
     switch self {
+    case .disableMouseTracking:
+      // SGR mouse teardown is deliberately defensive and idempotent: reset
+      // any-event tracking, button-event tracking, then SGR encoding.
+      ANSIByteEncoding.appendCSI("?1003l", into: &buffer)
+      ANSIByteEncoding.appendCSI("?1002l", into: &buffer)
+      ANSIByteEncoding.appendCSI("?1006l", into: &buffer)
+
+    case .enableBracketedPaste(let isEnabled):
+      // DEC private mode 2004: bracketed paste, `CSI ? 2004 h/l`.
+      ANSIByteEncoding.appendCSI(isEnabled ? "?2004h" : "?2004l", into: &buffer)
+
+    case .enableFocusTracking(let isEnabled):
+      // DEC private mode 1004: focus event reports, `CSI ? 1004 h/l`.
+      ANSIByteEncoding.appendCSI(isEnabled ? "?1004h" : "?1004l", into: &buffer)
+
+    case .enableMouseTracking(let granularity):
+      switch granularity {
+      case .anyEvent:
+        // DEC private mode 1003: any-event mouse tracking.
+        ANSIByteEncoding.appendCSI("?1003h", into: &buffer)
+
+      case .buttonEvents:
+        // DEC private mode 1002: button-event mouse tracking.
+        ANSIByteEncoding.appendCSI("?1002h", into: &buffer)
+      }
+      // DEC private mode 1006: SGR mouse report encoding.
+      ANSIByteEncoding.appendCSI("?1006h", into: &buffer)
+
     case .enableLineWrap(let isEnabled):
       // DEC private mode 7 (DECAWM): automatic line wrap, `CSI ? 7 h/l`.
       ANSIByteEncoding.appendCSI(isEnabled ? "?7h" : "?7l", into: &buffer)
+
+    case .popKittyKeyboard:
+      // Kitty keyboard protocol: pop one flags level, `CSI < u`.
+      ANSIByteEncoding.appendCSI("<u", into: &buffer)
+
+    case .pushKittyKeyboard(let flags):
+      // Kitty keyboard protocol: push requested flags, `CSI > Ps u`.
+      ANSIByteEncoding.appendCSI(">\(flags.rawValue)u", into: &buffer)
 
     case .enterAltScreen:
       // DEC private mode 1049: enter alternate screen, `CSI ? 1049 h`.
@@ -327,6 +499,8 @@ public enum ControlSequence: Equatable, Sendable {
       ANSIByteEncoding.appendCSI("?2026l", into: &buffer)
 
     case .bell,
+      .closeHyperlink,
+      .copyToClipboard,
       .cursorBack,
       .cursorDown,
       .cursorForward,
@@ -337,16 +511,73 @@ public enum ControlSequence: Equatable, Sendable {
       .cursorVisible,
       .eraseInDisplay,
       .eraseInLine,
+      .kittyGraphics,
+      .openHyperlink,
       .raw,
       .resetAttributes,
+      .resetCursorColor,
       .setBackground,
       .setBold,
+      .setCursorColor,
+      .setCursorShape,
       .setDim,
       .setForeground,
       .setItalic,
       .setReverse,
       .setStrikethrough,
-      .setUnderline,
+      .setUnderlineColor,
+      .setUnderlineStyle,
+      .setWindowTitle,
+      .text:
+      break
+    }
+  }
+
+  /// Encodes Kitty Graphics Protocol commands as APC-wrapped, base64-chunked bytes.
+  private func encodeKittyGraphics(into buffer: inout [UInt8]) {
+    switch self {
+    case .kittyGraphics(let command):
+      command.encode(into: &buffer)
+
+    case .bell,
+      .closeHyperlink,
+      .copyToClipboard,
+      .cursorBack,
+      .cursorDown,
+      .cursorForward,
+      .cursorPosition,
+      .cursorRestore,
+      .cursorSave,
+      .cursorUp,
+      .cursorVisible,
+      .disableMouseTracking,
+      .enableBracketedPaste,
+      .enableFocusTracking,
+      .enableLineWrap,
+      .enableMouseTracking,
+      .enterAltScreen,
+      .enterSynchronizedOutput,
+      .eraseInDisplay,
+      .eraseInLine,
+      .exitAltScreen,
+      .exitSynchronizedOutput,
+      .openHyperlink,
+      .popKittyKeyboard,
+      .pushKittyKeyboard,
+      .raw,
+      .resetAttributes,
+      .resetCursorColor,
+      .setBackground,
+      .setBold,
+      .setCursorColor,
+      .setCursorShape,
+      .setDim,
+      .setForeground,
+      .setItalic,
+      .setReverse,
+      .setStrikethrough,
+      .setUnderlineColor,
+      .setUnderlineStyle,
       .setWindowTitle,
       .text:
       break
@@ -356,11 +587,48 @@ public enum ControlSequence: Equatable, Sendable {
   /// Encodes operating system commands.
   private func encodeOSC(into buffer: inout [UInt8]) {
     switch self {
+    case .closeHyperlink:
+      // OSC 8 close: ESC ] 8 ; ; ESC \.
+      ANSIByteEncoding.appendOSC("8;;", terminator: .stringTerminator, into: &buffer)
+
+    case .copyToClipboard(let write):
+      // OSC 52 clipboard write: ESC ] 52 ; Pc ; base64 ESC \.
+      ANSIByteEncoding.appendOSC(
+        write.oscBody,
+        terminator: .stringTerminator,
+        into: &buffer
+      )
+
+    case .openHyperlink(let hyperlink):
+      // OSC 8 open: ESC ] 8 ; params ; uri ESC \.
+      let params = hyperlink.id.map { "id=\($0)" } ?? ""
+      ANSIByteEncoding.appendOSC(
+        "8;\(params);\(hyperlink.uri)",
+        terminator: .stringTerminator,
+        into: &buffer
+      )
+
+    case .resetCursorColor:
+      // OSC 112 resets the text cursor color to the terminal default.
+      ANSIByteEncoding.appendOSC("112", terminator: .stringTerminator, into: &buffer)
+
+    case .setCursorColor(let color):
+      // OSC 12 sets the text cursor color. Tessera owns RGB serialization and
+      // terminates with ST (`ESC \`) to match OSC 8 hyperlink handling.
+      ANSIByteEncoding.appendOSC(
+        "12;\(color.hexString)",
+        terminator: .stringTerminator,
+        into: &buffer
+      )
+
     case .setWindowTitle(let title):
       // OSC 2 sets the window title. BEL terminates the OSC; embedded BEL and
       // ESC are stripped so title text cannot terminate or branch the sequence.
-      ANSIByteEncoding.appendOSC("2;" + title.oscSafeTitle, into: &buffer)
-      buffer.append(ANSIByteEncoding.bell)
+      ANSIByteEncoding.appendOSC(
+        "2;" + title.oscSafeTitle,
+        terminator: .bell,
+        into: &buffer
+      )
 
     case .bell,
       .cursorBack,
@@ -371,23 +639,32 @@ public enum ControlSequence: Equatable, Sendable {
       .cursorSave,
       .cursorUp,
       .cursorVisible,
+      .disableMouseTracking,
+      .enableBracketedPaste,
+      .enableFocusTracking,
       .enableLineWrap,
+      .enableMouseTracking,
       .enterAltScreen,
       .enterSynchronizedOutput,
       .eraseInDisplay,
       .eraseInLine,
       .exitAltScreen,
       .exitSynchronizedOutput,
+      .kittyGraphics,
+      .popKittyKeyboard,
+      .pushKittyKeyboard,
       .raw,
       .resetAttributes,
       .setBackground,
       .setBold,
+      .setCursorShape,
       .setDim,
       .setForeground,
       .setItalic,
       .setReverse,
       .setStrikethrough,
-      .setUnderline,
+      .setUnderlineColor,
+      .setUnderlineStyle,
       .text:
       break
     }
@@ -409,7 +686,9 @@ public enum ControlSequence: Equatable, Sendable {
       // Crossterm's Print analogue: append the string's UTF-8 bytes directly.
       buffer.append(contentsOf: text.utf8)
 
-    case .cursorBack,
+    case .closeHyperlink,
+      .copyToClipboard,
+      .cursorBack,
       .cursorDown,
       .cursorForward,
       .cursorPosition,
@@ -417,22 +696,34 @@ public enum ControlSequence: Equatable, Sendable {
       .cursorSave,
       .cursorUp,
       .cursorVisible,
+      .disableMouseTracking,
+      .enableBracketedPaste,
+      .enableFocusTracking,
       .enableLineWrap,
+      .enableMouseTracking,
       .enterAltScreen,
       .enterSynchronizedOutput,
       .eraseInDisplay,
       .eraseInLine,
       .exitAltScreen,
       .exitSynchronizedOutput,
+      .kittyGraphics,
+      .openHyperlink,
+      .popKittyKeyboard,
+      .pushKittyKeyboard,
       .resetAttributes,
+      .resetCursorColor,
       .setBackground,
       .setBold,
+      .setCursorColor,
+      .setCursorShape,
       .setDim,
       .setForeground,
       .setItalic,
       .setReverse,
       .setStrikethrough,
-      .setUnderline,
+      .setUnderlineColor,
+      .setUnderlineStyle,
       .setWindowTitle:
       break
     }

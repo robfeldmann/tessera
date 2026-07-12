@@ -39,7 +39,7 @@ done
 
 if [[ ${#swift_files[@]} -gt 0 ]]; then
   swift-format lint "${swift_files[@]}"
-  swiftlint lint --config .swiftlint.yml "${swift_files[@]}"
+  swiftlint lint --strict --config .swiftlint.yml "${swift_files[@]}"
 fi
 
 if [[ ${#markdown_files[@]} -gt 0 ]]; then

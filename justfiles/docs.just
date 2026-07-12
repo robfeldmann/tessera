@@ -3,18 +3,23 @@ set working-directory := '..'
 
 # ── Documentation ────────────────────────────────────────────────────────────
 
+# Build the static documentation site.
 default: build
 
+# Generate, merge, and transform DocC archives for static hosting.
 build: clean targets merge transform
     @echo "✅ Documentation generated in .build/docs"
 
+# Generate and merge DocC archives with warnings treated as errors.
 lint: clean targets merge
     @echo "✅ Documentation is clean"
 
+# Remove generated documentation output and archives.
 clean:
     rm -rf .build/docs .build/doccarchives
     mkdir -p .build/doccarchives/targets
 
+# Generate DocC archives for all documented package targets.
 targets:
     just core build-libghostty-vt
     @echo "▶ Building documentation for Tessera targets..."
@@ -71,6 +76,7 @@ targets:
         $dependency_args \
         --output-path .build/doccarchives/targets/Tessera.doccarchive
 
+# Merge target DocC archives into one package documentation archive.
 merge:
     @echo "▶ Merging documentation archives..."
     rm -rf .build/doccarchives/tessera.doccarchive
@@ -90,6 +96,7 @@ merge:
         --synthesized-landing-page-kind "Swift Package" \
         --synthesized-landing-page-name Tessera
 
+# Transform the merged DocC archive for static hosting.
 transform:
     @echo "▶ Transforming documentation for static hosting..."
     mkdir -p .build/docs
@@ -98,6 +105,7 @@ transform:
         --hosting-base-path / \
         --output-path .build/docs
 
+# Build docs and serve the static output locally.
 preview: build
     @if ! command -v python3 &> /dev/null; then \
         echo "⚠️  python3 not found — cannot start preview server (brew install python@3)"; \

@@ -1,0 +1,2 @@
+# Gitignored machine-local files that should be copied into new worktrees.
+.windows-frost.env

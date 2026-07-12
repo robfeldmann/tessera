@@ -10,19 +10,21 @@
   @Suite(.serialized)
   struct WindowsInputLoopTests {
     @Test
-    func `windows input loop reads queued key bytes`() async {
+    func `windows input loop yields bytes carried by queued key record`() async {
+      let bytes = Array("é".utf8)
       let state = WindowsInputState(
         waitResults: [WindowsWaitStatus.object],
-        peekResults: [[.key]],
-        readFileResults: [.success([0x61, 0x62])]
+        peekResults: [.success([.key(bytes)])],
+        readConsoleResults: [.success([.key(bytes)])]
       )
       let loop = WindowsInputLoop(inputHandle: 0x10, system: state.system)
       var iterator = loop.bytes().makeAsyncIterator()
 
       let chunk = await iterator.next()
 
-      expectNoDifference(chunk, [0x61, 0x62])
-      expectNoDifference(state.readFileCallCount, 1)
+      expectNoDifference(chunk, bytes)
+      expectNoDifference(state.readConsoleCounts, [1])
+      expectNoDifference(state.readFileCallCount, 0)
     }
 
     @Test
@@ -45,8 +47,8 @@
       let size = TerminalSize(columns: 100, rows: 40)
       let state = WindowsInputState(
         waitResults: [WindowsWaitStatus.object, WindowsWaitStatus.failed],
-        peekResults: [[.resize(size)]],
-        readConsoleResults: [[.resize(size)]]
+        peekResults: [.success([.resize(size)])],
+        readConsoleResults: [.success([.resize(size)])]
       )
       let loop = WindowsInputLoop(inputHandle: 0x10, system: state.system)
       var iterator = loop.sizeChanges().makeAsyncIterator()
@@ -63,8 +65,8 @@
       let size = TerminalSize(columns: 120, rows: 30)
       let state = WindowsInputState(
         waitResults: [WindowsWaitStatus.object, WindowsWaitStatus.failed],
-        peekResults: [[.other, .resize(size)]],
-        readConsoleResults: [[.other, .resize(size)]]
+        peekResults: [.success([.other, .resize(size)])],
+        readConsoleResults: [.success([.other, .resize(size)])]
       )
       let loop = WindowsInputLoop(inputHandle: 0x10, system: state.system)
       var iterator = loop.bytes().makeAsyncIterator()
@@ -77,32 +79,37 @@
     }
 
     @Test
-    func `windows input loop drains leading resize then reads following key bytes`() async {
+    func `windows input loop delivers resize before key bytes in same batch`() async {
       let size = TerminalSize(columns: 90, rows: 24)
+      let bytes = Array("q".utf8)
       let state = WindowsInputState(
         waitResults: [WindowsWaitStatus.object],
-        peekResults: [[.resize(size), .key]],
-        readConsoleResults: [[.resize(size)]],
-        readFileResults: [.success([0x1B])]
+        peekResults: [.success([.resize(size), .key(bytes)])],
+        readConsoleResults: [.success([.resize(size), .key(bytes)])]
       )
       let loop = WindowsInputLoop(inputHandle: 0x10, system: state.system)
-      var byteIterator = loop.bytes().makeAsyncIterator()
-      var sizeIterator = loop.sizeChanges().makeAsyncIterator()
+      let byteStream = loop.bytes()
+      let sizeStream = loop.sizeChanges()
 
-      let resize = await sizeIterator.next()
-      let bytes = await byteIterator.next()
+      async let observedResize = firstSize(from: sizeStream)
+      async let observedChunk = firstBytes(from: byteStream)
+
+      let resize = await observedResize
+      let chunk = await observedChunk
 
       expectNoDifference(resize, size)
-      expectNoDifference(bytes, [0x1B])
-      expectNoDifference(state.readConsoleCounts, [1])
-      expectNoDifference(state.readFileCallCount, 1)
+      expectNoDifference(chunk, bytes)
+      expectNoDifference(state.readConsoleCounts, [2])
+      expectNoDifference(state.readFileCallCount, 0)
     }
 
     @Test
     func `windows input loop finishes when peek fails`() async {
       let state = WindowsInputState(
         waitResults: [WindowsWaitStatus.object],
-        peekResults: [nil]
+        peekResults: [
+          .failure(.consoleOperationFailed(operation: .peekConsoleInput, errorCode: 123))
+        ]
       )
       let loop = WindowsInputLoop(inputHandle: 0x10, system: state.system)
       var iterator = loop.bytes().makeAsyncIterator()
@@ -113,11 +120,13 @@
     }
 
     @Test
-    func `windows input loop finishes when read file fails`() async {
+    func `windows input loop finishes when read console input fails`() async {
       let state = WindowsInputState(
         waitResults: [WindowsWaitStatus.object],
-        peekResults: [[.key]],
-        readFileResults: [.failure(995)]
+        peekResults: [.success([.key([0x61])])],
+        readConsoleResults: [
+          .failure(.consoleOperationFailed(operation: .readConsoleInput, errorCode: 995))
+        ]
       )
       let loop = WindowsInputLoop(inputHandle: 0x10, system: state.system)
       var iterator = loop.bytes().makeAsyncIterator()
@@ -125,7 +134,7 @@
       let end = await iterator.next()
 
       expectNoDifference(end, nil)
-      expectNoDifference(state.lastErrorCode, 995)
+      expectNoDifference(state.readFileCallCount, 0)
     }
 
     @Test
@@ -137,57 +146,58 @@
           WindowsWaitStatus.timeout,
           WindowsWaitStatus.failed,
         ],
-        peekResults: [[.resize(size)]],
-        readConsoleResults: [[.resize(size)]]
+        peekResults: [.success([.resize(size)])],
+        readConsoleResults: [.success([.resize(size)])]
       )
 
-      let io = await WindowsConsoleSystem.$override.withValue(state.system) {
+      let io = WindowsConsoleSystem.$override.withValue(state.system) {
         PlatformIO(
-          terminalDevice: .live(handles: PlatformHandles(inputHandle: 0x10, outputHandle: 0x20))
+          terminalDevice: .live(
+            handles: PlatformHandles(inputHandle: 0x10, outputHandle: 0x20)
+          )
         )
       }
       var iterator = io.events.makeAsyncIterator()
 
       let event = await iterator.next()
 
-      expectNoDifference(event, .resize(size))
+      #expect(event == .resize(size))
     }
   }
 
-  private final class WindowsInputState: @unchecked Sendable {
-    enum ReadFileResult: Sendable {
-      case failure(UInt32)
-      case success([UInt8])
-    }
+  private func firstBytes(from stream: AsyncStream<[UInt8]>) async -> [UInt8] {
+    var iterator = stream.makeAsyncIterator()
+    return await iterator.next() ?? []
+  }
 
-    private var peekResults: [[WindowsInputRecord]?]
-    private var readFileResults: [ReadFileResult]
-    private var readConsoleResults: [[WindowsInputRecord]?]
+  private func firstSize(from stream: AsyncStream<TerminalSize>) async -> TerminalSize? {
+    var iterator = stream.makeAsyncIterator()
+    return await iterator.next()
+  }
+
+  private final class WindowsInputState: @unchecked Sendable {
+    private var peekResults: [Result<[WindowsInputRecord], PlatformIOError>]
+    private var readConsoleResults: [Result<[WindowsInputRecord], PlatformIOError>]
     private var waitResults: [UInt32]
-    private(set) var lastErrorCode: UInt32 = 0
     private(set) var readConsoleCounts: [UInt32] = []
     private(set) var readFileCallCount = 0
-
     var system: WindowsConsoleSystem {
       .stub(
         waitForSingleObject: { _, _ in self.wait() },
-        peekConsoleInput: { _, _ in self.peek() },
-        readConsoleInput: { _, count in self.readConsoleInput(count: count) },
-        readFile: { _, buffer, count in self.readFile(buffer: buffer, count: count) },
-        lastErrorCode: { self.lastErrorCode }
+        peekConsoleInput: { _, _ in try self.peek() },
+        readConsoleInput: { _, count in try self.readConsoleInput(count: count) },
+        readFile: { _, buffer, count in self.readFile(buffer: buffer, count: count) }
       )
     }
 
     init(
       waitResults: [UInt32],
-      peekResults: [[WindowsInputRecord]?] = [],
-      readConsoleResults: [[WindowsInputRecord]?] = [],
-      readFileResults: [ReadFileResult] = []
+      peekResults: [Result<[WindowsInputRecord], PlatformIOError>] = [],
+      readConsoleResults: [Result<[WindowsInputRecord], PlatformIOError>] = []
     ) {
       self.waitResults = waitResults
       self.peekResults = peekResults
       self.readConsoleResults = readConsoleResults
-      self.readFileResults = readFileResults
     }
 
     private func wait() -> UInt32 {
@@ -197,41 +207,24 @@
       return waitResults.removeFirst()
     }
 
-    private func peek() -> [WindowsInputRecord]? {
+    private func peek() throws -> [WindowsInputRecord] {
       guard peekResults.isEmpty == false else {
         return []
       }
-      return peekResults.removeFirst()
+      return try peekResults.removeFirst().get()
     }
 
-    private func readConsoleInput(count: UInt32) -> [WindowsInputRecord]? {
+    private func readConsoleInput(count: UInt32) throws -> [WindowsInputRecord] {
       readConsoleCounts.append(count)
       guard readConsoleResults.isEmpty == false else {
         return []
       }
-      return readConsoleResults.removeFirst()
+      return try readConsoleResults.removeFirst().get()
     }
 
     private func readFile(buffer: UnsafeMutableRawPointer?, count: UInt32) -> Int? {
       readFileCallCount += 1
-      guard readFileResults.isEmpty == false else {
-        return 0
-      }
-
-      switch readFileResults.removeFirst() {
-      case .success(let bytes):
-        if let buffer {
-          let destination = buffer.assumingMemoryBound(to: UInt8.self)
-          for (offset, byte) in bytes.prefix(Int(count)).enumerated() {
-            destination[offset] = byte
-          }
-        }
-        return min(bytes.count, Int(count))
-
-      case .failure(let errorCode):
-        lastErrorCode = errorCode
-        return nil
-      }
+      return nil
     }
   }
 

@@ -10,16 +10,16 @@ extension TerminalDevice {
     }
   }
 
+  private static var unsupported: Self {
+    failing(PlatformIOError.unsupportedPlatform)
+  }
+
   private static func liveFromStandardHandles() throws -> Self {
     #if os(macOS) || os(Linux) || os(Windows)
       return live(handles: try PlatformHandles.standard())
     #else
       throw PlatformIOError.unsupportedPlatform
     #endif
-  }
-
-  private static var unsupported: Self {
-    failing(PlatformIOError.unsupportedPlatform)
   }
 
   private static func failing(_ error: any Error) -> Self {
@@ -48,11 +48,11 @@ extension TerminalDevice {
 
       return Self(
         bytes: { POSIXInputLoop.bytes(fileDescriptor: stdin) },
+        cellPixelSize: { readCellPixelSize(fileDescriptor: stdout) },
         cleanupState: PlatformCleanupState(
           inputFileDescriptor: stdin,
-          outputFileDescriptor: stdout,
-          savedTermios: { await mode.savedTermios() }
-        ),
+          outputFileDescriptor: stdout
+        ) { await mode.savedTermios() },
         enterAltScreen: {
           // DEC private mode 1049: enter alternate screen, `CSI ? 1049 h`.
           try writeAll(Array("\u{1B}[?1049h".utf8), to: stdout)
@@ -74,16 +74,20 @@ extension TerminalDevice {
         outputHandle: handles.outputHandle,
         system: system
       )
-      let inputLoop = WindowsInputLoop(inputHandle: handles.inputHandle, system: system)
+      let inputLoop = WindowsInputLoop(
+        inputHandle: handles.inputHandle,
+        system: system,
+        requiresByteAndSizeConsumers: true
+      )
       let outputHandle = handles.outputHandle
 
       return Self(
         bytes: { inputLoop.bytes() },
+        cellPixelSize: { nil },
         cleanupState: PlatformCleanupState(
           inputHandle: handles.inputHandle,
-          outputHandle: outputHandle,
-          savedConsoleModes: { await mode.savedModes() }
-        ),
+          outputHandle: outputHandle
+        ) { await mode.savedModes() },
         enterAltScreen: {
           // DEC private mode 1049: enter alternate screen, `CSI ? 1049 h`.
           try writeAll(Array("\u{1B}[?1049h".utf8), to: outputHandle, system: system)
@@ -156,6 +160,23 @@ extension TerminalDevice {
     return TerminalSize(
       columns: Int(windowSize.ws_col),
       rows: Int(windowSize.ws_row)
+    )
+  }
+
+  private func readCellPixelSize(fileDescriptor: CInt) -> CellPixelSize? {
+    var windowSize = winsize()
+    guard ioctl(fileDescriptor, UInt(TIOCGWINSZ), &windowSize) != -1,
+      windowSize.ws_col > 0,
+      windowSize.ws_row > 0,
+      windowSize.ws_xpixel > 0,
+      windowSize.ws_ypixel > 0
+    else {
+      return nil
+    }
+
+    return CellPixelSize(
+      height: Int(windowSize.ws_ypixel) / Int(windowSize.ws_row),
+      width: Int(windowSize.ws_xpixel) / Int(windowSize.ws_col)
     )
   }
 
@@ -264,9 +285,8 @@ extension TerminalDevice {
       return Self(
         cleanupState: PlatformCleanupState(
           inputHandle: inputHandle,
-          outputHandle: outputHandle,
-          savedConsoleModes: { await mode.savedModes() }
-        ),
+          outputHandle: outputHandle
+        ) { await mode.savedModes() },
         enterRawMode: { try await mode.enterRawMode() },
         exitRawMode: { try await mode.exitRawMode() },
         size: { throw PlatformIOError.unsupportedPlatform },

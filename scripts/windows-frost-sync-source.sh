@@ -52,7 +52,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 if git -C "$repo_root" ls-files --deleted --error-unmatch -- ':/*' > /dev/null 2>&1; then
-  printf 'deleted tracked files are present; commit/stash or restore before packaging source.\n' >&2
+  printf 'deleted tracked files are present; stage, commit, stash, or restore before packaging source.\n' >&2
+  printf 'The Windows source archive is built from git ls-files; unstaged deletes are still listed by the index.\n' >&2
   git -C "$repo_root" ls-files --deleted >&2
   exit 1
 fi
@@ -64,7 +65,7 @@ printf '[sync] create source archive: %s\n' "$ARCHIVE"
 (
   cd "$repo_root"
   git ls-files -z --cached --others --exclude-standard |
-    tar --null -czf "$ARCHIVE" -T -
+    COPYFILE_DISABLE=1 tar --exclude '._*' --exclude '*/._*' --null -czf "$ARCHIVE" -T -
 )
 
 printf '[sync] copy archive and extractor to guest\n'

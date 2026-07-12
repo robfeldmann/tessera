@@ -5,6 +5,12 @@
   @testable import TesseraTerminalIO
 
   extension WindowsConsoleSystem {
+    static func terminalSizeStub(
+      _ terminalSize: @escaping @Sendable (UInt) -> TerminalSize?
+    ) -> Self {
+      stub(terminalSize: terminalSize)
+    }
+
     static func stub(
       standardInputHandle: @escaping @Sendable () -> UInt? = { 0x11 },
       standardOutputHandle: @escaping @Sendable () -> UInt? = { 0x22 },
@@ -14,18 +20,32 @@
       waitForSingleObject: @escaping @Sendable (UInt, UInt32) -> UInt32 = { _, _ in
         WindowsWaitStatus.failed
       },
-      peekConsoleInput: @escaping @Sendable (UInt, UInt32) -> [WindowsInputRecord]? = { _, _ in
-        nil
-      },
-      readConsoleInput: @escaping @Sendable (UInt, UInt32) -> [WindowsInputRecord]? = { _, _ in
-        nil
-      },
-      readFile: @escaping @Sendable (UInt, UnsafeMutableRawPointer?, UInt32) -> Int? = { _, _, _ in
-        nil
-      },
-      writeFile: @escaping @Sendable (UInt, UnsafeRawPointer?, UInt32) -> Int? = { _, _, _ in
-        nil
-      },
+      peekConsoleInput:
+        @escaping @Sendable (
+          UInt, UInt32
+        ) throws -> [WindowsInputRecord] = { _, _ in
+          throw PlatformIOError.consoleOperationFailed(
+            operation: .peekConsoleInput,
+            errorCode: 0
+          )
+        },
+      readConsoleInput:
+        @escaping @Sendable (
+          UInt, UInt32
+        ) throws -> [WindowsInputRecord] = { _, _ in
+          throw PlatformIOError.consoleOperationFailed(
+            operation: .readConsoleInput,
+            errorCode: 0
+          )
+        },
+      readFile:
+        @escaping @Sendable (
+          UInt, UnsafeMutableRawPointer?, UInt32
+        ) -> Int? = { _, _, _ in nil },
+      writeFile:
+        @escaping @Sendable (
+          UInt, UnsafeRawPointer?, UInt32
+        ) -> Int? = { _, _, _ in nil },
       lastErrorCode: @escaping @Sendable () -> UInt32 = { 0 }
     ) -> Self {
       Self(

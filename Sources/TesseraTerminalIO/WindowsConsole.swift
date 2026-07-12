@@ -5,7 +5,7 @@
 
   /// Input records relevant to Tessera's shared Windows console input loop.
   package enum WindowsInputRecord: Equatable, Sendable {
-    case key
+    case key([UInt8])
     case other
     case resize(TerminalSize)
 
@@ -19,7 +19,8 @@
 
   /// Injectable Windows console syscall surface.
   package struct WindowsConsoleSystem: Sendable {
-    @TaskLocal package static var override: Self?
+    @TaskLocal
+    package static var override: Self?
 
     package static var current: Self {
       override ?? live
@@ -29,24 +30,36 @@
       standardInputHandle: { windowsStandardHandle(STD_INPUT_HANDLE) },
       standardOutputHandle: { windowsStandardHandle(STD_OUTPUT_HANDLE) },
       getConsoleMode: { rawHandle in
+        guard let handle = windowsHandlePointer(from: rawHandle) else {
+          return nil
+        }
+
         var mode: DWORD = 0
-        guard GetConsoleMode(windowsHandlePointer(from: rawHandle), &mode) else {
+        guard GetConsoleMode(handle, &mode) else {
           return nil
         }
         return UInt32(mode)
       },
       setConsoleMode: { rawHandle, mode in
-        SetConsoleMode(windowsHandlePointer(from: rawHandle), DWORD(mode))
+        guard let handle = windowsHandlePointer(from: rawHandle) else {
+          return false
+        }
+
+        return SetConsoleMode(handle, DWORD(mode))
       },
       terminalSize: windowsTerminalSize,
       waitForSingleObject: { rawHandle, timeoutMilliseconds in
-        UInt32(WaitForSingleObject(windowsHandlePointer(from: rawHandle), timeoutMilliseconds))
+        guard let handle = windowsHandlePointer(from: rawHandle) else {
+          return WindowsWaitStatus.failed
+        }
+
+        return UInt32(WaitForSingleObject(handle, timeoutMilliseconds))
       },
       peekConsoleInput: windowsPeekConsoleInput,
       readConsoleInput: windowsReadConsoleInput,
       readFile: windowsReadFile,
       writeFile: windowsWriteFile,
-      lastErrorCode: { UInt32(GetLastError()) }
+      lastErrorCode: windowsLastErrorCode
     )
 
     package var standardInputHandle: @Sendable () -> UInt?
@@ -55,8 +68,8 @@
     package var setConsoleMode: @Sendable (UInt, UInt32) -> Bool
     package var terminalSize: @Sendable (UInt) -> TerminalSize?
     package var waitForSingleObject: @Sendable (UInt, UInt32) -> UInt32
-    package var peekConsoleInput: @Sendable (UInt, UInt32) -> [WindowsInputRecord]?
-    package var readConsoleInput: @Sendable (UInt, UInt32) -> [WindowsInputRecord]?
+    package var peekConsoleInput: @Sendable (UInt, UInt32) throws -> [WindowsInputRecord]
+    package var readConsoleInput: @Sendable (UInt, UInt32) throws -> [WindowsInputRecord]
     package var readFile: @Sendable (UInt, UnsafeMutableRawPointer?, UInt32) -> Int?
     package var writeFile: @Sendable (UInt, UnsafeRawPointer?, UInt32) -> Int?
     package var lastErrorCode: @Sendable () -> UInt32
@@ -68,8 +81,8 @@
       setConsoleMode: @escaping @Sendable (UInt, UInt32) -> Bool,
       terminalSize: @escaping @Sendable (UInt) -> TerminalSize?,
       waitForSingleObject: @escaping @Sendable (UInt, UInt32) -> UInt32,
-      peekConsoleInput: @escaping @Sendable (UInt, UInt32) -> [WindowsInputRecord]?,
-      readConsoleInput: @escaping @Sendable (UInt, UInt32) -> [WindowsInputRecord]?,
+      peekConsoleInput: @escaping @Sendable (UInt, UInt32) throws -> [WindowsInputRecord],
+      readConsoleInput: @escaping @Sendable (UInt, UInt32) throws -> [WindowsInputRecord],
       readFile: @escaping @Sendable (UInt, UnsafeMutableRawPointer?, UInt32) -> Int?,
       writeFile: @escaping @Sendable (UInt, UnsafeRawPointer?, UInt32) -> Int?,
       lastErrorCode: @escaping @Sendable () -> UInt32
@@ -94,8 +107,12 @@
     package static let failed = UInt32(WAIT_FAILED)
   }
 
-  package func windowsHandlePointer(from rawHandle: UInt) -> HANDLE {
-    HANDLE(bitPattern: rawHandle)!
+  package func windowsHandlePointer(from rawHandle: UInt) -> HANDLE? {
+    HANDLE(bitPattern: rawHandle)
+  }
+
+  private func windowsLastErrorCode() -> UInt32 {
+    UInt32(GetLastError())
   }
 
   private func windowsStandardHandle(_ standardHandle: DWORD) -> UInt? {
@@ -108,8 +125,12 @@
   }
 
   private func windowsTerminalSize(rawHandle: UInt) -> TerminalSize? {
+    guard let handle = windowsHandlePointer(from: rawHandle) else {
+      return nil
+    }
+
     var info = CONSOLE_SCREEN_BUFFER_INFO()
-    guard GetConsoleScreenBufferInfo(windowsHandlePointer(from: rawHandle), &info) else {
+    guard GetConsoleScreenBufferInfo(handle, &info) else {
       return nil
     }
 
@@ -125,19 +146,29 @@
   private func windowsPeekConsoleInput(
     rawHandle: UInt,
     maxRecordCount: UInt32
-  ) -> [WindowsInputRecord]? {
+  ) throws -> [WindowsInputRecord] {
+    guard let handle = windowsHandlePointer(from: rawHandle) else {
+      throw PlatformIOError.consoleOperationFailed(
+        operation: .peekConsoleInput,
+        errorCode: UInt32(ERROR_INVALID_HANDLE)
+      )
+    }
+
     var records = [INPUT_RECORD](repeating: INPUT_RECORD(), count: Int(maxRecordCount))
     var readCount: DWORD = 0
     let succeeded = records.withUnsafeMutableBufferPointer { buffer in
       PeekConsoleInputW(
-        windowsHandlePointer(from: rawHandle),
+        handle,
         buffer.baseAddress,
         DWORD(buffer.count),
         &readCount
       )
     }
     guard succeeded else {
-      return nil
+      throw PlatformIOError.consoleOperationFailed(
+        operation: .peekConsoleInput,
+        errorCode: UInt32(GetLastError())
+      )
     }
 
     return records.prefix(Int(readCount)).map(windowsInputRecord)
@@ -146,19 +177,29 @@
   private func windowsReadConsoleInput(
     rawHandle: UInt,
     maxRecordCount: UInt32
-  ) -> [WindowsInputRecord]? {
+  ) throws -> [WindowsInputRecord] {
+    guard let handle = windowsHandlePointer(from: rawHandle) else {
+      throw PlatformIOError.consoleOperationFailed(
+        operation: .readConsoleInput,
+        errorCode: UInt32(ERROR_INVALID_HANDLE)
+      )
+    }
+
     var records = [INPUT_RECORD](repeating: INPUT_RECORD(), count: Int(maxRecordCount))
     var readCount: DWORD = 0
     let succeeded = records.withUnsafeMutableBufferPointer { buffer in
       ReadConsoleInputW(
-        windowsHandlePointer(from: rawHandle),
+        handle,
         buffer.baseAddress,
         DWORD(buffer.count),
         &readCount
       )
     }
     guard succeeded else {
-      return nil
+      throw PlatformIOError.consoleOperationFailed(
+        operation: .readConsoleInput,
+        errorCode: UInt32(GetLastError())
+      )
     }
 
     return records.prefix(Int(readCount)).map(windowsInputRecord)
@@ -169,8 +210,19 @@
     buffer: UnsafeMutableRawPointer?,
     count: UInt32
   ) -> Int? {
+    guard let handle = windowsHandlePointer(from: rawHandle) else {
+      return nil
+    }
+
     var readCount: DWORD = 0
-    guard ReadFile(windowsHandlePointer(from: rawHandle), buffer, DWORD(count), &readCount, nil)
+    guard
+      ReadFile(
+        handle,
+        buffer,
+        DWORD(count),
+        &readCount,
+        nil
+      )
     else {
       return nil
     }
@@ -182,8 +234,19 @@
     buffer: UnsafeRawPointer?,
     count: UInt32
   ) -> Int? {
+    guard let handle = windowsHandlePointer(from: rawHandle) else {
+      return nil
+    }
+
     var writtenCount: DWORD = 0
-    guard WriteFile(windowsHandlePointer(from: rawHandle), buffer, DWORD(count), &writtenCount, nil)
+    guard
+      WriteFile(
+        handle,
+        buffer,
+        DWORD(count),
+        &writtenCount,
+        nil
+      )
     else {
       return nil
     }
@@ -193,8 +256,7 @@
   private func windowsInputRecord(_ record: INPUT_RECORD) -> WindowsInputRecord {
     switch record.EventType {
     case WORD(KEY_EVENT):
-      return .key
-
+      return windowsKeyInputRecord(record.Event.KeyEvent)
     case WORD(WINDOW_BUFFER_SIZE_EVENT):
       let size = record.Event.WindowBufferSizeEvent.dwSize
       let columns = Int(size.X)
@@ -207,6 +269,19 @@
     default:
       return .other
     }
+  }
+
+  private func windowsKeyInputRecord(_ record: KEY_EVENT_RECORD) -> WindowsInputRecord {
+    guard record.bKeyDown.boolValue else {
+      return .other
+    }
+
+    let codeUnit = record.uChar.UnicodeChar
+    guard codeUnit != 0, let scalar = Unicode.Scalar(UInt32(codeUnit)) else {
+      return .other
+    }
+
+    return .key(Array(String(scalar).utf8))
   }
 
 #endif

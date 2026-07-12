@@ -64,6 +64,13 @@ enum RendererDemo {
     case .key:
       state.message = "press n/p to change scenes, space to animate, i to invalidate"
 
+    case .paste(let text):
+      state.message = "paste ignored by renderer demo: \(text.count) characters"
+
+    case .focusGained, .focusLost, .kittyGraphicsResponse, .kittyKeyboardEnhancementFlags,
+      .mouse, .primaryDeviceAttributes, .privateModeStatus:
+      state.message = "protocol event ignored by renderer demo"
+
     case .resize(let size):
       state.message = resizeMessage(size)
       terminal.invalidateRenderer()
@@ -143,8 +150,8 @@ enum RendererDemo {
       ("ASCII", "hello"),
       ("CJK", "你好 "),
       ("emoji", "🙂   "),
-      ("ZWJ", "👨‍👩‍👧   "),
-      ("flag", "🇺🇸   "),
+      ("mixed", "A你🙂"),
+      ("accent", "é    "),
       ("combining", "e\u{0301}    "),
     ]
 
@@ -169,6 +176,11 @@ enum RendererDemo {
         style: Style(foreground: .ansi(.brightBlack))
       )
     }
+    frame.write(
+      "ZWJ emoji and flags vary by terminal/font, so this ruler avoids them.",
+      at: position(0, 13),
+      style: Style(attributes: [.dim])
+    )
   }
 
   private static func drawWideOverwrite(frame: borrowing Frame, state: DemoState) {
@@ -232,15 +244,55 @@ enum RendererDemo {
     let badgeStyle = state.frameIndex.isMultiple(of: 2) ? selectedStyle : normalStyle
 
     frame.write(
-      "Press space to toggle one badge while neighboring styles stay stable.",
+      "Semantic underline styles and colors repaint independently.",
       at: position(0, 4)
     )
-    frame.write("default", at: position(0, 6))
-    frame.write("bold", at: position(10, 6), style: Style(attributes: [.bold]))
     frame.write(
-      "underlined",
+      "Unsupported terminals may show plain or straight underlines.",
+      at: position(0, 5),
+      style: Style(attributes: [.dim])
+    )
+    frame.write(
+      "single",
+      at: position(0, 6),
+      style: Style(underlineStyle: .single)
+    )
+    frame.write(
+      "double",
+      at: position(10, 6),
+      style: Style(underlineStyle: .double)
+    )
+    frame.write(
+      "curly",
       at: position(20, 6),
-      style: Style(attributes: [.underline])
+      style: Style(underlineStyle: .curly)
+    )
+    frame.write(
+      "dotted",
+      at: position(30, 6),
+      style: Style(underlineStyle: .dotted)
+    )
+    frame.write(
+      "dashed",
+      at: position(40, 6),
+      style: Style(underlineStyle: .dashed)
+    )
+    frame.write(
+      "indexed 196",
+      at: position(0, 7),
+      style: Style(underlineStyle: .single, underlineColor: .indexed(196))
+    )
+    frame.write(
+      "RGB 1,2,3",
+      at: position(16, 7),
+      style: Style(underlineStyle: .curly, underlineColor: .rgb(1, 2, 3))
+    )
+    let animatedUnderlineColor: Color =
+      state.frameIndex.isMultiple(of: 2) ? .indexed(196) : .rgb(95, 175, 255)
+    frame.write(
+      "animated",
+      at: position(30, 7),
+      style: Style(underlineStyle: .curly, underlineColor: animatedUnderlineColor)
     )
     frame.write(
       " ERROR ",

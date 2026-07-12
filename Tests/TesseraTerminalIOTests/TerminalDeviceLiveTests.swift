@@ -16,11 +16,14 @@ import Testing
       try await io.enableAltScreen()
       try await io.disableAltScreen()
 
-      expectNoDifference(try pty.readAvailable(), Array("\u{1B}[?1049h\u{1B}[?1049l".utf8))
+      expectNoDifference(
+        try pty.readAvailable(),
+        Array("\u{1B}[?1049h\u{1B}[?1049l".utf8)
+      )
     }
 
     @Test
-    func `live terminal raw mode disables canonical echo and restores termios`() async throws {
+    func `live terminal raw mode disables echo and restores termios`() async throws {
       let pty = try PTYFixture()
       defer { pty.closeAll() }
       let original = try pty.termios()
@@ -47,6 +50,30 @@ import Testing
       let size = try await io.size()
 
       expectNoDifference(size, TerminalSize(columns: 132, rows: 43))
+    }
+
+    @Test
+    func `live terminal reports per-cell pixel geometry from pty size`() async throws {
+      let pty = try PTYFixture()
+      defer { pty.closeAll() }
+      try pty.setSize(columns: 10, rows: 5, xPixels: 200, yPixels: 100)
+      let io = try PlatformIO(handles: pty.handles())
+
+      let pixelSize = await io.cellPixelSize()
+
+      expectNoDifference(pixelSize, CellPixelSize(height: 20, width: 20))
+    }
+
+    @Test
+    func `live terminal reports nil cell pixels for zero pixel fields`() async throws {
+      let pty = try PTYFixture()
+      defer { pty.closeAll() }
+      try pty.setSize(columns: 10, rows: 5, xPixels: 0, yPixels: 0)
+      let io = try PlatformIO(handles: pty.handles())
+
+      let pixelSize = await io.cellPixelSize()
+
+      expectNoDifference(pixelSize, nil)
     }
 
     @Test
@@ -77,40 +104,49 @@ import Testing
   }
 
   private final class PTYFixture: @unchecked Sendable {
-    private var master: CInt = -1
-    private var slave: CInt = -1
+    private var primaryFileDescriptor: CInt = -1
+    private var replicaFileDescriptor: CInt = -1
 
     init() throws {
-      guard openpty(&master, &slave, nil, nil, nil) == 0 else {
+      guard
+        openpty(
+          &primaryFileDescriptor,
+          &replicaFileDescriptor,
+          nil,
+          nil,
+          nil
+        ) == 0
+      else {
         throw PlatformIOError.writeFailed(errno: .init(rawValue: errno))
       }
-      _ = fcntl(master, F_SETFL, fcntl(master, F_GETFL) | O_NONBLOCK)
+      let flags = fcntl(primaryFileDescriptor, F_GETFL)
+      _ = fcntl(primaryFileDescriptor, F_SETFL, flags | O_NONBLOCK)
     }
 
     func handles() -> PlatformHandles {
       PlatformHandles(
-        stdin: FileDescriptor(rawValue: slave),
-        stdout: FileDescriptor(rawValue: slave)
+        stdin: FileDescriptor(rawValue: replicaFileDescriptor),
+        stdout: FileDescriptor(rawValue: replicaFileDescriptor)
       )
     }
 
     func closeAll() {
-      if master >= 0 {
-        close(master)
-        master = -1
+      if primaryFileDescriptor >= 0 {
+        close(primaryFileDescriptor)
+        primaryFileDescriptor = -1
       }
-      if slave >= 0 {
-        close(slave)
-        slave = -1
+      if replicaFileDescriptor >= 0 {
+        close(replicaFileDescriptor)
+        replicaFileDescriptor = -1
       }
     }
 
     func readAvailable() throws -> [UInt8] {
       var bytes: [UInt8] = []
-      var buffer = [UInt8](repeating: 0, count: 1024)
+      var buffer = [UInt8](repeating: 0, count: 1_024)
       while true {
         let count = buffer.withUnsafeMutableBufferPointer { pointer in
-          read(master, pointer.baseAddress, pointer.count)
+          read(primaryFileDescriptor, pointer.baseAddress, pointer.count)
         }
         if count > 0 {
           bytes.append(contentsOf: buffer.prefix(count))
@@ -126,16 +162,26 @@ import Testing
       }
     }
 
-    func setSize(columns: UInt16, rows: UInt16) throws {
-      var size = winsize(ws_row: rows, ws_col: columns, ws_xpixel: 0, ws_ypixel: 0)
-      guard ioctl(slave, UInt(TIOCSWINSZ), &size) == 0 else {
+    func setSize(
+      columns: UInt16,
+      rows: UInt16,
+      xPixels: UInt16 = 0,
+      yPixels: UInt16 = 0
+    ) throws {
+      var size = winsize(
+        ws_row: rows,
+        ws_col: columns,
+        ws_xpixel: xPixels,
+        ws_ypixel: yPixels
+      )
+      guard ioctl(replicaFileDescriptor, UInt(TIOCSWINSZ), &size) == 0 else {
         throw PlatformIOError.terminalSizeUnavailable(errno: .init(rawValue: errno))
       }
     }
 
     func termios() throws -> termios {
       var value = Darwin.termios()
-      guard tcgetattr(slave, &value) == 0 else {
+      guard tcgetattr(replicaFileDescriptor, &value) == 0 else {
         throw PlatformIOError.rawModeFailed(errno: .init(rawValue: errno))
       }
       return value

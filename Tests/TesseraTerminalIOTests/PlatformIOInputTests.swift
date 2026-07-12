@@ -37,13 +37,13 @@ import Testing
   struct POSIXInputLoopSeamTests {
     @Test
     func `input loop finishes when cancellation pipe setup fails`() async {
-      let value = await nextValue(with: .stub(pipe: { _ in -1 }))
+      let value = await nextValue(with: .pipeStub { _ in -1 })
       expectNoDifference(value, nil)
     }
 
     @Test
     func `input loop yields empty chunks on poll timeout`() async {
-      let value = await nextValue(with: .stub(poll: { _, _, _ in 0 }))
+      let value = await nextValue(with: .pollStub { _, _, _ in 0 })
 
       expectNoDifference(value, [])
     }
@@ -56,7 +56,9 @@ import Testing
         with: .stub(
           poll: { descriptors, _, _ in
             defer { state.calls += 1 }
-            if state.calls == 0 { return 0 }
+            if state.calls == 0 {
+              return 0
+            }
             descriptors?[0].revents = Int16(POLLIN)
             return 1
           },
@@ -64,7 +66,8 @@ import Testing
             buffer?.assumingMemoryBound(to: UInt8.self).pointee = 0x61
             return 1
           }
-        ))
+        )
+      )
       expectNoDifference(value, [0x61])
     }
 
@@ -84,27 +87,30 @@ import Testing
             return 1
           },
           read: { _, _, _ in 0 }
-        ))
+        )
+      )
       expectNoDifference(value, nil)
     }
 
     @Test
     func `input loop finishes on fatal poll failure`() async {
       let value = await nextValue(
-        with: .stub(poll: { _, _, _ in
+        with: .pollStub { _, _, _ in
           errno = EIO
           return -1
-        }))
+        }
+      )
       expectNoDifference(value, nil)
     }
 
     @Test
     func `input loop finishes when cancellation pipe wakes poll`() async {
       let value = await nextValue(
-        with: .stub(poll: { descriptors, _, _ in
+        with: .pollStub { descriptors, _, _ in
           descriptors?[1].revents = Int16(POLLIN)
           return 1
-        }))
+        }
+      )
       expectNoDifference(value, nil)
     }
 
@@ -127,7 +133,8 @@ import Testing
             buffer?.assumingMemoryBound(to: UInt8.self).pointee = 0x62
             return 1
           }
-        ))
+        )
+      )
       expectNoDifference(value, [0x62])
     }
 
@@ -143,7 +150,8 @@ import Testing
             errno = EIO
             return -1
           }
-        ))
+        )
+      )
       expectNoDifference(value, nil)
     }
 
@@ -173,6 +181,9 @@ import Testing
       expectNoDifference(state.setFlags, [0x04 | O_NONBLOCK, 0x04])
     }
 
+    // These helpers mirror AsyncIterator.next(): nil means stream end.
+    // An empty array is a real idle chunk emitted by the input loop.
+    // swiftlint:disable:next discouraged_optional_collection
     private func nextNonEmptyValue(with system: POSIXSystem) async -> [UInt8]? {
       await POSIXSystem.$override.withValue(system) {
         let stream = POSIXInputLoop.bytes(fileDescriptor: 0)
@@ -186,6 +197,9 @@ import Testing
       }
     }
 
+    // Same AsyncIterator.next() semantics: nil is stream end.
+    // An empty array is a real idle chunk emitted by the input loop.
+    // swiftlint:disable:next discouraged_optional_collection
     private func nextValue(with system: POSIXSystem) async -> [UInt8]? {
       await POSIXSystem.$override.withValue(system) {
         let stream = POSIXInputLoop.bytes(fileDescriptor: 0)

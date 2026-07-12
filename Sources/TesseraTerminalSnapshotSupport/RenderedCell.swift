@@ -1,5 +1,7 @@
+import TesseraTerminalANSI
+
 /// A visible terminal cell reconstructed by the virtual terminal.
-public struct RenderedCell: Sendable, Equatable {
+public struct RenderedCell: Equatable, Sendable {
   public static let blank = Self(
     character: " ",
     foreground: .default,
@@ -9,7 +11,9 @@ public struct RenderedCell: Sendable, Equatable {
     italic: false,
     reverse: false,
     strikethrough: false,
-    underline: false
+    underlineStyle: .none,
+    underlineColor: .default,
+    hyperlinkURI: nil
   )
 
   public let character: Character
@@ -20,7 +24,9 @@ public struct RenderedCell: Sendable, Equatable {
   public let italic: Bool
   public let reverse: Bool
   public let strikethrough: Bool
-  public let underline: Bool
+  public let underlineStyle: UnderlineStyle
+  public let underlineColor: RenderedColor
+  public let hyperlinkURI: String?
 
   public init(
     character: Character,
@@ -31,7 +37,9 @@ public struct RenderedCell: Sendable, Equatable {
     italic: Bool,
     reverse: Bool,
     strikethrough: Bool,
-    underline: Bool
+    underlineStyle: UnderlineStyle = .none,
+    underlineColor: RenderedColor = .default,
+    hyperlinkURI: String? = nil
   ) {
     self.character = character
     self.foreground = foreground
@@ -41,6 +49,8 @@ public struct RenderedCell: Sendable, Equatable {
     self.italic = italic
     self.reverse = reverse
     self.strikethrough = strikethrough
-    self.underline = underline
+    self.underlineStyle = underlineStyle
+    self.underlineColor = underlineColor
+    self.hyperlinkURI = hyperlinkURI
   }
 }

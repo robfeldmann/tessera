@@ -56,6 +56,12 @@ Use it selectively:
   - [Slice 4: Kitty keyboard protocol](#slice-4-kitty-keyboard-protocol)
   - [Slice 5: OSC 8 hyperlinks](#slice-5-osc-8-hyperlinks)
   - [Slice 6: Terminal capability detection](#slice-6-terminal-capability-detection)
+  - [Slice 7: Kitty graphics protocol](#slice-7-kitty-graphics-protocol)
+  - [Slice 8: Color degradation baseline](#slice-8-color-degradation-baseline)
+  - [Slice 9: OSC 52 clipboard](#slice-9-osc-52-clipboard)
+  - [Slice 10: Cursor styling](#slice-10-cursor-styling)
+  - [Slice 11: Underline extensions](#slice-11-underline-extensions)
+  - [Slice 12: Runtime protocol control](#slice-12-runtime-protocol-control)
 - [Phase 4 — View layer](#phase-4--view-layer-the-tessera-module)
   - [Slice 1: TesseraCore — View, ViewGraph, reconciliation, Text](#slice-1-tesseracore--view-viewgraph-reconciliation-text)
   - [Slice 2: The Layout protocol and stack containers](#slice-2-the-layout-protocol-and-stack-containers)
@@ -83,9 +89,10 @@ means four design rules:
    visibility, mouse tracking, bracketed paste, focus events, Kitty keyboard, synchronized
    output, and future protocol modes must have symmetric teardown owned by the session.
 2. **Expose a scoped raw-output escape hatch.** Users need a way to emit a protocol
-   Tessera does not model yet — sixel, Kitty graphics, a future OSC, vendor extensions —
-   without forking the library. This must be rendered data inside a frame, paired with
-   explicit damage-tracking policy, not a public file descriptor or arbitrary live write.
+   Tessera does not model yet — sixel, iTerm2 inline images, a future OSC, vendor
+   extensions — without forking the library. This must be rendered data inside a frame,
+   paired with explicit damage-tracking policy, not a public file descriptor or arbitrary
+   live write.
 3. **Treat capabilities as advisory and degrade gracefully.** Respect environment and user
    policy (`NO_COLOR`, color depth, `TERM`/`COLORTERM`, nested tmux/screen, Windows VT
    mode), observe protocols that actually respond, and let apps inspect what Tessera
@@ -1287,7 +1294,8 @@ Concrete list of cases the encoder needs for Phase 2 (informed by the layer-by-l
 - `setForeground(Color)`, `setBackground(Color)` — 16-color, 256-color, and truecolor
   variants behind a single `Color` enum
 - `setBold(Bool)`, `setItalic(Bool)`, `setUnderline(Bool)`, `setReverse(Bool)`,
-  `setDim(Bool)`, `setStrikethrough(Bool)`
+  `setDim(Bool)`, `setStrikethrough(Bool)` (Phase 3 Slice 11 replaces `setUnderline(Bool)`
+  with `setUnderlineStyle(UnderlineStyle)` plus `setUnderlineColor(Color)`)
 
 ##### Modes
 
@@ -1377,7 +1385,7 @@ A few decisions baked in here worth flagging:
 
 The raw escape hatch is how Tessera avoids becoming a compatibility ceiling. It exists for
 terminal protocols Tessera has not modeled yet and for application-specific extensions:
-Kitty graphics, sixel, future OSCs, vendor DCS payloads, or experiments.
+sixel, iTerm2 OSC 1337 inline images, future OSCs, vendor DCS payloads, or experiments.
 
 ```swift
 public struct RawTerminalPayload: Sendable, Equatable {
@@ -1397,7 +1405,10 @@ Rules:
   `CellDiffPolicy` and `Frame.writeRaw` behavior.
 - Prefer a first-class semantic `ControlSequence` once Tessera intentionally supports a
   protocol. For example, OSC 8 becomes `openHyperlink`/`closeHyperlink` in Phase 3 rather
-  than staying raw forever.
+  than staying raw forever. Kitty graphics graduates the same way in Phase 3 Slice 7 —
+  `ControlSequence.kittyGraphics` replaces raw APC transmit/place bytes once Tessera
+  decided to support the protocol directly; sixel and iTerm2 inline images stay on this
+  escape hatch until a future slice does the same.
 - Tests should include at least one raw payload that has zero display width (an OSC-like
   sequence) and one that claims visible width/area, proving the diff policy rather than
   string width drives repaint behavior.
@@ -3668,6 +3679,9 @@ The slice order is intentional:
 5. OSC 8 hyperlinks — output-side rendering capability, best after input protocols settle.
 6. Terminal capability detection — optional final slice, because it may reshape how the
    earlier protocols are enabled but should not block implementing them.
+7. Kitty graphics protocol — output-side; reuses the encoder/parser patterns from earlier
+   slices and adds the first protocol-native active probe (`a=q` followed by DA1) for
+   large non-text output.
 
 Terminal protocol modes are controlled by the session/runtime, not by direct widget
 mutation. Views and widgets may declare capabilities they require, but they do not
@@ -3684,9 +3698,75 @@ Mode categories for Phase 3:
    and, where appropriate, declarative dynamic requirements. High-noise modes such as
    all-motion mouse tracking require explicit application permission.
 3. **Frame/render-scoped terminal state.** Synchronized output, cursor placement, cursor
-   visibility, style state, hyperlinks, raw payloads, and damage-tracking state are
-   renderer-owned. Widgets may express desired cursor/style state or call
-   `Frame.writeRaw`, but they do not emit raw mode bytes directly.
+   visibility, style state, hyperlinks, raw payloads, graphics placements, and
+   damage-tracking state are renderer-owned. Widgets may express desired cursor/style
+   state or call `Frame.writeRaw`/`Frame.placeImage`, but they do not emit raw mode bytes
+   directly. Kitty graphics image transmission (Slice 7) is a session-scoped side channel
+   outside `ModeLifecycle`, not frame-scoped output — there is no enable sequence to
+   track.
+
+### Phase 3 ground truth: the implemented substrate
+
+Phase 2 shipped, including full Windows support and the Ghostty-backed snapshot harness on
+every platform. Phase 3 slices extend real code, not spec sketches. The names below are
+the actual API at the end of Phase 2; extend them instead of inventing parallel types.
+Snippets later in Phase 3 have been aligned to the codebase's conventions: alphabetically
+sorted protocol conformances (`Equatable, Sendable`), the unlabeled
+`InputEvent.unknown([UInt8])` payload, and `KeyCode.character(Character)`.
+
+- **Input (`TesseraTerminalInput`).** `InputParser` is a value-type state machine:
+  `feed(_ byte:) -> [InputEvent]`, `feed(contentsOf:)`, `flush()`, and a package-level
+  `flushPendingEscape()` used for ESC-timeout disambiguation. Its private `State` enum has
+  `.csi(accumulated:)`, `.escape`, `.ground`, `.ss3(accumulated:)`, and
+  `.utf8(expectedCount:accumulated:)` cases. CSI parsing accumulates parameter and
+  intermediate bytes (0x20–0x3F) and dispatches on the final byte (0x40–0x7E) through
+  `csiCode(finalByte:params:)`; tilde-terminated sequences resolve through
+  `keyCode(forTildeParameter:)`, and `csiParameterValues` splits parameters on `;` only.
+  `InputEvent` has `case key(Key)`, `case resize(TerminalSize)`, and
+  `case unknown([UInt8])`. `Key` is `var code: KeyCode; var modifiers: Modifiers`.
+  `Modifiers` is a `UInt8` option set: `.shift = 1 << 0`, `.alt = 1 << 1`,
+  `.control = 1 << 2`.
+- **Encoder (`TesseraTerminalANSI`).** `ControlSequence` keeps its cases in alphabetical
+  order and encodes through grouped, exhaustive `switch` helpers (`encodeCursor`,
+  `encodeErase`, `encodeSGR`, `encodeMode`, `encodeOSC`, `encodePayload`); every new case
+  must be added to every one of those switches or the target does not compile. Byte
+  assembly goes through `ANSIByteEncoding.appendCSI`/`appendSGR`/`appendOSC`. The existing
+  convention for DEC private modes with symmetric set/reset is one `Bool`-parameterized
+  case (`cursorVisible(Bool)`, `enableLineWrap(Bool)`); Phase 3 mode toggles should follow
+  it.
+- **IO (`TesseraTerminalIO`).** `PlatformIO` is a package actor that buffers output
+  (`write`) and flushes it (`flush`). It owns the single long-lived `InputParser` inside
+  its `events` pipeline; empty byte chunks on the input stream are input-idle
+  notifications that trigger `flushPendingEscape()` (both platform input loops emit them
+  on poll timeouts, so they arrive constantly). `ModeLifecycle` is an actor whose `Mode`
+  enum already declares `.bracketedPaste`, `.focusEvents`, `.kittyKeyboard`, and
+  `.mouseTracking` — currently rejected as `ModeLifecycleError.unsupportedModes`.
+  Enable/disable ordering is the static `acquisitionOrder` array; `exit()` walks it in
+  reverse. Emergency teardown is byte-based: `installCleanup()` encodes `ControlSequence`
+  teardown bytes and hands them to the async-signal-safe C shim via
+  `PlatformIO.installCleanup(teardownBytes:)` and `CleanupRegistry`.
+- **Session (`TesseraTerminal`).**
+  `TerminalSession.withApplicationTerminal(configuration:_:)` drives
+  `ModeLifecycle.enter(configuration.modes)`. `TerminalApplicationConfiguration` has
+  `modes: Set<ModeLifecycle.Mode>` and `synchronizedOutput: SynchronizedOutputPolicy`
+  (`.disabled`/`.enabled`); `.default` is `[.rawMode, .altScreen]`.
+- **Windows.** Fully supported locally and on CI. Raw mode and VT translation are console
+  mode flags owned by `WindowsConsoleMode` (`ENABLE_VIRTUAL_TERMINAL_INPUT` on input,
+  `ENABLE_VIRTUAL_TERMINAL_PROCESSING` on output). `WindowsInputLoop` single-owns the
+  console input queue: it drains non-character records (only resize records become events;
+  legacy `FOCUS_EVENT`/`MOUSE_EVENT` records are discarded) and delivers VT input bytes on
+  the same `AsyncStream<[UInt8]>` shape as POSIX. Every Phase 3 protocol is
+  bytes-in/bytes-out through that shared path; no slice may add a Win32 record-based event
+  source.
+- **Test harness.** The Ghostty-backed `VirtualTerminal` snapshot harness runs on macOS,
+  Linux, and Windows. CI builds libghostty-vt on all three; Windows compiles `CGhosttyVT`
+  behind the `TESSERA_GHOSTTY_WINDOWS=1` opt-in (see `Package.swift` and
+  `scripts/build-libghostty-vt.ps1`), and sources gate on `#if canImport(CGhosttyVT)` with
+  `VirtualTerminal.ghosttyOrUnavailable(cols:rows:)` as the factory. The early Phase 2
+  "Windows snapshot coverage is deferred" caveat no longer applies — Phase 3 renderer work
+  gets snapshot coverage on all three platforms. Lifecycle byte assertions use
+  `InMemoryTerminalDevice` from `TesseraTerminalTestSupport`, which records lifecycle
+  events and flushed bytes. Parser tests stay plain byte-in/event-out with no harness.
 
 ### Dynamic mode changes (`ModeLifecycle.apply`)
 
@@ -3722,9 +3802,33 @@ Invariants, in order of importance:
    application mode Tessera might ever enable, regardless of what `apply` believes is
    active.
 
+Implementation notes, grounded in the Phase 2 code:
+
+- `Mode` already declares the four application-protocol cases; the work is removing them
+  from the `unsupportedModes` rejection path in `enable`/`disable`.
+- Extend the static `acquisitionOrder` so application modes come after `.altScreen`, e.g.
+  `[.rawMode, .altScreen, .bracketedPaste, .focusEvents, .mouseTracking, .kittyKeyboard]`,
+  and add them to `supportedModes`. `enter(_:)` then enables them after the screen is set
+  up, and `exit()`'s reversed walk disables them first — the teardown ordering each slice
+  asks for falls out of the array, with the Kitty push last among enables and its pop
+  first among disables when `.kittyKeyboard` is the final element.
+- Application-mode enable/disable needs no new `TerminalDevice` endpoints. Unlike raw mode
+  (termios/console-mode syscalls) and alt screen, these are pure byte sequences: encode
+  the `ControlSequence`, then `io.write(bytes)` + `io.flush()`.
+- `installCleanup()` must grow. Teardown bytes currently cover alt-screen exit and cursor
+  show; every successful `enter`/`apply` recomputes them to include disable sequences for
+  all application modes (over-cleaning is fine — the emergency path may disable modes that
+  were never enabled).
+- Build `apply(applicationModes:)` once, after slices 1–4 exist, or as part of wiring
+  slice 6 configuration; the four protocol slices themselves only require
+  `enter`/`exit`/cleanup support. Implement each slice's enable/disable in a shape `apply`
+  can reuse (per-mode enable/disable byte emission plus cleanup-registry refresh), so the
+  reconciler is a delta loop over existing pieces.
+
 Each Phase 3 slice below describes its mode in enable-at-startup terms for simplicity;
-read those through this section — "enable at startup" means "in the initial applied set
-when the application's configuration/requirements ask for it."
+read those through this section — "enable at startup" means the mode is present in the
+`TerminalApplicationConfiguration.modes` set handed to `withApplicationTerminal`, or in
+the initial applied set once requirements-driven reconciliation exists.
 
 ### Slice 1: Bracketed paste mode
 
@@ -3761,14 +3865,15 @@ Bracketed paste mode is small but load-bearing:
 > Tessera should copy the event-level idea, not the exact feature-gating: paste is part of
 > `TesseraTerminal`'s modern baseline once Phase 3 starts.
 
-This slice should add a new semantic event:
+This slice should add a new semantic event to the existing `InputEvent` enum (which keeps
+its cases alphabetized and its payload unlabeled):
 
 ```swift
-public enum InputEvent: Sendable, Equatable {
+public enum InputEvent: Equatable, Sendable {
     case key(Key)
-    case resize(TerminalSize)
     case paste(String)
-    case unknown(bytes: [UInt8])
+    case resize(TerminalSize)
+    case unknown([UInt8])
 }
 ```
 
@@ -3783,6 +3888,14 @@ mode and alternate screen:
 - Keep the disable sequence idempotent and safe to emit even if enable failed partway
   through startup.
 
+Concretely: remove `.bracketedPaste` from the `unsupportedModes` rejection in
+`ModeLifecycle.enable`/`disable`, append it to `acquisitionOrder` and `supportedModes`,
+emit the `ControlSequence` bytes through `io.write` + `io.flush`, and add the disable
+sequence to the teardown bytes built by `installCleanup()`. Enable at startup by including
+`.bracketedPaste` in `TerminalApplicationConfiguration.modes`; grow
+`TerminalApplicationConfiguration.default` to include it (slice 6's enablement policy
+keeps bracketed paste on by default).
+
 The cleanup rule matters more than the feature itself. Leaving a user's shell in bracketed
 paste mode is one of those small terminal footguns that makes a library feel sloppy.
 
@@ -3791,9 +3904,24 @@ paste mode is one of those small terminal footguns that makes a library feel slo
 The parser needs one additional state: “currently inside bracketed paste.”
 
 When it sees the exact start marker `ESC [ 200 ~`, it should stop emitting ordinary
-`key(.char(...))` events and begin accumulating bytes as paste payload. When it later sees
-the exact end marker `ESC [ 201 ~`, it should UTF-8 decode the accumulated payload and
-emit one `InputEvent.paste(String)`.
+`key(Key(code: .character(...)))` events and begin accumulating bytes as paste payload.
+When it later sees the exact end marker `ESC [ 201 ~`, it should UTF-8 decode the
+accumulated payload and emit one `InputEvent.paste(String)`.
+
+The concrete hook: the start marker arrives through the existing `.csi` state as a
+tilde-terminated sequence with parameter `200`. `parseCSI` dispatches those through
+`keyCode(forTildeParameter:)` today; parameter `200` instead clears a private paste byte
+buffer and transitions to `State.bracketedPaste(matchedEndMarkerBytes: 0)`. Parameter
+`201` seen outside paste mode is malformed (existing unknown policy). Inside
+`.bracketedPaste`, bytes append to the private paste buffer while the parser tracks how
+many bytes of the exact end marker have matched. When a byte breaks a partial end-marker
+match, the matched marker-prefix bytes are replayed as payload.
+
+Large pastes are expected. Do not store the growing payload in the enum associated value,
+do not allocate a candidate array per byte, and do not implement bulk input with
+`bytes.flatMap { feed($0) }`. `feed(contentsOf:)` should preserve the public parser
+surface while avoiding per-byte event-array churn; a 337 KB paste should parse in low-tens
+of milliseconds on a modern machine, not hundreds of milliseconds.
 
 Important edge cases:
 
@@ -3803,8 +3931,18 @@ Important edge cases:
 - A paste may be split across many reads.
 - The start marker itself may be split across reads.
 - The end marker itself may be split across reads.
-- Invalid UTF-8 should not crash the parser. Pick one policy and test it: either emit
-  replacement characters or surface `.unknown(bytes:)`.
+- Invalid UTF-8 should not crash the parser. Completed paste payloads use Swift's lossy
+  UTF-8 decoding and emit replacement characters for invalid byte sequences.
+- Input-idle notifications must not disturb paste accumulation. `PlatformIO`'s event
+  pipeline calls `flushPendingEscape()` whenever an empty idle chunk arrives — which is
+  constantly, on every poll timeout. That method acts only on the bare-`.escape` state
+  today; keep it that way. A paste may stall between reads indefinitely.
+- `flush()` (end of the input stream) with an unterminated paste follows the existing
+  incomplete-sequence policy: emit `.unknown` carrying the start marker plus the
+  accumulated payload bytes, mirroring the current `.csi`/`.ss3` flush behavior.
+- Empty paste payloads emit `.paste("")`.
+- A start marker seen while already inside paste mode is payload, not a nested paste.
+- Consecutive bracketed pastes must clear paste buffer state between emitted events.
 
 The key design point is that bracketed paste is a _parser mode_, not just another escape
 sequence. Once inside paste mode, the normal key parser is suspended until the closing
@@ -3812,18 +3950,20 @@ marker arrives.
 
 #### Encoder behavior
 
-Add semantic control sequences for enabling and disabling bracketed paste, rather than
-sprinkling raw escape strings through lifecycle code.
-
-Phase 3 should add these cases to `ControlSequence`:
+Add a semantic control sequence for toggling bracketed paste, rather than sprinkling raw
+escape strings through lifecycle code. Follow the existing convention for DEC private
+modes with symmetric set/reset — one `Bool`-parameterized case, like
+`enableLineWrap(Bool)` and `cursorVisible(Bool)`:
 
 ```swift
-public enum ControlSequence: Sendable, Equatable {
-    // Phase 2 cases...
-    case enableBracketedPaste
-    case disableBracketedPaste
+public enum ControlSequence: Equatable, Sendable {
+    // Existing cases, kept alphabetized...
+    case enableBracketedPaste(Bool)
 }
 ```
+
+Encode it in `encodeMode` alongside the other DEC private modes, and add the case to every
+exhaustive `encode*` switch in the enum.
 
 The important part is that tests assert the exact bytes:
 
@@ -3841,14 +3981,20 @@ Add parser tests for:
 - pasted multiline text
 - pasted UTF-8 text
 - ANSI-looking bytes inside paste payload
+- empty paste payload
+- start marker inside active paste payload
+- consecutive bracketed pastes
+- invalid UTF-8 paste uses replacement characters
 - ordinary key parsing still works before and after paste
 - incomplete paste does not emit partial key events
+- paste state survives an input-idle flush (`flushPendingEscape()` mid-paste)
+- `flush()` on an unterminated paste follows the unknown policy
 
-Add lifecycle/encoder tests for:
+Add lifecycle/encoder tests (assert recorded bytes via `InMemoryTerminalDevice`) for:
 
 - startup emits bracketed paste enable
 - teardown emits bracketed paste disable
-- cleanup path emits bracketed paste disable
+- emergency teardown bytes installed via the cleanup registry include the disable
 - disable ordering is compatible with the existing alternate-screen/raw-mode teardown
 
 #### Non-goals
@@ -3901,16 +4047,16 @@ Focus tracking mode uses these sequences:
 >   `Event::FocusLost` alongside other CSI inputs (`crossterm`
 >   `src/event/sys/unix/parse.rs`, lines 171-172).
 
-This slice should extend `InputEvent` again:
+This slice should extend `InputEvent` again (cases stay alphabetized):
 
 ```swift
-public enum InputEvent: Sendable, Equatable {
-    case key(Key)
-    case resize(TerminalSize)
-    case paste(String)
+public enum InputEvent: Equatable, Sendable {
     case focusGained
     case focusLost
-    case unknown(bytes: [UInt8])
+    case key(Key)
+    case paste(String)
+    case resize(TerminalSize)
+    case unknown([UInt8])
 }
 ```
 
@@ -3923,6 +4069,13 @@ as bracketed paste:
 - Disable focus tracking during normal teardown.
 - Disable focus tracking from cleanup handlers after abnormal exit.
 - Keep the disable sequence idempotent and safe to emit even if startup fails halfway.
+
+Concretely, this is the same `ModeLifecycle` change as Slice 1, for the existing
+`.focusEvents` mode case: lift it out of the `unsupportedModes` rejection, place it in
+`acquisitionOrder`/`supportedModes`, emit bytes through `io.write` + `io.flush`, and
+include the disable in `installCleanup()` teardown bytes. Enable at startup by including
+`.focusEvents` in `TerminalApplicationConfiguration.modes` (and in `.default`, matching
+slice 6's enablement policy).
 
 The teardown ordering should be boring and explicit. Disable optional application modes
 before restoring the user's terminal state. A reasonable ordering is:
@@ -3942,6 +4095,12 @@ Focus events are ordinary CSI sequences from the parser's point of view:
 
 - `ESC [ I` emits `.focusGained`
 - `ESC [ O` emits `.focusLost`
+
+The concrete hook: `csiCode(finalByte:params:)` gains final bytes `I` (0x49) and `O`
+(0x4F), valid only with empty parameters — but those two decode to `InputEvent` cases, not
+`Key` values, so the helper's return type (currently `Key?`) needs to widen to an event,
+or the dispatch happens in `parseCSI` before the key-decoding fallback. `ESC [ I` or
+`ESC [ O` with parameters follows the existing unknown policy.
 
 They should be recognized wherever the normal escape-sequence parser recognizes CSI input,
 including when bytes arrive split across reads. They should not be recognized while the
@@ -3965,13 +4124,13 @@ Design notes:
 
 #### Encoder behavior
 
-Add semantic control sequences for focus tracking, mirroring bracketed paste:
+Add a semantic control sequence for focus tracking, mirroring bracketed paste's
+`Bool`-parameterized shape:
 
 ```swift
-public enum ControlSequence: Sendable, Equatable {
-    // Existing cases...
-    case enableFocusTracking
-    case disableFocusTracking
+public enum ControlSequence: Equatable, Sendable {
+    // Existing cases, kept alphabetized...
+    case enableFocusTracking(Bool)
 }
 ```
 
@@ -3981,20 +4140,24 @@ Tests should assert the exact bytes:
 - disable: `\u{1B}[?1004l`
 
 Keep these as explicit encoder operations rather than generic “set private mode” calls in
-lifecycle code. A lower-level CSI helper is fine internally, but public or call-site code
-should read in terminal concepts: enable focus tracking, disable focus tracking.
+lifecycle code. `ANSIByteEncoding.appendCSI` is the internal helper; public and call-site
+code should read in terminal concepts: enable focus tracking, disable focus tracking.
 
 #### Platform notes
 
 On POSIX terminals this is just bytes in and bytes out. On Windows Terminal and other
-ConPTY-backed environments, VT input mode from Phase 2 is what allows these escape
-sequences to flow through the same parser path as macOS and Linux.
+ConPTY-backed environments, the VT input mode from Phase 2
+(`ENABLE_VIRTUAL_TERMINAL_INPUT`, owned by `WindowsConsoleMode`) is what lets these escape
+sequences flow through the same parser path as macOS and Linux.
 
-There should not be a separate Windows focus-event implementation using Win32 console
-focus records. Those records describe the console window/input buffer model, not the same
-modern terminal protocol Tessera is standardizing around. Phase 2 deliberately put Windows
-behind the same public `PlatformIO` API; Phase 3 should continue paying the cross-platform
-tax only at the byte transport layer, not by inventing a second event semantics.
+There must not be a separate Windows focus-event implementation using Win32 console focus
+records. Those records describe the console window/input buffer model, not the modern
+terminal protocol Tessera is standardizing around — and `WindowsInputLoop` already drains
+and discards legacy `FOCUS_EVENT` records while pumping the console input queue, so the VT
+`ESC [ I` / `ESC [ O` bytes are the only focus signal that can reach the parser. Phase 2
+deliberately put Windows behind the same `PlatformIO` seam; Phase 3 continues paying the
+cross-platform tax only at the byte transport layer, not by inventing a second event
+semantics.
 
 #### Tests
 
@@ -4010,7 +4173,7 @@ Add parser tests for:
 - `ESC [ I` inside bracketed paste payload does not emit `.focusGained`
 - `ESC [ O` inside bracketed paste payload does not emit `.focusLost`
 
-Add lifecycle/encoder tests for:
+Add lifecycle/encoder tests (assert recorded bytes via `InMemoryTerminalDevice`) for:
 
 - startup emits focus tracking enable
 - teardown emits focus tracking disable
@@ -4055,18 +4218,32 @@ formats. The older encodings pack coordinates and button bits into bytes, have a
 coordinate limits, and are not worth building a public API around. SGR mouse reports
 events as readable CSI sequences and is the modern baseline for serious terminal apps.
 
-Use button-event tracking, not any-event tracking:
+Present two tracking granularities as an explicit choice rather than a single fixed mode:
 
-- Enable button-event mouse tracking with `ESC [ ? 1002 h`
-- Enable SGR mouse encoding with `ESC [ ? 1006 h`
-- Disable button-event mouse tracking with `ESC [ ? 1002 l`
-- Disable SGR mouse encoding with `ESC [ ? 1006 l`
+```swift
+public enum MouseTracking: Hashable, Sendable {
+    case anyEvent
+    case buttonEvents
+}
+```
+
+`.buttonEvents` is the default everywhere a tracking granularity is not explicitly
+requested. `.anyEvent` is a strict superset of `.buttonEvents` at the terminal level — it
+additionally reports plain mouse motion with no button held — and is an explicit opt-in
+for hover-driven UI (Phase 4 Slice 5 builds on it).
+
+- `.buttonEvents` (default): `ESC [ ? 1002 h`, then `ESC [ ? 1006 h`
+- `.anyEvent` (opt-in): `ESC [ ? 1003 h`, then `ESC [ ? 1006 h`
+- Disable is always defensive, regardless of what was enabled: `ESC [ ? 1003 l`, then
+  `ESC [ ? 1002 l`, then `ESC [ ? 1006 l`
 
 Button-event tracking reports button presses, button releases, scroll-wheel events, and
-movement while a button is pressed. It does _not_ report every mouse movement. That is the
-right default for TesseraTerminal: useful enough for real apps, much less noisy than
-any-event mode (`?1003`), and compatible with the view-layer focus/layout work that comes
-later.
+movement while a button is pressed. It does _not_ report every mouse movement — that is
+the right default for TesseraTerminal: useful enough for real apps, much less noisy than
+any-event mode, and compatible with the view-layer focus/layout work that comes later.
+Any-event tracking additionally reports motion with no button held, decoded as `.move`;
+applications that want hover feedback opt into it explicitly (see Lifecycle behavior,
+below) rather than paying its cost by default.
 
 SGR mouse event sequences have this shape:
 
@@ -4086,10 +4263,13 @@ ESC [ < button ; column ; row m   // release
 >   and disables it during terminal restore (`examples/apps/demo/src/crossterm.rs`, lines
 >   18 and 27-31). Tessera should keep this lifecycle concern inside terminal
 >   startup/teardown rather than forcing every example to remember it.
-> - crossterm's `EnableMouseCapture` enables several modes at once: normal tracking
->   (`?1000`), button-event tracking (`?1002`), any-event tracking (`?1003`), RXVT
->   (`?1015`), and SGR (`?1006`) (`crossterm` `src/event.rs`, lines 315-323). Tessera's
->   narrower default — `?1002` + `?1006` — is intentionally less noisy.
+> - crossterm's `EnableMouseCapture` has no granular alternative — it always enables
+>   normal tracking (`?1000`), button-event tracking (`?1002`), any-event tracking
+>   (`?1003`), RXVT (`?1015`), and SGR (`?1006`) together, and disables them the same way
+>   (`crossterm` `src/event.rs`, lines 321-337; disable, lines 354-364). Tessera's
+>   granular `MouseTracking` choice — `?1002` + `?1006` by default, `?1003` + `?1006` as
+>   an explicit opt-in — is deliberately better terminal citizenship: apps pay for motion
+>   noise only when they ask for it.
 > - crossterm's SGR parser is the closest decoding reference: it parses
 >   `ESC [ < Cb ; Cx ; Cy M/m`, subtracts 1 from coordinates, and uses lowercase `m` to
 >   turn a button-down decode into a release event (`crossterm`
@@ -4097,59 +4277,73 @@ ESC [ < button ; column ; row m   // release
 > - crossterm's `parse_cb` documents the packed mouse button bits and maps them to down,
 >   drag, scroll, and modifier values (`crossterm` `src/event/sys/unix/parse.rs`, lines
 >   762-799).
+> - crossterm's `MouseEventKind::Moved` documents itself as "moved the mouse cursor while
+>   not pressing a mouse button" (`crossterm` `src/event.rs`, line 808); its SGR parser
+>   maps button numbers 3/4/5 with the motion bit set to `Moved` (`crossterm`
+>   `src/event/sys/unix/parse.rs`, lines 776-810) — the same motion-bit/no-button shape
+>   Tessera decodes as `.move` (see Button and modifier decoding, below).
+> - No Ratatui widget or example consumes `Moved` — the `mouse-drawing` example wildcards
+>   it away in its match arm. Tessera's opt-in `.anyEvent` granularity exists so hover
+>   consumers (Phase 4 Slice 5) put motion to deliberate use, rather than leaving it
+>   unused downstream the way crossterm's all-or-nothing capture does.
 
 The terminal reports `column` and `row` as 1-based coordinates. Tessera should expose them
 as 0-based buffer coordinates, matching the rest of the renderer and buffer API.
 
-This slice should extend `InputEvent` with a mouse case:
+This slice should extend `InputEvent` with a mouse case (cases stay alphabetized):
 
 ```swift
-public enum InputEvent: Sendable, Equatable {
-    case key(Key)
-    case resize(TerminalSize)
-    case paste(String)
+public enum InputEvent: Equatable, Sendable {
     case focusGained
     case focusLost
+    case key(Key)
     case mouse(MouseEvent)
-    case unknown(bytes: [UInt8])
+    case paste(String)
+    case resize(TerminalSize)
+    case unknown([UInt8])
 }
 ```
 
-Suggested event model:
+Suggested event model, following the codebase's `var`-property and sorted-conformance
+conventions:
 
 ```swift
-public struct MouseEvent: Sendable, Equatable {
-    public let kind: MouseEventKind
-    public let position: TerminalPosition
-    public let modifiers: Modifiers
+public struct MouseEvent: Equatable, Sendable {
+    public var kind: MouseEventKind
+    public var modifiers: Modifiers
+    public var position: TerminalPosition
 
     public init(kind: MouseEventKind, position: TerminalPosition, modifiers: Modifiers = [])
 }
 
-public enum MouseEventKind: Sendable, Equatable {
+public enum MouseEventKind: Equatable, Sendable {
+    case drag(MouseButton)
+    case move
     case press(MouseButton)
     case release(MouseButton?)
-    case drag(MouseButton)
     case scroll(MouseScrollDirection)
 }
 
-public enum MouseButton: Sendable, Equatable {
+public enum MouseButton: Equatable, Sendable {
     case left
     case middle
     case right
 }
 
-public enum MouseScrollDirection: Sendable, Equatable {
-    case up
+public enum MouseScrollDirection: Equatable, Sendable {
     case down
     case left
     case right
+    case up
 }
 ```
 
-`TerminalPosition` can be whatever coordinate type Phase 2 already established, but the
-important invariant is: mouse positions use the same coordinate origin as buffers and
-rendering. If the terminal sends row 1 / column 1, Tessera reports position `(0, 0)`.
+`.move` carries no associated value: it represents motion with no button held, as distinct
+from `.drag(button)`, which is motion while a button is held.
+
+`TerminalPosition` is the existing `TesseraTerminalCore` type (`column`/`row`, 0-based,
+same origin as buffers and rendering). If the terminal sends row 1 / column 1, Tessera
+reports `TerminalPosition(column: 0, row: 0)`.
 
 #### Button and modifier decoding
 
@@ -4159,10 +4353,12 @@ represent clearly:
 - Low button code `0` = left button
 - Low button code `1` = middle button
 - Low button code `2` = right button
+- Low button code `3` = no button (a motion-only report)
 - Modifier bit `4` = shift
 - Modifier bit `8` = alt
 - Modifier bit `16` = control
-- Motion bit `32` = drag/move with button down
+- Motion bit `32` = a motion report rather than a press/release: paired with button code
+  `0`/`1`/`2` it means drag; paired with button code `3` it means move
 - Wheel bit `64` = scroll wheel event
 
 Wheel events should decode to scroll directions. At minimum support:
@@ -4182,9 +4378,15 @@ released.” SGR mode usually preserves enough information to identify the relea
 but the optional payload avoids pretending certainty when a terminal sends less specific
 data.
 
+Decode `.move` unconditionally whenever the motion bit is set with low button code `3`,
+regardless of which tracking granularity — `.buttonEvents`, `.anyEvent`, or none — was
+enabled. A terminal that reports motion Tessera did not explicitly ask for still yields a
+semantic `.move` event rather than `InputEvent.unknown([UInt8])`: this is strictly more
+robust than gating the decode on the active granularity.
+
 Malformed, out-of-range, or semantically impossible button codes should follow the
 parser's existing unknown-sequence policy. Do not invent `.unknownMouse`; unknown input
-remains an `InputEvent.unknown(bytes:)` because the parser failed to decode the whole
+remains an `InputEvent.unknown([UInt8])` because the parser failed to decode the whole
 sequence into a semantic event.
 
 #### Lifecycle behavior
@@ -4192,11 +4394,33 @@ sequence into a semantic event.
 Mouse tracking is another opt-in terminal mode and must follow the same cleanup discipline
 as bracketed paste and focus tracking:
 
-- Enable mouse tracking when Tessera enters application terminal mode.
+- Enable the requested tracking granularity when Tessera enters application terminal mode.
 - Disable mouse tracking during normal teardown.
 - Disable mouse tracking from cleanup handlers after abnormal exit.
 - Keep all disable sequences idempotent and safe to emit even if enable failed partway
   through startup.
+
+Concretely, this is again the Slice 1 `ModeLifecycle` change, but the existing
+`.mouseTracking` mode case becomes parameterized:
+
+```swift
+case mouseTracking(MouseTracking)
+```
+
+Because modes live in `Set<Mode>`, a configuration may contain both
+`.mouseTracking(.anyEvent)` and `.mouseTracking(.buttonEvents)` at once. Normalize with a
+documented and tested **broadest wins** rule: if the set contains
+`.mouseTracking(.anyEvent)`, the session enables any-event tracking, and the coexisting
+`.buttonEvents` entry is not an error — it is subsumed, since any-event tracking is a
+strict superset of button-event tracking at the terminal level.
+
+Mouse tracking acquires last in the Phase 3 acquisition order — raw mode, alt screen,
+bracketed paste, focus events, mouse tracking — and tears down in the reverse order.
+Neither granularity belongs in `TerminalApplicationConfiguration.default`: both visibly
+change terminal selection/scrollback behavior, so applications opt in by adding
+`.mouseTracking(.buttonEvents)` or `.mouseTracking(.anyEvent)` to `configuration.modes`
+(slice 6's enablement policy keeps it configuration-driven). Any-event tracking is doubly
+out of `.default` — it is the noisier, more user-visible of the two.
 
 Because mouse mode visibly changes terminal behavior, cleanup matters. Leaving mouse
 tracking enabled can make a user's shell appear broken: clicks may stop selecting text,
@@ -4204,8 +4428,12 @@ and scrolling may send escape sequences instead of moving the scrollback.
 
 A reasonable teardown ordering for Phase 3 modes is:
 
-1. Disable mouse tracking (`?1002`, `?1006`; optionally also defensively disable `?1000`
-   and `?1003` if lifecycle code might ever enable them).
+1. Disable mouse tracking — always emit the full defensive disable (`?1003 l`, `?1002 l`,
+   `?1006 l`) whenever any mouse mode was requested or active, regardless of which
+   granularity was actually enabled. This is deliberate, documented behavior, not
+   defensive hedging: normal teardown, rollback after partial startup, and the
+   emergency-cleanup byte registry all emit the same bytes, so no code path can leave a
+   stray tracking mode running because it forgot which granularity it started.
 2. Disable focus tracking.
 3. Disable bracketed paste.
 4. Continue with the existing alternate-screen, cursor/style reset, and raw-mode restore
@@ -4233,52 +4461,120 @@ Parsing requirements:
 - Decode press, release, drag, and scroll into `MouseEventKind`.
 - Preserve ordinary keyboard/focus/paste behavior before and after mouse events.
 
+The concrete hook: no new parser state is needed. `<` is 0x3C, inside `parseCSI`'s
+accumulate range (0x20–0x3F), so the whole report accumulates in the existing `.csi` state
+and decodes at the final byte `M`/`m`. Reuse `csiParameterValues` for the three numeric
+fields after stripping the `<` prefix. Note that the SGR-mouse modifier bits (shift 4, alt
+8, control 16) are packed differently from the legacy `1 + bits` CSI modifier encoding
+handled by `modifiers(encodedAs:)` — write a separate mouse-modifier decode rather than
+reusing that helper.
+
 As with focus events, SGR mouse sequences must not be interpreted while inside bracketed
 paste mode. A paste payload containing `ESC [ < 0 ; 1 ; 1 M` is pasted text, not a mouse
 click.
 
-#### Encoder behavior
+#### Bounded motion coalescing
 
-Add semantic control sequences rather than writing raw private-mode escapes at lifecycle
-call sites:
+Any-event tracking's motion stream is the noisy stream the ownership and isolation thesis
+has in mind when it promises that Tessera's input design "bounds noisy streams such as
+mouse movement." This section defines that policy; Phase 4 Slice 5 cites it directly for
+`.onMouse`'s raw event stream.
+
+The coalescing seam lives in `AsyncEventBuffer`, not the parser — the parser keeps
+decoding every SGR report into a semantic event; coalescing only bounds how many of those
+events pile up in the pending backlog. Add an optional coalescing predicate to the buffer:
 
 ```swift
-public enum ControlSequence: Sendable, Equatable {
-    // Existing cases...
-    case enableMouseTracking
+package init(
+    coalescing: (@Sendable (_ buffered: Element, _ incoming: Element) -> Bool)? = nil
+)
+```
+
+In `yield`, when there are no waiters and the predicate returns `true` for the last
+buffered element and the incoming element, replace the last buffered element instead of
+appending — latest position wins. Delivery to a waiting consumer is never coalesced:
+coalescing only bounds the pending backlog under backpressure, it never delays or drops an
+event a consumer is actively awaiting.
+
+`TerminalSession` constructs its input buffer with a predicate that coalesces exactly two
+shapes, both requiring equal modifiers:
+
+- a buffered `.mouse(kind: .move)` with an incoming `.mouse(kind: .move)`
+- a buffered `.mouse(kind: .drag(button))` with an incoming `.mouse(kind: .drag(button))`
+  for the same button
+
+Nothing else coalesces. Press, release, and scroll events are never dropped, and a press
+arriving between two moves breaks the run — the predicate only ever compares the buffer's
+current last element against the newest incoming one, so a press in between forces both
+moves to survive as separate elements. When two moves (or two same-button drags) do
+coalesce, the surviving event takes the incoming — latest — position.
+
+#### Encoder behavior
+
+Add a semantic control sequence rather than writing raw private-mode escapes at lifecycle
+call sites. Follow the existing paired-case precedent (`enterAltScreen` / `exitAltScreen`)
+rather than a single `enableMouseTracking(Bool)`, because enabling needs a granularity and
+disabling is always defensive:
+
+```swift
+public enum ControlSequence: Equatable, Sendable {
+    // Existing cases, kept alphabetized...
     case disableMouseTracking
+    case enableMouseTracking(MouseTracking)
 }
 ```
 
-The encoder may implement these as multiple CSI private-mode operations internally. Tests
-should assert the exact bytes and ordering Tessera chooses. Suggested enable sequence:
+Each case may emit multiple CSI private-mode operations internally. Tests should assert
+the exact bytes and ordering, pinned to these sequences:
 
-```text
-ESC [ ? 1002 h
-ESC [ ? 1006 h
-```
+- `enableMouseTracking(.buttonEvents)`:
 
-Suggested disable sequence:
+  ```text
+  ESC [ ? 1002 h
+  ESC [ ? 1006 h
+  ```
 
-```text
-ESC [ ? 1002 l
-ESC [ ? 1006 l
-```
+- `enableMouseTracking(.anyEvent)`:
 
-If you choose to defensively disable `?1000` or `?1003`, document it in the test names so
-future maintainers know those bytes are deliberate, not accidental noise.
+  ```text
+  ESC [ ? 1003 h
+  ESC [ ? 1006 h
+  ```
+
+- `disableMouseTracking`:
+
+  ```text
+  ESC [ ? 1003 l
+  ESC [ ? 1002 l
+  ESC [ ? 1006 l
+  ```
+
+`disableMouseTracking` always disables both granularities plus SGR encoding, regardless of
+which granularity (if any) was enabled. This is deliberate and idempotent, not accidental
+noise — name it as such in tests.
 
 #### Platform notes
 
 Mouse tracking should remain a VT protocol feature across all platforms. On macOS and
 Linux, the terminal emulator sends SGR mouse sequences through the normal input file
-descriptor. On Windows, Windows Terminal / ConPTY should do the same when virtual terminal
-input is enabled.
+descriptor. On Windows, Windows Terminal / ConPTY does the same when
+`ENABLE_VIRTUAL_TERMINAL_INPUT` is active — which Phase 2's raw mode already guarantees.
 
 Do not add a separate Win32 `MOUSE_EVENT_RECORD` public path. It does not have the same
 semantics as SGR mouse mode, it would create platform-specific behavior in the public
 event stream, and it would undermine the Phase 2 decision to keep OS differences inside
-`PlatformIO`.
+`PlatformIO`. `WindowsInputLoop` already drains and discards legacy mouse records from the
+console input queue.
+
+`?1003` behavior through `tmux`/`screen` and over high-latency SSH is less uniform than
+`?1002` — multiplexers and slow links are more likely to drop, coalesce, or delay motion
+reports than button events. This is an unverified, inference-grade caution rather than a
+finding checked against a real matrix of terminals and multiplexers; Slice 6's capability
+detection may inform a more precise any-event enablement policy later.
+
+Terminal hover is inherently degraded compared to a GUI: it is cell-granular (no sub-cell
+position) and terminals give no mouse-leave signal. Phase 4 Slice 5 clears hover state on
+`focusLost` and on motion-tracking disable to bound the resulting stuck-hover risk.
 
 #### Tests
 
@@ -4287,6 +4583,9 @@ Add parser tests for:
 - left/middle/right press events
 - button release events
 - drag events for each button
+- move events (no button held) under any-event tracking
+- move events decode the same way even when only button-event tracking (or nothing) was
+  enabled — the parser never gates `.move` on which granularity is active
 - scroll up and scroll down
 - horizontal scroll if supported by the chosen decoding table
 - shift/alt/control modifiers
@@ -4300,22 +4599,31 @@ Add parser tests for:
 - mouse-looking sequence inside bracketed paste payload does not emit `.mouse`
 - malformed SGR mouse sequences follow the existing unknown-sequence policy
 
-Add lifecycle/encoder tests for:
+Add lifecycle/encoder tests (assert recorded bytes via `InMemoryTerminalDevice`) for:
 
-- startup emits mouse tracking enable sequences
-- teardown emits mouse tracking disable sequences
-- cleanup path emits mouse tracking disable sequences
+- startup emits button-event tracking enable sequences (`?1002 h`, `?1006 h`) by default
+- startup emits any-event tracking enable sequences (`?1003 h`, `?1006 h`) when
+  `.mouseTracking(.anyEvent)` is requested
+- a `configuration.modes` set containing both `.mouseTracking(.buttonEvents)` and
+  `.mouseTracking(.anyEvent)` normalizes to any-event tracking (broadest wins)
+- teardown and cleanup paths always emit the full defensive disable sequence (`?1003 l`,
+  `?1002 l`, `?1006 l`), regardless of which granularity was active
 - mouse tracking disable is emitted before focus/bracketed-paste disable, or whatever
   explicit teardown ordering the implementation chooses
 - teardown leaves no optional Phase 3 modes enabled even when startup fails partway
   through
 
-#### Non-goals
+Add coalescing tests (`AsyncEventBuffer`) for:
 
-Do not implement any-event mouse tracking (`?1003`) in this slice. It sends a stream of
-movement events even when no button is pressed, which is useful for some advanced apps but
-too noisy as the default terminal substrate. If Tessera later needs hover interactions,
-make it an explicit opt-in mode rather than part of baseline startup.
+- consecutive `.move` events collapse to the latest position when the consumer is not
+  currently waiting (backpressure)
+- consecutive same-button `.drag` events with equal modifiers collapse the same way
+- a press event arriving between two `.move` events breaks the run — both moves and the
+  press survive as separate elements
+- a consumer already waiting on `next()` receives the next event immediately, uncoalesced,
+  even if a later event would otherwise have coalesced with it
+
+#### Non-goals
 
 Do not implement the old X10, VT200, UTF-8 extended, or urxvt mouse encodings unless tests
 prove a real compatibility need. SGR mouse is the modern target.
@@ -4328,11 +4636,18 @@ Do not add selection policy yet. Mouse drag events are just input events; they s
 automatically select text, scroll panes, or intercept terminal selection behavior beyond
 what enabling mouse tracking inherently does.
 
+Do not implement hover enter/exit semantics here. `onHover`, hover state, and the
+`wantsMouseMotion` arbitration that decides when a view needs any-event tracking are Phase
+4 Slice 5's job. This slice's contract ends at producing coalesced `.move` events on
+`InputEvent` — it has no opinion about what a view does with them.
+
 #### End of Slice 3
 
-`TesseraTerminal` can enable SGR mouse tracking, reliably disable it on every exit path,
-and surface clicks, releases, drags, scrolls, positions, and modifiers as semantic mouse
-events without confusing mouse-looking escape sequences for pasted content.
+`TesseraTerminal` can enable SGR mouse tracking at either granularity — button-event by
+default, any-event as an explicit opt-in — reliably disable it on every exit path, and
+surface clicks, releases, drags, scrolls, motion, positions, and modifiers as semantic,
+bounded-coalesced mouse events without confusing mouse-looking escape sequences for pasted
+content.
 
 ### Slice 4: Kitty keyboard protocol
 
@@ -4388,68 +4703,88 @@ The existing Phase 2 `Key` model should evolve rather than be replaced. Applicat
 should still receive `InputEvent.key(Key)`, but `Key` needs enough room to represent
 information that legacy protocols could not report.
 
-Suggested direction:
+Suggested direction — `Key` already has `var code: KeyCode` and `var modifiers: Modifiers`
+with the memberwise initializer shown; this slice adds `kind`:
 
 ```swift
-public struct Key: Sendable, Equatable {
-    public let code: KeyCode
-    public let modifiers: Modifiers
-    public let kind: KeyEventKind
+public struct Key: Equatable, Sendable {
+    public var code: KeyCode
+    public var kind: KeyEventKind
+    public var modifiers: Modifiers
 
     public init(code: KeyCode, modifiers: Modifiers = [], kind: KeyEventKind = .press)
 }
 
-public enum KeyEventKind: Sendable, Equatable {
+public enum KeyEventKind: Equatable, Sendable {
     case press
-    case `repeat`   // backticks: `repeat` is a Swift keyword
     case release
-}
-
-public struct Modifiers: OptionSet, Sendable {
-    public let rawValue: UInt16
-
-    public init(rawValue: UInt16)
-
-    public static let shift   = Modifiers(rawValue: 1 << 0)
-    public static let alt     = Modifiers(rawValue: 1 << 1)
-    public static let control = Modifiers(rawValue: 1 << 2)
-    public static let `super` = Modifiers(rawValue: 1 << 3)  // keyword, needs backticks
-    public static let hyper   = Modifiers(rawValue: 1 << 4)
-    public static let meta    = Modifiers(rawValue: 1 << 5)
+    case `repeat`   // backticks: `repeat` is a Swift keyword
 }
 ```
 
-`kind` should default to `.press` for all legacy input, so existing keyboard behavior
-stays source-compatible if possible and behavior-compatible regardless. If adding `kind`
-to `Key` is too disruptive, an alternative is to add it as an optional/defaulted
-initializer parameter while preserving existing construction sites.
+`kind` defaults to `.press`, and it is the last initializer parameter with a default, so
+every existing construction site keeps compiling and all legacy input stays
+behavior-compatible.
 
-The `KeyCode` enum may also need to grow. Kitty can report keys that legacy terminal input
-cannot represent cleanly: keypad keys, caps lock, media keys, modifier-only keys, and
-more. Do not add the whole universe on day one. Add only the cases needed to decode the
-protocol cleanly and surface unknown-but-well-formed reports through `.unknown(bytes:)`
-until the public API has a real use case for them.
+`Modifiers` keeps its `UInt8` raw value and existing bits and gains the rest of the Kitty
+modifier set:
+
+```swift
+extension Modifiers {
+    // Existing: .shift = 1 << 0, .alt = 1 << 1, .control = 1 << 2
+    public static let `super` = Self(rawValue: 1 << 3)  // keyword, needs backticks
+    public static let hyper = Self(rawValue: 1 << 4)
+    public static let meta = Self(rawValue: 1 << 5)
+    // Add only if the implementation surfaces them:
+    public static let capsLock = Self(rawValue: 1 << 6)
+    public static let numLock = Self(rawValue: 1 << 7)
+}
+```
+
+Do not widen to `UInt16`. The existing bit layout already matches the Kitty wire encoding
+exactly — Kitty transmits `modifier field = 1 + bits` with shift 1, alt 2, ctrl 4, super
+8, hyper 16, meta 32, caps-lock 64, num-lock 128 — so `UInt8` holds the entire protocol
+and decoding is `Modifiers(rawValue: UInt8(field - 1))` masked to supported bits. The
+legacy CSI `1 + bits` modifier encoding handled by `modifiers(encodedAs:)` uses the same
+first three bits, which is why the existing values must not be renumbered.
+
+The `KeyCode` enum may also need to grow (its cases stay alphabetized). Kitty can report
+keys that legacy terminal input cannot represent cleanly: keypad keys, caps lock, media
+keys, modifier-only keys, and more. A follow-up full-coverage pass superseded the day-one
+guidance below: `KeyCode` now represents Kitty's complete functional-key table (nested
+`Keypad`, `Media`, and `Modifier` enums plus flat singleton cases), and a well-formed
+Kitty key code with no named mapping surfaces as `KeyCode.unidentified(Int)` rather than
+`InputEvent.unknown([UInt8])`. `InputEvent.unknown([UInt8])` stays reserved for malformed
+or non-keyboard sequences Tessera cannot parse at all.
 
 #### Protocol level
 
 Kitty keyboard mode is enabled with CSI `> ... u` progressive-enhancement flags and reset
-with CSI `< u` / protocol-pop behavior. The exact flag set should be chosen during
-implementation against the current Kitty spec, but Tessera's baseline target should be:
+with CSI `< u` / protocol-pop behavior. `KittyKeyboardFlags.tesseraDefault` requests
+disambiguated escape codes, event types, and alternate keys (mask 7). Applications can set
+`TerminalApplicationConfiguration.kittyKeyboardFlags` to an exact startup mask; the value
+defaults to `.tesseraDefault`, is exposed by `TerminalSession.kittyKeyboardFlags`, and is
+used whenever the runtime keyboard policy activates Kitty mode. The Phase 3 protocol demo
+deliberately requests all five defined flags (mask 31) so modifier-only and text-key
+release events plus associated text are observable. This startup flag selection is
+independent of the live legacy/conditional/required keyboard policy.
 
-- disambiguate escape codes
-- report event types where available
-- report alternate keys where useful
-- report all modifiers, including Super/Hyper/Meta where available
-
-Keep the enable operation explicit and semantic:
+Keep the enable operation explicit and semantic, mirroring the protocol's push/pop stack
+shape (`CSI > flags u` pushes, `CSI < u` pops):
 
 ```swift
-public enum ControlSequence: Sendable, Equatable {
-    // Existing cases...
-    case enableKittyKeyboard
-    case disableKittyKeyboard
+public enum ControlSequence: Equatable, Sendable {
+    // Existing cases, kept alphabetized...
+    case popKittyKeyboard
+    case pushKittyKeyboard(KittyKeyboardFlags)
 }
 ```
+
+where `KittyKeyboardFlags` is a small option set in `TesseraTerminalANSI` mirroring the
+protocol's progressive-enhancement bits (disambiguate escape codes 1, report event types
+2, report alternate keys 4, report all keys as escape codes 8, report associated text 16).
+These are CSI sequences, not DEC private modes — encode them in a suitable `encode*`
+helper and remember every exhaustive switch in the enum must list the new cases.
 
 Do not scatter raw `CSI > ... u` strings through lifecycle code. The protocol is subtle
 enough that all flag choices and reset behavior should live in one encoder implementation
@@ -4470,13 +4805,25 @@ Parsing requirements:
 
 - Decode basic `CSI number ; modifiers u` key reports.
 - Decode richer progressive reports according to the enabled feature flags.
+- Accept an omitted default modifier field in CSI-u only when the third associated-text
+  parameter is present, as in Ghostty's valid `CSI 113;;113u` encoding for an unmodified q
+  press under mask 31; keep omitted modifiers invalid in legacy modified-CSI forms.
 - Map modifier fields into Tessera's `Modifiers` option set.
 - Map event-type fields into `KeyEventKind`.
 - Preserve legacy decoding for terminals that ignore Kitty keyboard enablement.
-- Preserve ordinary text input as `.key(.char(...))`.
+- Preserve ordinary text input as `.key(Key(code: .character(...)))`.
 - Continue to handle bytes split across reads.
 - Continue to resolve bare ESC / Alt-prefix ambiguity for legacy input.
 - Do not interpret Kitty-looking sequences while inside bracketed paste mode.
+
+The concrete hooks: Kitty key reports arrive through the existing `.csi` state with final
+byte `u`, so `csiCode(finalByte:params:)` grows a `u` branch. Kitty also upgrades the
+tilde and arrow/navigation forms the legacy parser already decodes
+(`CSI number ; modifiers ~`, `CSI 1 ; modifiers A`), adding event-type and alternate-key
+sub-parameters. That is the real parsing work: Kitty separates parameters with `;` but
+sub-parameters with `:` (`unicode-key:shifted:base ; modifiers:event-type u`), and the
+existing `csiParameterValues` helper splits on `;` and `Int`-parses only — parameter
+parsing must become colon-aware without breaking the legacy paths that reuse it.
 
 The parser should not require proof that Kitty mode is enabled before decoding a valid
 Kitty keyboard sequence. The input stream is the source of truth: if a terminal sends a
@@ -4503,6 +4850,13 @@ Kitty keyboard mode joins the optional Phase 3 protocol stack:
 - Disable or pop Kitty keyboard mode from cleanup handlers after abnormal exit.
 - Keep cleanup safe if startup fails after enabling the protocol but before the terminal
   fully starts.
+
+Concretely, this is the `.kittyKeyboard` mode case in `ModeLifecycle`, wired like the
+previous three slices. One asymmetry to respect: enable is a push and disable is a pop, so
+the emergency-teardown bytes built by `installCleanup()` include one pop for the one push
+the session performed. Keep `.kittyKeyboard` out of
+`TerminalApplicationConfiguration.default` until slice 6 settles the enablement policy
+(`keyboardProtocol: .kittyIfAvailable` is the intended end state).
 
 A reasonable teardown order is:
 
@@ -4579,10 +4933,12 @@ visible linked text
 OSC 8 ; ; ST
 ```
 
-where `OSC` is `ESC ]` and `ST` is usually either `ESC \\` or BEL depending on terminal
-convention. Tessera should choose one terminator for output and test it consistently. OSC
-8 adoption notes and terminal documentation describe this general `OSC 8 ; params ; URI`
-form.
+where `OSC` is `ESC ]` and `ST` is usually either `ESC \` or BEL depending on terminal
+convention. Tessera should choose one terminator for output and test it consistently. The
+OSC 8 spec recommends ST (`ESC \`); the existing `setWindowTitle` case terminates its OSC
+with BEL. Ghostty's VT accepts both, so pick one, justify it in a comment, and pin it in
+byte tests. OSC 8 adoption notes and terminal documentation describe this general
+`OSC 8 ; params ; URI` form.
 
 > [!note] Ratatui References
 >
@@ -4615,25 +4971,27 @@ Hyperlinks are style-like metadata. They affect how a cell or text span behaves 
 terminal, but they do not consume layout space and they should not change the visible
 characters in the buffer.
 
-The cleanest Phase 3 shape is to add hyperlink metadata to the terminal styling layer that
-Phase 2's buffer/renderer already uses:
+The cleanest Phase 3 shape is to add hyperlink metadata to the existing
+`TesseraTerminalBuffer.Style` — the type the buffer/renderer already uses. Its current
+fields are non-optional with `.default` color values; the slice appends one optional
+field:
 
 ```swift
-public struct Style: Sendable, Equatable {
-    public var foreground: Color?
-    public var background: Color?
+public struct Style: Equatable, Sendable {
+    public var foreground: Color
+    public var background: Color
     public var attributes: TextAttributes
     public var hyperlink: Hyperlink?
 
     public init(
-        foreground: Color? = nil,
-        background: Color? = nil,
+        foreground: Color = .default,
+        background: Color = .default,
         attributes: TextAttributes = [],
         hyperlink: Hyperlink? = nil
     )
 }
 
-public struct Hyperlink: Sendable, Equatable, Hashable {
+public struct Hyperlink: Equatable, Hashable, Sendable {
     public let uri: String
     public let id: String?
 
@@ -4641,9 +4999,12 @@ public struct Hyperlink: Sendable, Equatable, Hashable {
 }
 ```
 
-If Phase 2 named this type something other than `Style`, adapt the design to the existing
-model. The important decision is that hyperlinks live with rendered cell/span attributes,
+`Hyperlink` most naturally lives in `TesseraTerminalANSI` next to `Color`, since the
+encoder's `openHyperlink` case carries it and `TesseraTerminalBuffer` already imports that
+module. The important decision is that hyperlinks live with rendered cell/span attributes,
 not inside `String`, not as a separate overlay, and not as a view-layer concept yet.
+Because `Style` equality drives `BufferDiff`, adding the field means hyperlink changes
+produce damage automatically — no diff changes needed.
 
 `id` should be optional. OSC 8 supports parameters, and the most common useful parameter
 is an identifier that lets terminals treat separate spans as the same hyperlink. Tessera
@@ -4667,46 +5028,57 @@ Rendering requirements:
   span.
 - Hyperlink metadata must not affect cell width, grapheme handling, or layout.
 
-The subtle part is damage tracking. A partial redraw may start in the middle of a row
-where the terminal's _current_ hyperlink state is unknown or stale relative to the damaged
-span. The renderer already has to handle color/style state for damaged regions; hyperlink
-state must be included in the same state machine. Do not assume links only open at the
-beginning of a full frame.
+The subtle part is damage tracking, and the implementation site is precise: the renderer
+(`TesseraTerminalRendering.Renderer`) tracks `currentStyle: Style?` and encodes
+transitions through `sgrDelta(from:to:into:)` in `StyleEncoding.swift`. Hyperlink state
+joins that state machine — either inside `sgrDelta` or as a parallel hyperlink-transition
+step — with one non-negotiable correction to the "reset closes everything" intuition:
+**SGR 0 (`resetAttributes`) does not close an OSC 8 hyperlink.** OSC 8 state is
+independent of SGR state. Every place the renderer resets style — the nil-`currentStyle`
+path at the start of a damaged run after an erase, and the end-of-frame `resetAttributes`
+epilogue in `encodeFrame` — must explicitly emit the OSC 8 close when a hyperlink is open,
+and `invalidate()` must forget believed hyperlink state along with believed style state.
 
 At minimum, before drawing a damaged run, the renderer should establish the complete style
 state needed for the first cell in that run, including hyperlink. After drawing the run,
-it should leave the terminal in a safe neutral state if the existing renderer does that
-for other styles.
+it should leave the terminal in a safe neutral state — reset attributes and no open
+hyperlink — as the existing epilogue already does for SGR.
 
 #### Encoder behavior
 
 Add semantic control sequences for hyperlinks:
 
 ```swift
-public enum ControlSequence: Sendable, Equatable {
-    // Existing cases...
-    case openHyperlink(Hyperlink)
+public enum ControlSequence: Equatable, Sendable {
+    // Existing cases, kept alphabetized...
     case closeHyperlink
+    case openHyperlink(Hyperlink)
 }
 ```
+
+Encode them in `encodeOSC` next to `setWindowTitle`, and add both cases to every
+exhaustive `encode*` switch in the enum.
 
 The exact bytes should be centralized and tested. Suggested output form:
 
 ```text
-ESC ] 8 ; id=<escaped-id> ; <escaped-uri> ESC \\
+ESC ] 8 ; id=<escaped-id> ; <escaped-uri> ESC \
 ...
-ESC ] 8 ; ; ESC \\
+ESC ] 8 ; ; ESC \
 ```
 
 If `id` is nil, emit an empty params field:
 
 ```text
-ESC ] 8 ; ; <escaped-uri> ESC \\
+ESC ] 8 ; ; <escaped-uri> ESC \
 ```
 
 The implementation must define escaping/validation rules for `uri` and `id`. At minimum,
 reject or sanitize control characters so user-provided strings cannot smuggle arbitrary
-OSC or CSI sequences into terminal output.
+OSC or CSI sequences into terminal output. The `setWindowTitle` precedent (`oscSafeTitle`,
+which strips BEL and ESC scalars) is the floor; a throwing `Hyperlink` initializer that
+rejects all C0 controls is the better ceiling because it refuses instead of silently
+rewriting the URI.
 
 #### Security and correctness
 
@@ -4730,14 +5102,20 @@ safe.
 
 #### Snapshot behavior
 
-Snapshot tests need a clear hyperlink story. The cell buffer snapshot should be able to
-assert hyperlink metadata without embedding raw OSC bytes in every expected output string.
-For renderer byte tests, assert the actual OSC 8 bytes directly.
+Snapshot tests have a real hyperlink story on all three platforms: the vendored
+libghostty-vt exposes per-cell hyperlink inspection (`GHOSTTY_CELL_DATA_HAS_HYPERLINK` and
+`ghostty_grid_ref_hyperlink_uri` in the `CGhosttyVT` headers). Extend the harness —
+`RenderedCell` gains an optional hyperlink-URI field, populated by the Ghostty-backed
+`VirtualTerminal` — so renderer tests can assert that the bytes Tessera emitted produced
+linked cells in a real VT. `RenderedCell` is test-support API, so growing it is not a
+public-API change.
 
 Suggested split:
 
 - Buffer/style tests compare `Hyperlink` values structurally.
-- Renderer tests compare exact encoded bytes.
+- Renderer byte tests compare exact encoded OSC 8 bytes.
+- Renderer screen tests feed frames through `VirtualTerminal` and assert per-cell
+  hyperlink URIs (including that damage repaints preserve them).
 - Higher-level snapshots, once the view layer exists, may render hyperlinks in a readable
   annotation form if raw escape bytes make tests hard to review.
 
@@ -4758,8 +5136,10 @@ Add renderer tests for:
 - changing hyperlink closes/replaces the previous one
 - changing from linked to unlinked text closes the hyperlink
 - damage rendering establishes hyperlink state at the start of a damaged run
-- end-of-frame/style reset closes any active hyperlink
+- end-of-frame reset closes any active hyperlink even though SGR 0 alone would not
 - hyperlink metadata does not affect measured width or cell positions
+- `VirtualTerminal` screen assertions: linked cells report the URI, unlinked cells report
+  none, and a damage-only repaint keeps both correct
 
 #### Non-goals
 
@@ -4773,8 +5153,10 @@ attribute it can encode.
 Do not add hyperlink click handling. OSC 8 lets the terminal handle clicks on links; it
 does not report link-click events back to the application.
 
-Do not attempt capability detection yet. If a terminal ignores OSC 8, the visible text
-still renders normally.
+OSC 8 has no standard capability query, so Tessera records it as `.notDetectable` rather
+than pretending that terminal identity, declarations, or a successful write proves
+support. Rendering remains an explicit policy: when it is enabled, the visible text still
+renders usefully if the terminal ignores OSC 8.
 
 #### End of Slice 5
 
@@ -4784,14 +5166,16 @@ tracking, or leaking hyperlink state into unrelated output.
 
 ### Slice 6: Terminal capability detection
 
-Slice 6 decides whether Tessera needs active terminal capability detection, and if so,
-implements the smallest reliable version.
+Slice 6 establishes conservative, inspectable capability evidence and the policy boundary
+that consumes it. It does not promise that terminal behavior can be known perfectly in
+advance. The current runtime also supports one bounded active-probe generation per
+session; that work is reconciled in Slice 12 rather than treated as a startup-only
+snapshot.
 
-The first five Phase 3 slices intentionally avoid making startup depend on terminal
-introspection. Tessera enables modern protocols, decodes what arrives, and falls back when
-a terminal ignores an opt-in sequence. That is the right default. Capability detection is
-last because it is easy to overbuild, easy to make fragile, and easy to confuse with a
-promise that terminal behavior can be known perfectly in advance.
+The first five Phase 3 slices established the intentionally opportunistic baseline:
+Tessera can enable or encode a protocol without introspection, and a terminal that ignores
+an opt-in sequence should leave the app usable. Detection remains deliberately bounded,
+optional, and observable so it improves policy without making startup fragile.
 
 But some questions eventually matter:
 
@@ -4820,90 +5204,78 @@ So the public model should avoid names like `supportsMouse == true` if that impl
 promise. Prefer a report that communicates confidence and source:
 
 ```swift
-public struct TerminalCapabilities: Sendable, Equatable {
-    public var identity: TerminalIdentity?
-    public var color: ColorCapability
-    public var synchronizedOutput: CapabilityStatus
-    public var keyboardProtocol: CapabilityStatus
+public struct TerminalCapabilities: Equatable, Sendable {
+    public var bracketedPaste: CapabilityStatus
     public var focusEvents: CapabilityStatus
     public var mouseTracking: CapabilityStatus
-    public var hyperlinks: CapabilityStatus
-    public var nestedEnvironment: NestedTerminalEnvironment?
-
-    public init(
-        identity: TerminalIdentity? = nil,
-        color: ColorCapability = .unknown,
-        synchronizedOutput: CapabilityStatus = .unknown,
-        keyboardProtocol: CapabilityStatus = .unknown,
-        focusEvents: CapabilityStatus = .unknown,
-        mouseTracking: CapabilityStatus = .unknown,
-        hyperlinks: CapabilityStatus = .unknown,
-        nestedEnvironment: NestedTerminalEnvironment? = nil
-    )
+    public var kittyGraphics: CapabilityStatus
+    public var kittyKeyboard: CapabilityStatus
+    public var osc8Hyperlinks: CapabilityStatus
+    public var osc52Clipboard: CapabilityStatus
+    public var synchronizedOutput: CapabilityStatus
+    public var underlineDeclarations: TerminfoUnderlineDeclarations
+    public var privateModeStates: [Int: PrivateModeState]
+    public var color: ColorCapability
+    public var identity: TerminalIdentity
+    public var isNested: Bool
 }
 
-public enum ColorCapability: Sendable, Equatable {
+public enum CapabilityStatus: Equatable, Sendable {
+    case notDetectable
+    case probing
+    case supported
     case unknown
-    case noColor
-    case monochrome
-    case ansi16
-    case indexed256
-    case truecolor
-}
-
-public enum CapabilityStatus: Sendable, Equatable {
-    case unknown
-    case assumed
-    case detected
-    case unavailable
-}
-
-public struct TerminalIdentity: Sendable, Equatable {
-    public var name: String?
-    public var version: String?
-    public var source: TerminalIdentitySource
-
-    public init(name: String?, version: String?, source: TerminalIdentitySource)
-}
-
-public enum TerminalIdentitySource: Sendable, Equatable {
-    case environment
-    case deviceAttributes
-    case queryResponse
-    case userOverride
-}
-
-public struct NestedTerminalEnvironment: Sendable, Equatable {
-    public var kind: NestedTerminalKind
-    public var outerIdentity: TerminalIdentity?
-
-    public init(kind: NestedTerminalKind, outerIdentity: TerminalIdentity? = nil)
-}
-
-public enum NestedTerminalKind: Sendable, Equatable {
-    case tmux
-    case screen
-    case ssh
-    case other(String)
+    case unsupported
 }
 ```
+
+`CapabilityStatus` is protocol-native evidence, not requested policy and not a record of
+what Tessera successfully enabled. `.supported` and `.unsupported` require conclusive
+protocol-native evidence; `.unknown` means there is no reliable answer; `.probing` is
+transient while the single active generation is running; and `.notDetectable` means the
+protocol has no standard active query. OSC 8 and OSC 52 are `.notDetectable`.
+
+`TerminalIdentity` and `isNested` are passive diagnostic hints. They may help a status
+panel explain the surrounding environment, but they never prove protocol support or choose
+production protocol policy. Color is likewise detected environmental evidence, distinct
+from the application's `ColorCapabilityOverride` and the renderer's effective color depth.
+
+`underlineDeclarations` is a third kind of evidence, separate from both `CapabilityStatus`
+and identity: a bounded terminfo reader can report `.declared`, `.notDeclared`, or
+`.unknown` independently for extended underline style and color. A declaration is
+compatibility metadata, not proof that the active terminal implements the feature.
 
 This is only a suggested shape. The important API decision is that detection results are
 advisory and inspectable, not hidden global switches that make behavior mysterious.
 
 #### Information sources
 
-Use the least invasive sources first:
+Use information sources according to how trustworthy they are:
 
-1. Environment variables: `NO_COLOR`, `TERM`, `TERM_PROGRAM`, `TERM_PROGRAM_VERSION`,
-   `COLORTERM`, `WT_SESSION`, `VTE_VERSION`, `KONSOLE_VERSION`, `TMUX`, `STY`, `SSH_TTY`,
-   and similar.
-2. Existing platform information from `PlatformIO`, especially whether VT input/output is
-   active on Windows.
-3. Passive observation: if Tessera receives a Kitty keyboard report, SGR mouse event,
-   focus event, bracketed paste markers, or other protocol-specific response, it knows
-   that path is working.
-4. Active terminal queries only if they provide value beyond the above.
+1. Generic environment conventions: `NO_COLOR`, `COLORTERM`, color-depth hints in `TERM`,
+   nested-session hints such as `TMUX`/`STY`, and Windows VT availability. These may
+   inform color and safety policy because they are not terminal-name protocol allowlists.
+2. Passive observation: if Tessera receives a Kitty keyboard report, SGR mouse event,
+   focus event, bracketed paste markers, KGP response, or other protocol-specific
+   response, it knows that path is working.
+3. Protocol-native active queries: DA1 sentinels, KGP `a=q`, Kitty keyboard queries, and
+   DECRQM for DEC private modes.
+
+Do not use `TERM_PROGRAM`, `TERM`, `WT_SESSION`, `VTE_VERSION`, `KONSOLE_VERSION`, or
+similar terminal identity hints to decide that a modern protocol is supported or
+unsupported. Terminal identity can be useful diagnostic metadata for an example panel, but
+production protocol policy must not branch on concrete emulator names.
+
+Output policy is separate from evidence. Environment and protocol-native observations are
+reported in `TerminalCapabilities`; requested policy is owned by the
+configuration/session; and the session exposes the policy that is actually effective for a
+frame or lifecycle transition. Terminal identity never selects output policy.
+
+In particular, underline rendering is application-selected output policy, not detected
+protocol support. Its default is extended output. The optional terminfo-database
+compatibility projection is discussed in Slice 11; it is an explicit startup opt-in, not
+terminal-name inference. OSC 8 and OSC 52 remain not actively detectable because neither
+has a standard query.
 
 > [!note] Ratatui References
 >
@@ -4926,11 +5298,11 @@ Use the least invasive sources first:
 >   602-607). Tessera can centralize that kind of passive hinting in
 >   `TerminalCapabilities`.
 
-Active query candidates include primary/secondary device attributes and terminfo-style
-queries such as XTGETTCAP. XTGETTCAP is typically expressed as a DCS query for named
-terminfo capabilities; it can be useful, but it also introduces parsing complexity,
-timeouts, and multiplexer edge cases. Treat it as an implementation option, not a required
-badge of sophistication.
+Implemented active queries include KGP `a=q` + DA1, Kitty keyboard query + DA1, and DECRQM
+(`CSI ? Ps $ p`) for the DEC private modes Tessera uses (`2004`, `1004`, `1000`, `1002`,
+`1003`, `1006`, and `2026`). Primary/secondary device attributes and terminfo-style
+queries such as XTGETTCAP remain possible future inputs, but they must not become
+terminal-name allowlists.
 
 #### Startup behavior
 
@@ -4938,17 +5310,20 @@ Capability detection must not make terminal startup feel slow or brittle.
 
 Rules:
 
-- Startup should have a short, explicit timeout for any active query.
-- Timeout means `.unknown`, not failure.
+- Prefer sentinel-based probes over wall-clock timeouts when the protocol defines one. KGP
+  and Kitty keyboard can use DA1 as the sentinel: response before DA1 means supported, DA1
+  first means unsupported.
+- For queries without a reliable sentinel, timeout means `.unknown`, not failure.
 - Query responses must flow through a parser path that cannot steal ordinary user input
   indefinitely.
 - Detection should not block raw-mode restoration or cleanup.
 - The app should be able to opt out of active queries entirely.
 
-A good first implementation may be entirely passive/environment-based. That is acceptable
-if it keeps the rest of the library predictable. The test for this slice is not “does
-Tessera know every terminal?” The test is “does Tessera expose useful capability hints
-without making startup worse?”
+An active run exposes `.probing` while probes are in flight, `.supported` only after a
+protocol-native response, `.unsupported` only after a conclusive sentinel, and `.unknown`
+when there is no reliable answer. The test for this slice is not “does Tessera know every
+terminal?” The test is “does Tessera expose useful capability state without terminal-name
+hard-coding or fragile startup behavior?”
 
 #### Protocol enablement policy
 
@@ -4959,19 +5334,27 @@ Suggested policy:
 - Colors: start from user policy first (`NO_COLOR` wins), then environment/detection.
   Downsample app-requested colors at the renderer/style-resolution layer before calling
   the encoder: truecolor → 256 → 16 → monochrome as needed.
-- Synchronized output: enable when detected or explicitly configured; allow an optimistic
-  default for terminals where DEC private modes are known to be harmless; always provide a
+- Synchronized output: `TerminalApplicationConfiguration.synchronizedOutput` already
+  exists as `SynchronizedOutputPolicy` (`.disabled`/`.enabled`, default `.enabled`, and
+  `TerminalSession.draw` already wraps frames in DEC 2026). If detection warrants it, add
+  an `.automatic` case to that existing enum rather than a parallel type; always keep the
   disable knob for nested or buggy environments.
-- Bracketed paste: enable by default unless explicitly disabled.
-- Focus events: enable by default unless explicitly disabled.
-- SGR mouse: enable according to terminal/application configuration; many apps may want
-  it, but mouse tracking changes selection/scroll behavior enough that the runtime may
-  need a policy knob.
-- Kitty keyboard: enable by default only if the project is comfortable with the fallback
-  story and cleanup behavior; otherwise gate it behind configuration until slice 6 has
-  enough evidence.
-- OSC 8 hyperlinks: render when hyperlink metadata exists unless disabled; unsupported
-  terminals still show visible text.
+- Bracketed paste: explicit configuration may still request it directly; availability
+  reporting comes from DECRQM mode `2004`, not terminal identity.
+- Focus events: explicit configuration may still request them directly; availability
+  reporting comes from DECRQM mode `1004`, not terminal identity.
+- SGR mouse: enable according to terminal/application configuration; availability
+  reporting comes from DECRQM over the mouse modes Tessera emits (`1002`/`1003` plus
+  `1006`, with `1000` queried for compatibility context).
+- Kitty keyboard: `.kittyIfAvailable` enables Kitty keyboard only after active keyboard
+  query support is observed. `.kittyRequired` remains the explicit opt-in that requests
+  Kitty keyboard without waiting for capability evidence.
+- OSC 8 hyperlinks: render when hyperlink metadata exists unless disabled; visible text
+  remains useful on unsupported terminals, and support is reported as not actively
+  detectable until a future standard query exists.
+- Kitty graphics (Slice 7): active detection uses the protocol's `a=q` query immediately
+  followed by DA1. Apps should not send large image transmit/place payloads until the KGP
+  response is observed, unless the user explicitly opts in to blind output.
 - Raw payloads: never enable or disable themselves. They are app-authored bytes; Tessera's
   job is to serialize them safely through the renderer and honor their opaque/repaint
   policy.
@@ -4979,78 +5362,56 @@ Suggested policy:
 The exact defaults can change, but they must be documented. Users should be able to ask:
 “what did Tessera enable, what did it merely assume, and why?”
 
-#### Public configuration
+#### Public configuration and state
 
-If capability detection is implemented, add configuration rather than hidden behavior:
+`TerminalApplicationConfiguration` is the one startup configuration surface. Its intent
+fields include `capabilityDetection`, `activeProbeTimeout`, bracketed paste, focus, mouse,
+keyboard, OSC 8, synchronized output, color, underline rendering and underline
+compatibility, clipboard writing, and cursor styling. The intent initializer defaults to
+passive detection, a 250 ms active-probe round timeout, enabled bracketed paste/focus/OSC
+8/synchronized output, disabled mouse and clipboard writing, `.kittyIfAvailable`,
+`.detect` color, `.extended` underline rendering, disabled underline compatibility, and
+disabled cursor styling. The low-level `modes` initializer remains for exact test and
+protocol-demo mode sets; normal applications should use the intent fields.
 
-```swift
-public struct TerminalOptions: Sendable, Equatable {
-    public var colorPolicy: ColorPolicy
-    public var synchronizedOutput: SynchronizedOutputMode
-    public var enableBracketedPaste: Bool
-    public var enableFocusEvents: Bool
-    public var mouseTracking: MouseTrackingMode
-    public var keyboardProtocol: KeyboardProtocolMode
-    public var hyperlinkRendering: HyperlinkRenderingMode
-    public var capabilityDetection: CapabilityDetectionMode
+The configuration is a request, not a claim that bytes reached the terminal. During a
+session, inspect these distinct facts rather than collapsing them into one “capability”
+value:
 
-    public init(
-        colorPolicy: ColorPolicy = .automatic,
-        synchronizedOutput: SynchronizedOutputMode = .automatic,
-        enableBracketedPaste: Bool = true,
-        enableFocusEvents: Bool = true,
-        mouseTracking: MouseTrackingMode = .buttonEvents,
-        keyboardProtocol: KeyboardProtocolMode = .kittyIfAvailable,
-        hyperlinkRendering: HyperlinkRenderingMode = .enabled,
-        capabilityDetection: CapabilityDetectionMode = .passive
-    )
-}
+- `capabilities` contains passive, active, and declaration evidence only.
+- `colorCapability` is the application's requested override, while
+  `effectiveColorCapability` is the depth used to encode the next committed frame.
+  `NO_COLOR` and dumb `TERM` pin that effective value to `.noColor`, even for a forced
+  color request.
+- `protocolModeReport.requested` is the accepted application-mode policy; `.effective` is
+  the lifecycle's successfully active belief; and `.possiblyActive` is the union that may
+  have reached the terminal during ambiguous I/O. The latter is not omitted merely because
+  a setter threw.
+- `underlineDeclarations` reports terminfo declarations; `underlineRendering` is the
+  concrete output policy selected for draws. They are intentionally independent.
 
-public enum ColorPolicy: Sendable, Equatable {
-    case automatic
-    case noColor
-    case monochrome
-    case ansi16
-    case indexed256
-    case truecolor
-}
+`TerminalSession` exposes live, actor-isolated setters for output policy:
+`setColorCapability(_:)`, `setHyperlinkRendering(_:)`, `setSynchronizedOutput(_:)`, and
+`setUnderlineRendering(_:)`. A changed effective color, hyperlink, or underline policy
+invalidates renderer state so unchanged cells are erased and repainted under the new
+projection; an equal assignment is a no-op. A color request that remains pinned to the
+same effective depth also does not repaint. Synchronized output changes frame boundaries
+only and therefore does not invalidate cell state.
 
-public enum SynchronizedOutputMode: Sendable, Equatable {
-    case disabled
-    case automatic
-    case enabled
-}
+The session exposes throwing runtime setters for lifecycle-owned application modes:
+`setMouseTracking(_:)`, `setFocusEvents(_:)`, `setKeyboardProtocol(_:)`, and
+`setCursorStyle(_:)`. They share one non-reentrant, cancellation-safe transition gate and
+one reconciliation path; no setter reconstructs desired modes from a stale effective
+snapshot. Raw mode and alternate screen are fixed session ownership and cannot be mutated
+through that path. Bracketed paste is startup-only because changing it while the parser is
+collecting an in-flight paste has no settled contract.
 
-public enum MouseTrackingMode: Sendable, Equatable {
-    case disabled
-    case buttonEvents
-    case applicationControlled
-}
-
-public enum KeyboardProtocolMode: Sendable, Equatable {
-    case legacyOnly
-    case kittyIfAvailable
-    case kittyRequired
-}
-
-public enum HyperlinkRenderingMode: Sendable, Equatable {
-    case disabled
-    case enabled
-}
-
-public enum CapabilityDetectionMode: Sendable, Equatable {
-    case disabled
-    case passive
-    case active(timeout: Duration)
-}
-```
-
-These names should fold into the `TerminalApplicationConfiguration` that Phase 2 Slice 3
-already shipped as the `withApplicationTerminal(configuration:)` parameter — do not
-introduce a second public configuration type. The principle is more important than the
-exact shape: protocol enablement should be configurable, defaults should be visible, and
-detection should be something users can disable when it causes problems under SSH, tmux,
-CI, or unusual terminals.
+The application's explicit mode policy wins over advisory DECRQM evidence: focus and mouse
+settings request their modes even when evidence is unknown, while evidence remains
+inspectable. `.kittyRequired` always requests Kitty keyboard, `.legacyOnly` disables it,
+and `.kittyIfAvailable` enables it only after positive active keyboard evidence.
+Conditional Kitty policy never infers support from identity or passive metadata.
+Synchronized output is also explicit application policy; its DECRQM evidence is advisory.
 
 #### Parser behavior
 
@@ -5094,7 +5455,7 @@ Add configuration tests for:
 
 - active detection can be disabled
 - passive-only detection performs no terminal writes
-- protocol enablement follows explicit `TerminalOptions`
+- protocol enablement follows explicit `TerminalApplicationConfiguration` values
 - color policy downsampling happens before encoding, not inside `ANSIEncoder`
 - synchronized output policy controls DEC 2026 wrapping
 - users can inspect what was enabled and what was merely detected/assumed
@@ -5112,11 +5473,1259 @@ Do not fail startup because a terminal does not answer a query.
 Do not promise perfect support detection. The result is an advisory report, not a
 contract.
 
-#### End of Slice 6
+`TesseraTerminal` exposes conservative, configurable live evidence and output/application
+policy without making startup fragile. Evidence, requested policy, effective lifecycle
+belief, and possibly-active cleanup state remain distinguishable, so callers can reason
+about a terminal session without terminal-name hard-coding or a false capability promise.
 
-`TesseraTerminal` exposes conservative, configurable capability hints and protocol
-enablement policy without making startup fragile, blocking cleanup, or undermining the
-opportunistic fallback behavior established by the rest of Phase 3.
+### Slice 7: Kitty graphics protocol
+
+Slice 7 teaches Tessera to render images: transmitting pixel or PNG data to the terminal
+and placing it at specific cells, using the Kitty Graphics Protocol (KGP).
+
+Every prior Phase 3 slice either decoded input the terminal already sent (paste, focus,
+mouse, keyboard) or rendered text-shaped output (hyperlinks). Graphics is the first slice
+whose whole job is emitting a large, binary, chunked payload the terminal must reassemble
+before anything appears on screen — closer in spirit to a file transfer than a control
+sequence. It graduates Kitty graphics out of the `RawTerminalPayload` escape hatch this
+spec opened early on, per that section's own graduation rule: once Tessera intentionally
+supports a protocol, it gets a semantic `ControlSequence` case instead of staying raw
+forever.
+
+KGP, not Sixel or iTerm2's OSC 1337 inline images, is the protocol that graduates here. It
+has the widest current terminal support among the three (Kitty, Ghostty, iTerm2, WezTerm,
+Konsole — see Platform notes, below), the cleanest wire format, and — uniquely among them
+— a documented, portable transmission mode: `t=d` (direct, inline base64) works everywhere
+a KGP terminal exists, while file/temp/shm transmission modes require a shared filesystem
+or shared-memory namespace the terminal and the Tessera process may not agree on. Tessera
+emits `t=d` exclusively. Sixel and iTerm2 inline images remain `RawTerminalPayload`
+territory; promoting them is future work, gated on demonstrated demand from users of
+terminals that lack KGP (Windows Terminal, foot).
+
+The protocol's envelope is an APC (Application Program Command) escape sequence:
+
+```text
+ESC _ G <k=v,...> ; <base64 payload> ESC \
+```
+
+Well-behaved terminals ignore APC codes they do not recognize, but Tessera still probes
+before emitting large image transmit/place payloads in examples. The KGP `a=q` query is
+the small, side-effect-free support probe; `a=t`/`a=p` are real output and should be gated
+by a successful probe or an explicit application/user opt-in.
+
+Core keys, all documented at the URL in the reference callout below: `a` action (`t`
+transmit, `p` place, `q` query, `d` delete), `f` format (`24` RGB / `32` RGBA default /
+`100` PNG), `t` medium (`d` direct — the only one Tessera emits), `i` image id, `p`
+placement id, `m` more-chunks flag, `q` quiet level (`1` suppresses OK responses, `2`
+additionally suppresses failures — two named levels, not cumulative), `s`/`v` pixel
+width/height, `c`/`r` display columns/rows, `z` z-index, `C=1` do-not-move-cursor, and
+`d=` delete-scope letters.
+
+Transmission is chunked: the base64 payload is split into pieces of at most 4096 bytes,
+every non-final chunk length a multiple of 4, with the full control-key set on the first
+chunk only and every following chunk carrying just `m=` and the payload slice. `m=1` marks
+every chunk but the last; `m=0` marks the last. A placement's cursor position is whatever
+the cursor was at when the final chunk arrived, which is why Tessera keeps transmit
+(`a=t`) and place (`a=p`) as separate commands rather than the combined `a=T` form:
+transmission is session-scoped and chunked over time, placement is frame-scoped and
+instantaneous.
+
+> [!note] Ratatui References
+>
+> - The protocol Tessera targets is specified at
+>   <https://sw.kovidgoyal.net/kitty/graphics-protocol/> — the APC envelope,
+>   action/format/medium keys, chunking rule, and the alt-screen/erase interaction this
+>   slice cites throughout come from that document.
+> - Ratatui core ships zero graphics-protocol code, but grew
+>   `CellDiffOption::{Skip, AlwaysUpdate, ForcedWidth}`
+>   (`ratatui-core/src/buffer/cell.rs`, lines 12-32; honored in `diff.rs`, lines 110 and
+>   130-131) specifically because of pain reported against `ratatui-image` retrofitting
+>   protocol output onto a diffing buffer that never expected it (issue #1116; PRs #1605,
+>   #2437, #2480). Tessera's `CellDiffPolicy` and `Frame.writeRaw(occupying:)` were
+>   designed for exactly this case from day one — see the raw payload escape hatch section
+>   above.
+> - `ratatui-image` (github.com/benjajaja/ratatui-image) implements sixel, Kitty, iTerm2,
+>   and halfblocks entirely outside Ratatui core, and its architecture shows the cost of
+>   that: hand-rolled `clear_area` calls per protocol, a whole `sliced` module that exists
+>   purely to handle scroll/viewport clipping (Kitty itself needs none of that — the
+>   terminal owns clipping), an `allow_clipping` API wart because Sixel and iTerm2 never
+>   clip while Kitty does, tmux passthrough fragility, and a hardcoded terminal blacklist.
+>   Its Kitty backend is transmit-once-then-place and simply trusts the terminal for
+>   cleanup. This is the case for building KGP into Tessera's core instead of leaving it
+>   to a downstream crate the way Ratatui does.
+> - The vendored `libghostty-vt` already exposes a complete Kitty graphics inspection C
+>   API — `Sources/CGhosttyVT/include/ghostty/vt/kitty_graphics.h` (776 lines, included
+>   from `vt.h:135`) — with image and placement handles and per-placement geometry.
+>   Ratatui has no equivalent: verifying `ratatui-image` output means screen-scraping
+>   bytes, not asserting decoded placement state. Slice 7's snapshot harness (see Snapshot
+>   harness support, below) is a structural advantage Tessera gets for free from Slice 1's
+>   Ghostty-backed test harness.
+
+Tessera models the command set as a closed value type in new files beside
+`ControlSequence`. The image and placement identifiers, and the response type input
+parsing needs, live in `TesseraTerminalCore` instead of `TesseraTerminalANSI` —
+`TesseraTerminalInput` depends on Core but not on ANSI, and it needs to see these IDs to
+decode `InputEvent.kittyGraphicsResponse` (below) without adding a new cross-module
+dependency. Everything ANSI-only stays in `TesseraTerminalANSI`, alongside
+`ControlSequence`, the same home slice 5 gives `Hyperlink` next to `Color`:
+
+```swift
+// TesseraTerminalCore — shared with TesseraTerminalInput, which does not import ANSI.
+public struct KittyImageID: Equatable, Hashable, RawRepresentable, Sendable {
+    public var rawValue: UInt32
+    public init(rawValue: UInt32)
+}
+
+public struct KittyPlacementID: Equatable, Hashable, RawRepresentable, Sendable {
+    public var rawValue: UInt32
+    public init(rawValue: UInt32)
+}
+
+// TesseraTerminalANSI — alongside ControlSequence.
+public enum KittyImageFormat: Equatable, Sendable {
+    case png                            // f=100; dimensions come from the PNG itself
+    case rgb(width: Int, height: Int)   // f=24, s=/v= required
+    case rgba(width: Int, height: Int)  // f=32, s=/v= required
+}
+
+public enum KittyGraphicsQuiet: Equatable, Sendable {
+    case suppressFailures  // q=2
+    case suppressOK        // q=1
+    case verbose           // q=0
+}
+
+public struct KittyGraphicsTransmission: Equatable, Sendable {
+    public var data: [UInt8]              // raw pixel or PNG bytes; NOT pre-base64ed
+    public var format: KittyImageFormat
+    public var id: KittyImageID
+    public var quiet: KittyGraphicsQuiet  // default .suppressOK: errors still surface
+
+    public init(id: KittyImageID, format: KittyImageFormat, data: [UInt8],
+                quiet: KittyGraphicsQuiet = .suppressOK)
+}
+
+public struct KittyGraphicsPlacement: Equatable, Sendable {
+    public var columns: Int?              // c= cell scaling
+    public var id: KittyImageID
+    public var placement: KittyPlacementID?
+    public var quiet: KittyGraphicsQuiet  // default .suppressOK
+    public var rows: Int?                 // r= cell scaling
+    public var zIndex: Int32              // z=, default 0
+
+    public init(id: KittyImageID, placement: KittyPlacementID? = nil,
+                columns: Int? = nil, rows: Int? = nil, zIndex: Int32 = 0,
+                quiet: KittyGraphicsQuiet = .suppressOK)
+}
+
+public enum KittyGraphicsDelete: Equatable, Sendable {
+    case all                                        // a=d,d=A (placements + data)
+    case image(KittyImageID)                        // a=d,d=I,i= (image + data)
+    case placement(KittyImageID, KittyPlacementID)  // a=d,d=i,i=,p= (data retained)
+}
+
+public enum KittyGraphicsCommand: Equatable, Sendable {
+    case delete(KittyGraphicsDelete)
+    case place(KittyGraphicsPlacement)
+    case query(id: KittyImageID)   // i=<id>,s=1,v=1,a=q,t=d,f=24;AAAA
+    case transmit(KittyGraphicsTransmission)
+}
+```
+
+`query` encodes the KGP half of the detection probe from the protocol spec: a 1×1 RGB
+pixel sent as a query action. `TerminalSession.queryKittyGraphicsSupport(id:)` appends a
+DA1 request (`CSI c`) to those query bytes in the same flushed write. If a
+`KittyGraphicsResponse` arrives before the DA1 response, the terminal supports graphics;
+if DA1 arrives first, it did not answer the KGP query.
+
+On the input side, `InputEvent` gains cases for both halves of that active probe, and the
+KGP response payload lives in `TesseraTerminalCore` next to the ID types:
+
+```swift
+public enum InputEvent: Equatable, Sendable {
+    case focusGained
+    case focusLost
+    case key(Key)
+    case kittyGraphicsResponse(KittyGraphicsResponse)
+    case mouse(MouseEvent)
+    case paste(String)
+    case primaryDeviceAttributes([Int])
+    case resize(TerminalSize)
+    case unknown([UInt8])
+}
+
+public struct KittyGraphicsResponse: Equatable, Sendable {
+    public var id: KittyImageID?
+    public var message: String        // "OK" or "<CODE>:<detail>"
+    public var placement: KittyPlacementID?
+    public var success: Bool          // message == "OK"
+}
+```
+
+This follows the same alphabetized-case discipline Slice 3 established for `.mouse`: the
+graphics response slots between `.key` and `.mouse`, and the DA1 sentinel slots between
+`.paste` and `.resize`.
+
+#### Encoder behavior
+
+`ANSIByteEncoding` (today 34 lines, with
+`appendCSI`/`appendOSC`/`appendSGR`/`appendInteger` only) gains `appendAPC(_:into:)` — the
+introducer is `ESC _` (0x1B 0x5F) — and an `ST` terminator helper (`ESC \`, 0x1B 0x5C),
+reused by both APC and the OSC 8 hyperlink encoding Slice 5 already ships. OSC 8 itself
+keeps its existing BEL terminator; only the new APC path adopts `ST`.
+
+`ControlSequence` gains one alphabetized case:
+
+```swift
+public enum ControlSequence: Equatable, Sendable {
+    // Existing cases, kept alphabetized...
+    case kittyGraphics(KittyGraphicsCommand)
+}
+```
+
+`ControlSequence.encode` dispatches through grouped exhaustive switches
+(`encodeCursor`/`encodeErase`/`encodeSGR`/`encodeMode`/`encodeOSC`/`encodePayload`) — the
+new case must be added to every one of them, via a new `encodeKittyGraphics` helper, or
+the target does not compile.
+
+Byte assembly rules, pinned by exact golden-byte tests (see Tests, below):
+
+- Transmit (`a=t`): `a=t,i=<id>,f=<format>[,s=<w>,v=<h>],t=d,q=<quiet>` followed by `;`
+  and base64(data), chunked at 4096 bytes per the rule above. Base64 goes through
+  Foundation's `Data.base64EncodedString()` — Foundation is already imported by
+  `PlatformIOError.swift` and `Renderer.swift`, so this adds no new dependency.
+- Place (`a=p`):
+  `a=p,i=<id>[,p=<placement>][,c=<columns>][,r=<rows>],z=<zIndex>,C=1,q=<quiet>`. `C=1` —
+  do not move the cursor — is always emitted; it is not configurable, because the
+  renderer, not the caller, owns cursor position.
+- Delete (`a=d`): `.all` encodes `a=d,d=A`; `.image(id)` encodes `a=d,d=I,i=<id>`;
+  `.placement(id, placement)` encodes `a=d,d=i,i=<id>,p=<placement>`.
+- Query (`a=q`): the fixed detection probe, `i=<id>,s=1,v=1,a=q,t=d,f=24;AAAA` — a 1×1 RGB
+  pixel; the key order matches the protocol documentation's own probe bytes.
+
+#### Parser behavior
+
+Today, `InputParser`'s private `State` enum has no APC handling at all: `ESC _` falls
+through the `.escape` state's default case, emits a bogus Alt+`_` key event, and every
+following byte of the APC payload shreds into further garbage key events
+(`InputParser.swift:339-344, 353-398`). Any inbound KGP response — an `OK` or an error
+code arriving on stdin — corrupts the event stream today. This slice fixes that as a
+correctness requirement, not just a feature addition.
+
+Add a new state, `.apc(accumulated:)`, entered from `.escape` on `_` (0x5F), alongside the
+existing `.csi(accumulated:)`, `.escape`, `.ground`, `.ss3(accumulated:)`, and
+`.utf8(expectedCount:accumulated:)` cases:
+
+- Accumulate bytes until the 7-bit string terminator (`ESC \`).
+- `CAN`/`SUB` abort the sequence back to `.unknown`, matching the parser's existing cancel
+  handling elsewhere.
+- A byte cap (suggested 4096, matching the protocol's own chunk size) bounds accumulation:
+  overflow flushes what's been collected as `.unknown` and resynchronizes to `.ground`
+  rather than growing without limit.
+- `flush()` gains an `.apc` recovery path, mirroring its existing `.csi`/`.ss3`/`.utf8`
+  recovery, so a truncated APC sequence at end-of-stream still surfaces as `.unknown`
+  instead of being silently dropped.
+
+Once the terminator arrives, an APC payload starting with `G` decodes into
+`InputEvent.kittyGraphicsResponse`; a response is either `i=<id>[,p=<placement>];OK` or
+`i=<id>[,p=<placement>];<CODE>:<message>` (codes like `ENOENT`, `EINVAL`). Every other APC
+payload — regardless of its first byte — becomes a single `InputEvent.unknown(bytes)` for
+the WHOLE sequence. It is never shredded into key events; this is the regression test
+against today's Alt+`_` behavior, and it applies uniformly, not just to graphics: an app
+that emits its own experimental APC sequences also gets one clean `.unknown`, not garbage
+keys.
+
+As with focus and mouse sequences, APC bytes inside bracketed paste remain paste payload:
+a pasted `ESC _ G ... ESC \` is pasted text, not a graphics response.
+
+#### Placement, damage tracking, and the renderer
+
+Transmission and placement have different scopes, and the session/`Frame` API reflects
+that split directly:
+
+```swift
+extension TerminalSession {
+    /// Transmits image data over the tty (t=d, chunked). Session-scoped, outside draw.
+    public func transmitImage(_ transmission: KittyGraphicsTransmission) async throws
+
+    /// Deletes images/placements immediately (also used by teardown).
+    public func deleteImages(_ delete: KittyGraphicsDelete) async throws
+}
+
+extension Frame {
+    /// Encodes an a=p placement anchored at `position` and reserves `region`: the
+    /// anchor cell carries the placement bytes with the default `.alwaysRepaint`
+    /// policy; the remaining covered cells become .continuation/.opaque.
+    public borrowing func placeImage(
+        _ placement: KittyGraphicsPlacement,
+        at position: TerminalPosition,
+        occupying region: Rect
+    )
+}
+```
+
+`transmitImage`/`deleteImages` are session-scoped, not frame-scoped: image data must reach
+the terminal exactly once, independent of how many frames later a placement references it,
+so these methods write and flush outside `TerminalSession.draw`'s render transaction — the
+same ad hoc write-and-flush shape `restoreCursorVisibility` already uses
+(`TerminalSession.swift:147-150`). `draw`/`Frame` itself never touches `io` directly
+(`TerminalSession.swift:85-125`); this is the one place graphics deliberately steps
+outside that rule, because transmission has no natural frame to belong to.
+
+`Frame.placeImage` is a thin semantic layer over the existing
+`Buffer.writeRaw(_:at:occupying:repaintPolicy:)`/`markOpaque` machinery
+(`Buffer.swift:100-137, 139-156`; `Frame.swift:46-63`): it encodes the `a=p` command
+bytes, anchors them at `position` with `Buffer`'s existing `.raw(...)` cell kind, and
+reserves `region` the same way any other raw payload does. The renderer already emits an
+anchor's raw bytes after positioning the cursor at the anchor cell
+(`Renderer.swift:69-104`) — exactly the shape `a=p` needs, since KGP places relative to
+the current cursor position.
+
+The default `repaintPolicy` for `placeImage` is `.alwaysRepaint`, and that default is
+deliberate, not incidental: equal frame buffers still re-emit placement anchors so
+ordinary damage redraws preserve placement intent. A full renderer invalidation is
+different. `Renderer.encodeFrame` emits `eraseInDisplay(.all)` whenever `previous == nil`
+or the terminal size changed, and terminals may discard both placements and stored image
+data after `ESC [ 2 J`. Ghostty does so: a later `a=p` for the old image id returns
+`ENOENT: image not found`.
+
+An app that invalidates before showing an image must therefore consume the erase/repaint
+first, then call `transmitImage`, then draw a placement frame. Transmitting before the
+invalidated draw lets `ED 2` delete the freshly transmitted data. Re-emitting a failed
+`.alwaysRepaint` placement from each graphics response creates a response/redraw feedback
+loop, so apps must match asynchronous failures to their image and placement ids, stop
+placement, retain the complete error, and require an explicit retry. Terminals may also
+evict image data under memory pressure; the same `ENOENT` recovery rule applies.
+
+The caller keeps `occupying` and `columns`/`rows` consistent with each other; Tessera does
+not compute one from the other in this slice. Phase 4's future `Image` view will, once
+`cellPixelSize` (below) is available to convert between pixel and cell units.
+
+#### Pixel geometry
+
+Today Tessera has no pixel plumbing at all: POSIX `readTerminalSize` reads only
+`ws_col`/`ws_row` (`TerminalDevice+Live.swift:146-158`), `TerminalSize` has no pixel
+fields, and the Windows path reads only the cell rectangle
+(`WindowsConsole.swift:127-144`). This slice adds a value type beside `TerminalSize` in
+`TesseraTerminalCore`:
+
+```swift
+public struct CellPixelSize: Equatable, Hashable, Sendable {
+    public var height: Int
+    public var width: Int
+}
+```
+
+`TerminalDevice` gains a `cellPixelSize` endpoint returning `CellPixelSize?`. The POSIX
+live implementation reads `ws_xpixel`/`ws_ypixel` from the same `TIOCGWINSZ` call
+`readTerminalSize` already makes and divides by columns/rows; any zero field (columns,
+rows, `ws_xpixel`, or `ws_ypixel`) yields `nil` rather than a division by zero or a
+nonsense size. The Windows live implementation returns `nil` unconditionally — Windows
+Terminal has no KGP support (see Platform notes, below), so there is nothing to
+speculatively query `GetCurrentConsoleFontEx` for. `TerminalSize` itself is NOT modified;
+it stays the resize-event payload it already is, and pixel size travels on its own
+accessor instead.
+
+The value is exposed as `TerminalSession.cellPixelSize` (`async`, `nil` when unknown). An
+active `CSI 16 t` query — the terminal asking for cell size directly instead of deriving
+it from `TIOCGWINSZ` — is explicitly deferred to Slice 6's active-query machinery;
+TIOCGWINSZ-derived pixel size is this slice's whole deliverable. `ratatui-image`'s
+cell-size discovery order is the reference for that future work: `CSI 16 t` query first,
+`TIOCGWINSZ` fallback second, a hardcoded default last. Tessera ships the fallback tier
+now and the query tier later, in the same priority order.
+
+#### Lifecycle and cleanup
+
+Graphics is not a `ModeLifecycle.Mode` — there is no enable sequence, so there is nothing
+for `enter`/`exit`/`acquisitionOrder` to track. But cleanup discipline still applies: both
+normal teardown and emergency cleanup gain the delete-all sequence —
+`ESC _ G a=d,d=A ESC \` — unconditionally: about a dozen bytes, harmless APC on a
+non-supporting terminal, consistent with the project's existing over-clean stance. It is
+emitted BEFORE leaving the alternate screen.
+
+A compliant terminal already clears alt-screen images on exit per the protocol spec, so
+this is defense-in-depth, not a required fix — but it is cheap defense-in-depth against
+documented non-conformance (WezTerm and Konsole gaps), and it costs nothing on terminals
+that never saw a KGP sequence in the first place. Wire-wise it lives with the existing
+teardown-byte assembly — `ModeLifecycle.installCleanup()`/`exit()`, which already encode
+`ControlSequence` teardown bytes through the async-signal-safe C shim and
+`CleanupRegistry` — even though graphics is not itself a `Mode`.
+
+Because `deleteImages(_:)` is a plain `TerminalSession` method (D6, above), apps may also
+call it directly at any point in the session's lifetime, not only during teardown — e.g.
+to free a large image an app no longer needs.
+
+#### Capability detection
+
+Slice 6's `TerminalCapabilities` includes `kittyGraphics: CapabilityStatus`, and passive
+detection must not infer this value from terminal names. Slice 7 ships the active KGP
+probe path it owns: `query(id:)` encodes the side-effect-free `a=q` command,
+`TerminalSession.queryKittyGraphicsSupport(id:)` writes that query followed by DA1,
+`InputParser` decodes both `KittyGraphicsResponse` and DA1, and the app can decide support
+based on response ordering.
+
+Current behavior: `kittyGraphics` remains `.unknown` until an active probe or observed KGP
+response provides evidence. Examples may run the probe when the graphics panel is selected
+and must not transmit/place image data until support is observed, unless the user
+explicitly opts in to blind output.
+
+#### Snapshot harness support
+
+The vendored libghostty-vt headers already expose a complete Kitty graphics inspection C
+API — `Sources/CGhosttyVT/include/ghostty/vt/kitty_graphics.h` (776 lines; included from
+`vt.h:135`) — with `GhosttyKittyGraphics`/`GhosttyKittyGraphicsImage` handles,
+per-placement data (image id, placement id, x/y offset, columns/rows, z-index), and format
+enumeration (RGB/RGBA/PNG/...). `VirtualTerminal+Ghostty.swift` calls none of it today, so
+KGP is end-to-end snapshot-testable in the existing harness the moment this slice wires it
+up — the same pattern Slice 5 used to grow `RenderedCell` with hyperlink inspection.
+
+Extend `VirtualTerminal` with two new endpoints, `unimplemented` by default like the
+harness's existing endpoints:
+
+```swift
+kittyImages: @Sendable () -> [RenderedKittyImage]
+kittyPlacements: @Sendable () -> [RenderedKittyPlacement]
+```
+
+`RenderedKittyImage`/`RenderedKittyPlacement` are test-support types (id, placement id,
+position, columns/rows, z-index, format/dimensions), so growing them is not a public-API
+change. They make the slice's acceptance tests real instead of byte-comparison-only: feed
+encoder bytes into `VirtualTerminal`, then assert Ghostty actually decoded the image and
+placement; re-place the same `(i, p)` pair and assert it moved rather than duplicated;
+delete and assert it's gone; write an unrelated frame and assert the `.opaque` region is
+untouched. If the pinned libghostty-vt revision's C surface is missing an accessor a test
+needs, bump the pin per `docs/UpdatingGhosttyVT.md` rather than shelling out to a
+different revision ad hoc.
+
+#### Platform notes
+
+Terminal support for KGP, as of mid-2026, is real but partial, and Tessera's design must
+be honest about that rather than pretend graduation to first-class support means universal
+support:
+
+- **Support it today:** Kitty and Ghostty implement the core protocol (Ghostty has no
+  animation support, which does not matter here — animation is a non-goal, see below).
+  iTerm2 has supported it since 2024, minus animation. WezTerm supports it behind an
+  opt-in setting, `enable_kitty_graphics = true`. Konsole supports direct transmission
+  only — exactly the mode Tessera emits, so Konsole is fully covered despite the narrower
+  support.
+- **Do not support it:** Windows Terminal (Sixel only; its maintainers have stated they
+  will not add KGP), Alacritty (neither protocol), foot (Sixel only), and xterm (neither).
+- **tmux:** opaque passthrough only, and `allow-passthrough` is off by default, so a
+  typical tmux session drops graphics bytes even when the outer terminal supports them,
+  unless the user has explicitly configured passthrough. Tessera does not detect or work
+  around this; it is out of scope for this slice (see Non-goals, below).
+
+Given that matrix, graceful degradation is mandatory, not a nice-to-have: many terminals a
+Tessera app runs in today will ignore or mishandle graphics bytes, and the app must have a
+real fallback (text, a placeholder glyph, or simply no image) rather than treating
+graphics as guaranteed. The side-effect-free KGP query plus DA1 sentinel is the preferred
+way to avoid sending large image payloads to unsupported terminals. Apps may still opt in
+to blind `transmitImage`/`placeImage` calls when the user or application policy knows the
+terminal path supports KGP, but examples must default to probing first.
+
+On Windows, `cellPixelSize` is `nil` unconditionally (see Pixel geometry, above) because
+no currently-supported Windows terminal implements KGP; this is a consequence of today's
+platform support matrix, not a gap this slice needs to close.
+
+#### Tests
+
+Add encoder golden-byte tests for:
+
+- a single-chunk transmit (payload under 4096 bytes)
+- a multi-chunk transmit that crosses the 4096-byte boundary exactly, asserting chunk
+  count, the `m=1`/`m=0` flag on each chunk, and that non-final chunk length is a multiple
+  of 4
+- place with an explicit `c=`/`r=` cell scaling
+- place with a non-default `z=` z-index
+- place with `p=` omitted vs. an explicit placement id
+- `C=1` is present on every place encoding, unconditionally
+- all three delete variants (`.all`, `.image`, `.placement`)
+- the fixed query probe bytes
+
+Add parser tests for:
+
+- a successful `OK` response, with and without a placement id
+- an error response (e.g. `ENOENT:...`) decodes `success == false`
+- an APC response split across reads, byte-by-byte
+- a non-`G` APC payload decodes to a single `.unknown(bytes)` for the whole sequence,
+  never shredded into key events
+- an APC payload exceeding the byte cap flushes as `.unknown` and resynchronizes cleanly
+  to `.ground`
+- an APC-looking byte sequence inside bracketed paste stays paste payload, not a
+  `.kittyGraphicsResponse`
+- regression: `ESC _` followed by arbitrary bytes no longer produces the historical bogus
+  Alt+`_` key event plus shredded garbage keys — compare directly against today's behavior
+  to prove the fix
+
+Add harness (Ghostty-backed `VirtualTerminal`) tests for:
+
+- encoder bytes for a transmit + place round-trip decode into a real image and placement
+  via `kittyImages`/`kittyPlacements`
+- re-placing the same `(image id, placement id)` moves the existing placement instead of
+  creating a duplicate
+- a delete command clears the placement/image from harness state
+- an `.opaque` region a placement reserved is untouched by an unrelated later frame's
+  damage pass
+
+Add lifecycle byte tests (`InMemoryTerminalDevice`) for:
+
+- normal teardown bytes include the delete-all sequence, before the alt-screen exit
+  sequence
+- emergency cleanup bytes include the same delete-all sequence
+- delete-all is present even when no image was ever transmitted during the session
+  (over-cleaning is intentional)
+
+Add pixel-size tests for:
+
+- `CellPixelSize` divides `ws_xpixel`/`ws_ypixel` by columns/rows correctly on POSIX
+- a zero `ws_xpixel`, `ws_ypixel`, column, or row count yields `nil`, not a
+  division-by-zero crash or a nonsense size
+- the Windows live implementation returns `nil` unconditionally
+- `TerminalSession.cellPixelSize` surfaces the device value asynchronously and matches
+  `InMemoryTerminalDevice`'s configured test value
+
+#### Non-goals
+
+Do not implement animation (`a=f`/`a=a`/`a=c` and related keys). Do not implement Unicode
+placeholders (U+10EEEE, not U+10FFFF), relative placements, or tmux passthrough wrapping —
+even mature KGP implementations treat placeholders as separable follow-up work, and this
+slice agrees.
+
+Do not implement file, temp-file, or shared-memory transmission (`t=f`/`t`/`s`) — direct
+(`t=d`) only, per the portability reasoning above. Do not implement zlib compression
+(`o=z`).
+
+Do not promote Sixel or iTerm2's OSC 1337 inline images to first-class support. Both
+remain `RawTerminalPayload` territory; re-evaluate only on demonstrated demand from users
+of terminals that lack KGP (Windows Terminal, foot).
+
+Do not decode, scale, dither, or otherwise process image data. Tessera transports bytes;
+producing PNG or pixel data is the app's job, or Phase 4's.
+
+Do not build the Phase 4 `Image` view, its layout, or its hit-testing. That is Phase 4
+work that requires this slice as its substrate — see the Phase 4 prerequisites update
+above — not part of it.
+
+#### End of Slice 7
+
+`TesseraTerminal` can transmit image data and place it at specific cells using the Kitty
+graphics protocol, decode graphics responses without corrupting the input event stream,
+self-heal placements across resize and first-draw erases, clean up unconditionally on
+every exit path, and degrade silently on the many terminals that do not implement the
+protocol — all end-to-end verifiable through the existing Ghostty-backed snapshot harness.
+
+### Slice 8: Color degradation baseline
+
+Slice 8 gives Tessera one consistent color policy across modern and conservative
+terminals. The public style model continues to let callers describe the color they mean —
+default terminal colors, named ANSI 16 colors, 256-color palette indexes, or 24-bit RGB —
+while the renderer decides what is safe to emit for the active terminal capability.
+
+This is renderer policy, not a new terminal mode. There is no enable sequence, no active
+probe, and no lifecycle cleanup. `TerminalCapabilities.color` is the only input: passive
+detection maps environment hints such as `COLORTERM=truecolor`, `TERM=xterm-256color`,
+`TERM=dumb`, and `NO_COLOR` into a capability, and `TerminalSession.draw` passes that
+capability into the damage renderer.
+
+The fallback ladder is:
+
+1. **Truecolor (`.truecolor`)** — render semantic RGB colors as 24-bit SGR (`38;2;r;g;b` /
+   `48;2;r;g;b`). Existing indexed and named ANSI colors may stay in their narrower wire
+   form because a truecolor terminal accepts them.
+2. **256-color (`.indexed256`)** — render semantic RGB colors as the nearest xterm
+   256-color palette index (`38;5;n` / `48;5;n`). Existing indexed colors stay indexed;
+   named ANSI colors stay named ANSI SGR.
+3. **ANSI 16 (`.ansi16`)** — render semantic RGB colors and high indexed colors as the
+   nearest named `ANSIColor`. Indexed values `0...15` map directly to their 16-color ANSI
+   equivalents. Existing named ANSI colors stay named.
+4. **Unknown (`.unknown`)** — render as ANSI 16, not as no-color. Unknown means Tessera
+   lacks a reliable local hint; it does not mean the terminal is incapable of basic ANSI
+   color. This keeps warning/status/demo output readable on ordinary terminals while
+   avoiding truecolor and 256-color sequences that are more likely to misrender.
+5. **No color (`.noColor`)** — suppress foreground and background color sequences by
+   resolving every non-default color to terminal default. This is selected for `NO_COLOR`
+   and `TERM=dumb` style inputs. It does not disable non-color SGR attributes, hyperlinks,
+   cursor movement, synchronized output, raw payloads, graphics cleanup, or the renderer's
+   final reset.
+
+Color capability precedence honors the `NO_COLOR` informal standard: a `NO_COLOR` or
+`TERM=dumb` environment selects `.noColor` as a hard override that cannot be re-enabled;
+otherwise an explicit application color override wins; otherwise passive detection
+decides. Applications may set an explicit level because many truecolor terminals never
+advertise `COLORTERM` and would otherwise land on the `.unknown` → ANSI 16 fallback.
+
+Color degradation must happen at the SGR emission boundary, not when writing cells.
+`Style` and `Buffer` continue to store the semantic color the caller requested.
+`BufferDiff` should still treat a semantic color change as damage, even if the active
+capability causes both old and new colors to resolve to the same fallback. The style
+encoder then avoids redundant color SGR when the resolved foreground/background state is
+unchanged.
+
+The resolver should be pure and deterministic. RGB-to-256 conversion uses the xterm
+256-color palette: the 6×6×6 cube (`16...231`) and grayscale ramp (`232...255`), with
+nearest color chosen by squared distance in sRGB byte space and ties broken by the lower
+palette index. RGB-to-ANSI 16 and indexed-to-ANSI 16 use canonical ANSI palette
+approximations and the same deterministic nearest-color rule. Indexed `0...15` maps
+directly to Tessera's named ANSI colors.
+
+The ANSI 16 fallback approximates against the pinned xterm default 16-color palette
+(`red cd0000`, `brightRed ff0000`, `blue 0000ee`, `brightBlue 5c5cff`, and so on). Because
+real terminals theme these slots, the fallback is a deterministic best-effort hue match
+against that reference table rather than a guarantee about on-screen pixels; it also
+yields deliberate asymmetries such as `rgb(0,0,255)` resolving to `blue` rather than
+`brightBlue`.
+
+The implementation should reuse existing Tessera color surfaces rather than adding a
+parallel style model:
+
+- `Sources/TesseraTerminalANSI/Color.swift` and `ANSIColor.swift` own semantic color and
+  SGR parameter generation.
+- `TerminalCapabilities.color` remains the session-level advisory capability.
+- `StyleEncoding.sgrDelta` and full-style encoding become capability-aware.
+- `Renderer.encodeFrame` accepts a color capability and `TerminalSession.draw` supplies
+  the resolved session color capability.
+
+Ratatui and crossterm are useful references but not templates to copy verbatim. Ratatui
+keeps semantic `Rgb`/`Indexed` colors and converts them at backend emission time;
+crossterm honors `NO_COLOR` by suppressing color output and uses environment hints for
+available color count. Tessera should borrow that posture while preserving its own
+`TerminalCapabilities` model and existing ECMA-48 named-color SGR encoding.
+
+Tests for this slice should cover:
+
+- `NO_COLOR` winning over truecolor and 256-color environment hints.
+- `TERM=dumb` producing `.noColor`.
+- missing or unknown environment producing `.unknown`, and `.unknown` rendering through
+  the ANSI 16 fallback.
+- RGB foreground/background under `.truecolor`, `.indexed256`, `.ansi16`, `.unknown`, and
+  `.noColor`.
+- exact xterm 256-color mappings for representative RGB cube and grayscale values.
+- exact ANSI 16 mappings for RGB primaries, grayscale samples, and indexed `0...15`.
+- no-color rendering suppressing foreground/background SGR while preserving visible text
+  and non-color attributes.
+- adjacent cells whose semantic colors degrade to the same resolved color not emitting
+  redundant color SGR.
+- full repaint and damage repaint using the same resolver.
+- composition with existing renderer features: hyperlinks can still open/close when color
+  is disabled, raw payloads are not rewritten, synchronized output wrappers are unchanged,
+  and final SGR reset remains.
+
+Sixel, iTerm2 image escape sequences, palette querying, dithering, theme detection,
+contrast correction, and active color probes are explicitly out of scope for this slice.
+
+#### End of Slice 8
+
+`TesseraTerminal` degrades color at render time from semantic app intent to the active
+terminal capability, preserving readable text on conservative terminals while still using
+truecolor when it is safe.
+
+### Slice 9: OSC 52 clipboard
+
+OSC 52 lets an application ask the terminal emulator to place data on the host clipboard
+by emitting an operating-system-command sequence:
+
+```text
+ESC ] 52 ; <Pc> ; <base64-data> ESC \
+```
+
+`Pc` selects the destination (`c` for the normal clipboard, `p` for primary selection, and
+other xterm-defined selections), and `base64-data` is the payload encoded with RFC 4648
+base64. This is useful precisely in remote terminal sessions: a Tessera app running over
+SSH can copy text to the user's local terminal clipboard without knowing anything about
+the local desktop environment.
+
+That usefulness is also the risk. Clipboard writes are side effects outside Tessera's
+screen model. A malicious or careless app could overwrite a user's clipboard unexpectedly.
+Tessera supports OSC 52 only as an explicit, policy-gated session operation: not renderer
+output, not a raw payload convenience, and not a default-on feature.
+
+`TesseraTerminalANSI` models OSC 52 writes with semantic types:
+
+```swift
+public enum ClipboardTarget: Equatable, Hashable, Sendable {
+  case clipboard
+  case cutBuffer(UInt8)
+  case primary
+  case secondary
+  case select
+}
+
+public struct ClipboardSelection: Equatable, Hashable, Sendable {
+  public static let clipboard: Self
+  public static let primary: Self
+  public static let clipboardAndPrimary: Self
+
+  public let targets: [ClipboardTarget]
+}
+
+public struct ClipboardWrite: Equatable, Sendable {
+  public init(selection: ClipboardSelection = .clipboard, text: String)
+  public init(selection: ClipboardSelection = .clipboard, bytes: [UInt8])
+}
+```
+
+`ClipboardSelection` is non-empty. Xterm gives an empty `Pc` a legacy configurable
+primary/clipboard-plus-cut-buffer meaning, which is too surprising for Tessera's safe
+semantic API. The default target is `.clipboard`, encoded as `c`.
+
+Order matters for multi-target selections. Terminals differ for ordered target strings
+such as `cp` and `pc`, so Tessera preserves caller order rather than normalizing to a set.
+The common presets are `.clipboard`, `.primary`, and `.clipboardAndPrimary`; less common
+xterm targets are validated instead of accepting arbitrary characters.
+
+String convenience APIs copy the string's UTF-8 bytes. Byte APIs are available for
+applications that intentionally copy non-text payloads. The semantic API does not accept a
+caller-supplied pre-base64 string; the encoder owns base64 so delimiter safety, size
+accounting, and exact bytes are centralized.
+
+The control sequence layer exposes the semantic encoder case:
+
+```swift
+case copyToClipboard(ClipboardWrite)
+```
+
+It terminates with ST (`ESC \`) to match Tessera's OSC 8 hyperlink policy. First-class
+clipboard writes do not use `RawTerminalPayload`; raw payloads remain the explicit escape
+hatch for terminal bytes Tessera does not model.
+
+Clipboard writing is safely disabled by default. Applications must opt in for a session by
+setting `TerminalApplicationConfiguration.clipboardWriting` to
+`.enabled(ClipboardWritePolicy)`, commonly `.enabled(.default)`:
+
+```swift
+public enum ClipboardWriteMode: Equatable, Sendable {
+  case disabled
+  case enabled(ClipboardWritePolicy)
+}
+
+public struct ClipboardWritePolicy: Equatable, Sendable {
+  public static let `default`: Self
+
+  public var maximumPayloadBytes: Int
+  public var allowedTargets: Set<ClipboardTarget>
+  public var allowsNestedTerminalPassthrough: Bool
+
+  public init(
+    maximumPayloadBytes: Int = 64 * 1024,
+    allowedTargets: Set<ClipboardTarget> = [.clipboard],
+    allowsNestedTerminalPassthrough: Bool = false
+  )
+}
+
+public struct TerminalApplicationConfiguration {
+  public var clipboardWriting: ClipboardWriteMode
+}
+```
+
+The conservative enabled preset allows only the normal clipboard, caps raw payloads at 64
+KiB before base64 encoding, and denies nested-terminal passthrough unless explicitly
+enabled. Enabling the session policy is not enough to copy: every public write must also
+pass explicit per-call intent, `intent: .userInitiated`, so unattended writes are visible
+in code review and testable in policy tests.
+
+`TerminalSession` exposes the active policy and writes:
+
+```swift
+public let clipboardWriting: ClipboardWriteMode
+
+public func copyToClipboard(
+  _ text: String,
+  selection: ClipboardSelection = .clipboard,
+  intent: ClipboardUserIntent
+) async throws -> ClipboardWriteResult
+
+public func copyToClipboard(
+  _ bytes: [UInt8],
+  selection: ClipboardSelection = .clipboard,
+  intent: ClipboardUserIntent
+) async throws -> ClipboardWriteResult
+
+public enum ClipboardUserIntent: Equatable, Sendable {
+  case userInitiated
+}
+```
+
+OSC 52 writes are session-scoped side effects, similar to `TerminalSession.transmitImage`,
+not frame-scoped rendering operations. `Frame` does not gain clipboard methods. Clipboard
+writes do not write cells, reserve regions, mark opaque regions, alter cursor state,
+update `lastDrawnBuffer`, or get wrapped in synchronized output. Allowed writes emit
+exactly one OSC 52 sequence and flush immediately. Denied writes emit no bytes.
+
+A successful call can only mean Tessera flushed the OSC 52 bytes to the terminal device.
+It does not mean the host clipboard changed, because terminals and multiplexers may ignore
+or deny OSC 52 without acknowledgement. Policy denials are expected behavior, not I/O
+failures:
+
+```swift
+public enum ClipboardWriteResult: Equatable, Sendable {
+  case denied(ClipboardWriteDenialReason)
+  case sent(bytesWritten: Int)
+}
+
+public enum ClipboardWriteDenialReason: Equatable, Sendable {
+  case disabledByConfiguration
+  case missingUserIntent
+  case nestedTerminalRequiresExplicitPassthrough(TerminalIdentity)
+  case payloadTooLarge(actualBytes: Int, maximumBytes: Int)
+  case selectionNotAllowed(ClipboardSelection)
+}
+```
+
+`.sent(bytesWritten:)` reports the count of encoded OSC 52 bytes flushed to the terminal
+device, not the raw payload length and not proof the host clipboard changed.
+`payloadTooLarge(actualBytes:maximumBytes:)` compares raw payload bytes before base64
+against `ClipboardWritePolicy.maximumPayloadBytes`.
+
+The size limit is applied to raw payload bytes before base64 encoding. Tessera uses RFC
+4648 standard base64 with padding. Caller bytes may include BEL, ESC, NUL, newlines, or
+invalid UTF-8; those bytes are safe because only base64 text enters the OSC body. Tessera
+does not automatically chunk clipboard writes: portable OSC 52 clipboard writes are one
+sequence, and partial/chunked clipboard updates are not a reliable terminal contract.
+
+OSC 52 is often used over SSH, and Tessera does not deny solely because `SSH_CONNECTION`
+or `SSH_TTY` exists. Multiplexers need more care: the default enabled policy denies writes
+when identity is `.tmux` or `.screen`, or when `TerminalCapabilities.isNested == true`.
+Applications may set `allowsNestedTerminalPassthrough` after warning the user that
+tmux/screen must also permit clipboard writes. Tessera does not automatically wrap OSC 52
+in tmux/screen DCS passthrough sequences.
+
+There is no portable acknowledgement that an OSC 52 write succeeded. Tessera exposes
+`TerminalCapabilities.osc52Clipboard` for parity with `osc8Hyperlinks`, and the value is
+`.notDetectable`; neither passive detection nor active probing may promote it to
+`.supported`. Tessera does not implement OSC 52 reads, queries, or active clipboard
+probes.
+
+Tests cover encoder exact bytes, selection validation, base64 safety for arbitrary bytes,
+default policy denial, explicit opt-in, selection and size denial, SSH versus
+nested-terminal policy, no-output-on-denial behavior, and the guarantee that clipboard
+writes do not perturb renderer damage state.
+
+`Phase3ProtocolsDemo` includes a clipboard panel. It never copies on startup or during a
+plain draw. It copies only in response to an explicit keypress while the clipboard UI is
+active, passes `intent: .userInitiated`, shows the last `ClipboardWriteResult`, shows the
+active policy, and warns that `.sent` means bytes were flushed rather than acknowledged by
+the host clipboard.
+
+#### Non-goals
+
+Do not add clipboard reads, OSC 52 read/query probes, pasteboard-native APIs,
+terminal-specific clipboard probes, auto-detected tmux/screen passthrough wrappers, Phase
+4 view-layer copy widgets, or Sixel.
+
+#### End of Slice 9
+
+`TesseraTerminal` can perform safe, bounded, explicitly user-initiated OSC 52 clipboard
+writes as session side effects, while default applications remain unable to mutate the
+clipboard and nested terminal/multiplexer policy is respected.
+
+### Slice 10: Cursor styling
+
+Cursor styling is application/session policy. Tessera models cursor shape and cursor color
+as typed configuration that is applied by the session lifecycle and restored by lifecycle
+cleanup; apps must not use `RawTerminalPayload`, `Frame.writeRaw`, or ad-hoc terminal
+writes to change cursor shape or cursor color.
+
+Protocols in scope:
+
+- **DECSCUSR cursor shape**: `CSI Ps SP q`.
+  - `0` restores the terminal/user configured cursor shape.
+  - `1` selects blinking block.
+  - `2` selects steady block.
+  - `3` selects blinking underline.
+  - `4` selects steady underline.
+  - `5` selects blinking bar.
+  - `6` selects steady bar.
+- **OSC 12 cursor color**: `OSC 12;Pt ST`, where Tessera's `Pt` is restricted to an RGB
+  `#RRGGBB` color string generated from typed values. Tessera terminates its OSC 12/112
+  with ST (`ESC \`), the ECMA-48 standard terminator that OSC 8 hyperlinks already use, in
+  preference to BEL: ST is silent if a parser desyncs, whereas a stray BEL beeps or
+  flashes.
+- **OSC 112 cursor-color reset**: `OSC 112 ST`, used to return the text cursor color to
+  the terminal default.
+
+Add `CursorShape` in `TesseraTerminalANSI` with cases `defaultUserShape`, `blinkingBlock`,
+`steadyBlock`, `blinkingUnderline`, `steadyUnderline`, `blinkingBar`, and `steadyBar`. Add
+an RGB-only `CursorColor` value type. Do not accept arbitrary strings, named xterm colors,
+indexed palette values, or raw OSC fragments; cursor color is serialized only as uppercase
+`#RRGGBB`.
+
+Add `CursorStyle` with optional `shape` and optional `color` facets. `nil` means Tessera
+leaves that facet untouched. `CursorShape.defaultUserShape` is an explicit command to send
+DECSCUSR `0`; it is not the same as `nil`. Add semantic `ControlSequence` cases for cursor
+shape, cursor color, and cursor-color reset. These cases are the only supported way to
+produce DECSCUSR/OSC 12/OSC 112 bytes from Tessera APIs.
+
+Add cursor styling policy to `TerminalApplicationConfiguration`, disabled by default. This
+policy is the application's declaration that cursor style changes are allowed for the
+session; it is not limited to a single static startup style. The policy may include an
+optional default cursor style to apply when no focused component requests one.
+
+Future Phase 4 views must be able to request cursor style declaratively when they have
+focus — for example, a text input might request a steady bar while a normal command panel
+uses the default block. Phase 3 should therefore build the lower-level session and
+`ModeLifecycle.apply` machinery that can change cursor style dynamically, while still
+leaving the Phase 4 focused-component API out of scope.
+
+If cursor styling is enabled and a default or dynamically requested style has at least one
+non-`nil` facet, configuration/runtime resolution adds a session-owned lifecycle mode such
+as `.cursorStyle(cursorStyle)` and carries the effective style through
+`TerminalApplicationResolution` and `TerminalSession` for introspection. `nil` means
+Tessera leaves that facet untouched. Draw transactions continue to hide the cursor by
+default and show/move it when a frame requests a position; draw must not re-emit shape or
+color on every frame.
+
+Cursor styling is acquired after raw mode and alternate screen are entered, before
+higher-level application protocol modes such as bracketed paste, focus events, mouse
+tracking, and Kitty keyboard. Applying a cursor style sends one flush containing
+`setCursorShape` first, when `shape != nil`, followed by `setCursorColor`, when
+`color != nil`.
+
+Disabling a cursor style sends one flush containing DECSCUSR `0` when Tessera previously
+owned `shape`, followed by OSC 112 when Tessera previously owned `color`. Dynamic
+lifecycle reconciliation must treat cursor styling like other app protocol modes: applying
+the same style is idempotent; changing styles resets old owned facets before applying new
+facets; disabling style restores only the facets Tessera owned.
+
+Normal session exit restores cursor visibility as today, then lifecycle exit restores
+cursor shape/color before leaving the alternate screen and raw mode. Emergency cleanup
+bytes include cursor-shape reset and/or cursor-color reset only when requested or active
+cursor styling proves Tessera owns those facets.
+
+Unsupported terminals are not startup failures. DECSCUSR and OSC 12/112 have no required
+active probe in this slice; terminals that do not support them may ignore the sequences.
+Passive terminal identity hints must not be treated as proof of cursor-styling support. Do
+not add a terminal-name allowlist that changes failure behavior. `NO_COLOR` and SGR
+color-depth policy do not implicitly disable cursor color: cursor color is an explicit
+application opt-in and is not cell text color. Tessera does not query and restore the
+user's exact pre-existing cursor color; restore means terminal/user default via OSC 112.
+
+Multiplexer behavior follows the same producer boundary. When Tessera runs inside a
+multiplexer that owns a virtual screen and renders its own host cursor, such as herdr, the
+multiplexer must either model child cursor color state and re-emit equivalent OSC 12/112
+for its host cursor, or intentionally leave cursor color unsupported. Tessera must not
+bypass that layer or invent tmux/screen-style passthrough wrappers for cursor styling; a
+flushed OSC 12/112 sequence only proves Tessera sent the request to its immediate terminal
+device.
+
+Tests should cover all DECSCUSR values, exact `CSI Ps SP q` bytes including the space
+byte, OSC 12 RGB serialization, OSC 112 reset, disabled-by-default configuration, enabled
+policy with no default style, enabled policy with a default style, focused/requested style
+overrides, enter/exit ordering, dynamic apply, shape-only/color-only behavior, failed
+enable rollback, unsupported-terminal no-failure policy, emergency cleanup reset bytes for
+owned facets only, and no per-frame shape/color emission.
+
+#### Non-goals
+
+Do not add Windows console API cursor styling, arbitrary OSC color strings, cursor style
+query/restore, terminal-name support allowlists, or Sixel. Do not implement the Phase 4
+focused-component cursor-style API in this slice, but keep the session/lifecycle machinery
+ready for it.
+
+#### End of Slice 10
+
+`TesseraTerminal` can opt into cursor shape and cursor color styling as session-owned
+lifecycle state, restore only the facets it owns, and leave user cursor preferences alone
+when applications do not request styling.
+
+### Slice 11: Underline extensions
+
+Slice 11 equips Tessera with modern underline SGR: underline style variants and underline
+colors. The style model represents underline explicitly, and the renderer emits SGR `4`,
+`24`, and the extension forms below. Modern terminal UIs use richer underline semantics
+for diagnostics, spellcheck, links, search matches, and accessibility-friendly status
+decoration: double underline, curly undercurl, dotted underline, dashed underline, and an
+underline color that is independent of the foreground color.
+
+This slice is pure text styling. Underline metadata does not consume layout space, does
+not change grapheme width, and does not affect raw payload occupancy. There is no standard
+active probe for underline extensions. Unsupported terminals are not uniformly safe,
+however: Terminal.app 2.15 misparses `4:2` through `4:5` as background colors and SGR `58`
+can trigger blink or conceal behavior. Tessera therefore resolves semantic underline state
+through an output-safety policy before rendering.
+
+Tessera models the following SGR forms:
+
+```text
+CSI 4 m          single underline
+CSI 24 m         underline off
+CSI 4:2 m        double underline
+CSI 4:3 m        curly underline / undercurl
+CSI 4:4 m        dotted underline
+CSI 4:5 m        dashed underline
+CSI 58:5:<n> m   underline color from the 256-color palette
+CSI 58:2::<r>:<g>:<b> m
+                 underline truecolor
+CSI 59 m         reset underline color to the terminal default
+```
+
+Underline colors use colon subparameters on the wire. Parsers that predate SGR 58 skip an
+unrecognized colon group wholesale, while the semicolon forms split into separate
+parameters and can misapply blink (5) or dim (2); mintty additionally parses only the
+colon form. The double colon in the RGB form is the empty colorspace subparameter.
+
+The low-level `ControlSequence` API always preserves these exact bytes. Session rendering
+uses `UnderlineRenderingPolicy`, which separates two output decisions:
+
+- `UnderlineStyleRendering.preserveVariants` preserves the requested style, while
+  `.singleOnly` maps every non-`.none` style to `.single`.
+- `UnderlineColorRendering.emit` emits semantic underline color, while `.omit` projects it
+  to `.default` without writing SGR `58` or `59`.
+
+The `.extended` preset combines `.preserveVariants` and `.emit`; the `.baseline` preset
+combines `.singleOnly` and `.omit`. Applications can also construct mixed policies.
+`TerminalApplicationConfiguration.underlineRendering` defaults to `.extended`.
+
+`UnderlineCompatibilityMode.off` is the default and uses that requested policy unchanged.
+`.terminfoDatabase` is an explicit startup-only compatibility opt-in: a valid entry that
+does not declare `Smulx` projects the style axis to `.singleOnly`, and one that does not
+declare `Setulc` projects the color axis to `.omit`. A declared axis preserves the
+requested axis; an unknown declaration leaves it unchanged; and the projection never
+upgrades a requested baseline or omitted axis. Terminal identity and passive capability
+detection never select this mode or prove underline support.
+
+`TerminalSession` owns the active concrete policy as actor-isolated state. Applications
+can call `setUnderlineRendering(_:)` while a session is running; this explicit runtime
+setter wins over the startup compatibility projection. A changed policy invalidates cached
+renderer state so the next draw erases and repaints under the new projection. Setting the
+already-active policy is a no-op and does not force a repaint. The Phase 3 demo exposes
+independent runtime controls for the style and color axes.
+
+Prefer `24` for disabling underline rather than `4:0`. Prefer `4` for single underline
+rather than `4:1`, because `4` is the widest-compatible spelling and matches Tessera's
+existing encoder. Do not use SGR `21` for double underline: many modern terminals and
+libraries treat `21` as bold/intensity off. Tessera's double underline spelling should be
+the unambiguous subparameter form `4:2`.
+
+Ratatui has an optional `underline_color` field on `Style` behind its `underline-color`
+feature, and crossterm exposes `DoubleUnderlined`, `Undercurled`, `Underdotted`,
+`Underdashed`, and `NoUnderline`. Tessera preserves the variant rather than collapsing it
+to a boolean.
+
+Tessera exposes a first-class underline style value in the terminal style model:
+
+```swift
+public enum UnderlineStyle: Equatable, Sendable {
+  case none
+  case single
+  case double
+  case curly
+  case dotted
+  case dashed
+}
+```
+
+`curly` is Tessera's API spelling for SGR `4:3` undercurl. Documentation can mention
+“undercurl” because that is the term many editors and terminals use, but the case name
+should describe the visual style rather than the implementation detail.
+
+`Style` exposes underline-specific fields whose semantic defaults are no underline and
+default underline color. The clean model has no boolean underline bit in `TextAttributes`;
+callers use `underlineStyle: .single`, and `UnderlineStyle` is the only representation of
+whether text is underlined.
+
+Underline color is independent state. `underlineColor != .default` does not turn underline
+on by itself; it only chooses the underline's color when the effective underline style is
+not `.none`. Underline colors reuse Tessera's existing `Color` type and use
+underline-specific SGR parameters. `Color.default` means SGR `59` in underline-color
+context, not foreground reset `39` or background reset `49`.
+
+There is no 16-color underline shorthand equivalent to foreground `30...37`/`90...97` or
+background `40...47`/`100...107`. Named ANSI colors should therefore map to their
+conventional 256-color palette indexes `0...15`.
+
+Tessera exposes semantic control sequence support:
+
+```swift
+case setUnderlineStyle(UnderlineStyle)
+case setUnderlineColor(Color)
+```
+
+`setUnderline(Bool)` was replaced rather than kept as an alias: single underline is
+`setUnderlineStyle(.single)` and underline off is `setUnderlineStyle(.none)`, so a
+parallel boolean spelling of the same two SGR bytes (`4`/`24`) would be redundant surface.
+The other boolean SGR toggles (`setBold`, `setItalic`, …) remain `Bool` because they are
+genuinely two-state; underline is the one attribute represented by a value type.
+`UnderlineStyle` is a wire-level type that lives alongside `Color` in the ANSI encoder
+layer so the encoder can reference it, and the buffer style layer reuses it.
+
+Renderer diffing treats underline style and underline color as real SGR state. A cell
+whose only change is `.curly` to `.dashed`, or `indexed(196)` underline color to
+`rgb(1,2,3)`, is damaged and repainted just like a foreground color change.
+
+Reset behavior matters:
+
+- SGR `0` resets all graphic rendition state, including underline style and underline
+  color.
+- SGR `24` resets underline style only.
+- SGR `59` resets underline color only.
+- changing from one non-`.none` underline style to another should emit the target style
+  directly, without a broad reset unless another attribute transition already requires
+  one.
+- changing from any underline style to `.none` emits `24`.
+- changing from a custom underline color to `.default` emits `59`, even if the new style
+  also disables underline, so a terminal does not leak the old underline color into a
+  later default-colored underline.
+- under `.singleOnly`, the renderer projects both old and new underline styles before
+  diffing, so variant changes that collapse to single underline emit no redundant SGR.
+- under `.omit`, underline color changes project to `.default` and emit no SGR `58` or
+  `59`.
+
+Buffer snapshots include non-default underline metadata in a compact, readable form that
+distinguishes all variants and underline color forms. Ghostty-backed virtual-terminal
+snapshots report underline variants and underline color from Ghostty's C API; exact byte
+tests remain the authority for variant/color correctness.
+
+Tessera does not actively probe for underline extension support and does not fail startup
+when support is absent. The terminfo reader reports independent advisory declarations for
+the style (`Smulx`) and color (`Setulc`) axes; `.unknown` does not dumb down the default
+extended output, and `.declared` is not proof of active support. Raw extension bytes are
+not universally harmless, so an application that targets ordinary underline can select
+`.baseline` directly or opt into the startup-only `.terminfoDatabase` projection. A later
+`setUnderlineRendering(_:)` is an explicit runtime choice and is not reprojected through
+terminfo. Tessera does not infer any of these choices from emulator identity. Applications
+must not use underline style or underline color as the only carrier of critical
+information; text content, symbols, labels, and accessible wording remain the source of
+truth.
+
+Coverage exercises exact encoder bytes for all underline styles, underline color reset,
+indexed/RGB/named underline colors, the API migration away from boolean underline, style
+equality/damage tracking, renderer transitions, hyperlink composition, snapshot metadata
+where available, and precise `24`/`59` reset behavior.
+
+#### End of Slice 11
+
+`TesseraTerminal` exposes underline variants and colored underlines as ordinary semantic
+style state. Callers express single underline, undercurl, and underline color through the
+same `UnderlineStyle`/underline-color model without raw ANSI bytes. Extended rendering
+preserves the requested variants and colors with precise `24`/`59` resets; baseline
+rendering emits ordinary underline only.
+
+### Slice 12: Runtime protocol control
+
+Slice 12 closes Phase 3's live-session contract. It makes the distinction between advisory
+evidence, application request, effective terminal state, and ambiguous state observable;
+it also lets an application adjust selected output policies and application modes without
+violating terminal cleanup or a frame transaction.
+
+#### Lifecycle transaction and cleanup
+
+Every lifecycle mutation is serialized through one non-reentrant, cancellation-safe
+transition gate. Actor isolation alone is not enough because a lifecycle write, flush, or
+mode setter can suspend; the gate gives `enter`, application-mode reconciliation, cursor
+changes, and `exit` one total order.
+
+Before the first mutating byte for a mode can reach the terminal, Tessera registers
+defensive cleanup for every requested/possibly-active mode. A successful write records the
+mode as active. A partial write or flush failure is ambiguous: Tessera preserves modes
+known to have completed, marks the affected slot possibly active, discards the stale
+unwritten suffix where recovery requires it, and disables the defensive union of active,
+requested, and possibly-active modes on cleanup. A Kitty push failure schedules a matching
+pop; graphics cleanup failure discards retained stale bytes before mode teardown.
+
+On a failed disable or exit, Tessera retains or reinstalls emergency cleanup and retains
+the ambiguous lifecycle belief. It clears lifecycle state and cleanup registration only
+after teardown succeeds. Repeated cleanup is idempotent. Startup—including session
+construction, active reconciliation, initial application modes, and cursor restoration—is
+inside the same cleanup transaction, so a failure before the application body cannot leak
+raw mode, alternate screen, or an application protocol mode.
+
+#### Evidence, probes, and mode precedence
+
+`TerminalCapabilities` is live evidence, not configuration. It records passive color and
+identity hints, protocol-native events and query results, DEC private-mode observations,
+and separate terminfo underline declarations. Identity/declarations are advisory; neither
+is proof of active support. `TerminalProtocolModeReport` separately reports accepted
+requested mode policy, lifecycle-effective modes, and modes that may be active after
+ambiguous I/O.
+
+Active detection is one bounded, permanently cached generation per session. Its serialized
+rounds are DECRQM, Kitty keyboard with DA1, then Kitty Graphics `a=q` with a unique image
+ID and DA1. Parsed events are observed by the existing input pump before their normal
+single delivery to both public input APIs; probes do not create a second parser or consume
+user input. Each round ends on its protocol-native evidence, a DA1 sentinel where defined,
+or the configured deadline. A timed-out untagged DA1 round retires later untagged DA1
+rounds so a late response cannot satisfy a newer generation.
+
+Public active-query entry points return the cached result once resolved, or an explicit
+in-progress result while the one generation runs; they do not emit indistinguishable
+repeated queries. This is why `.kittyIfAvailable` consults cached active keyboard evidence
+instead of probing again. Kitty Graphics is part of active evidence, but its ordinary
+query/transmit/place/delete operations remain operational rather than a persistent
+setting. OSC 8 and OSC 52 remain `.notDetectable`: neither has a standard query.
+
+Explicit application policy has the following precedence:
+
+- `NO_COLOR` and dumb `TERM` pin effective color output to `.noColor`; otherwise the
+  requested `ColorCapabilityOverride` resolves against detected color evidence.
+- Explicit bracketed-paste, focus, and mouse requests remain application instructions.
+  DECRQM evidence is displayed but never silently overrides them.
+- `.kittyRequired` requests Kitty keyboard regardless of evidence; `.kittyIfAvailable`
+  requires positive active keyboard evidence; `.legacyOnly` disables it.
+- Synchronized output is explicit output policy; its DEC 2026 evidence is advisory.
+- Underline defaults to `.extended`; `.terminfoDatabase` is explicit startup
+  compatibility, declaration evidence is advisory, and the runtime underline setter wins.
+
+#### Draw commit points and runtime APIs
+
+`TerminalSession.draw` awaits terminal size first, then commits effective color,
+hyperlink, synchronized-output, and underline policies before the synchronous borrowed
+frame body and byte encoding begin. A setter that runs while the size operation is
+suspended may affect that frame; after this commit point, no setter can change its bytes.
+A setter after encoding affects the next draw and leaves invalidation armed as
+appropriate.
+
+The session's public runtime policy setters are:
+
+- `setColorCapability(_:)`
+- `setHyperlinkRendering(_:)`
+- `setSynchronizedOutput(_:)`
+- `setUnderlineRendering(_:)`
+- `setMouseTracking(_:)`
+- `setFocusEvents(_:)`
+- `setKeyboardProtocol(_:)`
+- `setCursorStyle(_:)`
+
+Color, hyperlink, and underline changes that alter effective output invalidate and repaint
+an unchanged buffer. Hyperlink disablement repaints cells without OSC 8 metadata; every
+frame still includes the terminal-state close sequence. A partial flush retains its
+unwritten suffix, including that close, ahead of future frame bytes; Tessera does not
+discard it or append a duplicate speculative close. Synchronized output is committed for
+the whole frame: its enter byte precedes renderer encoding, cursor bytes remain inside the
+wrapper, and its exit byte is the final frame byte. It changes no cell state and therefore
+does not itself invalidate.
+
+Mode setters either commit requested policy after successful lifecycle application or
+throw while preserving the prior accepted request. In either outcome, effective and
+possibly-active state are refreshed from lifecycle belief rather than claimed from an old
+startup snapshot. Equal setters are no-ops. Fixed raw/alternate ownership and startup-only
+bracketed paste are rejected rather than silently changed.
+
+#### Demo and operational boundaries
+
+The Phase 3 protocols demo makes every live control observable. Panel-local controls are
+`d` for detected/forced color cycling, `y` for synchronized output, `h` for OSC 8
+rendering, `t` for actual mouse tracking, `f` for focus reporting, and `k` for keyboard
+policy. Underline and cursor retain their panel-local `s`/`c` and `s`/`x` controls; the
+clipboard panel's `c` is also panel-local. The global `m` remains a separately labeled
+mouse logging filter, while global `q`, `g`, and `m` retain their quit, graphics, and
+logging roles outside panel-local routing; numeric tab selection is global. Global and
+panel-local actions accept press/repeat events and ignore key-release events. The demo
+displays evidence, requested policy, effective state, and possibly-active state
+separately; identity remains diagnostic.
+
+Deliberate exclusions preserve safe ownership boundaries: raw mode and alternate screen
+are fixed for the session; bracketed paste is startup-only; clipboard policy is
+startup-fixed and security-sensitive; no terminal-name allowlist decides a protocol; and
+graphics stays an explicit operation, not an enabled-mode toggle. Errors from lifecycle
+I/O, probes, or reconciliation are surfaced to the caller while cleanup and public
+effective/possible state remain truthful. The demo keeps graphics operational and does not
+offer an unsafe repeated active-probe refresh.
+
+#### End of Slice 12
+
+`TesseraTerminal` provides live, bounded, and inspectable protocol control without
+conflating evidence with policy, changing a frame halfway through encoding, or abandoning
+cleanup after ambiguous terminal I/O.
 
 **End of Phase 3:** `TesseraTerminal` is feature-complete for a modern terminal app.
 Everything above this is the view library.
@@ -5185,6 +6794,9 @@ Phase 4 deliberately starts only after the substrate it renders into exists:
   events). Kitty keyboard (Phase 3 Slice 4) improves it but is not a prerequisite.
 - **Slice 5** requires Phase 3 Slice 3 (SGR mouse events).
 - **Slice 7** exercises everything above it.
+- A future `Image` view — not yet a numbered Phase 4 slice — will require Phase 3 Slice 7
+  (the Kitty graphics protocol substrate: transmission, placement, and pixel geometry).
+  This is a forward pointer, not new Phase 4 scope.
 
 Phase 4 may interleave with Phase 3: slices 1–3 can land while Phase 3 protocol slices are
 still in flight, as long as Phase 2 is complete.
@@ -6237,25 +7849,47 @@ Requires Phase 3 Slice 3 (SGR mouse events).
       public func onMouse(
           _ handler: @escaping (MouseEvent, inout ResponderContext) -> EventDisposition
       ) -> some View
+      public func onHover(
+          perform: @escaping (_ isHovered: Bool, inout ResponderContext) -> Void
+      ) -> some View
       public func allowsHitTesting(_ enabled: Bool) -> some View
   }
   ```
 
   `.onTap` is press+release of the primary button within the same node (no drag threshold
   cleverness — cells are coarse). `.onMouse` exposes the raw stream (move, drag, scroll,
-  per Phase 3's bounded-coalescing policy) for widgets like `List` and `ScrollView`.
+  per Phase 3's bounded-coalescing policy) for widgets like `List` and `ScrollView`;
+  `.move` events are delivered only while any-event tracking is active.
+
+  `onHover` derives enter and exit from hit-testing incoming `.move` positions against the
+  node's frame; it never receives raw mouse events. Because `.move` only exists while
+  any-event tracking is active, a view with an `onHover` handler needs that broader
+  granularity — see `wantsMouseMotion` below.
 
 - Routing: hit-test the deepest handler-bearing node, bubble while `.ignored`, same as
   keys. A primary-button press on a `.focusable` node focuses it before tap delivery
   (click-to-focus); this is the one built-in behavior, and it is documented and
   disableable (`.focusOnTap(false)` if real demand appears — do not pre-build it).
-- Presence of any mouse handler sets `terminalRequirements.wantsMouse`.
+- Presence of any mouse handler (`.onTap` or `.onMouse`) sets
+  `terminalRequirements.wantsMouse`; presence of any `onHover` handler (or a widget that
+  requests motion directly) sets `terminalRequirements.wantsMouseMotion`. The session maps
+  these onto Phase 3's `MouseTracking`: `wantsMouseMotion` → `.mouseTracking(.anyEvent)`;
+  `wantsMouse` alone → `.mouseTracking(.buttonEvents)`; neither → mouse tracking disabled.
+  This extends the existing dynamic-disable behavior below to two escalating tiers instead
+  of one on/off switch.
+- Hover state clears on `focusLost` and whenever motion tracking disables — terminals give
+  no mouse-leave signal, so a stuck "hovered" view is otherwise unavoidable once the
+  pointer or focus moves away without a trailing event to notice.
 - Tests: hit-test tables over constructed layouts (overlapping ZStack children, clipped
-  overflow, disabled subtrees); scroll-event routing; click-to-focus.
+  overflow, disabled subtrees); scroll-event routing; click-to-focus; hover enter/exit
+  tables over constructed `.move` position sequences; `wantsMouse`/`wantsMouseMotion`
+  escalation and de-escalation as handlers are added and removed.
 
 Definition of done: hit testing matches the table tests; an example app mixes keyboard and
 mouse focus; removing all mouse handlers drops `wantsMouse` and the session disables mouse
-mode mid-run.
+mode mid-run; adding and removing `onHover` handlers escalates and de-escalates
+`wantsMouseMotion` independently of `wantsMouse`; hover state clears correctly on focus
+loss and on motion-tracking disable.
 
 ---
 
@@ -6501,25 +8135,27 @@ terminal libraries commonly go wrong, plus the mitigation the spec expects. When
 implementation decision touches one of these risks, treat that as a signal to re-read the
 relevant slice before changing course.
 
-| Risk                                                | Where it shows up                           | Mitigation                                                                                          |
-| --------------------------------------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Terminal not restored after exit                    | Phase 2 slice 3; Phase 3 mode slices        | `ModeLifecycle`, `CleanupRegistry`, signal/ctrl handlers, and conservative over-cleanup.            |
-| Encoder API leaks raw escape strings                | Phase 2 slice 2; all Phase 3 protocol modes | Keep semantic `ControlSequence` cases, explicit `RawTerminalPayload`, and byte-level golden tests.  |
-| Raw escape hatch corrupts damage tracking           | Phase 2 slices 2/4; future protocols        | Pair raw payloads with `CellDiffPolicy`, opaque regions, reclaim tests, and virtual-terminal tests. |
-| Width bugs corrupt rendering                        | Phase 2 slice 4                             | Use explicit cell content states, continuation cells, width tests, and snapshot tests.              |
-| Damage renderer leaves stale style state            | Phase 2 slice 4; Phase 3 OSC 8              | Treat style, hyperlink, raw payload, and cursor state as renderer-owned state machines.             |
-| Input parser swallows or mislabels bytes            | Phase 2 slice 5; Phase 3 input protocols    | Keep parser streaming, expose `.unknown(bytes:)`, and test split/partial sequences.                 |
-| ESC ambiguity makes Escape feel laggy               | Phase 2 slice 5; Phase 3 Kitty keyboard     | Put timeout policy in the input task; use Kitty keyboard as the modern escape hatch.                |
-| Bracketed paste is parsed as typed input            | Phase 3 slice 1                             | Treat paste as a parser mode that suspends normal key parsing.                                      |
-| Mouse tracking breaks the user's shell              | Phase 3 slice 3                             | Disable mouse modes on every teardown path; prefer button-event tracking over any-event mode.       |
-| Kitty keyboard over-expands public API              | Phase 3 slice 4                             | Add key cases deliberately and keep legacy parsing as the compatibility baseline.                   |
-| OSC 8 enables escape injection                      | Phase 3 slice 5                             | Validate/sanitize hyperlink URI/ID fields and keep OSC bytes out of cell symbols.                   |
-| Capability detection makes startup fragile          | Phase 3 slice 6                             | Treat capabilities as advisory hints with timeouts and user-visible configuration.                  |
-| Tessera becomes a compatibility ceiling             | Cross-cutting; raw protocols                | Stay a producer, expose scoped raw payloads, and avoid mux/emulator responsibilities in core.       |
-| Windows diverges semantically                       | Phase 2 slice 6; Phase 3 protocols          | Require VT mode and keep OS differences inside `PlatformIO` and cleanup code.                       |
-| Modular targets create public API pressure          | Package layout                              | Use `package` access for cross-target internals and thin re-export targets for users.               |
-| Phase 4 view layer designs around missing substrate | Phase 4                                     | Honor the Phase 4 prerequisites table; do not start a slice before its substrate slice lands.       |
-| No interactive UI hurts motivation                  | Cross-cutting                               | Consider low-level examples like `TerminalLab`, but do not let them drive the view API prematurely. |
+| Risk                                                   | Where it shows up                           | Mitigation                                                                                                                          |
+| ------------------------------------------------------ | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Terminal not restored after exit                       | Phase 2 slice 3; Phase 3 mode slices        | `ModeLifecycle`, `CleanupRegistry`, signal/ctrl handlers, and conservative over-cleanup.                                            |
+| Encoder API leaks raw escape strings                   | Phase 2 slice 2; all Phase 3 protocol modes | Keep semantic `ControlSequence` cases, explicit `RawTerminalPayload`, and byte-level golden tests.                                  |
+| Raw escape hatch corrupts damage tracking              | Phase 2 slices 2/4; future protocols        | Pair raw payloads with `CellDiffPolicy`, opaque regions, reclaim tests, and virtual-terminal tests.                                 |
+| Width bugs corrupt rendering                           | Phase 2 slice 4                             | Use explicit cell content states, continuation cells, width tests, and snapshot tests.                                              |
+| Damage renderer leaves stale style state               | Phase 2 slice 4; Phase 3 OSC 8              | Treat style, hyperlink, raw payload, and cursor state as renderer-owned state machines.                                             |
+| Input parser swallows or mislabels bytes               | Phase 2 slice 5; Phase 3 input protocols    | Keep parser streaming, expose `.unknown(bytes:)`, and test split/partial sequences.                                                 |
+| ESC ambiguity makes Escape feel laggy                  | Phase 2 slice 5; Phase 3 Kitty keyboard     | Put timeout policy in the input task; use Kitty keyboard as the modern escape hatch.                                                |
+| Bracketed paste is parsed as typed input               | Phase 3 slice 1                             | Treat paste as a parser mode that suspends normal key parsing.                                                                      |
+| Mouse tracking breaks the user's shell                 | Phase 3 slice 3                             | Disable mouse modes on every teardown path; prefer button-event tracking over any-event mode.                                       |
+| Kitty keyboard over-expands public API                 | Phase 3 slice 4                             | Add key cases deliberately and keep legacy parsing as the compatibility baseline.                                                   |
+| OSC 8 enables escape injection                         | Phase 3 slice 5                             | Validate/sanitize hyperlink URI/ID fields and keep OSC bytes out of cell symbols.                                                   |
+| Capability detection makes startup fragile             | Phase 3 slice 6                             | Treat capabilities as advisory hints with timeouts and user-visible configuration.                                                  |
+| Tessera becomes a compatibility ceiling                | Cross-cutting; raw protocols                | Stay a producer, expose scoped raw payloads, and avoid mux/emulator responsibilities in core.                                       |
+| Windows diverges semantically                          | Phase 2 slice 6; Phase 3 protocols          | Require VT mode and keep OS differences inside `PlatformIO` and cleanup code.                                                       |
+| Modular targets create public API pressure             | Package layout                              | Use `package` access for cross-target internals and thin re-export targets for users.                                               |
+| Phase 4 view layer designs around missing substrate    | Phase 4                                     | Honor the Phase 4 prerequisites table; do not start a slice before its substrate slice lands.                                       |
+| No interactive UI hurts motivation                     | Cross-cutting                               | Consider low-level examples like `TerminalLab`, but do not let them drive the view API prematurely.                                 |
+| Graphics protocol leaves orphaned images or placements | Phase 3 slice 7                             | Unconditional delete-all in teardown/emergency cleanup, alt-screen confinement, and harness placement tests.                        |
+| Image payloads flood terminals that ignore them        | Phase 3 slice 7                             | Blind emission is app opt-in; Slice 6's bounded probe and capability hints inform apps; `t=d` chunking keeps sequences well-formed. |
 
 A risk becomes urgent when implementation pressure tempts the opposite mitigation: raw
 escape strings at call sites, raw bytes outside render transactions, parser special cases

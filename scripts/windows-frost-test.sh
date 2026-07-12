@@ -21,7 +21,11 @@ GHOSTTY_REVISION="$(tr -d '[:space:]' < "$repo_root/scripts/ghostty-vt-version.t
 GHOSTTY_HOST_CACHE="$TESSERA_FROST_WORK/libghostty-vt"
 GHOSTTY_HOST_ARTIFACT="$GHOSTTY_HOST_CACHE/$GHOSTTY_REVISION/windows-arm64"
 GHOSTTY_GUEST_OUTPUT_ROOT="C:/Users/$TESSERA_FROST_USER/AppData/Local/tessera/libghostty-vt"
-
+SWIFTPM_HOST_CACHE="$TESSERA_FROST_SWIFTPM_CACHE_ROOT"
+SWIFTPM_HOST_ARCHIVE="$TESSERA_FROST_SWIFTPM_CACHE_ARCHIVE"
+SWIFTPM_GUEST_CACHE_ROOT="$TESSERA_FROST_SWIFTPM_GUEST_CACHE_ROOT"
+SWIFTPM_GUEST_CACHE_NAME="$TESSERA_FROST_SWIFTPM_GUEST_CACHE_NAME"
+SWIFTPM_GUEST_CACHE_PATH="$TESSERA_FROST_SWIFTPM_GUEST_CACHE_PATH"
 
 require_file() {
   local label="$1"
@@ -83,6 +87,38 @@ run_guest() {
   frost_ssh "$TESSERA_FROST_SSH_PORT" "$TESSERA_FROST_USER@localhost" "$1"
 }
 
+restore_swiftpm_cache() {
+  if [[ ! -f "$SWIFTPM_HOST_ARCHIVE" ]]; then
+    printf '[4c/7] SwiftPM dependency cache: no host cache yet\n'
+    return
+  fi
+
+  printf '[4c/7] restore SwiftPM dependency cache\n'
+  run_guest "powershell -NoProfile -Command \"New-Item -ItemType Directory -Force -Path '$SWIFTPM_GUEST_CACHE_ROOT' | Out-Null\""
+  run_guest "tar -C $SWIFTPM_GUEST_CACHE_ROOT -xzf -" < "$SWIFTPM_HOST_ARCHIVE"
+}
+
+save_swiftpm_cache() {
+  mkdir -p "$SWIFTPM_HOST_CACHE"
+
+  local tmp_archive="$SWIFTPM_HOST_ARCHIVE.tmp"
+  rm -f "$tmp_archive"
+
+  printf '[5b/7] save SwiftPM dependency cache\n'
+  set +e
+  run_guest "powershell -NoProfile -Command \"if (Test-Path '$SWIFTPM_GUEST_CACHE_PATH') { tar -C '$SWIFTPM_GUEST_CACHE_ROOT' -czf - '$SWIFTPM_GUEST_CACHE_NAME' }\"" > "$tmp_archive"
+  local cache_rc=$?
+  set -e
+
+  if [[ "$cache_rc" -eq 0 && -s "$tmp_archive" ]]; then
+    mv "$tmp_archive" "$SWIFTPM_HOST_ARCHIVE"
+    return
+  fi
+
+  rm -f "$tmp_archive"
+  printf '[5b/7] SwiftPM dependency cache was not updated\n' >&2
+}
+
 printf '[1/7] create disposable test overlay\n'
 qemu-img create -f qcow2 -b "$TESSERA_FROST_TOOLCHAIN_GOLDEN" -F qcow2 "$OVERLAY" > /dev/null
 cp "$TESSERA_FROST_TOOLCHAIN_VARS" "$CVARS"
@@ -115,12 +151,14 @@ run_guest "powershell -NoProfile -Command \"New-Item -ItemType Directory -Force 
 # which clang would otherwise pick up via the CGhosttyVT umbrella header.
 COPYFILE_DISABLE=1 tar -C "$GHOSTTY_HOST_CACHE" -czf - "$GHOSTTY_REVISION" |
   run_guest "tar -C $GHOSTTY_GUEST_OUTPUT_ROOT -xzf -"
+restore_swiftpm_cache
 
 printf '[5/7] run swift tests\n'
 set +e
-run_guest "powershell -NoProfile -ExecutionPolicy Bypass -File $REMOTE_TEST_SCRIPT -RepoPath $REPO_PATH -SwiftTestArgsBase64 \"$SWIFT_TEST_ARGS_B64\" -GhosttyOutputDir $GHOSTTY_GUEST_OUTPUT_ROOT"
+run_guest "powershell -NoProfile -ExecutionPolicy Bypass -File $REMOTE_TEST_SCRIPT -RepoPath $REPO_PATH -SwiftTestArgsBase64 \"$SWIFT_TEST_ARGS_B64\" -GhosttyOutputDir $GHOSTTY_GUEST_OUTPUT_ROOT -SwiftPMCachePath $SWIFTPM_GUEST_CACHE_PATH"
 TEST_RC=$?
 set -e
+save_swiftpm_cache
 
 printf '[6/7] shut down guest\n'
 run_guest 'shutdown /s /t 0' || true

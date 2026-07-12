@@ -56,10 +56,9 @@ jobs:
             ~/.cache/tessera/libghostty-vt
             !~/.cache/tessera/libghostty-vt/source
             !~/.cache/tessera/libghostty-vt/cmake
+          # Exact-only to match CI and prevent a stale native install from being relabeled.
           # prettier-ignore
-          key: libghostty-vt-v2-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
-          restore-keys: |
-            libghostty-vt-v2-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-
+          key: libghostty-vt-v3-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
 
       - name: Install just
         uses: taiki-e/install-action@v2

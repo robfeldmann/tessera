@@ -17,8 +17,17 @@
   shared logic and call sites platform-free instead of wrapping file bodies in `#if`.
 - After code changes, run the narrowest relevant validation first, e.g.
   `swift test --filter <TargetOrTestName>` or `swift build`.
-- During iteration, run `just quality changed`; before committing, run
-  `just quality lint`.
+- During iteration, run focused checks (`swift test --filter ...`,
+  `just quality changed`).
+- Before handing work off for review or committing, run this gate in order and make every
+  step pass. It is required, not optional — never hand off or commit on the strength of
+  focused checks alone:
+  1. `just quality format` to auto-apply formatting fixes (swift-format, SwiftLint
+     `--fix`, Prettier, JSON key sort). Prefer this over hand-fixing individual lint
+     findings. It is repo-wide and mutating; committing everything it touches is fine,
+     including formatter-only changes unrelated to your work.
+  2. The complete `swift test` suite.
+  3. `just quality lint` (strict formatting and linting, including Markdown).
 - Pull request titles must use conventional commit style.
 - After editing Markdown, validate with:
 

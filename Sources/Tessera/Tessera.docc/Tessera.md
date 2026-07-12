@@ -1,5 +1,10 @@
 # ``Tessera``
 
+@Metadata {
+    @PageImage(purpose: icon, source: "tessera-icon", alt: "Tessera logo.")
+    @PageImage(purpose: card, source: "tessera-card", alt: "Tessera Swift logo card artwork.")
+}
+
 A Swift TUI library for macOS, Linux, and Windows.
 
 ## Overview
