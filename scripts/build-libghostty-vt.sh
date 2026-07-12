@@ -103,6 +103,13 @@ source_dir="${GHOSTTY_VT_SOURCE_DIR:-$output_root/source/$revision}"
 build_dir="${GHOSTTY_VT_BUILD_DIR:-$output_root/cmake/$revision/$platform-$arch}"
 build_mode="${GHOSTTY_VT_BUILD_MODE:-Release}"
 expected_zig="${GHOSTTY_VT_ZIG_VERSION:-0.15}"
+zig_build_flags=""
+if [[ "$platform" == "linux" ]]; then
+  # GitHub-hosted runners may restore this cache on a different x86_64 CPU model.
+  # A baseline library stays portable across runners instead of trapping on native-only
+  # instructions.
+  zig_build_flags="-Dcpu=baseline"
+fi
 
 case "$platform" in
   macos) shared_glob="libghostty-vt*.dylib" ;;
@@ -179,7 +186,8 @@ cmake \
   -B "$build_dir" \
   -G Ninja \
   -DCMAKE_BUILD_TYPE="$build_mode" \
-  -DCMAKE_INSTALL_PREFIX="$install_dir"
+  -DCMAKE_INSTALL_PREFIX="$install_dir" \
+  -DGHOSTTY_ZIG_BUILD_FLAGS="$zig_build_flags"
 cmake --build "$build_dir" --target zig_build_lib_vt
 cmake --install "$build_dir"
 
@@ -189,6 +197,7 @@ platform=$platform
 arch=$arch
 build_mode=$build_mode
 zig_version=$zig_version
+zig_build_flags=$zig_build_flags
 cmake_version=$(cmake --version | head -n 1)
 ninja_version=$(ninja --version)
 source_dir=$source_dir
