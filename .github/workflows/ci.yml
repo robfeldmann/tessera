@@ -160,10 +160,10 @@ jobs:
             !~/.cache/tessera/libghostty-vt/cmake
             ~/AppData/Local/tessera/libghostty-vt
             !~/AppData/Local/tessera/libghostty-vt/source
+          # Exact-only: a script or pinned-revision change must rebuild rather than
+          # relabeling a restored stale install under the new key.
           # prettier-ignore
-          key: libghostty-vt-v2-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
-          restore-keys: |
-            libghostty-vt-v2-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-
+          key: libghostty-vt-v3-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
 
       - name: Install just
         uses: taiki-e/install-action@v2
@@ -192,7 +192,7 @@ jobs:
             ~/AppData/Local/tessera/libghostty-vt
             !~/AppData/Local/tessera/libghostty-vt/source
           # prettier-ignore
-          key: libghostty-vt-v2-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
+          key: libghostty-vt-v3-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
 
       - name: Build
         run: swift build
