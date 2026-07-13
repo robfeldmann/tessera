@@ -20,8 +20,11 @@ struct TerminfoDatabaseTests {
         numbers: [42],
         extendedNumberNames: ["Xnum"],
         extendedNumbers: [4_096],
-        extendedStrings: [("Smulx", "\u{1B}[4:%p1%dm"), ("Setulc", "\u{1B}[58:2::%p1%d")]
-      ),
+        extendedStrings: [
+          ("Smulx", "\u{1B}[4:%p1%dm"),
+          ("Setulc", "\u{1B}[58:2::%p1%d"),
+        ],
+      )
     ])
     #expect(
       extended.underlineDeclarations() == .init(style: .declared, color: .declared)
@@ -37,8 +40,11 @@ struct TerminfoDatabaseTests {
         standardStrings: ["ab"],
         extendedBooleans: [1],
         extendedBooleanNames: ["Xbool"],
-        extendedStrings: [("Smulx", "style"), ("Setulc", "color")]
-      ),
+        extendedStrings: [
+          ("Smulx", "style"),
+          ("Setulc", "color"),
+        ]
+      )
     ])
 
     #expect(
@@ -78,8 +84,10 @@ struct TerminfoDatabaseTests {
       "/terms/x/xterm": entry(
         magic: .extended,
         extendedBooleans: [1],
-        extendedBooleanNames: ["Su"]
-      ),
+        extendedBooleanNames: [
+          "Su"
+        ]
+      )
     ])
 
     #expect(

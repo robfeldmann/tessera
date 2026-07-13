@@ -9,8 +9,13 @@ disabled_rules:
   - function_parameter_count
   - identifier_name
   - large_tuple
+  # swift-format owns multiline-header brace placement.
+  - opening_brace
   - nesting
   - todo
+  # swift-format owns comma placement: trailing commas for multi-element collections,
+  # none for single-element collection literals.
+  - trailing_comma
   - type_body_length
   - type_name
 
@@ -135,8 +140,6 @@ mark:
 vertical_whitespace:
   max_empty_lines: 1
 
-trailing_comma:
-  mandatory_comma: true
 
 implicit_return:
   included:

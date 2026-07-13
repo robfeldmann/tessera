@@ -206,7 +206,8 @@ public struct TerminfoDatabase: Sendable {
     }
 
     for component in configuredDirectories.split(
-      separator: ":", omittingEmptySubsequences: false) {
+      separator: ":", omittingEmptySubsequences: false)
+    {
       if component.isEmpty {
         roots.append(contentsOf: systemRoots)
       } else {
@@ -488,7 +489,8 @@ extension TerminfoDatabase {
           return false
         }
       } else if offset < 0
-        || !containsCString(in: entry, range: table, at: offset) {
+        || !containsCString(in: entry, range: table, at: offset)
+      {
         return false
       }
     }

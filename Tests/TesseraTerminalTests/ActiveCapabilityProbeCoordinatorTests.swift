@@ -160,7 +160,8 @@ func `input closure resumes a probe and rejects an overlapping generation`() asy
 
 @Test
 func `semantic DECRQM events update live evidence without changing effective modes`()
-  async throws {
+  async throws
+{
   let bytes = Array("\u{1B}[?2004;1$y".utf8)
   let device = InMemoryTerminalDevice(inputBytes: bytes)
   let session = await makeProbeSession(device)
@@ -178,7 +179,8 @@ func `semantic DECRQM events update live evidence without changing effective mod
 
 @Test
 func `failed runtime apply publishes possible state without committing request`()
-  async throws {
+  async throws
+{
   let device = PartialCursorTerminalDevice()
   let io = PlatformIO(terminalDevice: await device.terminalDevice)
   let lifecycle = ModeLifecycle(io: io)

@@ -866,8 +866,8 @@ enum Phase3ProtocolsDemo {
       hints: [
         (
           "k",
-          " policy: \(describe(keyboardProtocol)) · evidence: \(describe(keyboardEvidence))"
-        ),
+          " policy: \(describe(keyboardProtocol)) · evidence: \(describe(keyboardEvidence))",
+        )
       ],
       at: position(2, top + 11),
       style: Style(attributes: [.bold])

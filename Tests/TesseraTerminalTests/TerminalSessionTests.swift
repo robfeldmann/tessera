@@ -115,7 +115,8 @@ func `set cursor style overrides then restores the default`() async throws {
 
 @Test
 func `application threads configured Kitty flags into lifecycle and session state`()
-  async throws {
+  async throws
+{
   let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
   let io = PlatformIO(terminalDevice: await device.terminalDevice)
   let flags: KittyKeyboardFlags = [
@@ -186,7 +187,8 @@ func `set cursor style preserves configured application mode requests`() async t
 
 @Test
 func `runtime application mode setters preserve policy and lifecycle state`()
-  async throws {
+  async throws
+{
   let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
   let io = PlatformIO(terminalDevice: await device.terminalDevice)
   let cursorStyle = CursorStyle(shape: .steadyBlock)
@@ -337,7 +339,8 @@ func `conditional keyboard setter ignores passive supported metadata`() async th
 
 @Test
 func `conditional keyboard setter consumes cached supported probe evidence`()
-  async throws {
+  async throws
+{
   let device = KeyboardProbeResponseTerminalDevice(
     size: TerminalSize(columns: 4, rows: 2),
     keyboardSupported: true
@@ -1605,7 +1608,8 @@ func `NO_COLOR pins output without overwriting color evidence`() async throws {
 
 @Test
 func `runtime color changes repaint unchanged frames but equal policies do not`()
-  async throws {
+  async throws
+{
   let device = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
   let session = TerminalSession(
     io: PlatformIO(terminalDevice: await device.terminalDevice),
@@ -1685,7 +1689,8 @@ func `color policy pinned by NO_COLOR does not repaint unchanged frames`() async
 
 @Test
 func `runtime hyperlink rendering repaints unchanged cells and equal assignment does not`()
-  async throws {
+  async throws
+{
   let device = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
   let session = TerminalSession(
     io: PlatformIO(terminalDevice: await device.terminalDevice),
@@ -1786,7 +1791,8 @@ func `failed frame replays hyperlink close and synchronized exit first`() async 
 
 @Test
 func `every partial hyperlink frame offset replays close and synchronized exit first`()
-  async throws {
+  async throws
+{
   let hyperlink = try Hyperlink(uri: "https://example.com")
   let referenceDevice = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
   let referenceSession = TerminalSession(
@@ -2145,7 +2151,8 @@ func `next event returns control key events`() async throws {
 
 @Test
 func `draw owns complete synchronized output wrapper around renderer and cursor bytes`()
-  async throws {
+  async throws
+{
   let enabledDevice = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
   let enabledSession = await makeSession(enabledDevice, synchronizedOutput: .enabled)
   let disabledDevice = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
@@ -2172,7 +2179,8 @@ func `draw owns complete synchronized output wrapper around renderer and cursor 
 
 @Test
 func `runtime synchronized output changes frame boundaries without repainting cells`()
-  async throws {
+  async throws
+{
   let device = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
   let session = await makeSession(device, synchronizedOutput: .disabled)
 
@@ -2369,7 +2377,8 @@ private func makeSession(
 }
 
 private func makeSession(_ device: KeyboardProbeResponseTerminalDevice) async
-  -> TerminalSession {
+  -> TerminalSession
+{
   TerminalSession(
     io: PlatformIO(terminalDevice: await device.terminalDevice),
     probeImageID: KittyImageID(rawValue: 17)
@@ -2496,7 +2505,8 @@ private func terminalFlushName(_ bytes: [UInt8]) -> String {
     return "privateModeStatusProbes"
   }
   if containsBytes(Array(",a=q,".utf8), in: bytes)
-    && bytes.suffix(3) == [0x1B, 0x5B, 0x63] {
+    && bytes.suffix(3) == [0x1B, 0x5B, 0x63]
+  {
     return "kittyGraphicsQueryProbe"
   }
   if bytes == kittyKeyboardPushBytes {
@@ -2912,7 +2922,8 @@ private actor RuntimeModeTerminalDevice {
     let bytes = Array(byteSlice)
     if !bytesToFailPartwayThrough.isEmpty,
       bytes == bytesToFailPartwayThrough,
-      bytes.count > 1 {
+      bytes.count > 1
+    {
       bytesToFailPartwayThrough.removeAll()
       failsNextWrite = true
       return 1

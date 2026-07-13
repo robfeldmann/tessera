@@ -5,7 +5,7 @@ set working-directory := '..'
 
 # Auto-fix formatting and safe SwiftLint corrections.
 format: _format-json _format-markdown
-    swift-format format -i -r Sources Tests Package.swift Examples/Sources Examples/Package.swift
+    swift-format format --configuration .swift-format -i -r Sources Tests Package.swift Examples/Sources Examples/Package.swift
     swiftlint lint --fix --quiet --config .swiftlint.yml
 
 # Sort regular JSON files when jq is available. Skips symlinks (e.g. the
@@ -39,11 +39,11 @@ lint: _swift-format swiftlint markdown docs
 changed:
     scripts/lint-changed.sh
 
-# Run the strict full-repo SwiftFormat formatting check.
+# Native strict Swift-format gate; every formatter finding fails.
 _swift-format:
-    swift-format lint -r Sources Tests Package.swift Examples/Sources Examples/Package.swift
+    swift-format lint --strict --configuration .swift-format -r Sources Tests Package.swift Examples/Sources Examples/Package.swift
 
-# Strict SwiftLint gate; warnings fail here to prevent drift.
+# Strict SwiftLint gate; warnings fail here, including mandatory trailing commas.
 swiftlint:
     swiftlint lint --strict --config .swiftlint.yml
 

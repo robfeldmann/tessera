@@ -769,7 +769,8 @@ public actor TerminalSession {
       )
       if desiredModes != requestedApplicationModes
         || effectiveApplicationModes != desiredModes
-        || !possiblyActiveApplicationModes.isEmpty {
+        || !possiblyActiveApplicationModes.isEmpty
+      {
         try await modeLifecycle.apply(applicationModes: desiredModes)
         requestedApplicationModes = desiredModes
         await refreshLifecycleState()
