@@ -32,7 +32,7 @@ _format-markdown:
 # ── Linting ──────────────────────────────────────────────────────────────────
 
 # Strict full-repo quality gate for CI, agents, and pre-PR checks.
-lint: _swift-format swiftlint markdown docs
+lint: _swift-format swiftlint markdown wireframes docs
     @echo "✅ All lint checks passed"
 
 # Strict changed-file quality gate for pre-commit/local iteration.
@@ -54,6 +54,11 @@ markdown:
     else \
         echo "⚠️  prettier not found — skip markdown linting (pnpm add -g prettier)"; \
     fi
+
+# Fixture-grade dimension and geometry checks for the design catalog.
+wireframes:
+    python3 -m unittest scripts/test_check_wireframes.py
+    python3 scripts/check-wireframes.py design
 
 # DocC documentation check.
 docs:

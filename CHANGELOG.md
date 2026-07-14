@@ -9,6 +9,19 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Added the Tessera design catalog under `design/`: a source-verified process for
+  designing view-layer primitives and widgets, with per-component design docs (Button,
+  List, ScrollView, SplitView, NavigationSplitView, Table, TextField, plus sketch stubs
+  for Toggle, Picker, Stepper, and Section), primitive docs, a shared `tokens.md`, an
+  `inbox.md` triage queue, wireframe and interaction templates, a `design-catalog` skill
+  with catalog authoring prompts, and a `check-wireframes.py` fixture validator wired into
+  `just quality`.
+
+- Added the Tessera Showcase design (`design/showcase.md`), the runnable Phase 4
+  integration example that composes the public catalog surface, defining its 1.0 component
+  boundary, responsive presentation policy, immutable local diagnostics inspector,
+  seven-slice growth plan, and thirteen composition wireframes.
+
 - Added DocC icon and card artwork placeholders for the Tessera package and module
   documentation catalogs.
 
@@ -115,6 +128,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   state scopes.
 
 ### Changed
+
+- Changed the Spec Phase 4 view-layer plan to re-sequence its slices around the Showcase's
+  dependency-driven component landing order, adding a slice sequencing and component
+  landing map with a dependency DAG, an immutable local developer diagnostics contract in
+  Slice 1, and the full 1.0 widget surface, and renaming `TextInput` to `TextField`.
 
 - Changed Phase 3 terminal capability detection to use active, protocol-native probes
   instead of terminal-name support decisions. Queryable protocols now report `.probing`,
