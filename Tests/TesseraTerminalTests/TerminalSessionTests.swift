@@ -353,7 +353,6 @@ func `conditional keyboard setter consumes cached supported probe evidence`()
     io: io,
     enabledProtocolModes: fixedModes,
     keyboardProtocol: .legacyOnly,
-    activeProbeTimeout: .milliseconds(1),
     modeLifecycle: lifecycle
   )
   _ = try await session.queryActiveCapabilities()
@@ -2625,10 +2624,18 @@ private actor KeyboardProbeResponseTerminalDevice {
   private func write(_ byteSlice: ArraySlice<UInt8>) throws -> Int {
     let bytes = Array(byteSlice)
     recordedEvents.append(.flush(bytes))
-    if bytes == kittyKeyboardProbeBytes {
+    if bytes == privateModeStatusProbeBytes {
+      var response = Array("x".utf8)
+      for mode in privateModeProbeModes {
+        response.append(contentsOf: "\u{1B}[?\(mode);0$y".utf8)
+      }
+      inputContinuation.yield(response)
+    } else if bytes == kittyKeyboardProbeBytes {
       let response =
         keyboardSupported ? "\u{1B}[?7u\u{1B}[?1;2c" : "\u{1B}[?1;2c"
       inputContinuation.yield(Array(response.utf8))
+    } else if containsBytes(Array(",a=q,".utf8), in: bytes) {
+      inputContinuation.yield(Array("\u{1B}[?1;2c".utf8))
     }
     return bytes.count
   }

@@ -206,6 +206,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Fixed POSIX terminal input cancellation to break the stream/task retention cycle, wake
+  blocked polls through a cancellation pipe, prevent empty-read CPU spins, and keep active
+  capability-probe tests deterministic without timeout-based scheduling.
 - Fixed the Linux Lima test recipe to forward zero or more `swift test` arguments without
   tripping Bash `nounset` on an empty array.
 
