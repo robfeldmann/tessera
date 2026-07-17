@@ -3,6 +3,7 @@ set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
+source scripts/quality-files.sh
 
 mode="${1:-}"
 
@@ -42,49 +43,20 @@ swift_files=()
 markdown_files=()
 spelling_files=()
 docc_files=()
-
 for file in "${changed_files[@]}"; do
-  [[ -f "$file" ]] || continue
-
-  if [[ "$file" == "Package.swift" || "$file" == "Examples/Package.swift" || "$file" =~ ^(Sources|Tests|Examples/Sources|Examples/Tests)/.*\.swift$ ]]; then
-    swift_files+=("$file")
-    spelling_files+=("$file")
-  fi
-
-  if [[ "$file" == *.md ]]; then
-    spelling_files+=("$file")
-    if [[ "$file" != *".docc/"* ]]; then
-      markdown_files+=("$file")
-    fi
-  fi
-
-  if [[ "$file" != "package-lock.json" && ( "$file" == *.json || "$file" == *.yaml || "$file" == *.yml || "$file" == *.py ) ]]; then
-    spelling_files+=("$file")
-  fi
-
-  if [[ "$file" =~ ^Sources/.+\.docc/ ]]; then
-    docc_files+=("$file")
-  fi
+  quality_classify_file "$file"
 done
 
 if [[ ${#swift_files[@]} -gt 0 ]]; then
   echo "▶ Linting changed Swift files"
-  swift-format lint "${swift_files[@]}"
+  quality_require_swift_tools
+  swift-format lint --configuration .swift-format "${swift_files[@]}"
   swiftlint lint --strict --config .swiftlint.yml "${swift_files[@]}"
 fi
 
 if [[ ${#markdown_files[@]} -gt 0 ]]; then
   echo "▶ Linting changed Markdown files"
-  prettier="node_modules/.bin/prettier"
-  markdownlint="node_modules/.bin/markdownlint-cli2"
-
-  if [[ ! -x "$prettier" || ! -x "$markdownlint" ]]; then
-    echo "Missing local markup tools. Run 'npm ci' first." >&2
-    exit 1
-  fi
-
-  "$prettier" --check "${markdown_files[@]}"
-  "$markdownlint" "${markdown_files[@]}"
+  npm run check:markup -- "${markdown_files[@]}"
 fi
 
 if [[ ${#spelling_files[@]} -gt 0 ]]; then
@@ -93,7 +65,8 @@ if [[ ${#spelling_files[@]} -gt 0 ]]; then
 fi
 
 if [[ ${#docc_files[@]} -gt 0 ]]; then
-  echo "▶ Validating DocC documentation"
+  echo "▶ Validating DocC documentation (macOS-only)"
+  quality_require_docc
   just docs lint
 fi
 

@@ -16,9 +16,9 @@ updated: 2026-07-17
   - [x] 1.1 Add repository-managed JavaScript tooling
   - [x] 1.2 Add repository-managed spelling checks
   - [x] 1.3 Resolve formatter and linter ownership
-- [ ] **Phase 2 — Consolidate quality orchestration**
-  - [ ] 2.1 Make full-repository checks deterministic
-  - [ ] 2.2 Harden changed-file validation
+- [x] **Phase 2 — Consolidate quality orchestration**
+  - [x] 2.1 Make full-repository checks deterministic
+  - [x] 2.2 Harden changed-file validation
 - [ ] **Phase 3 — Replace hook management with Lefthook**
   - [ ] 3.1 Make repository commit policy canonical
   - [ ] 3.2 Install and document Lefthook hooks

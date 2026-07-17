@@ -14,6 +14,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   those dependencies. SwiftLint formatting rules now defer to `swift-format` as the sole
   layout authority.
 
+- Consolidated quality orchestration: deterministic formatter ordering, portable full-tree
+  linting without DocC, parameterized local markup checks, and staged snapshot validation
+  that recursively detects Swift and DocC changes before macOS-only DocC escalation.
+
 - Added the Tessera design catalog under `design/`: a source-verified process for
   designing view-layer primitives and widgets, with per-component design docs (Button,
   List, ScrollView, SplitView, NavigationSplitView, Table, TextField, plus sketch stubs

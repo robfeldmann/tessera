@@ -7,4 +7,5 @@ Sources/**/Documentation.docc/**/*.md
 Packages/
 node_modules/
 **/Package.resolved
+package-lock.json
 Sources/CGhosttyVT/include/ghostty/

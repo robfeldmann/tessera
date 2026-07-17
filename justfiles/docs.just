@@ -10,7 +10,8 @@ default: build
 build: clean targets merge transform
     @echo "✅ Documentation generated in .build/docs"
 
-# Generate and merge DocC archives with warnings treated as errors.
+# macOS-only DocC/reference gate. Requires Xcode's `xcrun docc`, builds Ghostty through
+# `just core build-libghostty-vt`, and treats all documentation warnings as errors.
 lint: clean targets merge
     @echo "✅ Documentation is clean"
 

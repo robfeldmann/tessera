@@ -3,33 +3,20 @@ set working-directory := '..'
 
 # ── Formatting ───────────────────────────────────────────────────────────────
 
-# Auto-fix formatting and safe SwiftLint corrections.
-format: _format-json _format-markdown
-    swift-format format --configuration .swift-format -i -r Sources Tests Package.swift Examples/Sources Examples/Package.swift
+# Mutate Swift and markup in one deterministic order: SwiftLint corrections, Swift formatting,
+# then the repository-local markup formatter.
+format:
     swiftlint lint --fix --quiet --config .swiftlint.yml
-
-# Sort regular JSON files when jq is available. Skips symlinks (e.g. the
-# Examples/.markdownlint.json → ../.markdownlint.json config links) so formatting never
-# clobbers a link with a materialized copy.
-_format-json:
-    @if command -v jq &> /dev/null; then \
-        find . -type f -name "*.json" -not -path "*/.build/*" -not -path "*/.git/*" | \
-        while read -r file; do \
-            jq --sort-keys . "$file" > "$file.tmp" && mv "$file.tmp" "$file"; \
-        done; \
-    else \
-        echo "⚠️  jq not found — skip JSON sorting (brew install jq)"; \
-    fi
-
-# Format scoped markup with the project-local npm toolchain.
-_format-markdown:
+    swift-format format --configuration .swift-format -i -r Sources Tests Package.swift Examples/Sources Examples/Package.swift
     npm run format:markup
+    @echo "✅ Formatting completed"
 
 # ── Linting ──────────────────────────────────────────────────────────────────
 
-# Strict full-repo quality gate for CI, agents, and pre-PR checks.
-lint: _swift-format swiftlint markdown spelling wireframes docs
-    @echo "✅ All lint checks passed"
+# Strict portable quality gate for CI, agents, and pre-PR checks. DocC validation is macOS-only
+# and intentionally available only through `just docs lint`.
+lint: _swift-format swiftlint markdown spelling wireframes
+    @echo "✅ Portable lint checks passed"
 
 # Strict changed-file quality gate for pre-commit/local iteration.
 changed:
@@ -60,6 +47,3 @@ wireframes:
     python3 -m unittest scripts/test_check_wireframes.py
     python3 scripts/check-wireframes.py design
 
-# DocC documentation check.
-docs:
-    just docs lint

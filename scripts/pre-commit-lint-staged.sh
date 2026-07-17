@@ -2,6 +2,8 @@
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
+source "$repo_root/scripts/quality-files.sh"
+
 tmp="$(mktemp -d "${TMPDIR:-/tmp}/tessera-pre-commit.XXXXXX")"
 
 cleanup() {
@@ -24,46 +26,26 @@ cd "$tmp"
 swift_files=()
 markdown_files=()
 spelling_files=()
+docc_files=()
 for file in "${staged_files[@]}"; do
-  [[ -f "$file" ]] || continue
-
-  case "$file" in
-    Package.swift|Examples/Package.swift|Sources/*.swift|Sources/*/*.swift|Sources/*/*/*.swift|Tests/*.swift|Tests/*/*.swift|Tests/*/*/*.swift|Examples/Sources/*.swift|Examples/Sources/*/*.swift|Examples/Sources/*/*/*.swift|Examples/Tests/*.swift|Examples/Tests/*/*.swift|Examples/Tests/*/*/*.swift)
-      swift_files+=("$file")
-      spelling_files+=("$file")
-      ;;
-    *.md)
-      spelling_files+=("$file")
-      if [[ "$file" != *".docc/"* ]]; then
-        markdown_files+=("$file")
-      fi
-      ;;
-    package-lock.json)
-      ;;
-    *.json|*.yaml|*.yml|*.py)
-      spelling_files+=("$file")
-      ;;
-  esac
+  quality_classify_file "$file"
 done
 
 if [[ ${#swift_files[@]} -gt 0 ]]; then
-  swift-format lint "${swift_files[@]}"
+  quality_require_swift_tools
+  swift-format lint --configuration .swift-format "${swift_files[@]}"
   swiftlint lint --strict --config .swiftlint.yml "${swift_files[@]}"
 fi
 
 if [[ ${#markdown_files[@]} -gt 0 ]]; then
-  prettier="$repo_root/node_modules/.bin/prettier"
-  markdownlint="$repo_root/node_modules/.bin/markdownlint-cli2"
-
-  if [[ ! -x "$prettier" || ! -x "$markdownlint" ]]; then
-    echo "Missing local markup tools. Run 'npm ci' first." >&2
-    exit 1
-  fi
-
-  "$prettier" --check "${markdown_files[@]}"
-  "$markdownlint" "${markdown_files[@]}"
+  TESSERA_REPO_ROOT="$repo_root" "$repo_root/scripts/check-markup.sh" "${markdown_files[@]}"
 fi
 
 if [[ ${#spelling_files[@]} -gt 0 ]]; then
   TESSERA_REPO_ROOT="$repo_root" "$repo_root/scripts/quality-python.sh" -m codespell_lib --config .codespellrc "${spelling_files[@]}"
+fi
+
+if [[ ${#docc_files[@]} -gt 0 ]]; then
+  quality_require_docc
+  just --justfile "$tmp/Justfile" docs lint
 fi

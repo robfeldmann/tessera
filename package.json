@@ -9,7 +9,7 @@
   "name": "tessera-tooling",
   "private": true,
   "scripts": {
-    "check:markup": "prettier --check . && markdownlint-cli2 \"**/*.md\" \"!**/*.docc/**/*.md\" \"!**/.build/**/*.md\" \"!Packages/**/*.md\" \"!node_modules/**/*.md\"",
+    "check:markup": "scripts/check-markup.sh",
     "format:markup": "prettier --write ."
   }
 }
