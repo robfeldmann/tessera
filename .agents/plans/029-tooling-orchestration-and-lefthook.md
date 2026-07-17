@@ -19,9 +19,9 @@ updated: 2026-07-17
 - [x] **Phase 2 — Consolidate quality orchestration**
   - [x] 2.1 Make full-repository checks deterministic
   - [x] 2.2 Harden changed-file validation
-- [ ] **Phase 3 — Replace hook management with Lefthook**
-  - [ ] 3.1 Make repository commit policy canonical
-  - [ ] 3.2 Install and document Lefthook hooks
+- [x] **Phase 3 — Replace hook management with Lefthook**
+  - [x] 3.1 Make repository commit policy canonical
+  - [x] 3.2 Install and document Lefthook hooks
 - [ ] **Phase 4 — Align CI and documentation**
   - [ ] 4.1 Make workflows call canonical quality gates
   - [ ] 4.2 Publish the contributor workflow

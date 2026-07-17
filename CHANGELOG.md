@@ -18,6 +18,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   linting without DocC, parameterized local markup checks, and staged snapshot validation
   that recursively detects Swift and DocC changes before macOS-only DocC escalation.
 
+- Replaced pre-commit with committed Lefthook configuration, including staged-index
+  quality checks and a shared Conventional Commit validator for local commit messages and
+  CI.
+
 - Added the Tessera design catalog under `design/`: a source-verified process for
   designing view-layer primitives and widgets, with per-component design docs (Button,
   List, ScrollView, SplitView, NavigationSplitView, Table, TextField, plus sketch stubs

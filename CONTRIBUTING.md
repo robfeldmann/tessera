@@ -64,7 +64,8 @@ This will install the following tools:
 - **[SwiftLint](https://github.com/realm/SwiftLint)** (0.54.0): For Swift code linting.
 - **[swift-format](https://github.com/apple/swift-format)** (602.0.0): For Swift code
   formatting.
-- **[pre-commit](https://pre-commit.com/)**: For managing git hooks.
+- **[Lefthook](https://github.com/evilmartians/lefthook)**: For managing committed git
+  hook configuration.
 - **[just](https://github.com/casey/just)**: For running project tasks.
 - **[Lima](https://lima-vm.io/)**: For optional Docker-free Linux test runs.
 - **[UTM](https://mac.getutm.app/)**: For optional Windows GUI VM runs on Apple Silicon.
@@ -333,21 +334,21 @@ just windows-utm test -- --filter WindowsConsoleModeTests
 Use the detailed guides above for first-time setup, SSH configuration, GUI validation, and
 troubleshooting.
 
-### Pre-commit Hooks
+### Git Hooks
 
-We use the [pre-commit](https://pre-commit.com/) framework to ensure code quality and
-conventional commit messages. To install it:
+We use [Lefthook](https://github.com/evilmartians/lefthook) to install the committed
+non-mutating staged-quality and Conventional Commit checks:
 
 ```sh
-# Install the framework (if not already installed)
-brew install pre-commit
+# Install Lefthook if you did not use Brewfile.
+brew install lefthook
 
-# Install the hooks for this project
+# Install or update hooks for this checkout.
 just setup hooks
 ```
 
-This will configure Git to run `swift-format`, `swiftlint`, and commit message checks
-automatically.
+This configures Git to validate staged content without modifying it and to apply the same
+Conventional Commit policy locally and in CI.
 
 ### Linting
 

@@ -7,9 +7,9 @@ brew "swiftlint"
 
 # General Development Tools
 brew "just"
+brew "lefthook"
 brew "lima" # Linux virtual machines
 brew "node"
-brew "pre-commit"
 brew "qemu" # For Tessera frost
 brew "sshpass" # For Tessera frost
 brew "swtpm" # For Tessera frost
