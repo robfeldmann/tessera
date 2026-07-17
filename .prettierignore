@@ -4,3 +4,7 @@ Sources/**/Documentation.docc/**/*.md
 
 # Build artifacts
 .build/
+Packages/
+node_modules/
+**/Package.resolved
+Sources/CGhosttyVT/include/ghostty/

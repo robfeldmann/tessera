@@ -19,6 +19,10 @@ Sources/CGhosttyVT/include/ghostty/
 # Python
 __pycache__/
 *.py[cod]
+.venv/
+
+# Node.js
+node_modules/
 
 # SwiftLint cache
 .swiftlint.yml.cache

@@ -9,6 +9,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Added repository-local npm markup tooling and a pinned, check-only codespell
+  environment; quality recipes, staged checks, contributor setup, and macOS CI now use
+  those dependencies. SwiftLint formatting rules now defer to `swift-format` as the sole
+  layout authority.
+
 - Added the Tessera design catalog under `design/`: a source-verified process for
   designing view-layer primitives and widgets, with per-component design docs (Button,
   List, ScrollView, SplitView, NavigationSplitView, Table, TextField, plus sketch stubs

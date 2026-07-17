@@ -8,3 +8,7 @@ hooks:
     pre-commit install
     pre-commit install --hook-type commit-msg
     @echo "✅ Pre-commit hooks installed"
+
+# Create/update the project-local Python environment for pinned quality tools.
+quality-tools:
+    scripts/quality-python.sh --bootstrap

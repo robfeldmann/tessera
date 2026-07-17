@@ -8,6 +8,7 @@ brew "swiftlint"
 # General Development Tools
 brew "just"
 brew "lima" # Linux virtual machines
+brew "node"
 brew "pre-commit"
 brew "qemu" # For Tessera frost
 brew "sshpass" # For Tessera frost
@@ -16,7 +17,6 @@ cask "utm" # Windows virtual machines
 
 # Formatting Tools
 brew "jq"
-brew "prettier"
 
 # Documentation
 brew "python@3" # required for `just docs preview`

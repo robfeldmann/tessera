@@ -16,13 +16,39 @@ disabled_rules:
   # swift-format owns comma placement: trailing commas for multi-element collections,
   # none for single-element collection literals.
   - trailing_comma
+  # swift-format owns whitespace, indentation, line wrapping, and punctuation layout.
+  - closure_end_indentation
+  - closure_spacing
+  - closing_brace
+  - colon
+  - comma
+  - indentation_width
+  - line_length
+  - multiline_arguments
+  - multiline_call_arguments
+  - multiline_function_chains
+  - multiline_literal_brackets
+  - multiline_parameters
+  - multiline_parameters_brackets
+  - no_space_in_method_call
+  - function_name_whitespace
+  - period_spacing
+  - return_arrow_whitespace
+  - statement_position
+  - switch_case_alignment
+  - switch_case_on_newline
+  - trailing_newline
+  - trailing_semicolon
+  - trailing_whitespace
+  - vertical_parameter_alignment_on_call
+  - vertical_whitespace
+  - vertical_whitespace_closing_braces
+  - vertical_whitespace_opening_braces
   - type_body_length
   - type_name
 
 # Opt-in rules
 opt_in_rules:
-  - closure_end_indentation
-  - closure_spacing
   - conditional_returns_on_newline
   - contains_over_filter_count
   - contains_over_filter_is_empty
@@ -42,7 +68,6 @@ opt_in_rules:
   - identical_operands
   - implicit_return
   - implicitly_unwrapped_optional
-  - indentation_width
   - joined_default_parameter
   - last_where
   - legacy_multiple
@@ -50,16 +75,10 @@ opt_in_rules:
   - legacy_random
   - missing_docs
   - modifier_order
-  - multiline_arguments
   # multiline_arguments_brackets is intentionally NOT enabled: it demands a wrapped call's
   # closing bracket on its own line, while swift-format keeps a wrapped call's closing
   # paren on the final argument line. swift-format is the authoritative formatter, so it
   # wins.
-  - multiline_call_arguments
-  - multiline_function_chains
-  - multiline_literal_brackets
-  - multiline_parameters
-  - multiline_parameters_brackets
   - number_separator
   - object_literal
   - overridden_super_call
@@ -68,7 +87,6 @@ opt_in_rules:
   # `case let .rgb(r, g, b)` while swift-format's default-on
   # UseLetInEveryBoundCaseVariable demands `case .rgb(let r, ...)`.
   # swift-format is the authoritative formatter, so it wins.
-  - period_spacing
   - prefer_asset_symbols
   - prefer_key_path
   - prefer_self_in_static_references
@@ -90,7 +108,6 @@ opt_in_rules:
   - static_operator
   - strong_iboutlet
   - superfluous_disable_command
-  - switch_case_on_newline
   - test_case_accessibility
   - toggle_bool
   - trailing_closure
@@ -99,9 +116,6 @@ opt_in_rules:
   - unhandled_throwing_task
   - unneeded_parentheses_in_closure_argument
   - unowned_variable_capture
-  - vertical_parameter_alignment_on_call
-  - vertical_whitespace_closing_braces
-  - vertical_whitespace_opening_braces
   - yoda_condition
 
 # Analyzer rules
@@ -123,12 +137,6 @@ excluded:
   - Packages
 
 # Rule configurations
-line_length:
-  warning: 91
-  ignores_comments: false
-  ignores_urls: true
-  ignores_function_declarations: false
-  ignores_interpolated_strings: true
 
 force_cast: warning
 
@@ -136,23 +144,6 @@ force_try: warning
 
 mark:
   severity: warning
-
-vertical_whitespace:
-  max_empty_lines: 1
-
-
-implicit_return:
-  included:
-    - closure
-    - function
-    - getter
-    - subscript
-
-trailing_whitespace:
-  ignores_comments: false
-
-indentation_width:
-  indentation_width: 2
 
 # Custom rules
 custom_rules:

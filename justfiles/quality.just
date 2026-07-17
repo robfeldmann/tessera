@@ -21,18 +21,14 @@ _format-json:
         echo "⚠️  jq not found — skip JSON sorting (brew install jq)"; \
     fi
 
-# Format Markdown files when Prettier is available.
+# Format scoped markup with the project-local npm toolchain.
 _format-markdown:
-    @if command -v prettier &> /dev/null; then \
-        prettier --write "**/*.md"; \
-    else \
-        echo "⚠️  prettier not found — skip markdown formatting (pnpm add -g prettier)"; \
-    fi
+    npm run format:markup
 
 # ── Linting ──────────────────────────────────────────────────────────────────
 
 # Strict full-repo quality gate for CI, agents, and pre-PR checks.
-lint: _swift-format swiftlint markdown wireframes docs
+lint: _swift-format swiftlint markdown spelling wireframes docs
     @echo "✅ All lint checks passed"
 
 # Strict changed-file quality gate for pre-commit/local iteration.
@@ -43,17 +39,21 @@ changed:
 _swift-format:
     swift-format lint --strict --configuration .swift-format -r Sources Tests Package.swift Examples/Sources Examples/Package.swift
 
-# Strict SwiftLint gate; warnings fail here, including mandatory trailing commas.
+# Strict SwiftLint semantic gate; warnings fail here.
 swiftlint:
     swiftlint lint --strict --config .swiftlint.yml
 
 # Markdown formatting check.
 markdown:
-    @if command -v prettier &> /dev/null; then \
-        prettier --check "**/*.md"; \
-    else \
-        echo "⚠️  prettier not found — skip markdown linting (pnpm add -g prettier)"; \
-    fi
+    npm run check:markup
+
+# Check spelling with the project-local, pinned codespell environment.
+spelling:
+    scripts/quality-python.sh -m codespell_lib --config .codespellrc Sources Tests Examples design docs .github Package.swift README.md CONTRIBUTING.md
+
+# Apply spelling corrections only when a developer explicitly requests them.
+spelling-fix:
+    scripts/quality-python.sh -m codespell_lib --config .codespellrc --write-changes Sources Tests Examples design docs .github Package.swift README.md CONTRIBUTING.md
 
 # Fixture-grade dimension and geometry checks for the design catalog.
 wireframes:

@@ -69,6 +69,15 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install markup tools
+        run: npm ci
+
       - name: Install lint tools
         run: brew install swift-format swiftlint
 
@@ -82,6 +91,15 @@ jobs:
 
       - name: Run SwiftLint
         run: just quality swiftlint
+
+      - name: Check markup
+        run: npm run check:markup
+
+      - name: Set up spelling tools
+        run: just setup quality-tools
+
+      - name: Check spelling
+        run: just quality spelling
 
   test:
     name: test (${{ matrix.os }})

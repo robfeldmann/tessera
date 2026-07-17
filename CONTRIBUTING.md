@@ -47,6 +47,8 @@ Enhancement suggestions are welcome! Please provide:
 
 - Swift 6.3 or later
 - Xcode 26 or later (for macOS development)
+- Node.js 24.14.0 (for repository-local Markdown and configuration tooling)
+- Python 3 (for the repository-local spelling tool and local documentation previews)
 
 ### Installing Dependencies (Recommended)
 
@@ -69,15 +71,20 @@ This will install the following tools:
 - **[QEMU](https://www.qemu.org/)**, **swtpm**, and **sshpass**: For scripted Windows VM
   runs with Frost. Frost uses SSH key authentication once its key exists; `sshpass` is
   still required for provisioning and password-auth fallback.
-- **[Prettier](https://prettier.io/)**: For Markdown and config file formatting.
-- **[Python 3](https://www.python.org/)**: For local documentation previews
-  (`just docs preview`).
+- **[Node.js](https://nodejs.org/)**: Provides npm for the repository-local Prettier and
+  markdownlint tools pinned in `package-lock.json`.
+- **[Python 3](https://www.python.org/)**: Provides the repository-local codespell
+  environment and local documentation previews (`just docs preview`).
 
-Exact versions are pinned in `.pre-commit-config.yaml`.
+Swift formatter and linter versions are managed by Homebrew. JavaScript and spelling-tool
+versions are pinned in `package-lock.json` and `requirements/codespell.txt`, respectively.
 
-After installing dependencies, set up the git hooks:
+After installing dependencies, bootstrap the repository-local quality tools and set up the
+git hooks:
 
 ```sh
+npm ci
+just setup quality-tools
 just setup hooks
 ```
 
@@ -345,12 +352,13 @@ automatically.
 ### Linting
 
 ```sh
-# Run all linters (auto-fixes safe issues first)
+# Run all linters.
 just quality lint
 
-# Or run individual linters
-swiftlint
-swift-format lint -r Sources Tests Package.swift
+# Or run individual linters.
+just quality swiftlint
+just quality spelling
+just quality _swift-format
 ```
 
 ### Formatting
