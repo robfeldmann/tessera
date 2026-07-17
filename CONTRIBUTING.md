@@ -36,7 +36,8 @@ Enhancement suggestions are welcome! Please provide:
 1. Fork the repository
 2. Create a new branch (`git checkout -b feature/amazing-feature`)
 3. Make your changes
-4. Run checks and tests (`just ci`)
+4. Run the contributor gate (`just quality format`, then `just ci check`; on macOS, run
+   `just docs lint` when DocC changes)
 5. Commit your changes (`git commit -m 'feat: Adds amazing feature'`)
 6. Push to the branch (`git push origin feature/amazing-feature`)
 7. Open a Pull Request
@@ -46,9 +47,15 @@ Enhancement suggestions are welcome! Please provide:
 ### Prerequisites
 
 - Swift 6.3 or later
-- Xcode 26 or later (for macOS development)
+- Xcode 26 or later (for macOS development and DocC validation)
+- `just`, `swift-format`, and SwiftLint for the quality gate
 - Node.js 24.14.0 (for repository-local Markdown and configuration tooling)
 - Python 3 (for the repository-local spelling tool and local documentation previews)
+
+`just quality lint` is the portable repository gate, but “portable” does not mean
+SwiftLint is available natively on every OS. SwiftLint remains a native macOS/Linux
+prerequisite; use that environment or CI for quality checks on Windows. DocC validation
+requires macOS Xcode and `xcrun docc`.
 
 ### Installing Dependencies (Recommended)
 
@@ -59,26 +66,27 @@ provide a `Brewfile` to install everything at once:
 brew bundle install
 ```
 
-This will install the following tools:
+Homebrew installs the macOS development-tool set declared in `Brewfile`.
 
-- **[SwiftLint](https://github.com/realm/SwiftLint)** (0.54.0): For Swift code linting.
-- **[swift-format](https://github.com/apple/swift-format)** (602.0.0): For Swift code
-  formatting.
-- **[Lefthook](https://github.com/evilmartians/lefthook)**: For managing committed git
-  hook configuration.
-- **[just](https://github.com/casey/just)**: For running project tasks.
-- **[Lima](https://lima-vm.io/)**: For optional Docker-free Linux test runs.
-- **[UTM](https://mac.getutm.app/)**: For optional Windows GUI VM runs on Apple Silicon.
-- **[QEMU](https://www.qemu.org/)**, **swtpm**, and **sshpass**: For scripted Windows VM
-  runs with Frost. Frost uses SSH key authentication once its key exists; `sshpass` is
-  still required for provisioning and password-auth fallback.
-- **[Node.js](https://nodejs.org/)**: Provides npm for the repository-local Prettier and
-  markdownlint tools pinned in `package-lock.json`.
-- **[Python 3](https://www.python.org/)**: Provides the repository-local codespell
-  environment and local documentation previews (`just docs preview`).
+#### Required development tools
 
-Swift formatter and linter versions are managed by Homebrew. JavaScript and spelling-tool
-versions are pinned in `package-lock.json` and `requirements/codespell.txt`, respectively.
+- **[SwiftLint](https://github.com/realm/SwiftLint)** and
+  **[swift-format](https://github.com/apple/swift-format)**: Swift quality checks.
+- **[Lefthook](https://github.com/evilmartians/lefthook)**: Committed git hook
+  configuration.
+- **[just](https://github.com/casey/just)**: Project task runner.
+- **[Node.js](https://nodejs.org/)**: npm for Prettier and markdownlint pinned in
+  `package-lock.json`.
+- **[Python 3](https://www.python.org/)**: The codespell environment pinned in
+  `requirements/codespell.txt` and local documentation previews.
+
+#### Optional platform tooling
+
+- **[Lima](https://lima-vm.io/)**: Docker-free Linux test runs.
+- **[UTM](https://mac.getutm.app/)**: Windows GUI VM runs on Apple Silicon.
+- **[QEMU](https://www.qemu.org/)**, **swtpm**, and **sshpass**: Scripted Windows VM runs
+  with Frost. Frost uses SSH key authentication once its key exists; `sshpass` remains for
+  provisioning and password-auth fallback.
 
 After installing dependencies, bootstrap the repository-local quality tools and set up the
 git hooks:
@@ -101,16 +109,19 @@ Use `just` for the normal macOS development loop. Recipes are grouped by area; r
 to list the available modules and commands.
 
 ```sh
-just core build
-just core test
-just quality lint
-just docs
+# Mutates Swift and markup; review the resulting diff.
+just quality format
+
+# Verifies portable quality and runs the core test suite.
+just ci check
+
+# macOS only, when DocC/reference documentation changes.
+just docs lint
 ```
 
-`just core build` and `just core test` are the fastest checks while editing.
-`just quality lint` runs formatting, Swift formatting checks, Markdown checks, and DocC
-warnings-as-errors checks. `just docs` generates the combined DocC archive for local
-inspection.
+`just quality lint` and `just ci check` only verify; `just quality format` mutates files.
+DocC validation is separate and macOS-only. `just core build` and `just core test` remain
+the fastest commands while editing.
 
 If a branch or worktree behaves differently than expected, run `just core doctor` and see
 [Local development state](docs/LocalDevelopmentState.md). That page explains which
@@ -348,25 +359,24 @@ just setup hooks
 ```
 
 This configures Git to validate staged content without modifying it and to apply the same
-Conventional Commit policy locally and in CI.
+Conventional Commit policy locally and in CI. Hooks never autoformat or stage corrections.
 
-### Linting
+### Quality Checks and Formatting
 
 ```sh
-# Run all linters.
+# Check all portable quality policy without modifying files.
 just quality lint
 
-# Or run individual linters.
-just quality swiftlint
+# Apply deterministic SwiftLint → swift-format → Prettier formatting.
+just quality format
+
+# Check spelling, or explicitly write reviewed spelling corrections.
 just quality spelling
-just quality _swift-format
+just quality spelling-fix
 ```
 
-### Formatting
-
-```sh
-swift-format format -i -r Sources Tests
-```
+`just quality format` and `just quality spelling-fix` mutate files; review their diffs.
+Hooks run only non-mutating checks.
 
 ## Coding Standards
 

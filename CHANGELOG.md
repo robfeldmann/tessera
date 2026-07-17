@@ -22,6 +22,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   quality checks and a shared Conventional Commit validator for local commit messages and
   CI.
 
+- Aligned CI and contributor workflows around canonical Just quality commands, pinned the
+  Swift setup action to a reviewed commit, and kept warnings-as-errors DocC validation
+  explicit and macOS-only.
+
 - Added the Tessera design catalog under `design/`: a source-verified process for
   designing view-layer primitives and widgets, with per-component design docs (Button,
   List, ScrollView, SplitView, NavigationSplitView, Table, TextField, plus sketch stubs

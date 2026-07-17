@@ -22,9 +22,9 @@ updated: 2026-07-17
 - [x] **Phase 3 — Replace hook management with Lefthook**
   - [x] 3.1 Make repository commit policy canonical
   - [x] 3.2 Install and document Lefthook hooks
-- [ ] **Phase 4 — Align CI and documentation**
-  - [ ] 4.1 Make workflows call canonical quality gates
-  - [ ] 4.2 Publish the contributor workflow
+- [x] **Phase 4 — Align CI and documentation**
+  - [x] 4.1 Make workflows call canonical quality gates
+  - [x] 4.2 Publish the contributor workflow
 - [ ] **Phase 5 — Normalize and verify the migration**
   - [ ] 5.1 Apply one isolated formatting baseline
   - [ ] 5.2 Exercise all local and CI-equivalent gates

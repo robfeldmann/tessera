@@ -22,8 +22,8 @@ jobs:
     steps:
       - name: Block CI while skip-ci label is applied
         if: >
-          ${{ github.event_name == 'pull_request' &&
-          contains(github.event.pull_request.labels.*.name, 'skip-ci') }}
+          github.event_name == 'pull_request' &&
+          contains(github.event.pull_request.labels.*.name, 'skip-ci')
         run: |
           echo "The skip-ci label is applied. Remove it to run CI checks."
           exit 1
@@ -32,8 +32,8 @@ jobs:
     name: conventional commits
     needs: ci-gate
     if: >
-      ${{ github.event_name != 'pull_request' ||
-      !contains(github.event.pull_request.labels.*.name, 'skip-ci') }}
+      github.event_name != 'pull_request' ||
+      !contains(github.event.pull_request.labels.*.name, 'skip-ci')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -51,16 +51,17 @@ jobs:
 
       - name: Validate PR title
         if: github.event_name == 'pull_request'
-        run:
-          python3 scripts/conventional_commits.py "${{ github.event.pull_request.title }}"
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: python3 scripts/conventional_commits.py "$PR_TITLE"
 
   lint:
     name: lint
     needs: ci-gate
     if: >
-      ${{ (github.event_name != 'pull_request' ||
+      (github.event_name != 'pull_request' ||
       !contains(github.event.pull_request.labels.*.name, 'skip-ci')) && (github.event_name
-      != 'pull_request' || github.event.action != 'edited') }}
+      != 'pull_request' || github.event.action != 'edited')
     runs-on: macos-26
     timeout-minutes: 15
     steps:
@@ -68,6 +69,9 @@ jobs:
         uses: actions/checkout@v6
         with:
           persist-credentials: false
+
+      - name: Set up Swift
+        uses: ./.github/actions/setup-swift
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -86,28 +90,19 @@ jobs:
         with:
           tool: just
 
-      - name: Lint Swift formatting
-        run: just quality _swift-format
-
-      - name: Run SwiftLint
-        run: just quality swiftlint
-
-      - name: Check markup
-        run: npm run check:markup
-
       - name: Set up spelling tools
         run: just setup quality-tools
 
-      - name: Check spelling
-        run: just quality spelling
+      - name: Run portable quality gate
+        run: just quality lint
 
   test:
     name: test (${{ matrix.os }})
     needs: ci-gate
     if: >
-      ${{ (github.event_name != 'pull_request' ||
+      (github.event_name != 'pull_request' ||
       !contains(github.event.pull_request.labels.*.name, 'skip-ci')) && (github.event_name
-      != 'pull_request' || github.event.action != 'edited') }}
+      != 'pull_request' || github.event.action != 'edited')
     runs-on: ${{ matrix.os }}
     # Windows pays a one-time Zig build of libghostty-vt on cache miss.
     timeout-minutes: ${{ matrix.os == 'windows-latest' && 45 || 20 }}

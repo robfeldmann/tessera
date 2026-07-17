@@ -22,18 +22,18 @@ jobs:
     steps:
       - name: Block documentation checks while skip-ci label is applied
         if: >
-          ${{ github.event_name == 'pull_request' &&
-          contains(github.event.pull_request.labels.*.name, 'skip-ci') }}
+          github.event_name == 'pull_request' &&
+          contains(github.event.pull_request.labels.*.name, 'skip-ci')
         run: |
           echo "The skip-ci label is applied. Remove it to run documentation checks."
           exit 1
 
   docc:
-    name: DocC validation
+    name: DocC validation (macOS)
     needs: docs-gate
     if: >
-      ${{ github.event_name != 'pull_request' ||
-      !contains(github.event.pull_request.labels.*.name, 'skip-ci') }}
+      github.event_name != 'pull_request' ||
+      !contains(github.event.pull_request.labels.*.name, 'skip-ci')
     runs-on: macos-26
     timeout-minutes: 20
     steps:

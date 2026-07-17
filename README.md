@@ -12,9 +12,9 @@ designed to render apps the same way SwiftUI, UIKit, or AppKit do for graphical 
 
 - macOS 26.0+
 - Swift 6.3+
-- [Prettier](https://prettier.io/) (for Markdown formatting)
-- [SwiftLint](https://github.com/realm/SwiftLint) (for Swift linting)
-- [swift-format](https://github.com/apple/swift-format) (for Swift formatting)
+
+For contributor tooling, setup, and validation commands, see
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Installation
 
