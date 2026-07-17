@@ -20,6 +20,7 @@ if [[ ${#staged_files[@]} -eq 0 ]]; then
   exit 0
 fi
 
+
 git -C "$repo_root" checkout-index --prefix="$tmp/" -a
 cd "$tmp"
 

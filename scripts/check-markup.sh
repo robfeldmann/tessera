@@ -10,6 +10,10 @@ if [[ ! -x "$prettier" || ! -x "$markdownlint" ]]; then
   exit 1
 fi
 
+node_runtime="$(cd "$repo_root" && node -p 'process.execPath')"
+export PATH="$(dirname "$node_runtime"):$PATH"
+
+
 if [[ $# -eq 0 ]]; then
   "$prettier" --check .
   "$markdownlint" "**/*.md" "!**/*.docc/**/*.md" "!**/.build/**/*.md" "!Packages/**/*.md" "!node_modules/**/*.md"

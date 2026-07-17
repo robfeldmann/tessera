@@ -26,6 +26,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Swift setup action to a reviewed commit, and kept warnings-as-errors DocC validation
   explicit and macOS-only.
 
+- Hardened staged markup hook execution around a manager-neutral `node` on `PATH`,
+  verified formatter idempotence, and exercised generated Lefthook message, spelling,
+  DocC, and staged-index isolation boundaries in a disposable repository.
+
 - Added the Tessera design catalog under `design/`: a source-verified process for
   designing view-layer primitives and widgets, with per-component design docs (Button,
   List, ScrollView, SplitView, NavigationSplitView, Table, TextField, plus sketch stubs

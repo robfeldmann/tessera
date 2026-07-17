@@ -26,7 +26,7 @@ updated: 2026-07-17
   - [x] 4.1 Make workflows call canonical quality gates
   - [x] 4.2 Publish the contributor workflow
 - [ ] **Phase 5 — Normalize and verify the migration**
-  - [ ] 5.1 Apply one isolated formatting baseline
+  - [x] 5.1 Apply one isolated formatting baseline
   - [ ] 5.2 Exercise all local and CI-equivalent gates
 
 ## Overview
@@ -283,6 +283,19 @@ merging.
 - Acceptance: all commands pass after normalization; deliberate malformed Swift/Markdown,
   misspelled text, and Conventional Commit fixtures fail in the expected layer; the PR
   workflows pass without skipped mandatory quality tooling.
+
+### Verification note
+
+Local and disposable-repository verification completed. Remote PR workflows remain pending
+because this phase has no commit or push authorization; run the changed workflows after
+the next authorized commit reaches GitHub.
+
+### Review handback disposition
+
+- Accepted F1: removed the Volta-specific fallback so Node resolution requires the
+  manager-neutral `node` executable on `PATH`.
+- Accepted F2: removed duplicate Node-path resolution from the staged hook; the markup
+  checker is the single owner.
 
 ## References
 
