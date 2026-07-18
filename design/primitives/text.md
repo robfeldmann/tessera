@@ -1,6 +1,6 @@
 ---
 kind: primitive
-status: specified
+status: ready
 ---
 
 # Text
@@ -61,8 +61,9 @@ Callouts (9x1, 0-based):
 3. r0 c8 Combining sequence -- `é` occupies one cell; the combining mark never gains a cell.
 ```
 
-Source newlines create source rows; Text does not invent line breaks while `.none`
-wrapping is selected.
+Source `\r\n` normalizes to one source newline at `Text` initialization; a lone `\r`
+remains literal source content. Text does not invent line breaks while `.none` wrapping is
+selected.
 
 ```wireframe 8x2
 release
@@ -71,17 +72,23 @@ notes
 
 ```text
 Callouts (8x2, 0-based):
-1. r0-r1 c0-c6 Source rows -- the newline separates two independently measured and rendered
-   source lines; trailing cells remain untouched by Text.
+1. r0-r1 c0-c6 Source rows -- the normalized newline separates two independently measured
+   and rendered source lines; trailing cells remain untouched by Text.
 ```
 
 ### Constrained fixtures
 
-At Slice 1, `.none` wrapping preserves the ideal measurement and the final allocated
+At Slice 1, `.none` wrapping preserves ideal measurement and the final allocated
 `RenderRegion` clips the visible suffix rather than wrapping it:
 
 ```wireframe 8x1
 Ship one
+```
+
+```text
+Callouts (8x1, 0-based):
+1. r0 c0-c7 Unwrapped clip -- the assigned width is eight cells; the clipped suffix does
+   not create a second row.
 ```
 
 At Slice 3, `.word` wrapping uses a finite width proposal to reflow at word boundaries:
@@ -91,6 +98,13 @@ Ship one
 thing
 ```
 
+```text
+Callouts (8x2, 0-based):
+1. r0 c0-c7 First wrapped row -- the assigned width is eight cells.
+2. r1 c0-c4 Wrapped continuation -- `.word` moves `thing` to the next row rather than
+   breaking a word that fits intact.
+```
+
 Also at Slice 3, `.truncation(.tail)` makes overflow explicit without changing height:
 
 ```wireframe 8x1
@@ -98,24 +112,20 @@ release…
 ```
 
 ```text
-Callouts (8x2, 0-based):
-1. r0 c0-c7 Unwrapped clip / first wrapped row -- the assigned width is eight cells.
-2. r1 c0-c4 Wrapped continuation -- `.word` moves `thing` to the next row rather than
-   breaking a word that fits intact.
-3. r0 c0-c7 Tail truncation -- `truncation.mark` replaces the invisible suffix at a
+Callouts (8x1, 0-based):
+1. r0 c0-c7 Tail truncation -- `truncation.mark` replaces the invisible suffix at a
    grapheme-safe boundary.
 ```
 
 ## Variants
 
-| Configuration                    | Earliest slice    | Behavior                                                                                                               |
-| -------------------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `.wrapped(.none)`                | Slice 1           | Default. Source newlines are preserved; no additional rows are invented; rendering clips at the allocated region edge. |
-| `.wrapped(.word)`                | Slice 3           | Reflows at Unicode word boundaries for a finite width. A word wider than the region falls back to character wrapping.  |
-| `.wrapped(.character)`           | Slice 3           | Reflows at extended-grapheme-cluster boundaries for a finite width. It never splits a grapheme cluster.                |
-| `.truncation(.clip)`             | Slice 1           | Default. Invisible overflow is clipped without a marker.                                                               |
-| `.truncation(.tail)`             | Slice 3           | Replaces the invisible suffix with `truncation.mark` at a grapheme-safe boundary.                                      |
-| `.truncation(.head)` / `.middle` | Slice 3 direction | Use the same grapheme-safe marker rule when selected; the final public enum spelling follows the Slice 3 API.          |
+| Configuration                    | Earliest slice | Behavior                                                                                                               |
+| -------------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `.wrapped(.none)`                | Slice 1        | Default. Source newlines are preserved; no additional rows are invented; rendering clips at the allocated region edge. |
+| `.wrapped(.word)`                | Slice 3        | Reflows at Unicode word boundaries for a finite width. A word wider than the region falls back to character wrapping.  |
+| `.wrapped(.character)`           | Slice 3        | Reflows at extended-grapheme-cluster boundaries for a finite width. It never splits a grapheme cluster.                |
+| `.truncation(.tail)`             | Slice 3        | Replaces the invisible suffix with `truncation.mark` at a grapheme-safe boundary.                                      |
+| `.truncation(.head)` / `.middle` | Slice 3        | The public `TruncationMode` is `.clip`, `.tail`, `.head`, and `.middle`; each policy keeps whole grapheme clusters.    |
 
 Wrapping and truncation are mutually resolved by the chosen layout policy: wrapping
 controls how Text measures and produces rows; truncation applies when a rendered source or
@@ -136,20 +146,19 @@ never stretch Text or add blank content rows.
 | `Text("Hello")`, 3x1, `.none`            | 5x1    | No-wrap measurement remains intrinsic; a parent-assigned 3-cell region clips rendering. |
 | `Text("Hello")`, 80x24                   | 5x1    | Extra proposal does not stretch Text or create blank rows.                              |
 | `Text("release\nnotes")`, nil x nil      | 7x2    | Width is the longest source row; height is the source row count.                        |
+| `Text("a\r\nb")`, nil x nil              | 1x2    | Public initialization normalizes CRLF to two one-cell source rows.                      |
 | `Text("Ship one thing")`, 8xnil, `.word` | 8x2    | Word wrapping uses the finite proposal and reports the reflowed rows.                   |
 | `Text("東京")`, nil x nil                | 4x1    | Two wide graphemes each occupy two terminal cells.                                      |
 | `Text("")`, nil x nil                    | 0x1    | Empty content occupies one source row but paints no cells.                              |
 
 ## Environment
 
-- `defaultStyle` arrives with Slice 3. Text merges its resolved inherited Style underneath
-  explicit Text style modifiers; nearest ancestor wins per attribute, and explicit Text
-  attributes win over inherited values.
-- `.foreground`, `.background`, `.bold`, `.italic`, `.underline`, and `.style` are shared
-  View modifiers introduced with Slice 3. Text owns no private color or attribute API.
-- `background` fills Text's allocated rectangle while foreground and attributes apply to
-  written cells; this is shared style-modifier behavior, not a separate Text layout mode.
-- `truncation.mark` supplies `…`; ASCII-only output substitutes `~`.
+| Input            | Text behavior                                                                                                                       |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| inherited Style  | `defaultStyle` arrives with Slice 3; nearest ancestor wins per attribute, then explicit Text attributes win.                        |
+| shared modifiers | `.foreground`, `.background`, `.bold`, `.italic`, `.underline`, and `.style` are shared Slice 3 modifiers; Text has no private API. |
+| background fill  | `background` fills Text's allocated rectangle while foreground and attributes apply only to written cells.                          |
+| truncation mark  | `truncation.mark` supplies `…`; ASCII-only output substitutes `~`.                                                                  |
 
 ## Progressive slice sequence
 
@@ -166,30 +175,49 @@ never stretch Text or add blank content rows.
 4. **After Slice 4 and later:** Text remains noninteractive. TextField, List, Button, and
    other widgets compose Text labels/content while owning focus, bindings, and input.
 
+## Input routing
+
+Text installs no responder. These explicit no-op rows make the routing contract
+fixture-testable without giving a leaf focus or state.
+
+| Key                      | Precondition | Effect                                  | Consumed |
+| ------------------------ | ------------ | --------------------------------------- | -------- |
+| printable characters     | always       | installs no handler; dispatch continues | no       |
+| Enter                    | always       | installs no handler; dispatch continues | no       |
+| Up / Down / Left / Right | always       | installs no handler; dispatch continues | no       |
+
+| Event      | Region       | Precondition | Effect                                  | Consumed |
+| ---------- | ------------ | ------------ | --------------------------------------- | -------- |
+| click      | Text content | always       | installs no handler; dispatch continues | no       |
+| drag       | Text content | always       | installs no handler; dispatch continues | no       |
+| wheel-up   | Text content | always       | installs no handler; dispatch continues | no       |
+| wheel-down | Text content | always       | installs no handler; dispatch continues | no       |
+
 ## Requirements
 
-- `text measures natural width in terminal display cells` (natural anatomy fixture;
-  sizing: `Text("Hello")`, nil x nil)
-- `text measures wide emoji and combining graphemes without splitting clusters` (Unicode
-  anatomy fixture; sizing: `Text("東京")`, nil x nil)
-- `text preserves source newline rows` (source rows anatomy fixture; sizing:
-  `Text("release\nnotes")`, nil x nil)
-- `unwrapped text reports intrinsic size and clips in a constrained region` (constrained
-  fixture; sizing: `Text("Hello")`, 3x1, `.none`)
-- `word-wrapped text reflows at a finite proposal` (constrained fixture; sizing:
-  `Text("Ship one thing")`, 8xnil, `.word`)
+- `text measures natural width in terminal display cells` (anatomy: Text content; sizing:
+  `Text("Hello")`, nil x nil).
+- `text measures wide emoji and combining graphemes without splitting clusters` (anatomy:
+  Wide text, Emoji cluster, and Combining sequence).
+- `text preserves normalized source newline rows` (anatomy: Source rows; sizing:
+  `Text("a\r\nb")`, nil x nil).
+- `unwrapped text reports intrinsic size and clips in a constrained region` (anatomy:
+  Unwrapped clip; sizing: `Text("Hello")`, 3x1, `.none`).
+- `word-wrapped text reflows at a finite proposal` (anatomy: First wrapped row and Wrapped
+  continuation; sizing: `Text("Ship one thing")`, 8xnil, `.word`).
 - `character-wrapped text does not split an extended grapheme cluster` (variants:
-  `.wrapped(.character)`)
-- `tail-truncated text uses the truncation mark at a grapheme-safe boundary` (tail
-  truncation fixture; variants: `.truncation(.tail)`)
-- `text does not stretch for excess proposal` (sizing: `Text("Hello")`, 80x24)
-- `empty text measures zero by one and paints no cells` (sizing: `Text("")`, nil x nil)
+  `.wrapped(.character)`).
+- `tail-truncated text uses the truncation mark at a grapheme-safe boundary` (anatomy:
+  Tail truncation; variants: `.truncation(.tail)`).
+- `text does not stretch for excess proposal` (sizing: `Text("Hello")`, 80x24).
+- `empty text measures zero by one and paints no cells` (sizing: `Text("")`, nil x nil).
 - `text merges inherited and explicit styles by attribute precedence` (environment:
-  `defaultStyle` and shared modifiers)
-- `text background fills its allocated rectangle` (environment: `background`)
-- `text substitutes ascii truncation mark without changing geometry` (degradation:
-  ASCII-only)
-- `text never consumes focus keyboard or pointer input` (overview; progressive slice 4)
+  inherited Style).
+- `text background fills its allocated rectangle` (environment: background fill).
+- `text substitutes ascii truncation mark without changing geometry` (environment:
+  truncation mark; degradation: ASCII-only).
+- `text never consumes keyboard or pointer input` (key table: printable characters, Enter,
+  and Up / Down / Left / Right; mouse table: click, drag, wheel-up, and wheel-down).
 
 ## Degradation
 
@@ -201,18 +229,13 @@ never stretch Text or add blank content rows.
 | ASCII-only                 | Preserves source ASCII text; borderless Text needs no glyph substitution; tail truncation changes from `…` to `~`. Unicode source text is rendered only when the active terminal capability can represent it. |
 | Narrow or short allocation | `.none` clips; wrapped modes reflow only for a finite width; truncating modes use their selected marker. Text never creates scroll state or focus.                                                            |
 
-## Open questions
+## Deferred scope
 
-- **Rich text segments:** the accepted direction is one immutable `String` per Text leaf.
-  Whether styled spans, localized interpolation, or formatted values deserve a separate
-  public text-composition type is deferred until an application needs them; they must not
-  turn Text into a mutable document model.
-- **Truncation enum spelling:** Slice 3 commits `.clip` and `.tail`; the catalog reserves
-  head and middle policies from [tokens](../tokens.md#truncation). Finalize one enum shape
-  before implementing Slice 3.
-- **Line-ending normalization:** decide whether `\r\n` normalizes to one source newline at
-  the public Text boundary or is caller-normalized. The answer must preserve deterministic
-  row measurement across backends.
+Rich text segments, localized interpolation, and formatted values are excluded from Phase
+4 1.0; the exact deferred boundary is
+[Catalog text boundary decisions](../../docs/Spec.md#catalog-text-boundary-decisions).
+They require a separate text-composition proposal and must not turn Text into a mutable
+document model.
 
 ## Inspiration
 

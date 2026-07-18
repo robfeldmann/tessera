@@ -1,6 +1,6 @@
 ---
 kind: tokens
-status: sketch
+status: ready
 ---
 
 # Design tokens
@@ -24,7 +24,7 @@ Named sizes for wireframes and, later, snapshot fixtures.
 Wider fixtures are component-specific. A component may declare a wider natural fixture
 when width changes its anatomy, but the catalog does not assign that size a global
 viewport name until device testing establishes a reusable breakpoint. Tessera Showcase
-currently uses `120x24` provisionally for its simultaneous three-region composition.
+uses `120x24` as its documented simultaneous three-region composition fixture.
 
 ## Semantic styles
 
@@ -32,13 +32,13 @@ Semantic roles resolve to complete `Style` values through the environment, not o
 colors. System component styles consume these roles; applications may replace any role for
 a subtree. The initial vocabulary is intentionally small:
 
-| Role                   | Default intent                   | `NO_COLOR` fallback | Used by                              |
-| ---------------------- | -------------------------------- | ------------------- | ------------------------------------ |
-| `semantic.primary`     | terminal-default foreground      | unchanged           | ordinary labels and content          |
-| `semantic.secondary`   | dim terminal-default foreground  | dim                 | supporting labels and inactive facts |
-| `semantic.accent`      | configured accent color + bold   | bold                | focus and selected controls          |
-| `semantic.disabled`    | dim terminal-default foreground  | dim                 | disabled control presentation        |
-| `semantic.destructive` | red + bold + underline when able | bold + underline    | destructive actions and warnings     |
+| Role                   | Default intent                                         | `NO_COLOR` fallback | Used by                              |
+| ---------------------- | ------------------------------------------------------ | ------------------- | ------------------------------------ |
+| `semantic.primary`     | terminal-default foreground                            | unchanged           | ordinary labels and content          |
+| `semantic.secondary`   | dim terminal-default foreground                        | dim                 | supporting labels and inactive facts |
+| `semantic.accent`      | ANSI bright cyan (index 14) + bold                     | bold                | focus and selected controls          |
+| `semantic.disabled`    | dim terminal-default foreground                        | dim                 | disabled control presentation        |
+| `semantic.destructive` | ANSI bright red (index 9) + bold + underline when able | bold + underline    | destructive actions and warnings     |
 
 These values describe presentation only. Whether a control is enabled, selected, focused,
 or destructive remains semantic component state supplied to its system or custom style.
@@ -69,7 +69,7 @@ Glyph tables for `Border`/frame drawing. Names follow the style, not the codepoi
 
 ## Selection
 
-| Token                | Value (proposed)          | Used by           |
+| Token                | Value                     | Used by           |
 | -------------------- | ------------------------- | ----------------- |
 | `selection.bar`      | `▌` in the leading gutter | List, Table       |
 | `selection.fill`     | reverse video on the row  | List, Table       |
@@ -80,18 +80,18 @@ Glyph tables for `Border`/frame drawing. Names follow the style, not the codepoi
 
 How a focused widget announces itself. System-wide decision, not per-widget.
 
-| Token           | Value (proposed)                                | Notes                            |
-| --------------- | ----------------------------------------------- | -------------------------------- |
-| `focus.border`  | border switches to `rounded` + accent color     | bordered widgets                 |
-| `focus.content` | selection tokens switch active/inactive variant | borderless widgets (List, Table) |
+| Token           | Value                                            | Notes                                          |
+| --------------- | ------------------------------------------------ | ---------------------------------------------- |
+| `focus.border`  | border switches to `rounded` + `semantic.accent` | bordered widgets; title position never changes |
+| `focus.content` | selection tokens switch active/inactive variant  | borderless widgets (List, Table)               |
 
 ## Scroll indicators
 
-| Token             | Value (proposed) | Notes                                           |
-| ----------------- | ---------------- | ----------------------------------------------- |
-| `scrollbar.track` | `│` / `─`        | vertical / horizontal                           |
-| `scrollbar.thumb` | `█` / `■`        | thumb length = max(1, viewport/content x track) |
-| `scrollbar.ascii` | `\|` and `#`     | degradation                                     |
+| Token             | Value        | Notes                                           |
+| ----------------- | ------------ | ----------------------------------------------- |
+| `scrollbar.track` | `│` / `─`    | vertical / horizontal                           |
+| `scrollbar.thumb` | `█` / `■`    | thumb length = max(1, viewport/content x track) |
+| `scrollbar.ascii` | `\|` and `#` | degradation                                     |
 
 Scrollbars appear only when content overflows; they occupy one cell on the trailing or
 bottom edge, inside the component's frame.
@@ -118,10 +118,12 @@ What each family becomes as capabilities shrink. Capability detection is advisor
 | truncation      | `…`             | unchanged          | unchanged                  | `~`             |
 | semantic styles | full role Style | attributes only    | indexed color + attributes | attributes only |
 
-## Open questions
+## Requirements
 
-- Which terminal-indexed colors should system `semantic.accent` and `semantic.destructive`
-  use before an application overrides them? Resolve while reviewing the first control
-  style; role names and non-color fallbacks are accepted.
-- Should `focus.border` imply a title-position change (SwiftUI-style) or stay purely
-  stylistic? Defer until Border primitive is drafted.
+- `semantic accent has a deterministic indexed-color fallback` (semantic styles:
+  `semantic.accent`).
+- `semantic destructive preserves emphasis without color` (semantic styles:
+  `semantic.destructive`).
+- `focused bordered controls retain their title geometry` (focus: `focus.border`).
+- `ascii degradation substitutes only the shared glyph families` (degradation ladder:
+  ASCII-only).

@@ -1,6 +1,6 @@
 ---
 kind: primitive
-status: specified
+status: ready
 ---
 
 # ZStack
@@ -38,17 +38,29 @@ Callouts (6x1, 0-based):
 
 ## Variants
 
-| Configuration                  | Measurement                    | Placement and paint                                                                              |
-| ------------------------------ | ------------------------------ | ------------------------------------------------------------------------------------------------ |
-| `ZStack { ... }`               | maximum child width and height | `.topLeading`; children receive the common bounds and paint in source order.                     |
-| `ZStack(alignment: a) { ... }` | maximum child width and height | `a` positions undersized children within the common bounds; later source children remain on top. |
-| Empty `ZStack`                 | `0x0`                          | Places no subviews and paints no cells.                                                          |
+| Configuration                        | Measurement                    | Placement and paint                                                                          |
+| ------------------------------------ | ------------------------------ | -------------------------------------------------------------------------------------------- |
+| `ZStack { ... }`                     | maximum child width and height | `.topLeading`; children receive common bounds and paint in source order.                     |
+| `ZStack(alignment: a) { ... }`       | maximum child width and height | `a` positions undersized children within common bounds; later source children remain on top. |
+| children with `.layoutPriority(...)` | maximum child width and height | Priority is ignored; common bounds and lexical source paint order are unchanged.             |
+| Empty `ZStack`                       | `0x0`                          | Places no subviews and paints no cells.                                                      |
 
 ZStack does not reserve space between layers. Each child is independently positioned in
 the same bounds; it is not a linear stack and ignores `layoutPriority`. A child that
 exceeds its ZStack bounds remains clipped to the ZStack's final parent frame. Later layout
 modifiers may make an overlay's visual area smaller than the common allocation, as in the
 anatomy's fixed-width Text.
+
+## Allocation and diagnostics
+
+| ZStack proposal and children                          | Child frames                         | Diagnostics and rule                                                                            |
+| ----------------------------------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| `6x1`: `Text("status")`, `Text("OK").frame(width: 2)` | `status: (0,0) 6x1`; `OK: (0,0) 2x1` | `paintOrder` is `0` for `status`, `1` for `OK`; increasing source order overwrites prior cells. |
+| `6x1`: `Text("A").layoutPriority(9)`, `Text("B")`     | `A: (0,0) 6x1`; `B: (0,0) 6x1`       | `paintOrder` stays `0`, `1`; layout priority does not change ZStack placement or paint order.   |
+
+`dump()` records this zero-based `paintOrder` field for each placed child; it does not
+invent a separate z-index value. This durable schema is fixed by
+[catalog layout decisions](../../docs/Spec.md#catalog-layout-decisions).
 
 ## Sizing
 
@@ -75,21 +87,26 @@ are derived every layout and render pass.
 - `zstack reports the maximum child width and height` (sizing: nil x nil).
 - `zstack does not sum child extents` (sizing: nil x nil).
 - `zstack clips an oversized child to its assigned parent frame` (sizing: 2x1).
-- `later zstack children paint over earlier overlapping cells` (anatomy: Overlay region).
-- `zstack aligns undersized children within common bounds` (variants: explicit alignment).
-- `empty zstack reports zero size and paints nothing` (variants: Empty ZStack).
-- `zstack ignores layout priority during overlay placement` (variants: layoutPriority).
+- `later zstack children paint over earlier overlapping cells` (anatomy: Overlay region;
+  allocation and diagnostics: `6x1`: `Text("status")`, `Text("OK").frame(width: 2)`).
+- `zstack aligns undersized children within common bounds` (variants:
+  `ZStack(alignment: a) { ... }`).
+- `empty zstack reports zero size and paints nothing` (variants: Empty `ZStack`).
+- `zstack ignores layout priority during overlay placement` (allocation and diagnostics:
+  `6x1`: `Text("A").layoutPriority(9)`, `Text("B")`; variants: children with
+  `.layoutPriority(...)`).
 
 ## Degradation
 
 ZStack uses no glyph, color, or capability token. ASCII-only and reduced-color terminals
 preserve its integer bounds, source-order overwriting, alignment, and clipping.
 
-## Open questions
+## Decisions
 
-- Confirm whether Slice 2 custom Layout placement records an explicit z-index value in the
-  graph dump or whether source order is sufficient. The observable paint order in this
-  document must remain source order either way.
+Source order is the only overlay ordering: `dump()` records lexical `paintOrder`, and
+ZStack has no distinct z-index. The exact diagnostics schema is
+[catalog layout decisions](../../docs/Spec.md#catalog-layout-decisions); no ZStack
+decision remains open.
 
 ## Inspiration
 

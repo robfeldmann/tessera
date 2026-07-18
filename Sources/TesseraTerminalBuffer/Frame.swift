@@ -1,5 +1,4 @@
 import TesseraTerminalANSI
-import TesseraTerminalBuffer
 import TesseraTerminalCore
 
 /// A scoped, borrowed drawing surface for one terminal render transaction.

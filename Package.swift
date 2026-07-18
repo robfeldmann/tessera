@@ -132,6 +132,8 @@ let CTesseraTerminalPlatform: Target.Dependency = .byName(
 )
 let Tessera: Target.Dependency = .byName(name: "Tessera")
 let TesseraCore: Target.Dependency = .byName(name: "TesseraCore")
+let TesseraLayout: Target.Dependency = .byName(name: "TesseraLayout")
+let TesseraWidgets: Target.Dependency = .byName(name: "TesseraWidgets")
 let TesseraTerminal: Target.Dependency = .byName(name: "TesseraTerminal")
 let TesseraTerminalANSI: Target.Dependency = .byName(name: "TesseraTerminalANSI")
 let TesseraTerminalBuffer: Target.Dependency = .byName(name: "TesseraTerminalBuffer")
@@ -151,6 +153,8 @@ let TesseraTerminalTestSupport: Target.Dependency = .byName(
 let AllTesseraTargetNames: Set<String> = [
   "Tessera",
   "TesseraCore",
+  "TesseraLayout",
+  "TesseraWidgets",
   "TesseraTerminal",
   "TesseraTerminalANSI",
   "TesseraTerminalBuffer",
@@ -195,15 +199,30 @@ package.targets.append(
     name: "Tessera",
     dependencies: [
       TesseraCore,
+      TesseraLayout,
+      TesseraWidgets,
       TesseraTerminal,
     ]
   )
 )
 
+// MARK: TesseraArchitectureTests
+
+package.targets.append(
+  .testTarget(name: "TesseraArchitectureTests")
+)
+
 // MARK: TesseraCore
 
 package.targets.append(contentsOf: [
-  .target(name: "TesseraCore"),
+  .target(
+    name: "TesseraCore",
+    dependencies: [
+      TesseraTerminalBuffer,
+      TesseraTerminalCore,
+      TesseraTerminalInput,
+    ]
+  ),
   .testTarget(
     name: "TesseraCoreTests",
     dependencies: [
@@ -212,6 +231,41 @@ package.targets.append(contentsOf: [
       SnapshotTesting,
       SnapshotTestingCustomDump,
       TesseraCore,
+    ]
+  ),
+])
+
+// MARK: TesseraLayout
+
+package.targets.append(contentsOf: [
+  .target(
+    name: "TesseraLayout",
+    dependencies: [
+      TesseraCore
+    ]
+  ),
+  .testTarget(
+    name: "TesseraLayoutTests",
+    dependencies: [
+      TesseraLayout
+    ]
+  ),
+])
+
+// MARK: TesseraWidgets
+
+package.targets.append(contentsOf: [
+  .target(
+    name: "TesseraWidgets",
+    dependencies: [
+      TesseraCore,
+      TesseraLayout,
+    ]
+  ),
+  .testTarget(
+    name: "TesseraWidgetsTests",
+    dependencies: [
+      TesseraWidgets
     ]
   ),
 ])
@@ -385,6 +439,12 @@ package.targets.append(contentsOf: [
 ])
 
 // MARK: TesseraTerminalSnapshotSupport
+package.products.append(
+  .library(
+    name: "TesseraTerminalSnapshotSupport",
+    targets: ["TesseraTerminalSnapshotSupport"]
+  )
+)
 
 let TesseraTerminalSnapshotSupportPlatformDependencies: [Target.Dependency] =
   GhosttyVTEnabled ? [CGhosttyVT] : []
@@ -412,6 +472,12 @@ package.targets.append(contentsOf: [
 ])
 
 // MARK: TesseraTerminalTestSupport
+package.products.append(
+  .library(
+    name: "TesseraTerminalTestSupport",
+    targets: ["TesseraTerminalTestSupport"]
+  )
+)
 
 package.targets.append(
   .target(

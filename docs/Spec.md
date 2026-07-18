@@ -6763,6 +6763,26 @@ the optional `@MainActor` runtime in Phase 5). Rendering is synchronous while a 
 held — no suspension points inside a render pass. Do not make `View: Sendable` to silence
 diagnostics; non-sendability is a feature here.
 
+### Phase 0 frozen module and ownership contract
+
+The Phase 4 target graph is acyclic and intentionally narrow: `TesseraCore` directly
+depends only on `TesseraTerminalCore`, `TesseraTerminalBuffer`, and
+`TesseraTerminalInput`; `TesseraLayout` depends only on `TesseraCore`; and
+`TesseraWidgets` depends only on `TesseraCore` and `TesseraLayout`. `Tessera` is the
+public re-export surface for those three view targets and `TesseraTerminal`.
+
+`Frame` belongs to `TesseraTerminalBuffer`, alongside `Buffer` and `Style`. This is the
+narrow terminal substrate seam: `TesseraCore` may render synchronously into the borrowed,
+noncopyable `Frame` and use geometry, buffer/style, and input-event values without
+importing `TesseraTerminal`, `TesseraTerminalIO`, platform shims, or UI frameworks. Only
+`TerminalSession` owns mode lifecycle, capabilities, presentation, and the construction of
+a frame during its draw transaction. The `TesseraTerminal` and `Tessera` facade source
+files contain re-exports only; implementation code imports its narrow dependency directly.
+
+`TesseraWidgets` starts with the Slice 2 static `ScrollView` viewport and `SplitView`
+geometry, receives controlled responders in Slice 4, and completes its standard widget set
+in Slice 7. There is no temporary widget target.
+
 ### What Tessera keeps from SwiftUI, and what it deliberately rejects
 
 | SwiftUI concept              | Tessera counterpart                                                         |
@@ -6920,18 +6940,18 @@ graded against this spec and Tessera's terminal substrate:
 
 The import boundary is an executable requirement, not a comment.
 
-1. **Source import boundary test.** A Swift Testing architecture test scans view-layer
-   source roots and fails on forbidden imports. In Phase 4 the initial roots are
-   `Sources/TesseraCore` and `Sources/Tessera`; the forbidden modules include
-   `TesseraTerminalIO`, platform IO shims, `SwiftUI`, `AppKit`, and `UIKit`. The test
-   imports only `Foundation` and `Testing`, reports every offending file/line, and lives
-   with the unit tests so `swift test --filter ImportBoundary` can run it directly.
-2. **Package graph boundary check.** A separate script run by `just quality lint` calls
-   `swift package describe --type json` and rejects forbidden target dependency edges,
-   such as a view-layer target depending directly on `TesseraTerminalIO` or platform IO.
-   Keep this out of `swift test`; invoking SwiftPM from inside SwiftPM tests is recursive
-   and slow. The source test catches actual leaks, while the graph check catches a
-   manifest being broadened before the leak is used.
+1. **Source import boundary test.** A Swift Testing architecture test scans every declared
+   view-layer source root: `Sources/TesseraCore`, `Sources/TesseraLayout`,
+   `Sources/TesseraWidgets`, and `Sources/Tessera`. It rejects imports of
+   `TesseraTerminalIO`, `CTesseraTerminalPlatform`, `SwiftUI`, `AppKit`, and `UIKit`,
+   reports every offending file and line, imports only `Foundation` and `Testing`, and
+   lives with the unit tests so `swift test --filter ImportBoundary` can run it directly.
+2. **Package graph boundary check.** The separately unit-tested Python script
+   `scripts/check-package-boundaries.py` receives `swift package describe --type json` on
+   standard input and rejects view-layer direct dependency edges outside the frozen graph.
+   `just quality lint` runs it; `swift test` does not invoke SwiftPM recursively. The
+   source test catches actual leaks, while the graph check catches a manifest being
+   broadened before the leak is used.
 
 Both checks enforce the same ownership rule: views declare terminal requirements, but only
 the session owns terminal capabilities.
@@ -6951,16 +6971,29 @@ private struct ImportBoundary {
 
 @Test
 func `view layer sources do not import forbidden modules`() throws {
+    let forbiddenModules: Set<String> = [
+        "AppKit", "CTesseraTerminalPlatform", "SwiftUI", "TesseraTerminalIO", "UIKit",
+    ]
     let boundaries = [
         ImportBoundary(
             name: "TesseraCore",
             sourcePath: "Sources/TesseraCore",
-            forbiddenModules: ["AppKit", "SwiftUI", "TesseraTerminalIO", "UIKit"]
+            forbiddenModules: forbiddenModules
+        ),
+        ImportBoundary(
+            name: "TesseraLayout",
+            sourcePath: "Sources/TesseraLayout",
+            forbiddenModules: forbiddenModules
+        ),
+        ImportBoundary(
+            name: "TesseraWidgets",
+            sourcePath: "Sources/TesseraWidgets",
+            forbiddenModules: forbiddenModules
         ),
         ImportBoundary(
             name: "Tessera",
             sourcePath: "Sources/Tessera",
-            forbiddenModules: ["AppKit", "SwiftUI", "TesseraTerminalIO", "UIKit"]
+            forbiddenModules: forbiddenModules
         ),
     ]
 
@@ -7040,68 +7073,28 @@ private let importKinds: Set<String> = [
 ]
 ```
 
-The package graph checker should be a separate script that reads SwiftPM's JSON from
-standard input and fails on forbidden direct edges:
+The package graph checker is the separately unit-tested Python script
+`scripts/check-package-boundaries.py`. It reads the `swift package describe --type json`
+document from standard input, validates the declared view targets, and permits only these
+direct edges:
 
-```swift
-import Foundation
-
-struct PackageDump: Decodable {
-    var targets: [Target]
-
-    struct Target: Decodable {
-        var name: String
-        var targetDependencies: [String]
-
-        enum CodingKeys: String, CodingKey {
-            case name
-            case targetDependencies = "target_dependencies"
-        }
-
-        init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-            name = try container.decode(String.self, forKey: .name)
-            targetDependencies =
-                try container.decodeIfPresent([String].self, forKey: .targetDependencies) ?? []
-        }
-    }
-}
-
-let package = try JSONDecoder().decode(
-    PackageDump.self,
-    from: FileHandle.standardInput.readDataToEndOfFile()
-)
-
-let forbiddenEdges: [String: Set<String>] = [
-    "TesseraCore": ["CTesseraTerminalPlatform", "TesseraTerminal", "TesseraTerminalIO"],
-    "Tessera": ["CTesseraTerminalPlatform", "TesseraTerminalIO"],
-]
-
-let targetsByName = Dictionary(uniqueKeysWithValues: package.targets.map { ($0.name, $0) })
-let offenders = forbiddenEdges.flatMap { source, forbidden -> [String] in
-    let dependencies = Set(targetsByName[source]?.targetDependencies ?? [])
-    return dependencies.intersection(forbidden).sorted().map { "\(source) -> \($0)" }
-}
-
-if !offenders.isEmpty {
-    FileHandle.standardError.write(
-        Data(("Forbidden package dependency edges:\n" + offenders.joined(separator: "\n")).utf8)
-    )
-    throw BoundaryError.violations(offenders)
-}
-
-enum BoundaryError: Error {
-    case violations([String])
-}
+```text
+TesseraCore    -> TesseraTerminalCore, TesseraTerminalBuffer, TesseraTerminalInput
+TesseraLayout  -> TesseraCore
+TesseraWidgets -> TesseraCore, TesseraLayout
+Tessera        -> TesseraCore, TesseraLayout, TesseraWidgets, TesseraTerminal
 ```
 
-`just quality lint` then gets a cheap architecture step:
+It fails for every other direct dependency from those targets, including terminal IO,
+platform shims, rendering/ANSI implementation targets, or reverse view-layer edges. Its
+unit tests use JSON fixtures and call the checker directly; they never invoke SwiftPM.
+
+`just quality lint` runs the unit tests and then the live manifest check:
 
 ```just
-lint: swift swiftlint markdown docs architecture
-
 architecture:
-    swift package describe --type json | swift scripts/check-package-boundaries.swift
+    python3 -m unittest scripts/test_check_package_boundaries.py
+    swift package describe --type json | python3 scripts/check-package-boundaries.py
 ```
 
 ### Geometry
@@ -7192,6 +7185,31 @@ The rules, exhaustively:
   No graph plumbing, no transactions. It is two closures. TCA bindings, `@Observable`
   references, and plain `inout`-style closures all adapt to it in one line.
 
+  Controlled widget ownership is fixed before implementation. A controlled initializer
+  receives the app's `Binding`, never an initial value to retain; an action is an
+  app-supplied escaping closure invoked only for the documented user interaction:
+
+  ```swift
+  public init(
+      role: ButtonRole? = nil,
+      action: @escaping () -> Void,
+      @ViewBuilder label: @escaping () -> Label
+  )
+
+  public init(
+      text: Binding<String>,
+      prompt: Text? = nil,
+      onSubmit: @escaping (String) -> Void = { _ in },
+      @ViewBuilder label: @escaping () -> Label
+  )
+  ```
+
+  These are `Button.init(role:action:label:)` and
+  `TextField.init(text:prompt:onSubmit:label:)`. `ScrollView` retains its catalog
+  `init(_:offset:content:)` signature with optional `Binding<TerminalPosition>`. `Toggle`,
+  `Picker`, `Stepper`, `List`, and `Table` likewise accept their catalog-defined bindings
+  rather than copying controlled values into `NodeState`.
+
 - **`NodeState` is for ephemeral UI internals only.** Leaf primitives and widgets may
   declare node-local state (cursor index, scroll offset, marquee phase) that lives on the
   `RuntimeNode`, keyed by identity, passed `inout` to the primitive's methods. It survives
@@ -7237,9 +7255,11 @@ public enum ViewBuilder {
 }
 ```
 
-`TupleView` uses parameter packs — this is one of the Swift 6 showcase points. If pack
-iteration in the reconciler fights the toolchain, the documented fallback is fixed-arity
-overloads up to 10, generated; do not let this block the slice.
+`TupleView` uses parameter packs — this is one of the Swift 6 showcase points. The Phase 0
+Swift 6.3 probe compiled pack iteration, `~Copyable`/`~Escapable` borrowed-region lending
+(with the `Lifetimes` experimental feature), and generic opening of a `View` existential.
+The parameter-pack implementation remains selected; fixed-arity overloads up to 10 remain
+the documented fallback only if a supported toolchain regresses.
 
 Structural views the reconciler understands natively: `TupleView`, `ConditionalView`,
 `Optional`, `EmptyView`, `ForEach`, `AnyView` (type erasure; documented as an identity
@@ -7388,18 +7408,24 @@ contributed by each subtree. If Phase 4 development requires a print statement t
 
 #### Immutable local developer diagnostics
 
-`graph.dump()` and `statistics` remain the human-readable views of a **public immutable
-diagnostics snapshot** of the most recent completed graph pass. The snapshot records node
-identity and dynamic type, parent/child order, proposal, measured size, absolute frame,
-clip, environment override names, installed handler kinds, requested and effective session
-requirements, and reconciliation counters. It is a local developer value: it has no
-serialization, persistence, logging, telemetry, remote transport, or raw controlled-value
-capture.
+`graph.dump()` and `statistics` are human-readable projections of the **public immutable
+diagnostics snapshot** from the most recently completed graph pass. Its schema is frozen:
 
-The Showcase inspector reads that immutable snapshot only. It cannot mutate the graph,
-retain a borrowed `RenderRegion`, change focus or state, or trigger an update, layout,
-render, or present pass. The graph reports requested `TerminalRequirements`; the session
-is the sole authority that decides and reports the effective requirements in the snapshot.
+- every node's identity and dynamic type;
+- parent identity and ordered child identities;
+- proposal, measured size, absolute frame, and clip;
+- resolved environment override names and installed handler kinds;
+- requested graph and effective session `TerminalRequirements`; and
+- reconciliation counters (node create/destroy/update, body evaluation, equatable skip,
+  leaf update, measurement, placement, render, focus, and requirements changes).
+
+No other data enters this schema: it excludes controlled values, raw view values, raw
+input, raw terminal bytes, `NodeState`, closures, and borrowed regions. It is local-only
+and has no serialization, persistence, logging, telemetry, or remote transport. The
+Showcase inspector reads the immutable snapshot only; it cannot mutate the graph, retain a
+borrowed `RenderRegion`, change focus or state, or trigger a pass. The graph reports
+requested requirements; the session is the sole authority that decides and reports
+effective requirements in the snapshot.
 
 #### The reconciliation algorithm
 
@@ -7608,9 +7634,34 @@ extension View {
 }
 ```
 
+#### Catalog layout decisions
+
+The Slice 2 public APIs reject invalid configuration with `precondition` before a layout
+pass: `spacing`, `Spacer.minLength`, every `EdgeInsets` edge, and every fixed/min/max
+frame extent must be non-negative; if both bounds on an axis are supplied, `min <= max`.
+Invalid configuration is never clamped, never creates an inverted rectangle, and never
+reaches a graph dump.
+
+For a bounded frame axis, the reported extent is `clamp(childExtent, min, max)` using any
+present endpoint. A present maximum is also a child-proposal cap: a max-only frame
+proposes that maximum when its parent axis is `nil`, and otherwise proposes
+`min(parentProposal, maximum)`. The child can therefore measure its flexible layout at a
+finite cap; the frame still clips a larger placed child to its resolved bounds.
+
+`dump()` records `paintOrder` on each placed child: its zero-based lexical source index
+within the parent. Render visits increasing `paintOrder`; ZStack does not have a separate
+`zIndex` layout value.
+
 Note alignment defaults: terminal UIs read top-leading, not center. `Alignment`,
 `HorizontalAlignment`, `VerticalAlignment` are simple enums (no custom alignment guides —
 if they are ever needed, that is a separate proposal, not a quiet addition).
+
+#### Deferred baseline alignment
+
+Baseline alignment is not part of Phase 4 or its alignment enums. It requires a separate
+post-1.0 proposal that defines a text-baseline metric for every participating view; until
+that proposal lands, HStack accepts only `.top`, `.center`, and `.bottom`, and VStack only
+`.leading`, `.center`, and `.trailing`.
 
 #### The stack algorithm (normative)
 
@@ -7700,6 +7751,15 @@ bubbling in Slice 5; this slice supplies their static controlled foundation.
 ### Slice 3: Styling, text wrapping, and decoration
 
 #### What this slice proves
+
+#### Catalog text boundary decisions
+
+`Text` normalizes each `\r\n` sequence to one source newline at its public initializer; a
+lone `\r` remains literal source text. Slice 3 exposes `TruncationMode.clip`, `.tail`,
+`.head`, and `.middle`; every marker replaces only whole extended grapheme clusters. Rich
+text spans, localized interpolation, and formatted values are out of Phase 4 1.0 and
+require a separate post-1.0 text-composition proposal; `Text` remains one immutable
+`String` leaf.
 
 The Lip Gloss-flavored ergonomics: styled text, borders, backgrounds, overlays — as
 modifier chains that lower to ordinary wrapper nodes with zero new machinery.
@@ -8362,7 +8422,7 @@ Targets:
   Tessera                  // re-export target for the view/runtime product
   TesseraCore              // view protocol, graph, environment, focus (Phase 4 slices 1, 4)
   TesseraLayout            // Layout protocol, stacks, flex, grid, decoration (slices 2, 3, 5, 6)
-  TesseraWidgets           // TextInput, List, ScrollView (slice 7)
+  TesseraWidgets           // ScrollView/SplitView (slice 2), controls (slice 4), List/TextInput (slice 7)
   TesseraRuntime           // optional @MainActor convenience loop (Phase 5)
 
   TesseraTerminal          // re-export target for the terminal product
@@ -8502,10 +8562,12 @@ Sources/
     Flex.swift                    // FlexConstraint, Flex, .flex
     Grid.swift                    // Grid, GridRow
 
-  TesseraWidgets/               // Phase 4 slice 7
+  TesseraWidgets/               // Phase 4 slices 2, 4, and 7
+    ScrollView.swift
+    SplitView.swift
+    Controls.swift
     TextInput.swift
     List.swift
-    ScrollView.swift
 ```
 
 Proposed test layout mirrors the targets so each layer can be built and tested directly:
@@ -8587,11 +8649,14 @@ Suggested dependency direction inside `TesseraTerminal`:
 Dependency direction inside `Tessera`:
 
 - `TesseraCore` defines the `View` protocol, graph, environment, focus/responder system,
-  and `Text`. It depends on `TesseraTerminalCore`, `TesseraTerminalBuffer`, and the
-  input/event types — never on `TesseraTerminalIO`.
-- `TesseraLayout` builds on `TesseraCore`: the `Layout` protocol, containers, styling
+  and `Text`. It directly depends only on `TesseraTerminalCore`, `TesseraTerminalBuffer`
+  (the borrowed `Frame`/`Buffer`/`Style` seam), and `TesseraTerminalInput`; it never
+  imports `TesseraTerminal`, `TesseraTerminalIO`, platform shims, or UI frameworks.
+- `TesseraLayout` builds only on `TesseraCore`: the `Layout` protocol, containers, styling
   modifiers, and decoration.
-- `TesseraWidgets` builds on core + layout.
+- `TesseraWidgets` builds only on `TesseraCore` + `TesseraLayout`. It starts in Slice 2
+  rather than waiting for Slice 7 so ScrollView and SplitView do not require a temporary
+  target.
 - `TesseraRuntime` (Phase 5) may depend on the whole view layer plus `TesseraTerminal`.
 - The `Tessera` target re-exports the public view-layer modules (and `TesseraTerminal`)
   for app authors.

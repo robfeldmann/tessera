@@ -1,6 +1,6 @@
 ---
 kind: primitive
-status: specified
+status: ready
 ---
 
 # Linear stacks
@@ -47,19 +47,21 @@ rows, and `.leading` / `.center` / `.trailing` align each child on the horizonta
 
 ## Variants
 
-| Component              | Default                             | Main axis                        | Cross-axis alignment                   |
-| ---------------------- | ----------------------------------- | -------------------------------- | -------------------------------------- |
-| `HStack`               | `alignment: .top`, `spacing: 0`     | left-to-right columns            | `.top`, `.center`, `.bottom`           |
-| `VStack`               | `alignment: .leading`, `spacing: 0` | top-to-bottom rows               | `.leading`, `.center`, `.trailing`     |
-| `Spacer()`             | `minLength: 0`                      | flexible empty extent            | no rendered cross-axis content         |
-| `Spacer(minLength: n)` | non-negative `n`                    | flexible extent, never below `n` | no rendered cross-axis content         |
-| `.layoutPriority(p)`   | `p = 0` absent modifier             | groups descending by integer `p` | consumed only by a parent linear stack |
+| Component                       | Default                             | Main axis                                | Cross-axis alignment                              |
+| ------------------------------- | ----------------------------------- | ---------------------------------------- | ------------------------------------------------- |
+| `HStack`                        | `alignment: .top`, `spacing: 0`     | left-to-right columns                    | `.top`, `.center`, `.bottom`                      |
+| `VStack`                        | `alignment: .leading`, `spacing: 0` | top-to-bottom rows                       | `.leading`, `.center`, `.trailing`                |
+| `Spacer()`                      | `minLength: 0`                      | flexible empty extent                    | no rendered cross-axis content                    |
+| `Spacer(minLength: n)`          | non-negative `n`                    | flexible extent, never below `n`         | no rendered cross-axis content                    |
+| `.layoutPriority(p)`            | `p = 0` absent modifier             | groups descending by integer `p`         | consumed only by a parent linear stack            |
+| Invalid `spacing` / `minLength` | none                                | rejected by `precondition` before layout | neither creates an overlap or negative allocation |
 
 Spacing occurs only between adjacent children: an empty stack has no spacing and a
 one-child stack has no leading or trailing spacing. `Spacer` is a child, so spacing on
 each side of it is still ordinary inter-child spacing. Negative spacing and negative
-Spacer minimums are invalid public configuration; neither may create overlapping or
-negative allocations.
+`Spacer.minLength` are rejected by `precondition` before layout; neither can create an
+overlap or negative allocation. See
+[catalog layout decisions](../../docs/Spec.md#catalog-layout-decisions).
 
 ## Sizing
 
@@ -84,6 +86,8 @@ stack retains its layout extent and the parent's final frame clips the trailing 
 | `HStack`, `4x1`: `Spacer().layoutPriority(1)`, `Spacer()`        | first: `(0,0) 4x1`; second: `(4,0) 0x1`             | Descending priority tiers receive allocation before lower-priority flexible children. |
 | `VStack`, `3x5`: `Text("A")`, `Spacer()`, `Text("B")`, spacing 1 | `A: (0,0) 1x1`; `Spacer: (0,2) 1x1`; `B: (0,4) 1x1` | The algorithm transposes and preserves one spacing row between each adjacent child.   |
 | `HStack`, `2x1`: `Text("A")`, `Text("B")`, `Text("C")`           | `A: (0,0) 1x1`; `B: (1,0) 1x1`; `C: (2,0) 1x1`      | No allocation is negative or below minimum; only trailing overflow is clipped.        |
+| `HStack`, `3x1`: `Text("A")`, spacing 2                          | `A: (0,0) 1x1`                                      | A single child receives no leading or trailing spacing.                               |
+| Empty `HStack`, `9x1`, spacing 2                                 | no child frames                                     | An empty stack has no inter-child spacing, reports `0x0`, and paints nothing.         |
 
 Each listed origin is absolute after the parent origin is added. A custom Layout may read
 priority through `Subviews`; only a linear stack consumes it according to this contract.
@@ -98,28 +102,35 @@ derived for each layout pass.
 
 - `hstack reports rigid children plus inter-child spacing` (sizing: nil x nil).
 - `hstack preserves rigid child minima under a narrow proposal` (sizing: 2x1).
-- `spacer consumes the remaining main-axis allocation` (allocation fixtures: first row).
+- `stack rejects negative spacing and spacer minima before layout` (variants: Invalid
+  `spacing` / `minLength`).
+- `spacer consumes the remaining main-axis allocation` (allocation fixtures: `HStack`,
+  `9x1`: `A`, `Spacer()`, `B`, spacing 1).
 - `equal-priority flexible children give the extra cell to the earliest child` (allocation
-  fixtures: second row).
-- `higher layout priority allocates before lower priority` (allocation fixtures: third
-  row).
+  fixtures: `HStack`, `5x1`: `Spacer()`, `Spacer()`).
+- `higher layout priority allocates before lower priority` (allocation fixtures: `HStack`,
+  `4x1`: `Spacer().layoutPriority(1)`, `Spacer()`).
 - `vstack transposes spacer allocation and cross-axis placement` (allocation fixtures:
-  fourth row).
+  `VStack`, `3x5`: `Text("A")`, `Spacer()`, `Text("B")`, spacing 1).
 - `linear stack clips trailing overflow without negative allocation` (allocation fixtures:
-  fifth row).
-- `single-child and empty stacks introduce no spacing` (variants: spacing rule).
+  `HStack`, `2x1`: `Text("A")`, `Text("B")`, `Text("C")`).
+- `single-child stack introduces no spacing` (allocation fixtures: `HStack`, `3x1`:
+  `Text("A")`, spacing 2).
+- `empty stack introduces no spacing and paints nothing` (allocation fixtures: Empty
+  `HStack`, `9x1`, spacing 2).
 
 ## Degradation
 
 Stacks, Spacer, priority, and alignment have no glyph or style dependency. Every terminal
 capability mode preserves integer distribution, source order, and parent-frame clipping.
 
-## Open questions
+## Decisions and deferred scope
 
-- Document the final public diagnostics for negative spacing and `minLength` values when
-  the Slice 2 API is implemented; this contract requires rejection before layout.
-- Confirm whether future baseline alignment needs a separate proposal. It is deliberately
-  absent from the Slice 2 alignment enums and must not be added implicitly.
+Negative spacing and `minLength` use the pre-layout `precondition` diagnostics in
+[catalog layout decisions](../../docs/Spec.md#catalog-layout-decisions). Baseline
+alignment is explicitly excluded from Phase 4 pending the scoped
+[deferred baseline alignment](../../docs/Spec.md#deferred-baseline-alignment) proposal; it
+must not appear as an undocumented enum case.
 
 ## Inspiration
 

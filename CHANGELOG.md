@@ -43,6 +43,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   boundary, responsive presentation policy, immutable local diagnostics inspector,
   seven-slice growth plan, and thirteen composition wireframes.
 
+- Established the Phase 4 view-layer foundation with acyclic Core, Layout, and Widgets
+  targets; executable import and package-boundary gates; ready Text and geometry catalog
+  contracts; a borrowed Frame snapshot seam; and a deterministic five-viewport Tessera
+  Showcase fixture harness.
+
 - Added DocC icon and card artwork placeholders for the Tessera package and module
   documentation catalogs.
 

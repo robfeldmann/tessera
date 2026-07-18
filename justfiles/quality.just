@@ -15,7 +15,7 @@ format:
 
 # Strict portable quality gate for CI, agents, and pre-PR checks. DocC validation is macOS-only
 # and intentionally available only through `just docs lint`.
-lint: _swift-format swiftlint markdown spelling wireframes
+lint: _swift-format swiftlint markdown spelling wireframes architecture
     @echo "✅ Portable lint checks passed"
 
 # Strict changed-file quality gate for pre-commit/local iteration.
@@ -46,4 +46,9 @@ spelling-fix:
 wireframes:
     python3 -m unittest scripts/test_check_wireframes.py
     python3 scripts/check-wireframes.py design
+
+# Verify the manifest's view-layer target graph without invoking SwiftPM from tests.
+architecture:
+    python3 -m unittest scripts/test_check_package_boundaries.py
+    swift package describe --type json | python3 scripts/check-package-boundaries.py
 

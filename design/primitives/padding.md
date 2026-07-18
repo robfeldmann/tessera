@@ -1,6 +1,6 @@
 ---
 kind: primitive
-status: specified
+status: ready
 ---
 
 # Padding
@@ -40,11 +40,12 @@ Callouts (4x3, 0-based):
 
 ## Variants
 
-| Configuration                                                      | Insets                             | Behavior                                                        |
-| ------------------------------------------------------------------ | ---------------------------------- | --------------------------------------------------------------- |
-| `.padding()` / `.padding(1)`                                       | top, leading, bottom, trailing = 1 | Default uniform one-cell inset.                                 |
-| `.padding(n)`                                                      | every edge = `n`                   | `n` is a non-negative integer; it reserves `2n` cells per axis. |
-| `.padding(EdgeInsets(top: t, leading: l, bottom: b, trailing: r))` | explicit `t`, `l`, `b`, `r`        | Each non-negative edge is independently applied.                |
+| Configuration                                                      | Insets                             | Behavior                                                 |
+| ------------------------------------------------------------------ | ---------------------------------- | -------------------------------------------------------- |
+| `.padding()` / `.padding(1)`                                       | top, leading, bottom, trailing = 1 | Default uniform one-cell inset.                          |
+| `.padding(n)`                                                      | every edge = `n`                   | Non-negative `n` reserves `2n` cells per axis.           |
+| `.padding(EdgeInsets(top: t, leading: l, bottom: b, trailing: r))` | explicit `t`, `l`, `b`, `r`        | Each non-negative edge is independently applied.         |
+| Negative inset                                                     | none                               | Rejected by `precondition` before layout; never clamped. |
 
 Nested Padding composes outside-in: each modifier reserves its own cells, reduces the next
 child proposal, and adds its own insets to the resulting size. There is no margin-collapse
@@ -58,12 +59,14 @@ proposal; it reports the child's measured size plus the totals. A too-small pare
 allocation is not silently shrunk: the parent assigns its final frame and clipping hides
 the excess.
 
-| Proposal  | Result | Rule                                                                                                           |
-| --------- | ------ | -------------------------------------------------------------------------------------------------------------- |
-| nil x nil | 4x3    | Ideal is the intrinsic `2x1` child plus one cell on all four edges.                                            |
-| 4x3       | 4x3    | Tight fit leaves the child its exact `2x1` reduced proposal.                                                   |
-| 1x1       | 4x3    | Insets reduce the child proposal to `0x0`; intrinsic measurement still reports the uncompressed layout extent. |
-| 80x24     | 4x3    | Extra proposal does not stretch Padding or its non-flexible Text child.                                        |
+| Proposal                                      | Result | Rule                                                                                                           |
+| --------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------- |
+| nil x nil                                     | 4x3    | Ideal is the intrinsic `2x1` child plus one cell on all four edges.                                            |
+| 4x3                                           | 4x3    | Tight fit leaves the child its exact `2x1` reduced proposal.                                                   |
+| 1x1                                           | 4x3    | Insets reduce the child proposal to `0x0`; intrinsic measurement still reports the uncompressed layout extent. |
+| 80x24                                         | 4x3    | Extra proposal does not stretch Padding or its non-flexible Text child.                                        |
+| `Text("Go").padding(1).padding(1)`, nil x nil | 6x5    | Nested layers each add one cell on every edge; there is no margin collapse.                                    |
+| `Text("Save").padding(1)`, nil x nil          | 6x3    | A Button may compose this padded label; its style adds brackets, yielding `[ Save ]`.                          |
 
 Placement offsets the child's absolute origin by `(leading, top)`. Padding's own final
 frame, rather than the child's intrinsic bounds, is the region inherited by later
@@ -80,22 +83,24 @@ configuration.
 
 - `uniform padding reports child size plus all insets` (sizing: nil x nil).
 - `padding reduces a finite child proposal without going negative` (sizing: 1x1).
+- `padding rejects negative insets before layout` (variants: Negative inset).
 - `padding offsets its child by leading and top insets` (anatomy: Child region).
-- `nested padding preserves each inset layer` (variants: nested Padding).
+- `nested padding preserves each inset layer` (sizing: `Text("Go").padding(1).padding(1)`,
+  nil x nil).
 - `parent frame clips padded content outside its allocation` (sizing: 1x1).
-- `padding inside a button label creates compact interior space` (overview: `[ Save ]`
-  composition).
+- `padding inside a button label creates compact interior space` (sizing:
+  `Text("Save").padding(1)`, nil x nil).
 
 ## Degradation
 
 Padding has no glyph, style, color, or capability dependency. ASCII-only, `NO_COLOR`, and
 reduced-color terminals preserve the same integer geometry and clipping.
 
-## Open questions
+## Decisions
 
-- Validate whether public `EdgeInsets` rejects negative values or clamps them to zero
-  while finalizing the Slice 2 API. This document requires that negative insets never
-  produce a negative proposal or inverted frame.
+`EdgeInsets` rejects a negative edge with `precondition` before layout, as fixed by
+[catalog layout decisions](../../docs/Spec.md#catalog-layout-decisions). Padding never
+clamps an invalid inset, so no negative proposal or inverted frame can arise.
 
 ## Inspiration
 

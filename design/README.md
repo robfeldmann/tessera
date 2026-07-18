@@ -33,24 +33,28 @@ design/
 
 ## Status ladder
 
-Every document declares its maturity in YAML frontmatter:
-
 ```yaml
 ---
-kind: widget # widget | primitive
+kind: widget # widget | primitive | tokens | app
 status: sketch # sketch | wireframed | specified | ready | implemented
 ---
 ```
 
+`tokens` is the shared-vocabulary catalog kind. Its promotion follows the same ladder, but
+it has no component anatomy or interaction tables: it is `specified` when every token row
+defines its full and degradation behavior, and `ready` when those decisions are closed,
+its requirements trace to token rows, and every `ready` catalog consumer can name the row
+it uses. `app` is reserved for runnable integration designs such as Showcase.
+
 Promotion gates:
 
-| Status        | Gate                                                                                                                                                                                                                                                                                 |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `sketch`      | Doc exists from the template. Overview written; at least one prior-art citation. Legal to be wrong everywhere else.                                                                                                                                                                  |
-| `wireframed`  | Anatomy wireframe with callouts. Widgets additionally show `mobile` and `min` states. All wireframe blocks pass `scripts/check-wireframes.py`.                                                                                                                                       |
-| `specified`   | Every schema table complete and schema-valid. Requirements written as test-name sentences, each traced to a table row or wireframe state. Degradation documented. Open questions explicit.                                                                                           |
-| `ready`       | All primitive dependencies are `ready` or `implemented`. Open questions resolved, or explicitly deferred into `docs/Spec.md` / an issue. Reviewed against the [Phase 4 theses](../docs/Spec.md#phase-4--view-layer-the-tessera-module). Eligible to become an `.agents/plans/` plan. |
-| `implemented` | Code merged. Durable content migrated to a DocC extension file (see Graduation). Wireframes landed as snapshot fixtures. The catalog doc shrinks to a stub pointing at both.                                                                                                         |
+| Status        | Gate                                                                                                                                                                                                                                                                                            |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sketch`      | Doc exists from the template. Overview written; at least one prior-art citation. Legal to be wrong everywhere else.                                                                                                                                                                             |
+| `wireframed`  | Anatomy wireframe with callouts. Widgets additionally show `mobile` and `min` states. All wireframe blocks pass `scripts/check-wireframes.py`.                                                                                                                                                  |
+| `specified`   | Every schema table complete and schema-valid. Requirements written as test-name sentences, each traced to a table row or wireframe state. Degradation documented. Open questions explicit.                                                                                                      |
+| `ready`       | All primitive dependencies are `ready` or `implemented`. Open questions resolved, or explicitly deferred to an exact `docs/Spec.md` anchor / issue. Reviewed against the [Phase 4 theses](../docs/Spec.md#phase-4--view-layer-the-tessera-module). Eligible to become an `.agents/plans/` plan. |
+| `implemented` | Code merged. Durable content migrated to a DocC extension file (see Graduation). Wireframes landed as snapshot fixtures. The catalog doc shrinks to a stub pointing at both.                                                                                                                    |
 
 Partial ideas are first-class: dropping one paragraph into a `sketch` doc, or one line
 into `inbox.md`, is always legal. Only promotion costs effort.
@@ -278,12 +282,12 @@ optional cleanup.
 ## Validation
 
 ```fish
-scripts/check-wireframes.py design/
-pnpx markdownlint-cli design/
-prettier --check "design/**/*.md"
+just quality wireframes
+npm run check:markup
 ```
 
-All three run in `just quality lint` (wireframes via the `wireframes` recipe).
+These repository-local commands run the pinned wireframe and Markdown-formatting gates; do
+not substitute globally installed `pnpx`, `prettier`, or markdownlint commands.
 
 ## Index
 
@@ -294,12 +298,12 @@ All three run in `just quality lint` (wireframes via the `wireframes` recipe).
 | [Border](primitives/border.md)                          | primitive | sketch     | Slice 3 glyph, sizing, and degenerate-frame decisions     |
 | [Box](primitives/box.md)                                | primitive | sketch     | Border, Text, Padding, and title-policy design            |
 | [Divider](primitives/divider.md)                        | primitive | specified  | axis-inference decision (open question)                   |
-| [Frame](primitives/frame.md)                            | primitive | specified  | Slice 2 API validation and max-only proposal decision     |
-| [Linear stacks](primitives/stacks.md)                   | primitive | specified  | Slice 2 configuration diagnostics decision                |
+| [Frame](primitives/frame.md)                            | primitive | ready      | —                                                         |
+| [Linear stacks](primitives/stacks.md)                   | primitive | ready      | —                                                         |
 | [List](widgets/list.md)                                 | widget    | sketch     | Slice 3 style + Slice 4/5 routing + List contract design  |
 | [NavigationSplitView](widgets/navigation-split-view.md) | widget    | wireframed | SplitView + List/Section + compact policy                 |
 | [Overlay](primitives/overlay.md)                        | primitive | sketch     | Slice 3 sizing plus Slice 5 layer-hit policy              |
-| [Padding](primitives/padding.md)                        | primitive | specified  | Slice 2 EdgeInsets validation decision                    |
+| [Padding](primitives/padding.md)                        | primitive | ready      | —                                                         |
 | [Picker](widgets/picker.md)                             | widget    | sketch     | focus/key routing + control contract design               |
 | [Section](widgets/section.md)                           | widget    | sketch     | List composition + grouping contract design               |
 | [Showcase](showcase.md)                                 | app       | wireframed | component contracts + reconciliation questions            |
@@ -309,7 +313,8 @@ All three run in `just quality lint` (wireframes via the `wireframes` recipe).
 | [Stepper](widgets/stepper.md)                           | widget    | sketch     | focus/key routing + control contract design               |
 | [Style modifiers](primitives/style-modifiers.md)        | primitive | sketch     | `Style` API and environment-inheritance design            |
 | [Table](widgets/table.md)                               | widget    | specified  | Text truncation + ScrollIndicator primitives (ready gate) |
-| [Text](primitives/text.md)                              | primitive | specified  | Slice 3 truncation enum spelling + line-ending decision   |
+| [Text](primitives/text.md)                              | primitive | ready      | —                                                         |
 | [TextField](widgets/text-field.md)                      | widget    | wireframed | focus/key/paste + hardware cursor + semantic style API    |
+| [Tokens](tokens.md)                                     | tokens    | ready      | —                                                         |
 | [Toggle](widgets/toggle.md)                             | widget    | sketch     | focus/key routing + control contract design               |
-| [ZStack](primitives/z-stack.md)                         | primitive | specified  | graph-dump z-index representation decision                |
+| [ZStack](primitives/z-stack.md)                         | primitive | ready      | —                                                         |

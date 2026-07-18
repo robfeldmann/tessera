@@ -1,6 +1,6 @@
 ---
 kind: primitive
-status: specified
+status: ready
 ---
 
 # Frame
@@ -40,11 +40,12 @@ Callouts (8x3, 0-based):
 
 ## Variants
 
-| Configuration                                                                            | Resolved axis                                                                        | Child proposal and placement                                                                            |
-| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
-| `.frame(width: w, height: h, alignment: a)`                                              | Each non-nil axis is exactly that non-negative integer.                              | Fixed axes are proposed as the fixed extent; `a` places a smaller child in the retained slack.          |
-| `.frame(minWidth: minW, maxWidth: maxW, minHeight: minH, maxHeight: maxH, alignment: a)` | Each bounded axis clamps the child's ideal between its declared minimum and maximum. | The child receives the finite resolved bound when one exists; `a` places an undersized child within it. |
-| Omitted axis                                                                             | Child's measured axis.                                                               | Frame does not invent stretch on that axis.                                                             |
+| Configuration                                                                            | Resolved axis                                                                      | Child proposal and placement                                                                                            |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `.frame(width: w, height: h, alignment: a)`                                              | Each non-nil axis is exactly that non-negative integer.                            | Fixed axes are proposed as the fixed extent; `a` places a smaller child in retained slack.                              |
+| `.frame(minWidth: minW, maxWidth: maxW, minHeight: minH, maxHeight: maxH, alignment: a)` | Each bounded axis clamps the child's extent to its declared non-negative interval. | A present maximum caps the child proposal; see [catalog layout decisions](../../docs/Spec.md#catalog-layout-decisions). |
+| Invalid bounds                                                                           | Rejected before layout.                                                            | Every extent is non-negative; a supplied `min` is no greater than its supplied `max`.                                   |
+| Omitted axis                                                                             | Child's measured axis.                                                             | Frame does not invent stretch on that axis.                                                                             |
 
 `Alignment` defaults to `.topLeading`; `.top`, `.center`, `.bottomTrailing`, and the other
 public enum cases select the corresponding integer offset. When slack is odd, leading/top
@@ -56,24 +57,37 @@ Composition order is observable: `content.padding(1).frame(width: 8)` aligns the
 `content` inside eight cells, while `content.frame(width: 8).padding(1)` adds two outer
 cells and reports width ten.
 
+| Composition                             | Result | Rule                                                                      |
+| --------------------------------------- | ------ | ------------------------------------------------------------------------- |
+| `Text("Go").padding(1).frame(width: 8)` | 8x3    | Frame aligns the already-padded `4x3` child inside eight cells.           |
+| `Text("Go").frame(width: 8).padding(1)` | 10x3   | Padding adds two outer columns after Frame resolves its eight-cell width. |
+
 ## Sizing
 
 For `Text("Go").frame(width: 8, height: 3)`, the child is intrinsically `2x1`; a fixed
-frame reports its fixed dimensions even when the incoming proposal is narrower. This makes
-narrow parent behavior deterministic: the parent selects the final allocation and the
-[Slice 2 placement contract](../../docs/Spec.md#slice-2-the-layout-protocol-and-stack-containers)
-clips the resulting subtree.
+frame reports its fixed dimensions even when the incoming proposal is narrower. Bounded
+frames use the validation and proposal rules in
+[catalog layout decisions](../../docs/Spec.md#catalog-layout-decisions).
 
-| Proposal  | Result | Rule                                                                                   |
-| --------- | ------ | -------------------------------------------------------------------------------------- |
-| nil x nil | 8x3    | Fixed width and height determine the frame's ideal size.                               |
-| 8x3       | 8x3    | Tight proposal equals the fixed frame.                                                 |
-| 3x1       | 8x3    | A fixed frame retains its declared size; its parent may later clip its assigned frame. |
-| 80x24     | 8x3    | Extra proposal does not enlarge a fixed frame.                                         |
+| Proposal                                                           | Result | Rule                                                                                                    |
+| ------------------------------------------------------------------ | ------ | ------------------------------------------------------------------------------------------------------- |
+| `Text("Go").frame(width: 8, height: 3)`, nil x nil                 | 8x3    | Fixed width and height determine the frame's ideal size.                                                |
+| `Text("Go").frame(width: 8, height: 3)`, 8x3                       | 8x3    | Tight proposal equals the fixed frame.                                                                  |
+| `Text("Go").frame(width: 8, height: 3)`, 3x1                       | 8x3    | Fixed frame retains its size; its parent may later clip its assigned frame.                             |
+| `Text("Go").frame(width: 8, height: 3)`, 80x24                     | 8x3    | Extra proposal does not enlarge a fixed frame.                                                          |
+| `Text("Go").frame(minWidth: 6)`, nil x nil                         | 6x1    | The two-cell child is raised to the declared minimum.                                                   |
+| `Text("Go").frame(minWidth: 6, maxWidth: 10)`, 8x1                 | 6x1    | Child remains intrinsic and frame clamps its resolved width inside the valid interval.                  |
+| `Text("Twelve chars").frame(minWidth: 6, maxWidth: 10)`, nil x nil | 10x1   | The larger intrinsic child is capped at maximum and clipped in the resolved frame.                      |
+| `Text("Go").frame(maxWidth: 4)`, nil x nil                         | 2x1    | Max-only frame proposes its finite cap but does not stretch non-flexible Text.                          |
+| `Text("Twelve chars").frame(maxWidth: 4)`, nil x nil               | 4x1    | Max-only frame reports the cap and clips the larger child; it never forwards an unconstrained proposal. |
+| `Text("Go").frame(maxWidth: 4)`, 3x1                               | 2x1    | A finite parent proposal is capped to the smaller of parent and maximum before child measurement.       |
 
-For `Text("Go").frame(minWidth: 6, maxWidth: 10)`, `nil x nil` reports `6x1`: the child's
-`2x1` ideal is raised to the minimum. An unbounded maximum never forces expansion; a
-maximum only caps a larger resolved child extent.
+## Alignment fixtures
+
+| Alignment fixture                    | Child frame | Rule                                                          |
+| ------------------------------------ | ----------- | ------------------------------------------------------------- |
+| fixed `8x3`, `.bottomTrailing`, `Go` | `(6,2) 2x1` | Bottom-trailing placement matches the anatomy's Child region. |
+| fixed `6x2`, `.center`, `Go`         | `(2,0) 2x1` | One odd slack cell goes to trailing and one to bottom.        |
 
 ## Environment
 
@@ -82,30 +96,39 @@ value, not a style or environment token.
 
 ## Requirements
 
-- `fixed frame reports its declared dimensions` (sizing: nil x nil).
-- `fixed frame remains its declared size under a narrow proposal` (sizing: 3x1).
-- `bounded frame raises an undersized child to its minimum` (sizing: bounded-frame
-  example).
-- `frame aligns an undersized child inside retained slack` (anatomy: Child region).
-- `odd centered slack assigns the extra cell to trailing and bottom` (variants:
-  Alignment).
-- `frame clips an oversized child to its final allocated rectangle` (variants: oversized
-  child).
-- `padding and frame preserve modifier order` (variants: composition order).
+- `fixed frame reports its declared dimensions` (sizing:
+  `Text("Go").frame(width: 8, height: 3)`, nil x nil).
+- `fixed frame remains its declared size under a narrow proposal` (sizing:
+  `Text("Go").frame(width: 8, height: 3)`, 3x1).
+- `bounded frame raises an undersized child to its minimum` (sizing:
+  `Text("Go").frame(minWidth: 6)`, nil x nil).
+- `bounded frame caps an oversized child at its maximum` (sizing:
+  `Text("Twelve chars").frame(minWidth: 6, maxWidth: 10)`, nil x nil).
+- `max-only frame forwards a finite capped proposal` (sizing:
+  `Text("Go").frame(maxWidth: 4)`, nil x nil).
+- `max-only frame clips an oversized child` (sizing:
+  `Text("Twelve chars").frame(maxWidth: 4)`, nil x nil).
+- `frame rejects inverted or negative bounds before layout` (variants: Invalid bounds).
+- `frame aligns an undersized child inside retained slack` (alignment fixture: fixed
+  `8x3`, `.bottomTrailing`, `Go`; anatomy: Child region).
+- `odd centered slack assigns the extra cell to trailing and bottom` (alignment fixture:
+  fixed `6x2`, `.center`, `Go`).
+- `frame clips an oversized child to its final allocated rectangle` (sizing:
+  `Text("Twelve chars").frame(maxWidth: 4)`, nil x nil).
+- `padding and frame preserve modifier order` (composition fixtures:
+  `Text("Go").padding(1).frame(width: 8)` and `Text("Go").frame(width: 8).padding(1)`).
 
 ## Degradation
 
 Frame draws no glyphs and consumes no style or terminal capability. Its integer sizing,
 alignment, and clipping remain unchanged in ASCII-only and no-color modes.
 
-## Open questions
+## Decisions
 
-- Settle the public validation rule for contradictory min/max arguments before the API
-  freezes. This contract requires a deterministic non-negative resolved interval and no
-  inverted frame.
-- Confirm whether a max-only frame forwards an unconstrained or capped proposal to a
-  flexible custom Layout; the resulting reported size and clipping rule above remain the
-  required observable behavior.
+Frame validation and bounded-axis proposal rules are fixed in
+[catalog layout decisions](../../docs/Spec.md#catalog-layout-decisions): invalid bounds
+trap before layout, and a max-only axis sends a finite capped proposal to its child. No
+Frame-specific decision remains open.
 
 ## Inspiration
 

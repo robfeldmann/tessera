@@ -19,6 +19,25 @@ let package = Package(
 
 // MARK: - ⤵️ Dependencies
 
+// MARK: SnapshotTesting
+
+package.dependencies.append(
+  .package(
+    url: "https://github.com/pointfreeco/swift-snapshot-testing",
+    exact: "1.18.9"
+  )
+)
+
+let InlineSnapshotTesting: Target.Dependency = .product(
+  name: "InlineSnapshotTesting",
+  package: "swift-snapshot-testing"
+)
+
+let SnapshotTesting: Target.Dependency = .product(
+  name: "SnapshotTesting",
+  package: "swift-snapshot-testing"
+)
+
 // MARK: Tessera
 
 package.dependencies.append(
@@ -34,6 +53,14 @@ let TesseraTerminal: Target.Dependency = .product(
   name: "TesseraTerminal",
   package: "tessera"
 )
+let TesseraTerminalSnapshotSupport: Target.Dependency = .product(
+  name: "TesseraTerminalSnapshotSupport",
+  package: "tessera"
+)
+let TesseraTerminalTestSupport: Target.Dependency = .product(
+  name: "TesseraTerminalTestSupport",
+  package: "tessera"
+)
 
 // MARK: - 🚛 Forward Module Declarations
 
@@ -47,6 +74,7 @@ let Phase3ProtocolsDemoSupport: Target.Dependency = .byName(
   name: "Phase3ProtocolsDemoSupport"
 )
 let RendererDemo: Target.Dependency = .byName(name: "RendererDemo")
+let TesseraShowcase: Target.Dependency = .byName(name: "TesseraShowcase")
 
 let AllTesseraExampleTargetNames: Set<String> = [
   "ANSIEncoderDemo",
@@ -57,6 +85,7 @@ let AllTesseraExampleTargetNames: Set<String> = [
   "Phase3ProtocolsDemo",
   "Phase3ProtocolsDemoSupport",
   "RendererDemo",
+  "TesseraShowcase",
 ]
 
 // MARK: - 🎯 Products & Targets
@@ -161,6 +190,33 @@ package.targets.append(
     ]
   )
 )
+
+// MARK: TesseraShowcase
+
+package.products.append(
+  .executable(name: "TesseraShowcase", targets: ["TesseraShowcase"])
+)
+
+package.targets.append(contentsOf: [
+  .executableTarget(
+    name: "TesseraShowcase",
+    dependencies: [
+      ExampleSupport,
+      TesseraTerminal,
+    ]
+  ),
+  .testTarget(
+    name: "TesseraShowcaseTests",
+    dependencies: [
+      InlineSnapshotTesting,
+      SnapshotTesting,
+      TesseraShowcase,
+      TesseraTerminal,
+      TesseraTerminalSnapshotSupport,
+      TesseraTerminalTestSupport,
+    ]
+  ),
+])
 
 // MARK: RendererDemo
 
