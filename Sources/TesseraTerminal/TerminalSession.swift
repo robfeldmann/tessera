@@ -642,8 +642,8 @@ public actor TerminalSession {
       lastDrawnBuffer = buffer
       return result
     } catch {
-      // A failed flush may have written a prefix of the frame, so docs/Spec.md Slice 4
-      // requires the next successful draw to erase and repaint conservatively.
+      // A failed flush may have written a prefix of the frame, so the next successful draw
+      // must erase and repaint conservatively.
       renderer.invalidate()
       throw error
     }

@@ -20,12 +20,20 @@ foundation and view-layer modules intended for app authors.
 ### User-facing modules
 
 - ``/TesseraTerminal``
+- ``/TesseraWidgets``
 
 ### Core modules
 
 - ``/TesseraCore``
+- ``/TesseraLayout``
 - ``/TesseraCore/View``
 - ``/TesseraTerminalCore``
+
+### Testing modules
+
+- ``/TesseraTestSupport``
+- ``/TesseraTerminalSnapshotSupport``
+- ``/TesseraTerminalTestSupport``
 
 ### Terminal foundation modules
 
@@ -34,5 +42,3 @@ foundation and view-layer modules intended for app authors.
 - ``/TesseraTerminalInput``
 - ``/TesseraTerminalIO``
 - ``/TesseraTerminalRendering``
-- ``/TesseraTerminalSnapshotSupport``
-- ``/TesseraTerminalTestSupport``

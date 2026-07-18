@@ -19,8 +19,16 @@ ALLOWED_DIRECT_DEPENDENCIES: dict[str, frozenset[str]] = {
         {"TesseraCore", "TesseraLayout", "TesseraTerminal", "TesseraWidgets"}
     ),
 }
+ALLOWED_DIRECT_DEPENDENCIES["TesseraTestSupport"] = frozenset(
+    {"TesseraCore", "TesseraTerminalTestSupport"}
+)
 ALLOWED_PRODUCT_DEPENDENCIES: dict[str, frozenset[str]] = {
-    target: frozenset() for target in ALLOWED_DIRECT_DEPENDENCIES
+    target: (
+        frozenset({"SnapshotTesting", "SnapshotTestingCustomDump"})
+        if target == "TesseraTestSupport"
+        else frozenset()
+    )
+    for target in ALLOWED_DIRECT_DEPENDENCIES
 }
 
 

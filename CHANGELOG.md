@@ -48,6 +48,12 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   contracts; a borrowed Frame snapshot seam; and a deterministic five-viewport Tessera
   Showcase fixture harness.
 
+- Implemented the declarative view-layer foundation: persistent `ViewGraph` reconciliation
+  and diagnostics, borrowed render regions, environments, styled text, high-level snapshot
+  support, and the executable Tessera Showcase. Added deterministic macOS, Linux, and
+  Windows coverage, organized Core sources, expanded combined DocC catalogs, and supplied
+  Xcode attach debugging for the Showcase.
+
 - Added DocC icon and card artwork placeholders for the Tessera package and module
   documentation catalogs.
 

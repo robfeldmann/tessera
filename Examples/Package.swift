@@ -202,7 +202,7 @@ package.targets.append(contentsOf: [
     name: "TesseraShowcase",
     dependencies: [
       ExampleSupport,
-      TesseraTerminal,
+      Tessera,
     ]
   ),
   .testTarget(
@@ -211,6 +211,7 @@ package.targets.append(contentsOf: [
       InlineSnapshotTesting,
       SnapshotTesting,
       TesseraShowcase,
+      Tessera,
       TesseraTerminal,
       TesseraTerminalSnapshotSupport,
       TesseraTerminalTestSupport,

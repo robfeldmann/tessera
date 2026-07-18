@@ -7357,7 +7357,7 @@ public final class ViewGraph {
 
     public func update()                       // pass 1
     public func layoutIfNeeded()               // pass 2 (update() does NOT imply layout)
-    public func render(into frame: inout Frame) // passes 2+3 as needed, then draw
+    public func render(into frame: borrowing Frame) // passes 2+3 as needed, then draw
     public func resize(to size: TerminalSize)
 
     public func dispatch(_ event: InputEvent) -> EventDisposition  // slice 4+
@@ -7390,7 +7390,7 @@ for await event in await session.events {
     model.apply(event)            // app-owned state, app-owned architecture
     graph.update()
     if graph.needsRender {
-        try await session.draw { frame in graph.render(into: &frame) }
+        try await session.draw { frame in graph.render(into: frame) }
     }
 }
 ```
@@ -8417,12 +8417,14 @@ Recommended product/target shape:
 Products:
   Tessera                  // public view/runtime product
   TesseraTerminal          // public terminal-foundation product
+  TesseraTestSupport       // public view-layer test and snapshot support
 
 Targets:
   Tessera                  // re-export target for the view/runtime product
   TesseraCore              // view protocol, graph, environment, focus (Phase 4 slices 1, 4)
   TesseraLayout            // Layout protocol, stacks, flex, grid, decoration (slices 2, 3, 5, 6)
   TesseraWidgets           // ScrollView/SplitView (slice 2), controls (slice 4), List/TextInput (slice 7)
+  TesseraTestSupport       // graph/layout/widget snapshots; re-exports terminal test support
   TesseraRuntime           // optional @MainActor convenience loop (Phase 5)
 
   TesseraTerminal          // re-export target for the terminal product
@@ -8437,13 +8439,15 @@ Targets:
 ```
 
 The `TesseraTerminal` targets are relatively concrete because Phases 1–3 define their
-responsibilities in detail. The `TesseraTerminalTestSupport` target exposes safe testing
-affordances such as `TestTerminal`, test input sources, virtual-terminal snapshot helpers,
-and renderer diagnostics without making live-terminal escape hatches public. The `Tessera`
-targets follow the Phase 4 slice plan: `TesseraCore` for the view protocol, graph,
-environment, and responder system; `TesseraLayout` for the layout protocol, containers,
-and decoration; `TesseraWidgets` for the standard widget set; and `TesseraRuntime`
-(Phase 5) for the optional convenience loop.
+responsibilities in detail. `TesseraTerminalTestSupport` owns terminal-specific fixtures,
+in-memory sessions, virtual-terminal snapshot helpers, and renderer diagnostics without
+making live-terminal escape hatches public. `TesseraTestSupport` is the elevated testing
+surface for view graphs, layouts, and widgets. It depends on `TesseraCore`, re-exports
+`TesseraTerminalTestSupport`, and owns stable high-level snapshot strategies rather than
+placing them in individual test files. The production `Tessera` targets follow the Phase 4
+slice plan: `TesseraCore` for the view protocol, graph, environment, and responder system;
+`TesseraLayout` for the layout protocol, containers, and decoration; `TesseraWidgets` for
+the standard widget set; and `TesseraRuntime` (Phase 5) for the optional convenience loop.
 
 Swift SPI may be used sparingly when SwiftPM visibility is not expressive enough:
 
@@ -8530,28 +8534,61 @@ Sources/
     SnapshotRenderer.swift
     SnapshotFixtures.swift
 
+  TesseraTerminalTestSupport/
+    TesseraTerminalTestSupport.swift
+    InMemoryTerminalSession.swift
+    BufferSnapshotting.swift
+    VirtualTerminalSnapshotting.swift
+
+  TesseraTestSupport/
+    TesseraTestSupport.swift       // re-exports terminal test support
+    GraphDiagnosticsSnapshotting.swift
+
   TesseraTerminal/
     TesseraTerminal.swift         // @_exported imports only
 
   Tessera/
     Tessera.swift                 // @_exported imports only
 
-  TesseraCore/                  // Phase 4 slices 1 + 4
-    View.swift                    // View protocol, EmptyView, AnyView, EquatableView
-    ViewBuilder.swift             // result builder, TupleView, ConditionalView
-    ForEach.swift
-    ViewGraph.swift               // update/layout/render passes, dispatch, dump
-    RuntimeNode.swift             // node storage, identity, NodeState, dirty flags
-    NodeIdentity.swift
-    LeafView.swift                // primitive seam, ProposedSize, EventDisposition
-    RenderRegion.swift
-    Environment.swift             // EnvironmentValues, EnvironmentKey, EnvironmentReader
-    Binding.swift
-    Text.swift                    // wrapping/truncation arrive with slice 3
-    Focus.swift                   // FocusID, FocusManager, focusable/focused (slice 4)
-    Responder.swift               // ResponderContext, onKey, routing (slice 4)
-    TerminalRequirements.swift    // declarative requirements aggregation (slice 4)
-    HitTesting.swift              // onTap, onMouse, allowsHitTesting (slice 5)
+  TesseraCore/                  // declarative view values and explicit graph runtime
+    Views/
+      View.swift                  // View protocol and Never primitive body
+      ViewBuilder.swift           // result builder
+      EmptyView.swift
+      TupleView.swift
+      ConditionalView.swift
+      OptionalView.swift
+      AnyView.swift               // AnyView and its identity barrier
+      EquatableView.swift         // EquatableView and .equatable()
+      IdentifiedView.swift        // .id() and its structural wrapper
+      StructuralView.swift        // structural slots and child lowering
+      ForEach.swift
+      LeafView.swift              // third-party primitive seam
+      ProposedSize.swift
+      Binding.swift
+      Text.swift
+    Environment/
+      EnvironmentKey.swift
+      EnvironmentValues.swift
+      EnvironmentModifier.swift
+      EnvironmentReader.swift
+    Runtime/
+      ViewGraph.swift              // update/layout/render passes, dispatch, dump
+      RuntimeNode.swift            // node storage, NodeState, and dirty flags
+      NodeIdentity.swift
+      TerminalRequirements.swift   // declarative requirements aggregation
+    Diagnostics/
+      GraphStatistics.swift
+      NodeDiagnostics.swift
+      GraphDiagnostics.swift
+    Input/
+      EventDisposition.swift
+      ResponderContext.swift
+      Focus.swift                  // FocusID, FocusManager, focusable/focused
+      Responder.swift              // onKey and responder routing
+      HitTesting.swift             // pointer handlers and hit-test policy
+    Rendering/
+      RenderRegion.swift
 
   TesseraLayout/                // Phase 4 slices 2, 3, 5, 6
     Layout.swift                  // Layout protocol, Subviews, LayoutValueKey
@@ -8569,6 +8606,12 @@ Sources/
     TextInput.swift
     List.swift
 ```
+
+Within a target, source directories group durable responsibilities rather than delivery
+stages. Prefer one primary public concept per file, keep an underscored implementation
+beside the public API it supports, and retain tightly coupled helper types together when
+splitting them would widen access or obscure an ownership boundary. New source files must
+extend this structure instead of restoring a flat target root.
 
 Proposed test layout mirrors the targets so each layer can be built and tested directly:
 

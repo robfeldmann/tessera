@@ -132,6 +132,7 @@ let CTesseraTerminalPlatform: Target.Dependency = .byName(
 )
 let Tessera: Target.Dependency = .byName(name: "Tessera")
 let TesseraCore: Target.Dependency = .byName(name: "TesseraCore")
+let TesseraTestSupport: Target.Dependency = .byName(name: "TesseraTestSupport")
 let TesseraLayout: Target.Dependency = .byName(name: "TesseraLayout")
 let TesseraWidgets: Target.Dependency = .byName(name: "TesseraWidgets")
 let TesseraTerminal: Target.Dependency = .byName(name: "TesseraTerminal")
@@ -154,6 +155,7 @@ let AllTesseraTargetNames: Set<String> = [
   "Tessera",
   "TesseraCore",
   "TesseraLayout",
+  "TesseraTestSupport",
   "TesseraWidgets",
   "TesseraTerminal",
   "TesseraTerminalANSI",
@@ -226,11 +228,12 @@ package.targets.append(contentsOf: [
   .testTarget(
     name: "TesseraCoreTests",
     dependencies: [
-      CustomDump,
       InlineSnapshotTesting,
-      SnapshotTesting,
-      SnapshotTestingCustomDump,
       TesseraCore,
+      TesseraTestSupport,
+      TesseraTerminalANSI,
+      TesseraTerminalBuffer,
+      TesseraTerminalCore,
     ]
   ),
 ])
@@ -489,6 +492,27 @@ package.targets.append(
       TesseraTerminalInput,
       TesseraTerminalIO,
       TesseraTerminalSnapshotSupport,
+      TesseraTerminal,
+    ]
+  )
+)
+
+// MARK: TesseraTestSupport
+package.products.append(
+  .library(
+    name: "TesseraTestSupport",
+    targets: ["TesseraTestSupport"]
+  )
+)
+
+package.targets.append(
+  .target(
+    name: "TesseraTestSupport",
+    dependencies: [
+      SnapshotTesting,
+      SnapshotTestingCustomDump,
+      TesseraCore,
+      TesseraTerminalTestSupport,
     ]
   )
 )

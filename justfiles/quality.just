@@ -51,4 +51,5 @@ wireframes:
 architecture:
     python3 -m unittest scripts/test_check_package_boundaries.py
     swift package describe --type json | python3 scripts/check-package-boundaries.py
+    scripts/check-frame-region-ownership.sh
 

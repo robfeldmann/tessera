@@ -40,6 +40,10 @@ class PackageBoundaryTests(unittest.TestCase):
                     "TesseraTerminal",
                     "TesseraWidgets",
                 ],
+                "TesseraTestSupport": [
+                    "TesseraCore",
+                    "TesseraTerminalTestSupport",
+                ],
             }
         )
 
@@ -71,6 +75,17 @@ class PackageBoundaryTests(unittest.TestCase):
             checker.check_package_boundaries(package),
             ["TesseraCore -> product UnexpectedProduct"],
         )
+
+    def test_accepts_high_level_test_support_products(self) -> None:
+        package = self.valid_package()
+        targets = package["targets"]
+        assert isinstance(targets, list)
+        targets[-1]["product_dependencies"] = [
+            "SnapshotTesting",
+            "SnapshotTestingCustomDump",
+        ]
+
+        self.assertEqual(checker.check_package_boundaries(package), [])
 
     def test_requires_all_view_layer_targets(self) -> None:
         package = self.valid_package()
@@ -121,7 +136,8 @@ class PackageBoundaryTests(unittest.TestCase):
             "TesseraCore -> TesseraTerminalIO\n"
             "Missing required view-layer target: TesseraLayout\n"
             "Missing required view-layer target: TesseraWidgets\n"
-            "Missing required view-layer target: Tessera\n",
+            "Missing required view-layer target: Tessera\n"
+            "Missing required view-layer target: TesseraTestSupport\n",
         )
 
 

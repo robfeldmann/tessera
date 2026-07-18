@@ -3,7 +3,7 @@ name: Phase 4 View Layer and Tessera Showcase
 description:
   Implement the seven-slice Tessera view layer with design-catalog readiness gates and a
   progressively executable Showcase integration app.
-status: pending
+status: in-review
 created: 2026-07-17
 updated: 2026-07-17
 ---
@@ -16,11 +16,11 @@ updated: 2026-07-17
   - [x] 0.1 Freeze the cross-slice contracts and dependency direction
   - [x] 0.2 Promote the first-slice catalog prerequisites to `ready`
   - [x] 0.3 Establish the deterministic test and Showcase fixture harness
-- [ ] **Phase 1 — Slice 1: TesseraCore, ViewGraph, reconciliation, and Text**
-  - [ ] 1.1 Replace the `View` placeholder with the core value/graph model
-  - [ ] 1.2 Implement reconciliation, environments, diagnostics, and render regions
-  - [ ] 1.3 Build the first executable Showcase scaffold
-  - [ ] 1.4 Verify identity, ownership, and terminal rendering contracts
+- [x] **Phase 1 — Slice 1: TesseraCore, ViewGraph, reconciliation, and Text**
+  - [x] 1.1 Replace the `View` placeholder with the core value/graph model
+  - [x] 1.2 Implement reconciliation, environments, diagnostics, and render regions
+  - [x] 1.3 Build the first executable Showcase scaffold
+  - [x] 1.4 Verify identity, ownership, and terminal rendering contracts
 - [ ] **Phase 2 — Slice 2: Layout, stacks, static SplitView, and ScrollView**
   - [ ] 2.1 Promote layout and viewport catalog documents before coding
   - [ ] 2.2 Add the layout target and deterministic stack algorithm
@@ -70,12 +70,34 @@ silently invent a second component contract. The Showcase is an integration spec
 lands incrementally with each slice, and its temporary scaffold is deleted at each cutover
 rather than becoming a parallel API.
 
-The current repository has a real terminal substrate but only a placeholder
-`Sources/TesseraCore/View.swift`, a placeholder core test, and no Phase 4 layout/widget
-targets. The plan therefore includes SwiftPM graph work, architecture-boundary tests,
-negative ownership tests, deterministic buffer/virtual-terminal tests, design-document
-promotion, DocC graduation, and the final repository quality gate. Phase 5 runtime,
-animation, and future image views are explicitly out of scope.
+The repository entered this plan with a real terminal substrate but only a placeholder
+Core view, a placeholder core test, and no layout/widget targets. Phase 0 established the
+SwiftPM graph and architecture gates; Phase 1 replaced the placeholder with the grouped
+TesseraCore view and runtime implementation. Remaining work includes deterministic
+layout/widgets, design-document promotion, DocC graduation, and the final repository
+quality gate. Phase 5 runtime, animation, and future image views remain explicitly out of
+scope.
+
+Across every implementation phase, prefer inline snapshots for exhaustive structured
+behavior: graph diagnostics, layout trees, buffers, styles, routed-event traces, and
+Showcase output. Use direct `#expect` assertions only for small scalar invariants,
+API-shape checks, or identity/lifetime relationships that cannot produce deterministic
+snapshots; do not replace inspectable whole-state snapshots with clusters of cell-by-cell
+or field-by-field expectations.
+
+Swift implementation comments and DocC must describe enduring behavior, ownership, or
+invariants. They must not mention this plan's phase, slice, or step numbers, temporary
+delivery status, or future implementation timing; roadmap sequencing belongs only in
+planning and specification documents. The project-local
+`.omp/rules/durable-source-comments.md` TTSR rule guards agent-authored Swift edits
+against numeric phase/slice/step references.
+
+Within each target, organize source files by durable responsibility rather than delivery
+stage. Prefer one primary public concept per file, keep an underscored implementation
+beside the public API it supports, and retain tightly coupled helpers together when
+splitting would widen access or obscure ownership. `TesseraCore` uses `Views/`,
+`Environment/`, `Runtime/`, `Diagnostics/`, `Input/`, and `Rendering/`; future steps must
+place new Core files in the matching directory defined by `docs/Spec.md`.
 
 ## Phase 0 — Contract, package graph, and design-catalog readiness
 
@@ -85,10 +107,10 @@ the design-catalog process.
 
 ### Step 0.1 — Freeze the cross-slice contracts and dependency direction
 
-- Files: `Package.swift`, `Sources/TesseraTerminal/Frame.swift`,
+- Files: `Package.swift`, `Sources/TesseraTerminalBuffer/Frame.swift`,
   `Sources/TesseraTerminal/TesseraTerminal.swift`, `docs/Spec.md` (Phase 4 proposed module
-  layout), the future `Sources/TesseraCore/*`, `Sources/TesseraLayout/*`, and
-  `Sources/TesseraWidgets/*` target declarations,
+  layout), the future `Sources/TesseraCore/**`, `Sources/TesseraLayout/**`, and
+  `Sources/TesseraWidgets/**` target declarations,
   `Tests/TesseraArchitectureTests/ImportBoundaryTests.swift`, new
   `scripts/check-package-boundaries.py`, new `scripts/test_check_package_boundaries.py`,
   and `justfiles/quality.just`.
@@ -149,15 +171,16 @@ the design-catalog process.
 
 ### Step 0.3 — Establish the deterministic test and Showcase fixture harness
 
-- Files: `Package.swift`, `Tests/TesseraCoreTests/`, new `Tests/TesseraLayoutTests/`, new
-  `Tests/TesseraWidgetsTests/`, `Sources/TesseraTerminalSnapshotSupport/` only if a small
-  reusable helper is missing, `Examples/Package.swift`, and new
-  `Examples/Sources/TesseraShowcase/`.
-- Reuse `VirtualTerminal`, `ScreenSnapshot`, `RenderedCell`, and the existing terminal
-  test support rather than exposing Ghostty types through the view API. Keep graph/widget
-  tests synchronous and deterministic: constructed trees, explicit key/mouse/paste/ resize
-  scripts, buffer snapshots, and diagnostics snapshots; no sleeps, `Task.yield()`, or live
-  terminal dependence.
+- Files: `Package.swift`, `Sources/TesseraTestSupport/`, `Tests/TesseraCoreTests/`, new
+  `Tests/TesseraLayoutTests/`, new `Tests/TesseraWidgetsTests/`,
+  `Sources/TesseraTerminalSnapshotSupport/` only if a terminal-specific reusable helper is
+  missing, `Examples/Package.swift`, and new `Examples/Sources/TesseraShowcase/`.
+- Reuse `VirtualTerminal`, `ScreenSnapshot`, `RenderedCell`, and terminal-specific
+  strategies through `TesseraTestSupport`, the elevated graph/layout/widget testing
+  surface. Stable high-level snapshot strategies belong in that target rather than
+  individual test files. Keep graph/widget tests synchronous and deterministic:
+  constructed trees, explicit key/mouse/paste/resize scripts, buffer snapshots, and
+  diagnostics snapshots; no sleeps, `Task.yield()`, or live terminal dependence.
 - Define fixture metadata for every Showcase wireframe dimension: `120x24`, `80x24`,
   `80x16`, `40x16`, and the below-`40x12` resize guard. Store model state and scripted
   input separately from snapshot expectations so the same app model can be exercised at
@@ -174,8 +197,10 @@ local diagnostics.
 
 ### Step 1.1 — Replace the `View` placeholder with the core value/graph model
 
-- Files: `Sources/TesseraCore/View.swift`, `ViewBuilder.swift`, `ForEach.swift`,
-  `LeafView.swift`, `Binding.swift`, `Text.swift`, and `Environment.swift`.
+- Files: `Sources/TesseraCore/Views/` (`View.swift`, `ViewBuilder.swift`, `ForEach.swift`,
+  `LeafView.swift`, `ProposedSize.swift`, `Binding.swift`, `Text.swift`),
+  `Sources/TesseraCore/Environment/`, and
+  `Sources/TesseraCore/Input/EventDisposition.swift`.
 - Implement `View`, `ViewBuilder`, `TupleView`, `ConditionalView`, `Optional`,
   `EmptyView`, `ForEach`, `AnyView`, `EquatableView`, `ProposedSize`, and
   `EventDisposition` with the public shapes in `docs/Spec.md`. Keep composites pure and
@@ -189,9 +214,11 @@ local diagnostics.
 
 ### Step 1.2 — Implement reconciliation, environments, diagnostics, and render regions
 
-- Files: `Sources/TesseraCore/RuntimeNode.swift`, `NodeIdentity.swift`, `ViewGraph.swift`,
-  `RenderRegion.swift`, `Environment.swift`, plus
-  `Tests/TesseraCoreTests/ ReconciliationTests.swift`, `NodeStateLifetimeTests.swift`,
+- Files: `Sources/TesseraCore/Runtime/` (`RuntimeNode.swift`, `NodeIdentity.swift`,
+  `ViewGraph.swift`, `TerminalRequirements.swift`), `Sources/TesseraCore/Rendering/`,
+  `Sources/TesseraCore/Environment/`, `Sources/TesseraCore/Diagnostics/`,
+  `Sources/TesseraCore/Input/ResponderContext.swift`, plus
+  `Tests/TesseraCoreTests/ReconciliationTests.swift`, `NodeStateLifetimeTests.swift`,
   `EnvironmentTests.swift`, `DiagnosticsTests.swift`, and `ImportBoundaryTests.swift`.
 - Implement the six normative reconciliation rules: equatable fast path, dynamic-type
   replacement, leaf update, structural slot diff, keyed `ForEach` identity preservation,
@@ -201,6 +228,11 @@ local diagnostics.
 - Implement borrowed, clipped, translated `RenderRegion` with `write`, `setCell`, `fill`,
   `with`, `raw`, and cursor-request support. Out-of-bounds writes clip silently; region
   capabilities cannot be copied, stored, escaped, or used to reach session authority.
+- Implementation note (2026-07-17): `ViewGraph.render(into:)` accepts a `borrowing Frame`,
+  rather than `inout Frame`, because `TerminalSession.draw` lends its noncopyable,
+  nonescapable frame as a borrowing parameter. `Frame.withRenderRegion` then lends the
+  leaf an `inout RenderRegion` synchronously. Future slices must preserve this
+  ownership-compatible signature rather than widening frame authority.
 - Implement environment copy-on-write values and modifier propagation without adding
   property-wrapper sugar before the explicit mechanism is proven.
 - Acceptance: golden graph dumps and statistics prove create/destroy/update/body-count,
@@ -311,7 +343,7 @@ output-only overflow geometry without creating a second style system.
 ### Step 3.2 — Implement one-style environment inheritance and text measurement
 
 - Files: `Sources/TesseraTerminalBuffer/Style.swift`,
-  `Sources/TesseraLayout/Styling.swift`, `Sources/TesseraCore/Text.swift`, and
+  `Sources/TesseraLayout/Styling.swift`, `Sources/TesseraCore/Views/Text.swift`, and
   `Tests/TesseraLayoutTests/StyleTests.swift`, `TextWrappingTests.swift`.
 - Extend the existing buffer `Style` with fluent value operations. Add nearest-ancestor
   per-attribute merge, explicit `.bold(false)` semantics, complete five-role system/custom
@@ -366,9 +398,9 @@ responders without giving the graph or widgets ownership of application state.
 
 ### Step 4.2 — Implement FocusManager, responder routing, and requirements aggregation
 
-- Files: `Sources/TesseraCore/Focus.swift`, `Responder.swift`,
-  `TerminalRequirements.swift`, `HitTesting.swift` (key-independent pieces only),
-  `Tests/TesseraCoreTests/FocusRoutingTests.swift`, `RequirementsTests.swift`.
+- Files: `Sources/TesseraCore/Input/Focus.swift`, `Responder.swift`, `HitTesting.swift`
+  (key-independent pieces only), `Sources/TesseraCore/Runtime/TerminalRequirements.swift`,
+  `Tests/TesseraCoreTests/FocusRoutingTests.swift`, and `RequirementsTests.swift`.
 - Implement `focusable`, `focused`, `onKey`, `ResponderContext`, document-order advance
   with wrap, focused-node cleanup, and leaf-first → wrapper → ancestor bubbling. The graph
   never consumes an event without a handler. Aggregate requested requirements over live
@@ -422,8 +454,9 @@ pointer interaction without leaking terminal tracking authority into views.
 
 ### Step 5.2 — Implement deepest-first hit testing and mouse responder APIs
 
-- Files: `Sources/TesseraCore/HitTesting.swift`, `Responder.swift`,
-  `TerminalRequirements.swift`, and `Tests/TesseraCoreTests/HitTestingTests.swift`.
+- Files: `Sources/TesseraCore/Input/HitTesting.swift`, `Responder.swift`,
+  `Sources/TesseraCore/Runtime/TerminalRequirements.swift`, and
+  `Tests/TesseraCoreTests/HitTestingTests.swift`.
 - Implement clipped/deepest-first hit testing, ZStack topmost order, disabled subtree
   skipping, `.onTap`, `.onMouse`, `.onHover`, `allowsHitTesting`, click-to-focus, and
   leaf/wrapper/ancestor bubbling. Escalate requirements from button events to any-event
@@ -542,8 +575,9 @@ required, and make the Showcase the canonical Phase 4 integration proof.
 ### Step 7.3 — Complete controlled TextField editing and hardware cursor behavior
 
 - Files: `Sources/TesseraWidgets/TextField.swift`,
-  `Sources/TesseraCore/RenderRegion.swift`, `Sources/TesseraTerminal/Frame.swift` only if
-  the existing cursor seam needs a narrow compatible extension, and tests.
+  `Sources/TesseraCore/Rendering/RenderRegion.swift`,
+  `Sources/TesseraTerminalBuffer/Frame.swift` only if the existing cursor seam needs a
+  narrow compatible extension, and tests.
 - Complete binding edits, grapheme-safe cursor movement, reveal-offset clamping on every
   bound-value replacement, focused paste/dictation commits, submit action, and
   `RenderRegion.requestCursor(at:)`/session forwarding. Treat host software-keyboard and
@@ -716,8 +750,8 @@ quality gates before handing the plan's implementation to review.
 - `.agents/investigations/020-phase-4-tessera-showcase.md`
 - `Package.swift`
 - `Examples/Package.swift`
-- `Sources/TesseraTerminal/Frame.swift`
+- `Sources/TesseraTerminalBuffer/Frame.swift`
 - `Sources/TesseraTerminal/TerminalSession.swift`
-- `Sources/TesseraCore/View.swift`
+- `Sources/TesseraCore/Views/View.swift`
 - `Tests/TesseraCoreTests/ViewTests.swift`
 - `justfiles/quality.just`

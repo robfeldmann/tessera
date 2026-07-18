@@ -1,5 +1,6 @@
 import InlineSnapshotTesting
 import SnapshotTesting
+import Tessera
 import TesseraTerminal
 import TesseraTerminalSnapshotSupport
 import TesseraTerminalTestSupport
@@ -21,8 +22,8 @@ struct ShowcaseFixtureTests {
     assertInlineSnapshot(of: result.snapshot, as: .terminalText(trim: .trailing)) {
       """
       Tessera Showcase
-      Fixture: 120x24
-      Events: 2
+      Selected: Text
+      Diagnostics: ViewGraph ready
 
 
 
@@ -55,8 +56,8 @@ struct ShowcaseFixtureTests {
     assertInlineSnapshot(of: result.snapshot, as: .terminalText(trim: .trailing)) {
       """
       Tessera Showcase
-      Fixture: 80x24
-      Events: 2
+      Selected: Text
+      Diagnostics: ViewGraph ready
 
 
 
@@ -89,8 +90,8 @@ struct ShowcaseFixtureTests {
     assertInlineSnapshot(of: result.snapshot, as: .terminalText(trim: .trailing)) {
       """
       Tessera Showcase
-      Fixture: 80x16
-      Events: 2
+      Selected: Text
+      Diagnostics: ViewGraph ready
 
 
 
@@ -115,8 +116,8 @@ struct ShowcaseFixtureTests {
     assertInlineSnapshot(of: result.snapshot, as: .terminalText(trim: .trailing)) {
       """
       Tessera Showcase
-      Fixture: 40x16
-      Events: 2
+      Selected: Text
+      Diagnostics: ViewGraph ready
 
 
 
@@ -162,10 +163,11 @@ struct ShowcaseFixtureTests {
       .paste("fixture"),
       .resize(fixture.size),
     ])
-    var model = ShowcaseModel(size: fixture.size)
+    let model = ShowcaseModel(size: fixture.size)
     model.dispatch(script)
+    let graph = model.makeGraph()
     let snapshot = VirtualTerminal.snapshot(size: fixture.size) { frame in
-      model.render(into: frame)
+      graph.render(into: frame)
     }
     return (model, snapshot)
   }

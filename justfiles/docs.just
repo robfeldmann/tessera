@@ -27,6 +27,8 @@ targets:
     @set -e; \
     base_targets=( \
         TesseraCore \
+        TesseraLayout \
+        TesseraTestSupport \
         TesseraTerminalANSI \
         TesseraTerminalBuffer \
         TesseraTerminalCore \
@@ -35,6 +37,7 @@ targets:
         TesseraTerminalRendering \
         TesseraTerminalSnapshotSupport \
         TesseraTerminalTestSupport \
+        TesseraWidgets \
     ); \
     for target in "${base_targets[@]}"; do \
         swift package \
@@ -84,6 +87,8 @@ merge:
     xcrun docc merge \
         .build/doccarchives/targets/Tessera.doccarchive \
         .build/doccarchives/targets/TesseraCore.doccarchive \
+        .build/doccarchives/targets/TesseraLayout.doccarchive \
+        .build/doccarchives/targets/TesseraTestSupport.doccarchive \
         .build/doccarchives/targets/TesseraTerminal.doccarchive \
         .build/doccarchives/targets/TesseraTerminalANSI.doccarchive \
         .build/doccarchives/targets/TesseraTerminalBuffer.doccarchive \
@@ -93,6 +98,7 @@ merge:
         .build/doccarchives/targets/TesseraTerminalRendering.doccarchive \
         .build/doccarchives/targets/TesseraTerminalSnapshotSupport.doccarchive \
         .build/doccarchives/targets/TesseraTerminalTestSupport.doccarchive \
+        .build/doccarchives/targets/TesseraWidgets.doccarchive \
         --output-path .build/doccarchives/tessera.doccarchive \
         --synthesized-landing-page-kind "Swift Package" \
         --synthesized-landing-page-name Tessera

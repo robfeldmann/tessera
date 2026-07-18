@@ -74,8 +74,8 @@ public struct Buffer: Equatable, Sendable {
       return .clipped
     }
 
-    // docs/Spec.md Slice 4 and Ratatui Buffer::set_stringn require clearing any old
-    // wide/raw cluster touched by this write before installing the new grapheme.
+    // Clearing every touched cluster prevents stale wide or raw content from surviving
+    // beneath the newly written grapheme.
     for column in position.column..<(position.column + width) {
       clearCluster(atRow: position.row, column: column)
     }
@@ -110,8 +110,8 @@ public struct Buffer: Equatable, Sendable {
     }
     clearCluster(atRow: position.row, column: position.column)
 
-    // docs/Spec.md Slice 4: zero-width raw payloads are anchored and emitted without
-    // advancing the cursor; anchoring replaces any previous visible content at the cell.
+    // Zero-width raw payloads are anchored and emitted without advancing the cursor;
+    // anchoring replaces any previous visible content at the cell.
     if contains(row: position.row, column: position.column) {
       uncheckedSet(
         Cell(content: .raw(payload), diffPolicy: repaintPolicy),
@@ -229,6 +229,61 @@ public struct Buffer: Equatable, Sendable {
 
     clearCluster(atRow: row, column: column)
     uncheckedSet(cell, row: row, column: column)
+  }
+
+  package mutating func setClusterCell(
+    _ cell: Cell,
+    row: Int,
+    column: Int
+  ) {
+    guard contains(row: row, column: column) else {
+      return
+    }
+
+    let contentWidth: Int
+    switch cell.content {
+    case .blank, .continuation:
+      contentWidth = 1
+    case .grapheme(let grapheme):
+      guard isSupportedStoredGrapheme(grapheme) else {
+        return
+      }
+      contentWidth = terminalCellWidth(of: grapheme)
+    case .raw(let payload):
+      guard let declaredWidth = payload.declaredWidth else {
+        contentWidth = 0
+        break
+      }
+      guard let exactWidth = Int(exactly: declaredWidth) else {
+        return
+      }
+      contentWidth = exactWidth
+    }
+    let width = max(contentWidth, 1)
+    let (endColumn, overflow) = column.addingReportingOverflow(width)
+    guard !overflow, endColumn <= size.columns else {
+      return
+    }
+
+    for targetColumn in column..<endColumn {
+      clearCluster(atRow: row, column: targetColumn)
+    }
+    uncheckedSet(cell, row: row, column: column)
+
+    guard width > 1 else {
+      return
+    }
+    for continuationColumn in (column + 1)..<(column + width) {
+      uncheckedSet(
+        Cell(
+          content: .continuation,
+          style: cell.style,
+          diffPolicy: cell.diffPolicy
+        ),
+        row: row,
+        column: continuationColumn
+      )
+    }
   }
 
   public subscript(row: Int, column: Int) -> Cell {
