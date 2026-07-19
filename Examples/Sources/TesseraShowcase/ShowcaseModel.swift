@@ -5,9 +5,10 @@ enum ShowcaseCatalogSelection: String, Sendable {
 }
 
 enum ShowcaseViewportRole: String, Sendable {
-  case compact
+  case compact = "one role"
   case guardSize = "resize guard"
-  case regular
+  case regular = "three roles"
+  case standard = "two roles"
 }
 
 /// App-owned Showcase state. Runtime nodes retain only ephemeral UI state.
@@ -20,13 +21,28 @@ final class ShowcaseModel {
   var isSpecimenVisible = true
   var splitAxis: Axis = .horizontal
   var widePanes = [
-    SplitViewPane(id: "catalog", requestedSize: 24),
-    SplitViewPane(id: "playground", requestedSize: 70),
-    SplitViewPane(id: "inspector", requestedSize: 24),
+    SplitViewPane(
+      id: "catalog",
+      sizing: SplitViewPaneSizing(minimum: 23, requestedIdeal: 24, maximum: 24)
+    ),
+    SplitViewPane(
+      id: "playground",
+      sizing: SplitViewPaneSizing(minimum: 23, requestedIdeal: 70)
+    ),
+    SplitViewPane(
+      id: "inspector",
+      sizing: SplitViewPaneSizing(minimum: 23, requestedIdeal: 24, maximum: 24)
+    ),
   ]
   var standardPanes = [
-    SplitViewPane(id: "catalog", requestedSize: 24),
-    SplitViewPane(id: "playground", requestedSize: 55),
+    SplitViewPane(
+      id: "catalog",
+      sizing: SplitViewPaneSizing(minimum: 23, requestedIdeal: 24, maximum: 24)
+    ),
+    SplitViewPane(
+      id: "playground",
+      sizing: SplitViewPaneSizing(minimum: 23, requestedIdeal: 70)
+    ),
   ]
   var catalogOffset = TerminalPosition(column: 0, row: 0)
   var playgroundOffset = TerminalPosition(column: 0, row: 0)
@@ -34,10 +50,13 @@ final class ShowcaseModel {
   var compactOffset = TerminalPosition(column: 0, row: 0)
 
   var viewportRole: ShowcaseViewportRole {
-    if size.columns < 40 || size.rows < 12 {
+    if size.columns < 23 || size.rows < 10 {
       return .guardSize
     }
-    return size.columns < 80 ? .compact : .regular
+    if size.columns < 48 {
+      return .compact
+    }
+    return size.columns < 73 ? .standard : .regular
   }
 
   init(size: TerminalSize) {

@@ -59,6 +59,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   ViewGraph integration, responsive Showcase composition, promoted catalog contracts, and
   a reviewed plan to land final Flex-backed pane negotiation before styling and input.
 
+- Completed Phase 4's Flex-backed layout negotiation slice with public fixed, minimum,
+  maximum, percentage, and ratio constraints; deterministic grow/shrink allocation;
+  negotiated SplitView pane sizing and resolved-frame diagnostics; and responsive Showcase
+  role composition across compact, standard, and wide viewports.
+
 - Added DocC icon and card artwork placeholders for the Tessera package and module
   documentation catalogs.
 
@@ -242,6 +247,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `#if canImport(CGhosttyVT)` instead of `#if !os(Windows)`.
 
 ### Fixed
+
+- Fixed shared Windows terminal input shutdown so queued resize notifications drain before
+  the merged event stream finishes.
+- Fixed terminal text snapshots to omit wide-cell continuation placeholders, preserving
+  visual divider alignment around CJK and other double-width graphemes.
 
 - Fixed POSIX terminal input cancellation to break the stream/task retention cycle, wake
   blocked polls through a cancellation pipe, prevent empty-read CPU spins, and keep active

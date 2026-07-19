@@ -300,6 +300,7 @@ not substitute globally installed `pnpx`, `prettier`, or markdownlint commands.
 | [Box](primitives/box.md)                                | primitive | sketch     | Border, Text, Padding, and title-policy design            |
 | [Divider](primitives/divider.md)                        | primitive | ready      | —                                                         |
 | [Frame](primitives/frame.md)                            | primitive | ready      | —                                                         |
+| [Flex](primitives/flex.md)                              | primitive | ready      | —                                                         |
 | [Linear stacks](primitives/stacks.md)                   | primitive | ready      | —                                                         |
 | [List](widgets/list.md)                                 | widget    | sketch     | Slice 3 style + Slice 4/5 routing + List contract design  |
 | [NavigationSplitView](widgets/navigation-split-view.md) | widget    | wireframed | SplitView + List/Section + compact policy                 |

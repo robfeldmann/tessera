@@ -217,9 +217,9 @@ questions: this is Grid's solver.
   output-only, so Table supplies its viewport state but does not route pointer input to
   it. Exists (`wireframed`); its API spelling and style protocol must graduate before
   `ready`.
-- Column width distribution -- shared with Grid
-  ([Slice 6](../../docs/Spec.md#slice-6-flex-grid-and-composition)); design once, cite
-  from both. Sequencing constraint recorded in [inbox](../inbox.md).
+- Column width distribution -- consumes the ready shared [Flex](../primitives/flex.md)
+  constraint vocabulary; Slice 6 Grid and Table delegate to its one resolver rather than
+  designing a second allocator.
 
 ## Requirements
 

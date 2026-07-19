@@ -10,6 +10,7 @@ private struct _LayoutMeasurementKey: Hashable {
 private struct _LayoutPlacement {
   let origin: TerminalPosition
   let proposal: ProposedSize
+  let clip: Rect?
 }
 
 private final class _LayoutPlacementCollector {
@@ -432,7 +433,7 @@ extension ViewGraph {
       var height = 0
       for child in node.children {
         let childProposal =
-          child.view is any _LayoutView
+          forwardsCompleteProposal(to: child)
           ? proposal
           : ProposedSize(width: proposal.width, height: nil)
         let childSize = measure(child, proposal: childProposal)
@@ -445,6 +446,16 @@ extension ViewGraph {
     layoutMeasurements[key] = measured
     node.measuredSize = measured
     return measured
+  }
+
+  private func forwardsCompleteProposal(to node: RuntimeNode) -> Bool {
+    if node.view is any _LayoutView {
+      return true
+    }
+    guard node.children.count == 1, let child = node.children.first else {
+      return false
+    }
+    return forwardsCompleteProposal(to: child)
   }
 
   private func place(_ node: RuntimeNode, in frame: Rect, clip: Rect) {
@@ -490,7 +501,18 @@ extension ViewGraph {
 
       let childSize = measure(child, proposal: placement.proposal)
       let childFrame = Rect(origin: placement.origin, size: childSize)
-      place(child, in: childFrame, clip: node.clip)
+      let childClip: Rect
+      if let requestedClip = placement.clip {
+        childClip =
+          requestedClip.intersection(node.clip)
+          ?? Rect(
+            origin: placement.origin,
+            size: TerminalSize(columns: 0, rows: 0)
+          )
+      } else {
+        childClip = node.clip
+      }
+      place(child, in: childFrame, clip: childClip)
     }
   }
 
@@ -507,10 +529,11 @@ extension ViewGraph {
             }
             return measure(child, proposal: proposal)
           },
-          place: { [child, weak collector] origin, proposal in
+          place: { [child, weak collector] origin, proposal, clip in
             collector?.placements[ObjectIdentifier(child)] = _LayoutPlacement(
               origin: origin,
-              proposal: proposal
+              proposal: proposal,
+              clip: clip
             )
           },
           value: { [weak self, child] key in

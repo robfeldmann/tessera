@@ -1,4 +1,5 @@
 import SnapshotTesting
+import TesseraTerminalBuffer
 import TesseraTerminalSnapshotSupport
 
 /// Whitespace policy for terminal text snapshots.
@@ -59,7 +60,7 @@ extension Snapshotting where Value == ScreenSnapshot, Format == String {
 
 private func textGrid(_ snapshot: ScreenSnapshot, trim: TerminalSnapshotTrim) -> String {
   snapshot.cells
-    .map { row in String(characters(in: row, trim: trim)) }
+    .map { row in String(visualCharacters(in: row, trim: trim)) }
     .joined(separator: "\n")
 }
 
@@ -136,14 +137,31 @@ private func debugDump(_ snapshot: ScreenSnapshot) -> String {
 }
 
 private func debugText(_ row: [RenderedCell]) -> String {
-  String(characters(in: row, trim: .none).map { $0 == " " ? "·" : $0 })
+  String(row.map(\.character).map { $0 == " " ? "·" : $0 })
 }
 
-private func characters(
+private func visualCharacters(
   in row: [RenderedCell],
   trim: TerminalSnapshotTrim
 ) -> [Character] {
-  trimmed(row, trim: trim).map(\.character)
+  let cells = trimmed(row, trim: trim)
+  var characters: [Character] = []
+  characters.reserveCapacity(cells.count)
+
+  var remainingContinuationCells = 0
+  for cell in cells {
+    if remainingContinuationCells > 0 {
+      remainingContinuationCells -= 1
+      continue
+    }
+
+    characters.append(cell.character)
+    remainingContinuationCells = max(
+      terminalCellWidth(of: String(cell.character)) - 1,
+      0
+    )
+  }
+  return characters
 }
 
 private func styleGlyphs(

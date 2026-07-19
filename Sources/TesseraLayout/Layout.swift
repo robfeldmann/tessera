@@ -57,6 +57,14 @@ public struct Subviews: RandomAccessCollection {
       proxy.place(origin, proposal)
     }
 
+    package func place(
+      at origin: TerminalPosition,
+      proposal: ProposedSize,
+      clip: Rect
+    ) {
+      proxy.placeClipped(origin, proposal, clip)
+    }
+
     /// Reads a value supplied by this child for its enclosing layout.
     public subscript<Key: LayoutValueKey>(key: Key.Type) -> Key.Value {
       proxy.value(ObjectIdentifier(key)) as? Key.Value ?? Key.defaultValue

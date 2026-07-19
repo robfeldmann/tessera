@@ -5,7 +5,7 @@ private struct ShowcaseRoot: View {
 
   var body: some View {
     if model.viewportRole == .guardSize {
-      Text("Resize to at least 40x12")
+      Text("Resize to at least 23x10")
     } else {
       VStack {
         HStack {
@@ -13,31 +13,81 @@ private struct ShowcaseRoot: View {
           Spacer()
           Text(model.viewportRole.rawValue)
         }
-        Divider()
-        if model.size.columns >= 120 {
+        ShowcaseWorkspaceDivider(model: model)
+        switch model.viewportRole {
+        case .regular:
           SplitView(
             axis: model.binding(\.splitAxis),
             panes: model.binding(\.widePanes)
           ) {
             ShowcaseCatalog(model: model)
+              .layoutPriority(1)
             ShowcasePlayground(model: model)
             ShowcaseInspector(model: model)
+              .layoutPriority(1)
           }
-        } else if model.size.columns >= 80 {
+        case .standard:
           SplitView(
             axis: model.binding(\.splitAxis),
             panes: model.binding(\.standardPanes)
           ) {
             ShowcaseCatalog(model: model)
+              .layoutPriority(1)
             ShowcasePlayground(model: model)
           }
-        } else {
+        case .compact:
           ScrollView(.vertical, offset: model.binding(\.compactOffset)) {
             ShowcaseCatalogContent(model: model)
           }
+        case .guardSize:
+          EmptyView()
         }
       }
     }
+  }
+}
+
+private struct ShowcaseWorkspaceDivider: LeafView {
+  let model: ShowcaseModel
+
+  func sizeThatFits(
+    _ proposal: ProposedSize,
+    state: inout Void,
+    environment: EnvironmentValues
+  ) -> TerminalSize {
+    TerminalSize(columns: proposal.width ?? 1, rows: 1)
+  }
+
+  func render(
+    in region: inout RenderRegion,
+    state: inout Void,
+    environment: EnvironmentValues
+  ) {
+    let columns = max(region.bounds.size.columns, 0)
+    region.write(
+      String(repeating: "─", count: columns),
+      at: TerminalPosition(column: 0, row: 0)
+    )
+    guard model.splitAxis == .horizontal else {
+      return
+    }
+
+    switch model.viewportRole {
+    case .regular:
+      writeJunction(at: 24, in: &region)
+      writeJunction(at: columns - 25, in: &region)
+    case .standard:
+      writeJunction(at: 24, in: &region)
+    case .compact, .guardSize:
+      break
+    }
+  }
+
+  private func writeJunction(at column: Int, in region: inout RenderRegion) {
+    guard column >= 0, column < region.bounds.size.columns else {
+      return
+    }
+    region.write("┬", at: TerminalPosition(column: column, row: 0))
   }
 }
 

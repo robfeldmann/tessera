@@ -398,18 +398,20 @@ navigation as destructive. Exact Style environment keys remain open.
 ## Slice availability and progressive sequence
 
 1. [Slice 2](../../docs/Spec.md#slice-2-the-layout-protocol-and-stack-containers) supplies
-   placement and clipping; `SplitView` proves regular geometry.
-2. [Slice 4](../../docs/Spec.md#slice-4-focus-and-key-routing-the-responder-system)
+   placement, clipping, and static regular geometry.
+2. [Phase 2.5](../../docs/Spec.md#phase-25-flex-and-final-splitview-negotiation) supplies
+   final negotiated SplitView panes and the responsive role policy.
+3. [Slice 4](../../docs/Spec.md#slice-4-focus-and-key-routing-the-responder-system)
    supplies explicit focus, routing, removal-clears-focus behavior, and the focus-binding
    write after an opened role renders.
-3. [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing) supplies click-to-focus and
+4. [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing) supplies click-to-focus and
    the two toggle targets; divider drag remains `SplitView`.
-4. [Slice 6](../../docs/Spec.md#slice-6-flex-grid-and-composition) supplies composition
-   and constraints for regular `SplitView`.
-5. [Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase)
+5. [Slice 6](../../docs/Spec.md#slice-6-grid-table-and-navigationsplitview-composition)
+   composes regular and compact generic role children through those established contracts.
+6. [Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase)
    supplies controlled Catalog `List` selection for the Showcase.
 
-Before these land, showcase columns may be static app-supplied content only. They must not
+Before these land, Showcase roles may be static app-supplied content only. They must not
 substitute a private navigator, animation shim, source browser, or layout solver.
 
 ## Requirements

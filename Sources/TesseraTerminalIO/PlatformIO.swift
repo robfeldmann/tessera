@@ -42,12 +42,17 @@ package actor PlatformIO {
     self.terminalDevice = terminalDevice
     self.bytes = terminalDevice.bytes()
     self.sizeChanges = terminalDevice.sizeChanges()
-    self.events = Self.events(from: self.bytes, sizeChanges: self.sizeChanges)
+    self.events = Self.events(
+      from: self.bytes,
+      sizeChanges: self.sizeChanges,
+      inputStreamsShareLifetime: terminalDevice.inputStreamsShareLifetime
+    )
   }
 
   private static func events(
     from bytes: AsyncStream<[UInt8]>,
-    sizeChanges: AsyncStream<TerminalSize>
+    sizeChanges: AsyncStream<TerminalSize>,
+    inputStreamsShareLifetime: Bool
   ) -> AsyncStream<InputEvent> {
     AsyncStream { continuation in
       let task = Task {
@@ -72,6 +77,9 @@ package actor PlatformIO {
         }
         for event in parser.flush() {
           continuation.yield(event)
+        }
+        if inputStreamsShareLifetime, Task.isCancelled == false {
+          await resizeTask.value
         }
         continuation.finish()
       }

@@ -18,7 +18,7 @@ public enum ShowcaseFixture: CaseIterable, Sendable {
     case .compact:
       TerminalSize(columns: 40, rows: 16)
     case .guardSize:
-      TerminalSize(columns: 39, rows: 11)
+      TerminalSize(columns: 22, rows: 10)
     }
   }
 }

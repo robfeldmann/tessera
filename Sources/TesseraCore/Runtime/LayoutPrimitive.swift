@@ -4,6 +4,7 @@ import TesseraTerminalCore
 package struct _LayoutSubviewProxy {
   package let measure: (ProposedSize) -> TerminalSize
   package let place: (TerminalPosition, ProposedSize) -> Void
+  package let placeClipped: (TerminalPosition, ProposedSize, Rect) -> Void
   package let value: (ObjectIdentifier) -> Any?
 
   package init(
@@ -13,6 +14,24 @@ package struct _LayoutSubviewProxy {
   ) {
     self.measure = measure
     self.place = place
+    placeClipped = { origin, proposal, _ in
+      place(origin, proposal)
+    }
+    self.value = value
+  }
+
+  package init(
+    measure: @escaping (ProposedSize) -> TerminalSize,
+    place: @escaping (TerminalPosition, ProposedSize, Rect?) -> Void,
+    value: @escaping (ObjectIdentifier) -> Any?
+  ) {
+    self.measure = measure
+    self.place = { origin, proposal in
+      place(origin, proposal, nil)
+    }
+    placeClipped = { origin, proposal, clip in
+      place(origin, proposal, clip)
+    }
     self.value = value
   }
 }

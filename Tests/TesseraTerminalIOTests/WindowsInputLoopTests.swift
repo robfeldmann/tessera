@@ -138,12 +138,11 @@
     }
 
     @Test
-    func `platform io events includes windows resize notifications`() async {
+    func `platform io drains windows resize before the shared input loop closes`() async {
       let size = TerminalSize(columns: 80, rows: 25)
       let state = WindowsInputState(
         waitResults: [
           WindowsWaitStatus.object,
-          WindowsWaitStatus.timeout,
           WindowsWaitStatus.failed,
         ],
         peekResults: [.success([.resize(size)])],
@@ -160,8 +159,10 @@
       var iterator = io.events.makeAsyncIterator()
 
       let event = await iterator.next()
+      let end = await iterator.next()
 
       #expect(event == .resize(size))
+      #expect(end == nil)
     }
   }
 

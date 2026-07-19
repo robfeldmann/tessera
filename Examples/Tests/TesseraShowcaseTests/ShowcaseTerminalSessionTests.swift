@@ -39,7 +39,7 @@ struct ShowcaseTerminalSessionTests {
       as: .lines
     ) {
       #"""
-      "\u{1B}[?1049h\u{1B}[2J\u{1B}[1;1H\u{1B}[0mResize to at least 4\u{1B}[2;1H                    \u{1B}[3;1H                    \u{1B}[4;1H                    \u{1B}[5;1H                    \u{1B}[6;1H                    \u{1B}[0m\u{1B}[?25l\u{1B}[?25h\u{1B}_Ga=d,d=A\u{1B}\\\u{1B}[?1049l"
+      "\u{1B}[?1049h\u{1B}[2J\u{1B}[1;1H\u{1B}[0mResize to at least 2\u{1B}[2;1H                    \u{1B}[3;1H                    \u{1B}[4;1H                    \u{1B}[5;1H                    \u{1B}[6;1H                    \u{1B}[0m\u{1B}[?25l\u{1B}[?25h\u{1B}_Ga=d,d=A\u{1B}\\\u{1B}[?1049l"
       """#
     }
   }

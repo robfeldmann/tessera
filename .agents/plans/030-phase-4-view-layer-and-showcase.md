@@ -3,9 +3,9 @@ name: Phase 4 View Layer and Tessera Showcase
 description:
   Implement the seven-slice Tessera view layer with design-catalog readiness gates and a
   progressively executable Showcase integration app.
-status: in-review
+status: pending
 created: 2026-07-17
-updated: 2026-07-17
+updated: 2026-07-18
 ---
 
 <!-- Allowed status values: planning, in-review, pending, in-progress, complete. -->
@@ -26,11 +26,11 @@ updated: 2026-07-17
   - [x] 2.2 Add the layout target and deterministic stack algorithm
   - [x] 2.3 Add static SplitView and ScrollView foundations
   - [x] 2.4 Replace the Showcase vertical scaffold with real layout composition
-- [ ] **Phase 2.5 — Flex sizing, final SplitView negotiation, and Showcase minima**
-  - [ ] 2.5.1 Specify Flex and final pane-sizing contracts
-  - [ ] 2.5.2 Implement the shared Flex solver
-  - [ ] 2.5.3 Replace static SplitView geometry with negotiated panes
-  - [ ] 2.5.4 Stabilize Showcase minima and flexible columns
+- [x] **Phase 2.5 — Flex sizing, final SplitView negotiation, and Showcase minima**
+  - [x] 2.5.1 Specify Flex and final pane-sizing contracts
+  - [x] 2.5.2 Implement the shared Flex solver
+  - [x] 2.5.3 Replace static SplitView geometry with negotiated panes
+  - [x] 2.5.4 Stabilize Showcase minima and flexible columns
 - [ ] **Phase 3 — Slice 3: Styling, wrapping, decoration, and ScrollIndicator**
   - [ ] 3.1 Complete style/token and decoration catalog contracts
   - [ ] 3.2 Implement one-style environment inheritance and text measurement
@@ -187,9 +187,10 @@ the design-catalog process.
   constructed trees, explicit key/mouse/paste/resize scripts, buffer snapshots, and
   diagnostics snapshots; no sleeps, `Task.yield()`, or live terminal dependence.
 - Define fixture metadata for every Showcase wireframe dimension: `120x24`, `80x24`,
-  `80x16`, `40x16`, and the below-`40x12` resize guard. Store model state and scripted
-  input separately from snapshot expectations so the same app model can be exercised at
-  regular, compact, and guard sizes.
+  `80x16`, and canonical mobile `40x16`; add the negotiated width boundaries 73/72, 48/47,
+  minimum `23x10`, and independent guard cases `22x10`, `23x9`, and `22x9`. Store model
+  state and scripted input separately from snapshot expectations so the same app model can
+  be exercised across three-role, two-role, one-role, and guard states.
 - Acceptance: a test can instantiate a fixture at each declared size, dispatch a finite
   script, render into a real `Frame`/buffer, and compare a `VirtualTerminal` snapshot; no
   view-layer target imports terminal IO.
@@ -324,9 +325,9 @@ stack/viewport geometry while retaining controlled state and clipping.
 - Compose the first title/catalog/playground/inspector regions with stacks and the static
   viewport/pane foundation. Use visible `Text` affordance placeholders only where the real
   component is not yet landed; mark them as temporary in code and tests.
-- Acceptance: the 120x24 and 80x24 fixture scripts render stable geometry and scrollable
-  content; the Slice 1 vertical scaffold is removed, and no temporary node shape is kept
-  as a public component contract.
+- Acceptance: the 120x24 and 80x24 fixture scripts render stable static geometry and
+  scrollable content; the Slice 1 vertical scaffold is removed, and Phase 2.5 owns the
+  explicit replacement of this temporary static SplitView allocator.
 
 ## Phase 2.5 — Flex sizing, final SplitView negotiation, and Showcase minima
 
@@ -345,11 +346,13 @@ work depend on the temporary static allocator.
   second priority API.
 - Update the Phase 4 slice map so Flex and final SplitView negotiation land here, while
   Grid, Table, and NavigationSplitView continue to land in Phase 6. Set the Showcase
-  minimum to `23x10`, retain `40x16` as a canonical mobile fixture rather than a minimum,
-  and define exact one-cell-below/at/above responsive boundary fixtures.
+  minimum to `23x10`; retain `40x16` as canonical mobile rather than minimum. Three roles
+  begin at width 73, two roles at 48, one role at 23, and width below 23 or height below
+  10 independently renders the guard.
 - Acceptance: Flex and SplitView are `ready`; every sizing branch traces to a table row
   and backticked test name; the Spec, catalog, Showcase policy, and plan name one geometry
-  owner and agree on the new sequencing and `23x10` minimum.
+  owner, one `.layoutPriority(_:)` API, the same responsive predicates, and the new
+  sequencing.
 
 ### Step 2.5.2 — Implement the shared Flex solver
 
@@ -384,14 +387,14 @@ work depend on the temporary static allocator.
 
 - Files: `Examples/Sources/TesseraShowcase/`, Showcase fixture tests,
   `design/showcase.md`, and affected plan acceptance text.
-- Change the resize guard to below `23x10`. Keep Catalog and Inspector symmetric at their
-  catalog-defined side-pane constraints; allocate shrinking and surplus width to the
-  Playground until its minimum is reached, then apply the documented role replacement.
-  Preserve `40x16` as a mobile fixture and add `23x10` minimum plus `22x9` guard fixtures.
-- Acceptance: snapshots at every negotiated boundary and one cell on either side prove the
-  Inspector does not disappear while the Playground can still shrink, surplus width does
-  not enlarge capped side panes, side panes remain symmetric, the model survives role
-  replacement, and the app renders only the guard below `23x10`.
+- Change the resize guard to `W < 23 || H < 10`. Keep Catalog and Inspector symmetric at
+  `23/24/24` minimum/ideal/maximum and priority 1; Playground uses a 23-cell minimum,
+  uncapped growth, and priority 0. Three roles begin at width 73, two roles at 48, and one
+  role at 23. Preserve `40x16` as canonical mobile.
+- Acceptance: snapshots at widths 22/23, 47/48, 72/73, and 119/120/121 plus independent
+  9/10-row cases prove the Inspector remains while Playground can shrink, surplus width
+  does not enlarge capped side panes, side panes remain symmetric, model state survives
+  role replacement, and only invalid width or height renders the guard.
 
 ## Phase 3 — Slice 3: Styling, wrapping, decoration, and ScrollIndicator
 
@@ -669,9 +672,10 @@ required, and make the Showcase the canonical Phase 4 integration proof.
   retain a borrowed region, trigger update/layout/render/present, serialize data, or
   capture raw controlled values. Render selected frame/clip overlays as presentation only.
 - Exercise all declared fixtures: dense 120x24 Overview, 80x24 ScrollView/Inspector/style
-  views, 80x16 SplitView/TextField, 40x16 compact Catalog/Playground/Inspector, and the
-  below-40x12 resize guard. Dispatch deterministic key, mouse, wheel, paste/text-commit,
-  and resize scripts and assert both buffer snapshots and app bindings.
+  views, 80x16 SplitView/TextField, canonical mobile 40x16 roles, negotiated width
+  boundaries 23/48/73 and their one-cell-below cases, plus independent 9/10-row guards.
+  Dispatch deterministic key, mouse, wheel, paste/text-commit, and resize scripts and
+  assert both buffer snapshots and app bindings.
 - Acceptance: the Showcase executable runs through `TerminalSession`; every temporary
   scaffold named in the spec's slice map is deleted; snapshots prove compact roles are
   reachable through visible Buttons, critical material scrolls rather than clips, the
@@ -773,11 +777,12 @@ quality gates before handing the plan's implementation to review.
   business data in NodeState or maintain a shadow value; test binding replacement and
   state lifetime at every cutover.
 - **Responsive behavior is a matrix, not one breakpoint.** Preserve the app model through
-  `120x24`, `80x24`, `80x16`, `40x16`, and resize guard paths; compact role replacement
-  must use visible Buttons and ScrollView rather than squeezing or silently clipping.
-- **NavigationSplitView has a hard dependency on final SplitView negotiation.** Do not
-  compose compact/regular navigation on Slice 2 static geometry; delete that allocator at
-  Slice 6 cutover.
+  23/48/73-column transitions, independent 9/10-row guards, and canonical
+  `40x16`/`80x24`/`120x24` fixtures; compact role replacement uses visible Buttons and
+  ScrollView rather than squeezing or silently clipping.
+- **NavigationSplitView has a hard dependency on final SplitView negotiation.** Phase 2.5
+  deletes the Slice 2 static allocator before style or input behavior attaches; Slice 6
+  navigation consumes that final geometry without reopening it.
 - **Mouse and terminal capabilities are requested/effective values.** Tests must
   distinguish graph aggregation from session capability policy and verify dynamic
   tracking-mode teardown.
@@ -799,10 +804,11 @@ quality gates before handing the plan's implementation to review.
 - `docs/Spec.md#phase-4--view-layer-the-tessera-module`
 - `docs/Spec.md#slice-1-tesseracore--view-viewgraph-reconciliation-text`
 - `docs/Spec.md#slice-2-the-layout-protocol-and-stack-containers`
+- `docs/Spec.md#phase-25-flex-and-final-splitview-negotiation`
 - `docs/Spec.md#slice-3-styling-text-wrapping-and-decoration`
 - `docs/Spec.md#slice-4-focus-and-key-routing-the-responder-system`
 - `docs/Spec.md#slice-5-mouse-and-hit-testing`
-- `docs/Spec.md#slice-6-flex-grid-and-composition`
+- `docs/Spec.md#slice-6-grid-table-and-navigationsplitview-composition`
 - `docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase`
 - `docs/Spec.md#testing-posture-tessera-native-oracles`
 - `docs/Spec.md#executable-architecture-boundaries`

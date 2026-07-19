@@ -98,6 +98,7 @@ extension TerminalDevice {
           try writeAll(Array("\u{1B}[?1049l".utf8), to: outputHandle, system: system)
         },
         exitRawMode: { try await mode.exitRawMode() },
+        inputStreamsShareLifetime: true,
         size: { try readTerminalSize(outputHandle: outputHandle, system: system) },
         sizeChanges: { inputLoop.sizeChanges() },
         write: { try writeOnce($0, to: outputHandle, system: system) }

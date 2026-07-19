@@ -65,10 +65,11 @@ Use it selectively:
 - [Phase 4 — View layer](#phase-4--view-layer-the-tessera-module)
   - [Slice 1: TesseraCore — View, ViewGraph, reconciliation, Text](#slice-1-tesseracore--view-viewgraph-reconciliation-text)
   - [Slice 2: The Layout protocol and stack containers](#slice-2-the-layout-protocol-and-stack-containers)
+  - [Phase 2.5: Flex and final SplitView negotiation](#phase-25-flex-and-final-splitview-negotiation)
   - [Slice 3: Styling, text wrapping, and decoration](#slice-3-styling-text-wrapping-and-decoration)
   - [Slice 4: Focus and key routing](#slice-4-focus-and-key-routing-the-responder-system)
   - [Slice 5: Mouse and hit testing](#slice-5-mouse-and-hit-testing)
-  - [Slice 6: Flex, Grid, and composition](#slice-6-flex-grid-and-composition)
+  - [Slice 6: Grid, Table, and NavigationSplitView composition](#slice-6-grid-table-and-navigationsplitview-composition)
   - [Slice 7: Catalog integration — List, Section, widgets, and the Showcase](#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase)
 - [Phase 5 — Runtime + polish](#phase-5--runtime--polish)
 - [Risk register](#risk-register)
@@ -6810,6 +6811,8 @@ Phase 4 deliberately starts only after the substrate it renders into exists:
 
 - **Slices 1–3** require Phase 2 Slice 4 (width-aware `Buffer`, real `Style`,
   damage-tracking renderer). Text measurement is grapheme-width measurement.
+- **Phase 2.5** requires Phase 4 Slice 2 and lands Flex plus final SplitView negotiation
+  before styling or input code can depend on the temporary static allocator.
 - **Slice 4** requires Phase 2 Slice 5 (`Key`, `KeyCode`, `Modifiers`, semantic key
   events). Kitty keyboard (Phase 3 Slice 4) improves it but is not a prerequisite.
 - **Slice 5** requires Phase 3 Slice 3 (SGR mouse events).
@@ -6819,14 +6822,17 @@ Phase 4 deliberately starts only after the substrate it renders into exists:
   This is a forward pointer, not new Phase 4 scope.
 
 Phase 4 may interleave with Phase 3: slices 1–3 can land while Phase 3 protocol slices are
-still in flight, as long as Phase 2 is complete.
+still in flight, as long as Phase 2 is complete. Phase 2.5 is a deliberate geometry
+stabilization between Phase 4 slices 2 and 3, not a new terminal-substrate dependency.
 
 The **[Tessera Showcase](../design/showcase.md)** is Phase 4's integration exemplar: a
 runnable app that grows one slice at a time. Each slice may use the smallest temporary
 scaffold needed to demonstrate its foundation, but deletes that scaffold at the later
 cutover that replaces it. The 1.0 public surface is `Button`, `Toggle`, `Picker`,
 `Stepper`, `TextField`, `List`, `ScrollView`, `Section`, `Table`, `SplitView`, and
-`NavigationSplitView`. `Form`, `Outline`, and source browsing/mapping are post-1.0.
+`NavigationSplitView`. `Form`, `Outline`, and source browsing/mapping are post-1.0. The
+Slice 2 static SplitView allocator is one such scaffold: Phase 2.5 deletes it before
+style, keyboard, and pointer behavior attach to pane geometry.
 
 ### Architecture: three layers, four passes
 
@@ -6878,15 +6884,16 @@ buffer diff; cleverness is opt-in later and always observable via diagnostics.
 The catalog owns component contracts; this map records only when their integration
 foundation lands and which deliberately narrow scaffold disappears at cutover.
 
-| Slice | Components landing                                                                                                                                                                                               | Temporary scaffold deleted at cutover                         |
-| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| 1     | `View`, `ViewGraph`, reconciliation, `Text`, immutable local diagnostics snapshot                                                                                                                                | No-layout multi-child vertical stacking                       |
-| 2     | `Layout`, stacks, [`Divider`](../design/primitives/divider.md), static controlled [`SplitView`](../design/widgets/split-view.md) pane geometry, static [`ScrollView`](../design/widgets/scroll-view.md) viewport | Slice 1 vertical stacking                                     |
-| 3     | Style plumbing, wrapping/truncation, border decoration, [`ScrollIndicator`](../design/primitives/scroll-indicator.md)                                                                                            | Ad hoc overflow decoration                                    |
-| 4     | [`Button`](../design/widgets/button.md), [`TextField`](../design/widgets/text-field.md) focus, `Toggle`, `Picker`, `Stepper`, ScrollView keyboard movement, SplitView keyboard resize                            | Static controls and non-interactive viewport/divider behavior |
-| 5     | Control clicks, TextField click-to-caret, SplitView pointer drag, ScrollView pointer input and boundary bubbling                                                                                                 | Keyboard-only control, viewport, and divider interaction      |
-| 6     | `Flex`, `Grid`, [`Table`](../design/widgets/table.md), final SplitView negotiation, [`NavigationSplitView`](../design/widgets/navigation-split-view.md)                                                          | Slice 2 static SplitView geometry                             |
-| 7     | [`List` and `Section`](../design/widgets/list.md), controlled TextField cutover, finalized control styles, Showcase and inspector integration                                                                    | Interim catalog/example composition                           |
+| Slice/phase | Components landing                                                                                                                                                                                               | Temporary scaffold deleted at cutover                         |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| 1           | `View`, `ViewGraph`, reconciliation, `Text`, immutable local diagnostics snapshot                                                                                                                                | No-layout multi-child vertical stacking                       |
+| 2           | `Layout`, stacks, [`Divider`](../design/primitives/divider.md), static controlled [`SplitView`](../design/widgets/split-view.md) pane geometry, static [`ScrollView`](../design/widgets/scroll-view.md) viewport | Slice 1 vertical stacking                                     |
+| 2.5         | [`Flex`](../design/primitives/flex.md), final min/ideal/max SplitView negotiation, Showcase `23x10` minimum and negotiated columns                                                                               | Slice 2 static SplitView geometry                             |
+| 3           | Style plumbing, wrapping/truncation, border decoration, [`ScrollIndicator`](../design/primitives/scroll-indicator.md)                                                                                            | Ad hoc overflow decoration                                    |
+| 4           | [`Button`](../design/widgets/button.md), [`TextField`](../design/widgets/text-field.md) focus, `Toggle`, `Picker`, `Stepper`, ScrollView keyboard movement, SplitView keyboard resize                            | Static controls and non-interactive viewport/divider behavior |
+| 5           | Control clicks, TextField click-to-caret, SplitView pointer drag, ScrollView pointer input and boundary bubbling                                                                                                 | Keyboard-only control, viewport, and divider interaction      |
+| 6           | `Grid`, [`Table`](../design/widgets/table.md), [`NavigationSplitView`](../design/widgets/navigation-split-view.md)                                                                                               | Interim collection and responsive-role composition            |
+| 7           | [`List` and `Section`](../design/widgets/list.md), controlled TextField cutover, finalized control styles, Showcase and inspector integration                                                                    | Interim catalog/example composition                           |
 
 ```mermaid
 graph LR
@@ -6895,30 +6902,34 @@ graph LR
     L --> SV0["static SplitView"]
     D --> SV0
     L --> SC0["static ScrollView viewport"]
-    L --> S["S3 Style + text"]
+    L --> F25["Phase 2.5 Flex"]
+    SV0 --> SVN["final SplitView negotiation"]
+    F25 --> SVN
+    F25 --> S["S3 Style + text"]
     S --> SI["ScrollIndicator"]
     L --> SI
     S --> FK["S4 focus/key routing"]
     FK --> C["Button + Toggle + Picker + Stepper + TextField focus"]
     S --> C
-    FK --> SVK["SplitView keyboard resize"]
+    SVN --> SVK["SplitView keyboard resize"]
+    FK --> SVK
     FK --> M["S5 mouse/hit testing"]
     M --> I["control click + caret + divider drag + viewport wheel"]
     FK --> I
-    L --> FG["S6 Flex/Grid"]
-    FG --> T["Table solver + indicator parity"]
+    SVN --> I
+    F25 --> G6["S6 Grid"]
+    G6 --> T["Table solver + indicator parity"]
     SI --> T
-    FG --> SVN["final SplitView negotiation"]
     SVN --> NSV["NavigationSplitView"]
-    R["responsive layout"] --> NSV
-    G["generic role children"] --> NSV
+    G6 --> NSV
+    R["responsive role policy"] --> NSV
     V["controlled visibility"] --> NSV
     S7["S7 List + Section + Showcase"] -. "catalog composition only" .-> SH["Showcase"]
 ```
 
-`NavigationSplitView` additionally requires final SplitView negotiation, responsive
-layout, generic role children, and controlled visibility; `List` and `Section` are
-Showcase-catalog composition, not strict `NavigationSplitView` dependencies.
+`NavigationSplitView` additionally requires Phase 2.5 final SplitView negotiation, the
+responsive role policy, generic role children, and controlled visibility; `List` and
+`Section` are Showcase-catalog composition, not strict NavigationSplitView dependencies.
 
 ### Testing posture: Tessera-native oracles
 
@@ -7697,7 +7708,7 @@ The first [`SplitView`](../design/widgets/split-view.md) is a static, controlled
 layout: the app supplies the pane state through bindings, and layout derives fixed pane
 frames from it. It establishes divider placement and clipping only; it has no keyboard or
 pointer manipulation yet. This intentionally narrow geometry foundation is replaced, not
-extended by parallel code paths, by Slice 6's multi-pane min/ideal/max negotiation.
+extended by parallel code paths, by Phase 2.5's multi-pane min/ideal/max negotiation.
 
 #### `ScrollView` viewport foundation
 
@@ -7745,6 +7756,123 @@ bubbling in Slice 5; this slice supplies their static controlled foundation.
    _away_ from purely solver-driven layout is the cautionary tale.
 2. **Min-size probing costs a second measure.** Memoization makes it fine; do not
    complicate the protocol with a separate "flexibility" method until profiling says so.
+
+---
+
+### Phase 2.5: Flex and final SplitView negotiation
+
+This geometry stabilization lands immediately after Slice 2. It proves that the public
+`Layout` protocol carries explicit non-stack allocation and ensures later style, keyboard,
+and pointer work consume one final SplitView geometry path.
+
+#### Public Flex vocabulary
+
+```swift
+public enum FlexConstraint: Sendable, Equatable {
+    case length(Int)
+    case min(Int)
+    case max(Int)
+    case percentage(Int)
+    case ratio(Int, Int)
+    case fill(Int)
+}
+
+public struct Flex<Content: View>: View {
+    public init(_ axis: Axis, spacing: Int = 0, @ViewBuilder content: () -> Content)
+}
+
+extension View {
+    public func flex(_ constraint: FlexConstraint) -> some View
+}
+```
+
+Spacing and every cell extent are nonnegative. Percentage is in `0...100`; ratio has a
+nonnegative numerator and positive denominator; fill weight is nonnegative. Ratios above
+one are legal over-constraints. `fill(0)` receives zero cells and does not participate in
+weighted distribution. Invalid construction fails a precondition. Full-width intermediates
+and saturating conversion prevent integer wraparound.
+
+#### Flex allocation (normative)
+
+For each child, Flex measures the ideal with an unspecified main-axis proposal and the
+minimum with a zero main-axis proposal. It reserves spacing before resolving a finite
+container extent. Every public constraint and SplitView range lowers to one resolver item:
+
+| Input                   | Floor                         | Initial allocation                    | Growth cap                | Weight   | Compression |
+| ----------------------- | ----------------------------- | ------------------------------------- | ------------------------- | -------- | ----------- |
+| `length(n)`             | `n`                           | `n`                                   | `n`                       | 0        | fixed       |
+| `percentage(p)`         | resolved percentage           | `floor(available * p / 100)`          | initial                   | 0        | fixed       |
+| `ratio(n, d)`           | resolved ratio                | `floor(available * n / d)`            | initial                   | 0        | fixed       |
+| `max(n)`                | measured ideal clamped to `n` | measured ideal clamped to `n`         | initial                   | 0        | fixed       |
+| `min(n)`                | max(measured minimum, `n`)    | max(measured ideal, floor)            | nil                       | 1        | minimum     |
+| `fill(weight)`          | 0                             | measured ideal, or 0 for zero weight  | nil                       | `weight` | fill        |
+| no `.flex` value        | measured minimum              | max(measured ideal, measured minimum) | nil                       | 1        | minimum     |
+| SplitView range adapter | controlled minimum            | controlled requested ideal            | controlled maximum or nil | 1        | minimum     |
+
+`initial` precedes parent remainder, `floor` bounds the listed compression phase, and a
+nil growth cap is unbounded. Priority remains separate child metadata.
+
+With an unspecified main axis, percentage and ratio use the child ideal and no weighted
+growth occurs. A finite positive remainder visits `.layoutPriority(_:)` tiers descending,
+distributes by weight, and gives leftover one-cell remainders to earlier source children.
+It reaches a lower tier only after every child in the higher tier is capped; positive
+`fill`, `min`, default, and SplitView range items are otherwise uncapped.
+
+A negative remainder visits priority tiers ascending. It first reduces `fill` allocations
+toward zero, then `min`, default, and SplitView range items toward their floors;
+equal-tier remainder cells come from later source children first. Fixed/relative/`max`
+allocations and exhausted floors do not become negative. Any unresolved deficit remains in
+the reported main-axis extent and the graph clips trailing children. Flex has no outer
+spacing for zero or one child. Cross size is the largest child cross extent. These rules
+are owned by [`Flex`](../design/primitives/flex.md); Grid and Table later delegate to the
+same resolver.
+
+`.layoutPriority(_:)` remains the one priority API. Flex reads `Subview.priority` exactly
+as stacks do and introduces no constraint-specific or pane-specific priority property. An
+unannotated child therefore matches stack behavior: measured ideal is its initial
+allocation and measured minimum is its compression floor.
+
+#### Final controlled SplitView sizing
+
+```swift
+public struct SplitViewPaneSizing: Sendable, Equatable {
+    public init(minimum: Int = 0, ideal: Int, maximum: Int? = nil)
+}
+```
+
+Construction requires `0 <= minimum <= ideal <= maximum` when maximum exists; nil maximum
+is unbounded. Each visible pane lowers this range to the resolver's `floor`, `initial`,
+`growth cap`, weight-1 `minimum` compression fields. The child view's existing
+`layoutPriority` remains separate priority metadata. SplitView reserves one divider cell
+per adjacent visible pair before resolution. It grows higher-priority panes toward maxima
+and compresses lower-priority panes toward minima; earliest children receive positive
+remainder and later children yield compression remainder first.
+
+Collapsed panes retain their complete bound sizing but contribute no resolver item, rect,
+divider, or hit region. Effective negotiation never writes back to the binding. Keyboard
+and pointer resizing in later slices update only the adjacent pair's controlled ideals,
+preserve their pair total whenever both ranges permit, and use the immutable resolved
+frames from this single geometry path.
+
+#### Showcase responsive geometry
+
+The Showcase minimum is `23x10`; width below 23 **or** height below 10 renders the guard.
+At widths 73 and above, Catalog and Inspector use symmetric `23/24/24`
+minimum/ideal/maximum ranges with priority 1 while Playground uses `23/70/nil` at
+priority 0. Side panes therefore remain 24 cells and Playground absorbs shrink and
+surplus. Widths 48–72 use Catalog plus Playground; widths 23–47 show one full-screen role.
+`40x16` remains the canonical mobile fixture, not the minimum.
+
+#### Definition of done for Phase 2.5
+
+1. Flex's catalog document is `ready`; table tests cover every constraint, default,
+   priority, remainder, over-constraint, validation, and overflow branch.
+2. Final SplitView negotiation deletes the static allocator and has exact min/ideal/max,
+   collapse, clipping, resize, and controlled-state tests.
+3. Showcase fixtures bracket 23, 48, and 73 columns plus the independent 10-row guard,
+   while retaining canonical 40x16, 80x24, and 120x24 evidence.
+4. Grid, Table, and NavigationSplitView remain Slice 6 consumers of this established
+   geometry rather than pulling their unrelated scope forward.
 
 ---
 
@@ -8117,80 +8245,50 @@ routing tests.
 
 ---
 
-### Slice 6: `Flex`, `Grid`, and composition
+<a id="slice-6-flex-grid-and-composition"></a>
 
-The Ratatui-flavored constraint layout, expressed through the slice 2 `Layout` protocol —
-proving the protocol carries non-stack semantics.
+### Slice 6: `Grid`, `Table`, and `NavigationSplitView` composition
 
-```swift
-public enum FlexConstraint: Sendable, Equatable {
-    case length(Int)         // exactly n cells
-    case min(Int)            // at least n; competes like fill(1) above the minimum
-    case max(Int)            // at most n; takes its ideal up to n
-    case percentage(Int)     // of the container's main axis, floor
-    case ratio(Int, Int)     // numerator/denominator of the main axis, floor
-    case fill(Int)           // share leftover by weight
-}
-
-public struct Flex<Content: View>: View {
-    public init(_ axis: Axis, spacing: Int = 0, @ViewBuilder content: () -> Content)
-}
-extension View {
-    public func flex(_ constraint: FlexConstraint) -> some View  // LayoutValueKey
-}
-```
-
-Distribution (normative): resolve in order — `length`, then `percentage`/`ratio`
-(floored), then `max` (ideal clamped), then `min` (minimum guaranteed), then remaining
-space to `fill` and above-minimum `min` by weight; integer remainders go to the earliest
-weighted children, one cell each. Children without `.flex` default to `.min(ideal)`.
-Negative remainders shrink `fill` first, then `min` down to their floors, then clip
-trailing children. Every branch of this paragraph gets a table test.
+Slice 6 consumes the Phase 2.5 Flex solver and final SplitView geometry; it does not
+reopen either allocator.
 
 ```swift
 public struct Grid<Content: View>: View {
     public init(columns: [FlexConstraint], spacing: Int = 0,
-                @ViewBuilder content: () -> Content)   // content is GridRows
+                @ViewBuilder content: () -> Content)
 }
 public struct GridRow<Content: View>: View { … }
 ```
 
-Columns resolve once per grid via the flex algorithm; row heights are the max of the row's
-children's heights at their resolved column widths. No spanning in v1 — say no now, design
-spanning later if real apps demand it.
+Columns resolve once per grid through the established Flex algorithm; row heights are the
+maximum of each row's children at their resolved column widths. No spanning in v1 — say no
+now, design spanning later if real applications demand it.
 
-Lip Gloss's `Join`/`Place`/`Compose` vocabulary maps onto existing primitives —
-`JoinHorizontal` ≡ `HStack(alignment:)`, `Place` ≡ `.frame(width:height:alignment:)`,
-`Compose` ≡ `ZStack` — document the mapping in DocC for Lip Gloss émigrés instead of
-shipping duplicate API.
+Lip Gloss's `Join`/`Place`/`Compose` vocabulary maps onto existing primitives:
+`JoinHorizontal` is `HStack(alignment:)`, `Place` is `.frame(width:height:alignment:)`,
+and `Compose` is `ZStack`. Document that mapping in DocC rather than shipping duplicate
+APIs.
 
-#### Table, final SplitView, and NavigationSplitView
+#### Table and NavigationSplitView
 
-[`Table`](../design/widgets/table.md) resolves its columns through the same `Flex`
-constraint representation rather than creating a competing solver. It consumes
+[`Table`](../design/widgets/table.md) resolves its columns through the Phase 2.5
+`FlexConstraint` representation rather than creating a competing solver. It consumes
 [`ScrollIndicator`](../design/primitives/scroll-indicator.md) output with the same
 overflow geometry as ScrollView, establishing indicator parity.
 
-[`SplitView`](../design/widgets/split-view.md) now replaces the Slice 2 static pane
-foundation with final multi-pane min/ideal/max negotiation. There is one geometry path:
-the temporary static scaffold is deleted, and keyboard and pointer input operate on the
-negotiated panes.
-
 [`NavigationSplitView`](../design/widgets/navigation-split-view.md) composes the final
-SplitView in regular layouts and the catalog-defined compact layout when space contracts.
-Its composition accepts generic role children, uses controlled visibility, and depends on
-responsive layout plus the final SplitView negotiation; `List` and `Section` remain
-Showcase catalog composition rather than mandatory navigation dependencies.
+SplitView in regular layouts and the catalog-defined compact replacement when space
+contracts. Its composition accepts generic role children, uses controlled visibility, and
+depends on the responsive role policy plus final SplitView negotiation; `List` and
+`Section` remain Showcase composition rather than mandatory navigation dependencies.
 
 #### Definition of done for slice 6
 
-1. Flex table tests cover every resolution branch including over-constrained shrinking,
-   and Grid snapshot tests cover resolved columns and row heights.
+1. Grid snapshot tests cover resolved columns, row heights, spacing, clipping, and paint
+   order while proving the shared Flex solver is the only allocator.
 2. [`Table`](../design/widgets/table.md) reuses the Flex representation for its column
    solver and has ScrollIndicator parity with ScrollView.
-3. Final [`SplitView`](../design/widgets/split-view.md) multi-pane min/ideal/max
-   negotiation replaces the Slice 2 static geometry.
-4. [`NavigationSplitView`](../design/widgets/navigation-split-view.md) composes regular
+3. [`NavigationSplitView`](../design/widgets/navigation-split-view.md) composes regular
    and compact layouts from generic role children with controlled visibility.
 
 ---
@@ -8590,16 +8688,16 @@ Sources/
     Rendering/
       RenderRegion.swift
 
-  TesseraLayout/                // Phase 4 slices 2, 3, 5, 6
+  TesseraLayout/                // Phase 4 slices 2, 2.5, 3, 5, 6
     Layout.swift                  // Layout protocol, Subviews, LayoutValueKey
     Stacks.swift                  // HStack, VStack, ZStack, Spacer, alignment
     FrameModifiers.swift          // frame, padding, layoutPriority
     Styling.swift                 // foreground/bold/style modifiers, defaultStyle key
     Decoration.swift              // border, overlay, background, Divider, Box
-    Flex.swift                    // FlexConstraint, Flex, .flex
-    Grid.swift                    // Grid, GridRow
+    Flex.swift                    // Phase 2.5 FlexConstraint, Flex, .flex
+    Grid.swift                    // Slice 6 Grid, GridRow
 
-  TesseraWidgets/               // Phase 4 slices 2, 4, and 7
+  TesseraWidgets/               // Phase 4 slices 2, 2.5, 4, and 7
     ScrollView.swift
     SplitView.swift
     Controls.swift
@@ -8653,8 +8751,8 @@ Tests/
     HitTestingTests.swift
   TesseraLayoutTests/
     StackDistributionTests.swift  // normative table tests
-    FlexDistributionTests.swift
-    GridTests.swift
+    FlexDistributionTests.swift  // Phase 2.5 normative constraint tables
+    GridTests.swift              // Slice 6 shared-solver integration
     DecorationSnapshotTests.swift
     TextWrappingTests.swift       // measure/render agreement property tests
   TesseraWidgetsTests/

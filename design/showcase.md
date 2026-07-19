@@ -31,20 +31,47 @@ and viewport bindings. Widgets retain only their documented ephemeral `NodeState
 
 ## Responsive policy
 
-`120x24` is a Showcase-specific provisional fixture, not a global viewport token. The
-catalog's canonical `desktop` and `mobile` sizes remain defined by
-[tokens](tokens.md#viewports). At 40x16, compact presentation is dense but touch-operable:
-labeled Buttons remain visible, software keyboard and dictation commit into the focused
-TextField through the same input path, arrows remain a keyboard fallback, and critical
-material is inside a ScrollView rather than silently clipped.
+`120x24` is the natural three-role ideal fixture, not a breakpoint or global viewport
+token. The catalog's canonical `desktop` and `mobile` sizes remain defined by
+[tokens](tokens.md#viewports); `40x16` remains the canonical mobile fixture. The Showcase
+minimum is independently `23x10`: width below 23 **or** height below 10 renders only the
+resize guard.
 
-| Bounds                     | Showcase presentation                                  | Preservation rule                                                                         |
-| -------------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| `W >= 120`, `H >= 24`      | Catalog + playground + inspector                       | three-region Overview; each region is independently scrollable when its content overflows |
-| `80 <= W < 120`, `H >= 24` | Catalog + playground, inspector replacement            | selection and specimen state survive replacing the central region with Inspector          |
-| `40 <= W < 80`, `H >= 16`  | one full-screen Catalog, Playground, or Inspector role | use NavigationSplitView compact replacement; never squeeze three panes                    |
-| `W >= 40`, `12 <= H < 16`  | title plus selected full-screen role                   | retain labeled open controls and a ScrollView around critical content                     |
-| below `40x12`              | resize guard                                           | render only the resize instruction; preserve app model without a partial workspace        |
+Final SplitView negotiation keeps Catalog and Inspector symmetric and capped while the
+Playground absorbs shrink and surplus:
+
+| Role       | Minimum | Requested ideal | Maximum | `layoutPriority` | Rule                                                      |
+| ---------- | ------- | --------------- | ------- | ---------------- | --------------------------------------------------------- |
+| Catalog    | 23      | 24              | 24      | 1                | Stable leading side column; never consumes surplus.       |
+| Playground | 23      | 70              | nil     | 0                | Shrinks first and receives all surplus after side ideals. |
+| Inspector  | 23      | 24              | 24      | 1                | Matches Catalog exactly in the three-role presentation.   |
+
+The two-role presentation reuses the same Catalog and Playground constraints. Throughout
+its 48–72-column band, negotiation compresses Playground to `W - 25` without mutating its
+controlled ideal of 70. Role replacement happens before a regular side pane is squeezed
+below its 24-cell requested ideal. Showcase defines no pane-specific priority state.
+
+| Bounds                    | Showcase presentation                                  | Preservation rule                                                                                             |
+| ------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `W >= 73`, `H >= 10`      | Catalog + Playground + Inspector                       | side panes remain 24 cells; Playground receives `W - 50` and every region scrolls independently               |
+| `48 <= W < 73`, `H >= 10` | Catalog + Playground, Inspector replacement            | Catalog remains 24 cells; Playground receives `W - 25`; selection and specimen state survive role replacement |
+| `23 <= W < 48`, `H >= 10` | one full-screen Catalog, Playground, or Inspector role | use NavigationSplitView compact replacement and a ScrollView around critical content                          |
+| `W < 23` **or** `H < 10`  | resize guard                                           | render only the resize instruction and preserve app model without a partial workspace                         |
+
+The responsive fixture matrix exercises each predicate independently and brackets every
+width transition:
+
+| Fixture                                                 | Expected state |
+| ------------------------------------------------------- | -------------- |
+| `22x10`, `23x9`, `22x9`                                 | resize guard   |
+| `23x10`, `24x10`, `40x16`, `47x10`                      | one role       |
+| `48x10`, `49x10`, `72x10`                               | two roles      |
+| `73x10`, `74x10`, `80x24`, `119x24`, `120x24`, `121x24` | three roles    |
+
+At 40x16, compact presentation remains dense but touch-operable: labeled Buttons remain
+visible, software keyboard and dictation commit into the focused TextField through the
+same input path, arrows remain a keyboard fallback, and critical material is inside a
+ScrollView rather than silently clipped.
 
 ## Catalog inventory and composition ownership
 
@@ -101,44 +128,44 @@ invents no business status.
 
 ### Dense default Overview
 
-This is the provisional simultaneous three-region composition. The primary content,
-Catalog, and Inspector each use their own ScrollView as necessary; it does not promise a
-global 120-column breakpoint outside this executable.
+This is the canonical simultaneous three-region composition at the Responsive policy's
+120-column ideal. Catalog and Inspector retain symmetric 24-cell panes; Playground owns
+the 70-cell flexible middle. Each region uses its own ScrollView as necessary.
 
 ```wireframe 120x24
 Tessera Showcase  Overview  [Catalog] [Inspect] [Close]
-Catalog                  │ Overview                                            │ Inspector
-Overview                 │ [Run] Theme: System  Density: Dense                 │ Graph / Playground
-Primitives               │ ─────────────────────────────────────────────────   │ > Root
-Text and style           │ [Save] [Disabled] [Delete]                          │   Catalog
-Controls                 │ Toggle: [x] Border  Picker: System                  │   Playground
-Collection and scrolling │ Stepper: [-] 3 [+]                                  │   Button
-Layout                   │ Search                                              │
-Diagnostics              │ ╭───────────────────────────────────────────────╮   │ Node Button.save
-> Overview               │ │東京👩🏽‍💻 release-notes.md                        │   │ frame: 29,4 19x3
-  Button                 │ ╰───────────────────────────────────────────────╯   │ proposal: 57x20
-  TextField              │ [Open Button playground]                            │ measured: 19x3
-  ScrollView             │                                                     │ clip: 29,1 57x22
-  Table                  │ Dense system styles and long specimens scroll.      │ handlers: key mouse
-  SplitView              │                                                     │ focusable: true
-  NavigationSplitView    │                                                     │ requested: mouse
-                         │                                                     │ effective: session
-                         │                                                     │
-                         │                                                     │
-                         │                                                     │
-                         │                                                     │
-                         │                                                     │
-                         │                                                     │
+Catalog                 │ Overview                                                             │ Inspector
+Overview                │ [Run] Theme: System  Density: Dense                                  │ Graph / Playground
+Primitives              │ ─────────────────────────────────────────────────                    │ > Root
+Text and style          │ [Save] [Disabled] [Delete]                                           │   Catalog
+Controls                │ Toggle: [x] Border  Picker: System                                   │   Playground
+Collection and scrolling│ Stepper: [-] 3 [+]                                                   │   Button
+Layout                  │ Search                                                               │
+Diagnostics             │ ╭───────────────────────────────────────────────╮                    │ Node Button.save
+> Overview              │ │東京👩🏽‍💻 release-notes.md                        │                    │ frame: 29,4 19x3
+  Button                │ ╰───────────────────────────────────────────────╯                    │ proposal: 57x20
+  TextField             │ [Open Button playground]                                             │ measured: 19x3
+  ScrollView            │                                                                      │ clip: 29,1 57x22
+  Table                 │ Dense system styles and long specimens scroll.                       │ handlers: key mouse
+  SplitView             │                                                                      │ focusable: true
+  NavigationSplitView   │                                                                      │ requested: mouse
+                        │                                                                      │ effective: session
+                        │                                                                      │
+                        │                                                                      │
+                        │                                                                      │
+                        │                                                                      │
+                        │                                                                      │
+                        │                                                                      │
 Tab next  Enter invoke  Arrows scroll  [Inspect] replacement  [Close] hides selected region
 ```
 
 ```text
 Callouts (120x24, 0-based):
 0. r0 c0-c61 Application header -- title plus visible public Catalog, Inspect, and Close Buttons.
-1. r1-r22 c0-c24 Catalog region -- flat List + Section composition; its selected Overview row is app-owned.
-2. r1-r22 c26-c78 Playground region -- live public controls and specimen, not a copied component contract.
-3. r1-r22 c80-c119 Inspector region -- immutable local diagnostic snapshot for the selected node.
-4. r7-r10 c26-c78 TextField specimen -- focusable controlled field; its content never becomes diagnostic raw data.
+1. r1-r22 c0-c23 Catalog region -- flat List + Section composition; its selected Overview row is app-owned.
+2. r1-r22 c25-c94 Playground region -- live public controls and specimen, not a copied component contract.
+3. r1-r22 c96-c119 Inspector region -- immutable local diagnostic snapshot for the selected node.
+4. r7-r10 c25-c94 TextField specimen -- focusable controlled field; its content never becomes diagnostic raw data.
 5. r23 c0-c119 Input legend -- Tab and arrows are fallback paths alongside visible Buttons and touch targets.
 ```
 
@@ -388,7 +415,7 @@ Callouts (80x16, 0-based):
 3. r1-r12 c21-c64 Document pane -- adjacent application child resized only with its neighboring pair.
 4. r1-r12 c65 Divider handle -- second independent neighboring-pair handle.
 5. r1-r12 c66-c79 Inspector pane -- application child, not a navigation destination.
-6. r13 c0-c79 Bound-state readout -- requested sizes/collapse flag are app-owned and survive resize.
+6. r13 c0-c79 Bound-state readout -- pane sizing/collapse values are app-owned and survive resize.
 7. r15 c0-c79 Interaction legend -- arrow fallback and drag exercise the same controlled pane configuration.
 ```
 
@@ -399,7 +426,7 @@ Tessera Showcase  SplitView   [Collapse Files] [Restore Files]
 Document                                                       │ Inspector
 release-notes.md                                               │ width: 16
                                                                │ [Collapse]
-Files pane is collapsed; its stable ID and requested size stay │
+Files pane is collapsed; its stable ID and sizing values stay  │
 in the binding, but it has no visible rectangle or handle.     │
                                                                │
                                                                │
@@ -408,7 +435,7 @@ in the binding, but it has no visible rectangle or handle.     │
                                                                │
                                                                │
                                                                │
-Files collapsed: true  requested: 16 / 62 / 16
+Files collapsed: true  ideal: 16 / 62 / 16
 
 [Restore Files]  Focus returns only when no newer focus exists.
 ```
@@ -418,7 +445,7 @@ Callouts (80x16, 0-based):
 0. r1-r12 c0-c62 Document pane -- reclaimed visible space after the files pane is omitted.
 1. r1-r12 c63 Divider handle -- only the remaining adjacent visible-pair handle.
 2. r3-r4 c0-c62 Collapse explanation -- stable identity remains bound without automatic navigation or content substitution.
-3. r13 c0-c50 Bound-state readout -- collapse preserves the hidden requested size for later restoration.
+3. r13 c0-c50 Bound-state readout -- collapse preserves the hidden sizing for later restoration.
 4. r15 c0-c79 Restore policy -- focus restoration occurs only when focus is clear, as SplitView specifies.
 ```
 
@@ -586,10 +613,10 @@ Callouts (80x24, 0-based):
 The Showcase grows slice by slice according to the
 [Phase 4 slice plan](../docs/Spec.md#phase-4--view-layer-the-tessera-module). Each slice
 adds the specimens and public components that its dependencies make possible, then deletes
-the temporary Showcase scaffold it replaces. The component landing order, including
-progressive SplitView work and
-[final catalog integration](../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase),
-is owned by that plan rather than repeated here.
+the temporary Showcase scaffold it replaces. Phase 2.5 installs the final Flex-backed
+SplitView geometry before styling and input; Grid, Table, NavigationSplitView, and
+[final catalog integration](../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase)
+retain their later dependency-ordered landings.
 
 ## Verification intent
 
