@@ -38,39 +38,44 @@ what contracts must later public documentation and automation follow?
   2026-07-19, the current tree and its local Frost build input removed those copies and
   require an explicitly injected local credential; the static source search is clean.
 - The owner rotated the Frost account, rebuilt and verified the Frost base and toolchain
-  images, and deleted all three pre-remediation UTM images. This does not remediate local
-  clones, GitHub PR views, or reachable Git history.
-- This remains a public-release blocker until the credential is removed from every
-  reachable Git ref and hosted artifact, then the rewritten remote is independently
-  scanned and reviewed.
-- `gitleaks git --no-banner --redact --log-opts=--all` scanned 90 commits and reported no
-  leaks. Its failure to flag the known Frost credential makes that result insufficient as
-  a clearance. Rerun an approved history-capable scanner after the rewrite and manually
-  inspect all reachable refs, including plan history.
-- Git history has one human author identity and Dependabot. The human commit identity
-  includes an email address, so the repository owner must explicitly approve exposing that
-  identity with the history.
+  images, and deleted all three pre-remediation UTM images.
+- The local shared history and the three ordinary origin branch refs were rewritten on
+  2026-07-19. Direct content searches found zero credential matches in all local refs and
+  in a fresh clone of every ordinary origin branch; `gitleaks` also found no leaks.
+- GitHub pull refs still retain historical copies in pull requests 8, 9, 12, 13, and 14.
+  They are read-only GitHub-managed refs, so an owner must ask GitHub Support to purge the
+  sensitive data and related caches, pull-request diffs, Actions logs, artifacts, and
+  releases before changing repository visibility.
+- The separate public `solcreek/frost` repository also contained the credential in current
+  source. Its local checkout is remediated, but this audit's GitHub credential has only
+  read access there. A Frost maintainer must rewrite and verify that repository
+  separately.
+- The owner accepted this residual-hosted-history risk. This audit cannot certify a clean
+  history while GitHub pull refs retain the credential; reconsider the acceptance before
+  changing repository visibility.
+- Git history has one human author identity and Dependabot. The owner confirmed sole
+  copyright authority, authorized Apache-2.0 relicensing, and approved public exposure of
+  the existing commit-author identity and email address.
 
 ### License and asset provenance
 
 - Tessera is currently MIT-licensed with a generic `Tessera Contributors` copyright line.
-  No `NOTICE`, contributor list, or ownership approval exists in the repository. The
-  Apache-2.0 relicensing decision is therefore **not approved** by this audit.
-- The resolved dependency checkout inventory contains MIT-licensed Point-Free,
-  `swift-displaywidth`, and `swift-snapshot-testing` components, and Apache-2.0 components
-  from the Swift and DocC projects. Verify the exact upstream notices and all transitive
-  obligations at the pinned revisions before choosing whether a third-party inventory or
-  `NOTICE` file is required. Do not add a `NOTICE` by convention.
-- The 56 DocC card/icon assets have Pixelmator-generated source SVGs but no recorded
-  author, source, license, font, template, or stock-art provenance. The owner must attest
-  that Tessera can distribute each asset under Apache-2.0, or replace it.
-- Ghostty source material is downloaded and used to build `libghostty-vt`; no upstream
-  license text or attribution propagation is recorded. Verify the Ghostty license and
-  required notice at the pinned revision before distribution. This is a likely
-  attribution/notice input, not permission to add one yet.
-- No tracked screenshots, photographs, or external logo assets were found. The supplied
-  untracked logo image at `/Users/rob/Downloads/Tessera Logo.png` is not part of this
-  audit and requires its own provenance attestation before Phase 3 adds it.
+  The owner authorized the Phase 2 Apache-2.0 transition and selected
+  `Copyright 2026 Rob Feldmann` for Tessera's original material.
+- The owner attested that all 56 Pixelmator-generated DocC card/icon assets and the
+  supplied Tessera logo are original work, contain no third-party stock art, marks,
+  templates, or restricted fonts, and may be distributed under Apache-2.0.
+- The resolved Swift dependency inventory contains MIT-licensed `swift-custom-dump`,
+  `swift-displaywidth`, `swift-snapshot-testing`, and `xctest-dynamic-overlay`; and
+  Apache-2.0 components from the Swift and DocC projects. No dependency checkout contains
+  a `NOTICE` file. Phase 2 must retain a third-party license inventory and include any
+  notice text required by a distributed dependency artifact.
+- Ghostty at `ae52f97dcac558735cfa916ea3965f247e5c6e9e` is MIT-licensed, copyright
+  Mitchell Hashimoto and Ghostty contributors. Phase 2 must retain that license text and
+  attribution whenever Tessera distributes Ghostty-derived headers, source, or
+  `libghostty-vt`.
+- No tracked screenshots, photographs, or external logo assets were found. The logo
+  provenance attestation completes the Phase 1 asset inventory; Phase 3 may add it.
 
 ### Supported-platform and release contract
 
@@ -111,3 +116,8 @@ and its reachable history are remediated; the owner approves Apache-2.0 relicens
 authority, Ghostty attribution, and every DocC asset; the owner approves public commit
 identity exposure; and the platform/release and GitHub settings checklist above is signed
 off. Phase 2 may not replace the license until the ownership decision is recorded.
+
+The owner accepts the residual historical Frost credential in GitHub pull refs and in the
+separate public Frost repository, and is not requesting GitHub purging or an immediate
+Frost rewrite. This is a documented risk acceptance, not evidence that hosted history is
+clean; it must be reconsidered before changing public visibility.

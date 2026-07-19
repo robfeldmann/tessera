@@ -4,7 +4,7 @@ name: Tessera open-source readiness
 description:
   Prepare Tessera for a deliberate public GitHub launch with Apache-2.0 licensing,
   community governance, release notes, and post-launch static DocC hosting.
-status: in-progress
+status: pending
 created: 2026-07-17
 updated: 2026-07-19
 ---
@@ -13,10 +13,9 @@ updated: 2026-07-19
 
 ## Progress
 
-- [ ] **Phase 1 — Establish the public-release baseline**
+- [x] **Phase 1 — Establish the public-release baseline**
   - [x] 1.1 Audit repository history, tracked files, and public/private dependencies
-  - [ ] 1.2 Verify licensing, copyright, and asset provenance (blocked: owner approval and
-        Ghostty/DocC-asset provenance)
+  - [x] 1.2 Verify licensing, copyright, and asset provenance
   - [x] 1.3 Resolve the supported-platform and release-version contract
   - [x] 1.4 Record the GitHub launch and billing assumptions
 - [ ] **Phase 2 — Apply the Apache-2.0 legal baseline**
