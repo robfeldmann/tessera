@@ -54,6 +54,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Windows coverage, organized Core sources, expanded combined DocC catalogs, and supplied
   Xcode attach debugging for the Showcase.
 
+- Implemented the Phase 4 layout slice with public layout protocols, deterministic stacks,
+  modifiers, Divider, static controlled SplitView and ScrollView foundations, memoized
+  ViewGraph integration, responsive Showcase composition, promoted catalog contracts, and
+  a reviewed plan to land final Flex-backed pane negotiation before styling and input.
+
 - Added DocC icon and card artwork placeholders for the Tessera package and module
   documentation catalogs.
 

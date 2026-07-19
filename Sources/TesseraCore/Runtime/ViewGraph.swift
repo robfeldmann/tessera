@@ -2,6 +2,20 @@ import TesseraTerminalBuffer
 import TesseraTerminalCore
 import TesseraTerminalInput
 
+private struct _LayoutMeasurementKey: Hashable {
+  let node: ObjectIdentifier
+  let proposal: ProposedSize
+}
+
+private struct _LayoutPlacement {
+  let origin: TerminalPosition
+  let proposal: ProposedSize
+}
+
+private final class _LayoutPlacementCollector {
+  var placements: [ObjectIdentifier: _LayoutPlacement] = [:]
+}
+
 /// An explicit, synchronous runtime tree reconciled from declarative view values.
 public final class ViewGraph {
   private let makeRoot: () -> any View
@@ -15,7 +29,7 @@ public final class ViewGraph {
     environmentOverrides: []
   )
   private var size: TerminalSize
-
+  private var layoutMeasurements: [_LayoutMeasurementKey: TerminalSize] = [:]
   /// Work recorded by the most recently completed graph passes.
   public private(set) var statistics = GraphStatistics()
 
@@ -83,6 +97,7 @@ extension ViewGraph {
     statistics.beginLayoutPass()
     let clock = ContinuousClock()
     let start = clock.now
+    layoutMeasurements.removeAll(keepingCapacity: true)
     let proposal = ProposedSize(width: size.columns, height: size.rows)
     _ = measure(rootNode, proposal: proposal)
     let rootFrame = Rect(column: 0, row: 0, columns: size.columns, rows: size.rows)
@@ -390,6 +405,13 @@ extension ViewGraph {
   }
 
   private func measure(_ node: RuntimeNode, proposal: ProposedSize) -> TerminalSize {
+    let key = _LayoutMeasurementKey(node: ObjectIdentifier(node), proposal: proposal)
+    if let cached = layoutMeasurements[key] {
+      node.proposal = proposal
+      node.measuredSize = cached
+      return cached
+    }
+
     node.proposal = proposal
     statistics.measurements += 1
 
@@ -398,20 +420,29 @@ extension ViewGraph {
       measured = Self.sanitized(
         leafStorage.sizeThatFits(proposal, environment: node.environment)
       )
+    } else if let layout = node.view as? any _LayoutView {
+      measured = Self.sanitized(
+        layout._sizeThatFits(
+          proposal,
+          subviews: makeLayoutSubviews(for: node, collector: nil)
+        )
+      )
     } else {
       var width = 0
       var height = 0
       for child in node.children {
-        let childSize = measure(
-          child,
-          proposal: ProposedSize(width: proposal.width, height: nil)
-        )
+        let childProposal =
+          child.view is any _LayoutView
+          ? proposal
+          : ProposedSize(width: proposal.width, height: nil)
+        let childSize = measure(child, proposal: childProposal)
         width = max(width, childSize.columns)
-        height += childSize.rows
+        height = max(height, childSize.rows)
       }
       measured = TerminalSize(columns: width, rows: height)
     }
 
+    layoutMeasurements[key] = measured
     node.measuredSize = measured
     return measured
   }
@@ -423,18 +454,87 @@ extension ViewGraph {
       ?? Rect(column: frame.origin.column, row: frame.origin.row, columns: 0, rows: 0)
     statistics.placements += 1
 
-    var row = frame.origin.row
-    for child in node.children {
-      let measured = child.measuredSize ?? TerminalSize(columns: 0, rows: 0)
-      let childFrame = Rect(
-        column: frame.origin.column,
-        row: row,
-        columns: measured.columns,
-        rows: measured.rows
-      )
-      place(child, in: childFrame, clip: node.clip)
-      row += measured.rows
+    guard let layout = node.view as? any _LayoutView else {
+      for child in node.children {
+        let childFrame =
+          child.view is any _LayoutView
+          ? frame
+          : Rect(
+            origin: frame.origin,
+            size: child.measuredSize ?? TerminalSize(columns: 0, rows: 0)
+          )
+        place(child, in: childFrame, clip: node.clip)
+      }
+      return
     }
+
+    let collector = _LayoutPlacementCollector()
+    let proposal =
+      node.proposal
+      ?? ProposedSize(width: frame.size.columns, height: frame.size.rows)
+    layout._placeSubviews(
+      in: frame,
+      proposal: proposal,
+      subviews: makeLayoutSubviews(for: node, collector: collector)
+    )
+
+    for child in node.children {
+      guard let placement = collector.placements[ObjectIdentifier(child)] else {
+        let hidden = Rect(
+          origin: frame.origin,
+          size: TerminalSize(columns: 0, rows: 0)
+        )
+        place(child, in: hidden, clip: node.clip)
+        continue
+      }
+
+      let childSize = measure(child, proposal: placement.proposal)
+      let childFrame = Rect(origin: placement.origin, size: childSize)
+      place(child, in: childFrame, clip: node.clip)
+    }
+  }
+
+  private func makeLayoutSubviews(
+    for node: RuntimeNode,
+    collector: _LayoutPlacementCollector?
+  ) -> _LayoutSubviewsProxy {
+    _LayoutSubviewsProxy(
+      node.children.map { child in
+        _LayoutSubviewProxy(
+          measure: { [weak self, child] proposal in
+            guard let self else {
+              return TerminalSize(columns: 0, rows: 0)
+            }
+            return measure(child, proposal: proposal)
+          },
+          place: { [child, weak collector] origin, proposal in
+            collector?.placements[ObjectIdentifier(child)] = _LayoutPlacement(
+              origin: origin,
+              proposal: proposal
+            )
+          },
+          value: { [weak self, child] key in
+            guard let self else {
+              return nil
+            }
+            return layoutValue(for: key, in: child)
+          }
+        )
+      }
+    )
+  }
+
+  private func layoutValue(for key: ObjectIdentifier, in node: RuntimeNode) -> Any? {
+    if let provider = node.view as? any _LayoutValueProvider,
+      let value = provider._layoutValue(for: key)
+    {
+      return value
+    }
+
+    guard node.children.count == 1 else {
+      return nil
+    }
+    return layoutValue(for: key, in: node.children[0])
   }
 
   private func render(_ node: RuntimeNode, into frame: borrowing Frame) {

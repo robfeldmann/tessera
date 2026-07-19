@@ -174,8 +174,9 @@ Example:
 
 Columns: `Event | Region | Precondition | Effect | Consumed`
 
-- `Event`: `click`, `double-click`, `drag`, `wheel-up`, `wheel-down`. `move` is allowed
-  but flagged: it is the noisy stream the input thesis bounds.
+- `Event`: `click`, `double-click`, `drag`, `wheel-up`, `wheel-down`, `wheel-left`, or
+  `wheel-right`. `move` is allowed but flagged: it is the noisy stream the input thesis
+  bounds.
 - `Region`: must be a region named in this doc's anatomy callouts. Nothing else is valid.
 - Remaining columns as in the key table.
 
@@ -297,7 +298,7 @@ not substitute globally installed `pnpx`, `prettier`, or markdownlint commands.
 | [Button](widgets/button.md)                             | widget    | wireframed | focus/key routing + hit testing + semantic style API      |
 | [Border](primitives/border.md)                          | primitive | sketch     | Slice 3 glyph, sizing, and degenerate-frame decisions     |
 | [Box](primitives/box.md)                                | primitive | sketch     | Border, Text, Padding, and title-policy design            |
-| [Divider](primitives/divider.md)                        | primitive | specified  | axis-inference decision (open question)                   |
+| [Divider](primitives/divider.md)                        | primitive | ready      | —                                                         |
 | [Frame](primitives/frame.md)                            | primitive | ready      | —                                                         |
 | [Linear stacks](primitives/stacks.md)                   | primitive | ready      | —                                                         |
 | [List](widgets/list.md)                                 | widget    | sketch     | Slice 3 style + Slice 4/5 routing + List contract design  |
@@ -308,8 +309,8 @@ not substitute globally installed `pnpx`, `prettier`, or markdownlint commands.
 | [Section](widgets/section.md)                           | widget    | sketch     | List composition + grouping contract design               |
 | [Showcase](showcase.md)                                 | app       | wireframed | component contracts + reconciliation questions            |
 | [ScrollIndicator](primitives/scroll-indicator.md)       | primitive | wireframed | axis/API spelling + shared style protocol                 |
-| [ScrollView](widgets/scroll-view.md)                    | widget    | wireframed | viewport substrate + responder/mouse integration          |
-| [SplitView](widgets/split-view.md)                      | widget    | wireframed | Divider + Layout/Flex + focus/mouse integration           |
+| [ScrollView](widgets/scroll-view.md)                    | widget    | ready      | —                                                         |
+| [SplitView](widgets/split-view.md)                      | widget    | ready      | —                                                         |
 | [Stepper](widgets/stepper.md)                           | widget    | sketch     | focus/key routing + control contract design               |
 | [Style modifiers](primitives/style-modifiers.md)        | primitive | sketch     | `Style` API and environment-inheritance design            |
 | [Table](widgets/table.md)                               | widget    | specified  | Text truncation + ScrollIndicator primitives (ready gate) |

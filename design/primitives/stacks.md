@@ -94,8 +94,17 @@ priority through `Subviews`; only a linear stack consumes it according to this c
 
 ## Environment
 
-Linear stacks consume no environment token and have no mutable state model. Child
-priority, measured ideal/minimum sizes, final frames, and clipping intersections are
+Linear stacks consume no environment token and have no mutable state model. Each stack
+establishes `stackAxis` as layout context for its subtree during its layout pass. The
+nearest enclosing linear stack wins; the value is not application-visible state. Divider
+is the first consumer.
+
+| Container | Published `stackAxis` | Descendant rule                               |
+| --------- | --------------------- | --------------------------------------------- |
+| `HStack`  | `.horizontal`         | Divider renders a vertical cross-axis rule.   |
+| `VStack`  | `.vertical`           | Divider renders a horizontal cross-axis rule. |
+
+Child priority, measured ideal/minimum sizes, final frames, and clipping intersections are
 derived for each layout pass.
 
 ## Requirements
@@ -118,6 +127,8 @@ derived for each layout pass.
   `Text("A")`, spacing 2).
 - `empty stack introduces no spacing and paints nothing` (allocation fixtures: Empty
   `HStack`, `9x1`, spacing 2).
+- `linear stack publishes its axis to descendant layout context` (environment: `HStack`
+  and `VStack` rows).
 
 ## Degradation
 

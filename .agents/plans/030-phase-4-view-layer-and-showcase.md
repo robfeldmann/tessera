@@ -21,11 +21,16 @@ updated: 2026-07-17
   - [x] 1.2 Implement reconciliation, environments, diagnostics, and render regions
   - [x] 1.3 Build the first executable Showcase scaffold
   - [x] 1.4 Verify identity, ownership, and terminal rendering contracts
-- [ ] **Phase 2 — Slice 2: Layout, stacks, static SplitView, and ScrollView**
-  - [ ] 2.1 Promote layout and viewport catalog documents before coding
-  - [ ] 2.2 Add the layout target and deterministic stack algorithm
-  - [ ] 2.3 Add static SplitView and ScrollView foundations
-  - [ ] 2.4 Replace the Showcase vertical scaffold with real layout composition
+- [x] **Phase 2 — Slice 2: Layout, stacks, static SplitView, and ScrollView**
+  - [x] 2.1 Promote layout and viewport catalog documents before coding
+  - [x] 2.2 Add the layout target and deterministic stack algorithm
+  - [x] 2.3 Add static SplitView and ScrollView foundations
+  - [x] 2.4 Replace the Showcase vertical scaffold with real layout composition
+- [ ] **Phase 2.5 — Flex sizing, final SplitView negotiation, and Showcase minima**
+  - [ ] 2.5.1 Specify Flex and final pane-sizing contracts
+  - [ ] 2.5.2 Implement the shared Flex solver
+  - [ ] 2.5.3 Replace static SplitView geometry with negotiated panes
+  - [ ] 2.5.4 Stabilize Showcase minima and flexible columns
 - [ ] **Phase 3 — Slice 3: Styling, wrapping, decoration, and ScrollIndicator**
   - [ ] 3.1 Complete style/token and decoration catalog contracts
   - [ ] 3.2 Implement one-style environment inheritance and text measurement
@@ -42,11 +47,11 @@ updated: 2026-07-17
   - [ ] 5.2 Implement deepest-first hit testing and mouse responder APIs
   - [ ] 5.3 Add pointer behavior to controls, TextField, SplitView, and ScrollView
   - [ ] 5.4 Add deterministic pointer and tracking-mode Showcase scenarios
-- [ ] **Phase 6 — Slice 6: Flex, Grid, Table, final SplitView, and NavigationSplitView**
-  - [ ] 6.1 Wireframe and specify Flex/Grid plus final navigation contracts
-  - [ ] 6.2 Implement the shared Flex solver and Grid
-  - [ ] 6.3 Replace static SplitView geometry and add Table indicator parity
-  - [ ] 6.4 Implement regular/compact NavigationSplitView and update Showcase breakpoints
+- [ ] **Phase 6 — Slice 6: Grid, Table, and NavigationSplitView composition**
+  - [ ] 6.1 Finish Grid, Table, and navigation catalog contracts
+  - [ ] 6.2 Implement Grid through the shared Flex solver
+  - [ ] 6.3 Implement Table with shared constraints and indicator geometry
+  - [ ] 6.4 Implement regular/compact NavigationSplitView role composition
 - [ ] **Phase 7 — Slice 7: List, Section, controlled cutover, and complete Showcase**
   - [ ] 7.1 Promote List, Section, tokens, and all remaining component documents to
         `ready`
@@ -323,6 +328,71 @@ stack/viewport geometry while retaining controlled state and clipping.
   content; the Slice 1 vertical scaffold is removed, and no temporary node shape is kept
   as a public component contract.
 
+## Phase 2.5 — Flex sizing, final SplitView negotiation, and Showcase minima
+
+**Goal**: Stabilize min/ideal/max pane geometry before styling, focus, keyboard, and mouse
+work depend on the temporary static allocator.
+
+### Step 2.5.1 — Specify Flex and final pane-sizing contracts
+
+- Files: new `design/primitives/flex.md`, `design/widgets/split-view.md`,
+  `design/showcase.md`, `design/README.md`, `docs/Spec.md`, and this plan.
+- Promote a dedicated Flex document through the catalog ladder. Specify every normative
+  `FlexConstraint` branch, over-constraint order, integer remainder rule, and the exact
+  adapter from controlled SplitView pane state to minimum, requested ideal, and maximum
+  extents. Preserve the existing stack-only `layoutPriority` contract in
+  `design/primitives/stacks.md`; Flex may consume that value but must not introduce a
+  second priority API.
+- Update the Phase 4 slice map so Flex and final SplitView negotiation land here, while
+  Grid, Table, and NavigationSplitView continue to land in Phase 6. Set the Showcase
+  minimum to `23x10`, retain `40x16` as a canonical mobile fixture rather than a minimum,
+  and define exact one-cell-below/at/above responsive boundary fixtures.
+- Acceptance: Flex and SplitView are `ready`; every sizing branch traces to a table row
+  and backticked test name; the Spec, catalog, Showcase policy, and plan name one geometry
+  owner and agree on the new sequencing and `23x10` minimum.
+
+### Step 2.5.2 — Implement the shared Flex solver
+
+- Files: `Sources/TesseraLayout/Flex.swift`,
+  `Tests/TesseraLayoutTests/FlexDistributionTests.swift`, package exports, and focused
+  architecture tests.
+- Implement the complete normative resolution order once: `length`, `percentage`/`ratio`,
+  `max`, guaranteed `min`, weighted `fill` and above-minimum `min`, earliest-child
+  positive remainder, and negative-remainder shrinking before trailing clipping. Children
+  without `.flex` use the documented default. Keep allocation in nonnegative integer cells
+  and reuse the Phase 2 per-pass measurement cache.
+- Acceptance: parameterized exact tables cover every public constraint, mixed priorities,
+  default constraints, zero/tight/oversized proposals, positive and negative remainders,
+  clipping, and repeated measurement. A custom consumer uses only public `Layout`,
+  `Subviews`, `FlexConstraint`, and layout-value APIs.
+
+### Step 2.5.3 — Replace static SplitView geometry with negotiated panes
+
+- Files: `Sources/TesseraWidgets/SplitView.swift`,
+  `Tests/TesseraWidgetsTests/SplitViewTests.swift`, and related public API probes.
+- Delete the static pane allocator. Lower each visible pane's controlled minimum,
+  requested ideal, maximum, and priority into the shared Flex solver while preserving
+  stable IDs, collapse state, adjacent-pair Divider identity, exact clipping, and
+  non-writing reconciliation. Expose immutable resolved pane frames as the single seam
+  later keyboard and pointer responders consume.
+- Acceptance: SplitView has one geometry path; exact tests cover both axes, minimum/ideal/
+  maximum negotiation, symmetric capped side panes, flexible middle panes, collapse and
+  restoration, one-cell boundary resizes, over-constraint order, controlled-state
+  preservation, clipping, and deterministic remainder assignment.
+
+### Step 2.5.4 — Stabilize Showcase minima and flexible columns
+
+- Files: `Examples/Sources/TesseraShowcase/`, Showcase fixture tests,
+  `design/showcase.md`, and affected plan acceptance text.
+- Change the resize guard to below `23x10`. Keep Catalog and Inspector symmetric at their
+  catalog-defined side-pane constraints; allocate shrinking and surplus width to the
+  Playground until its minimum is reached, then apply the documented role replacement.
+  Preserve `40x16` as a mobile fixture and add `23x10` minimum plus `22x9` guard fixtures.
+- Acceptance: snapshots at every negotiated boundary and one cell on either side prove the
+  Inspector does not disappear while the Playground can still shrink, surplus width does
+  not enlarge capped side panes, side panes remain symmetric, the model survives role
+  replacement, and the app renders only the guard below `23x10`.
+
 ## Phase 3 — Slice 3: Styling, wrapping, decoration, and ScrollIndicator
 
 **Goal**: Add inherited complete Styles, exact wrapping/truncation, decoration, and shared
@@ -486,50 +556,46 @@ pointer interaction without leaking terminal tracking authority into views.
   prove visible controls remain reachable and the terminal mode is disabled when no
   handler requires it.
 
-## Phase 6 — Slice 6: Flex, Grid, Table, final SplitView, and NavigationSplitView
+## Phase 6 — Slice 6: Grid, Table, and NavigationSplitView composition
 
-**Goal**: Add the non-stack solver and compose final pane/navigation semantics without
-creating a competing Table solver or squeezing compact layouts.
+**Goal**: Reuse the established Flex solver and final SplitView geometry for higher-level
+collection and responsive-navigation composition without creating competing allocators.
 
-### Step 6.1 — Wireframe and specify Flex/Grid plus final navigation contracts
+### Step 6.1 — Finish Grid, Table, and navigation catalog contracts
 
-- Files: new `design/primitives/flex.md` and `grid.md` (or an explicitly documented
-  extension of the layout catalog), `design/widgets/table.md`,
-  `design/widgets/navigation-split-view.md`, `split-view.md`, and `design/README.md`.
-- The catalog currently has no dedicated Flex/Grid documents even though both are public
-  Phase 4 APIs. Create them from the primitive template, add them to the README index,
-  cite prior art, and include exact constraint/state/sizing/requirements tables. Finish
-  Table and NavigationSplitView readiness; NavigationSplitView must wait for final
-  SplitView negotiation, responsive layout, generic role children, and controlled
-  visibility.
-- Acceptance: every Flex branch (`length`, `min`, `max`, `percentage`, `ratio`, `fill`,
-  default, over-constrained shrink, earliest remainder) has a table row/test name; no
-  NavigationSplitView implementation starts from a wireframe-only document.
+- Files: new `design/primitives/grid.md`, `design/widgets/table.md`,
+  `design/widgets/navigation-split-view.md`, `design/widgets/split-view.md`, and
+  `design/README.md`.
+- Specify Grid rows/columns, Table column/indicator behavior, and regular/compact
+  NavigationSplitView role composition against the already implemented Flex and negotiated
+  SplitView contracts. NavigationSplitView must use generic role children and controlled
+  visibility; List and Section remain Showcase composition rather than hidden navigation
+  dependencies.
+- Acceptance: every component is `ready`; Grid and Table reference the shared public
+  constraint representation, and navigation has exact regular, compact, short-height,
+  missing-role, and replacement-presentation requirements.
 
-### Step 6.2 — Implement the shared Flex solver and Grid
+### Step 6.2 — Implement Grid through the shared Flex solver
 
-- Files: `Sources/TesseraLayout/Flex.swift`, `Grid.swift`, and
-  `Tests/TesseraLayoutTests/FlexDistributionTests.swift`, `GridTests.swift`.
-- Implement the normative resolution order and integer remainder assignment once. Grid
-  resolves columns once, derives each row height as the max child height at its column
-  width, and explicitly rejects spanning in v1.
-- Acceptance: exact tables cover every branch and negative remainder path; Grid snapshots
-  prove resolved columns, row heights, clipping, and paint order; Table can consume the
-  same public constraint representation without a duplicate allocator.
+- Files: `Sources/TesseraLayout/Grid.swift` and
+  `Tests/TesseraLayoutTests/GridTests.swift`.
+- Resolve columns once through the shared solver, derive each row height as the maximum
+  child height at its resolved column width, preserve source-order painting, and
+  explicitly reject spanning in v1.
+- Acceptance: snapshots prove resolved columns, row heights, spacing, zero/tight/
+  oversized proposals, clipping, empty rows, incomplete rows, and paint order without a
+  second allocator.
 
-### Step 6.3 — Replace static SplitView geometry and add Table indicator parity
+### Step 6.3 — Implement Table with shared constraints and indicator geometry
 
-- Files: `Sources/TesseraWidgets/SplitView.swift`, `Table.swift`, `Sources/TesseraLayout/`
-  shared indicator/solver seams, and tests.
-- Delete the Slice 2 static pane allocator and implement final multi-pane min/ideal/max
-  negotiation. Preserve stable pane IDs, controlled requested sizes/collapse flags,
-  neighboring-pair divider behavior, and keyboard/pointer integration. Make Table use Flex
-  constraints and the same output-only ScrollIndicator geometry as ScrollView.
-- Acceptance: final SplitView has one geometry path, exact negotiation tests cover
-  collapse, restoration, min/ideal/max, resize, and remainder rules, and Table/ScrollView
-  indicator snapshots are geometrically identical for equivalent extents.
+- Files: `Sources/TesseraWidgets/Table.swift`, shared indicator/solver seams, and tests.
+- Make Table consume the established Flex constraints and the same output-only
+  ScrollIndicator geometry as ScrollView. Sorting, selection, and other state remain
+  controlled according to the ready Table contract.
+- Acceptance: Table and ScrollView indicator snapshots are geometrically identical for
+  equivalent extents, and exact column tests prove Table delegates to the shared solver.
 
-### Step 6.4 — Implement regular/compact NavigationSplitView and update Showcase breakpoints
+### Step 6.4 — Implement regular/compact NavigationSplitView role composition
 
 - Files: `Sources/TesseraWidgets/NavigationSplitView.swift`, tests, and
   `Examples/Sources/TesseraShowcase/`.
@@ -538,10 +604,9 @@ creating a competing Table solver or squeezing compact layouts.
   supplied role at a time, visible labeled open/close Buttons, ScrollView around critical
   overflow, and no squeezed three-pane layout. When a binding names an unavailable role,
   apply a deterministic supplied-role fallback without mutating the binding.
-- Acceptance: regular `120x24`/`80x24`, compact `40x16`, short-height `80x16`, and below
-  `40x12` resize guard snapshots prove role visibility, selection/model preservation,
-  visible affordances, and no partial workspace. Navigation tests prove List/Section are
-  Showcase composition rather than hidden NavigationSplitView dependencies.
+- Acceptance: regular `120x24`/`80x24`, mobile `40x16`, minimum `23x10`, short-height
+  `80x16`, and guard `22x9` snapshots prove role visibility, selection/model preservation,
+  visible affordances, and no partial workspace.
 
 ## Phase 7 — Slice 7: List, Section, controlled cutover, and complete Showcase
 

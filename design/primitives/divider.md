@@ -1,14 +1,15 @@
 ---
 kind: primitive
-status: specified
+status: ready
 ---
 
 # Divider
 
-A one-cell-thick rule separating content along one axis: `─` across a column of content,
-`│` between panes. Divider draws glyphs and participates in layout; it does nothing else.
-It has no focus, no state, no events. Interactive separators (a draggable split handle)
-are a widget concern (SplitView) that _renders_ a Divider but owns the behavior itself.
+A one-cell-thick rule separating content along the enclosing stack's cross axis: `─`
+inside a vertical stack, `│` inside a horizontal stack. Divider draws glyphs and
+participates in layout; it does nothing else. It has no focus, no state, no events.
+Interactive separators (a draggable split handle) are a widget concern (SplitView) that
+_renders_ a Divider but owns the behavior itself.
 
 ## Prior art
 
@@ -56,13 +57,21 @@ Callouts (24x4, 0-based):
 
 ## Variants
 
+Orientation is derived from the nearest enclosing stack's `stackAxis` layout context:
+
+| Context  | Resolved `stackAxis` | Divider orientation |
+| -------- | -------------------- | ------------------- |
+| `HStack` | `.horizontal`        | vertical            |
+| `VStack` | `.vertical`          | horizontal          |
+| no stack | absent               | horizontal fallback |
+
+This keeps the ordinary initializer axis-free while preserving deterministic bare
+measurement and rendering.
+
 Glyph per style and axis comes from the
 [divider glyph table](../tokens.md#divider-glyphs): `light` (default), `heavy`, `double`,
-`dashed`, `ascii`. A labeled variant is an open question, not in scope:
-
-```wireframe 24x1
-── Attachments ─────────
-```
+`dashed`, `ascii`. Divider has no labeled variant; a section label composes Text and
+Divider as a separate higher-level primitive.
 
 ## Sizing
 
@@ -87,6 +96,8 @@ contexts where minimal is least surprising.
 - `divider.style` -- selects the glyph row from [tokens.md](../tokens.md#divider-glyphs);
   defaults to `light`.
 - Foreground color inherits from the ambient style; no divider-specific color token.
+- `stackAxis` -- layout context established by an enclosing linear stack; absent context
+  uses the horizontal fallback.
 
 ## Requirements
 
@@ -95,8 +106,12 @@ contexts where minimal is least surprising.
 - `divider ignores own axis proposal` (sizing: 24 x 5)
 - `unproposed divider measures one by one` (sizing: nil x nil)
 - `divider renders style glyph across its full extent` (anatomy: r1)
-- `divider clips to region without partial glyph artifacts` (anatomy; region clipping)
+- `divider clips at its assigned extent without changing thickness` (sizing: 0 x nil and
+  24 x 5)
 - `ascii degradation replaces glyph without size change` (degradation wireframe)
+- `divider inside a horizontal stack renders the vertical rule` (variants: `HStack` row;
+  anatomy: 24x4 vertical wireframe)
+- `bare divider falls back to the horizontal rule` (variants: no stack row)
 
 ## Degradation
 
@@ -110,16 +125,21 @@ Only the glyph changes, never the geometry:
 Per the [degradation ladder](../tokens.md#degradation-ladder): `NO_COLOR` and 16-color are
 unchanged; ascii-only swaps in the `ascii` glyph row.
 
-## Open questions
+## Decisions
 
-- Axis inference: SwiftUI infers orientation from the enclosing stack, which requires the
-  stack to publish its axis (environment or layout context). Explicit
-  `Divider(.horizontal)` with a `.vertical` option needs no machinery. Lean explicit with
-  a default of horizontal; revisit when Slice 2 stack containers land and the cost of
-  publishing the axis is known.
-- Labeled divider (`── Attachments ────`): useful, but it adds text layout, truncation,
-  and alignment options to a primitive whose value is having none. If it earns its keep,
-  it is probably a separate `SectionHeader` primitive composing Text and Divider.
+Divider follows the normative [Slice 2 orientation contract](../../docs/Spec.md#divider):
+an enclosing stack publishes `stackAxis`, and Divider renders across that stack's cross
+axis. A bare Divider falls back to horizontal, matching its `1x1` unconstrained
+measurement. No public orientation argument is added.
+
+Divider has no labeled variant. A future section-heading primitive may compose Text and
+Divider, but labels do not add text layout, truncation, or alignment state to this
+primitive.
+
+This contract was reviewed against the
+[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): orientation
+is declarative layout context, appearance comes from shared tokens, and geometry remains
+deterministic integer-cell output.
 
 ## Inspiration
 

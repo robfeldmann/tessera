@@ -1,6 +1,6 @@
 ---
 kind: widget
-status: wireframed
+status: ready
 ---
 
 # ScrollView
@@ -15,8 +15,7 @@ begins in [Slice 2](../../docs/Spec.md#slice-2-the-layout-protocol-and-stack-con
 and its final style/public-API delivery completes in
 [Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase).
 
-Provisional API vocabulary (the standard style and a custom style protocol are accepted
-public direction; their concrete signatures are deliberately open):
+Public viewport vocabulary:
 
 ```swift
 public struct ScrollView<Content: View>: View {
@@ -238,18 +237,19 @@ Callouts (40x6, 0-based):
 
 ## State model
 
-| State                           | Owner       | Type                         | Reset or clamp rule                                                                                                                                                                                                               |
-| ------------------------------- | ----------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| axes                            | derived     | `Axis.Set`                   | Re-derived from the immutable initializer on every reconciliation; disabled components of every offset are zero.                                                                                                                  |
-| controlled offset               | Binding     | `Binding<TerminalPosition>?` | Exists only when supplied; app mutations are read on every layout, then effective offset clamps to the current bounds without passively rewriting the binding.                                                                    |
-| fallback offset                 | NodeState   | `TerminalPosition`           | Exists only when controlled offset is nil; clamps each layout, resize, content update, and axes update to `0...maximum` per enabled axis.                                                                                         |
-| effective offset                | derived     | `TerminalPosition`           | Chooses controlled or fallback offset, zeroes disabled axes, and clamps to `0...maximum` on every layout before rendering or event handling.                                                                                      |
-| content extent                  | derived     | `TerminalSize`               | Re-measured each layout; scrollable axes are proposed `nil`, non-scrollable axes receive the assigned viewport proposal.                                                                                                          |
-| viewport extent                 | derived     | `TerminalSize`               | Recomputed after reserving only visible indicator edges; never negative and, whenever an edge is reserved, remains at least `1x1`.                                                                                                |
-| maximum offset                  | derived     | `TerminalPosition`           | Recomputed as `max(0, content extent - viewport extent)` per enabled axis after resize, content, axes, or binding changes.                                                                                                        |
-| vertical indicator visibility   | derived     | `Bool`                       | True exactly when axes contains vertical, content height exceeds the stabilized viewport height, and the trailing-edge reservation leaves the stabilized content viewport at least `1x1`; otherwise no trailing edge is reserved. |
-| horizontal indicator visibility | derived     | `Bool`                       | True exactly when axes contains horizontal, content width exceeds the stabilized viewport width, and the bottom-edge reservation leaves the stabilized content viewport at least `1x1`; otherwise no bottom edge is reserved.     |
-| scroll view style               | Environment | `ScrollViewStyle`            | Resolved each render; the standard/default style uses canonical token glyphs. Custom protocol shape is deferred, not stored by the widget.                                                                                        |
+| State                           | Owner       | Type                          | Reset or clamp rule                                                                                                                                                                                                               |
+| ------------------------------- | ----------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| axes                            | derived     | `Axis.Set`                    | Re-derived from the immutable initializer on every reconciliation; disabled components of every offset are zero.                                                                                                                  |
+| controlled offset               | Binding     | `Binding<TerminalPosition>?`  | Exists only when supplied; app mutations are read on every layout, then effective offset clamps to the current bounds without passively rewriting the binding.                                                                    |
+| fallback offset                 | NodeState   | `TerminalPosition`            | Exists only when controlled offset is nil; clamps each layout, resize, content update, and axes update to `0...maximum` per enabled axis.                                                                                         |
+| effective offset                | derived     | `TerminalPosition`            | Chooses controlled or fallback offset, zeroes disabled axes, and clamps to `0...maximum` on every layout before rendering or event handling.                                                                                      |
+| content extent                  | derived     | `TerminalSize`                | Re-measured each layout; scrollable axes are proposed `nil`, non-scrollable axes receive the assigned viewport proposal.                                                                                                          |
+| viewport extent                 | derived     | `TerminalSize`                | Recomputed after reserving only visible indicator edges; never negative and, whenever an edge is reserved, remains at least `1x1`.                                                                                                |
+| maximum offset                  | derived     | `TerminalPosition`            | Recomputed as `max(0, content extent - viewport extent)` per enabled axis after resize, content, axes, or binding changes.                                                                                                        |
+| vertical indicator visibility   | derived     | `Bool`                        | True exactly when axes contains vertical, content height exceeds the stabilized viewport height, and the trailing-edge reservation leaves the stabilized content viewport at least `1x1`; otherwise no trailing edge is reserved. |
+| horizontal indicator visibility | derived     | `Bool`                        | True exactly when axes contains horizontal, content width exceeds the stabilized viewport width, and the bottom-edge reservation leaves the stabilized content viewport at least `1x1`; otherwise no bottom edge is reserved.     |
+| scroll view styles              | Environment | semantic `Style` roles        | Resolve `semantic.primary`, `semantic.secondary`, and `semantic.accent` each render; never retain style in widget state.                                                                                                          |
+| motion model                    | derived     | immediate integer translation | Every accepted input writes a whole-cell offset synchronously; there is no zoom factor, fractional position, animation, or momentum state.                                                                                        |
 
 The potentially circular indicator calculation resolves deterministically: first measure
 content with `nil` on enabled axes; start with the full assigned rectangle; reserve an
@@ -282,25 +282,29 @@ advance focus. There is no key for zoom, inertial motion, or animation.
 
 ## Mouse table
 
-| Event      | Region                      | Precondition                                                       | Effect                                                                                                                                          | Consumed |
-| ---------- | --------------------------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| click      | viewport content            | always                                                             | receives Slice 5's built-in click-to-focus before ordinary handler routing; ScrollView returns ignored and does not reinterpret the child click | no       |
-| wheel-down | viewport content            | axes contains vertical, effective offset is below vertical maximum | increments vertical effective offset by the normalized wheel step through controlled offset or fallback offset                                  | yes      |
-| wheel-up   | viewport content            | axes contains vertical, effective offset is above 0 vertically     | decrements vertical effective offset by the normalized wheel step through controlled offset or fallback offset                                  | yes      |
-| wheel-down | viewport content            | axes contains vertical, effective offset is at vertical maximum    | leaves effective offset unchanged and returns ignored so an enclosing ScrollView may handle the event                                           | no       |
-| wheel-up   | viewport content            | axes contains vertical, effective offset is at origin vertically   | leaves effective offset unchanged and returns ignored so an enclosing ScrollView may handle the event                                           | no       |
-| drag       | vertical scroll indicator   | vertical indicator visibility                                      | returns ignored; indicators are output-only in the first delivery and never capture a drag                                                      | no       |
-| drag       | horizontal scroll indicator | horizontal indicator visibility                                    | returns ignored; indicators are output-only in the first delivery and never capture a drag                                                      | no       |
-| click      | indicator corner            | always                                                             | returns ignored; the corner has no independent action                                                                                           | no       |
+| Event       | Region                      | Precondition                                                           | Effect                                                                                                                                          | Consumed |
+| ----------- | --------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| click       | Viewport content            | always                                                                 | receives Slice 5's built-in click-to-focus before ordinary handler routing; ScrollView returns ignored and does not reinterpret the child click | no       |
+| wheel-down  | Viewport content            | axes contains vertical, effective offset is below vertical maximum     | increments vertical effective offset by the normalized wheel step through controlled offset or fallback offset                                  | yes      |
+| wheel-up    | Viewport content            | axes contains vertical, effective offset is above 0 vertically         | decrements vertical effective offset by the normalized wheel step through controlled offset or fallback offset                                  | yes      |
+| wheel-down  | Viewport content            | axes contains vertical, effective offset is at vertical maximum        | leaves effective offset unchanged and returns ignored so an enclosing ScrollView may handle the event                                           | no       |
+| wheel-up    | Viewport content            | axes contains vertical, effective offset is at origin vertically       | leaves effective offset unchanged and returns ignored so an enclosing ScrollView may handle the event                                           | no       |
+| wheel-right | Viewport content            | axes contains horizontal, effective offset is below horizontal maximum | increments horizontal effective offset by the normalized wheel step through controlled offset or fallback offset                                | yes      |
+| wheel-left  | Viewport content            | axes contains horizontal, effective offset is above 0 horizontally     | decrements horizontal effective offset by the normalized wheel step through controlled offset or fallback offset                                | yes      |
+| wheel-right | Viewport content            | axes contains horizontal, effective offset is at horizontal maximum    | leaves effective offset unchanged and returns ignored so an enclosing ScrollView may handle the event                                           | no       |
+| wheel-left  | Viewport content            | axes contains horizontal, effective offset is at origin horizontally   | leaves effective offset unchanged and returns ignored so an enclosing ScrollView may handle the event                                           | no       |
+| drag        | Vertical scroll indicator   | vertical indicator visibility                                          | returns ignored; indicators are output-only and never capture a drag                                                                            | no       |
+| drag        | Horizontal scroll indicator | horizontal indicator visibility                                        | returns ignored; indicators are output-only and never capture a drag                                                                            | no       |
+| click       | Indicator corner            | always                                                                 | returns ignored; the corner has no independent action                                                                                           | no       |
 
 Terminal touchpads and touch terminals that synthesize wheel events use these same rows:
 no second gesture recognizer or pointer capture is introduced. Hit testing is
 deepest-first and clips before routing, so an inner ScrollView gets a wheel first; it
-consumes only while it can advance on the relevant axis. At its boundary it returns
-ignored, permitting the normal ancestor bubble to scroll the outer viewport. Horizontal
-touch-wheel normalization is deliberately held open below because Slice 5 presently names
-only up/down wheel events; keyboard and programmatic horizontal scrolling are complete
-without it.
+consumes only while it can advance on the event's matching enabled axis. At its boundary
+it returns ignored, permitting the normal ancestor bubble to scroll the outer viewport.
+The terminal substrate already normalizes vertical and horizontal wheel reports to
+`wheel-up`, `wheel-down`, `wheel-left`, and `wheel-right`; ScrollView does not reinterpret
+Shift-wheel or signed deltas.
 
 ## Sizing
 
@@ -333,14 +337,13 @@ Existing canonical tokens consumed by the standard/default rendering are:
 - `truncation.mark` only if the child `Text` chooses tail truncation. ScrollView clips; it
   never inserts a truncation glyph.
 
-The planned semantic environment roles are full `Style` values named `semantic.primary`,
-`semantic.secondary`, `semantic.accent`, `semantic.disabled`, and `semantic.destructive`
-(not colors or partial foreground values). The standard style uses `semantic.primary` for
+The semantic environment roles are complete `Style` values named `semantic.primary`,
+`semantic.secondary`, `semantic.accent`, `semantic.disabled`, and `semantic.destructive`,
+never colors or partial foreground values. Standard rendering uses `semantic.primary` for
 child-default text, `semantic.secondary` for tracks, and `semantic.accent` for thumbs and
-focus; `semantic.disabled` and `semantic.destructive` remain available to child content
-without special ScrollView behavior. Their storage key and the `ScrollViewStyle`
-custom-style protocol signatures are deferred until the final styles/API delivery. No hex
-colors, ANSI sequences, or noncanonical glyph set is introduced here.
+focus. Custom applications replace those same environment values; ScrollView does not
+introduce a parallel `ScrollViewStyle` protocol. No hex colors, ANSI sequences, or
+noncanonical glyph set is introduced here.
 
 ## Primitive dependencies
 
@@ -356,38 +359,35 @@ colors, ANSI sequences, or noncanonical glyph set is introduced here.
   required for focused keyboard movement and boundary bubbling.
 - Mouse/hit testing -- [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing):
   required for wheel routing, clipped hit testing, and touch-generated wheel delivery.
-- [ScrollIndicator](../primitives/scroll-indicator.md) -- shared output-only geometry with
-  List and Table. Slice 3 replaces Slice 2's temporary indicator drawing with this
-  primitive, deleting the temporary renderer so thumb rounding and indicator glyph output
-  have one owner.
-- Style resolution and `ScrollViewStyle` customization are later work. `Form` and
-  `Outline` are neither dependencies nor proposals before 1.0.
+- [ScrollIndicator](../primitives/scroll-indicator.md) is an exact later cutover, not a
+  readiness dependency of the static viewport foundation. The foundation owns the same
+  proportional one-cell output until the shared primitive lands at
+  [`ScrollIndicator`](../../docs/Spec.md#scrollindicator), then deletes that renderer so
+  ScrollView, List, and Table share one geometry owner.
+- `Form`, `Outline`, and a separate `ScrollViewStyle` protocol are neither dependencies
+  nor proposals before 1.0.
 
 ## Progressive delivery
 
 1. **Slice 2 — public viewport and programmatic-offset foundation:** deliver the public
    viewport with its axes and optional `offset` binding, layout measurement with `nil`
    enabled-axis proposals, translated clipping, effective clamping after
-   content/resize/app updates, and static no-overflow/overflow buffer snapshots. Use
-   temporary indicator drawing only until the shared primitive cutover. There is no focus
-   or pointer behavior yet.
-2. **Slice 3 — ScrollIndicator cutover:** replace every temporary ScrollView indicator
-   drawing with the shared `ScrollIndicator`; delete the temporary renderer so the
-   primitive owns thumb rounding, track/thumb glyph output, and its output-only
-   presentation. This cutover does not defer indicator ownership to Slice 7.
+   content/resize/app updates, and static no-overflow/overflow buffer snapshots. The
+   foundation owns proportional one-cell indicator output. There is no focus or pointer
+   behavior yet.
+2. **Slice 3 — ScrollIndicator cutover:** replace the foundation's indicator output with
+   the shared `ScrollIndicator`; delete the original renderer so the primitive owns thumb
+   rounding, track/thumb glyph output, and output-only presentation.
 3. **Slice 4 — keyboard:** make ScrollView focusable; add the key table's one-cell, page,
    home/end moves and key boundary bubbling. This is the first interactive vertical,
    horizontal, and two-axis viewport.
 4. **Slice 5 — pointer and touch wheel:** request mouse capability only while the widget
-   is live; route wheel events through the mouse table, including touch-generated wheels,
-   clipped nested precedence, and boundary bubbling. Do not add drag-to-thumb or gesture
-   physics.
-5. **Slice 7 — final styles and public API:** finalize the standard/default
-   `ScrollViewStyle`, custom style protocol signature, semantic `Style` role integration,
-   and the precise public API shape, including horizontal wheel deltas. `ScrollIndicator`
-   remains the established indicator owner; Slice 7 does not take that ownership back.
-   This document stays `wireframed` until those choices are specified; it does not reserve
-   a Form or Outline API before 1.0.
+   is live; route vertical wheel events through the mouse table, including touch-generated
+   wheels, clipped nested precedence, and boundary bubbling. Indicators remain
+   output-only.
+5. **Slice 7 — integration:** retain the initializer and ownership contract specified here
+   while composing ScrollView with catalog controls. `ScrollIndicator` remains the
+   established indicator owner; integration does not take that ownership back.
 
 ## Requirements
 
@@ -408,13 +408,15 @@ colors, ANSI sequences, or noncanonical glyph set is introduced here.
 - `focused arrow keys move one cell on their enabled axis` (key table: Down and Right)
 - `page home and end keys clamp to the viewport bounds` (key table: PgDn, PgUp, Home, End)
 - `keyboard input bubbles from a scroll view at its boundary` (key table: boundary rows)
-- `wheel input changes position without changing app content` (mouse table: wheel-down)
+- `wheel input changes the matching enabled axis without changing app content` (mouse
+  table: wheel-down and wheel-right)
 - `nested scroll views give the clipped inner viewport first wheel precedence` (mouse
   table: viewport content; nested-scroll routing)
 - `wheel input bubbles to an ancestor when the inner viewport reaches its boundary` (mouse
   table: wheel boundary rows)
-- `scroll indicators do not capture pointer drags in the first delivery` (mouse table:
-  drag)
+- `horizontal wheel input moves the horizontal axis and bubbles at its boundary` (mouse
+  table: wheel-left and wheel-right boundary rows)
+- `scroll indicators do not capture pointer drags` (mouse table: drag rows)
 - `no-overflow child renders with no reserved indicator edge` (states: no overflow and
   empty child)
 - `indicator reservation preserves one content cell per axis` (states: declared minimum;
@@ -424,9 +426,7 @@ colors, ANSI sequences, or noncanonical glyph set is introduced here.
 - `minimum viewport clips without a negative proposal or layout failure` (states: declared
   minimum; sizing: `10x3`)
 - `ascii degradation preserves scroll geometry and boundary routing` (states: degraded)
-- `scroll view exposes no zoom or smooth animation transition` (Overview; key table)
-- `slice 3 shared scroll indicator cutover preserves proportional indicator output`
-  (progressive delivery: Slice 3)
+- `scroll view exposes no zoom or smooth animation transition` (state model: motion model)
 
 ## Degradation
 
@@ -442,23 +442,26 @@ colors, ANSI sequences, or noncanonical glyph set is introduced here.
   indicator edge whose reservation would leave the content viewport below `1x1`. No
   content is fabricated and no layout failure is allowed.
 
-## Open questions
+## Decisions
 
-- **Horizontal wheel delta:** Slice 5 currently documents `wheel-up` and `wheel-down` in
-  its mouse-table vocabulary. Decide whether its public `MouseEvent` carries a signed 2-D
-  wheel delta or normalizes Shift-wheel before specifying `wheel-left`/`wheel-right` table
-  rows. That decision unblocks touchpad horizontal scrolling; it does not block the
-  keyboard/programmatic horizontal viewport.
-- **Controlled out-of-range writeback:** this draft renders a clamped effective offset
-  without passively rewriting the binding. Confirm whether API users instead need a
-  separately observable clamp callback; do not introduce a silent bidirectional
-  correction.
-- **Style API:** standard/default styles and a custom style protocol are accepted
-  direction, but generic associated types, closure configuration, and environment key
-  signatures remain intentionally open until the Slice 7 final styles/public-API delivery.
-- **Pointer drag:** output-only indicators are the first delivery. Add proportional thumb
-  dragging only after real terminal touch behavior demonstrates that it is reliable
-  without stealing nested-scroll routing.
+- **Horizontal wheel input:** The terminal substrate decodes horizontal wheel reports as
+  `wheel-left` and `wheel-right`. ScrollView applies each wheel event to its matching
+  enabled axis and uses the same boundary-bubbling rule on both axes. It does not infer a
+  direction from Shift-wheel or a signed delta.
+- **Controlled out-of-range writeback:** Layout clamps only the derived effective offset.
+  Passive reconciliation never rewrites the binding and exposes no separate clamp
+  callback. The next accepted user movement writes from the effective value.
+- **Styling:** ScrollView consumes shared semantic complete-`Style` environment values,
+  following
+  [system and custom style plumbing](../../docs/Spec.md#system-and-custom-style-plumbing).
+  It has no separate style protocol.
+- **Pointer drag:** Indicators are output-only in 1.0. Clicks and drags return ignored;
+  wheel boundary bubbling remains the only pointer-scroll contract.
+
+This design was reviewed against the
+[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): content and
+optional position are controlled, fallback position is ephemeral, input changes integer
+state synchronously, and rendering is a translated clipped region.
 
 ## Inspiration
 

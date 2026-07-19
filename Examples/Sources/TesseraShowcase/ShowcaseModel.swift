@@ -18,6 +18,20 @@ final class ShowcaseModel {
   var catalogSelection: ShowcaseCatalogSelection = .text
   var controlValue = false
   var isSpecimenVisible = true
+  var splitAxis: Axis = .horizontal
+  var widePanes = [
+    SplitViewPane(id: "catalog", requestedSize: 24),
+    SplitViewPane(id: "playground", requestedSize: 70),
+    SplitViewPane(id: "inspector", requestedSize: 24),
+  ]
+  var standardPanes = [
+    SplitViewPane(id: "catalog", requestedSize: 24),
+    SplitViewPane(id: "playground", requestedSize: 55),
+  ]
+  var catalogOffset = TerminalPosition(column: 0, row: 0)
+  var playgroundOffset = TerminalPosition(column: 0, row: 0)
+  var inspectorOffset = TerminalPosition(column: 0, row: 0)
+  var compactOffset = TerminalPosition(column: 0, row: 0)
 
   var viewportRole: ShowcaseViewportRole {
     if size.columns < 40 || size.rows < 12 {
@@ -52,5 +66,14 @@ final class ShowcaseModel {
 
   func resize(to size: TerminalSize) {
     self.size = size
+  }
+
+  func binding<Value>(
+    _ keyPath: ReferenceWritableKeyPath<ShowcaseModel, Value>
+  ) -> Binding<Value> {
+    Binding(
+      get: { self[keyPath: keyPath] },
+      set: { self[keyPath: keyPath] = $0 }
+    )
   }
 }

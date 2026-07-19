@@ -57,11 +57,11 @@ their contracts. The linked inventory is the catalog available for composition n
 | [Button](widgets/button.md)                             | wireframed     | action, enabled, role, and system/custom-style specimens                                 | accepted                      |
 | [TextField](widgets/text-field.md)                      | wireframed     | focus, overflow, Unicode, software-keyboard, and dictation specimen                      | accepted clean public name    |
 | [List](widgets/list.md)                                 | sketch         | flat Catalog selection and final integration                                             | accepted                      |
-| [ScrollView](widgets/scroll-view.md)                    | wireframed     | clipped playground and all critical compact overflow                                     | accepted                      |
+| [ScrollView](widgets/scroll-view.md)                    | ready          | clipped playground and all critical compact overflow                                     | accepted                      |
 | [Table](widgets/table.md)                               | specified      | dense data/solver specimen                                                               | accepted                      |
-| [SplitView](widgets/split-view.md)                      | wireframed     | pane size/collapse playground and regular adjacency                                      | accepted                      |
+| [SplitView](widgets/split-view.md)                      | ready          | pane size/collapse playground and regular adjacency                                      | accepted                      |
 | [NavigationSplitView](widgets/navigation-split-view.md) | wireframed     | regular and compact Catalog/Playground/Inspector composition                             | accepted                      |
-| [Divider](primitives/divider.md)                        | specified      | documented rules and SplitView handles only                                              | accepted primitive dependency |
+| [Divider](primitives/divider.md)                        | ready          | documented rules and SplitView handles only                                              | accepted primitive dependency |
 | [ScrollIndicator](primitives/scroll-indicator.md)       | wireframed     | shared, output-only overflow geometry in ScrollView, List, and Table                     | accepted primitive dependency |
 | [Text](primitives/text.md)                              | specified      | ordinary, Unicode, multiline, constrained, wrapped, and truncated text specimens         | accepted primitive dependency |
 | [Frame](primitives/frame.md)                            | specified      | fixed, bounded, aligned, and clipped allocation specimens                                | accepted primitive dependency |

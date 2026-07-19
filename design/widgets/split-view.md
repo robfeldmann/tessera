@@ -1,6 +1,6 @@
 ---
 kind: widget
-status: wireframed
+status: ready
 ---
 
 # SplitView
@@ -254,16 +254,18 @@ change their controlled sizes.
 
 ## State model
 
-| State                     | Owner     | Type                                                                                                     | Reset or clamp rule                                                                                                                                                                                                                         |
-| ------------------------- | --------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| pane configuration        | Binding   | ordered `[SplitViewPane]` containing stable `ID`, integer `requestedSize`, and `isCollapsed`             | App is authoritative. On every update, retain IDs as supplied; a collapsed pane retains its requested size and receives a zero main-axis rect.                                                                                              |
-| axis                      | Binding   | `Axis`                                                                                                   | App is authoritative. On change, transpose main/cross-axis negotiation, cancel `pointer drag`, and clear a `focused divider handle` that is no longer live.                                                                                 |
-| visible pane sequence     | derived   | ordered `[Pane.ID]`                                                                                      | Recompute from `pane configuration` on every update; omit collapsed panes without changing their identity or order in the binding.                                                                                                          |
-| negotiated pane rects     | derived   | `[Pane.ID: Rect]`                                                                                        | Recompute from `pane configuration`, `axis`, child measurements, and parent bounds on every layout; clamp all extents to nonnegative integers and parent clipping.                                                                          |
-| focused divider handle    | derived   | `FocusID?`                                                                                               | Recompute from the FocusManager after layout; clear if its adjacent visible pair disappears or becomes nonresizable.                                                                                                                        |
-| pointer drag              | NodeState | optional `(leadingID: Pane.ID, trailingID: Pane.ID, origin: Int, leadingStart: Int, trailingStart: Int)` | Set only during a drag on a live `divider handle`; retain through ordinary reconciliation while the same stable adjacent pane pair remains live; clear only on release, axis change, pair disappearance, focus loss, or node identity loss. |
-| focus return candidate    | NodeState | `[Pane.ID: FocusID]`                                                                                     | When a focused descendant is hidden by `pane configuration`, remember it only if it belongs to that pane; discard it when that focus ID is no longer live.                                                                                  |
-| keyboard resizing enabled | Binding   | `Bool`                                                                                                   | App is authoritative. When false, omit divider focusability and clear `focused divider handle` on reconciliation.                                                                                                                           |
+| State                     | Owner       | Type                                                                                                     | Reset or clamp rule                                                                                                                                                                                                                         |
+| ------------------------- | ----------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| pane configuration        | Binding     | ordered `[SplitViewPane]` containing stable `ID`, integer `requestedSize`, and `isCollapsed`             | App is authoritative. On every update, retain IDs as supplied; a collapsed pane retains its requested size and receives a zero main-axis rect.                                                                                              |
+| axis                      | Binding     | `Axis`                                                                                                   | App is authoritative. On change, transpose main/cross-axis negotiation, cancel `pointer drag`, and clear a `focused divider handle` that is no longer live.                                                                                 |
+| visible pane sequence     | derived     | ordered `[Pane.ID]`                                                                                      | Recompute from `pane configuration` on every update; omit collapsed panes without changing their identity or order in the binding.                                                                                                          |
+| negotiated pane rects     | derived     | `[Pane.ID: Rect]`                                                                                        | Recompute from `pane configuration`, `axis`, child measurements, and parent bounds on every layout; clamp all extents to nonnegative integers and parent clipping.                                                                          |
+| focused divider handle    | derived     | `FocusID?`                                                                                               | Recompute from the FocusManager after layout; clear if its adjacent visible pair disappears or becomes nonresizable.                                                                                                                        |
+| pointer drag              | NodeState   | optional `(leadingID: Pane.ID, trailingID: Pane.ID, origin: Int, leadingStart: Int, trailingStart: Int)` | Set only during a drag on a live `divider handle`; retain through ordinary reconciliation while the same stable adjacent pane pair remains live; clear only on release, axis change, pair disappearance, focus loss, or node identity loss. |
+| focus return candidate    | NodeState   | `[Pane.ID: FocusID]`                                                                                     | When a focused descendant is hidden by `pane configuration`, remember it only if it belongs to that pane; discard it when that focus ID is no longer live.                                                                                  |
+| keyboard resizing enabled | Binding     | `Bool`                                                                                                   | App is authoritative. When false, omit divider focusability and clear `focused divider handle` on reconciliation.                                                                                                                           |
+| collapse focus target     | derived     | `FocusID?`                                                                                               | When a focused descendant is hidden, choose the first focusable descendant in the next visible pane, then the previous visible pane, otherwise nil; recompute whenever visibility or focusability changes.                                  |
+| split view styles         | Environment | semantic `Style` roles                                                                                   | Resolve `semantic.primary`, `semantic.secondary`, `semantic.accent`, and `semantic.disabled` each render; never retain style in widget state.                                                                                               |
 
 A pane's ID is stable across a size or visibility mutation. Reordering the binding is an
 explicit application operation; SplitView must not interpret a changed index as the old
@@ -341,31 +343,27 @@ the 24x6 over-constrained fixture is produced.
 
 ## Environment
 
-- `splitView.style` -- a `SplitViewStyle` selected from the environment. The standard
-  style is the default; custom styles are accepted public direction. A style supplies full
-  `Style` values named `primary`, `secondary`, `accent`, `disabled`, and `destructive`.
-  The standard style uses `primary` for pane content inheritance, `secondary` for an
-  unfocused handle, `accent` for a focused handle, and `disabled` for a nonresizable
-  handle. `destructive` is available to custom app policy but is not applied by standard
-  resizing behavior. These are semantic full styles, not hard-coded colors or partial
-  foreground overrides.
-- `divider.style` -- [Divider](../primitives/divider.md) glyph selection. Standard
-  SplitView draws `light`; it receives the same geometry for every style.
+- `semantic.primary` -- inherited by ordinary pane content.
+- `semantic.secondary` -- applied to an unfocused divider handle.
+- `semantic.accent` -- applied to a focused divider handle.
+- `semantic.disabled` -- applied to a nonresizable divider handle.
+- `divider.style` -- [Divider](../primitives/divider.md) glyph selection. SplitView draws
+  `light` by default and receives identical geometry for every glyph style.
 - `focus.border` and the focus degradation rules in [tokens.md](../tokens.md#focus) --
   focus presentation for the one-cell handle without inventing a component-specific focus
   color.
 - `truncation.mark` and the degradation ladder in [tokens.md](../tokens.md) -- consumed by
   pane content and the split's ASCII fallback; SplitView never cuts a grapheme itself.
 
-The default `standard` style and public custom `SplitViewStyle` protocol are accepted
-direction. Concrete protocol requirements, generic versus type-erased storage, and the
-initializer signature remain deliberately open until Slice 3 establishes the final `Style`
-environment surface.
+System and custom styling use the shared complete-`Style` environment merge fixed by
+[system and custom style plumbing](../../docs/Spec.md#system-and-custom-style-plumbing).
+SplitView does not introduce a parallel `SplitViewStyle` protocol or expose pane business
+state to styling.
 
 ## Primitive dependencies
 
-- [Divider](../primitives/divider.md) (`specified`) -- supplies only the one-cell rule
-  glyph and sizing; SplitView owns handle focus, hit testing, and drag.
+- [Divider](../primitives/divider.md) (`ready`) -- supplies only the one-cell rule glyph
+  and sizing; SplitView owns handle focus, hit testing, and drag.
 - `Text` (Slice 1) -- pane labels and content in the fixtures; actual child content is
   application supplied.
 - `FocusManager` and `.focusable` (Slice 4) -- divider keyboard focus and safe focus
@@ -401,10 +399,10 @@ responsibilities of this low-level adjacency widget.
   two-pane and three-pane anatomy)
 - `split view omits collapsed panes and their handles without replacing application content`
   (collapsed wireframe; state model: visible pane sequence)
-- `split view restores a hidden focused descendant only when focus remains clear` (focus,
-  collapse, and restoration)
+- `split view restores a hidden focused descendant only when focus remains clear` (state
+  model: focus return candidate)
 - `split view moves focus to the nearest visible pane when collapsing the focused pane`
-  (focus, collapse, and restoration)
+  (state model: collapse focus target)
 - `horizontal divider handle arrow keys resize only its adjacent controlled pane pair`
   (key table: Left and Right)
 - `vertical divider handle arrow keys resize only its adjacent controlled pane pair` (key
@@ -428,7 +426,7 @@ responsibilities of this low-level adjacency widget.
 - `split view transposes divider hit geometry for vertical axis` (horizontal divider
   anatomy)
 - `standard split view style applies semantic full styles without hard-coded colors`
-  (environment)
+  (state model: split view styles)
 
 ## Degradation
 
@@ -446,26 +444,29 @@ responsibilities of this low-level adjacency widget.
   smaller clip rect during placement, and paint only visible leading cells. Never collapse
   a pane, mutate requested sizes, or substitute navigation content automatically.
 
-## Open questions
+## Decisions and exact deferrals
 
-- **Public pane construction:** Should the controlled input be a single binding to an
-  ordered `SplitViewPane` collection, or separate bindings for sizes and collapse state
-  keyed by ID? Resolve after Slice 7 establishes the collection-binding ergonomics; both
-  choices must preserve the state model here.
-- **Requested-size lowering:** The exact public adapter from `requestedSize` plus child
-  measurements to Slice 6 `FlexConstraint` values is open. Resolve when Flex's public
-  measurement API is implemented; it must produce the documented floors, ideals, maxima,
-  rounding, and clipping behavior.
-- **Custom style protocol shape:** Should `SplitViewStyle` return a decorated handle view
-  or only full semantic `Style` values? Resolve alongside Slice 3's standard/custom style
-  protocol design; a custom style must not gain access to or ownership of pane business
-  state.
-- **Programmatic expansion focus policy:** This draft restores a saved descendant only
-  when focus is nil. Confirm with application examples whether an explicit app expansion
-  request should be able to opt into restoring focus even when another pane is focused.
-- **Pane removal during drag:** This draft cancels rather than retargets the drag. Confirm
-  after reconciliation exposes its exact mutation ordering; retargeting by index is
-  prohibited because it breaks stable identity.
+- **Public pane construction:** The controlled input is one binding to an ordered
+  `[SplitViewPane]`. Each element contains its stable ID, nonnegative requested size, and
+  collapsed flag. Separate parallel bindings are rejected because they can diverge in
+  membership or order.
+- **Requested-size lowering:** The public pane model remains independent of
+  `FlexConstraint`. Its adapter uses each child's measured minimum and maximum with the
+  bound requested size as ideal, following the exact resolver and replacement cutover in
+  [Table, final SplitView, and NavigationSplitView](../../docs/Spec.md#table-final-splitview-and-navigationsplitview).
+- **Styling:** SplitView consumes the shared semantic complete-`Style` values. It does not
+  define a separate style protocol; custom application styling uses the same environment
+  merge fixed by
+  [system and custom style plumbing](../../docs/Spec.md#system-and-custom-style-plumbing).
+- **Programmatic expansion focus:** A saved descendant is restored only while focus is
+  nil. Expansion never steals a newer focus selection.
+- **Pane removal during drag:** Removing either stable pane cancels the drag. SplitView
+  never retargets by positional index.
+
+This design was reviewed against the
+[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): pane data is
+controlled, drag state is ephemeral and identity-bound, input is routed explicitly, and
+all geometry is deterministic integer-cell output.
 
 ## Inspiration
 

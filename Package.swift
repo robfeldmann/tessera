@@ -250,7 +250,12 @@ package.targets.append(contentsOf: [
   .testTarget(
     name: "TesseraLayoutTests",
     dependencies: [
-      TesseraLayout
+      InlineSnapshotTesting,
+      TesseraCore,
+      TesseraLayout,
+      TesseraTestSupport,
+      TesseraTerminalBuffer,
+      TesseraTerminalCore,
     ]
   ),
 ])
@@ -268,7 +273,13 @@ package.targets.append(contentsOf: [
   .testTarget(
     name: "TesseraWidgetsTests",
     dependencies: [
-      TesseraWidgets
+      InlineSnapshotTesting,
+      TesseraCore,
+      TesseraLayout,
+      TesseraTestSupport,
+      TesseraTerminalBuffer,
+      TesseraTerminalCore,
+      TesseraWidgets,
     ]
   ),
 ])

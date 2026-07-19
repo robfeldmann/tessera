@@ -1,5 +1,5 @@
 /// A view with no children and no rendered output.
-public struct EmptyView: View, _StructuralView {
+public struct EmptyView: View, _StructuralView, _ViewList {
   public typealias Body = Never
 
   /// Creates an empty view.

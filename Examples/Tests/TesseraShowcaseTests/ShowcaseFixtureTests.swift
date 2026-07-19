@@ -21,28 +21,28 @@ struct ShowcaseFixtureTests {
     assertModel(result.model, fixture: .regular)
     assertInlineSnapshot(of: result.snapshot, as: .terminalText(trim: .trailing)) {
       """
-      Tessera Showcase
-      Selected: Text
-      Diagnostics: ViewGraph ready
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+      Tessera Showcase                                                                                                 regular
+      ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+      Catalog                 │Playground                                                            │Inspector
+      > Text                  │Selected: Text                                                        │node: selected
+      Overview                │                                                                      │proposal: 120x24
+      Primitives              │Text specimen                                                         │frame: absolute
+        Divider               │Hello, Tessera                                                        │clip: parent
+        Frame                 │Unicode: café 你 好                                                     │state: app-owned
+        Padding               │                                                                      │render: ready
+        Spacer                │[Button placeholder]                                                  │
+      Layout                  │[Toggle placeholder: off]                                             │
+        HStack                │                                                                      │
+        VStack                │Layout diagnostics remain                                             │
+        ZStack                │visible through the Inspector.                                        │
+        SplitView             │                                                                      │
+      Scrolling               │                                                                      │
+        ScrollView            │                                                                      │
+      Diagnostics             │                                                                      │
+        ViewGraph             │                                                                      │
+        Frames                │                                                                      │
+        Clips                 │                                                                      │
+        Proposals             │                                                                      │
 
 
       """
@@ -55,28 +55,28 @@ struct ShowcaseFixtureTests {
     assertModel(result.model, fixture: .standard)
     assertInlineSnapshot(of: result.snapshot, as: .terminalText(trim: .trailing)) {
       """
-      Tessera Showcase
-      Selected: Text
-      Diagnostics: ViewGraph ready
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+      Tessera Showcase                                                         regular
+      ────────────────────────────────────────────────────────────────────────────────
+      Catalog                 │Playground
+      > Text                  │Selected: Text
+      Overview                │
+      Primitives              │Text specimen
+        Divider               │Hello, Tessera
+        Frame                 │Unicode: café 你 好
+        Padding               │
+        Spacer                │[Button placeholder]
+      Layout                  │[Toggle placeholder: off]
+        HStack                │
+        VStack                │Layout diagnostics remain
+        ZStack                │visible through the Inspector.
+        SplitView             │
+      Scrolling               │
+        ScrollView            │
+      Diagnostics             │
+        ViewGraph             │
+        Frames                │
+        Clips                 │
+        Proposals             │
 
 
       """
@@ -89,22 +89,22 @@ struct ShowcaseFixtureTests {
     assertModel(result.model, fixture: .standardShort)
     assertInlineSnapshot(of: result.snapshot, as: .terminalText(trim: .trailing)) {
       """
-      Tessera Showcase
-      Selected: Text
-      Diagnostics: ViewGraph ready
-
-
-
-
-
-
-
-
-
-
-
-
-
+      Tessera Showcase                                                         regular
+      ────────────────────────────────────────────────────────────────────────────────
+      Catalog                 │Playground
+      > Text                  │Selected: Text
+      Overview                │
+      Primitives              │Text specimen
+        Divider               │Hello, Tessera
+        Frame                 │Unicode: café 你 好
+        Padding               │
+        Spacer                │[Button placeholder]
+      Layout                  │[Toggle placeholder: off]
+        HStack                │
+        VStack                │Layout diagnostics remain
+        ZStack                │visible through the Inspector.
+        SplitView             │
+      Scrolling               │
       """
     }
   }
@@ -115,22 +115,22 @@ struct ShowcaseFixtureTests {
     assertModel(result.model, fixture: .compact)
     assertInlineSnapshot(of: result.snapshot, as: .terminalText(trim: .trailing)) {
       """
-      Tessera Showcase
-      Selected: Text
-      Diagnostics: ViewGraph ready
-
-
-
-
-
-
-
-
-
-
-
-
-
+      Tessera Showcase                 compact
+      ────────────────────────────────────────
+      Catalog
+      > Text
+      Overview
+      Primitives
+        Divider
+        Frame
+        Padding
+        Spacer
+      Layout
+        HStack
+        VStack
+        ZStack
+        SplitView
+      Scrolling
       """
     }
   }

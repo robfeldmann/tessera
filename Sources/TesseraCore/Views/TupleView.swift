@@ -1,5 +1,5 @@
 /// A fixed structural container whose children retain their individual dynamic view types.
-public struct TupleView<each Content: View>: View, _StructuralView {
+public struct TupleView<each Content: View>: View, _StructuralView, _ViewList {
   public typealias Body = Never
 
   package let content: (repeat each Content)

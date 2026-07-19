@@ -2,7 +2,7 @@ extension Optional: View where Wrapped: View {
   public typealias Body = Never
 }
 
-extension Optional: _StructuralView where Wrapped: View {
+extension Optional: _StructuralView, _ViewList where Wrapped: View {
   package func _visitChildren(
     in environment: EnvironmentValues,
     environmentOverrides: [String],

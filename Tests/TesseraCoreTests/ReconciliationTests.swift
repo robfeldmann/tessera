@@ -178,11 +178,11 @@ func `keyed foreach reorder preserves node state`() {
   graph.update()
   assertInlineSnapshot(of: graph, as: .viewGraph) {
     """
-    root RowsView [proposal=(8,2), measured=(1x2), frame=(0,0,8x2), clip=(0,0,8x2), needsLayout, needsRender]
-      body TupleView [proposal=(8,nil), measured=(1x2), frame=(0,0,1x2), clip=(0,0,1x2), needsLayout, needsRender]
-        index(0) ForEach [proposal=(8,nil), measured=(1x2), frame=(0,0,1x2), clip=(0,0,1x2), needsLayout, needsRender]
-          id(2) TupleView [proposal=(8,nil), measured=(1x1), frame=(0,1,1x1), clip=(0,1,1x1), needsLayout, needsRender]
-            index(0) ProbeLeaf [proposal=(8,nil), measured=(1x1), frame=(0,1,1x1), clip=(0,1,1x1), needsLayout, needsRender]
+    root RowsView [proposal=(8,2), measured=(1x1), frame=(0,0,8x2), clip=(0,0,8x2), needsLayout, needsRender]
+      body TupleView [proposal=(8,nil), measured=(1x1), frame=(0,0,1x1), clip=(0,0,1x1), needsLayout, needsRender]
+        index(0) ForEach [proposal=(8,nil), measured=(1x1), frame=(0,0,1x1), clip=(0,0,1x1), needsLayout, needsRender]
+          id(2) TupleView [proposal=(8,nil), measured=(1x1), frame=(0,0,1x1), clip=(0,0,1x1), needsLayout, needsRender]
+            index(0) ProbeLeaf [proposal=(8,nil), measured=(1x1), frame=(0,0,1x1), clip=(0,0,1x1), needsLayout, needsRender]
           id(1) TupleView [proposal=(8,nil), measured=(1x1), frame=(0,0,1x1), clip=(0,0,1x1), needsLayout, needsRender]
             index(0) ProbeLeaf [proposal=(8,nil), measured=(1x1), frame=(0,0,1x1), clip=(0,0,1x1), needsLayout, needsRender]
     statistics: created=0 destroyed=0 updated=7 bodies=1 equatableSkips=0 leaves=2 measurements=0 placements=0 renders=0 reasons=["layoutViewChanged", "renderViewChanged", "updateRequested"]
@@ -330,11 +330,11 @@ func `tuple type reordering replaces affected positional slots`() {
   graph.update()
   assertInlineSnapshot(of: graph, as: .viewGraph) {
     """
-    root TupleOrderView [proposal=(2,2), measured=(1x2), frame=(0,0,2x2), clip=(0,0,2x2), needsLayout, needsRender]
-      body TupleView [proposal=(2,nil), measured=(1x2), frame=(0,0,1x2), clip=(0,0,1x2), needsLayout, needsRender]
+    root TupleOrderView [proposal=(2,2), measured=(1x1), frame=(0,0,2x2), clip=(0,0,2x2), needsLayout, needsRender]
+      body TupleView [proposal=(2,nil), measured=(1x1), frame=(0,0,1x1), clip=(0,0,1x1), needsLayout, needsRender]
         index(0) AnyView [proposal=(2,nil), measured=(1x1), frame=(0,0,1x1), clip=(0,0,1x1), needsLayout, needsRender]
           index(0) AlternateProbeLeaf [needsLayout, needsRender]
-        index(1) AnyView [proposal=(2,nil), measured=(1x1), frame=(0,1,1x1), clip=(0,1,1x1), needsLayout, needsRender]
+        index(1) AnyView [proposal=(2,nil), measured=(1x1), frame=(0,0,1x1), clip=(0,0,1x1), needsLayout, needsRender]
           index(0) ProbeLeaf [needsLayout, needsRender]
     statistics: created=2 destroyed=2 updated=4 bodies=1 equatableSkips=0 leaves=0 measurements=0 placements=0 renders=0 reasons=["layoutViewChanged", "renderViewChanged", "updateRequested"]
     requirements: requested=[] effective=unavailable
@@ -361,14 +361,14 @@ func `duplicate explicit identities under different parents remain distinct`() {
   graph.update()
   assertInlineSnapshot(of: graph, as: .viewGraph) {
     """
-    root DuplicateIdentityView [proposal=(2,2), measured=(1x2), frame=(0,0,2x2), clip=(0,0,2x2), needsLayout, needsRender]
-      body TupleView [proposal=(2,nil), measured=(1x2), frame=(0,0,1x2), clip=(0,0,1x2), needsLayout, needsRender]
+    root DuplicateIdentityView [proposal=(2,2), measured=(1x1), frame=(0,0,2x2), clip=(0,0,2x2), needsLayout, needsRender]
+      body TupleView [proposal=(2,nil), measured=(1x1), frame=(0,0,1x1), clip=(0,0,1x1), needsLayout, needsRender]
         index(0) _IDView [proposal=(2,nil), measured=(1x1), frame=(0,0,1x1), clip=(0,0,1x1), needsLayout, needsRender]
           explicit(left) _IDView [proposal=(2,nil), measured=(1x1), frame=(0,0,1x1), clip=(0,0,1x1), needsLayout, needsRender]
             explicit(1) ProbeLeaf [proposal=(2,nil), measured=(1x1), frame=(0,0,1x1), clip=(0,0,1x1), needsLayout, needsRender]
-        index(1) _IDView [proposal=(2,nil), measured=(1x1), frame=(0,1,1x1), clip=(0,1,1x1), needsLayout, needsRender]
-          explicit(right) _IDView [proposal=(2,nil), measured=(1x1), frame=(0,1,1x1), clip=(0,1,1x1), needsLayout, needsRender]
-            explicit(1) ProbeLeaf [proposal=(2,nil), measured=(1x1), frame=(0,1,1x1), clip=(0,1,1x1), needsLayout, needsRender]
+        index(1) _IDView [proposal=(2,nil), measured=(1x1), frame=(0,0,1x1), clip=(0,0,1x1), needsLayout, needsRender]
+          explicit(right) _IDView [proposal=(2,nil), measured=(1x1), frame=(0,0,1x1), clip=(0,0,1x1), needsLayout, needsRender]
+            explicit(1) ProbeLeaf [proposal=(2,nil), measured=(1x1), frame=(0,0,1x1), clip=(0,0,1x1), needsLayout, needsRender]
     statistics: created=0 destroyed=0 updated=8 bodies=1 equatableSkips=0 leaves=2 measurements=0 placements=0 renders=0 reasons=["layoutViewChanged", "renderViewChanged", "updateRequested"]
     requirements: requested=[] effective=unavailable
     """

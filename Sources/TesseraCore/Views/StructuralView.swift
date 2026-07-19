@@ -69,3 +69,31 @@ package protocol _StructuralView: View {
     _ visit: (_ViewChild) -> Void
   )
 }
+
+/// A structural value whose children participate independently in an enclosing layout.
+package protocol _ViewList: _StructuralView {}
+
+/// Visits the independent layout children produced by `content`.
+package func _visitLayoutChildren<Content: View>(
+  _ content: Content,
+  in environment: EnvironmentValues,
+  environmentOverrides: [String],
+  _ visit: (_ViewChild) -> Void
+) {
+  if let list = content as? any _ViewList {
+    list._visitChildren(
+      in: environment,
+      environmentOverrides: environmentOverrides,
+      visit
+    )
+  } else {
+    visit(
+      _ViewChild(
+        slot: .index(0),
+        view: content,
+        environment: environment,
+        environmentOverrides: environmentOverrides
+      )
+    )
+  }
+}

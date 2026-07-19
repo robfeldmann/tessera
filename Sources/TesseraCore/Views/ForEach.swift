@@ -1,6 +1,6 @@
 /// A structural container whose children are identified by stable hashable keys.
 public struct ForEach<Data: RandomAccessCollection, ID: Hashable, Content: View>: View,
-  _StructuralView
+  _StructuralView, _ViewList
 {
   public typealias Body = Never
 

@@ -1,5 +1,7 @@
 /// The two possible values of an `if` / `else` expression.
-public struct ConditionalView<TrueContent: View, FalseContent: View>: View, _StructuralView
+public struct ConditionalView<TrueContent: View, FalseContent: View>: View,
+  _StructuralView,
+  _ViewList
 {
   public typealias Body = Never
 
