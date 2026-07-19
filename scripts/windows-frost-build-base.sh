@@ -58,6 +58,8 @@ require_file "TESSERA_FROST_WINDOWS_ISO" "$TESSERA_FROST_WINDOWS_ISO"
 require_file "TESSERA_FROST_VIRTIO_ISO" "$TESSERA_FROST_VIRTIO_ISO"
 require_file "Frost CLI" "$TESSERA_FROST_CLI"
 
+: "${TESSERA_FROST_PASS:?Set TESSERA_FROST_PASS in ignored local configuration.}"
+
 if [[ -e "$TESSERA_FROST_BASE_GOLDEN" || -e "$TESSERA_FROST_BASE_VARS" ]]; then
   if [[ "$FORCE" == "1" ]]; then
     rm -f "$TESSERA_FROST_BASE_GOLDEN" "$TESSERA_FROST_BASE_VARS"
@@ -70,10 +72,11 @@ fi
 
 mkdir -p "$(dirname "$TESSERA_FROST_BASE_GOLDEN")" "$TESSERA_FROST_ROOT/work/disks"
 
-exec "$TESSERA_FROST_CLI" build \
+FROST_SSH_PASS="$TESSERA_FROST_PASS" exec "$TESSERA_FROST_CLI" build \
   --iso "$TESSERA_FROST_WINDOWS_ISO" \
   --virtio "$TESSERA_FROST_VIRTIO_ISO" \
   --out "$TESSERA_FROST_BASE_GOLDEN" \
   --vars-out "$TESSERA_FROST_BASE_VARS" \
+  --user "$TESSERA_FROST_USER" \
   --ssh-port "$TESSERA_FROST_SSH_PORT" \
   --timeout "$TIMEOUT"

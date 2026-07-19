@@ -255,7 +255,7 @@ UTM.
   Windows Boot Manager repair steps.
 - Result: created `tessera-frost-import.utm` with a standalone Frost-built qcow2 and UEFI
   vars. Manual GUI validation confirmed the Frost-built image boots to the Windows login
-  screen and desktop in UTM with `tester` / `REMOVED_FROST_CREDENTIAL`.
+  screen and desktop in UTM using the locally configured Frost account.
 - Acceptance: the Frost-built image boots to Windows in UTM or the blocker is clearly
   recorded.
 
@@ -363,7 +363,7 @@ Terminal app runs, not just boot/toolchain checks.
 - Files: `docs/WindowsFrostVM.md`.
 - Document how to use `tessera-frost-import` for manual GUI runs:
   - start/open the UTM VM.
-  - log in as `tester` / `REMOVED_FROST_CREDENTIAL`.
+  - log in with the locally configured Frost account.
   - sync or clone Tessera source.
   - open PowerShell/Windows Terminal.
   - run tests/examples once Windows compilation is fixed.
