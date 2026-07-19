@@ -18,9 +18,9 @@ updated: 2026-07-19
   - [x] 1.2 Verify licensing, copyright, and asset provenance
   - [x] 1.3 Resolve the supported-platform and release-version contract
   - [x] 1.4 Record the GitHub launch and billing assumptions
-- [ ] **Phase 2 — Apply the Apache-2.0 legal baseline**
-  - [ ] 2.1 Replace the MIT license after ownership approval
-  - [ ] 2.2 Align legal references and third-party notices
+- [x] **Phase 2 — Apply the Apache-2.0 legal baseline**
+  - [x] 2.1 Replace the MIT license after ownership approval
+  - [x] 2.2 Align legal references and third-party notices
 - [ ] **Phase 3 — Rebuild the public-facing documentation**
   - [ ] 3.1 Add and verify the Tessera brand asset
   - [ ] 3.2 Rewrite the README around a clear user journey

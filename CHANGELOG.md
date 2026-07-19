@@ -171,6 +171,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Relicensed Tessera's original material from the MIT License to the Apache License 2.0
+  before its first public release; no `v0.1.0` release has been published.
+
 - Changed the Spec Phase 4 view-layer plan to re-sequence its slices around the Showcase's
   dependency-driven component landing order, adding a slice sequencing and component
   landing map with a dependency DAG, an immutable local developer diagnostics contract in
@@ -285,7 +288,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `Justfile` for task running (build, test, lint, format, ci).
 - Project documentation (`CHANGELOG.md`, `CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`,
   `README.md`).
-- MIT License.
+- Drafted the project under the MIT License; this was superseded by Apache-2.0 before the
+  first public release.
 
 [Unreleased]: https://github.com/robfeldmann/tessera/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/robfeldmann/tessera/releases/tag/v0.1.0

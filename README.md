@@ -108,5 +108,5 @@ Please see [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for details on our code of c
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for
-details.
+Tessera is licensed under the [Apache License 2.0](LICENSE). See
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for third-party component notices.
