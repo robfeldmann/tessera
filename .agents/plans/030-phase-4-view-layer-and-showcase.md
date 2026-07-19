@@ -42,11 +42,13 @@ updated: 2026-07-18
   - [ ] 4.3 Land controlled Button, Toggle, Picker, Stepper, TextField focus, and keyboard
         viewport behavior
   - [ ] 4.4 Add visible-control and keyboard Showcase scenarios
-- [ ] **Phase 5 — Slice 5: Mouse and hit testing**
-  - [ ] 5.1 Complete pointer, hit-testing, and boundary-bubbling catalog contracts
-  - [ ] 5.2 Implement deepest-first hit testing and mouse responder APIs
-  - [ ] 5.3 Add pointer behavior to controls, TextField, SplitView, and ScrollView
-  - [ ] 5.4 Add deterministic pointer and tracking-mode Showcase scenarios
+- [ ] **Phase 5 — Slice 5: Mouse, hit testing, and text selection**
+  - [ ] 5.1 Complete pointer, selection, hit-testing, and boundary-bubbling catalog
+        contracts
+  - [ ] 5.2 Implement deepest-first hit testing, pointer capture, and mouse responder APIs
+  - [ ] 5.3 Implement application-owned layout-aware text selection and copy
+  - [ ] 5.4 Add pointer behavior to controls, TextField, SplitView, and ScrollView
+  - [ ] 5.5 Add deterministic pointer, selection, and tracking-mode Showcase scenarios
 - [ ] **Phase 6 — Slice 6: Grid, Table, and NavigationSplitView composition**
   - [ ] 6.1 Finish Grid, Table, and navigation catalog contracts
   - [ ] 6.2 Implement Grid through the shared Flex solver
@@ -509,36 +511,69 @@ responders without giving the graph or widgets ownership of application state.
   keyboard path; scripted focus paths match `design/showcase.md`, and resize preserves the
   app model rather than partially reconstructing it.
 
-## Phase 5 — Slice 5: Mouse and hit testing
+## Phase 5 — Slice 5: Mouse, hit testing, and text selection
 
-**Goal**: Route mouse input through clipped, ordered graph hit testing and complete
-pointer interaction without leaking terminal tracking authority into views.
+**Goal**: Route mouse input through clipped, ordered graph hit testing, provide
+application-owned layout-aware text selection, and complete pointer interaction without
+leaking terminal tracking or clipboard authority into views.
 
-### Step 5.1 — Complete pointer, hit-testing, and boundary-bubbling catalog contracts
+### Step 5.1 — Complete pointer, selection, hit-testing, and boundary-bubbling catalog contracts
 
-- Files: `design/widgets/button.md`, `text-field.md`, `scroll-view.md`, `split-view.md`,
-  `list.md` (for future parity), and relevant primitive documents.
+- Files: `design/primitives/text.md`, `design/primitives/text-selection.md`,
+  `design/widgets/button.md`, `text-field.md`, `scroll-view.md`, `split-view.md`,
+  `list.md` (for future parity), and other relevant primitive documents.
 - Ensure anatomy callout region names are the exact mouse-table `Region` values; specify
   click, drag, wheel, move/hover, focus-on-tap, edge bubbling, and disabled/hit-testing
   behavior. Resolve signed two-axis wheel normalization and paste/dictation normalization
   as explicit input decisions before coding.
+- Promote the text-selection sketch into an application-owned contract for controlled
+  semantic ranges, selection-scope identity, drag capture, cross-fragment and
+  cross-container boundaries, wrapped/wide-grapheme mapping, clipping, ScrollView offsets,
+  highlight presentation, terminal-native-selection coexistence, and policy-gated copy.
+  Decide explicitly which coordinate/range primitives, if any, are shared with editable
+  `TextField` selection.
 - Acceptance: all pointer rows reference declared state and callout regions, and each
-  requirement is traceable to a row or fixture. Promote dependencies to `ready`.
+  requirement is traceable to a row or fixture. The selection contract has exact adjacent-
+  column, clipped, scrolled, wrapped, wide-grapheme, drag-boundary, and copy-policy
+  requirements. Promote dependencies to `ready`.
 
-### Step 5.2 — Implement deepest-first hit testing and mouse responder APIs
+### Step 5.2 — Implement deepest-first hit testing, pointer capture, and mouse responder APIs
 
 - Files: `Sources/TesseraCore/Input/HitTesting.swift`, `Responder.swift`,
   `Sources/TesseraCore/Runtime/TerminalRequirements.swift`, and
   `Tests/TesseraCoreTests/HitTestingTests.swift`.
 - Implement clipped/deepest-first hit testing, ZStack topmost order, disabled subtree
   skipping, `.onTap`, `.onMouse`, `.onHover`, `allowsHitTesting`, click-to-focus, and
-  leaf/wrapper/ancestor bubbling. Escalate requirements from button events to any-event
-  motion for hover, and clear hover on focus loss/tracking disable.
+  leaf/wrapper/ancestor bubbling. Add explicit pointer capture so an accepted drag remains
+  routed to its originating responder outside the initial frame or clip until release,
+  cancellation, replacement, or node removal. Escalate requirements from button events to
+  any-event motion for hover, and clear hover on focus loss/tracking disable.
 - Acceptance: constructed-tree tables cover overlap, clipping, disabled subtrees, click
-  focus, drag/scroll routing, ignored bubbling, hover enter/exit, and independent
-  `wantsMouse`/`wantsMouseMotion` enable/disable against the session.
+  focus, captured and uncaptured drag/scroll routing, ignored bubbling, hover enter/exit,
+  responder removal during capture, and independent `wantsMouse`/`wantsMouseMotion`
+  enable/disable against the session.
 
-### Step 5.3 — Add pointer behavior to controls, TextField, SplitView, and ScrollView
+### Step 5.3 — Implement application-owned layout-aware text selection and copy
+
+- Files: new `Sources/TesseraCore/Input/TextSelection.swift`,
+  `Sources/TesseraCore/Runtime/ViewGraph.swift`, `Sources/TesseraCore/Views/Text.swift`,
+  responder and environment seams selected by the ready catalog contract, and focused
+  Core/Layout/Widget tests.
+- Keep `Text` immutable and pointer-free. Resolve pointer cells through completed-pass
+  frames, clips, wrapping, truncation, wide graphemes, and ScrollView content offsets to
+  controlled semantic selection endpoints. Selection scopes—not terminal rows—decide
+  whether a drag may extend across fragments, sibling layouts, overlays, and viewports.
+- Render visible selection segments without changing intrinsic measurement or layout
+  allocation. Copy only the selected semantic text through the existing policy-gated
+  terminal operation; unavailable or denied clipboard output must not invalidate the range
+  or silently fall back to unrelated terminal-native selection.
+- Acceptance: exact pointer/key scripts and snapshots select independently in adjacent
+  SplitView, Grid, and Table-style columns; preserve correct ranges through clipping,
+  scrolling, wrapping, combining sequences, emoji, and double-width cells; exercise drag
+  capture and node removal; and prove copy output contains only the selected semantic
+  range. No selected text enters diagnostics, logs, serialization, or telemetry.
+
+### Step 5.4 — Add pointer behavior to controls, TextField, SplitView, and ScrollView
 
 - Files: `Sources/TesseraWidgets/{Button,TextField,SplitView,ScrollView}.swift` and tests.
 - Make pointer activation use the same controlled binding/action path as keys; map
@@ -549,14 +584,16 @@ pointer interaction without leaking terminal tracking authority into views.
   pointer scripts prove control clicks, caret mapping, divider bindings, nested viewport
   bubbling, and requirement de-escalation after handler removal.
 
-### Step 5.4 — Add deterministic pointer and tracking-mode Showcase scenarios
+### Step 5.5 — Add deterministic pointer, selection, and tracking-mode Showcase scenarios
 
 - Files: `Examples/Sources/TesseraShowcase/`, fixtures, and tests.
 - Exercise primary click, hover, wheel at interior and boundary, divider drag, click-to-
-  caret, handler removal, and focus-loss transitions. Cover both real `InputEvent` scripts
-  and the resulting graph-requested/session-effective tracking modes.
+  caret, handler removal, focus-loss transitions, and application-owned selection in
+  adjacent Catalog, Playground, and Inspector text regions. Cover both real `InputEvent`
+  scripts and the resulting graph-requested/session-effective tracking modes.
 - Acceptance: Showcase never relies on live pointer timing; snapshots and state assertions
-  prove visible controls remain reachable and the terminal mode is disabled when no
+  prove visible controls remain reachable, selection stays inside its specified layout
+  scope, copying excludes neighboring columns, and the terminal mode is disabled when no
   handler requires it.
 
 ## Phase 6 — Slice 6: Grid, Table, and NavigationSplitView composition
@@ -786,6 +823,11 @@ quality gates before handing the plan's implementation to review.
 - **Mouse and terminal capabilities are requested/effective values.** Tests must
   distinguish graph aggregation from session capability policy and verify dynamic
   tracking-mode teardown.
+- **Layout-aware text selection is not provided by terminal-native selection.** Before
+  Slice 5 implementation, promote `design/primitives/text-selection.md` from `sketch` and
+  define application-owned semantic ranges, selection scopes, pointer capture, clipped and
+  scrolled coordinate mapping, highlights, terminal-native coexistence, and policy-gated
+  copy. Do not treat `.onMouse` or hit testing alone as a complete selection feature.
 - **Windows and Ghostty coverage may remain asymmetric.** Document actual build/test
   coverage and skips; do not label Phase 4 cross-platform-complete without proof.
 - **The Showcase can become a second spec.** Keep its rows and fixtures linked to catalog
@@ -818,6 +860,7 @@ quality gates before handing the plan's implementation to review.
 - `design/README.md#table-schemas`
 - `design/README.md#graduation`
 - `design/showcase.md`
+- `design/primitives/text-selection.md`
 - `.agents/investigations/020-phase-4-tessera-showcase.md`
 - `Package.swift`
 - `Examples/Package.swift`

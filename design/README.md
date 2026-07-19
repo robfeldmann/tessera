@@ -316,6 +316,7 @@ not substitute globally installed `pnpx`, `prettier`, or markdownlint commands.
 | [Style modifiers](primitives/style-modifiers.md)        | primitive | sketch     | `Style` API and environment-inheritance design            |
 | [Table](widgets/table.md)                               | widget    | specified  | Text truncation + ScrollIndicator primitives (ready gate) |
 | [Text](primitives/text.md)                              | primitive | ready      | —                                                         |
+| [Text selection](primitives/text-selection.md)          | primitive | sketch     | Slice 5 hit testing, pointer capture, and copy policy     |
 | [TextField](widgets/text-field.md)                      | widget    | wireframed | focus/key/paste + hardware cursor + semantic style API    |
 | [Tokens](tokens.md)                                     | tokens    | ready      | —                                                         |
 | [Toggle](widgets/toggle.md)                             | widget    | sketch     | focus/key routing + control contract design               |
