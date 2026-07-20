@@ -4,8 +4,8 @@ import TesseraTerminalCore
 extension VirtualTerminal {
   /// Whether Ghostty-backed virtual terminal support is absent from this build.
   ///
-  /// True only when the `CGhosttyVT` module is compiled out — on Windows without the
-  /// `TESSERA_GHOSTTY_WINDOWS=1` opt-in (see `Package.swift`).
+  /// True only when the `CGhosttyVT` module is compiled out — on platforms without a
+  /// libghostty-vt build (see `Package.swift`).
   public static var isGhosttyUnavailable: Bool {
     #if canImport(CGhosttyVT)
       false

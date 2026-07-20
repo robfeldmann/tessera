@@ -60,7 +60,7 @@ so a test does not silently pass without terminal-state inspection. Check
 ``VirtualTerminal/isGhosttyUnavailable`` only when a test needs to recognize that
 build configuration explicitly.
 
-Ghostty support is present whenever `CGhosttyVT` is compiled. On Windows, that module
-is compiled only with the `TESSERA_GHOSTTY_WINDOWS=1` opt-in. Without that opt-in,
+Ghostty support is present whenever `CGhosttyVT` is compiled, which is the case on every
+supported platform (macOS, Linux, and Windows). Without it,
 ``VirtualTerminal/ghosttyOrUnavailable(cols:rows:)`` returns the loudly unavailable
 factory.

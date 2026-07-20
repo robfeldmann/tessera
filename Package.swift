@@ -111,19 +111,6 @@ let SystemPackage: Target.Dependency = .product(
   package: "swift-system"
 )
 
-// MARK: - 👻 Ghostty VT Gate
-
-// Ghostty-backed snapshot support is always available on macOS/Linux. On Windows it is
-// opt-in until the hosted CI path is approved: set TESSERA_GHOSTTY_WINDOWS=1 (and build
-// the artifact with scripts/build-libghostty-vt.ps1) to compile CGhosttyVT in. Sources
-// gate on `#if canImport(CGhosttyVT)`, so both configurations build from one tree.
-#if os(Windows)
-  let GhosttyVTEnabled =
-    ProcessInfo.processInfo.environment["TESSERA_GHOSTTY_WINDOWS"] == "1"
-#else
-  let GhosttyVTEnabled = true
-#endif
-
 // MARK: - 🚛 Forward Module Declarations
 
 let CGhosttyVT: Target.Dependency = .byName(name: "CGhosttyVT")
@@ -172,15 +159,13 @@ let AllTesseraTargetNames: Set<String> = [
 
 // MARK: CGhosttyVT
 
-if GhosttyVTEnabled {
-  package.targets.append(
-    .target(
-      name: "CGhosttyVT",
-      path: "Sources/CGhosttyVT",
-      publicHeadersPath: "include"
-    )
+package.targets.append(
+  .target(
+    name: "CGhosttyVT",
+    path: "Sources/CGhosttyVT",
+    publicHeadersPath: "include"
   )
-}
+)
 
 // MARK: CTesseraTerminalPlatform
 
@@ -460,13 +445,11 @@ package.products.append(
   )
 )
 
-let TesseraTerminalSnapshotSupportPlatformDependencies: [Target.Dependency] =
-  GhosttyVTEnabled ? [CGhosttyVT] : []
-
 package.targets.append(contentsOf: [
   .target(
     name: "TesseraTerminalSnapshotSupport",
-    dependencies: TesseraTerminalSnapshotSupportPlatformDependencies + [
+    dependencies: [
+      CGhosttyVT,
       IssueReporting,
       TesseraTerminalANSI,
       TesseraTerminalBuffer,

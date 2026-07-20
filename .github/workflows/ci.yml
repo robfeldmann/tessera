@@ -111,9 +111,6 @@ jobs:
       fail-fast: true
       matrix:
         os: [macos-26, ubuntu-latest, windows-latest]
-    env:
-      # Enables the CGhosttyVT target on Windows (no-op elsewhere); see Package.swift.
-      TESSERA_GHOSTTY_WINDOWS: "1"
     steps:
       - name: Checkout
         uses: actions/checkout@v6

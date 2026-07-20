@@ -3760,9 +3760,9 @@ sorted protocol conformances (`Equatable, Sendable`), the unlabeled
   bytes-in/bytes-out through that shared path; no slice may add a Win32 record-based event
   source.
 - **Test harness.** The Ghostty-backed `VirtualTerminal` snapshot harness runs on macOS,
-  Linux, and Windows. CI builds libghostty-vt on all three; Windows compiles `CGhosttyVT`
-  behind the `TESSERA_GHOSTTY_WINDOWS=1` opt-in (see `Package.swift` and
-  `scripts/build-libghostty-vt.ps1`), and sources gate on `#if canImport(CGhosttyVT)` with
+  Linux, and Windows. CI builds libghostty-vt on all three, and `CGhosttyVT` is compiled
+  into the package on every platform (see `Package.swift` and
+  `scripts/build-libghostty-vt.ps1`). Sources gate on `#if canImport(CGhosttyVT)` with
   `VirtualTerminal.ghosttyOrUnavailable(cols:rows:)` as the factory. The early Phase 2
   "Windows snapshot coverage is deferred" caveat no longer applies — Phase 3 renderer work
   gets snapshot coverage on all three platforms. Lifecycle byte assertions use

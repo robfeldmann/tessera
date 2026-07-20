@@ -144,8 +144,7 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   underline behavior, stable Kitty graphics failure recovery, and explicit full-screen
   repaint.
 
-- Added Windows support for Ghostty-backed snapshot tests behind the
-  `TESSERA_GHOSTTY_WINDOWS=1` package-manifest gate, linking the static
+- Added Windows support for Ghostty-backed snapshot tests, linking the static
   `ghostty-vt-static.lib` so no runtime DLL discovery is needed.
 - Added `scripts/build-libghostty-vt.ps1`, the Windows libghostty-vt build script. It
   prefetches every pinned dependency from the Ghostty checkout's `build.zig.zon.json` with
@@ -215,8 +214,7 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   complexity warnings.
 
 - Enabled Ghostty-backed snapshot tests on hosted Windows CI: the test job now builds
-  libghostty-vt on all three platforms (Windows via `scripts/build-libghostty-vt.ps1`) and
-  sets `TESSERA_GHOSTTY_WINDOWS=1`.
+  libghostty-vt on all three platforms (Windows via `scripts/build-libghostty-vt.ps1`).
 - Changed the CI test matrix to `fail-fast` so one failing platform cancels sibling jobs,
   and gave Windows a longer per-job timeout for the one-time cold Zig build.
 - Changed the libghostty-vt Actions cache to save immediately after the libghostty-vt

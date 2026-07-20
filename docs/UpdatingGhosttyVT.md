@@ -77,13 +77,12 @@ checkout's `build.zig.zon.json` with `curl.exe` and hands the local archives to
 `zig fetch`, verifying each resulting cache key against the manifest. It installs Zig
 0.15.x from `ziglang.org` when missing (`winget` is unreliable in the Frost guest).
 
-On Windows, `CGhosttyVT` joins the package graph only when `TESSERA_GHOSTTY_WINDOWS=1` is
-set in the environment that loads `Package.swift`, and it links the static
-`ghostty-vt-static.lib` plus `ntdll` (no runtime DLL discovery). Sources gate on
-`#if canImport(CGhosttyVT)`. Both hosted Windows CI and local Frost test runs
-(`just windows-frost test`) turn the gate on; Frost provisions the artifact from the host
-cache populated by `just windows-frost build-ghostty`, while hosted CI builds it with
-`scripts/build-libghostty-vt.ps1` behind an Actions cache.
+On Windows, `CGhosttyVT` is part of the package graph as on every other platform, and it
+links the static `ghostty-vt-static.lib` plus `ntdll` (no runtime DLL discovery). Sources
+gate on `#if canImport(CGhosttyVT)`. Both hosted Windows CI and local Frost test runs
+(`just windows-frost test`) build the Ghostty-backed suites; Frost provisions the artifact
+from the host cache populated by `just windows-frost build-ghostty`, while hosted CI
+builds it with `scripts/build-libghostty-vt.ps1` behind an Actions cache.
 
 ## Just and CI behavior
 
