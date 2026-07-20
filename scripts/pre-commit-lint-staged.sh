@@ -27,7 +27,6 @@ cd "$tmp"
 swift_files=()
 markdown_files=()
 spelling_files=()
-docc_files=()
 for file in "${staged_files[@]}"; do
   quality_classify_file "$file"
 done
@@ -44,9 +43,4 @@ fi
 
 if [[ ${#spelling_files[@]} -gt 0 ]]; then
   TESSERA_REPO_ROOT="$repo_root" "$repo_root/scripts/quality-python.sh" -m codespell_lib --config .codespellrc "${spelling_files[@]}"
-fi
-
-if [[ ${#docc_files[@]} -gt 0 ]]; then
-  quality_require_docc
-  just --justfile "$tmp/Justfile" docs lint
 fi

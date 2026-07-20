@@ -170,6 +170,12 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Changed the pre-commit hook to stop running the DocC validation build. The hook exported
+  staged files into a temporary tree and rebuilt documentation from scratch, forcing a
+  full dependency re-resolution that was slow and intermittently failed on a tag-less
+  SwiftPM cache mirror. DocC warnings-as-errors remain enforced by `just docs lint` and
+  CI.
+
 - Relicensed Tessera's original material from the MIT License to the Apache License 2.0
   before its first public release; no `v0.1.0` release has been published.
 
