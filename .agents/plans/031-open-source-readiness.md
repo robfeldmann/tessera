@@ -44,7 +44,7 @@ updated: 2026-07-20
   - [x] 7.2 Add a read-only-validation plus main-branch deployment workflow
   - [ ] 7.3 Enable and verify the GitHub Pages deployment
 - [ ] **Phase 8 — Execute the staged public launch**
-  - [ ] 8.1 Run the complete local release gate
+  - [x] 8.1 Run the complete local release gate
   - [ ] 8.2 Change visibility and verify anonymous-user behavior
   - [ ] 8.3 Run the first public CI, release, and documentation smoke checks
 
