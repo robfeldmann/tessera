@@ -33,6 +33,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Hardened Windows Frost source synchronization, SSH fallback, and dependency caching while suppressing AppleDouble metadata and preserving reusable SwiftPM and Ghostty artifacts across disposable overlays.
 - Centralized linting and quality orchestration, enabled Ghostty-backed Windows CI, made the test matrix fail fast, restored full macOS/Linux/Windows and DocC validation, and moved cache saves to immediately follow reproducible artifact builds.
 - Changed Ghostty VT integration to use a shared XDG cache, build-materialized local headers, a committed static-aware umbrella header, and `canImport(CGhosttyVT)` availability checks; Linux Lima now supports per-worktree VM names and setup examples use POSIX shell syntax.
+- Hardened public-fork automation with immutable action pins, read-only validation, edited-PR checks, credential-free caches, restricted Actions permissions, protected required checks, and npm Dependabot coverage.
 
 ### Fixed
 

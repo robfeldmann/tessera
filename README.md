@@ -185,8 +185,7 @@ just quality lint     # strict format + lint gate
 
 Cross-platform work runs in reproducible VMs:
 
-- 🐧 [Linux (Lima) test runs](CONTRIBUTING.md#linux-test-runs-with-lima) and
-  `just linux …`
+- 🐧 [Linux (Lima) test runs](CONTRIBUTING.md#linux) and `just linux …`
 - 🪟 [Windows VM with Frost](docs/WindowsFrostVM.md) /
   [manual UTM setup](docs/WindowsVM.md) and `just windows-frost …` / `just windows-utm …`
 

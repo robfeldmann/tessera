@@ -120,3 +120,40 @@ The owner accepts the residual historical Frost credential in GitHub pull refs a
 separate public Frost repository, and is not requesting GitHub purging or an immediate
 Frost rewrite. This is a documented risk acceptance, not evidence that hosted history is
 clean; it must be reconsidered before changing public visibility.
+
+## Phase 6 Recheck
+
+Rechecked on 2026-07-20 after hardening the public-fork automation:
+
+- `gitleaks git --redact --no-banner .` scanned all 93 locally reachable commits and found
+  no leaks. A tracked-tree search found no owner home-directory or private workspace paths
+  after replacing those paths with public references or generic examples.
+- Validation workflows now run lint and tests after edited pull requests, use read-only
+  permissions, disable checkout credential persistence, pin every external action to a
+  full commit SHA, and cache only reproducible build artifacts. `actionlint` passes.
+- Repository Actions are enabled only for GitHub-owned actions and the reviewed
+  Swift/Zig/`just`/draft-release actions, with full-SHA pinning required.
+- The active default-branch ruleset requires squash pull requests, one code-owner
+  approval, resolved threads, signed commits, linear history, and every CI and
+  documentation job. The administrator emergency bypass works only through a pull request.
+  Discussions and every linked category are enabled; merge commits and rebase merges are
+  disabled; automatic merge and deletion of merged head branches are enabled.
+- Dependabot covers Swift, npm, and GitHub Actions monthly. All release-note and
+  issue-form labels referenced by repository configuration exist.
+- The dependency graph resolves from public GitHub URLs. The repository still has no
+  release tags, Pages site, or anonymous external package-resolution path; those are
+  intentionally deferred to Phases 7–8.
+
+The owner explicitly accepts the residual risk from the rotated Frost credential retained
+in GitHub-managed pull refs 8, 9, 12, 13, and 14 and the separate public `solcreek/frost`
+history; no GitHub Support purge is requested. The owner also confirms that
+`me@robfeldmann.com` is monitored daily for private conduct and security reports, approves
+the live governance settings, and approves a source-only launch with no GitHub Packages
+contract. These decisions clear the Phase 6 safety gate; the repository remains private
+until the later launch phase.
+
+Rollback before publication is to keep repository visibility private, disable the active
+ruleset if it blocks recovery, and restore the prior repository Actions policy. After a
+visibility change, immediately returning the repository to private and disabling Actions,
+Pages, and Releases limits further exposure but cannot retract clones or cached public
+history; credential rotation and GitHub Support remediation remain available fallbacks.

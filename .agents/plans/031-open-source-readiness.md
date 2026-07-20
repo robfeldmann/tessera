@@ -35,10 +35,10 @@ updated: 2026-07-20
   - [x] 5.2 Add private security reporting and support boundaries
   - [x] 5.3 Adopt a safe, manually reviewed vouch workflow
   - [x] 5.4 Add ownership metadata only where it reflects real stewardship
-- [ ] **Phase 6 — Harden GitHub automation for public forks**
-  - [ ] 6.1 Review workflows, actions, permissions, and fork behavior
-  - [ ] 6.2 Configure repository governance and maintenance automation
-  - [ ] 6.3 Perform the pre-publication safety gate
+- [x] **Phase 6 — Harden GitHub automation for public forks**
+  - [x] 6.1 Review workflows, actions, permissions, and fork behavior
+  - [x] 6.2 Configure repository governance and maintenance automation
+  - [x] 6.3 Perform the pre-publication safety gate
 - [ ] **Phase 7 — Publish static DocC on GitHub Pages after launch**
   - [ ] 7.1 Make the existing combined DocC build Pages-ready
   - [ ] 7.2 Add a read-only-validation plus main-branch deployment workflow
@@ -97,7 +97,7 @@ contracts that all later documentation and automation will describe.
 
 - Files: `LICENSE`; all existing source/documentation headers if any; `Package.swift`;
   `Package.resolved`; `Sources/**/Resources/**`; `Sources/**/*.docc/**`; `design/**`;
-  `CODE_OF_CONDUCT.md`; the supplied `/Users/rob/Downloads/Tessera Logo.png`; any copied
+  `CODE_OF_CONDUCT.md`; the owner-supplied Tessera logo source file; any copied
   screenshots/icons.
 - Build a contributor/author and copyright-owner list from the history and confirm who can
   approve a license change. Check that the Tessera logo, DocC artwork, Ghostty-derived
@@ -182,8 +182,8 @@ it is installed, what is unfinished, and where the deeper documentation lives.
 
 ### Step 3.1 — Add and verify the Tessera brand asset
 
-- Files: create a repository-owned asset path such as `assets/tessera-logo.png` from
-  `/Users/rob/Downloads/Tessera Logo.png`; `README.md`; optionally social-preview metadata
+- Files: create a repository-owned asset path such as `assets/tessera-logo.png` from the
+  owner-supplied Tessera logo source file; `README.md`; optionally social-preview metadata
   only if the repository owner wants to maintain it.
 - After the provenance approval in Step 1.2, copy the supplied logo into a stable,
   case-sensitive repository path, optimize it without changing its appearance, and use a
@@ -509,13 +509,19 @@ access or relying on private-repository behavior.
 - Re-run secret/history, dependency/license, link, tag-integrity, documented-dependency,
   and public-build audits after all content changes. Verify every changelog tag/comparison
   link resolves and a fresh external package can resolve the README's selected version.
-  changes. Verify no local path such as `/Users/rob`, private checkout, token, VM state,
-  or private issue/person data remains in the public surface. Review GitHub repository
-  visibility, default branch, Actions access, Packages access, Pages source, and security
-  settings as a two-person or owner checklist even if only one person executes it.
+  Verify no local home-directory path, private checkout, token, VM state, or private
+  issue/person data remains in the public surface. Review GitHub repository visibility,
+  default branch, Actions access, Packages access, Pages source, and security settings as
+  a two-person or owner checklist even if only one person executes it.
 - Acceptance: every release-blocking item is closed or explicitly marked safe, the owner
   signs off on Apache-2.0, public history, and private conduct/security reporting paths,
   and the repository is ready for visibility change with a documented rollback plan.
+
+**Completed on 2026-07-20:** the owner explicitly accepted the residual risk from the
+rotated Frost credential in GitHub-managed pull refs, confirmed that the private
+conduct/security mailbox is monitored daily, approved the live governance settings, and
+confirmed a source-only launch with no GitHub Packages contract. See
+`.agents/investigations/025-public-release-baseline.md`.
 
 ## Phase 7 — Publish static DocC on GitHub Pages after launch
 
@@ -547,11 +553,10 @@ SPI and without granting Pages privileges to pull-request builds.
   `actions/deploy-pages@v4`; grant `pages: write` and `id-token: write` only to the deploy
   job. Use `actions/configure-pages` if needed for the selected base path and retain
   concurrency cancellation so stale main builds do not deploy over newer ones.
-- Adapt the local
-  `~/Developer/removed-client/removed-private-repository/main/.github/workflows/generate-docs.yml` pattern
-  only for its public pieces. Do not carry over its private token, private private dependency,
-  Artifactory credentials, authenticated checkout, xlarge runner, or private dependency
-  setup. Use the existing public package checkout and public toolchain/dependency cache.
+- Adapt only provider-neutral pieces from previously reviewed static DocC workflows. Do
+  not carry over private tokens, dependencies, artifact credentials, authenticated
+  checkouts, paid runners, or private infrastructure. Use the existing public package
+  checkout and public toolchain/dependency cache.
 - Acceptance: a fork PR cannot deploy or access Pages write permissions; a main push
   builds, uploads, and deploys the static artifact; a manual dispatch can recover a failed
   deploy; the workflow is safe when the docs build fails and never deploys a partial
@@ -630,9 +635,6 @@ workflow end to end before announcing the project.
   <https://github.com/groue/GRDB.swift/blob/master/README.md>.
 - The Composable Architecture contribution and issue-form patterns:
   <https://github.com/pointfreeco/swift-composable-architecture>.
-- Local static DocC comparison checkout:
-  `~/Developer/removed-client/removed-private-repository/main/.github/workflows/generate-docs.yml` and
-  `~/Developer/removed-client/removed-private-repository/main/Makefile`.
 - GitHub generated release notes configuration:
   <https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes>.
 - `llm-git` 4.3.0 changelog behavior and installation:

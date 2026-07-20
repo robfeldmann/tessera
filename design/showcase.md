@@ -476,7 +476,7 @@ Tab next  Arrow edit  Enter submit  [Close]
 
 ```text
 Callouts (80x16, 0-based):
-0. r1-r4 c0-c79 First TextField -- complete bound value is `/Volumes/workspace/repos/Users/mruiz/Documents/2026/releases/platform/desktop/release-notes-final-q.md`; its 25-cell hidden prefix leaves a 77-cell visible suffix, with the caret as the 78th viewport cell.
+0. r1-r4 c0-c79 First TextField -- complete bound value is `/workspace/releases/platform/desktop/release-notes-final-q.md`; its 25-cell hidden prefix leaves a 77-cell visible suffix, with the caret as the 78th viewport cell.
 1. r5-r8 c0-c79 Second TextField -- independently focusable Unicode field; wide and combining graphemes retain boundary-safe caret placement.
 2. r9 c0-c15 Public Buttons -- submit and clear actions exercise app-owned bindings without widget business state.
 3. r10 c0-c79 Mobile host input policy -- software keyboard, Paste, and dictation feed the same focused text-event path.

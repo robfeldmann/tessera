@@ -17,14 +17,15 @@ focus-return candidate in `NodeState`.
 ## Prior art
 
 - Ratatui:
-  `/Users/rob/Developer/ratatui/ratatui/main/ratatui-core/src/layout/constraint.rs` and
-  `/Users/rob/Developer/ratatui/ratatui/main/ratatui-core/src/layout/flex.rs` define
+  `https://github.com/ratatui/ratatui/blob/main/ratatui-core/src/layout/constraint.rs` and
+  `https://github.com/ratatui/ratatui/blob/main/ratatui-core/src/layout/flex.rs` define
   named, integer layout constraints and deterministic allocation. Copy their explicit
   constraint vocabulary and bounded integer negotiation; reject a solver, ratios that
   silently change a user's requested pane size, and any widget-owned persistent state.
-- Ratatui: `/Users/rob/Developer/ratatui/ratatui/main/ratatui-core/src/layout/layout.rs`
-  is the reference for allocating adjacent rectangles from a direction and constraints.
-  Copy adjacent-rectangle composition; reject rendering borders as the split itself.
+- Ratatui:
+  `https://github.com/ratatui/ratatui/blob/main/ratatui-core/src/layout/layout.rs` is the
+  reference for allocating adjacent rectangles from a direction and constraints. Copy
+  adjacent-rectangle composition; reject rendering borders as the split itself.
 - Apple:
   [NSSplitViewController](https://developer.apple.com/documentation/appkit/nssplitviewcontroller)
   manages an ordered array of adjacent children and their dividers, supports both

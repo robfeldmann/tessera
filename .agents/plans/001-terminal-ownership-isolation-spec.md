@@ -218,4 +218,4 @@ from sounding like final public architecture.
 
 - `docs/Spec.md`
 - `.agents/skills/planning/SKILL.md`
-- `/Users/rob/Documents/pfw-concurrency-skill/skills/swift6-concurrency-migration/examples/sqlite-ownership-and-testing.md`
+- Local Swift concurrency migration skill reference for SQLite ownership and testing

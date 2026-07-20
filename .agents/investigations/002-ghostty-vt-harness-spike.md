@@ -16,7 +16,7 @@ integration?
 
 - Created an isolated worktree/branch:
   - Branch: `spike-ghostty-vt-harness`
-  - Path: `/Users/rob/Developer/robfeldmann/tessera/spike-ghostty-vt-harness`
+  - Path: a local worktree for `spike-ghostty-vt-harness`
 - Existing SwiftPM wrappers inspected:
   - `ignislabsio/libghostty-spm`
   - `Lakr233/libghostty-spm`

@@ -270,6 +270,33 @@ To spend fewer hosted CI minutes: validate locally before pushing, keep the `ski
 label on draft PRs until a hosted run is needed, push one fixup commit per attempt so
 concurrency cancels obsolete runs, and rerun only failed jobs.
 
+## Repository governance
+
+The `main` branch is protected by an active repository ruleset. Changes merge through
+squash pull requests with one approving review from the code owner, resolved review
+threads, linear history, and signed commits. The owner emergency bypass is limited to a
+pull request; direct pushes do not bypass the ruleset.
+
+Every pull request must pass these required checks:
+
+- `CI gate`
+- `conventional commits`
+- `lint`
+- `test (macos-26)`
+- `test (ubuntu-latest)`
+- `test (windows-latest)`
+- `Documentation gate`
+- `DocC validation (macOS)`
+
+The `skip-ci` label deliberately fails the two gate checks. Remove it before requesting
+review or merge. GitHub Actions require full commit-SHA pins and are restricted to
+GitHub-owned actions plus the reviewed Swift, Zig, `just`, and draft-release actions.
+Dependabot checks Swift, npm, and GitHub Actions dependencies monthly.
+
+Discussions, automatic merge after requirements pass, and automatic deletion of merged
+head branches are enabled. Maintainers squash each pull request so `main` retains one
+reviewed, Conventional Commit-style subject per change.
+
 ## Terminal lifecycle verification
 
 Terminal lifecycle, signal-handling, and renderer changes need manual verification in a

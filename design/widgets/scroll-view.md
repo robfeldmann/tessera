@@ -37,20 +37,20 @@ creates the fallback position only in `NodeState`.
 ## Prior art
 
 - Ratatui scrollbar:
-  `/Users/rob/Developer/ratatui/ratatui/main/ratatui-widgets/src/scrollbar.rs` -- copy its
-  distinct vertical/horizontal orientations and thumb geometry derived from content
+  `https://github.com/ratatui/ratatui/blob/main/ratatui-widgets/src/scrollbar.rs` -- copy
+  its distinct vertical/horizontal orientations and thumb geometry derived from content
   length, viewport length, and position. Reject its separately constructed, caller-owned
   `ScrollbarState`, endpoint arrows, and decorative track configuration: Tessera derives
   indicator state from the viewport and uses the canonical token glyphs.
 - Ratatui paragraph:
-  `/Users/rob/Developer/ratatui/ratatui/main/ratatui-widgets/src/paragraph.rs` -- copy the
-  two-dimensional offset concept and the discipline of rendering only into the intersected
-  area (its `scroll((y, x))` is intentionally reversed from Tessera's
+  `https://github.com/ratatui/ratatui/blob/main/ratatui-widgets/src/paragraph.rs` -- copy
+  the two-dimensional offset concept and the discipline of rendering only into the
+  intersected area (its `scroll((y, x))` is intentionally reversed from Tessera's
   `TerminalPosition(x:y:)`). Reject paragraph-specific post-wrap scrolling: ScrollView
   moves arbitrary already-laid-out content before clipping, so it must not reflow or
   reinterpret the child.
 - Ratatui list state:
-  `/Users/rob/Developer/ratatui/ratatui/main/ratatui-widgets/src/list/state.rs` -- copy
+  `https://github.com/ratatui/ratatui/blob/main/ratatui-widgets/src/list/state.rs` -- copy
   the visible-offset invariant and saturating boundary behavior. Reject coupling offset to
   a selected row and the hand-managed state object; ScrollView has neither a selection nor
   business state.
