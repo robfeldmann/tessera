@@ -116,6 +116,39 @@ are per-checkout, machine-global, or VM-local.
 
 PR titles must use Conventional Commit style.
 
+## Changelog and commit tools
+
+[`CHANGELOG.md`](CHANGELOG.md) is the canonical release history. Add one entry for each
+notable user- or contributor-visible change under `Unreleased`. Use only these headings:
+`Breaking Changes`, `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, and `Security`.
+Choose the heading by effect rather than commit type; documentation and tooling changes
+belong under the standard heading whose behavior they affect. Omit internal planning and
+mechanical changes.
+
+Each entry must be a concise, self-contained bullet on one physical line. Prettier
+deliberately ignores the changelog because the supported commit tools rebuild `Unreleased`
+with different valid blank-line layouts. A file-level Markdownlint directive allows either
+layout while all other Markdown rules remain enforced.
+
+`omp commit` and [`lgit`](https://github.com/can1357/llm-git) can generate a Conventional
+Commit message and update the changelog. The `Brewfile` installs `lgit`; it is optional,
+and neither changelog formatting nor linting requires an API credential. For Tessera, set
+the following non-secret option in the configuration passed to `lgit`:
+
+```toml
+changelog_revise = false
+```
+
+This prevents an unrelated commit from revising established release-note wording. Use
+`omp commit --no-changelog` or `lgit --no-changelog` when a change is not notable or when
+you have already staged its entry. A dry run previews only the commit message in the
+supported `lgit` version; it does not exercise changelog updates.
+
+Release-note labels are `breaking-change`, `enhancement`, `bug`, `documentation`,
+`dependencies`, and `maintenance`. Apply `skip-release-notes` only to changes that should
+not appear in GitHub-generated notes. These labels control the generated GitHub release
+presentation; they do not add headings to the canonical changelog.
+
 ## Coding standards
 
 Match the surrounding code and the repository conventions:
@@ -227,6 +260,58 @@ Verify before merging such changes:
 
 If a development build ever wedges your terminal, use the recovery commands in the
 README's [Terminal recovery](README.md#terminal-recovery) section.
+
+## Source-release checklist
+
+Tessera releases source only from `main`. The first public release is `v0.1.0`; subsequent
+tags use `v<SemVer>`. Before 1.0, increment the minor version for breaking API changes or
+substantial new capability and the patch version for backward-compatible fixes. Never move
+or reuse a tag that has been published.
+
+The dated version section in `CHANGELOG.md` is the canonical GitHub Release body and the
+content delivered to release-feed subscribers. `scripts/release_notes.py` extracts that
+section without rewriting it, adds a link to the tagged changelog, and fails on missing,
+duplicate, empty, wrapped, unsupported, or out-of-order content. GitHub-generated notes
+are appended afterward as supplementary pull-request links and contributor attribution.
+
+For each release:
+
+1. Start from an up-to-date, clean `main` checkout and choose the SemVer version.
+2. Confirm the proposed tag is absent locally and remotely with
+   `git tag --list v<version>` and `git ls-remote --tags origin refs/tags/v<version>`.
+3. Finalize `CHANGELOG.md`: replace `Unreleased` content with a dated `[<version>]`
+   section, add a new empty `[Unreleased]` section, and update comparison links. For the
+   first release, compare `Unreleased` from `v0.1.0`; for later releases, link the new
+   version to the previous tag.
+4. If the release contains `Breaking Changes`, put reviewed migration guidance directly in
+   that changelog section so the extracted release body and RSS/Atom entry include it.
+5. Update the README dependency example from `main` to the exact released version and add
+   or refresh a release badge only after its destination exists.
+6. Run `python3 scripts/release_notes.py v<version>`, inspect `.build/release-notes.md`,
+   and confirm every category and bullet exactly matches the dated changelog section.
+7. Run `just quality format`, the complete `swift test`, and `just quality lint`, in that
+   order. Run `just docs lint` when reference documentation changed.
+8. Merge the finalized release changes to `main`, then create an annotated tag with
+   `git tag -a v<version> -m "Tessera v<version>"`.
+9. Push only the tag, then immediately verify that a fresh external Swift package resolves
+   the tagged dependency declaration shown in the README.
+10. Run the **Draft release** workflow with the existing tag. It checks out the immutable
+    tag, regenerates `.build/release-notes.md`, and creates or updates a draft titled
+    `Tessera v<version>`. The curated changelog text remains first;
+    [`.github/release.yml`](.github/release.yml) controls the generated pull-request list
+    appended beneath it.
+11. Review the rendered draft for exact changelog wording, migration guidance, PR
+    categories, contributor attribution, comparison links, and Markdown layout. The
+    workflow must never publish automatically.
+12. Publish only after the tag, comparison links, draft body, generated notes, and
+    anonymous package resolution all pass. Verify the release page, README links, and the
+    release's entry in `https://github.com/robfeldmann/tessera/releases.atom` after
+    publication.
+
+Any failed check is a release hold. Before tagging, fix the release commit and rerun the
+gate. After a tag is visible remotely, do not force-move it: keep the release unpublished,
+fix `main`, and choose a new SemVer version. After publication, correct the problem with a
+new release rather than rewriting published history.
 
 ## Review process
 

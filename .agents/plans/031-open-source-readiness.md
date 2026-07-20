@@ -6,7 +6,7 @@ description:
   community governance, release notes, and post-launch static DocC hosting.
 status: pending
 created: 2026-07-17
-updated: 2026-07-19
+updated: 2026-07-20
 ---
 
 <!-- Allowed status values: planning, in-review, pending, in-progress, complete. -->
@@ -25,10 +25,11 @@ updated: 2026-07-19
   - [x] 3.1 Add and verify the Tessera brand asset
   - [x] 3.2 Rewrite the README around a clear user journey
   - [x] 3.3 Publish project status, roadmap, and documentation boundaries
-- [ ] **Phase 4 — Make changelog and releases predictable**
-  - [ ] 4.1 Cleanly reorganize the changelog without losing history
-  - [ ] 4.2 Add GitHub-generated release-note configuration
-  - [ ] 4.3 Define the version, tag, and release checklist
+- [x] **Phase 4 — Make changelog and releases predictable**
+  - [x] 4.1 Cleanly reorganize the changelog without losing history
+  - [x] 4.2 Add GitHub-generated release-note configuration
+  - [x] 4.3 Define the version, tag, and release checklist
+  - [x] 4.4 Publish curated changelog text in draft releases
 - [ ] **Phase 5 — Establish a lightweight contribution and trust model**
   - [ ] 5.1 Add thoughtful issue and pull-request entry points
   - [ ] 5.2 Add private security reporting and support boundaries
@@ -233,44 +234,88 @@ it is installed, what is unfinished, and where the deeper documentation lives.
 ## Phase 4 — Make changelog and releases predictable
 
 **Goal**: preserve the project's history while giving maintainers and users a repeatable
-way to prepare and publish release notes.
+way to prepare and publish detailed release notes, with one changelog shape that
+round-trips through the repository formatters, `omp commit`, and `llm-git` and becomes the
+primary RSS/Atom-visible GitHub Release body.
 
 ### Step 4.1 — Cleanly reorganize the changelog without losing history
 
-- File: `CHANGELOG.md`.
+- Files: `CHANGELOG.md`; `.prettierignore`.
 - Preserve the material history in the current `0.1.0` draft, but keep it as a release
   entry only if the Phase 1 tag decision establishes `v0.1.0` as a real baseline.
-  Otherwise fold or relabel it into the selected first public version. Rewrite the very
-  large current `Unreleased` section into user-oriented categories such as Added, Changed,
-  Fixed, Documentation, and Tooling/Infrastructure. Consolidate duplicate implementation
-  details into meaningful capabilities, call out platform support and compatibility
-  changes, and move purely internal planning noise out of release notes.
+  Otherwise fold or relabel it into the selected first public version.
+- Normalize `Unreleased` to the intersection of Keep a Changelog and `llm-git` 4.3.0: use
+  only `Breaking Changes`, `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, and
+  `Security`, in the order emitted by the tool. Do not add custom `Documentation` or
+  `Tooling/Infrastructure` headings: place notable documentation and tooling changes under
+  the semantic standard category they affect, and omit purely internal planning noise.
+  Consolidate duplicate implementation details into meaningful user-visible capabilities,
+  including platform support and compatibility changes.
+- Keep every `Unreleased` bullet self-contained on one physical Markdown line. `llm-git`
+  parses only lines whose first token is `-` or `*` under recognized headings and rebuilds
+  the entire `Unreleased` section; wrapped continuation lines and unknown headings are not
+  retained. `omp` 17.0.5 preserves entry text but emits a compact blank-line layout that
+  Prettier rewrites. Exclude `CHANGELOG.md` from Prettier and disable only Markdownlint
+  `MD022`/`MD032` in the file so both tools' layouts pass without weakening other Markdown
+  checks or allowing prose wrapping.
 - Keep comparison/tag links accurate under the selected `v<SemVer>` policy and reference
-  only tags that exist locally and on the public remote. Add a short release-note
-  convention to `CONTRIBUTING.md`: each user-visible change gets a concise entry or a
-  labeled PR that can be summarized at release time.
-- Acceptance: the changelog is readable without losing the material history, links resolve
-  against real tags, and the next release can be prepared without reclassifying every
-  commit from scratch.
+  only tags that exist locally and on the public remote.
+- Acceptance: the changelog remains readable and materially complete; the only
+  `Unreleased` headings are supported categories; all bullets are single physical lines;
+  comparison links resolve against real tags; `just quality format` leaves the changelog
+  untouched; Markdownlint accepts the tool-owned blank-line variants; and disposable
+  staged-change round trips through both changelog tools preserve every existing bullet
+  byte-for-byte except for intentional new entries.
 
 ### Step 4.2 — Add GitHub-generated release-note configuration
 
 - File: create `.github/release.yml` using GitHub's generated-release-notes configuration.
-- Define categories and labels for breaking changes, features, fixes, documentation,
-  maintenance, and dependencies; exclude or group automation-only changes; and provide a
-  release-name/body template that links the generated notes to `CHANGELOG.md` and the
-  migration guidance when needed. Add only labels that the repository will actually use.
-- Prefer GitHub's tag/release generation over a bespoke release bot because Tessera has no
-  binary artifact publication contract yet. If later packaging is needed, keep it as a
-  separate reviewed workflow rather than coupling it to note generation.
-- Acceptance: a dry-run or test tag produces correctly categorized notes from
-  representative PR labels, does not expose commit metadata that should remain private,
-  and leaves the hand-edited changelog as the canonical historical record.
+- Define pull-request categories and labels for breaking changes, features, fixes,
+  documentation, maintenance, and dependencies; exclude or group automation-only changes;
+  use `CONTRIBUTING.md` to define the release title and body convention. GitHub's
+  supported `release.yml` schema configures only exclusions and categories, not release
+  title or body templates. Treat its generated PR list as supplementary metadata appended
+  beneath the exact curated changelog section, not as a replacement for that canonical
+  prose. These GitHub categories are a presentation layer over PR labels, not additional
+  headings in the canonical changelog. Add only labels that the repository will actually
+  use.
+- Keep source-release drafting separate from binary publication. A small deterministic
+  changelog extractor and draft-only workflow are justified to prevent the GitHub Release
+  and feed entry from drifting from the tagged changelog; they must not publish
+  automatically or imply a binary artifact contract.
+- Acceptance: the configuration parses against GitHub's documented schema, maps
+  representative PR labels to the intended categories, excludes `skip-release-notes`,
+  keeps the hand-edited changelog as the canonical historical record, and does not require
+  the GitHub category names to appear in `CHANGELOG.md`. Because GitHub does not accept an
+  uncommitted configuration payload for generated-note previews, exercise the live
+  generation path after the file reaches the default branch in Step 8.3.
 
-### Step 4.3 — Define the version, tag, and release checklist
+### Step 4.3 — Define the version, tag, commit-tool, and release checklist
 
-- Files: `CONTRIBUTING.md`; `CHANGELOG.md`; `.github/release.yml`; optional
-  `.github/workflows/release.yml` only if the audit demonstrates a needed automated step.
+- Files: `CONTRIBUTING.md`; `CHANGELOG.md`; `.prettierignore`; `.github/release.yml`;
+  optional `.github/workflows/release.yml` only if the audit demonstrates a needed
+  automated step.
+- Document the changelog contract for both manual commits and automation: each notable
+  change gets one concise, single-line `Unreleased` entry under a supported category;
+  `omp commit` or `lgit` may generate and stage that entry; and `--no-changelog` is the
+  explicit escape hatch when the staged change is non-notable or its entry was already
+  authored. Keep Conventional Commit validation and changelog categorization separate: the
+  commit type informs the tool but does not authorize a nonstandard changelog heading.
+- Treat tool compatibility as versioned, not assumed. The implementation baseline is
+  `lgit-cli` 4.3.0 at upstream commit `f747ea78318532ac5a9f64070817146af6d029cb` and `omp`
+  17.0.5. The `Brewfile` installs `lgit-cli` through `uv`. Upstream `lgit` defaults
+  `changelog_revise` to `true`; use a non-secret maintainer configuration with
+  `changelog_revise = false` for Tessera so an unrelated commit cannot rewrite established
+  release-note wording. `omp commit` preserved established entries in the disposable
+  compatibility fixture.
+- Before declaring compatibility, exercise message previews and then perform real commits
+  in a disposable repository. In `llm-git` 4.3.0, `--dry-run` explicitly skips the
+  changelog flow, so `omp commit --dry-run` or `lgit --dry-run` alone cannot prove
+  round-trip safety. Install the upstream baseline only in a disposable/user tool
+  environment with its recommended `uv tool install lgit-cli==4.3.0`, record the versions
+  tested, and re-audit the parser contract before upgrading either tool. Do not add
+  `lgit-cli` as a repository runtime dependency or require contributor API credentials
+  merely to format or lint the changelog.
 - Document pre-release checks, changelog finalization, tag creation, generated-note
   review, GitHub release publication, README badge updates, and post-release
   comparison-link updates. Do not promise signed releases, binaries, Homebrew, or SPI
@@ -278,8 +323,49 @@ way to prepare and publish release notes.
 - Include a tag-integrity and consumer check: every changelog comparison/release link must
   resolve to a real public tag, and a fresh external package must resolve the exact
   dependency declaration shown in the README.
-- Acceptance: a maintainer can publish a source-only SemVer release from a clean checkout
-  by following the checklist, and a failed validation has a clear hold/rollback action.
+- Acceptance: in a disposable repository containing representative long entries and every
+  supported category, actual commits through both tested command surfaces add one
+  correctly categorized entry without truncating, dropping, duplicating, reclassifying, or
+  revising established history; preview-only commands are not accepted as changelog proof;
+  running `just quality format` before and after is a no-op after the first normalization;
+  neither test mutates the real checkout; and a maintainer can publish a source-only
+  SemVer release from a clean checkout with a clear hold/rollback action for any failed
+  validation.
+
+### Step 4.4 — Publish curated changelog text in draft releases
+
+- Files: create `scripts/release_notes.py`; create `scripts/test_release_notes.py`; update
+  `justfiles/quality.just`; create `.github/workflows/release.yml`; update
+  `CONTRIBUTING.md`.
+- Extract the exact body beneath a requested dated `## [<version>] - YYYY-MM-DD` heading
+  through the next `## [` heading or the trailing Keep a Changelog link-reference block
+  when it is the last dated section. Normalize `v<SemVer>` only for matching and the
+  tagged source link; do not summarize, wrap, reorder, or otherwise rewrite the curated
+  category and bullet text. Fail on invalid tags or dates, missing/duplicate/empty
+  sections, unsupported or repeated categories, noncanonical category order, and wrapped
+  or unbulleted content.
+- Add focused behavioral tests for exact extraction, tagged changelog links, version
+  boundaries, ambiguous/missing sections, invalid dates, category constraints, wrapped
+  entries, and the file-writing command. Run them from the portable `just quality lint`
+  gate.
+- Add a manual-dispatch **Draft release** workflow that accepts an existing `v<SemVer>`
+  tag, checks out and verifies that immutable tag, regenerates the body from the tagged
+  changelog, and uses pinned `softprops/action-gh-release` with `body_path`,
+  `draft: true`, and `generate_release_notes: true`. Scope `contents: write` to that job,
+  keep checkout credentials unpersisted, and never publish automatically. The curated
+  changelog text must appear first; GitHub's categorized PR links and contributor
+  attribution are appended afterward.
+- Extend the release checklist to review the locally generated body, the rendered draft,
+  migration guidance, generated PR categories, anonymous package resolution, and the
+  published `releases.atom` entry. Any mismatch is a release hold; never force-move a
+  visible tag.
+- Acceptance: fixture generation preserves the selected changelog body byte-for-byte and
+  rejects every invalid boundary; the focused tests and portable quality gate pass; the
+  workflow has read-only default permissions plus job-scoped release write permission and
+  can only create/update a draft for an existing matching tag. After the workflow reaches
+  the default branch, Step 8.3 must confirm that a disposable release renders the exact
+  changelog text first, appends generated PR metadata, remains unpublished until manual
+  review, and delivers the same detailed body through GitHub's release feed.
 
 ## Phase 5 — Establish a lightweight contribution and trust model
 
@@ -521,6 +607,18 @@ workflow end to end before announcing the project.
   `~/Developer/removed-client/removed-private-repository/main/Makefile`.
 - GitHub generated release notes configuration:
   <https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes>.
+- `llm-git` 4.3.0 changelog behavior and installation:
+  <https://github.com/can1357/llm-git/blob/f747ea78318532ac5a9f64070817146af6d029cb/README.md>;
+  parser/rewrite contract:
+  <https://github.com/can1357/llm-git/blob/f747ea78318532ac5a9f64070817146af6d029cb/lgit/changelog.py>;
+  supported category model:
+  <https://github.com/can1357/llm-git/blob/f747ea78318532ac5a9f64070817146af6d029cb/lgit/models.py>;
+  package/version metadata:
+  <https://github.com/can1357/llm-git/blob/f747ea78318532ac5a9f64070817146af6d029cb/pyproject.toml>.
+- Oh My Pi's curated changelog-to-release pipeline:
+  <https://github.com/can1357/oh-my-pi/blob/39c95e5e29b1c8b082059f57421ce445c3dffdd4/scripts/ci-release-notes.ts>
+  and its pinned draft/release action integration:
+  <https://github.com/can1357/oh-my-pi/blob/39c95e5e29b1c8b082059f57421ce445c3dffdd4/.github/workflows/ci.yml>.
 - GitHub Pages custom workflows:
   <https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages>.
 - Apache License 2.0: <https://www.apache.org/licenses/LICENSE-2.0>.

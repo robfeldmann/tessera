@@ -15,7 +15,7 @@ format:
 
 # Strict portable quality gate for CI, agents, and pre-PR checks. DocC validation is macOS-only
 # and intentionally available only through `just docs lint`.
-lint: _swift-format swiftlint markdown spelling wireframes architecture
+lint: _swift-format swiftlint markdown spelling wireframes architecture release-notes
     @echo "✅ Portable lint checks passed"
 
 # Strict changed-file quality gate for pre-commit/local iteration.
@@ -52,4 +52,8 @@ architecture:
     python3 -m unittest scripts/test_check_package_boundaries.py
     swift package describe --type json | python3 scripts/check-package-boundaries.py
     scripts/check-frame-region-ownership.sh
+
+# Verify tagged release bodies preserve the canonical changelog text exactly.
+release-notes:
+    python3 -m unittest scripts/test_release_notes.py
 
