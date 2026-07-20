@@ -21,10 +21,10 @@ updated: 2026-07-19
 - [x] **Phase 2 — Apply the Apache-2.0 legal baseline**
   - [x] 2.1 Replace the MIT license after ownership approval
   - [x] 2.2 Align legal references and third-party notices
-- [ ] **Phase 3 — Rebuild the public-facing documentation**
-  - [ ] 3.1 Add and verify the Tessera brand asset
-  - [ ] 3.2 Rewrite the README around a clear user journey
-  - [ ] 3.3 Publish project status, roadmap, and documentation boundaries
+- [x] **Phase 3 — Rebuild the public-facing documentation**
+  - [x] 3.1 Add and verify the Tessera brand asset
+  - [x] 3.2 Rewrite the README around a clear user journey
+  - [x] 3.3 Publish project status, roadmap, and documentation boundaries
 - [ ] **Phase 4 — Make changelog and releases predictable**
   - [ ] 4.1 Cleanly reorganize the changelog without losing history
   - [ ] 4.2 Add GitHub-generated release-note configuration

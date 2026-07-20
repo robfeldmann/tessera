@@ -5,40 +5,28 @@
     @PageImage(purpose: card, source: "tessera-card", alt: "Tessera Swift logo card artwork.")
 }
 
-A Swift TUI library for macOS, Linux, and Windows.
+A Swift foundation for terminal applications.
 
 ## Overview
 
-Tessera provides terminal foundations and a view/rendering layer for building terminal
-applications in Swift.
+Tessera currently provides terminal foundations for building terminal applications in Swift.
+View and application-programming APIs are under development and are not yet available as
+public APIs.
 
-Import `Tessera` when building applications. The target re-exports the terminal
-foundation and view-layer modules intended for app authors.
+Tessera supports macOS, Linux, and Windows with Swift 6.3 or later. Current testing covers
+macOS 26.5.2, Ubuntu 24.04, and Windows 11 ARM64 version 25H2.
+
+Import `Tessera` to explore the shared foundation. Its application-programming surface is
+still in development.
 
 ## Topics
 
-### User-facing modules
+### Current public module
 
 - ``/TesseraTerminal``
-- ``/TesseraWidgets``
 
-### Core modules
-
-- ``/TesseraCore``
-- ``/TesseraLayout``
-- ``/TesseraCore/View``
-- ``/TesseraTerminalCore``
-
-### Testing modules
+### Test support
 
 - ``/TesseraTestSupport``
 - ``/TesseraTerminalSnapshotSupport``
 - ``/TesseraTerminalTestSupport``
-
-### Terminal foundation modules
-
-- ``/TesseraTerminalANSI``
-- ``/TesseraTerminalBuffer``
-- ``/TesseraTerminalInput``
-- ``/TesseraTerminalIO``
-- ``/TesseraTerminalRendering``

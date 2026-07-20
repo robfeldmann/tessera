@@ -1,426 +1,237 @@
 # Contributing to Tessera
 
-Thank you for your interest in contributing to Tessera! This document provides guidelines
-and instructions for contributing.
+Thanks for your interest in Tessera. This guide covers how to talk to the project, set up
+a development environment, and land a change that passes the quality gate.
 
-## Code of Conduct
+Tessera is pre-1.0 and not ready for production use. The view and application-programming
+layer has no stable public API yet. Read [Project status](docs/ProjectStatus.md) for
+supported platforms, the roadmap, and documentation boundaries before proposing work.
 
-By participating in this project, you agree to abide by our
-[Code of Conduct](CODE_OF_CONDUCT.md).
+By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
 
-## How to Contribute
+## Talk first
 
-### Reporting Bugs
+Tessera is early and maintainer-led, so alignment before code saves everyone time.
 
-Before creating bug reports, please check existing issues to avoid duplicates. When
-creating a bug report, include:
+- **Questions, ideas, and proposals** →
+  [start a Discussion](https://github.com/robfeldmann/tessera/discussions). Include the
+  motivation, alternatives considered, expected benefit, and any examples or mockups.
+- **Reproducible bugs** → confirm the behavior in a Discussion first when practical, then
+  [open an Issue](https://github.com/robfeldmann/tessera/issues) with a clear title, exact
+  reproduction steps, expected vs. actual behavior, environment (Swift version, platform,
+  Tessera revision), and logs or snapshots if relevant.
+- **Pull requests** → only after a Discussion reaches agreement on the problem and
+  direction. Unsolicited PRs will be asked to start with a Discussion.
+- **Security-sensitive reports** → do not post them publicly. A private reporting path
+  will be established before public launch.
 
-- A clear and descriptive title
-- Steps to reproduce the issue
-- Expected behavior
-- Actual behavior
-- Screenshots if applicable
-- Environment details (Swift version, platform, etc.)
-
-### Suggesting Enhancements
-
-Enhancement suggestions are welcome! Please provide:
-
-- A clear and descriptive title
-- A detailed description of the proposed feature
-- Any relevant examples or mockups
-- Explanation of why this enhancement would be useful
-
-### Pull Requests
-
-1. Fork the repository
-2. Create a new branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Run the contributor gate (`just quality format`, then `just ci check`; on macOS, run
-   `just docs lint` when DocC changes)
-5. Commit your changes (`git commit -m 'feat: Adds amazing feature'`)
-6. Push to the branch (`git push origin feature/amazing-feature`)
-7. Open a Pull Request
-
-## Development Setup
-
-### Prerequisites
+## Prerequisites
 
 - Swift 6.3 or later
-- Xcode 26 or later (for macOS development and DocC validation)
-- `just`, `swift-format`, and SwiftLint for the quality gate
-- Node.js 24.14.0 (for repository-local Markdown and configuration tooling)
-- Python 3 (for the repository-local spelling tool and local documentation previews)
+- Xcode 26 or later (macOS development and DocC validation)
+- [`just`](https://github.com/casey/just),
+  [swift-format](https://github.com/apple/swift-format), and
+  [SwiftLint](https://github.com/realm/SwiftLint) for the quality gate
+- Node.js 24.14.0 (repository-local Markdown and configuration tooling)
+- Python 3 (repository-local spelling tool and local documentation previews)
 
-`just quality lint` is the portable repository gate, but “portable” does not mean
-SwiftLint is available natively on every OS. SwiftLint remains a native macOS/Linux
-prerequisite; use that environment or CI for quality checks on Windows. DocC validation
-requires macOS Xcode and `xcrun docc`.
+SwiftLint and DocC validation are macOS/Linux-native; run quality checks and `xcrun docc`
+there or in CI, not on Windows.
 
-### Installing Dependencies (Recommended)
+## Setup
 
-We recommend using [Homebrew](https://brew.sh/) to manage local development tools. We
-provide a `Brewfile` to install everything at once:
+[Homebrew](https://brew.sh/) is the recommended way to install the macOS tool set. A
+`Brewfile` installs everything at once:
 
 ```sh
-brew bundle install
+brew bundle install        # or install the tools above individually and put them on PATH
 ```
 
-Homebrew installs the macOS development-tool set declared in `Brewfile`.
-
-#### Required development tools
-
-- **[SwiftLint](https://github.com/realm/SwiftLint)** and
-  **[swift-format](https://github.com/apple/swift-format)**: Swift quality checks.
-- **[Lefthook](https://github.com/evilmartians/lefthook)**: Committed git hook
-  configuration.
-- **[just](https://github.com/casey/just)**: Project task runner.
-- **[Node.js](https://nodejs.org/)**: npm for Prettier and markdownlint pinned in
-  `package-lock.json`.
-- **[Python 3](https://www.python.org/)**: The codespell environment pinned in
-  `requirements/codespell.txt` and local documentation previews.
-
-#### Optional platform tooling
-
-- **[Lima](https://lima-vm.io/)**: Docker-free Linux test runs.
-- **[UTM](https://mac.getutm.app/)**: Windows GUI VM runs on Apple Silicon.
-- **[QEMU](https://www.qemu.org/)**, **swtpm**, and **sshpass**: Scripted Windows VM runs
-  with Frost. Frost uses SSH key authentication once its key exists; `sshpass` remains for
-  provisioning and password-auth fallback.
-
-After installing dependencies, bootstrap the repository-local quality tools and set up the
-git hooks:
+Then bootstrap the repository-local tooling and git hooks:
 
 ```sh
-npm ci
-just setup quality-tools
-just setup hooks
+npm ci                     # pinned Prettier + markdownlint
+just setup quality-tools   # pinned codespell environment
+just setup hooks           # Lefthook: non-mutating staged + Conventional Commit checks
 ```
 
-### Alternative Installation
+Optional platform tooling for cross-platform testing:
 
-If you prefer not to use Homebrew, you can install these tools individually using their
-respective installation guides linked above. Ensure they are available in your system
-`PATH`.
+- [Lima](https://lima-vm.io/) — Docker-free Linux test runs.
+- [UTM](https://mac.getutm.app/) — Windows GUI VM on Apple silicon.
+- [QEMU](https://www.qemu.org/), swtpm, and sshpass — scripted Windows VM runs with Frost.
 
-## Local Development Loop
+## The development loop
 
-Use `just` for the normal macOS development loop. Recipes are grouped by area; run `just`
-to list the available modules and commands.
+Recipes are grouped by area; run `just` to list every module and command. The fastest
+inner-loop commands while editing:
 
 ```sh
-# Mutates Swift and markup; review the resulting diff.
-just quality format
-
-# Verifies portable quality and runs the core test suite.
-just ci check
-
-# macOS only, when DocC/reference documentation changes.
-just docs lint
+just core build            # build the package (prepares libghostty-vt first)
+just core test             # full Swift test suite (non-parallel)
+just core showcase         # run the Tessera Showcase example
 ```
 
-`just quality lint` and `just ci check` only verify; `just quality format` mutates files.
-DocC validation is separate and macOS-only. `just core build` and `just core test` remain
-the fastest commands while editing.
-
-If a branch or worktree behaves differently than expected, run `just core doctor` and see
-[Local development state](docs/LocalDevelopmentState.md). That page explains which
-artifacts are per-checkout, machine-global, or VM-local.
-
-### Linux Cross-Build from macOS
-
-For a lightweight Linux compatibility check without Docker or a VM, install the Static
-Linux SDK that matches the local Swift toolchain and build with it:
+Run the narrowest relevant check first, then widen:
 
 ```sh
-just linux install-sdk
+swift test --filter TesseraTerminalTests   # focused tests
+just quality changed                        # strict checks on changed files only
+```
+
+### The quality gate
+
+Before opening a PR or handing work off, run this gate in order and make every step pass —
+focused checks alone are not sufficient:
+
+```sh
+just quality format        # 1. auto-apply SwiftLint --fix, swift-format, and markup formatting (mutates)
+just core test             # 2. the complete Swift test suite
+just quality lint          # 3. strict format, lint, Markdown, spelling, wireframe, and architecture checks
+```
+
+Steps 2 and 3 are bundled as `just ci check` if you prefer one command. On macOS, also run
+`just docs lint` when DocC or reference documentation changes (DocC validation is
+macOS-only). After editing Markdown, validate it with `npm run check:markup <path>`.
+
+Only `just quality format` (and `just quality spelling-fix`) mutate files — review their
+diffs. Committing everything the formatter touches is fine, including formatter-only
+changes. Hooks run non-mutating checks only and never autoformat.
+
+If a checkout or worktree behaves unexpectedly, run `just core doctor` and see
+[Local development state](docs/LocalDevelopmentState.md), which explains which artifacts
+are per-checkout, machine-global, or VM-local.
+
+## Pull request workflow
+
+1. Reach agreement in a Discussion.
+2. Fork and branch (`git checkout -b feat/short-description`).
+3. Make the change with tests and documentation.
+4. Pass the [quality gate](#the-quality-gate).
+5. Commit using [Conventional Commits](https://www.conventionalcommits.org/) — the same
+   policy is enforced locally and in CI (`feat: add focus routing`,
+   `fix: restore modes on SIGHUP`).
+6. Push and open a PR describing intent, user-visible behavior, validation performed, and
+   any compatibility or breaking-change notes. Do not include secrets.
+
+PR titles must use Conventional Commit style.
+
+## Coding standards
+
+Match the surrounding code and the repository conventions:
+
+- **Formatting**: 2-space indentation, no tabs; 90-character soft limit, 150-character
+  hard limit; trailing commas in multi-line arrays and dictionaries. `just quality format`
+  is authoritative — prefer it over hand-fixing individual findings.
+- **Ordering**: imports sorted alphabetically; properties sorted alphabetically within
+  their visibility group; protocol conformances sorted alphabetically (e.g.
+  `Equatable, Sendable`).
+- **Naming**: follow the Swift API Design Guidelines — camelCase for values and functions,
+  PascalCase for types.
+- **Comments and docs**: document public APIs. Comments and DocC describe enduring
+  behavior, ownership, and invariants — never plan/phase/slice/step numbers, temporary
+  delivery status, or future timing. Roadmap sequencing belongs in planning and spec
+  documents only.
+- **Platform divergence**: confine `#if os(...)` to leaf seams — a single syscall/import
+  shim, small typed platform values, or whole-file source splits in `Package.swift`. Keep
+  shared logic and call sites platform-free.
+- **Concurrency**: Swift 6 language mode with strict concurrency. Prefer structured
+  concurrency and actors for shared mutable state. Do not blanket-apply `Sendable` to
+  silence warnings — non-sendability is a feature when it prevents invalid cross-domain
+  use.
+
+## Testing
+
+- Write tests with [Swift Testing](https://developer.apple.com/documentation/testing),
+  using backticked, sentence-style function names, e.g.
+  ``@Test func `restores modes on SIGHUP`()``.
+- Prefer snapshots for structured state a human inspects as a whole (graph dumps, layout
+  trees, buffers, styles, rendered output). Prefer direct `#expect`/`#require` assertions
+  for small scalar values, API-shape checks, and identity/lifetime relationships.
+- Keep tests deterministic and isolated: explicit input scripts, injected clocks, and
+  bounded drains — never `Task.yield()` or wall-clock sleeps to "let the UI catch up."
+  Tests must be safe under the full parallel suite.
+- Cover edge cases and error conditions, and test behavior and invariants rather than
+  incidental defaults or plumbing.
+
+## Cross-platform testing
+
+CI runs the full suite on macOS, Linux, and Windows with Ghostty-backed snapshot coverage.
+Locally you can validate other platforms from macOS.
+
+### Linux
+
+Compile-check against the Static Linux SDK without a VM (does not run tests):
+
+```sh
+just linux install-sdk     # SDK metadata is pinned in scripts/config/swift-sdks.json
 just linux build
 ```
 
-The supported Swift toolchain version lives in `.swift-version`. Matching Static Linux SDK
-metadata lives in `scripts/config/swift-sdks.json`, and the `just` recipes read that
-metadata for the SDK URL, checksum, and identifier.
-
-`swift sdk install` installs a specific artifact bundle; it does not discover SDKs from a
-catalog. The SDK version must match the local Swift toolchain. If the package moves to a
-new Swift toolchain, update `.swift-version` and `scripts/config/swift-sdks.json`
-together.
-
-This proves the package compiles for Linux from macOS. It does not run the Linux test
-suite; tests need a Linux runtime such as Lima or CI.
-
-### Terminal Lifecycle Manual Verification
-
-Terminal lifecycle changes need manual checks in a real terminal in addition to unit
-tests. Use two terminal tabs or panes: one to run a Tessera demo/fixture and one to send
-signals.
+Run the Linux test suite in a [Lima](https://lima-vm.io/) VM (Ubuntu 24.04, no Docker):
 
 ```sh
-# Pane 1
-cd Examples
-swift run LifecycleModesDemo
+just linux start           # create/start the VM; set TESSERA_LINUX_VM_NAME for parallel worktrees
+just linux test            # full Linux suite from macOS
+just linux test -- --filter PlatformHandlesTests   # focused; keeps --jobs 2 --no-parallel
+just linux stop            # then `just linux delete` for a fresh environment
 ```
 
-```sh
-# Pane 2: find and terminate the fixture
-pgrep -fl LifecycleModesDemo
-kill -TERM <pid>
-```
+### Windows
 
-Verify these cases before merging lifecycle, signal-handling, or renderer changes:
+Windows on Apple silicon has two supported workflows — see the guides for first-time
+setup, SSH configuration, GUI validation, and troubleshooting:
 
-- Press `Ctrl-C` while the fixture is running; the shell should return with normal echo
-  and the primary screen visible.
-- Send `SIGTERM` from another pane with `kill -TERM <pid>`; the terminal should be
-  restored.
-- If practical, close the pane/tab or disconnect the session to exercise `SIGHUP`.
-- Resize the pane repeatedly while the fixture is running; it should keep responding and
-  repaint the full screen after resize.
-- While a demo is actively redrawing, interrupt it with `Ctrl-C` or `SIGTERM`;
-  synchronized output should not leave a visibly half-rendered frame behind in supported
-  terminals, and unsupported terminals should still recover modes and the primary screen.
-- If you are testing an injected write/flush failure, the next successful draw should
-  erase and repaint conservatively rather than trusting partially written damage bytes.
+- **Scripted (recommended):** [Windows VM with Frost](docs/WindowsFrostVM.md).
+- **Manual desktop:** [Manual Windows VM with UTM](docs/WindowsVM.md).
 
-If a development build ever leaves your terminal wedged, type the recovery command for
-your platform even if input is not visible, then press Enter.
-
-On macOS and Linux:
-
-```sh
-reset
-```
-
-If `reset` does not restore normal input echo, try:
-
-```sh
-stty sane
-```
-
-On Windows PowerShell, emit terminal reset and visibility sequences directly because
-Windows has no native `reset` or `stty sane` command:
-
-```powershell
-[Console]::Write([char]27 + '[?1049l' + [char]27 + '[?25h' + [char]27 + 'c')
-```
-
-### Linux Test Runs with Lima
-
-Use [Lima](https://lima-vm.io/) when you want to run `swift test` on Linux without Docker.
-Create and start an Ubuntu 24.04 instance:
-
-```sh
-just linux start
-```
-
-The checked-in Lima config creates an Ubuntu 24.04 VM with 4 CPUs and 12 GiB of memory,
-mounts this repository into the VM, installs Linux build tools, and installs Swift from
-`.swift-version` using Swiftly. The default VM name is `tessera-linux`; set
-`TESSERA_LINUX_VM_NAME` when two worktrees need separate running VMs. Once the VM is
-ready, run the Linux test suite from macOS:
-
-```sh
-just linux test
-```
-
-To run a focused Linux test from macOS, pass SwiftPM test arguments after `--`. The recipe
-keeps the Linux defaults (`--jobs 2 --no-parallel`) and appends your filter:
-
-```sh
-just linux test -- --filter PlatformHandlesTests
-```
-
-Prefer this targeted form while iterating; use `just linux test` for the full Linux suite.
-
-You can also open a shell in the VM for debugging:
-
-```sh
-just linux shell
-cd /path/to/tessera
-swift test
-```
-
-When finished, stop the VM (_you may need to `exit` the VM to return to macOS_):
-
-```sh
-just linux stop
-```
-
-Remove it entirely when you want a fresh environment next time. Stop the VM before
-deleting it:
-
-```sh
-just linux stop
-just linux delete
-```
-
-### Windows Test Runs
-
-Windows development on an Apple Silicon Mac has two supported local VM workflows:
-
-- **Recommended scripted workflow:** use Frost for repeatable image builds, disposable
-  test runs, persistent SSH sessions, and optional UTM GUI import. Start with
-  [Windows VM with Frost](docs/WindowsFrostVM.md).
-- **Manual desktop workflow:** use UTM directly when you want to create and manage the
-  Windows VM yourself. Follow [Manual Windows VM with UTM](docs/WindowsVM.md).
-
-For the normal Frost test loop, build the Frost images once, then build the pinned Windows
-`libghostty-vt` artifact once per pin (requires the persistent VM), and run the tests:
+The normal Frost loop builds the pinned Windows `libghostty-vt` artifact once per pin,
+then runs the Ghostty-backed suites against disposable overlays:
 
 ```sh
 just windows-frost start
-just windows-frost build-ghostty
+just windows-frost build-ghostty   # re-run after bumping scripts/ghostty-vt-version.txt
 just windows-frost stop
-just windows-frost test
+just windows-frost test            # add `-- --filter WindowsInputLoopTests` to focus
 ```
 
-`build-ghostty` runs `scripts/build-libghostty-vt.ps1` in the guest and caches the
-artifact on the host; `test` provisions that cache into each disposable overlay and runs
-the Ghostty-backed snapshot suites for real (`TESSERA_GHOSTTY_WINDOWS=1`). Re-run
-`build-ghostty` after bumping `scripts/ghostty-vt-version.txt`.
+For manual GUI validation, run a Tessera demo in each host you support — Windows Terminal
+(PowerShell), PowerShell in classic conhost, and `cmd.exe` — and verify arrow keys, `q`
+clean exit, `Ctrl-C` cleanup, resize-driven redraw, and terminal restoration (prompt
+returns with normal echo, a visible cursor, and the primary screen active).
 
-To run a focused Frost test, pass SwiftPM test arguments after `--`. The recipe keeps the
-Windows default (`--no-parallel`) and appends your filter:
+To spend fewer hosted CI minutes: validate locally before pushing, keep the `skip-ci`
+label on draft PRs until a hosted run is needed, push one fixup commit per attempt so
+concurrency cancels obsolete runs, and rerun only failed jobs.
+
+## Terminal lifecycle verification
+
+Terminal lifecycle, signal-handling, and renderer changes need manual verification in a
+real terminal in addition to unit tests. Use two panes — one running a fixture, one
+sending signals:
 
 ```sh
-just windows-frost test -- --filter WindowsInputLoopTests
+swift run --package-path Examples LifecycleModesDemo   # pane 1
+pgrep -fl LifecycleModesDemo && kill -TERM <pid>       # pane 2
 ```
 
-The hosted CI matrix runs macOS, Linux, and Windows, all with Ghostty-backed snapshot
-coverage: every test job builds (or cache-restores) the pinned libghostty-vt before
-`swift build`, and the workflow sets `TESSERA_GHOSTTY_WINDOWS=1` so the Windows package
-graph includes `CGhosttyVT` too. The matrix uses `fail-fast`, so one failing OS cancels
-the sibling jobs to save hosted minutes. If a future Windows bring-up needs a focused
-local loop again, `just ci ci-windows` accepts `TESSERA_CI_WINDOWS_TEST_FILTER`:
+Verify before merging such changes:
 
-```sh
-TESSERA_CI_WINDOWS_TEST_FILTER=TesseraTerminalIOTests just ci ci-windows
-```
+- `Ctrl-C` returns the shell with normal echo and the primary screen visible.
+- `SIGTERM` (and, if practical, `SIGHUP` via closing the pane) restores the terminal.
+- Repeated resizes keep the fixture responding and repainting the full screen.
+- Interrupting an active redraw leaves no half-rendered frame in supported terminals, and
+  unsupported terminals still recover modes and the primary screen.
+- After an injected write/flush failure, the next successful draw repaints conservatively
+  rather than trusting partially written damage bytes.
 
-To spend fewer hosted minutes while iterating:
+If a development build ever wedges your terminal, use the recovery commands in the
+README's [Terminal recovery](README.md#terminal-recovery) section.
 
-- Prove changes locally in Frost or UTM before pushing.
-- Keep the `skip-ci` label on draft PRs until a hosted run is needed.
-- Push one fixup commit per validation attempt so workflow concurrency cancels obsolete
-  runs.
-- Rerun only failed jobs in GitHub Actions; avoid rerunning the full workflow unless setup
-  or cache state changed.
+## Review process
 
-The CI workflow restores the SwiftPM cache before `swift build`, keyed by the runner OS,
-architecture, `.swift-version`, and `Package.resolved`; when there is no exact cache hit,
-it saves the cache immediately after a successful build and before tests. Ghostty VT
-artifacts live in a second cache keyed by the pinned revision and both build scripts,
-saved immediately after the libghostty-vt build step so a later build/test failure cannot
-lose the expensive Zig artifact (the cache stores installed artifacts only; source
-checkouts and intermediate build trees are excluded). The build scripts materialize the
-generated Ghostty headers into the gitignored `Sources/CGhosttyVT/include/ghostty/`
-directory that the `CGhosttyVT` module map umbrellas. Windows does not resolve the
-Swift-DocC plugin (it is declared non-Windows in `Package.swift`).
-
-For manual GUI validation, run a Tessera terminal demo in each Windows host terminal you
-intend to support:
-
-- Windows Terminal running PowerShell.
-- PowerShell in classic conhost.
-- `cmd.exe` in classic conhost.
-
-In each host, verify arrow keys, `q` clean exit, `Ctrl-C` cleanup, resize-driven redraw,
-and terminal restoration. After interruption, the prompt should return with normal input
-echo, a visible cursor, and the primary screen active.
-
-For manual UTM VM runs, bootstrap the VM and then run:
-
-```sh
-export TESSERA_WINDOWS_VM_SSH=tessera-windows
-just windows-utm check
-just windows-utm test
-```
-
-Manual UTM tests accept the same forwarded SwiftPM arguments:
-
-```sh
-just windows-utm test -- --filter WindowsConsoleModeTests
-```
-
-Use the detailed guides above for first-time setup, SSH configuration, GUI validation, and
-troubleshooting.
-
-### Git Hooks
-
-We use [Lefthook](https://github.com/evilmartians/lefthook) to install the committed
-non-mutating staged-quality and Conventional Commit checks:
-
-```sh
-# Install Lefthook if you did not use Brewfile.
-brew install lefthook
-
-# Install or update hooks for this checkout.
-just setup hooks
-```
-
-This configures Git to validate staged content without modifying it and to apply the same
-Conventional Commit policy locally and in CI. Hooks never autoformat or stage corrections.
-
-### Quality Checks and Formatting
-
-```sh
-# Check all portable quality policy without modifying files.
-just quality lint
-
-# Apply deterministic SwiftLint → swift-format → Prettier formatting.
-just quality format
-
-# Check spelling, or explicitly write reviewed spelling corrections.
-just quality spelling
-just quality spelling-fix
-```
-
-`just quality format` and `just quality spelling-fix` mutate files; review their diffs.
-Hooks run only non-mutating checks.
-
-## Coding Standards
-
-### General Guidelines
-
-- Follow Swift API Design Guidelines
-- Use Swift 6 language features appropriately
-- Write documentation comments for public APIs
-- Keep functions small and focused
-- Prefer value types over reference types when appropriate
-
-### Code Style
-
-- **Indentation**: 2 spaces (no tabs)
-- **Line length**: Maximum 90 characters (soft limit), 150 characters (hard limit)
-- **Trailing commas**: Required in multi-line arrays and dictionaries
-- **Imports**: Sorted alphabetically
-- **Properties**: Sorted alphabetically within their visibility groups
-- **Naming**: Use camelCase for variables/functions, PascalCase for types
-
-### Concurrency
-
-- Use structured concurrency whenever possible
-- Mark async functions appropriately
-- Use actors for shared mutable state
-- Enable strict concurrency checking
-
-### Testing
-
-- Write tests for all new functionality
-- Use Swift Testing framework
-- Follow the Arrange-Act-Assert pattern
-- Test edge cases and error conditions
-- Aim for high code coverage
-
-## Review Process
-
-All submissions require review. Reviewers will check for:
-
-- Correctness and completeness
-- Code style and conventions
-- Test coverage
-- Documentation
-- Performance implications
+All submissions require review. Reviewers check correctness and completeness, adherence to
+the coding standards above, test coverage, documentation, and performance implications.
 
 ## License
 

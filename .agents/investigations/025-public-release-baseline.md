@@ -79,13 +79,12 @@ what contracts must later public documentation and automation follow?
 
 ### Supported-platform and release contract
 
-- **Supported distribution platform:** macOS 26 or later. This is the sole platform
-  declared by both package manifests. The required toolchain is Swift 6.3; the repository
-  pins Swift 6.3.2 and uses Swift language mode 6.
-- **CI-only validation platforms:** Linux and Windows. The CI matrix builds and tests all
-  three operating systems, with Windows enabling the Ghostty target through
-  `TESSERA_GHOSTTY_WINDOWS=1`, but those runs do not make Linux or Windows supported
-  SwiftPM platforms while the manifests declare only macOS.
+- **Supported distribution platforms:** macOS 26 or later, Linux, and Windows. The
+  required toolchain is Swift 6.3; the repository pins Swift 6.3.2 and uses Swift language
+  mode 6. The package manifests declare the macOS deployment baseline but do not define or
+  exclude the supported non-Apple platforms.
+- **CI validation:** the CI matrix builds and tests all three supported operating systems,
+  with Windows enabling the Ghostty target through `TESSERA_GHOSTTY_WINDOWS=1`.
 - **Published products:** `Tessera`, `TesseraTerminal`, `TesseraTerminalSnapshotSupport`,
   `TesseraTerminalTestSupport`, and `TesseraTestSupport`. The examples are a separate
   macOS-only package with local-path dependency on the parent checkout; they are not
