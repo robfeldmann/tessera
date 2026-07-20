@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Added deterministic mode lifecycle handling, semantic SGR underline variants, colored underlines, renderer transitions, compatibility behavior, snapshots, and exact-byte coverage.
 - Added runtime protocol controls and capability reconciliation with bounded active probes, serialized failure-safe mode transactions, live policy changes, emergency cleanup storage, repaint behavior, and a runtime-control demo.
 - Added Windows Ghostty snapshot support with a static library, reproducible Zig build and cache tooling, Frost VM recipes, console mode setup and restoration, live terminal device I/O, focused cross-platform test recipes, and hosted CI coverage.
+- Added public issue, Discussion, and pull-request forms, private security and conduct reporting, solo-maintainer ownership metadata, and a fork-safe reviewed contributor vouch gate with tested trust parsing.
 
 ### Changed
 

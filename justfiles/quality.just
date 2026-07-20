@@ -15,7 +15,7 @@ format:
 
 # Strict portable quality gate for CI, agents, and pre-PR checks. DocC validation is macOS-only
 # and intentionally available only through `just docs lint`.
-lint: _swift-format swiftlint markdown spelling wireframes architecture release-notes
+lint: _swift-format swiftlint markdown spelling wireframes architecture release-notes vouch
     @echo "✅ Portable lint checks passed"
 
 # Strict changed-file quality gate for pre-commit/local iteration.
@@ -56,4 +56,8 @@ architecture:
 # Verify tagged release bodies preserve the canonical changelog text exactly.
 release-notes:
     python3 -m unittest scripts/test_release_notes.py
+
+# Verify contributor trust parsing and fork-gate behavior.
+vouch:
+    node --test .github/scripts/vouch-gate.test.cjs
 

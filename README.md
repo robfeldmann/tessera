@@ -190,18 +190,29 @@ Cross-platform work runs in reproducible VMs:
 - 🪟 [Windows VM with Frost](docs/WindowsFrostVM.md) /
   [manual UTM setup](docs/WindowsVM.md) and `just windows-frost …` / `just windows-utm …`
 
-Please start a Discussion before opening a pull request so we can agree on the problem and
-direction first.
+Start in the appropriate Discussion category before opening a pull request so we can agree
+on the problem and direction. First-time contributors then use the
+[Vouch Request form](https://github.com/robfeldmann/tessera/discussions/new?category=vouch-request).
 
 ## Community
 
-- 💬 [GitHub Discussions](https://github.com/robfeldmann/tessera/discussions) — usage
-  questions, design proposals, feature ideas, prospective contributions.
-- 🐛 [GitHub Issues](https://github.com/robfeldmann/tessera/issues) — reproducible bugs
-  (discuss first when practical).
-- 📜 [Code of Conduct](CODE_OF_CONDUCT.md).
-- 🔒 Do not report security-sensitive issues publicly. A private reporting path will be
-  established before public launch.
+- ❓ [Q&A](https://github.com/robfeldmann/tessera/discussions/new?category=q-a) — usage
+  and development questions.
+- 💡
+  [Feature Requests and Ideas](https://github.com/robfeldmann/tessera/discussions/new?category=feature-requests-ideas)
+  — user needs and proposed behavior before implementation.
+- 🔎
+  [Issue Triage](https://github.com/robfeldmann/tessera/discussions/new?category=issue-triage)
+  — help confirming or minimizing behavior that may be a bug.
+- 🐛 [Bug reports](https://github.com/robfeldmann/tessera/issues/new?template=bug.yml) —
+  confirmed reproducible defects with environment and revision details.
+- 📜 [Code of Conduct](CODE_OF_CONDUCT.md) — community standards and private incident
+  reporting.
+- 🔒 [Security Policy](SECURITY.md) — private vulnerability reporting. Never disclose a
+  vulnerability in a public issue or Discussion.
+
+Tessera is early and solo-maintained. Public questions and reports are welcome, but triage
+may be slow and the project does not provide guaranteed support.
 
 ## Terminal recovery
 

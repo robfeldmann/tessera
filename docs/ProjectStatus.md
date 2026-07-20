@@ -138,11 +138,16 @@ lives in [`docs/Spec.md`](Spec.md).
 
 ## Communication
 
-Start a [GitHub Discussion](https://github.com/robfeldmann/tessera/discussions) for usage
-questions, design proposals, feature ideas, or a prospective contribution. Open a
-[GitHub Issue](https://github.com/robfeldmann/tessera/issues) for a reproducible bug after
-discussing it first when practical. Do not open an unsolicited pull request: start a
-Discussion and wait for maintainer agreement on the problem and direction.
+Use [Q&A](https://github.com/robfeldmann/tessera/discussions/new?category=q-a) for usage
+questions,
+[Feature Requests and Ideas](https://github.com/robfeldmann/tessera/discussions/new?category=feature-requests-ideas)
+for proposed behavior, and
+[Issue Triage](https://github.com/robfeldmann/tessera/discussions/new?category=issue-triage)
+for behavior that still needs confirmation. Open a
+[bug report](https://github.com/robfeldmann/tessera/issues/new?template=bug.yml) once a
+defect is reproducible. Do not open an unsolicited pull request: wait for maintainer
+agreement and complete the
+[vouched contributor workflow](../CONTRIBUTING.md#vouched-contributor-workflow).
 
-Do not post security-sensitive reports in public issues. A private security-reporting path
-will be established before public launch.
+Report vulnerabilities through the private process in the
+[Security Policy](../SECURITY.md), never through a public issue or Discussion.

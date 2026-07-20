@@ -1,6 +1,9 @@
 # Changelog tools own this Markdown layout
 CHANGELOG.md
 
+# Vouch owns the public Trustdown syntax
+.github/VOUCHED.td
+
 # DocC documentation files
 **/*.docc/**/*.md
 Sources/**/Documentation.docc/**/*.md

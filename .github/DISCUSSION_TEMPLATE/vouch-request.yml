@@ -1,0 +1,54 @@
+title: "[Vouch request] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > [!IMPORTANT]
+        > This form is for first-time contributors whose proposed work has already been discussed with the maintainer. Read the [Contributing Guide](https://github.com/robfeldmann/tessera/blob/main/CONTRIBUTING.md), keep the request concise, and explain the work in your own voice.
+        >
+        > Approval does not reserve the work or bypass review. If the request is accepted, the maintainer will add you through a separate, reviewed trust-list pull request. Open or reopen your contribution only after that change reaches the default branch.
+  - type: input
+    id: accepted-work
+    attributes:
+      label: Accepted issue or Discussion
+      description:
+        Link the issue or Discussion where the problem and direction were agreed.
+      placeholder: https://github.com/robfeldmann/tessera/discussions/123
+    validations:
+      required: true
+  - type: textarea
+    id: change
+    attributes:
+      label: What do you want to change?
+      description:
+        Describe the smallest contribution you intend to make and the part of Tessera it
+        affects.
+      placeholder: I would like to fix or add …
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Why do you want to make this change?
+      description:
+        Explain your motivation, relevant experience, or how the change helps Tessera
+        users.
+    validations:
+      required: true
+  - type: checkboxes
+    id: acknowledgements
+    attributes:
+      label: Acknowledgements
+      options:
+        - label:
+            I read the Contributing Guide and understand the vouched contributor workflow.
+          required: true
+        - label:
+            I understand that a vouch permits me to present work but does not grant merge
+            or repository authority.
+          required: true
+        - label: I described my own understanding and motivation in this request.
+          required: true
+        - label:
+            I did not include credentials, private logs, or other sensitive information.
+          required: true

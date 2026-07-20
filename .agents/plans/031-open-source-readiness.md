@@ -30,11 +30,11 @@ updated: 2026-07-20
   - [x] 4.2 Add GitHub-generated release-note configuration
   - [x] 4.3 Define the version, tag, and release checklist
   - [x] 4.4 Publish curated changelog text in draft releases
-- [ ] **Phase 5 — Establish a lightweight contribution and trust model**
-  - [ ] 5.1 Add thoughtful issue and pull-request entry points
-  - [ ] 5.2 Add private security reporting and support boundaries
-  - [ ] 5.3 Adopt a safe, maintainer-controlled vouch workflow
-  - [ ] 5.4 Add ownership metadata only where it reflects real stewardship
+- [x] **Phase 5 — Establish a lightweight contribution and trust model**
+  - [x] 5.1 Add thoughtful issue, Discussion, and pull-request entry points
+  - [x] 5.2 Add private security reporting and support boundaries
+  - [x] 5.3 Adopt a safe, manually reviewed vouch workflow
+  - [x] 5.4 Add ownership metadata only where it reflects real stewardship
 - [ ] **Phase 6 — Harden GitHub automation for public forks**
   - [ ] 6.1 Review workflows, actions, permissions, and fork behavior
   - [ ] 6.2 Configure repository governance and maintenance automation
@@ -373,21 +373,27 @@ primary RSS/Atom-visible GitHub Release body.
 solo-maintained project can provide unlimited support or safely execute untrusted fork
 code.
 
-### Step 5.1 — Add thoughtful issue and pull-request entry points
+### Step 5.1 — Add thoughtful issue, Discussion, and pull-request entry points
 
-- Files: create `.github/ISSUE_TEMPLATE/bug.yml`; `.github/ISSUE_TEMPLATE/feature.yml` or
-  `enhancement.yml`; `.github/ISSUE_TEMPLATE/config.yml`; create
-  `.github/PULL_REQUEST_TEMPLATE.md`.
-- Use concise forms modeled on TCA's useful environment/reproduction capture and GRDB's
-  clear issue/discussion boundaries: platform, Swift/Xcode version, Tessera revision,
-  reproducible steps, expected/actual behavior, logs or snapshots, and scope. Add a
-  question/support route to Discussions only if Discussions will be enabled and monitored.
+- Files: create `.github/ISSUE_TEMPLATE/bug.yml`; `.github/ISSUE_TEMPLATE/config.yml`;
+  `.github/PULL_REQUEST_TEMPLATE.md`;
+  `.github/DISCUSSION_TEMPLATE/feature-requests-ideas.yml`; and
+  `.github/DISCUSSION_TEMPLATE/issue-triage.yml`. Do not keep a competing enhancement
+  issue form when feature requests belong in Discussions.
+- Match each Discussion form filename to its enabled repository category slug. Use the
+  answer-enabled Issue Triage category for behavior that still needs confirmation and the
+  Feature Requests and Ideas category for user needs and proposed behavior. Reserve the
+  issue form for confirmed reproducible bugs with platform, Swift/Xcode version, Tessera
+  revision, expected/actual behavior, and optional redacted logs or snapshots. Route Q&A
+  through its enabled Discussion category.
 - The PR template should ask for intent, user-visible behavior, tests/validation, docs or
   changelog impact, and compatibility/Breaking Change notes without becoming a long form.
-  Add a no-secrets reminder and a note that early-project issues may be triaged slowly.
-- Acceptance: opening a bug, feature, and PR on a disposable branch presents the intended
-  fields, accepts accessibility-friendly plain text, and does not force contributors
-  through irrelevant questions.
+  Every form must accept accessibility-friendly plain text, warn against secrets, and
+  avoid irrelevant required questions; early-project triage may be slow.
+- Acceptance: the live category slugs exactly match all Discussion form filenames and
+  routes; opening a Q&A, feature idea, issue-triage Discussion, bug report, and pull
+  request presents the intended fields; confirmed and unconfirmed defects have one clear
+  path each; and the issue chooser does not offer a competing feature-request route.
 
 ### Step 5.2 — Add private security reporting and support boundaries
 
@@ -405,25 +411,47 @@ code.
   tested by the maintainer without sending a real vulnerability, and no public template
   asks for credentials, private logs, or other secrets.
 
-### Step 5.3 — Adopt a safe, maintainer-controlled vouch workflow
+### Step 5.3 — Adopt a safe, manually reviewed vouch workflow
 
-- Files: `.github/APPROVED_CONTRIBUTORS` (or an equivalent reviewed allowlist);
-  `.github/workflows/approve-contributor.yml`;
-  `.github/workflows/approve-merged-contributor.yml`; any PR/issue gate workflows;
-  `CONTRIBUTING.md`.
-- Adapt the observable Herdr pattern—an explicit approved-contributor list and a
-  maintainer action after a trustworthy contribution—rather than copying its
-  project-specific code. Define who may vouch, how a contributor is added or removed,
-  whether the list is public, and how first-time contributions are reviewed. Keep CI and
-  branch protection authoritative: a vouch must never merge code or bypass required
-  checks.
-- Make all automation least-privilege and fork-safe. Do not check out or execute untrusted
-  PR code in a privileged `pull_request_target` workflow; do not expose secrets to fork
-  builds; validate maintainer identity for any approval command; and prefer a manual,
-  auditable list update if GitHub permissions cannot make an automated update safe.
-- Acceptance: a disposable fork/first-time-contributor scenario demonstrates the approval
-  and post-merge path, an already-vouched contributor is not repeatedly gated,
-  unauthorized actors cannot add themselves, and required CI/branch rules still apply.
+- Files: create `.github/VOUCHED.td`; `.github/workflows/vouch-check-pr.yml`;
+  `.github/DISCUSSION_TEMPLATE/vouch-request.yml`; and update `CONTRIBUTING.md`. Do not
+  create Herdr-style direct-push `approve-contributor.yml` or automatic
+  `approve-merged-contributor.yml` workflows.
+- Adopt Vouch's public trust-file model without initially depending on its composite
+  action: the reviewed upstream action currently installs an unbounded Nushell `*` runtime
+  in a privileged workflow. Keep the initial checker in the trusted default-branch
+  workflow, and define the supported `VOUCHED.td` subset explicitly: comments and blank
+  lines, `github:<login>` for vouched users, and `-github:<login>` for denounced users.
+  Compare GitHub logins case-insensitively; reject malformed, duplicate, or conflicting
+  entries; and never put sensitive moderation details in the public file.
+- Run the gate on `pull_request_target` for opened and reopened pull requests. Read the
+  trust file from the repository's default branch through the GitHub API; never check out
+  or execute the contributor's branch. Permit actual maintainers, explicitly named
+  installed automation such as Dependabot, and vouched users. Give unvouched or denounced
+  contributors a concise process comment and close the pull request. Treat trust-file or
+  API failures as a failed gate without destructively closing the pull request.
+- Require first-time contributors to link accepted work and explain their intended change
+  through the answer-enabled Vouch Request Discussion form. If accepted, make the trust
+  change through a maintainer-authored branch and ordinary pull request subject to normal
+  checks and manual merge. Document the one-line vouch diff, reopening after the trust
+  update reaches the default branch, and the equivalent removal or denouncement process. A
+  trustworthy merged contribution may prompt a separate vouch pull request, but must never
+  grant permanent trust automatically. Reading only the default-branch trust file must
+  prevent a contributor from authorizing their own pull request by editing its copy.
+- Keep permissions to the minimum needed to read repository content and comment on or
+  close a pull request. Pin every action to an immutable commit; do not add a PAT, GitHub
+  App, delegated manager list, direct push, immediate merge, or branch-protection bypass.
+  A vouch controls only whether a contribution may be presented: CI, review, and branch
+  rules remain authoritative.
+- Acceptance: the Vouch Request filename matches its live answer-enabled category slug and
+  captures the accepted work, intended change, motivation, and trust boundary; in a
+  disposable fork scenario, an unknown contributor receives the documented gate; editing
+  `VOUCHED.td` in that pull request cannot self-authorize it; a maintainer-authored
+  trust-list pull request passes normal checks and, only after manual merge, allows the
+  contribution to be reopened; removal or denouncement gates later pull requests;
+  malformed or unavailable trust data fails safely without executing fork code or closing
+  valid work; unauthorized actors cannot mutate trust; and required CI/review/branch rules
+  still apply to every vouched contributor.
 
 ### Step 5.4 — Add ownership metadata only where it reflects real stewardship
 

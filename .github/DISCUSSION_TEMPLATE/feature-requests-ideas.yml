@@ -1,0 +1,54 @@
+title: "[Idea] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Tessera is early and maintainer-led. Start with the user need and observable behavior rather than an implementation. A Discussion does not reserve the work or approve a pull request.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or user need
+      description: What workflow, limitation, or use case should Tessera address?
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Proposed behavior
+      description: What should a Tessera user be able to observe or accomplish?
+    validations:
+      required: true
+  - type: textarea
+    id: benefit
+    attributes:
+      label: Why this belongs in Tessera
+      description:
+        Who benefits, and why is this preferable to handling the need outside Tessera?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description:
+        Optional workarounds, alternative designs, or related libraries and APIs.
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and compatibility
+      description:
+        Optional affected modules, public APIs, platforms, migration concerns, examples,
+        or mockups.
+  - type: checkboxes
+    id: acknowledgements
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing Issues and Discussions for this idea.
+          required: true
+        - label:
+            I understand that this Discussion does not reserve the work or approve a pull
+            request.
+          required: true
+        - label: I did not include credentials or other sensitive information.
+          required: true

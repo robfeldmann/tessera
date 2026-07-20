@@ -1,0 +1,78 @@
+name: Bug report
+description:
+  Report reproducible behavior that does not match Tessera's documented behavior
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Tessera. Do not include credentials, private logs, or security-sensitive details. Use the private path in SECURITY.md for vulnerabilities.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What went wrong?
+      placeholder: A concise description of the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Provide the smallest complete sequence that reproduces the behavior.
+      placeholder: |
+        1. Configure …
+        2. Run …
+        3. Observe …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should have happened?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include every item below that applies.
+      placeholder: |
+        - Platform and OS version:
+        - Swift version:
+        - Xcode version, if applicable:
+        - Tessera release or commit:
+        - Terminal and version, if applicable:
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Logs or snapshots
+      description: Optional minimal, redacted output that helps demonstrate the problem.
+      placeholder:
+        Remove credentials, tokens, personal data, and unrelated private output.
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Optional scope, impact, regression, or workaround details.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues and Discussions for this problem.
+          required: true
+        - label: I removed credentials, private logs, and other sensitive information.
+          required: true

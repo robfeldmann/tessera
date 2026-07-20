@@ -13,17 +13,49 @@ By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 Tessera is early and maintainer-led, so alignment before code saves everyone time.
 
-- **Questions, ideas, and proposals** →
-  [start a Discussion](https://github.com/robfeldmann/tessera/discussions). Include the
-  motivation, alternatives considered, expected benefit, and any examples or mockups.
-- **Reproducible bugs** → confirm the behavior in a Discussion first when practical, then
-  [open an Issue](https://github.com/robfeldmann/tessera/issues) with a clear title, exact
-  reproduction steps, expected vs. actual behavior, environment (Swift version, platform,
-  Tessera revision), and logs or snapshots if relevant.
-- **Pull requests** → only after a Discussion reaches agreement on the problem and
-  direction. Unsolicited PRs will be asked to start with a Discussion.
-- **Security-sensitive reports** → do not post them publicly. A private reporting path
-  will be established before public launch.
+- **Questions** →
+  [open a Q&A Discussion](https://github.com/robfeldmann/tessera/discussions/new?category=q-a)
+  with the relevant environment and what you are trying to understand.
+- **Feature requests and design ideas** →
+  [open an idea Discussion](https://github.com/robfeldmann/tessera/discussions/new?category=feature-requests-ideas)
+  describing the user need, proposed behavior, benefit, alternatives, and scope.
+- **Behavior that still needs confirmation** →
+  [open an Issue Triage Discussion](https://github.com/robfeldmann/tessera/discussions/new?category=issue-triage)
+  with the reproduction so far, expected and actual behavior, and environment details.
+- **Confirmed reproducible bugs** →
+  [open a bug report](https://github.com/robfeldmann/tessera/issues/new?template=bug.yml)
+  with the minimal reproduction and redacted logs or snapshots when relevant.
+- **Pull requests** → only after an issue or Discussion reaches agreement on the problem
+  and direction. Unsolicited pull requests will be asked to start there.
+- **Security-sensitive reports** → follow the private process in
+  [SECURITY.md](SECURITY.md). Never disclose a vulnerability publicly.
+- **Conduct incidents** → use the private reporting path in the
+  [Code of Conduct](CODE_OF_CONDUCT.md), not a public issue.
+
+Tessera is solo-maintained. Questions and reports are welcome, but triage may be slow and
+there is no guaranteed support response.
+
+## Vouched contributor workflow
+
+Tessera uses a public contributor trust list to keep review time focused without granting
+merge or repository authority:
+
+1. Start with the appropriate issue or Discussion form and agree on the problem and
+   direction before writing code.
+2. For a first contribution, submit the
+   [Vouch Request form](https://github.com/robfeldmann/tessera/discussions/new?category=vouch-request)
+   linking that accepted work and explaining the intended change in your own voice.
+3. If accepted, the maintainer creates a branch containing the one-line
+   `.github/VOUCHED.td` change (`github:<login>`), opens an ordinary pull request, waits
+   for the normal checks, and merges it manually.
+4. Open or reopen the contribution pull request only after that trust update reaches the
+   default branch. Editing `VOUCHED.td` in the contribution itself cannot authorize it.
+
+Vouching only permits a contributor to present work. Every contribution still requires the
+normal CI, review, and branch rules. A merged contribution does not create permanent trust
+automatically. Removal or denouncement uses the same maintainer-authored pull request
+process, with `-github:<login>` representing denouncement. Never put sensitive moderation
+reasons in the public trust file.
 
 ## Prerequisites
 
@@ -104,7 +136,8 @@ are per-checkout, machine-global, or VM-local.
 
 ## Pull request workflow
 
-1. Reach agreement in a Discussion.
+1. Reach agreement in an issue or Discussion and complete the
+   [vouched contributor workflow](#vouched-contributor-workflow) when it applies.
 2. Fork and branch (`git checkout -b feat/short-description`).
 3. Make the change with tests and documentation.
 4. Pass the [quality gate](#the-quality-gate).

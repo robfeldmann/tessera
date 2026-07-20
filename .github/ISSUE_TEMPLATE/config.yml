@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Feature request or idea
+    url: https://github.com/robfeldmann/tessera/discussions/new?category=feature-requests-ideas
+    about: Describe a user need and discuss the behavior before implementation.
+  - name: Issue triage
+    url: https://github.com/robfeldmann/tessera/discussions/new?category=issue-triage
+    about: Get help confirming or minimizing behavior that may be a Tessera bug.
+  - name: Question
+    url: https://github.com/robfeldmann/tessera/discussions/new?category=q-a
+    about: Ask a usage or development question.
+  - name: Security vulnerability (private)
+    url: https://github.com/robfeldmann/tessera/blob/main/SECURITY.md
+    about: Read the private reporting instructions. Do not open a public issue.

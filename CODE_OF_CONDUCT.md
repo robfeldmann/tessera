@@ -52,12 +52,18 @@ offline event.
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by
-opening an issue on GitHub. All complaints will be reviewed and investigated promptly and
-fairly.
+Report abusive, harassing, or otherwise unacceptable behavior privately to
+[me@robfeldmann.com](mailto:me@robfeldmann.com?subject=Tessera%20conduct%20report) with
+the subject **Tessera conduct report**. Do not open a public issue or Discussion
+containing incident details. Include a concise description, where the incident occurred,
+relevant links, and a private way to reply.
 
-All community leaders are obligated to respect the privacy and security of the reporter of
-any incident.
+The report is handled by Rob Feldmann as Tessera's sole maintainer. If a report concerns
+the maintainer and contacting them is not safe, use
+[GitHub's private abuse-reporting channel](https://support.github.com/contact/report-abuse)
+for conduct hosted on GitHub. Reports will be reviewed as promptly and fairly as
+maintainer capacity permits. The maintainer will protect the reporter's privacy and
+security to the extent possible while investigating and enforcing this Code of Conduct.
 
 ## Enforcement Guidelines
 

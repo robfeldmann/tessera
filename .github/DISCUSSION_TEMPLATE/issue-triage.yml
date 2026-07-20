@@ -1,0 +1,72 @@
+title: "[Issue triage] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use Issue Triage when behavior may be a Tessera bug but still needs confirmation or a smaller reproduction. If you already have a minimal reproducible defect, use the [bug form](https://github.com/robfeldmann/tessera/issues/new?template=bug.yml). Never disclose a vulnerability here; follow [SECURITY.md](https://github.com/robfeldmann/tessera/blob/main/SECURITY.md).
+  - type: textarea
+    id: summary
+    attributes:
+      label: What needs triage?
+      description: Concisely describe the behavior and what you need help confirming.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction so far
+      description:
+        List the smallest steps, code, or terminal interaction you currently have.
+      placeholder: |
+        1. Configure …
+        2. Run …
+        3. Observe …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect Tessera to do?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead, and how does it differ from the expectation?
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include every item below that applies.
+      placeholder: |
+        - Platform and OS version:
+        - Swift version:
+        - Xcode version, if applicable:
+        - Tessera release or commit:
+        - Terminal and version, if applicable:
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Redacted logs or snapshots
+      description:
+        Optional minimal output or accessible image description that helps confirm the
+        behavior.
+      placeholder:
+        Remove credentials, tokens, personal data, and unrelated private output.
+  - type: checkboxes
+    id: acknowledgements
+    attributes:
+      label: Checks
+      options:
+        - label: I searched open and closed Issues and Discussions for this behavior.
+          required: true
+        - label: I removed credentials, private logs, and other sensitive information.
+          required: true
+        - label: I will move a confirmed reproducible bug to the bug form when asked.
+          required: true
