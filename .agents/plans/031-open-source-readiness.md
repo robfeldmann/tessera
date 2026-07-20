@@ -40,8 +40,8 @@ updated: 2026-07-20
   - [x] 6.2 Configure repository governance and maintenance automation
   - [x] 6.3 Perform the pre-publication safety gate
 - [ ] **Phase 7 — Publish static DocC on GitHub Pages after launch**
-  - [ ] 7.1 Make the existing combined DocC build Pages-ready
-  - [ ] 7.2 Add a read-only-validation plus main-branch deployment workflow
+  - [x] 7.1 Make the existing combined DocC build Pages-ready
+  - [x] 7.2 Add a read-only-validation plus main-branch deployment workflow
   - [ ] 7.3 Enable and verify the GitHub Pages deployment
 - [ ] **Phase 8 — Execute the staged public launch**
   - [ ] 8.1 Run the complete local release gate
@@ -551,8 +551,8 @@ SPI and without granting Pages privileges to pull-request builds.
   the Ghostty prerequisite are available. Add a push-to-main/manual deployment path with
   an environment named `github-pages`, `actions/upload-pages-artifact@v3`, and
   `actions/deploy-pages@v4`; grant `pages: write` and `id-token: write` only to the deploy
-  job. Use `actions/configure-pages` if needed for the selected base path and retain
-  concurrency cancellation so stale main builds do not deploy over newer ones.
+  job. Use `actions/configure-pages` if needed for the selected base path and serialize
+  Pages runs without cancelling an in-progress production deployment.
 - Adapt only provider-neutral pieces from previously reviewed static DocC workflows. Do
   not carry over private tokens, dependencies, artifact credentials, authenticated
   checkouts, paid runners, or private infrastructure. Use the existing public package
@@ -569,11 +569,16 @@ SPI and without granting Pages privileges to pull-request builds.
   selected in Step 7.1.
 - After the repository is public, enable Pages and run the workflow. Verify the published
   URL from an anonymous browser, the README docs link, module landing pages, assets, deep
-  links, and refreshes at non-root routes. Check that a later main push cancels/stops
-  stale deployment work as intended.
+  links, and refreshes at non-root routes. Check that a later main push waits behind any
+  active deployment and ultimately publishes the newest queued revision.
 - Acceptance: static DocC is reachable at the documented URL, all links and assets work
   under the actual base path, no SPI hosting is implied, and the Pages environment shows
   only the intended deployment job.
+
+**Blocked (2026-07-20)**: the repository is still private and GitHub Pages is not enabled
+(`GET /repos/robfeldmann/tessera/pages` returns `404`). Step 7.3 explicitly requires the
+repository to be public and anonymous verification, so it must resume after Step 8.2
+changes visibility. Do not add the README hosted-docs URL until that deployment is live.
 
 ## Phase 8 — Execute the staged public launch
 

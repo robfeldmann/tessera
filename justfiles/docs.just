@@ -2,6 +2,8 @@ set shell := ["bash", "-c"]
 set working-directory := '..'
 
 # ── Documentation ────────────────────────────────────────────────────────────
+# GitHub Pages project-site path for https://robfeldmann.github.io/tessera/.
+hosting_base_path := "/tessera"
 
 # Build the static documentation site.
 default: build
@@ -109,7 +111,7 @@ transform:
     mkdir -p .build/docs
     xcrun docc process-archive \
         transform-for-static-hosting .build/doccarchives/tessera.doccarchive \
-        --hosting-base-path / \
+        --hosting-base-path "{{ hosting_base_path }}" \
         --output-path .build/docs
 
 # Build docs and serve the static output locally.
@@ -117,6 +119,9 @@ preview: build
     @if ! command -v python3 &> /dev/null; then \
         echo "⚠️  python3 not found — cannot start preview server (brew install python@3)"; \
     else \
-        echo "🚀 Preview: http://localhost:8000/documentation/"; \
-        python3 -m http.server --directory .build/docs 8000; \
+        rm -rf .build/docs-preview; \
+        mkdir -p .build/docs-preview; \
+        ln -s ../docs ".build/docs-preview{{ hosting_base_path }}"; \
+        echo "🚀 Preview: http://localhost:8000{{ hosting_base_path }}/documentation/"; \
+        python3 -m http.server --directory .build/docs-preview 8000; \
     fi

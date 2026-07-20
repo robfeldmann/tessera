@@ -9,7 +9,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Added
-
 - Established the Swift Package Manager foundation with the `Tessera` and `TesseraTerminal` libraries, Swift 6 strict concurrency, and the `swift-system` and `swift-displaywidth` dependencies.
 - Added repository quality and development tooling with pinned npm markup checks, codespell, swift-format, SwiftLint, Lefthook Conventional Commit validation, Just workflows, cross-platform CI, DocC validation, environment diagnostics, and local-state documentation.
 - Added the Tessera design catalog and runnable Showcase, including component contracts, tokens, templates, wireframe validation, responsive compositions, and local diagnostics.
@@ -23,9 +22,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Added runtime protocol controls and capability reconciliation with bounded active probes, serialized failure-safe mode transactions, live policy changes, emergency cleanup storage, repaint behavior, and a runtime-control demo.
 - Added Windows Ghostty snapshot support with a static library, reproducible Zig build and cache tooling, Frost VM recipes, console mode setup and restoration, live terminal device I/O, focused cross-platform test recipes, and hosted CI coverage.
 - Added public issue, Discussion, and pull-request forms, private security and conduct reporting, solo-maintainer ownership metadata, and a fork-safe reviewed contributor vouch gate with tested trust parsing.
+- Added read-only DocC pull-request validation plus main-branch and manual GitHub Pages deployment for the combined static documentation site.
 
 ### Changed
-
 - Relicensed Tessera's original material from the MIT License to the Apache License 2.0 before the first public release.
 - Changed capability detection to use active protocol-native probes and parser-observed evidence; OSC 8 remains explicitly not actively detectable, and conditional Kitty keyboard support enables only after support is observed.
 - Changed color handling to suppress output for the full `TERM=dumb` family and keep the effective capability solely on `TerminalCapabilities.color`, with explicit one-time style resolution.
@@ -34,11 +33,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Centralized linting and quality orchestration, enabled Ghostty-backed Windows CI, made the test matrix fail fast, restored full macOS/Linux/Windows and DocC validation, and moved cache saves to immediately follow reproducible artifact builds.
 - Changed Ghostty VT integration to use a shared XDG cache, build-materialized local headers, a committed static-aware umbrella header, and `canImport(CGhosttyVT)` availability checks; Linux Lima now supports per-worktree VM names and setup examples use POSIX shell syntax.
 - Hardened public-fork automation with immutable action pins, read-only validation, edited-PR checks, credential-free caches, restricted Actions permissions, protected required checks, and npm Dependabot coverage.
+- Changed DocC transformations and local previews to support the `/tessera` GitHub Pages project-site path, and serialized production deployment runs without cancelling an active deployment.
 
 ### Fixed
-
 - Fixed Windows terminal input shutdown so queued resize notifications drain before the event stream finishes, and fixed text snapshots to omit wide-cell continuation placeholders.
 - Fixed POSIX input cancellation to break retention cycles, wake blocked polls, prevent empty-read CPU spins, and keep active-probe tests deterministic; Linux Lima test arguments now support an empty forwarded argument list.
 - Fixed CI and documentation cache restoration and made Windows Frost SSH prefer the configured key without exhausting authentication attempts during password fallback.
-
-[Unreleased]: https://github.com/robfeldmann/tessera/commits/main
