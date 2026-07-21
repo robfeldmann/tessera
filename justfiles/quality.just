@@ -51,6 +51,7 @@ wireframes:
 architecture:
     python3 -m unittest scripts/test_check_package_boundaries.py
     swift package describe --type json | python3 scripts/check-package-boundaries.py
+    swift build --target TesseraTerminalBuffer
     scripts/check-frame-region-ownership.sh
 
 # Verify tagged release bodies preserve the canonical changelog text exactly.
