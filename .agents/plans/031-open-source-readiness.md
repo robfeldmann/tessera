@@ -4,7 +4,7 @@ name: Tessera open-source readiness
 description:
   Prepare Tessera for a deliberate public GitHub launch with Apache-2.0 licensing,
   community governance, release notes, and post-launch static DocC hosting.
-status: in-progress
+status: complete
 created: 2026-07-17
 updated: 2026-07-20
 ---
@@ -43,10 +43,10 @@ updated: 2026-07-20
   - [x] 7.1 Make the existing combined DocC build Pages-ready
   - [x] 7.2 Add a read-only-validation plus main-branch deployment workflow
   - [x] 7.3 Enable and verify the GitHub Pages deployment
-- [ ] **Phase 8 — Execute the staged public launch**
+- [x] **Phase 8 — Execute the staged public launch**
   - [x] 8.1 Run the complete local release gate
-  - [ ] 8.2 Change visibility and verify anonymous-user behavior
-  - [ ] 8.3 Run the first public CI, release, and documentation smoke checks
+  - [x] 8.2 Change visibility and verify anonymous-user behavior
+  - [x] 8.3 Run the first public CI, release, and documentation smoke checks
 
 ## Overview
 
@@ -624,6 +624,24 @@ workflow end to end before announcing the project.
 - Acceptance: the public CI gate, vouch moderation path, generated release notes, and
   static DocC deployment all work end to end; any discrepancy is fixed before launch
   communication rather than deferred as an undocumented follow-up.
+
+**Completed (2026-07-20)**:
+
+- Anonymous repository, clone, dependency-resolution, external-consumer build, README,
+  issue, Discussion, security-policy, governance, and release surfaces passed.
+- Fork PR #20 exercised unknown-contributor auto-close, temporary maintainer vouch,
+  first-time workflow approval, successful CI/DocC execution without repository secrets,
+  explicit smoke closure, and trust removal.
+- Public `main` and fork CI passed on macOS, Ubuntu, and Windows. The generated `v0.1.0`
+  notes preview succeeded without creating a tag or release.
+- Pages deployed the newest `main` revision at
+  <https://robfeldmann.com/tessera/documentation/> with HTTPS, assets, modules, and
+  non-root refreshes verified anonymously. Two manual dispatches confirmed serialized
+  deployment concurrency.
+- Public Actions ran without the private-repository credit block. The representative full
+  fork CI and DocC runs took about seven minutes each. Trust-only PR CI now completes in
+  about 28 seconds, DocC reports success in about 17 seconds without building, and
+  trust-only `main` pushes skip Pages.
 
 ## References
 
