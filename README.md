@@ -69,6 +69,9 @@
 
 Start here — the DocC catalogs are the API reference and article home:
 
+- 🌐 [Hosted API documentation](https://robfeldmann.com/tessera/documentation/) — combined
+  module reference and articles.
+
 - 📘 [**Tessera** DocC catalog](Sources/Tessera/Tessera.docc/Tessera.md) — umbrella API
   and module map.
 - 📗
@@ -78,10 +81,6 @@ Start here — the DocC catalogs are the API reference and article home:
 - 🗺️ [Project status](docs/ProjectStatus.md) — maturity, roadmap, and documentation
   boundaries.
 - 🛠️ [Contributing](CONTRIBUTING.md) — dev loop, quality gates, and VM guides.
-
-> Hosted API docs are coming: Swift Package Index publication is intentionally deferred,
-> and a static GitHub Pages site is planned. Until then, read the catalogs above in the
-> checkout or generate them locally with `just docs preview`.
 
 ## Quick start
 
