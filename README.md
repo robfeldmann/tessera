@@ -1,19 +1,42 @@
-# Tessera
+<!-- LOGO -->
 
-<img src="assets/tessera-logo.png" alt="Tessera logo: a terminal window containing an orange tessellated mark" width="220">
+<!-- markdownlint-disable MD033 -->
 
-[![CI](https://github.com/robfeldmann/tessera/actions/workflows/ci.yml/badge.svg)](https://github.com/robfeldmann/tessera/actions/workflows/ci.yml)
-[![Swift 6.3](https://img.shields.io/badge/Swift-6.3-F05138.svg?logo=swift)](https://www.swift.org/)
-[![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey.svg)](#requirements-and-supported-platforms)
-[![License](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
+<p align="center">
+  <img src="assets/tessera-logo.png" alt="Tessera logo: a terminal window containing an orange tessellated mark" width="220">
+</p>
 
-**Tessera is a modern Swift foundation for building terminal applications** — a
-cell-buffer rendering and view layer in the spirit of [Ratatui](https://ratatui.rs), with
-a compositional layout API inspired by Lip Gloss, built from the ground up on Swift 6
-strict concurrency. It is architecture-agnostic: bring your own state management.
+<h1 align="center">Tessera</h1>
 
-> [!WARNING] Tessera is new, actively developed, and incomplete — not ready for production
-> use. The terminal substrate (`TesseraTerminal`) is usable today; the view and
+<p align="center">
+  <strong>A modern Swift foundation for building terminal applications.</strong>
+  <br />
+  Cell-buffer rendering and an emerging compositional view layer, built for Swift 6 strict concurrency.
+  <br />
+  <a href="#why-tessera">Why Tessera</a>
+  ·
+  <a href="#documentation">Documentation</a>
+  ·
+  <a href="#quick-start">Quick start</a>
+  ·
+  <a href="#contributing">Contributing</a>
+  ·
+  <a href="#community">Community</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/robfeldmann/tessera/actions/workflows/ci.yml?query=branch%3Amain"><img src="https://github.com/robfeldmann/tessera/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="https://www.swift.org/"><img src="https://img.shields.io/badge/Swift-6.3-F05138.svg?logo=swift" alt="Swift 6.3"></a>
+  <a href="#requirements-and-supported-platforms"><img src="https://img.shields.io/badge/platforms-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey.svg" alt="Platforms: macOS, Linux, and Windows"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache--2.0-blue.svg" alt="Apache 2.0 license"></a>
+</p>
+
+<!-- markdownlint-enable MD033 -->
+
+<!-- prettier-ignore -->
+> [!WARNING]
+> Tessera is new, actively developed, and incomplete — not ready for production use. The
+> terminal substrate (`TesseraTerminal`) is usable today; the view and
 > application-programming layer (`Tessera`) is still under construction and has no stable
 > public API yet. APIs may change without notice before 1.0.
 
@@ -195,13 +218,13 @@ on the problem and direction. First-time contributors then use the
 
 ## Community
 
-- ❓ [Q&A](https://github.com/robfeldmann/tessera/discussions/new?category=q-a) — usage
-  and development questions.
+- ❓ [Q&A](https://github.com/robfeldmann/tessera/discussions/categories/q-a) — usage and
+  development questions.
 - 💡
-  [Feature Requests and Ideas](https://github.com/robfeldmann/tessera/discussions/new?category=feature-requests-ideas)
+  [Feature Requests and Ideas](https://github.com/robfeldmann/tessera/discussions/categories/feature-requests-ideas)
   — user needs and proposed behavior before implementation.
 - 🔎
-  [Issue Triage](https://github.com/robfeldmann/tessera/discussions/new?category=issue-triage)
+  [Issue Triage](https://github.com/robfeldmann/tessera/discussions/categories/issue-triage)
   — help confirming or minimizing behavior that may be a bug.
 - 🐛 [Bug reports](https://github.com/robfeldmann/tessera/issues/new?template=bug.yml) —
   confirmed reproducible defects with environment and revision details.
