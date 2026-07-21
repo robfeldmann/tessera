@@ -4,7 +4,7 @@ name: Tessera open-source readiness
 description:
   Prepare Tessera for a deliberate public GitHub launch with Apache-2.0 licensing,
   community governance, release notes, and post-launch static DocC hosting.
-status: pending
+status: in-progress
 created: 2026-07-17
 updated: 2026-07-20
 ---
