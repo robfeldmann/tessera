@@ -10,7 +10,7 @@ runs:
       run: echo "version=$(tr -d '[:space:]' < .swift-version)" >> "$GITHUB_OUTPUT"
 
     - name: Set up Swift
-      uses: SwiftyLab/setup-swift@latest
+      uses: SwiftyLab/setup-swift@38f54a76b70d989321de9dc7c840618c08cf56e9 # v1.14.0
       with:
         swift-version: ${{ steps.swift-version.outputs.version }}
 

@@ -51,7 +51,8 @@ frost_ssh_setup_password() {
 }
 
 frost_ssh_export_password() {
-  export SSHPASS="${TESSERA_FROST_PASS:-${FROST_SSH_PASS:-REMOVED_FROST_CREDENTIAL}}"
+  : "${TESSERA_FROST_PASS:?Set TESSERA_FROST_PASS in ignored local configuration.}"
+  export SSHPASS="$TESSERA_FROST_PASS"
 }
 
 frost_ssh() {

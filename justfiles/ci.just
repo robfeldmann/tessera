@@ -3,13 +3,13 @@ set working-directory := '..'
 
 # ── CI ───────────────────────────────────────────────────────────────────────
 
-# Run the default CI build-and-test workflow.
-default: build-test
+# Run the full local CI gate: core tests followed by portable quality checks.
+default: check
 
-# Run strict quality checks followed by the core test suite.
+# Run core tests followed by strict portable quality checks.
 check:
-    just quality lint
     just core test
+    just quality lint
 
 # Build libghostty-vt, then build and test the package.
 build-test:

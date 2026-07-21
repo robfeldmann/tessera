@@ -39,7 +39,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 FW="${FROST_QEMU_SHARE_DIR:-/opt/homebrew/share/qemu}"
-PASS="${TESSERA_FROST_PASS:-${FROST_SSH_PASS:-REMOVED_FROST_CREDENTIAL}}"
+: "${TESSERA_FROST_PASS:?Set TESSERA_FROST_PASS in ignored local configuration.}"
+PASS="$TESSERA_FROST_PASS"
 PUBKEY="${TESSERA_FROST_PUBKEY:-$HOME/.ssh/tessera_windows.pub}"
 EXPECTED_SWIFT_VERSION="$(tr -d '[:space:]' < "$repo_root/.swift-version")"
 REMOTE_SCRIPT="C:/Windows/Temp/setup-windows-frost-vm.ps1"

@@ -234,7 +234,12 @@ func `Kitty graphics accepts the demo RGBA image and placement`() {
 
   #expect(
     terminal.kittyImages() == [
-      RenderedKittyImage(format: .rgba, height: 32, id: 1, width: 32)
+      RenderedKittyImage(
+        format: .rgba,
+        height: 32,
+        id: 1,
+        width: 32
+      )
     ]
   )
   #expect(
@@ -247,7 +252,7 @@ func `Kitty graphics accepts the demo RGBA image and placement`() {
         row: 3,
         rows: 4,
         zIndex: 0
-      ),
+      )
     ]
   )
 }

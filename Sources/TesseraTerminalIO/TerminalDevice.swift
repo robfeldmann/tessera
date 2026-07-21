@@ -23,6 +23,9 @@ package struct TerminalDevice: Sendable {
   /// Restores the terminal input mode captured before entering raw mode.
   package var exitRawMode: @Sendable () async throws -> Void
 
+  /// Whether byte and size streams terminate together after draining one input source.
+  package var inputStreamsShareLifetime: Bool
+
   /// Reads the terminal's current size.
   package var size: @Sendable () async throws -> TerminalSize
 
@@ -42,6 +45,7 @@ package struct TerminalDevice: Sendable {
     enterRawMode: @escaping @Sendable () async throws -> Void = {},
     exitAltScreen: @escaping @Sendable () async throws -> Void = {},
     exitRawMode: @escaping @Sendable () async throws -> Void = {},
+    inputStreamsShareLifetime: Bool = false,
     size: @escaping @Sendable () async throws -> TerminalSize,
     sizeChanges: @escaping @Sendable () -> AsyncStream<TerminalSize> = {
       AsyncStream { $0.finish() }
@@ -55,6 +59,7 @@ package struct TerminalDevice: Sendable {
     self.enterRawMode = enterRawMode
     self.exitAltScreen = exitAltScreen
     self.exitRawMode = exitRawMode
+    self.inputStreamsShareLifetime = inputStreamsShareLifetime
     self.size = size
     self.sizeChanges = sizeChanges
     self.write = write

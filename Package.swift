@@ -111,19 +111,6 @@ let SystemPackage: Target.Dependency = .product(
   package: "swift-system"
 )
 
-// MARK: - 👻 Ghostty VT Gate
-
-// Ghostty-backed snapshot support is always available on macOS/Linux. On Windows it is
-// opt-in until the hosted CI path is approved: set TESSERA_GHOSTTY_WINDOWS=1 (and build
-// the artifact with scripts/build-libghostty-vt.ps1) to compile CGhosttyVT in. Sources
-// gate on `#if canImport(CGhosttyVT)`, so both configurations build from one tree.
-#if os(Windows)
-  let GhosttyVTEnabled =
-    ProcessInfo.processInfo.environment["TESSERA_GHOSTTY_WINDOWS"] == "1"
-#else
-  let GhosttyVTEnabled = true
-#endif
-
 // MARK: - 🚛 Forward Module Declarations
 
 let CGhosttyVT: Target.Dependency = .byName(name: "CGhosttyVT")
@@ -132,6 +119,9 @@ let CTesseraTerminalPlatform: Target.Dependency = .byName(
 )
 let Tessera: Target.Dependency = .byName(name: "Tessera")
 let TesseraCore: Target.Dependency = .byName(name: "TesseraCore")
+let TesseraTestSupport: Target.Dependency = .byName(name: "TesseraTestSupport")
+let TesseraLayout: Target.Dependency = .byName(name: "TesseraLayout")
+let TesseraWidgets: Target.Dependency = .byName(name: "TesseraWidgets")
 let TesseraTerminal: Target.Dependency = .byName(name: "TesseraTerminal")
 let TesseraTerminalANSI: Target.Dependency = .byName(name: "TesseraTerminalANSI")
 let TesseraTerminalBuffer: Target.Dependency = .byName(name: "TesseraTerminalBuffer")
@@ -151,6 +141,9 @@ let TesseraTerminalTestSupport: Target.Dependency = .byName(
 let AllTesseraTargetNames: Set<String> = [
   "Tessera",
   "TesseraCore",
+  "TesseraLayout",
+  "TesseraTestSupport",
+  "TesseraWidgets",
   "TesseraTerminal",
   "TesseraTerminalANSI",
   "TesseraTerminalBuffer",
@@ -166,15 +159,13 @@ let AllTesseraTargetNames: Set<String> = [
 
 // MARK: CGhosttyVT
 
-if GhosttyVTEnabled {
-  package.targets.append(
-    .target(
-      name: "CGhosttyVT",
-      path: "Sources/CGhosttyVT",
-      publicHeadersPath: "include"
-    )
+package.targets.append(
+  .target(
+    name: "CGhosttyVT",
+    path: "Sources/CGhosttyVT",
+    publicHeadersPath: "include"
   )
-}
+)
 
 // MARK: CTesseraTerminalPlatform
 
@@ -195,23 +186,85 @@ package.targets.append(
     name: "Tessera",
     dependencies: [
       TesseraCore,
+      TesseraLayout,
+      TesseraWidgets,
       TesseraTerminal,
     ]
   )
 )
 
+// MARK: TesseraArchitectureTests
+
+package.targets.append(
+  .testTarget(name: "TesseraArchitectureTests")
+)
+
 // MARK: TesseraCore
 
 package.targets.append(contentsOf: [
-  .target(name: "TesseraCore"),
+  .target(
+    name: "TesseraCore",
+    dependencies: [
+      TesseraTerminalBuffer,
+      TesseraTerminalCore,
+      TesseraTerminalInput,
+    ]
+  ),
   .testTarget(
     name: "TesseraCoreTests",
     dependencies: [
-      CustomDump,
       InlineSnapshotTesting,
-      SnapshotTesting,
-      SnapshotTestingCustomDump,
       TesseraCore,
+      TesseraTestSupport,
+      TesseraTerminalANSI,
+      TesseraTerminalBuffer,
+      TesseraTerminalCore,
+    ]
+  ),
+])
+
+// MARK: TesseraLayout
+
+package.targets.append(contentsOf: [
+  .target(
+    name: "TesseraLayout",
+    dependencies: [
+      TesseraCore
+    ]
+  ),
+  .testTarget(
+    name: "TesseraLayoutTests",
+    dependencies: [
+      InlineSnapshotTesting,
+      TesseraCore,
+      TesseraLayout,
+      TesseraTestSupport,
+      TesseraTerminalBuffer,
+      TesseraTerminalCore,
+    ]
+  ),
+])
+
+// MARK: TesseraWidgets
+
+package.targets.append(contentsOf: [
+  .target(
+    name: "TesseraWidgets",
+    dependencies: [
+      TesseraCore,
+      TesseraLayout,
+    ]
+  ),
+  .testTarget(
+    name: "TesseraWidgetsTests",
+    dependencies: [
+      InlineSnapshotTesting,
+      TesseraCore,
+      TesseraLayout,
+      TesseraTestSupport,
+      TesseraTerminalBuffer,
+      TesseraTerminalCore,
+      TesseraWidgets,
     ]
   ),
 ])
@@ -385,14 +438,18 @@ package.targets.append(contentsOf: [
 ])
 
 // MARK: TesseraTerminalSnapshotSupport
-
-let TesseraTerminalSnapshotSupportPlatformDependencies: [Target.Dependency] =
-  GhosttyVTEnabled ? [CGhosttyVT] : []
+package.products.append(
+  .library(
+    name: "TesseraTerminalSnapshotSupport",
+    targets: ["TesseraTerminalSnapshotSupport"]
+  )
+)
 
 package.targets.append(contentsOf: [
   .target(
     name: "TesseraTerminalSnapshotSupport",
-    dependencies: TesseraTerminalSnapshotSupportPlatformDependencies + [
+    dependencies: [
+      CGhosttyVT,
       IssueReporting,
       TesseraTerminalANSI,
       TesseraTerminalBuffer,
@@ -412,6 +469,12 @@ package.targets.append(contentsOf: [
 ])
 
 // MARK: TesseraTerminalTestSupport
+package.products.append(
+  .library(
+    name: "TesseraTerminalTestSupport",
+    targets: ["TesseraTerminalTestSupport"]
+  )
+)
 
 package.targets.append(
   .target(
@@ -423,6 +486,27 @@ package.targets.append(
       TesseraTerminalInput,
       TesseraTerminalIO,
       TesseraTerminalSnapshotSupport,
+      TesseraTerminal,
+    ]
+  )
+)
+
+// MARK: TesseraTestSupport
+package.products.append(
+  .library(
+    name: "TesseraTestSupport",
+    targets: ["TesseraTestSupport"]
+  )
+)
+
+package.targets.append(
+  .target(
+    name: "TesseraTestSupport",
+    dependencies: [
+      SnapshotTesting,
+      SnapshotTestingCustomDump,
+      TesseraCore,
+      TesseraTerminalTestSupport,
     ]
   )
 )

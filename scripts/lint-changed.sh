@@ -3,6 +3,7 @@ set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
+source scripts/quality-files.sh
 
 mode="${1:-}"
 
@@ -40,47 +41,32 @@ changed_files=("${unique_files[@]}")
 
 swift_files=()
 markdown_files=()
+spelling_files=()
 docc_files=()
-
 for file in "${changed_files[@]}"; do
-  [[ -f "$file" ]] || continue
-
-  if [[ "$file" == "Package.swift" || "$file" == "Examples/Package.swift" || "$file" =~ ^(Sources|Tests|Examples/Sources|Examples/Tests)/.*\.swift$ ]]; then
-    swift_files+=("$file")
-  fi
-
-  if [[ "$file" == *.md ]]; then
-    markdown_files+=("$file")
-  fi
-
-  if [[ "$file" =~ ^Sources/.+\.docc/ ]]; then
-    docc_files+=("$file")
-  fi
+  quality_classify_file "$file"
 done
 
 if [[ ${#swift_files[@]} -gt 0 ]]; then
   echo "▶ Linting changed Swift files"
-  swift-format lint "${swift_files[@]}"
+  quality_require_swift_tools
+  swift-format lint --configuration .swift-format "${swift_files[@]}"
   swiftlint lint --strict --config .swiftlint.yml "${swift_files[@]}"
 fi
 
 if [[ ${#markdown_files[@]} -gt 0 ]]; then
   echo "▶ Linting changed Markdown files"
-  if command -v prettier &> /dev/null; then
-    prettier --check "${markdown_files[@]}"
-  else
-    echo "⚠️  prettier not found — skip markdown formatting check"
-  fi
+  npm run check:markup -- "${markdown_files[@]}"
+fi
 
-  if command -v pnpx &> /dev/null; then
-    pnpx markdownlint-cli "${markdown_files[@]}"
-  else
-    echo "⚠️  pnpx not found — skip markdownlint check"
-  fi
+if [[ ${#spelling_files[@]} -gt 0 ]]; then
+  echo "▶ Checking spelling in changed files"
+  scripts/quality-python.sh -m codespell_lib --config .codespellrc "${spelling_files[@]}"
 fi
 
 if [[ ${#docc_files[@]} -gt 0 ]]; then
-  echo "▶ Validating DocC documentation"
+  echo "▶ Validating DocC documentation (macOS-only)"
+  quality_require_docc
   just docs lint
 fi
 

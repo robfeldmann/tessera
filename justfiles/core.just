@@ -53,6 +53,10 @@ example name="":
     fi; \
     swift run --package-path Examples "$example"
 
+# Run the Tessera Showcase example directly.
+showcase:
+    swift run --package-path Examples TesseraShowcase
+
 # Build all example package executables.
 examples:
     swift build --package-path Examples

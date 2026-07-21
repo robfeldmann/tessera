@@ -1,6 +1,6 @@
 import TesseraTerminal
 
-/// Panels available in the Phase 3 protocol demonstration.
+/// Panels available in the protocol demonstration.
 public enum DemoPanel: CaseIterable, Equatable, Hashable, Sendable {
   /// Terminal capability evidence and runtime rendering policy.
   case capabilities
@@ -59,7 +59,7 @@ public enum DemoPanel: CaseIterable, Equatable, Hashable, Sendable {
   }
 }
 
-/// One numeric tab in the Phase 3 protocol demonstration.
+/// One numeric tab in the protocol demonstration.
 public struct DemoTab: Equatable, Sendable {
   /// Unmodified numeric key selecting this tab.
   public let key: Character
@@ -146,7 +146,7 @@ public enum DemoKeyAction: Equatable, Sendable {
   case toggleUnderlineStyle
 }
 
-/// Pure key routing and policy-cycle helpers for the Phase 3 protocol demonstration.
+/// Pure key routing and policy-cycle helpers for the protocol demonstration.
 public enum DemoControls {
   /// Panel selected when the demonstration launches.
   public static let defaultPanel = DemoPanel.capabilities

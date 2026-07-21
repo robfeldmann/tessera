@@ -19,7 +19,7 @@ operations; `TesseraTerminalBuffer` stores cell-oriented output; and
 `TesseraTerminalRendering` turns changed cells into terminal output. ``TerminalSession``
 owns the live-session lifecycle, scoped drawing, size changes, and semantic input events.
 The APIs use Swift 6’s strict isolation model, with a session actor and a non-escaping,
-borrowed ``Frame`` for each draw transaction.
+borrowed ``/TesseraTerminalBuffer/Frame`` for each draw transaction.
 
 `TesseraTerminalCore` supplies core geometry, `TesseraTerminalIO` supplies I/O, and
 `TesseraTerminalInput` supplies semantic terminal input through the same interface.

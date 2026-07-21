@@ -154,7 +154,8 @@
         return
       }
       if requiresByteAndSizeConsumers,
-        byteContinuations.isEmpty || sizeContinuations.isEmpty {
+        byteContinuations.isEmpty || sizeContinuations.isEmpty
+      {
         return
       }
 

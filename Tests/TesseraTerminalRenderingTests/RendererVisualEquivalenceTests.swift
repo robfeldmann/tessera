@@ -77,7 +77,7 @@ func `damage render is visually equivalent for wide grapheme replacement`() {
 
   assertInlineSnapshot(of: snapshot, as: .terminalText()) {
     """
-    你 x
+    你x
     """
   }
 }

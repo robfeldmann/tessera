@@ -1,0 +1,33 @@
+name: Vouch gate
+
+on:
+  pull_request_target:
+    types: [opened, reopened]
+
+permissions: {}
+
+concurrency:
+  group: vouch-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  check-contributor:
+    name: Check contributor trust
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Check out trusted gate code
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Check contributor trust
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const gate = require("./.github/scripts/vouch-gate.cjs");
+            await gate.run({ github, context, core });

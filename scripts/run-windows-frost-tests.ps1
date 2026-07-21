@@ -51,7 +51,6 @@ if ($GhosttyOutputDir) {
     }
     Copy-Item -Recurse -Path $artifactHeaders -Destination $bridgeDir
     $env:GHOSTTY_VT_OUTPUT_DIR = $GhosttyOutputDir
-    $env:TESSERA_GHOSTTY_WINDOWS = "1"
     Write-Host "==> Ghostty VT enabled (artifact: $artifactDir)"
 }
 

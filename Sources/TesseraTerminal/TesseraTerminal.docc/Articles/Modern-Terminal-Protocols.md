@@ -67,8 +67,9 @@ requires a ``ClipboardUserIntent`` as well as an enabled session policy.
 
 Kitty Graphics Protocol support is session-scoped. Send image data with
 ``TerminalSession/transmitImage(_:)`` and delete it with
-``TerminalSession/deleteImages(_:)``. During a draw, ``Frame/placeImage(_:at:occupying:)``
-anchors a placement to its occupied cell region so normal frame updates can account for that
+``TerminalSession/deleteImages(_:)``. During a draw,
+``/TesseraTerminalBuffer/Frame/placeImage(_:at:occupying:)`` anchors a placement
+to its occupied cell region so normal frame updates can account for that
 geometry. ``TerminalSession/queryKittyGraphicsSupport(id:)`` requests an active graphics
 support probe when needed.
 

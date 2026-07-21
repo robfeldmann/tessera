@@ -1,8 +1,8 @@
 import Foundation
 import TesseraTerminal
 
-/// Demonstrates the Phase 2 ANSI encoder by printing exact bytes for semantic
-/// `ControlSequence` values without entering a live terminal session.
+/// Demonstrates ANSI encoding by printing exact bytes for semantic `ControlSequence` values
+/// without entering a live terminal session.
 @main
 enum ANSIEncoderDemo {
   static func main() {

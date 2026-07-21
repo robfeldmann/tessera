@@ -7,16 +7,17 @@ brew "swiftlint"
 
 # General Development Tools
 brew "just"
+brew "lefthook"
 brew "lima" # Linux virtual machines
-brew "pre-commit"
+brew "node"
 brew "qemu" # For Tessera frost
 brew "sshpass" # For Tessera frost
 brew "swtpm" # For Tessera frost
 cask "utm" # Windows virtual machines
+uv "lgit-cli" # AI commit message generator.
 
 # Formatting Tools
 brew "jq"
-brew "prettier"
 
 # Documentation
 brew "python@3" # required for `just docs preview`
@@ -25,3 +26,4 @@ brew "python@3" # required for `just docs preview`
 brew "cmake"
 brew "ninja"
 brew "zig@0.15"
+

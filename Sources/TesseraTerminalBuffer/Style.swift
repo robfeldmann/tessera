@@ -2,8 +2,8 @@ import TesseraTerminalANSI
 
 /// Display attributes for a terminal cell.
 ///
-/// Phase 2 Slice 4 keeps style limited to SGR attributes already represented by
-/// `TesseraTerminalANSI.ControlSequence`, so the damage renderer can replay a complete
+/// Style is limited to SGR attributes already represented by
+/// `TesseraTerminalANSI.ControlSequence`, allowing the damage renderer to replay a complete
 /// style at the start of any changed run.
 public struct Style: Equatable, Sendable {
   /// The text foreground color.

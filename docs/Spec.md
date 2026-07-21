@@ -65,11 +65,12 @@ Use it selectively:
 - [Phase 4 — View layer](#phase-4--view-layer-the-tessera-module)
   - [Slice 1: TesseraCore — View, ViewGraph, reconciliation, Text](#slice-1-tesseracore--view-viewgraph-reconciliation-text)
   - [Slice 2: The Layout protocol and stack containers](#slice-2-the-layout-protocol-and-stack-containers)
+  - [Phase 2.5: Flex and final SplitView negotiation](#phase-25-flex-and-final-splitview-negotiation)
   - [Slice 3: Styling, text wrapping, and decoration](#slice-3-styling-text-wrapping-and-decoration)
   - [Slice 4: Focus and key routing](#slice-4-focus-and-key-routing-the-responder-system)
   - [Slice 5: Mouse and hit testing](#slice-5-mouse-and-hit-testing)
-  - [Slice 6: Flex, Grid, and composition](#slice-6-flex-grid-and-composition)
-  - [Slice 7: Widgets — TextInput, List, ScrollView](#slice-7-widgets--textinput-list-scrollview)
+  - [Slice 6: Grid, Table, and NavigationSplitView composition](#slice-6-grid-table-and-navigationsplitview-composition)
+  - [Slice 7: Catalog integration — List, Section, widgets, and the Showcase](#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase)
 - [Phase 5 — Runtime + polish](#phase-5--runtime--polish)
 - [Risk register](#risk-register)
 - [Proposed module and file layout](#proposed-module-and-file-layout)
@@ -3759,9 +3760,9 @@ sorted protocol conformances (`Equatable, Sendable`), the unlabeled
   bytes-in/bytes-out through that shared path; no slice may add a Win32 record-based event
   source.
 - **Test harness.** The Ghostty-backed `VirtualTerminal` snapshot harness runs on macOS,
-  Linux, and Windows. CI builds libghostty-vt on all three; Windows compiles `CGhosttyVT`
-  behind the `TESSERA_GHOSTTY_WINDOWS=1` opt-in (see `Package.swift` and
-  `scripts/build-libghostty-vt.ps1`), and sources gate on `#if canImport(CGhosttyVT)` with
+  Linux, and Windows. CI builds libghostty-vt on all three, and `CGhosttyVT` is compiled
+  into the package on every platform (see `Package.swift` and
+  `scripts/build-libghostty-vt.ps1`). Sources gate on `#if canImport(CGhosttyVT)` with
   `VirtualTerminal.ghosttyOrUnavailable(cols:rows:)` as the factory. The early Phase 2
   "Windows snapshot coverage is deferred" caveat no longer applies — Phase 3 renderer work
   gets snapshot coverage on all three platforms. Lifecycle byte assertions use
@@ -6763,6 +6764,26 @@ the optional `@MainActor` runtime in Phase 5). Rendering is synchronous while a 
 held — no suspension points inside a render pass. Do not make `View: Sendable` to silence
 diagnostics; non-sendability is a feature here.
 
+### Phase 0 frozen module and ownership contract
+
+The Phase 4 target graph is acyclic and intentionally narrow: `TesseraCore` directly
+depends only on `TesseraTerminalCore`, `TesseraTerminalBuffer`, and
+`TesseraTerminalInput`; `TesseraLayout` depends only on `TesseraCore`; and
+`TesseraWidgets` depends only on `TesseraCore` and `TesseraLayout`. `Tessera` is the
+public re-export surface for those three view targets and `TesseraTerminal`.
+
+`Frame` belongs to `TesseraTerminalBuffer`, alongside `Buffer` and `Style`. This is the
+narrow terminal substrate seam: `TesseraCore` may render synchronously into the borrowed,
+noncopyable `Frame` and use geometry, buffer/style, and input-event values without
+importing `TesseraTerminal`, `TesseraTerminalIO`, platform shims, or UI frameworks. Only
+`TerminalSession` owns mode lifecycle, capabilities, presentation, and the construction of
+a frame during its draw transaction. The `TesseraTerminal` and `Tessera` facade source
+files contain re-exports only; implementation code imports its narrow dependency directly.
+
+`TesseraWidgets` starts with the Slice 2 static `ScrollView` viewport and `SplitView`
+geometry, receives controlled responders in Slice 4, and completes its standard widget set
+in Slice 7. There is no temporary widget target.
+
 ### What Tessera keeps from SwiftUI, and what it deliberately rejects
 
 | SwiftUI concept              | Tessera counterpart                                                         |
@@ -6790,6 +6811,8 @@ Phase 4 deliberately starts only after the substrate it renders into exists:
 
 - **Slices 1–3** require Phase 2 Slice 4 (width-aware `Buffer`, real `Style`,
   damage-tracking renderer). Text measurement is grapheme-width measurement.
+- **Phase 2.5** requires Phase 4 Slice 2 and lands Flex plus final SplitView negotiation
+  before styling or input code can depend on the temporary static allocator.
 - **Slice 4** requires Phase 2 Slice 5 (`Key`, `KeyCode`, `Modifiers`, semantic key
   events). Kitty keyboard (Phase 3 Slice 4) improves it but is not a prerequisite.
 - **Slice 5** requires Phase 3 Slice 3 (SGR mouse events).
@@ -6799,7 +6822,17 @@ Phase 4 deliberately starts only after the substrate it renders into exists:
   This is a forward pointer, not new Phase 4 scope.
 
 Phase 4 may interleave with Phase 3: slices 1–3 can land while Phase 3 protocol slices are
-still in flight, as long as Phase 2 is complete.
+still in flight, as long as Phase 2 is complete. Phase 2.5 is a deliberate geometry
+stabilization between Phase 4 slices 2 and 3, not a new terminal-substrate dependency.
+
+The **[Tessera Showcase](../design/showcase.md)** is Phase 4's integration exemplar: a
+runnable app that grows one slice at a time. Each slice may use the smallest temporary
+scaffold needed to demonstrate its foundation, but deletes that scaffold at the later
+cutover that replaces it. The 1.0 public surface is `Button`, `Toggle`, `Picker`,
+`Stepper`, `TextField`, `List`, `ScrollView`, `Section`, `Table`, `SplitView`, and
+`NavigationSplitView`. `Form`, `Outline`, and source browsing/mapping are post-1.0. The
+Slice 2 static SplitView allocator is one such scaffold: Phase 2.5 deletes it before
+style, keyboard, and pointer behavior attach to pane geometry.
 
 ### Architecture: three layers, four passes
 
@@ -6846,6 +6879,58 @@ Each pass is synchronous and pure-ish over the tree:
 This split is the transparency story: correctness lives in simple full passes plus the
 buffer diff; cleverness is opt-in later and always observable via diagnostics.
 
+#### Phase 4 slice sequencing and component landing map
+
+The catalog owns component contracts; this map records only when their integration
+foundation lands and which deliberately narrow scaffold disappears at cutover.
+
+| Slice/phase | Components landing                                                                                                                                                                                               | Temporary scaffold deleted at cutover                         |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| 1           | `View`, `ViewGraph`, reconciliation, `Text`, immutable local diagnostics snapshot                                                                                                                                | No-layout multi-child vertical stacking                       |
+| 2           | `Layout`, stacks, [`Divider`](../design/primitives/divider.md), static controlled [`SplitView`](../design/widgets/split-view.md) pane geometry, static [`ScrollView`](../design/widgets/scroll-view.md) viewport | Slice 1 vertical stacking                                     |
+| 2.5         | [`Flex`](../design/primitives/flex.md), final min/ideal/max SplitView negotiation, Showcase `23x10` minimum and negotiated columns                                                                               | Slice 2 static SplitView geometry                             |
+| 3           | Style plumbing, wrapping/truncation, border decoration, [`ScrollIndicator`](../design/primitives/scroll-indicator.md)                                                                                            | Ad hoc overflow decoration                                    |
+| 4           | [`Button`](../design/widgets/button.md), [`TextField`](../design/widgets/text-field.md) focus, `Toggle`, `Picker`, `Stepper`, ScrollView keyboard movement, SplitView keyboard resize                            | Static controls and non-interactive viewport/divider behavior |
+| 5           | Control clicks, TextField click-to-caret, SplitView pointer drag, ScrollView pointer input and boundary bubbling                                                                                                 | Keyboard-only control, viewport, and divider interaction      |
+| 6           | `Grid`, [`Table`](../design/widgets/table.md), [`NavigationSplitView`](../design/widgets/navigation-split-view.md)                                                                                               | Interim collection and responsive-role composition            |
+| 7           | [`List` and `Section`](../design/widgets/list.md), controlled TextField cutover, finalized control styles, Showcase and inspector integration                                                                    | Interim catalog/example composition                           |
+
+```mermaid
+graph LR
+    S1["S1 ViewGraph + Text"] --> L["S2 Layout + stacks"]
+    L --> D["Divider"]
+    L --> SV0["static SplitView"]
+    D --> SV0
+    L --> SC0["static ScrollView viewport"]
+    L --> F25["Phase 2.5 Flex"]
+    SV0 --> SVN["final SplitView negotiation"]
+    F25 --> SVN
+    F25 --> S["S3 Style + text"]
+    S --> SI["ScrollIndicator"]
+    L --> SI
+    S --> FK["S4 focus/key routing"]
+    FK --> C["Button + Toggle + Picker + Stepper + TextField focus"]
+    S --> C
+    SVN --> SVK["SplitView keyboard resize"]
+    FK --> SVK
+    FK --> M["S5 mouse/hit testing"]
+    M --> I["control click + caret + divider drag + viewport wheel"]
+    FK --> I
+    SVN --> I
+    F25 --> G6["S6 Grid"]
+    G6 --> T["Table solver + indicator parity"]
+    SI --> T
+    SVN --> NSV["NavigationSplitView"]
+    G6 --> NSV
+    R["responsive role policy"] --> NSV
+    V["controlled visibility"] --> NSV
+    S7["S7 List + Section + Showcase"] -. "catalog composition only" .-> SH["Showcase"]
+```
+
+`NavigationSplitView` additionally requires Phase 2.5 final SplitView negotiation, the
+responsive role policy, generic role children, and controlled visibility; `List` and
+`Section` are Showcase-catalog composition, not strict NavigationSplitView dependencies.
+
 ### Testing posture: Tessera-native oracles
 
 SwiftUI is a useful API reference, not Tessera's correctness oracle. Phase 4 behavior is
@@ -6866,18 +6951,18 @@ graded against this spec and Tessera's terminal substrate:
 
 The import boundary is an executable requirement, not a comment.
 
-1. **Source import boundary test.** A Swift Testing architecture test scans view-layer
-   source roots and fails on forbidden imports. In Phase 4 the initial roots are
-   `Sources/TesseraCore` and `Sources/Tessera`; the forbidden modules include
-   `TesseraTerminalIO`, platform IO shims, `SwiftUI`, `AppKit`, and `UIKit`. The test
-   imports only `Foundation` and `Testing`, reports every offending file/line, and lives
-   with the unit tests so `swift test --filter ImportBoundary` can run it directly.
-2. **Package graph boundary check.** A separate script run by `just quality lint` calls
-   `swift package describe --type json` and rejects forbidden target dependency edges,
-   such as a view-layer target depending directly on `TesseraTerminalIO` or platform IO.
-   Keep this out of `swift test`; invoking SwiftPM from inside SwiftPM tests is recursive
-   and slow. The source test catches actual leaks, while the graph check catches a
-   manifest being broadened before the leak is used.
+1. **Source import boundary test.** A Swift Testing architecture test scans every declared
+   view-layer source root: `Sources/TesseraCore`, `Sources/TesseraLayout`,
+   `Sources/TesseraWidgets`, and `Sources/Tessera`. It rejects imports of
+   `TesseraTerminalIO`, `CTesseraTerminalPlatform`, `SwiftUI`, `AppKit`, and `UIKit`,
+   reports every offending file and line, imports only `Foundation` and `Testing`, and
+   lives with the unit tests so `swift test --filter ImportBoundary` can run it directly.
+2. **Package graph boundary check.** The separately unit-tested Python script
+   `scripts/check-package-boundaries.py` receives `swift package describe --type json` on
+   standard input and rejects view-layer direct dependency edges outside the frozen graph.
+   `just quality lint` runs it; `swift test` does not invoke SwiftPM recursively. The
+   source test catches actual leaks, while the graph check catches a manifest being
+   broadened before the leak is used.
 
 Both checks enforce the same ownership rule: views declare terminal requirements, but only
 the session owns terminal capabilities.
@@ -6897,16 +6982,29 @@ private struct ImportBoundary {
 
 @Test
 func `view layer sources do not import forbidden modules`() throws {
+    let forbiddenModules: Set<String> = [
+        "AppKit", "CTesseraTerminalPlatform", "SwiftUI", "TesseraTerminalIO", "UIKit",
+    ]
     let boundaries = [
         ImportBoundary(
             name: "TesseraCore",
             sourcePath: "Sources/TesseraCore",
-            forbiddenModules: ["AppKit", "SwiftUI", "TesseraTerminalIO", "UIKit"]
+            forbiddenModules: forbiddenModules
+        ),
+        ImportBoundary(
+            name: "TesseraLayout",
+            sourcePath: "Sources/TesseraLayout",
+            forbiddenModules: forbiddenModules
+        ),
+        ImportBoundary(
+            name: "TesseraWidgets",
+            sourcePath: "Sources/TesseraWidgets",
+            forbiddenModules: forbiddenModules
         ),
         ImportBoundary(
             name: "Tessera",
             sourcePath: "Sources/Tessera",
-            forbiddenModules: ["AppKit", "SwiftUI", "TesseraTerminalIO", "UIKit"]
+            forbiddenModules: forbiddenModules
         ),
     ]
 
@@ -6986,68 +7084,28 @@ private let importKinds: Set<String> = [
 ]
 ```
 
-The package graph checker should be a separate script that reads SwiftPM's JSON from
-standard input and fails on forbidden direct edges:
+The package graph checker is the separately unit-tested Python script
+`scripts/check-package-boundaries.py`. It reads the `swift package describe --type json`
+document from standard input, validates the declared view targets, and permits only these
+direct edges:
 
-```swift
-import Foundation
-
-struct PackageDump: Decodable {
-    var targets: [Target]
-
-    struct Target: Decodable {
-        var name: String
-        var targetDependencies: [String]
-
-        enum CodingKeys: String, CodingKey {
-            case name
-            case targetDependencies = "target_dependencies"
-        }
-
-        init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-            name = try container.decode(String.self, forKey: .name)
-            targetDependencies =
-                try container.decodeIfPresent([String].self, forKey: .targetDependencies) ?? []
-        }
-    }
-}
-
-let package = try JSONDecoder().decode(
-    PackageDump.self,
-    from: FileHandle.standardInput.readDataToEndOfFile()
-)
-
-let forbiddenEdges: [String: Set<String>] = [
-    "TesseraCore": ["CTesseraTerminalPlatform", "TesseraTerminal", "TesseraTerminalIO"],
-    "Tessera": ["CTesseraTerminalPlatform", "TesseraTerminalIO"],
-]
-
-let targetsByName = Dictionary(uniqueKeysWithValues: package.targets.map { ($0.name, $0) })
-let offenders = forbiddenEdges.flatMap { source, forbidden -> [String] in
-    let dependencies = Set(targetsByName[source]?.targetDependencies ?? [])
-    return dependencies.intersection(forbidden).sorted().map { "\(source) -> \($0)" }
-}
-
-if !offenders.isEmpty {
-    FileHandle.standardError.write(
-        Data(("Forbidden package dependency edges:\n" + offenders.joined(separator: "\n")).utf8)
-    )
-    throw BoundaryError.violations(offenders)
-}
-
-enum BoundaryError: Error {
-    case violations([String])
-}
+```text
+TesseraCore    -> TesseraTerminalCore, TesseraTerminalBuffer, TesseraTerminalInput
+TesseraLayout  -> TesseraCore
+TesseraWidgets -> TesseraCore, TesseraLayout
+Tessera        -> TesseraCore, TesseraLayout, TesseraWidgets, TesseraTerminal
 ```
 
-`just quality lint` then gets a cheap architecture step:
+It fails for every other direct dependency from those targets, including terminal IO,
+platform shims, rendering/ANSI implementation targets, or reverse view-layer edges. Its
+unit tests use JSON fixtures and call the checker directly; they never invoke SwiftPM.
+
+`just quality lint` runs the unit tests and then the live manifest check:
 
 ```just
-lint: swift swiftlint markdown docs architecture
-
 architecture:
-    swift package describe --type json | swift scripts/check-package-boundaries.swift
+    python3 -m unittest scripts/test_check_package_boundaries.py
+    swift package describe --type json | python3 scripts/check-package-boundaries.py
 ```
 
 ### Geometry
@@ -7138,6 +7196,31 @@ The rules, exhaustively:
   No graph plumbing, no transactions. It is two closures. TCA bindings, `@Observable`
   references, and plain `inout`-style closures all adapt to it in one line.
 
+  Controlled widget ownership is fixed before implementation. A controlled initializer
+  receives the app's `Binding`, never an initial value to retain; an action is an
+  app-supplied escaping closure invoked only for the documented user interaction:
+
+  ```swift
+  public init(
+      role: ButtonRole? = nil,
+      action: @escaping () -> Void,
+      @ViewBuilder label: @escaping () -> Label
+  )
+
+  public init(
+      text: Binding<String>,
+      prompt: Text? = nil,
+      onSubmit: @escaping (String) -> Void = { _ in },
+      @ViewBuilder label: @escaping () -> Label
+  )
+  ```
+
+  These are `Button.init(role:action:label:)` and
+  `TextField.init(text:prompt:onSubmit:label:)`. `ScrollView` retains its catalog
+  `init(_:offset:content:)` signature with optional `Binding<TerminalPosition>`. `Toggle`,
+  `Picker`, `Stepper`, `List`, and `Table` likewise accept their catalog-defined bindings
+  rather than copying controlled values into `NodeState`.
+
 - **`NodeState` is for ephemeral UI internals only.** Leaf primitives and widgets may
   declare node-local state (cursor index, scroll offset, marquee phase) that lives on the
   `RuntimeNode`, keyed by identity, passed `inout` to the primitive's methods. It survives
@@ -7183,9 +7266,11 @@ public enum ViewBuilder {
 }
 ```
 
-`TupleView` uses parameter packs — this is one of the Swift 6 showcase points. If pack
-iteration in the reconciler fights the toolchain, the documented fallback is fixed-arity
-overloads up to 10, generated; do not let this block the slice.
+`TupleView` uses parameter packs — this is one of the Swift 6 showcase points. The Phase 0
+Swift 6.3 probe compiled pack iteration, `~Copyable`/`~Escapable` borrowed-region lending
+(with the `Lifetimes` experimental feature), and generic opening of a `View` existential.
+The parameter-pack implementation remains selected; fixed-arity overloads up to 10 remain
+the documented fallback only if a supported toolchain regresses.
 
 Structural views the reconciler understands natively: `TupleView`, `ConditionalView`,
 `Optional`, `EmptyView`, `ForEach`, `AnyView` (type erasure; documented as an identity
@@ -7283,7 +7368,7 @@ public final class ViewGraph {
 
     public func update()                       // pass 1
     public func layoutIfNeeded()               // pass 2 (update() does NOT imply layout)
-    public func render(into frame: inout Frame) // passes 2+3 as needed, then draw
+    public func render(into frame: borrowing Frame) // passes 2+3 as needed, then draw
     public func resize(to size: TerminalSize)
 
     public func dispatch(_ event: InputEvent) -> EventDisposition  // slice 4+
@@ -7316,7 +7401,7 @@ for await event in await session.events {
     model.apply(event)            // app-owned state, app-owned architecture
     graph.update()
     if graph.needsRender {
-        try await session.draw { frame in graph.render(into: &frame) }
+        try await session.draw { frame in graph.render(into: frame) }
     }
 }
 ```
@@ -7331,6 +7416,27 @@ view types, frames, proposals, measured sizes, clip rects, dirty flags, environm
 overrides, focusability, focused state, installed handlers, and terminal requirements
 contributed by each subtree. If Phase 4 development requires a print statement to answer a
 "why did this update/layout/render/focus change" question, fix `dump()` or `statistics`.
+
+#### Immutable local developer diagnostics
+
+`graph.dump()` and `statistics` are human-readable projections of the **public immutable
+diagnostics snapshot** from the most recently completed graph pass. Its schema is frozen:
+
+- every node's identity and dynamic type;
+- parent identity and ordered child identities;
+- proposal, measured size, absolute frame, and clip;
+- resolved environment override names and installed handler kinds;
+- requested graph and effective session `TerminalRequirements`; and
+- reconciliation counters (node create/destroy/update, body evaluation, equatable skip,
+  leaf update, measurement, placement, render, focus, and requirements changes).
+
+No other data enters this schema: it excludes controlled values, raw view values, raw
+input, raw terminal bytes, `NodeState`, closures, and borrowed regions. It is local-only
+and has no serialization, persistence, logging, telemetry, or remote transport. The
+Showcase inspector reads the immutable snapshot only; it cannot mutate the graph, retain a
+borrowed `RenderRegion`, change focus or state, or trigger a pass. The graph reports
+requested requirements; the session is the sole authority that decides and reports
+effective requirements in the snapshot.
 
 #### The reconciliation algorithm
 
@@ -7437,9 +7543,13 @@ mechanism.
 3. `graph.dump()` and `statistics` output is stable enough to snapshot and shows identity,
    type, proposal, measured size, frame, dirty flags, handlers, focus state, terminal
    requirements, and pass work counters per node/subtree.
-4. The source import-boundary test passes for the view-layer source roots.
-5. A declarative example app renders through a real `TerminalSession` on macOS/Linux.
-6. No `Sendable` conformances were added to views, nodes, or the graph.
+4. The public immutable diagnostics snapshot records the most recent completed pass with
+   the normative graph, geometry, handler, requirement, and reconciliation fields; its
+   read-only inspector boundary forbids mutation, pass triggering, serialization,
+   persistence, logging, telemetry, remote transport, and raw controlled-value capture.
+5. The source import-boundary test passes for the view-layer source roots.
+6. A declarative example app renders through a real `TerminalSession` on macOS/Linux.
+7. No `Sendable` conformances were added to views, nodes, or the graph.
 
 #### Things to flag
 
@@ -7535,9 +7645,34 @@ extension View {
 }
 ```
 
+#### Catalog layout decisions
+
+The Slice 2 public APIs reject invalid configuration with `precondition` before a layout
+pass: `spacing`, `Spacer.minLength`, every `EdgeInsets` edge, and every fixed/min/max
+frame extent must be non-negative; if both bounds on an axis are supplied, `min <= max`.
+Invalid configuration is never clamped, never creates an inverted rectangle, and never
+reaches a graph dump.
+
+For a bounded frame axis, the reported extent is `clamp(childExtent, min, max)` using any
+present endpoint. A present maximum is also a child-proposal cap: a max-only frame
+proposes that maximum when its parent axis is `nil`, and otherwise proposes
+`min(parentProposal, maximum)`. The child can therefore measure its flexible layout at a
+finite cap; the frame still clips a larger placed child to its resolved bounds.
+
+`dump()` records `paintOrder` on each placed child: its zero-based lexical source index
+within the parent. Render visits increasing `paintOrder`; ZStack does not have a separate
+`zIndex` layout value.
+
 Note alignment defaults: terminal UIs read top-leading, not center. `Alignment`,
 `HorizontalAlignment`, `VerticalAlignment` are simple enums (no custom alignment guides —
 if they are ever needed, that is a separate proposal, not a quiet addition).
+
+#### Deferred baseline alignment
+
+Baseline alignment is not part of Phase 4 or its alignment enums. It requires a separate
+post-1.0 proposal that defines a text-baseline metric for every participating view; until
+that proposal lands, HStack accepts only `.top`, `.center`, and `.bottom`, and VStack only
+`.leading`, `.center`, and `.trailing`.
 
 #### The stack algorithm (normative)
 
@@ -7560,6 +7695,30 @@ Deterministic integer distribution, written down so two implementations agree. F
 If children overflow the proposal, trailing children clip — stacks never go negative and
 never redistribute below a child's reported minimum.
 
+#### `Divider`
+
+[`Divider`](../design/primitives/divider.md) lands with stack layout. It reads the
+`stackAxis` environment established by its enclosing stack and occupies the cross axis:
+horizontal in a `VStack`, vertical in an `HStack`. Its component appearance and sizing
+contract remain in the catalog; Slice 3 supplies its final style/decorative integration.
+
+#### Static controlled `SplitView` pane geometry
+
+The first [`SplitView`](../design/widgets/split-view.md) is a static, controlled pane
+layout: the app supplies the pane state through bindings, and layout derives fixed pane
+frames from it. It establishes divider placement and clipping only; it has no keyboard or
+pointer manipulation yet. This intentionally narrow geometry foundation is replaced, not
+extended by parallel code paths, by Phase 2.5's multi-pane min/ideal/max negotiation.
+
+#### `ScrollView` viewport foundation
+
+The first [`ScrollView`](../design/widgets/scroll-view.md) measures content at its ideal
+on each scrollable axis by proposing `nil` there, renders through a translated and clipped
+`RenderRegion`, and clamps a programmatic offset to content bounds on every layout. It
+shows static overflow only: it reserves no trailing or bottom edge unless that axis
+actually overflows. Keyboard input arrives in Slice 4 and pointer input plus boundary
+bubbling in Slice 5; this slice supplies their static controlled foundation.
+
 #### Invalidation semantics (graph-wide, defined here)
 
 - `needsLayout` on any node ⇒ the next `layoutIfNeeded()` re-runs the full layout pass
@@ -7581,10 +7740,14 @@ never redistribute below a child's reported minimum.
 #### Definition of done for slice 2
 
 1. `Layout`, `Subviews`, `LayoutValueKey` are public; stacks, `Spacer`, `frame`,
-   `padding`, `layoutPriority`, `id` ship; slice 1's interim stacking rule is deleted.
+   `padding`, `layoutPriority`, `id`, and [`Divider`](../design/primitives/divider.md)
+   ship; Slice 1's interim stacking rule is deleted.
 2. The stack distribution algorithm matches the normative steps, with table tests.
-3. `dump()` includes proposal, size, and absolute frame per node.
-4. A third-party-style custom layout works using only public API.
+3. Static controlled [`SplitView`](../design/widgets/split-view.md) pane geometry and the
+   [`ScrollView`](../design/widgets/scroll-view.md) viewport foundation meet their
+   documented measurement, clipping, clamping, and non-reserved-overflow rules.
+4. `dump()` includes proposal, size, and absolute frame per node.
+5. A third-party-style custom layout works using only public API.
 
 #### Things to flag
 
@@ -7596,9 +7759,135 @@ never redistribute below a child's reported minimum.
 
 ---
 
+### Phase 2.5: Flex and final SplitView negotiation
+
+This geometry stabilization lands immediately after Slice 2. It proves that the public
+`Layout` protocol carries explicit non-stack allocation and ensures later style, keyboard,
+and pointer work consume one final SplitView geometry path.
+
+#### Public Flex vocabulary
+
+```swift
+public enum FlexConstraint: Sendable, Equatable {
+    case length(Int)
+    case min(Int)
+    case max(Int)
+    case percentage(Int)
+    case ratio(Int, Int)
+    case fill(Int)
+}
+
+public struct Flex<Content: View>: View {
+    public init(_ axis: Axis, spacing: Int = 0, @ViewBuilder content: () -> Content)
+}
+
+extension View {
+    public func flex(_ constraint: FlexConstraint) -> some View
+}
+```
+
+Spacing and every cell extent are nonnegative. Percentage is in `0...100`; ratio has a
+nonnegative numerator and positive denominator; fill weight is nonnegative. Ratios above
+one are legal over-constraints. `fill(0)` receives zero cells and does not participate in
+weighted distribution. Invalid construction fails a precondition. Full-width intermediates
+and saturating conversion prevent integer wraparound.
+
+#### Flex allocation (normative)
+
+For each child, Flex measures the ideal with an unspecified main-axis proposal and the
+minimum with a zero main-axis proposal. It reserves spacing before resolving a finite
+container extent. Every public constraint and SplitView range lowers to one resolver item:
+
+| Input                   | Floor                         | Initial allocation                    | Growth cap                | Weight   | Compression |
+| ----------------------- | ----------------------------- | ------------------------------------- | ------------------------- | -------- | ----------- |
+| `length(n)`             | `n`                           | `n`                                   | `n`                       | 0        | fixed       |
+| `percentage(p)`         | resolved percentage           | `floor(available * p / 100)`          | initial                   | 0        | fixed       |
+| `ratio(n, d)`           | resolved ratio                | `floor(available * n / d)`            | initial                   | 0        | fixed       |
+| `max(n)`                | measured ideal clamped to `n` | measured ideal clamped to `n`         | initial                   | 0        | fixed       |
+| `min(n)`                | max(measured minimum, `n`)    | max(measured ideal, floor)            | nil                       | 1        | minimum     |
+| `fill(weight)`          | 0                             | measured ideal, or 0 for zero weight  | nil                       | `weight` | fill        |
+| no `.flex` value        | measured minimum              | max(measured ideal, measured minimum) | nil                       | 1        | minimum     |
+| SplitView range adapter | controlled minimum            | controlled requested ideal            | controlled maximum or nil | 1        | minimum     |
+
+`initial` precedes parent remainder, `floor` bounds the listed compression phase, and a
+nil growth cap is unbounded. Priority remains separate child metadata.
+
+With an unspecified main axis, percentage and ratio use the child ideal and no weighted
+growth occurs. A finite positive remainder visits `.layoutPriority(_:)` tiers descending,
+distributes by weight, and gives leftover one-cell remainders to earlier source children.
+It reaches a lower tier only after every child in the higher tier is capped; positive
+`fill`, `min`, default, and SplitView range items are otherwise uncapped.
+
+A negative remainder visits priority tiers ascending. It first reduces `fill` allocations
+toward zero, then `min`, default, and SplitView range items toward their floors;
+equal-tier remainder cells come from later source children first. Fixed/relative/`max`
+allocations and exhausted floors do not become negative. Any unresolved deficit remains in
+the reported main-axis extent and the graph clips trailing children. Flex has no outer
+spacing for zero or one child. Cross size is the largest child cross extent. These rules
+are owned by [`Flex`](../design/primitives/flex.md); Grid and Table later delegate to the
+same resolver.
+
+`.layoutPriority(_:)` remains the one priority API. Flex reads `Subview.priority` exactly
+as stacks do and introduces no constraint-specific or pane-specific priority property. An
+unannotated child therefore matches stack behavior: measured ideal is its initial
+allocation and measured minimum is its compression floor.
+
+#### Final controlled SplitView sizing
+
+```swift
+public struct SplitViewPaneSizing: Sendable, Equatable {
+    public init(minimum: Int = 0, ideal: Int, maximum: Int? = nil)
+}
+```
+
+Construction requires `0 <= minimum <= ideal <= maximum` when maximum exists; nil maximum
+is unbounded. Each visible pane lowers this range to the resolver's `floor`, `initial`,
+`growth cap`, weight-1 `minimum` compression fields. The child view's existing
+`layoutPriority` remains separate priority metadata. SplitView reserves one divider cell
+per adjacent visible pair before resolution. It grows higher-priority panes toward maxima
+and compresses lower-priority panes toward minima; earliest children receive positive
+remainder and later children yield compression remainder first.
+
+Collapsed panes retain their complete bound sizing but contribute no resolver item, rect,
+divider, or hit region. Effective negotiation never writes back to the binding. Keyboard
+and pointer resizing in later slices update only the adjacent pair's controlled ideals,
+preserve their pair total whenever both ranges permit, and use the immutable resolved
+frames from this single geometry path.
+
+#### Showcase responsive geometry
+
+The Showcase minimum is `23x10`; width below 23 **or** height below 10 renders the guard.
+At widths 73 and above, Catalog and Inspector use symmetric `23/24/24`
+minimum/ideal/maximum ranges with priority 1 while Playground uses `23/70/nil` at
+priority 0. Side panes therefore remain 24 cells and Playground absorbs shrink and
+surplus. Widths 48–72 use Catalog plus Playground; widths 23–47 show one full-screen role.
+`40x16` remains the canonical mobile fixture, not the minimum.
+
+#### Definition of done for Phase 2.5
+
+1. Flex's catalog document is `ready`; table tests cover every constraint, default,
+   priority, remainder, over-constraint, validation, and overflow branch.
+2. Final SplitView negotiation deletes the static allocator and has exact min/ideal/max,
+   collapse, clipping, resize, and controlled-state tests.
+3. Showcase fixtures bracket 23, 48, and 73 columns plus the independent 10-row guard,
+   while retaining canonical 40x16, 80x24, and 120x24 evidence.
+4. Grid, Table, and NavigationSplitView remain Slice 6 consumers of this established
+   geometry rather than pulling their unrelated scope forward.
+
+---
+
 ### Slice 3: Styling, text wrapping, and decoration
 
 #### What this slice proves
+
+#### Catalog text boundary decisions
+
+`Text` normalizes each `\r\n` sequence to one source newline at its public initializer; a
+lone `\r` remains literal source text. Slice 3 exposes `TruncationMode.clip`, `.tail`,
+`.head`, and `.middle`; every marker replaces only whole extended grapheme clusters. Rich
+text spans, localized interpolation, and formatted values are out of Phase 4 1.0 and
+require a separate post-1.0 text-composition proposal; `Text` remains one immutable
+`String` leaf.
 
 The Lip Gloss-flavored ergonomics: styled text, borders, backgrounds, overlays — as
 modifier chains that lower to ordinary wrapper nodes with zero new machinery.
@@ -7631,6 +7920,15 @@ Merging rule (normative): per-attribute, nearest-ancestor-wins, view's own expli
 wins over inherited. No `sub_modifier`-style negation in v1; `.bold(false)` explicitly
 sets the attribute off, which is sufficient and simpler.
 
+#### System and custom style plumbing
+
+System styles and custom styles are both public. The environment selects a complete
+`Style` value through the same merge path; it does not introduce a parallel widget-style
+type. The five semantic roles — primary, secondary, accent, disabled, and destructive —
+are each complete `Style` values, never color aliases. Their token semantics belong to the
+[catalog tokens](../design/tokens.md); controls consume those resolved values rather than
+reconstructing colors or attributes.
+
 #### Text grows up
 
 ```swift
@@ -7662,7 +7960,6 @@ extension View {
     public func background<B: View>(@ViewBuilder _ background: () -> B) -> some View
 }
 
-public struct Divider: View { public init() }   // axis-adaptive: ─ in VStack, │ in HStack
 public struct Box<Content: View>: View {        // border + padding + optional title
     public init(title: String? = nil, border: BorderStyle = .rounded,
                 @ViewBuilder content: () -> Content)
@@ -7672,10 +7969,19 @@ public struct Box<Content: View>: View {        // border + padding + optional t
 `border` adds 1 to each inset and draws box-drawing glyphs in the inset ring — it is a
 unary layout wrapper plus a render decoration, the model case for "modifiers are just
 nodes." `overlay`/`background` are ZStack-equivalent wrappers sized by the primary child.
-`Divider` reads its axis from a `stackAxis` environment value that stacks set.
+The Slice 2 [`Divider`](../design/primitives/divider.md) receives this same style and
+decoration plumbing without changing its stack-derived geometry.
 
 `.link(URL)` (OSC 8, Phase 3 Slice 5) joins the chain here if that slice has landed — it
 is an environment-merged `Style` attribute like any other.
+
+#### `ScrollIndicator`
+
+[`ScrollIndicator`](../design/primitives/scroll-indicator.md) is shared output-only
+overflow geometry: it derives an indicator track and thumb from a viewport, content size,
+and clamped offset, but owns neither input nor scrolling state. `ScrollView` consumes it
+now; `List` and `Table` consume the same representation when they land. It reserves a
+trailing or bottom edge only for an overflowing axis.
 
 #### Tests
 
@@ -7688,11 +7994,14 @@ is an environment-merged `Style` attribute like any other.
 
 #### Definition of done for slice 3
 
-1. `Style` fluent API lives on the buffer's `Style` type; view modifiers above ship.
+1. `Style` fluent API lives on the buffer's `Style` type; environment inheritance,
+   system/custom plumbing, and the five complete semantic role `Style` values ship.
 2. Wrapping/truncation measurement and rendering agree, property-tested with wide and
    combining graphemes.
-3. Borders, `Box`, `Divider`, `overlay`, `background` snapshot-tested including degenerate
-   sizes.
+3. Borders, `Box`, [`Divider`](../design/primitives/divider.md), `overlay`, and
+   `background` snapshot-test including degenerate sizes.
+4. [`ScrollIndicator`](../design/primitives/scroll-indicator.md) produces output-only
+   overflow geometry reused by ScrollView and ready for List/Table parity.
 
 #### Things to flag
 
@@ -7804,6 +8113,26 @@ capabilities/configuration and applies deltas through `ModeLifecycle`. Views sti
 touch modes; this is the declarative-requirements design from the ownership thesis made
 concrete.
 
+#### Controls and focused viewport interaction
+
+[`Button`](../design/widgets/button.md), `Toggle`, `Picker`, and `Stepper` land as
+controlled responders: their catalog-owned contracts receive current values through
+`Binding` and report a user action by writing that binding or invoking their documented
+action. The graph supplies focus and routing only; it never manufactures a model value or
+interprets an unhandled key.
+
+[`TextField`](../design/widgets/text-field.md) lands its focus behavior here. It
+participates in document-order focus, receives focused key and paste routing, and requests
+redraw through `ResponderContext`; the complete controlled editing cutover remains
+Slice 7. This preserves the rule that `NodeState` contains only ephemeral UI state.
+
+The Slice 2 [`ScrollView`](../design/widgets/scroll-view.md) viewport gains keyboard
+movement. Focused movement changes its controlled offset (or its ephemeral offset where
+the catalog permits one) and clamps it to content bounds. The static
+[`SplitView`](../design/widgets/split-view.md) divider gains focused keyboard resize,
+writing its controlled pane state; pointer drag waits for Slice 5 and multi-pane
+negotiation waits for Slice 6.
+
 #### Tests
 
 - Routing tables: synthetic trees with recording handlers; assert exact delivery order for
@@ -7820,7 +8149,10 @@ concrete.
 1. `FocusManager`, `focusable`, `focused`, `onKey`, `ResponderContext`, `EventDisposition`
    ship with the normative routing order tested.
 2. No key is consumed by the graph without a user-installed handler.
-3. `TerminalRequirements` aggregation works end-to-end against a real `TerminalSession` in
+3. Button, Toggle, Picker, Stepper, TextField focus, ScrollView keyboard movement, and
+   focused-divider SplitView keyboard resize obey their controlled binding and routing
+   rules.
+4. `TerminalRequirements` aggregation works end-to-end against a real `TerminalSession` in
    an example app (focus two widgets, Tab between them).
 
 #### Things to flag
@@ -7885,132 +8217,125 @@ Requires Phase 3 Slice 3 (SGR mouse events).
   tables over constructed `.move` position sequences; `wantsMouse`/`wantsMouseMotion`
   escalation and de-escalation as handlers are added and removed.
 
-Definition of done: hit testing matches the table tests; an example app mixes keyboard and
-mouse focus; removing all mouse handlers drops `wantsMouse` and the session disables mouse
-mode mid-run; adding and removing `onHover` handlers escalates and de-escalates
+#### Pointer cutover for controls, fields, panes, and viewports
+
+Control clicks activate the focused responder through the same controlled binding/action
+path as keyboard activation. [`TextField`](../design/widgets/text-field.md) gains the
+click-to-caret substrate: hit testing maps the visible grapheme-cell position to its
+ephemeral caret state without capturing the bound text. The static
+[`SplitView`](../design/widgets/split-view.md) divider gains pointer drag, which writes
+the controlled pane state and remains subject to the Slice 2 geometry until Slice 6
+replaces it.
+
+[`ScrollView`](../design/widgets/scroll-view.md) gains complete pointer input. Wheel,
+track, and pointer sequences first attempt to change the clamped local offset; when the
+requested movement reaches a boundary, the viewport returns `.ignored` so the event
+bubbles to an eligible ancestor. This makes nested viewport boundaries explicit rather
+than silently swallowing motion.
+
+#### Definition of done for slice 5
+
+Hit testing matches the table tests; an example app mixes keyboard and mouse focus;
+removing all mouse handlers drops `wantsMouse` and the session disables mouse mode
+mid-run; adding and removing `onHover` handlers escalates and de-escalates
 `wantsMouseMotion` independently of `wantsMouse`; hover state clears correctly on focus
-loss and on motion-tracking disable.
+loss and on motion-tracking disable. Control clicks, TextField click-to-caret, SplitView
+divider drag, and ScrollView pointer input with boundary bubbling have deterministic
+routing tests.
 
 ---
 
-### Slice 6: `Flex`, `Grid`, and composition
+<a id="slice-6-flex-grid-and-composition"></a>
 
-The Ratatui-flavored constraint layout, expressed through the slice 2 `Layout` protocol —
-proving the protocol carries non-stack semantics.
+### Slice 6: `Grid`, `Table`, and `NavigationSplitView` composition
 
-```swift
-public enum FlexConstraint: Sendable, Equatable {
-    case length(Int)         // exactly n cells
-    case min(Int)            // at least n; competes like fill(1) above the minimum
-    case max(Int)            // at most n; takes its ideal up to n
-    case percentage(Int)     // of the container's main axis, floor
-    case ratio(Int, Int)     // numerator/denominator of the main axis, floor
-    case fill(Int)           // share leftover by weight
-}
-
-public struct Flex<Content: View>: View {
-    public init(_ axis: Axis, spacing: Int = 0, @ViewBuilder content: () -> Content)
-}
-extension View {
-    public func flex(_ constraint: FlexConstraint) -> some View  // LayoutValueKey
-}
-```
-
-Distribution (normative): resolve in order — `length`, then `percentage`/`ratio`
-(floored), then `max` (ideal clamped), then `min` (minimum guaranteed), then remaining
-space to `fill` and above-minimum `min` by weight; integer remainders go to the earliest
-weighted children, one cell each. Children without `.flex` default to `.min(ideal)`.
-Negative remainders shrink `fill` first, then `min` down to their floors, then clip
-trailing children. Every branch of this paragraph gets a table test.
+Slice 6 consumes the Phase 2.5 Flex solver and final SplitView geometry; it does not
+reopen either allocator.
 
 ```swift
 public struct Grid<Content: View>: View {
     public init(columns: [FlexConstraint], spacing: Int = 0,
-                @ViewBuilder content: () -> Content)   // content is GridRows
+                @ViewBuilder content: () -> Content)
 }
 public struct GridRow<Content: View>: View { … }
 ```
 
-Columns resolve once per grid via the flex algorithm; row heights are the max of the row's
-children's heights at their resolved column widths. No spanning in v1 — say no now, design
-spanning later if real apps demand it.
+Columns resolve once per grid through the established Flex algorithm; row heights are the
+maximum of each row's children at their resolved column widths. No spanning in v1 — say no
+now, design spanning later if real applications demand it.
 
-Lip Gloss's `Join`/`Place`/`Compose` vocabulary maps onto existing primitives —
-`JoinHorizontal` ≡ `HStack(alignment:)`, `Place` ≡ `.frame(width:height:alignment:)`,
-`Compose` ≡ `ZStack` — document the mapping in DocC for Lip Gloss émigrés instead of
-shipping duplicate API.
+Lip Gloss's `Join`/`Place`/`Compose` vocabulary maps onto existing primitives:
+`JoinHorizontal` is `HStack(alignment:)`, `Place` is `.frame(width:height:alignment:)`,
+and `Compose` is `ZStack`. Document that mapping in DocC rather than shipping duplicate
+APIs.
 
-Definition of done: flex table tests cover every resolution branch including
-over-constrained shrinking; `Grid` snapshot tests; a dashboard example (sidebar +
-content + status bar) built with `Flex` matching a Ratatui-style layout.
+#### Table and NavigationSplitView
+
+[`Table`](../design/widgets/table.md) resolves its columns through the Phase 2.5
+`FlexConstraint` representation rather than creating a competing solver. It consumes
+[`ScrollIndicator`](../design/primitives/scroll-indicator.md) output with the same
+overflow geometry as ScrollView, establishing indicator parity.
+
+[`NavigationSplitView`](../design/widgets/navigation-split-view.md) composes the final
+SplitView in regular layouts and the catalog-defined compact replacement when space
+contracts. Its composition accepts generic role children, uses controlled visibility, and
+depends on the responsive role policy plus final SplitView negotiation; `List` and
+`Section` remain Showcase composition rather than mandatory navigation dependencies.
+
+#### Definition of done for slice 6
+
+1. Grid snapshot tests cover resolved columns, row heights, spacing, clipping, and paint
+   order while proving the shared Flex solver is the only allocator.
+2. [`Table`](../design/widgets/table.md) reuses the Flex representation for its column
+   solver and has ScrollIndicator parity with ScrollView.
+3. [`NavigationSplitView`](../design/widgets/navigation-split-view.md) composes regular
+   and compact layouts from generic role children with controlled visibility.
 
 ---
 
-### Slice 7: Widgets — `TextInput`, `List`, `ScrollView`
+### Slice 7: Catalog integration — List, Section, controlled widgets, and the Showcase
 
-The Tessera analog of `bubbles`, and the proof that the architecture-agnostic story holds:
-every widget is **controlled** (state in, events out via bindings) with only ephemeral
-internals in `NodeState`.
+This slice completes catalog integration rather than introducing another widget subsystem.
+[`List` and `Section`](../design/widgets/list.md) compose their catalog-owned selection,
+section, and overflow contracts into the graph;
+[`ScrollView`](../design/widgets/scroll-view.md) uses the same completed viewport and
+indicator behavior. Final system and custom control styles apply the Slice 3 complete
+semantic `Style` roles consistently across the public controls.
 
-```swift
-public struct TextInput: View {
-    public init(text: Binding<String>, placeholder: String = "",
-                onSubmit: ((inout ResponderContext) -> Void)? = nil)
-}
-```
+[`TextField`](../design/widgets/text-field.md) completes its public controlled cutover.
+Edits write through `Binding`; `NodeState` holds only the grapheme-safe cursor and reveal
+offset, clamps both on every bound-value update, and never retains the controlled text.
+Focused paste and dictation commits write through the binding, and submit routes through
+the documented action. Rendering requests the hardware cursor at the resolved caret with
+`RenderRegion.requestCursor(at:)`; the graph forwards the last focused request to the
+session draw and the session positions or hides the terminal cursor.
 
-`NodeState`: cursor index (grapheme offset) and horizontal scroll offset. Handles, when
-focused: graphemes/paste insertion, left/right/word-wise movement, home/end,
-backspace/delete, submit. Cursor index clamps to the bound text on every update (the app
-may have replaced the text wholesale). Renders single-line with horizontal scrolling;
-requests the **hardware cursor** at the caret:
+The full **[Tessera Showcase](../design/showcase.md)** composes every 1.0 component and
+integrates an inspector that reads the Slice 1 immutable diagnostics snapshot. The
+inspector is read-only: it cannot mutate the graph, capture raw controlled values, or
+trigger a pass. The graph requests `TerminalRequirements`; the session remains the
+authority that decides and reports effective requirements, including in that snapshot.
 
-```swift
-extension RenderRegion {
-    /// Last focused-node request wins; the graph forwards it to the session draw,
-    /// which positions and shows the real terminal cursor (hidden when unset).
-    public mutating func requestCursor(at position: TerminalPosition)
-}
-```
+Widget tests remain deterministic state-machine tests with no terminal and no clocks:
+build a graph, dispatch key/paste/pointer scripts, and assert bindings, ephemeral
+`NodeState` through test hooks, diagnostics snapshots, and chosen buffer snapshots.
+Grapheme cursor movement, bound-value replacement, paste/dictation commit, submit,
+selection out of range, and session-effective requirements are mandatory cases.
 
-```swift
-public struct List<Data: RandomAccessCollection, Row: View>: View
-where Data.Element: Identifiable {
-    public init(_ data: Data, selection: Binding<Data.Element.ID?>,
-                @ViewBuilder row: @escaping (Data.Element) -> Row)
-}
-```
+#### Definition of done for slice 7
 
-`NodeState`: scroll offset. Up/down/page/home/end move selection through the binding; the
-offset keeps selection visible (scroll margin 0; no smooth scrolling — cells). Mouse:
-click selects, wheel scrolls (slice 5 events). Selection styling via environment
-(`listSelectionStyle`), overridable per app.
-
-```swift
-public struct ScrollView<Content: View>: View {
-    public init(_ axes: Axis.Set = .vertical,
-                offset: Binding<TerminalPosition>? = nil,   // nil ⇒ NodeState-owned
-                @ViewBuilder content: () -> Content)
-}
-```
-
-Content is proposed `nil` on scrollable axes (measured at its ideal), rendered through a
-translated+clipped `RenderRegion` — this is the existing `with(_:_:)` mechanism plus a
-translation, no new buffer machinery. Offset clamps to content bounds on every layout.
-Optional unobtrusive scrollbar glyphs on the trailing/bottom edge when content overflows.
-
-Widget tests are deterministic state-machine tests, no terminal and no clocks: build graph
-→ `dispatch` a key script → assert bindings, `NodeState` (via test hooks), and buffer
-snapshots at chosen steps. Paste, CJK/emoji cursor movement, and selection-out-of-range
-(app mutated data under the widget) are mandatory cases.
-
-Definition of done: all three widgets ship controlled-style with the key/mouse tables
-above tested; hardware-cursor requests flow through a real session; an example app
-composes all three (a filterable list with a text input over a scrolling detail pane).
+1. List and Section integrate their catalog contracts; all 1.0 controls have final
+   system/custom styles and remain controlled.
+2. TextField binding edits, grapheme-safe cursor/reveal state, paste/dictation commits,
+   submit, and hardware-cursor requests have deterministic tests.
+3. The complete Tessera Showcase composes every 1.0 component, and its inspector reads the
+   immutable Slice 1 diagnostics snapshot without graph mutation or pass triggering.
+4. Graph-requested and session-effective `TerminalRequirements` are demonstrably distinct
+   values with session authority preserved.
 
 #### Things to flag
 
-1. **Controlled-only is the hill to hold.** The first request will be "can `TextInput`
+1. **Controlled-only is the hill to hold.** The first request will be "can `TextField`
    just own its text?" The answer is `@Observable` in the app plus a one-line binding.
    Owning text in `NodeState` would quietly become the state-management coupling this
    whole layer exists to avoid.
@@ -8038,9 +8363,10 @@ composes all three (a filterable list with a text input over a scrolling detail 
 ### Definition of done for Phase 4
 
 1. All seven slices' definitions of done hold.
-2. A non-trivial example app (file browser or chat-style UI) is built with stacks, flex,
-   borders, focus, mouse, and all three widgets, driven by a plain model object — and a
-   variant driven by `@Observable` — proving architecture-agnosticism.
+2. The **[Tessera Showcase](../design/showcase.md)** is the canonical integration proof:
+   it composes the 1.0 surface with stacks, flex, borders, focus, mouse, and controlled
+   widgets, driven by a plain model object — and by an `@Observable` variant — proving
+   architecture-agnosticism.
 3. `graph.dump()` and `statistics` are good enough that every "why did it render/focus/
    lay out like that" question in this phase's development was answered with them, not
    with print statements. (If they weren't, fix the tools.)
@@ -8189,12 +8515,14 @@ Recommended product/target shape:
 Products:
   Tessera                  // public view/runtime product
   TesseraTerminal          // public terminal-foundation product
+  TesseraTestSupport       // public view-layer test and snapshot support
 
 Targets:
   Tessera                  // re-export target for the view/runtime product
   TesseraCore              // view protocol, graph, environment, focus (Phase 4 slices 1, 4)
   TesseraLayout            // Layout protocol, stacks, flex, grid, decoration (slices 2, 3, 5, 6)
-  TesseraWidgets           // TextInput, List, ScrollView (slice 7)
+  TesseraWidgets           // ScrollView/SplitView (slice 2), controls (slice 4), List/TextInput (slice 7)
+  TesseraTestSupport       // graph/layout/widget snapshots; re-exports terminal test support
   TesseraRuntime           // optional @MainActor convenience loop (Phase 5)
 
   TesseraTerminal          // re-export target for the terminal product
@@ -8209,13 +8537,15 @@ Targets:
 ```
 
 The `TesseraTerminal` targets are relatively concrete because Phases 1–3 define their
-responsibilities in detail. The `TesseraTerminalTestSupport` target exposes safe testing
-affordances such as `TestTerminal`, test input sources, virtual-terminal snapshot helpers,
-and renderer diagnostics without making live-terminal escape hatches public. The `Tessera`
-targets follow the Phase 4 slice plan: `TesseraCore` for the view protocol, graph,
-environment, and responder system; `TesseraLayout` for the layout protocol, containers,
-and decoration; `TesseraWidgets` for the standard widget set; and `TesseraRuntime`
-(Phase 5) for the optional convenience loop.
+responsibilities in detail. `TesseraTerminalTestSupport` owns terminal-specific fixtures,
+in-memory sessions, virtual-terminal snapshot helpers, and renderer diagnostics without
+making live-terminal escape hatches public. `TesseraTestSupport` is the elevated testing
+surface for view graphs, layouts, and widgets. It depends on `TesseraCore`, re-exports
+`TesseraTerminalTestSupport`, and owns stable high-level snapshot strategies rather than
+placing them in individual test files. The production `Tessera` targets follow the Phase 4
+slice plan: `TesseraCore` for the view protocol, graph, environment, and responder system;
+`TesseraLayout` for the layout protocol, containers, and decoration; `TesseraWidgets` for
+the standard widget set; and `TesseraRuntime` (Phase 5) for the optional convenience loop.
 
 Swift SPI may be used sparingly when SwiftPM visibility is not expressive enough:
 
@@ -8302,43 +8632,84 @@ Sources/
     SnapshotRenderer.swift
     SnapshotFixtures.swift
 
+  TesseraTerminalTestSupport/
+    TesseraTerminalTestSupport.swift
+    InMemoryTerminalSession.swift
+    BufferSnapshotting.swift
+    VirtualTerminalSnapshotting.swift
+
+  TesseraTestSupport/
+    TesseraTestSupport.swift       // re-exports terminal test support
+    GraphDiagnosticsSnapshotting.swift
+
   TesseraTerminal/
     TesseraTerminal.swift         // @_exported imports only
 
   Tessera/
     Tessera.swift                 // @_exported imports only
 
-  TesseraCore/                  // Phase 4 slices 1 + 4
-    View.swift                    // View protocol, EmptyView, AnyView, EquatableView
-    ViewBuilder.swift             // result builder, TupleView, ConditionalView
-    ForEach.swift
-    ViewGraph.swift               // update/layout/render passes, dispatch, dump
-    RuntimeNode.swift             // node storage, identity, NodeState, dirty flags
-    NodeIdentity.swift
-    LeafView.swift                // primitive seam, ProposedSize, EventDisposition
-    RenderRegion.swift
-    Environment.swift             // EnvironmentValues, EnvironmentKey, EnvironmentReader
-    Binding.swift
-    Text.swift                    // wrapping/truncation arrive with slice 3
-    Focus.swift                   // FocusID, FocusManager, focusable/focused (slice 4)
-    Responder.swift               // ResponderContext, onKey, routing (slice 4)
-    TerminalRequirements.swift    // declarative requirements aggregation (slice 4)
-    HitTesting.swift              // onTap, onMouse, allowsHitTesting (slice 5)
+  TesseraCore/                  // declarative view values and explicit graph runtime
+    Views/
+      View.swift                  // View protocol and Never primitive body
+      ViewBuilder.swift           // result builder
+      EmptyView.swift
+      TupleView.swift
+      ConditionalView.swift
+      OptionalView.swift
+      AnyView.swift               // AnyView and its identity barrier
+      EquatableView.swift         // EquatableView and .equatable()
+      IdentifiedView.swift        // .id() and its structural wrapper
+      StructuralView.swift        // structural slots and child lowering
+      ForEach.swift
+      LeafView.swift              // third-party primitive seam
+      ProposedSize.swift
+      Binding.swift
+      Text.swift
+    Environment/
+      EnvironmentKey.swift
+      EnvironmentValues.swift
+      EnvironmentModifier.swift
+      EnvironmentReader.swift
+    Runtime/
+      ViewGraph.swift              // update/layout/render passes, dispatch, dump
+      RuntimeNode.swift            // node storage, NodeState, and dirty flags
+      NodeIdentity.swift
+      TerminalRequirements.swift   // declarative requirements aggregation
+    Diagnostics/
+      GraphStatistics.swift
+      NodeDiagnostics.swift
+      GraphDiagnostics.swift
+    Input/
+      EventDisposition.swift
+      ResponderContext.swift
+      Focus.swift                  // FocusID, FocusManager, focusable/focused
+      Responder.swift              // onKey and responder routing
+      HitTesting.swift             // pointer handlers and hit-test policy
+    Rendering/
+      RenderRegion.swift
 
-  TesseraLayout/                // Phase 4 slices 2, 3, 5, 6
+  TesseraLayout/                // Phase 4 slices 2, 2.5, 3, 5, 6
     Layout.swift                  // Layout protocol, Subviews, LayoutValueKey
     Stacks.swift                  // HStack, VStack, ZStack, Spacer, alignment
     FrameModifiers.swift          // frame, padding, layoutPriority
     Styling.swift                 // foreground/bold/style modifiers, defaultStyle key
     Decoration.swift              // border, overlay, background, Divider, Box
-    Flex.swift                    // FlexConstraint, Flex, .flex
-    Grid.swift                    // Grid, GridRow
+    Flex.swift                    // Phase 2.5 FlexConstraint, Flex, .flex
+    Grid.swift                    // Slice 6 Grid, GridRow
 
-  TesseraWidgets/               // Phase 4 slice 7
+  TesseraWidgets/               // Phase 4 slices 2, 2.5, 4, and 7
+    ScrollView.swift
+    SplitView.swift
+    Controls.swift
     TextInput.swift
     List.swift
-    ScrollView.swift
 ```
+
+Within a target, source directories group durable responsibilities rather than delivery
+stages. Prefer one primary public concept per file, keep an underscored implementation
+beside the public API it supports, and retain tightly coupled helper types together when
+splitting them would widen access or obscure an ownership boundary. New source files must
+extend this structure instead of restoring a flat target root.
 
 Proposed test layout mirrors the targets so each layer can be built and tested directly:
 
@@ -8380,8 +8751,8 @@ Tests/
     HitTestingTests.swift
   TesseraLayoutTests/
     StackDistributionTests.swift  // normative table tests
-    FlexDistributionTests.swift
-    GridTests.swift
+    FlexDistributionTests.swift  // Phase 2.5 normative constraint tables
+    GridTests.swift              // Slice 6 shared-solver integration
     DecorationSnapshotTests.swift
     TextWrappingTests.swift       // measure/render agreement property tests
   TesseraWidgetsTests/
@@ -8419,11 +8790,14 @@ Suggested dependency direction inside `TesseraTerminal`:
 Dependency direction inside `Tessera`:
 
 - `TesseraCore` defines the `View` protocol, graph, environment, focus/responder system,
-  and `Text`. It depends on `TesseraTerminalCore`, `TesseraTerminalBuffer`, and the
-  input/event types — never on `TesseraTerminalIO`.
-- `TesseraLayout` builds on `TesseraCore`: the `Layout` protocol, containers, styling
+  and `Text`. It directly depends only on `TesseraTerminalCore`, `TesseraTerminalBuffer`
+  (the borrowed `Frame`/`Buffer`/`Style` seam), and `TesseraTerminalInput`; it never
+  imports `TesseraTerminal`, `TesseraTerminalIO`, platform shims, or UI frameworks.
+- `TesseraLayout` builds only on `TesseraCore`: the `Layout` protocol, containers, styling
   modifiers, and decoration.
-- `TesseraWidgets` builds on core + layout.
+- `TesseraWidgets` builds only on `TesseraCore` + `TesseraLayout`. It starts in Slice 2
+  rather than waiting for Slice 7 so ScrollView and SplitView do not require a temporary
+  target.
 - `TesseraRuntime` (Phase 5) may depend on the whole view layer plus `TesseraTerminal`.
 - The `Tessera` target re-exports the public view-layer modules (and `TesseraTerminal`)
   for app authors.

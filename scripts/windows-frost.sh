@@ -78,8 +78,9 @@ EOF
     ;;
   check-base)
     require_frost
+    : "${TESSERA_FROST_PASS:?Set TESSERA_FROST_PASS in ignored local configuration.}"
     prepare_frost_runtime_dirs
-    exec "$TESSERA_FROST_CLI" run \
+    FROST_SSH_PASS="$TESSERA_FROST_PASS" exec "$TESSERA_FROST_CLI" run \
       --golden "$TESSERA_FROST_BASE_GOLDEN" \
       --vars "$TESSERA_FROST_BASE_VARS" \
       --ssh-port "$TESSERA_FROST_SSH_PORT" \

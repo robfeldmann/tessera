@@ -4,8 +4,8 @@ private let displayWidth = DisplayWidth()
 
 package func terminalCellWidth(of grapheme: String) -> Int {
   if isHalfwidthKatakanaSoundMark(grapheme) {
-    // docs/Spec.md Slice 4 follows Ratatui's cell_width.rs correction: these marks are
-    // rendered as spacing halfwidth characters by terminals even when width tables vary.
+    // Terminals render these marks as spacing halfwidth characters even when width tables
+    // vary.
     return 1
   }
 

@@ -1,0 +1,9 @@
+pre-commit:
+  commands:
+    staged-quality:
+      run: scripts/pre-commit-lint-staged.sh
+
+commit-msg:
+  commands:
+    conventional-commits:
+      run: python3 scripts/conventional_commits.py --message-file "{1}"

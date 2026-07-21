@@ -1,0 +1,75 @@
+name: Documentation deployment
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build static DocC site
+    if: github.ref == 'refs/heads/main'
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Swift
+        uses: ./.github/actions/setup-swift
+
+      - name: Install libghostty-vt prerequisites
+        run: brew install cmake ninja zig@0.15
+
+      - name: Restore libghostty-vt cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          # Key/path shape must match CI so both share entries.
+          path: |
+            ~/.cache/tessera/libghostty-vt
+            !~/.cache/tessera/libghostty-vt/source
+            !~/.cache/tessera/libghostty-vt/cmake
+          # Exact-only to prevent a stale native install from being relabeled.
+          # prettier-ignore
+          key: libghostty-vt-v3-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
+
+      - name: Install just
+        uses: taiki-e/install-action@a6b2e2dcd845ddd7f509ce4f3ed3d922b80cc5d9 # v2
+        with:
+          tool: just
+
+      - name: Build static docs
+        run: just docs build
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+        with:
+          path: .build/docs
+
+  deploy:
+    name: Deploy static DocC site
+    needs: build
+    if: >
+      github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name
+      == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

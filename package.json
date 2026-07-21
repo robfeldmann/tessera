@@ -1,0 +1,15 @@
+{
+  "devDependencies": {
+    "markdownlint-cli2": "0.23.1",
+    "prettier": "3.9.5"
+  },
+  "engines": {
+    "node": ">=24.14.0 <25"
+  },
+  "name": "tessera-tooling",
+  "private": true,
+  "scripts": {
+    "check:markup": "scripts/check-markup.sh",
+    "format:markup": "prettier --write ."
+  }
+}

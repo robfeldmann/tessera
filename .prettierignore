@@ -1,6 +1,17 @@
+# Changelog tools own this Markdown layout
+CHANGELOG.md
+
+# Vouch owns the public Trustdown syntax
+.github/VOUCHED.td
+
 # DocC documentation files
 **/*.docc/**/*.md
 Sources/**/Documentation.docc/**/*.md
 
 # Build artifacts
 .build/
+Packages/
+node_modules/
+**/Package.resolved
+package-lock.json
+Sources/CGhosttyVT/include/ghostty/

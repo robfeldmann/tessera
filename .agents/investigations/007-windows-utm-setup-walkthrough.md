@@ -39,7 +39,7 @@ working for Tessera on Apple Silicon with UTM, and which details should be promo
     `638AA2C88E94385B00F4F178D071E3DF0B7D9E335577A83BD533B7F2EB65ADF0`.
   - Microsoft shows a Windows PowerShell `Get-FileHash` example. On macOS, this worked:
     `shasum -a 256 ~/Downloads/Win11_25H2_English_Arm64_v2.iso`.
-  - Downloaded file: `/Users/rob/Downloads/Win11_25H2_English_Arm64_v2.iso`.
+  - Downloaded file: `~/Downloads/Win11_25H2_English_Arm64_v2.iso`.
   - File size: 7.4 GB.
   - SHA-256 verification succeeded. macOS output:
     `638aa2c88e94385b00f4f178d071e3df0b7d9e335577a83bd533b7f2eb65adf0`.
@@ -222,7 +222,7 @@ from the original `rob` user to a new `tess` user.
 Successful sequence:
 
 1. Create the user from Administrator PowerShell: `net user tess * /add`.
-2. Password used during the walkthrough: `Te$$`.
+2. Set a temporary password interactively; do not record it in repository files.
 3. Add to administrators: `net localgroup Administrators tess /add`.
 4. Sign out and sign in as `tess` once so Windows creates `C:\Users\tess`.
 5. Verify identity:

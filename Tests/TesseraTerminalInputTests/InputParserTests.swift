@@ -1187,8 +1187,11 @@ func `parser preserves foreign Kitty graphics responses as semantic events`() {
   #expect(
     parser.feed(contentsOf: kittyGraphicsAPC("a=q,i=99;OK")) == [
       .kittyGraphicsResponse(
-        KittyGraphicsResponse(id: KittyImageID(rawValue: 99), message: "OK")
-      ),
+        KittyGraphicsResponse(
+          id: KittyImageID(rawValue: 99),
+          message: "OK"
+        )
+      )
     ]
   )
 }

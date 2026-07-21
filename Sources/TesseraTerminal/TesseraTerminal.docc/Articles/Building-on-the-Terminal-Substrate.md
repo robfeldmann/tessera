@@ -34,13 +34,15 @@ completed or thrown.
 ## Draw a frame synchronously
 
 Call ``TerminalSession/draw(_:)`` to produce one frame. Its closure receives a borrowed
-``Frame`` that is noncopyable and nonescaping, so it cannot outlive the render transaction.
+``/TesseraTerminalBuffer/Frame`` that is noncopyable and nonescaping, so it cannot outlive
+the render transaction.
 Write text, reserve terminal cells, and set cursor position in that closure; the session
 then renders and flushes the frame.
 
 The buffer remains cell-oriented even when output is not printable text. Use
 `TesseraTerminalANSI/RawTerminalPayload` with
-``Frame/writeRaw(_:at:occupying:repaintPolicy:)`` for a payload Tessera does not model
+``/TesseraTerminalBuffer/Frame/writeRaw(_:at:occupying:repaintPolicy:)`` for a payload
+Tessera does not model
 semantically, and declare the cells it occupies. This keeps
 raw terminal bytes a typed producer input with geometry and repaint behavior, rather than
 an application-owned terminal handle.
@@ -60,4 +62,4 @@ application owns its presentation decisions.
 - ``TerminalSession``
 - ``TerminalSession/withApplicationTerminal(configuration:_:)``
 - ``TerminalSession/draw(_:)``
-- ``Frame``
+- ``/TesseraTerminalBuffer/Frame``

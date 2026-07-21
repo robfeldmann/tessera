@@ -1,0 +1,3 @@
+[codespell]
+skip = .git,.build,.venv,node_modules,Packages,Sources/**/*.docc/Resources
+ignore-words-list = inout,ratatui,iterm,theses

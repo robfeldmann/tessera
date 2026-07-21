@@ -670,6 +670,6 @@ public enum ModeLifecycleError: Error, Equatable, Sendable {
   /// The requested modes overlap with modes already active in this lifecycle.
   case modesAlreadyActive(Set<ModeLifecycle.Mode>)
 
-  /// The requested modes are not implemented in this slice.
+  /// The requested modes are unsupported by this lifecycle.
   case unsupportedModes(Set<ModeLifecycle.Mode>)
 }
