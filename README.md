@@ -26,6 +26,7 @@
 
 <p align="center">
   <a href="https://github.com/robfeldmann/tessera/actions/workflows/ci.yml?query=branch%3Amain"><img src="https://github.com/robfeldmann/tessera/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="https://robfeldmann.com/tessera/documentation/"><img src="https://img.shields.io/badge/documentation-gray?logo=swift&logoColor=white" alt="Documentation"></a>
   <a href="https://www.swift.org/"><img src="https://img.shields.io/badge/Swift-6.3-F05138.svg?logo=swift" alt="Swift 6.3"></a>
   <a href="#requirements-and-supported-platforms"><img src="https://img.shields.io/badge/platforms-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey.svg" alt="Platforms: macOS, Linux, and Windows"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache--2.0-blue.svg" alt="Apache 2.0 license"></a>
@@ -69,6 +70,9 @@
 
 Start here — the DocC catalogs are the API reference and article home:
 
+- 🌐 [Hosted API documentation](https://robfeldmann.com/tessera/documentation/) — combined
+  module reference and articles.
+
 - 📘 [**Tessera** DocC catalog](Sources/Tessera/Tessera.docc/Tessera.md) — umbrella API
   and module map.
 - 📗
@@ -78,10 +82,6 @@ Start here — the DocC catalogs are the API reference and article home:
 - 🗺️ [Project status](docs/ProjectStatus.md) — maturity, roadmap, and documentation
   boundaries.
 - 🛠️ [Contributing](CONTRIBUTING.md) — dev loop, quality gates, and VM guides.
-
-> Hosted API docs are coming: Swift Package Index publication is intentionally deferred,
-> and a static GitHub Pages site is planned. Until then, read the catalogs above in the
-> checkout or generate them locally with `just docs preview`.
 
 ## Quick start
 

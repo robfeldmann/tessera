@@ -39,10 +39,10 @@ updated: 2026-07-20
   - [x] 6.1 Review workflows, actions, permissions, and fork behavior
   - [x] 6.2 Configure repository governance and maintenance automation
   - [x] 6.3 Perform the pre-publication safety gate
-- [ ] **Phase 7 — Publish static DocC on GitHub Pages after launch**
+- [x] **Phase 7 — Publish static DocC on GitHub Pages after launch**
   - [x] 7.1 Make the existing combined DocC build Pages-ready
   - [x] 7.2 Add a read-only-validation plus main-branch deployment workflow
-  - [ ] 7.3 Enable and verify the GitHub Pages deployment
+  - [x] 7.3 Enable and verify the GitHub Pages deployment
 - [ ] **Phase 8 — Execute the staged public launch**
   - [x] 8.1 Run the complete local release gate
   - [ ] 8.2 Change visibility and verify anonymous-user behavior
@@ -575,10 +575,10 @@ SPI and without granting Pages privileges to pull-request builds.
   under the actual base path, no SPI hosting is implied, and the Pages environment shows
   only the intended deployment job.
 
-**Blocked (2026-07-20)**: the repository is still private and GitHub Pages is not enabled
-(`GET /repos/robfeldmann/tessera/pages` returns `404`). Step 7.3 explicitly requires the
-repository to be public and anonymous verification, so it must resume after Step 8.2
-changes visibility. Do not add the README hosted-docs URL until that deployment is live.
+**Completed (2026-07-21)**: Pages uses GitHub Actions and the account-level custom domain,
+so the combined DocC site is live at <https://robfeldmann.com/tessera/documentation/> with
+HTTPS enforced. Deployment `5531109778` published `c1df540329c5`; anonymous landing-page,
+module, asset, deep-link, and non-root refresh checks passed.
 
 ## Phase 8 — Execute the staged public launch
 
