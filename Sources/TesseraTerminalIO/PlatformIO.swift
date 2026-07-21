@@ -44,7 +44,7 @@ package actor PlatformIO {
     self.sizeChanges = terminalDevice.sizeChanges()
     self.events = Self.events(
       from: self.bytes,
-      sizeChanges: self.sizeChanges,
+      sizeChanges: terminalDevice.sizeChanges(),
       inputStreamsShareLifetime: terminalDevice.inputStreamsShareLifetime
     )
   }
