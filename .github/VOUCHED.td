@@ -5,4 +5,3 @@
 # Denounced: -github:login
 #
 # Do not record sensitive moderation reasons in this file.
-github:stevekahler
