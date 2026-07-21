@@ -18,7 +18,9 @@ jobs:
   ci-gate:
     name: CI gate
     runs-on: ubuntu-latest
-    timeout-minutes: 1
+    timeout-minutes: 2
+    outputs:
+      vouch-only: ${{ steps.changes.outputs.vouch-only }}
     steps:
       - name: Block CI while skip-ci label is applied
         if: >
@@ -27,6 +29,26 @@ jobs:
         run: |
           echo "The skip-ci label is applied. Remove it to run CI checks."
           exit 1
+
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Detect trust-only change
+        id: changes
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          vouch_only=false
+          if [[ -n "$BASE_SHA" && ! "$BASE_SHA" =~ ^0+$ ]] &&
+            [[ "$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")" == ".github/VOUCHED.td" ]]; then
+            vouch_only=true
+          fi
+          echo "vouch-only=$vouch_only" >> "$GITHUB_OUTPUT"
 
   conventional-commits:
     name: conventional commits
@@ -69,30 +91,41 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Validate trust-only change
+        if: needs.ci-gate.outputs.vouch-only == 'true'
+        run: node --test .github/scripts/vouch-gate.test.cjs
+
       - name: Set up Swift
+        if: needs.ci-gate.outputs.vouch-only != 'true'
         uses: ./.github/actions/setup-swift
 
       - name: Set up Node
+        if: needs.ci-gate.outputs.vouch-only != 'true'
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .node-version
           cache: npm
 
       - name: Install markup tools
+        if: needs.ci-gate.outputs.vouch-only != 'true'
         run: npm ci
 
       - name: Install lint tools
+        if: needs.ci-gate.outputs.vouch-only != 'true'
         run: brew install swift-format swiftlint
 
       - name: Install just
+        if: needs.ci-gate.outputs.vouch-only != 'true'
         uses: taiki-e/install-action@a6b2e2dcd845ddd7f509ce4f3ed3d922b80cc5d9 # v2
         with:
           tool: just
 
       - name: Set up spelling tools
+        if: needs.ci-gate.outputs.vouch-only != 'true'
         run: just setup quality-tools
 
       - name: Run portable quality gate
+        if: needs.ci-gate.outputs.vouch-only != 'true'
         run: just quality lint
 
   test:
@@ -110,17 +143,23 @@ jobs:
       matrix:
         os: [macos-26, ubuntu-latest, windows-latest]
     steps:
+      - name: Skip full platform tests for trust-only change
+        if: needs.ci-gate.outputs.vouch-only == 'true'
+        run: echo "Trust-only change; full platform tests are not required."
+
       - name: Checkout
+        if: needs.ci-gate.outputs.vouch-only != 'true'
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
 
       - name: Set up Swift
+        if: needs.ci-gate.outputs.vouch-only != 'true'
         uses: ./.github/actions/setup-swift
 
       - name: Restore SwiftPM cache
         id: swiftpm-cache
-        if: runner.os != 'Windows'
+        if: needs.ci-gate.outputs.vouch-only != 'true' && runner.os != 'Windows'
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: .build
@@ -130,7 +169,7 @@ jobs:
             swiftpm-v2-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Remove restored Windows build tree
-        if: runner.os == 'Windows'
+        if: needs.ci-gate.outputs.vouch-only != 'true' && runner.os == 'Windows'
         shell: pwsh
         run: |
           if (Test-Path -LiteralPath .build) {
@@ -138,17 +177,17 @@ jobs:
           }
 
       - name: Set up Zig on Linux
-        if: runner.os == 'Linux'
+        if: needs.ci-gate.outputs.vouch-only != 'true' && runner.os == 'Linux'
         uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
         with:
           version: 0.15.2
 
       - name: Install libghostty-vt prerequisites on macOS
-        if: runner.os == 'macOS'
+        if: needs.ci-gate.outputs.vouch-only != 'true' && runner.os == 'macOS'
         run: brew install cmake ninja zig@0.15
 
       - name: Install libghostty-vt prerequisites on Linux
-        if: runner.os == 'Linux'
+        if: needs.ci-gate.outputs.vouch-only != 'true' && runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -164,6 +203,7 @@ jobs:
 
       - name: Restore libghostty-vt cache
         id: ghostty-cache
+        if: needs.ci-gate.outputs.vouch-only != 'true'
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           # Source checkouts and intermediate build trees are re-creatable and
@@ -180,23 +220,26 @@ jobs:
           key: libghostty-vt-v3-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
 
       - name: Install just
+        if: needs.ci-gate.outputs.vouch-only != 'true'
         uses: taiki-e/install-action@a6b2e2dcd845ddd7f509ce4f3ed3d922b80cc5d9 # v2
         with:
           tool: just
 
       - name: Build libghostty-vt
-        if: runner.os != 'Windows'
+        if: needs.ci-gate.outputs.vouch-only != 'true' && runner.os != 'Windows'
         run: just core build-libghostty-vt
 
       - name: Build libghostty-vt (Windows)
-        if: runner.os == 'Windows'
+        if: needs.ci-gate.outputs.vouch-only != 'true' && runner.os == 'Windows'
         shell: pwsh
         run: scripts/build-libghostty-vt.ps1
 
       # Save immediately so a later build/test failure cannot lose the
       # expensive Zig artifact (Windows cold build is the long pole).
       - name: Save libghostty-vt cache after build
-        if: steps.ghostty-cache.outputs.cache-hit != 'true'
+        if: >
+          needs.ci-gate.outputs.vouch-only != 'true' &&
+          steps.ghostty-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
@@ -209,10 +252,13 @@ jobs:
           key: libghostty-vt-v3-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
 
       - name: Build
+        if: needs.ci-gate.outputs.vouch-only != 'true'
         run: swift build
 
       - name: Save SwiftPM cache after build
-        if: runner.os != 'Windows' && steps.swiftpm-cache.outputs.cache-hit != 'true'
+        if: >
+          needs.ci-gate.outputs.vouch-only != 'true' && runner.os != 'Windows' &&
+          steps.swiftpm-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: .build
@@ -220,4 +266,5 @@ jobs:
           key: swiftpm-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version', 'Package.resolved') }}
 
       - name: Test
+        if: needs.ci-gate.outputs.vouch-only != 'true'
         run: swift test --no-parallel

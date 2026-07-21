@@ -3,6 +3,8 @@ name: Documentation deployment
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - .github/VOUCHED.td
   workflow_dispatch:
 
 permissions:
