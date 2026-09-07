@@ -26,11 +26,21 @@ public final class ViewGraph {
     identity: .root,
     slot: nil,
     parent: nil,
-    environment: baseEnvironment,
+    environment: rootEnvironment(),
     environmentOverrides: []
   )
   private var size: TerminalSize
   private var layoutMeasurements: [_LayoutMeasurementKey: TerminalSize] = [:]
+  private var focusBindings: [_FocusBindingRegistration] = []
+  private var focusRestorationGroups: [NodeIdentity: _FocusRestorationGroupState] = [:]
+  private var focusReturnCandidates: [NodeIdentity: [AnyHashable: FocusID]] = [:]
+  private var focusAppearanceHost: RuntimeNode?
+  private var focusAppearanceUsesFallback = false
+  private var focusAppearanceNeedsResolution = true
+  private var publishedFocusedID: FocusID?
+  private weak var publishedFocusedNode: RuntimeNode?
+  /// Focus state and live document-order identities owned by this graph.
+  public let focus = FocusManager()
   /// Work recorded by the most recently completed graph passes.
   public private(set) var statistics = GraphStatistics()
 
@@ -68,7 +78,11 @@ public final class ViewGraph {
     makeRoot = root
     self.size = Self.sanitized(size)
     baseEnvironment = environment
+    focus.onChange = { [weak self] _ in
+      self?.focusDidChange()
+    }
     _ = rootNode
+    refreshInteractionState()
   }
 }
 
@@ -76,6 +90,7 @@ extension ViewGraph {
 
   /// Re-evaluates the root and reconciles it with the persistent runtime tree.
   public func update() {
+    let previousRequirements = terminalRequirements
     statistics = GraphStatistics()
     statistics.record(.updateRequested)
     let clock = ContinuousClock()
@@ -83,9 +98,13 @@ extension ViewGraph {
     rootNode = reconcile(
       node: rootNode,
       view: makeRoot(),
-      environment: baseEnvironment,
+      environment: rootEnvironment(),
       environmentOverrides: []
     )
+    refreshInteractionState()
+    if terminalRequirements != previousRequirements {
+      statistics.terminalRequirementChanges += 1
+    }
     statistics.updateDuration = start.duration(to: clock.now)
   }
 
@@ -98,12 +117,14 @@ extension ViewGraph {
     statistics.beginLayoutPass()
     let clock = ContinuousClock()
     let start = clock.now
-    layoutMeasurements.removeAll(keepingCapacity: true)
+    layoutMeasurements = prunedMeasurements(root: rootNode)
     let proposal = ProposedSize(width: size.columns, height: size.rows)
     _ = measure(rootNode, proposal: proposal)
     let rootFrame = Rect(column: 0, row: 0, columns: size.columns, rows: size.rows)
     place(rootNode, in: rootFrame, clip: rootFrame)
     clearLayoutFlags(rootNode)
+    refreshLayoutDependentFocusIDs()
+    resolveFocusAppearanceIfNeeded()
     statistics.layoutDuration = start.duration(to: clock.now)
   }
 
@@ -115,6 +136,7 @@ extension ViewGraph {
       resize(to: frame.size)
     }
     layoutIfNeeded()
+    resolveFocusAppearanceIfNeeded()
 
     let clock = ContinuousClock()
     let start = clock.now
@@ -132,12 +154,53 @@ extension ViewGraph {
     self.size = size
     statistics.record(.layoutViewportChanged)
     statistics.record(.renderViewportChanged)
+    focusAppearanceNeedsResolution = true
     markSubtreeNeedsLayout(rootNode)
   }
 
-  /// Does not route input events and returns `.ignored`.
+  /// Routes focused key and paste events leaf-first through ancestor responders.
   public func dispatch(_ event: InputEvent) -> EventDisposition {
-    .ignored
+    guard event.isRoutableResponderEvent else {
+      return .ignored
+    }
+    layoutIfNeeded()
+    guard
+      let focusedID = focus.focused,
+      let focusNode = firstNode(withFocusID: focusedID, in: rootNode)
+    else {
+      return .ignored
+    }
+
+    var node: RuntimeNode? = deepestResponder(in: focusNode) ?? focusNode
+    while let current = node {
+      var context = ResponderContext(
+        nodeBounds: current.frame,
+        isFocused: isDescendant(current, of: focusNode),
+        isFocusWithin: isDescendant(focusNode, of: current),
+        requestFocus: { [weak self] id in self?.focus.focus(id) },
+        requestFocusAdvance: { [weak self] direction in self?.focus.advance(direction) }
+      )
+
+      var disposition: EventDisposition = .ignored
+      if let responderStorage = current.responderStorage {
+        disposition = responderStorage.handleEvent(event, context: &context)
+      } else if let leafStorage = current.leafStorage {
+        disposition = leafStorage.handleEvent(event, context: &context)
+      }
+      if disposition == .ignored,
+        case .key(let key) = event,
+        let handler = current.view as? any _KeyHandlerView
+      {
+        disposition = handler._handleKey(key, context: &context)
+      }
+
+      apply(context, to: current)
+      if disposition == .handled {
+        return .handled
+      }
+      node = current.parent
+    }
+    return .ignored
   }
 
   /// Returns a deterministic, value-free textual projection of the runtime tree.
@@ -222,7 +285,9 @@ extension ViewGraph {
     environmentOverrides: [String]
   ) -> RuntimeNode {
     let sameType = node.viewType == ObjectIdentifier(Content.self)
-    let sameEnvironment = node.environment._hasSameStorage(as: environment)
+    let sameEnvironment =
+      node.environment._hasSameStorage(as: environment)
+      || node.environment._hasEqualValues(as: environment)
     let erasedContentTypeChanged = hasChangedErasedContentType(
       old: node.view,
       new: view
@@ -258,6 +323,7 @@ extension ViewGraph {
     node.view = view
     node.environment = environment
     node.environmentOverrides = environmentOverrides
+    node.updateInteractionMetadata(from: view)
     statistics.nodesUpdated += 1
 
     if let leafStorage = node.leafStorage {
@@ -448,6 +514,30 @@ extension ViewGraph {
     return measured
   }
 
+  /// Keeps cached measurements only for live nodes that are not pending re-layout.
+  ///
+  /// Dirty nodes (and their ancestors) drop their entries so they re-measure, while
+  /// clean subtrees — such as the many rows inside a scrolling viewport — reuse theirs.
+  private func prunedMeasurements(
+    root: RuntimeNode
+  ) -> [_LayoutMeasurementKey: TerminalSize] {
+    var reusable: Set<ObjectIdentifier> = []
+    collectReusableMeasurementNodes(root, into: &reusable)
+    return layoutMeasurements.filter { reusable.contains($0.key.node) }
+  }
+
+  private func collectReusableMeasurementNodes(
+    _ node: RuntimeNode,
+    into set: inout Set<ObjectIdentifier>
+  ) {
+    if !node.needsLayout {
+      set.insert(ObjectIdentifier(node))
+    }
+    for child in node.children {
+      collectReusableMeasurementNodes(child, into: &set)
+    }
+  }
+
   private func forwardsCompleteProposal(to node: RuntimeNode) -> Bool {
     if node.view is any _LayoutView {
       return true
@@ -571,6 +661,30 @@ extension ViewGraph {
     for child in node.children {
       render(child, into: frame)
     }
+
+    guard focusAppearanceHost === node, !node.clip.isEmpty else {
+      return
+    }
+    frame.withRenderRegion(in: node.frame, clip: node.clip) { region in
+      if focusAppearanceUsesFallback {
+        if let renderer = node.view as? any _FocusAppearanceFallbackRendering {
+          renderer._renderFocusAppearanceFallback(
+            in: &region,
+            environment: node.environment
+          )
+        } else {
+          _renderFocusRing(
+            in: &region,
+            style: node.environment._focusAppearanceStyle
+          )
+        }
+      } else if let renderer = node.view as? any _FocusAppearanceRendering {
+        renderer._renderFocusAppearance(
+          in: &region,
+          environment: node.environment
+        )
+      }
+    }
   }
 
   private func markSubtreeNeedsLayout(_ node: RuntimeNode) {
@@ -612,6 +726,7 @@ extension ViewGraph {
       NodeDiagnostics(
         identity: node.identity,
         viewType: node.viewTypeName,
+        focusID: node.focusID,
         parentIdentity: node.parent?.identity,
         childIdentities: node.children.map(\.identity),
         proposal: node.proposal,
@@ -684,4 +799,468 @@ extension ViewGraph {
   private static func describe(_ rect: Rect) -> String {
     "(\(rect.origin.column),\(rect.origin.row),\(rect.size.columns)x\(rect.size.rows))"
   }
+}
+
+extension ViewGraph {
+  private func rootEnvironment() -> EnvironmentValues {
+    var environment = baseEnvironment
+    environment._focusManager = focus
+    return environment
+  }
+
+  private func refreshInteractionState() {
+    var ids: [FocusID] = []
+    var bindings: [_FocusBindingRegistration] = []
+    collectInteractionState(rootNode, ids: &ids, bindings: &bindings)
+    var restorationGroups: [NodeIdentity: _FocusRestorationGroupState] = [:]
+    collectFocusRestorationState(
+      rootNode,
+      groupID: nil,
+      paneID: nil,
+      groups: &restorationGroups
+    )
+
+    let previousFocused = focus.focused
+    let previousGroups = focusRestorationGroups
+    focusRestorationGroups = restorationGroups
+    let previousBindings = focusBindings
+    focusBindings = previousBindings + bindings
+    focus.replaceFocusableIDs(ids)
+    applyFocusRestoration(
+      previousFocused: previousFocused,
+      previousGroups: previousGroups,
+      currentGroups: restorationGroups
+    )
+
+    if let requested = bindings.first(where: {
+      $0.binding.wrappedValue == $0.id && ids.contains($0.id)
+    }) {
+      focus.focus(requested.id)
+    } else if let focused = focus.focused,
+      bindings.contains(where: { $0.id == focused && $0.binding.wrappedValue != focused })
+    {
+      focus.focus(nil)
+    } else {
+      synchronizeFocusBindings(focusBindings)
+    }
+    focusBindings = bindings
+    updatePublishedFocusedNode()
+    focusAppearanceNeedsResolution = true
+  }
+
+  /// Recomputes focus eligibility that depends on layout metrics (for example
+  /// `ScrollView.focusable(whileScrollable:)`) once a layout pass has settled, so such
+  /// views register and withdraw immediately instead of one graph update later.
+  /// Withdrawal and restoration flow through the ordinary interaction refresh.
+  private func refreshLayoutDependentFocusIDs() {
+    var changed = false
+    refreshFocusIDs(rootNode, changed: &changed)
+    if changed {
+      refreshInteractionState()
+    }
+  }
+
+  private func refreshFocusIDs(_ node: RuntimeNode, changed: inout Bool) {
+    if let focusable = node.view as? any _FocusableView,
+      focusable._focusID(in: node.environment) != node.focusID
+    {
+      node.updateInteractionMetadata(from: node.view)
+      changed = true
+    }
+    for child in node.children {
+      refreshFocusIDs(child, changed: &changed)
+    }
+  }
+
+  private func collectInteractionState(
+    _ node: RuntimeNode,
+    ids: inout [FocusID],
+    bindings: inout [_FocusBindingRegistration]
+  ) {
+    if let focusID = node.focusID {
+      ids.append(focusID)
+    }
+    if let focusBinding = node.focusBinding {
+      bindings.append(focusBinding)
+    }
+    for child in node.children {
+      collectInteractionState(child, ids: &ids, bindings: &bindings)
+    }
+  }
+
+  private func collectFocusRestorationState(
+    _ node: RuntimeNode,
+    groupID: NodeIdentity?,
+    paneID: AnyHashable?,
+    groups: inout [NodeIdentity: _FocusRestorationGroupState]
+  ) {
+    var groupID = groupID
+    var paneID = paneID
+
+    if node.view is any _FocusRestorationGroupView {
+      let identity = node.identity
+      groupID = identity
+      paneID = nil
+      groups[identity] = _FocusRestorationGroupState()
+    }
+    if let scope = node.view as? any _FocusRestorationScopeView,
+      let groupID
+    {
+      let scopeID = scope._focusRestorationScopeID
+      paneID = scopeID
+      var group = groups[groupID] ?? _FocusRestorationGroupState()
+      if !group.panes.contains(where: { $0.id == scopeID }) {
+        group.panes.append(
+          _FocusRestorationPaneState(
+            id: scopeID,
+            isCollapsed: scope._focusRestorationScopeIsCollapsed
+          )
+        )
+      }
+      groups[groupID] = group
+    }
+
+    if let groupID, let paneID, var group = groups[groupID],
+      let index = group.panes.firstIndex(where: { $0.id == paneID })
+    {
+      if let declaredID = node.focusID ?? node.focusBinding?.id,
+        !group.panes[index].declaredIDs.contains(declaredID)
+      {
+        group.panes[index].declaredIDs.append(declaredID)
+      }
+      if let focusID = node.focusID,
+        !group.panes[index].activeIDs.contains(focusID)
+      {
+        group.panes[index].activeIDs.append(focusID)
+      }
+      groups[groupID] = group
+    }
+
+    for child in node.children {
+      collectFocusRestorationState(
+        child,
+        groupID: groupID,
+        paneID: paneID,
+        groups: &groups
+      )
+    }
+  }
+
+  private func applyFocusRestoration(
+    previousFocused: FocusID?,
+    previousGroups: [NodeIdentity: _FocusRestorationGroupState],
+    currentGroups: [NodeIdentity: _FocusRestorationGroupState]
+  ) {
+    // Dictionary iteration order is not deterministic; restoration walks groups in
+    // stable identity-path order so focus outcomes never depend on hashing.
+    if let previousFocused {
+      collapseSearch: for (groupID, previousGroup) in previousGroups.sorted(by: {
+        $0.key.description < $1.key.description
+      }) {
+        guard
+          let previousIndex = previousGroup.panes.firstIndex(where: {
+            $0.declaredIDs.contains(previousFocused)
+          }),
+          let currentGroup = currentGroups[groupID],
+          let currentIndex = currentGroup.panes.firstIndex(where: {
+            $0.id == previousGroup.panes[previousIndex].id
+          }),
+          !previousGroup.panes[previousIndex].isCollapsed,
+          currentGroup.panes[currentIndex].isCollapsed
+        else {
+          continue
+        }
+
+        focusReturnCandidates[groupID, default: [:]][
+          currentGroup.panes[currentIndex].id
+        ] = previousFocused
+        let later = currentGroup.panes.dropFirst(currentIndex + 1)
+          .first { !$0.isCollapsed && !$0.activeIDs.isEmpty }?
+          .activeIDs.first
+        let earlier = currentGroup.panes.prefix(currentIndex).reversed()
+          .first { !$0.isCollapsed && !$0.activeIDs.isEmpty }?
+          .activeIDs.first
+        focus.focus(later ?? earlier)
+        break collapseSearch
+      }
+    }
+
+    for (groupID, currentGroup) in currentGroups.sorted(by: {
+      $0.key.description < $1.key.description
+    }) {
+      guard let previousGroup = previousGroups[groupID] else {
+        continue
+      }
+      for currentPane in currentGroup.panes where !currentPane.isCollapsed {
+        guard
+          let previousPane = previousGroup.panes.first(where: {
+            $0.id == currentPane.id
+          }),
+          previousPane.isCollapsed,
+          let candidate = focusReturnCandidates[groupID]?[currentPane.id]
+        else {
+          continue
+        }
+        if focus.focused == nil && currentPane.activeIDs.contains(candidate) {
+          focus.focus(candidate)
+        }
+        focusReturnCandidates[groupID]?[currentPane.id] = nil
+      }
+    }
+
+    for (groupID, candidates) in focusReturnCandidates {
+      guard let currentGroup = currentGroups[groupID] else {
+        focusReturnCandidates[groupID] = nil
+        continue
+      }
+      for paneID in candidates.keys
+      where !currentGroup.panes.contains(where: { $0.id == paneID }) {
+        focusReturnCandidates[groupID]?[paneID] = nil
+      }
+    }
+  }
+  private func resolveFocusAppearanceIfNeeded() {
+    guard focusAppearanceNeedsResolution else {
+      return
+    }
+    focusAppearanceNeedsResolution = false
+
+    guard
+      let focusedID = focus.focused,
+      let focusedNode = firstNode(withFocusID: focusedID, in: rootNode)
+    else {
+      selectFocusAppearanceHost(nil, usesFallback: false)
+      return
+    }
+
+    let appearanceNode = nearestFocusAppearanceResponder(in: focusedNode) ?? focusedNode
+    var candidate: RuntimeNode? = appearanceNode
+    while let node = candidate {
+      defer { candidate = node.parent }
+      guard let responder = node.view as? any _FocusAppearanceResponder else {
+        continue
+      }
+      let context = FocusAppearanceContext(
+        focusedID: focusedID,
+        focusedBounds: appearanceNode.frame,
+        hostBounds: node.frame
+      )
+      switch responder._resolveFocusAppearance(in: context) {
+      case .deferred:
+        continue
+      case .handled:
+        selectFocusAppearanceHost(node, usesFallback: false)
+        return
+      case .suppressed:
+        selectFocusAppearanceHost(nil, usesFallback: false)
+        return
+      }
+    }
+
+    selectFocusAppearanceHost(appearanceNode, usesFallback: true)
+  }
+
+  private func selectFocusAppearanceHost(
+    _ host: RuntimeNode?,
+    usesFallback: Bool
+  ) {
+    guard focusAppearanceHost !== host || focusAppearanceUsesFallback != usesFallback
+    else {
+      return
+    }
+    let previousHost = focusAppearanceHost
+    focusAppearanceHost = host
+    focusAppearanceUsesFallback = usesFallback
+    previousHost?.markNeedsRender()
+    host?.markNeedsRender()
+    rootNode.markNeedsRender()
+  }
+
+  private func focusDidChange() {
+    let previousFocusedID = publishedFocusedID
+    let previousFocusedNode = publishedFocusedNode
+    publishedFocusedID = focus.focused
+    statistics.focusChanges += 1
+    focusAppearanceNeedsResolution = true
+    synchronizeFocusBindings(focusBindings)
+    refreshFocusedSubtree(
+      for: previousFocusedID,
+      fallback: previousFocusedNode
+    )
+    if focus.focused != previousFocusedID {
+      refreshFocusedSubtree(for: focus.focused)
+    }
+    updatePublishedFocusedNode()
+    if !rootNode.needsLayout {
+      resolveFocusAppearanceIfNeeded()
+    }
+  }
+
+  private func refreshFocusedSubtree(
+    for id: FocusID?,
+    fallback: RuntimeNode? = nil
+  ) {
+    guard
+      let id,
+      let node =
+        (firstNode(withFocusID: id, in: rootNode)
+          ?? fallback.flatMap { self.contains($0, in: rootNode) })
+    else {
+      return
+    }
+
+    let environment = node.environment
+    let environmentOverrides = node.environmentOverrides
+    if node === rootNode {
+      rootNode = reconcile(
+        node: node,
+        view: node.view,
+        environment: environment,
+        environmentOverrides: environmentOverrides
+      )
+    } else {
+      _ = reconcile(
+        node: node,
+        view: node.view,
+        environment: environment,
+        environmentOverrides: environmentOverrides
+      )
+    }
+  }
+
+  private func updatePublishedFocusedNode() {
+    publishedFocusedNode = focus.focused.flatMap {
+      firstNode(withFocusID: $0, in: rootNode)
+    }
+  }
+
+  private func synchronizeFocusBindings(_ bindings: [_FocusBindingRegistration]) {
+    for registration in bindings
+    where registration.binding.wrappedValue == registration.id
+      && registration.id != focus.focused
+    {
+      registration.binding.wrappedValue = nil
+    }
+    if let focused = focus.focused {
+      for registration in bindings where registration.id == focused {
+        if registration.binding.wrappedValue != focused {
+          registration.binding.wrappedValue = focused
+        }
+      }
+    }
+  }
+
+  private func firstNode(withFocusID id: FocusID, in node: RuntimeNode) -> RuntimeNode? {
+    if node.focusID == id {
+      return node
+    }
+    for child in node.children {
+      if let match = firstNode(withFocusID: id, in: child) {
+        return match
+      }
+    }
+    return nil
+  }
+
+  private func contains(_ target: RuntimeNode, in node: RuntimeNode) -> RuntimeNode? {
+    if node === target {
+      return node
+    }
+    for child in node.children {
+      if let match = contains(target, in: child) {
+        return match
+      }
+    }
+    return nil
+  }
+
+  /// Finds the responder that should receive events on behalf of `node`.
+  ///
+  /// Descent stops at any descendant that owns its own focus identity: that node is a
+  /// separate focus target reached only when it is itself focused, never by routing
+  /// through an ancestor that currently owns focus. This keeps a focused container from
+  /// silently handing its keys to a nested focusable control.
+  private func deepestResponder(in node: RuntimeNode) -> RuntimeNode? {
+    for child in node.children {
+      if child.focusID != nil {
+        continue
+      }
+      if let responder = deepestResponder(in: child) {
+        return responder
+      }
+    }
+    if node.responderStorage != nil
+      || node.leafStorage != nil
+      || node.view is any _KeyHandlerView
+    {
+      return node
+    }
+    return nil
+  }
+
+  /// The focused subtree's own appearance responder: the focused node itself when it is
+  /// a responder, otherwise the first responder reachable from it without crossing a
+  /// nested focus identity or another responder. Stopping at responder boundaries keeps
+  /// a focusable viewport from delegating its appearance into unrelated responders
+  /// inside the content it scrolls.
+  private func nearestFocusAppearanceResponder(in node: RuntimeNode) -> RuntimeNode? {
+    if node.view is any _FocusAppearanceResponder {
+      return node
+    }
+    for child in node.children {
+      if child.focusID != nil {
+        continue
+      }
+      if child.view is any _FocusAppearanceResponder {
+        return child
+      }
+      if let responder = nearestFocusAppearanceResponder(in: child) {
+        return responder
+      }
+    }
+    return nil
+  }
+
+  private func isDescendant(_ node: RuntimeNode, of ancestor: RuntimeNode) -> Bool {
+    var candidate: RuntimeNode? = node
+    while let current = candidate {
+      if current === ancestor {
+        return true
+      }
+      candidate = current.parent
+    }
+    return false
+  }
+
+  private func apply(_ context: borrowing ResponderContext, to node: RuntimeNode) {
+    if context.needsLayout {
+      node.markNeedsLayout()
+    } else if context.needsDisplay {
+      node.markNeedsRender()
+    }
+  }
+}
+
+extension InputEvent {
+  fileprivate var isRoutableResponderEvent: Bool {
+    switch self {
+    case .key, .paste:
+      true
+    case .focusGained, .focusLost, .kittyGraphicsResponse,
+      .kittyKeyboardEnhancementFlags, .mouse, .primaryDeviceAttributes,
+      .privateModeStatus, .resize, .unknown:
+      false
+    }
+  }
+}
+
+private struct _FocusRestorationGroupState {
+  var panes: [_FocusRestorationPaneState] = []
+}
+
+private struct _FocusRestorationPaneState {
+  let id: AnyHashable
+  let isCollapsed: Bool
+  var declaredIDs: [FocusID] = []
+  var activeIDs: [FocusID] = []
 }

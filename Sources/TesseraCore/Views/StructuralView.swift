@@ -10,6 +10,8 @@ package enum _ViewSlot: Hashable, CustomStringConvertible {
   case id(AnyHashable)
   /// A position within a fixed structural container.
   case index(Int)
+  /// A nested list path flattened into one enclosing layout child.
+  indirect case nested(Self, Self)
 
   package var description: String {
     switch self {
@@ -21,6 +23,8 @@ package enum _ViewSlot: Hashable, CustomStringConvertible {
       "id(\(id))"
     case .branch(let isTrueBranch):
       "branch(\(isTrueBranch))"
+    case .nested(let outer, let inner):
+      "\(outer)/\(inner)"
     case .explicit(let id):
       "explicit(\(id))"
     }
@@ -28,11 +32,14 @@ package enum _ViewSlot: Hashable, CustomStringConvertible {
 
   /// The key used by a ``ForEach`` child, when this slot is keyed.
   package var keyedID: AnyHashable? {
-    guard case .id(let id) = self else {
-      return nil
+    switch self {
+    case .id(let id):
+      id
+    case .nested(let outer, let inner):
+      inner.keyedID ?? outer.keyedID
+    case .body, .branch, .explicit, .index:
+      nil
     }
-
-    return id
   }
 }
 
@@ -80,14 +87,34 @@ package func _visitLayoutChildren<Content: View>(
   environmentOverrides: [String],
   _ visit: (_ViewChild) -> Void
 ) {
+  func visitFlattened(_ child: _ViewChild) {
+    if let list = child.view as? any _ViewList {
+      list._visitChildren(
+        in: child.environment,
+        environmentOverrides: child.environmentOverrides
+      ) { nested in
+        visitFlattened(
+          _ViewChild(
+            slot: .nested(child.slot, nested.slot),
+            view: nested.view,
+            environment: nested.environment,
+            environmentOverrides: nested.environmentOverrides
+          )
+        )
+      }
+    } else {
+      visit(child)
+    }
+  }
+
   if let list = content as? any _ViewList {
     list._visitChildren(
       in: environment,
       environmentOverrides: environmentOverrides,
-      visit
+      visitFlattened
     )
   } else {
-    visit(
+    visitFlattened(
       _ViewChild(
         slot: .index(0),
         view: content,

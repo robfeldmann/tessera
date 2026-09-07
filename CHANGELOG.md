@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Added
+- Added a keyboard Button/action specimen with controlled focus and enabled state, deterministic activation/repeat/release captures, and shared explicit focus traversal policy.
 - Added a directly runnable layout specimen and explicit local review bundles with persistent real-rendered terminal checkpoints, resize scenarios, deterministic styled cells and diagnostics, and provisional ASCII SVG images.
 - Added reusable Text wrapping and truncation, inherited style modifiers, semantic styles, and decoration primitives with their existing regression coverage salvaged from local view-layer development.
 - Established the Swift Package Manager foundation with the `Tessera` and `TesseraTerminal` libraries, Swift 6 strict concurrency, and the `swift-system` and `swift-displaywidth` dependencies.

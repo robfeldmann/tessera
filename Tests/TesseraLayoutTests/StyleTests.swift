@@ -93,6 +93,13 @@ func `semantic styles provide complete token defaults and replace every custom r
   #expect(semantic.primary == terminalDefault)
   #expect(semantic.secondary == terminalDefault.dim())
   #expect(semantic.accent == terminalDefault.foreground(.indexed(14)).bold())
+  #expect(
+    semantic.focus
+      == terminalDefault
+      .foreground(.indexed(0))
+      .background(.indexed(3))
+      .bold()
+  )
   #expect(semantic.disabled == terminalDefault.dim())
   #expect(
     semantic.destructive == terminalDefault.foreground(.indexed(9)).bold().underline())
@@ -102,7 +109,8 @@ func `semantic styles provide complete token defaults and replace every custom r
     secondary: Style(foreground: .indexed(2)),
     accent: Style(foreground: .indexed(3)),
     disabled: Style(foreground: .indexed(4)),
-    destructive: Style(foreground: .indexed(5))
+    destructive: Style(foreground: .indexed(5)),
+    focus: Style(foreground: .indexed(6))
   )
   var environment = EnvironmentValues()
   environment.semanticStyles = custom
@@ -113,6 +121,7 @@ func `semantic styles provide complete token defaults and replace every custom r
   #expect(custom.accent == terminalDefault.foreground(.indexed(3)))
   #expect(custom.disabled == terminalDefault.foreground(.indexed(4)))
   #expect(custom.destructive == terminalDefault.foreground(.indexed(5)))
+  #expect(custom.focus == terminalDefault.foreground(.indexed(6)))
 }
 
 @Test

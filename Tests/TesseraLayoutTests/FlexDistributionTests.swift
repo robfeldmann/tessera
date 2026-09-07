@@ -1,3 +1,4 @@
+import InlineSnapshotTesting
 import TesseraCore
 import TesseraLayout
 import TesseraTerminalCore
@@ -113,6 +114,24 @@ private func flexibleFrames(in graph: ViewGraph) -> [Rect] {
   nodes(of: FlexibleLeaf.self, in: graph).map(\.frame)
 }
 
+private func flexibleFrameSummary(in graph: ViewGraph) -> String {
+  flexibleFrames(in: graph)
+    .enumerated()
+    .map { index, frame in
+      "\(index): (\(frame.origin.column),\(frame.origin.row),\(frame.size.columns)x\(frame.size.rows))"
+    }
+    .joined(separator: "\n")
+}
+
+private func flexibleGeometrySummary(in graph: ViewGraph) -> String {
+  nodes(of: FlexibleLeaf.self, in: graph)
+    .enumerated()
+    .map { index, node in
+      "\(index): frame=(\(node.frame.origin.column),\(node.frame.origin.row),\(node.frame.size.columns)x\(node.frame.size.rows)), clip=(\(node.clip.origin.column),\(node.clip.origin.row),\(node.clip.size.columns)x\(node.clip.size.rows))"
+    }
+    .joined(separator: "\n")
+}
+
 private struct ConstraintFixture: Sendable {
   let constraint: FlexConstraint?
   let expectedWidth: Int
@@ -222,23 +241,26 @@ func `flex resolves fixed fill and capped children in normative order`() {
     }
   }
 
-  #expect(
-    flexibleFrames(in: exact) == [
-      Rect(column: 0, row: 0, columns: 4, rows: 1),
-      Rect(column: 5, row: 0, columns: 6, rows: 1),
-      Rect(column: 12, row: 0, columns: 4, rows: 1),
-    ])
-  #expect(
-    flexibleFrames(in: tight) == [
-      Rect(column: 0, row: 0, columns: 4, rows: 1),
-      Rect(column: 5, row: 0, columns: 0, rows: 1),
-      Rect(column: 6, row: 0, columns: 4, rows: 1),
-    ])
-  #expect(
-    flexibleFrames(in: capped) == [
-      Rect(column: 0, row: 0, columns: 4, rows: 1),
-      Rect(column: 5, row: 0, columns: 6, rows: 1),
-    ])
+  assertInlineSnapshot(of: flexibleFrameSummary(in: exact), as: .lines) {
+    """
+    0: (0,0,4x1)
+    1: (5,0,6x1)
+    2: (12,0,4x1)
+    """
+  }
+  assertInlineSnapshot(of: flexibleFrameSummary(in: tight), as: .lines) {
+    """
+    0: (0,0,4x1)
+    1: (5,0,0x1)
+    2: (6,0,4x1)
+    """
+  }
+  assertInlineSnapshot(of: flexibleFrameSummary(in: capped), as: .lines) {
+    """
+    0: (0,0,4x1)
+    1: (5,0,6x1)
+    """
+  }
 }
 
 @Test
@@ -257,17 +279,19 @@ func `flex gives positive weighted remainder cells to earlier children first`() 
     }
   }
 
-  #expect(
-    flexibleFrames(in: equal) == [
-      Rect(column: 0, row: 0, columns: 2, rows: 1),
-      Rect(column: 2, row: 0, columns: 2, rows: 1),
-      Rect(column: 4, row: 0, columns: 1, rows: 1),
-    ])
-  #expect(
-    flexibleFrames(in: weighted) == [
-      Rect(column: 0, row: 0, columns: 3, rows: 1),
-      Rect(column: 3, row: 0, columns: 1, rows: 1),
-    ])
+  assertInlineSnapshot(of: flexibleFrameSummary(in: equal), as: .lines) {
+    """
+    0: (0,0,2x1)
+    1: (2,0,2x1)
+    2: (4,0,1x1)
+    """
+  }
+  assertInlineSnapshot(of: flexibleFrameSummary(in: weighted), as: .lines) {
+    """
+    0: (0,0,3x1)
+    1: (3,0,1x1)
+    """
+  }
 }
 
 @Test
@@ -279,11 +303,12 @@ func `flex allocates higher priority growth before lower priority growth`() {
     }
   }
 
-  #expect(
-    flexibleFrames(in: graph) == [
-      Rect(column: 0, row: 0, columns: 0, rows: 1),
-      Rect(column: 0, row: 0, columns: 5, rows: 1),
-    ])
+  assertInlineSnapshot(of: flexibleFrameSummary(in: graph), as: .lines) {
+    """
+    0: (0,0,0x1)
+    1: (0,0,5x1)
+    """
+  }
 }
 
 @Test
@@ -308,40 +333,42 @@ func `flex compresses fill then minimum items by ascending priority`() {
     }
   }
 
-  #expect(
-    flexibleFrames(in: priority) == [
-      Rect(column: 0, row: 0, columns: 5, rows: 1),
-      Rect(column: 5, row: 0, columns: 1, rows: 1),
-    ])
-  #expect(
-    flexibleFrames(in: phases) == [
-      Rect(column: 0, row: 0, columns: 4, rows: 1),
-      Rect(column: 4, row: 0, columns: 0, rows: 1),
-    ])
-  #expect(
-    flexibleFrames(in: laterRemainder) == [
-      Rect(column: 0, row: 0, columns: 3, rows: 1),
-      Rect(column: 3, row: 0, columns: 3, rows: 1),
-      Rect(column: 6, row: 0, columns: 2, rows: 1),
-    ])
+  assertInlineSnapshot(of: flexibleFrameSummary(in: priority), as: .lines) {
+    """
+    0: (0,0,5x1)
+    1: (5,0,1x1)
+    """
+  }
+  assertInlineSnapshot(of: flexibleFrameSummary(in: phases), as: .lines) {
+    """
+    0: (0,0,4x1)
+    1: (4,0,0x1)
+    """
+  }
+  assertInlineSnapshot(of: flexibleFrameSummary(in: laterRemainder), as: .lines) {
+    """
+    0: (0,0,3x1)
+    1: (3,0,3x1)
+    2: (6,0,2x1)
+    """
+  }
 }
 
 @Test
-func `flex clips trailing fixed children when hard floors exceed the proposal`() throws {
+func `flex clips trailing fixed children when hard floors exceed the proposal`() {
   let graph = laidOut(size: TerminalSize(columns: 6, rows: 1)) {
     Flex(.horizontal, spacing: 1) {
       FlexibleLeaf(ideal: 4).flex(.length(4))
       FlexibleLeaf(ideal: 4).flex(.length(4))
     }
   }
-  let leaves = nodes(of: FlexibleLeaf.self, in: graph)
 
-  #expect(
-    leaves.map(\.frame) == [
-      Rect(column: 0, row: 0, columns: 4, rows: 1),
-      Rect(column: 5, row: 0, columns: 4, rows: 1),
-    ])
-  #expect(try #require(leaves.last).clip == Rect(column: 5, row: 0, columns: 1, rows: 1))
+  assertInlineSnapshot(of: flexibleGeometrySummary(in: graph), as: .lines) {
+    """
+    0: frame=(0,0,4x1), clip=(0,0,4x1)
+    1: frame=(5,0,4x1), clip=(5,0,1x1)
+    """
+  }
 }
 
 @Test
@@ -356,16 +383,17 @@ func `flex reports initial allocations when its main axis is unspecified`() {
     }
   }
 
-  #expect(
-    flexibleFrames(in: graph) == [
-      Rect(column: 0, row: 0, columns: 4, rows: 1),
-      Rect(column: 5, row: 0, columns: 6, rows: 1),
-      Rect(column: 12, row: 0, columns: 4, rows: 1),
-    ])
+  assertInlineSnapshot(of: flexibleFrameSummary(in: graph), as: .lines) {
+    """
+    0: (0,0,4x1)
+    1: (5,0,6x1)
+    2: (12,0,4x1)
+    """
+  }
 }
 
 @Test
-func `flex handles empty single and vertical content without outer spacing`() throws {
+func `flex handles empty single and vertical content without outer spacing`() {
   let empty = laidOut(size: TerminalSize(columns: 8, rows: 5)) {
     Flex(.horizontal, spacing: 3) {
       ForEach([Int](), id: \.self) { _ in
@@ -389,11 +417,30 @@ func `flex handles empty single and vertical content without outer spacing`() th
 
   #expect(flexibleFrames(in: empty).isEmpty)
   #expect(flexibleFrames(in: single) == [Rect(column: 0, row: 0, columns: 2, rows: 1)])
-  #expect(
-    flexibleFrames(in: vertical) == [
-      Rect(column: 0, row: 0, columns: 4, rows: 2),
-      Rect(column: 0, row: 3, columns: 4, rows: 4),
-    ])
+  assertInlineSnapshot(of: flexibleFrameSummary(in: vertical), as: .lines) {
+    """
+    0: (0,0,4x2)
+    1: (0,3,4x4)
+    """
+  }
+}
+
+@Test
+func `flex flattens dynamic view lists into independently constrained children`() {
+  let graph = laidOut(size: TerminalSize(columns: 15, rows: 1)) {
+    Flex(.horizontal, spacing: 1) {
+      ForEach([8, 6], id: \.self) { length in
+        FlexibleLeaf(ideal: 1).flex(.length(length))
+      }
+    }
+  }
+
+  assertInlineSnapshot(of: flexibleFrameSummary(in: graph), as: .lines) {
+    """
+    0: (0,0,8x1)
+    1: (9,0,6x1)
+    """
+  }
 }
 
 @Test
@@ -516,4 +563,29 @@ func `explicit child clip disjoint from its parent produces an empty clip`() thr
   }
 
   #expect(try #require(nodes(of: Text.self, in: graph).first).clip.isEmpty)
+}
+
+@Test
+func `showcase flex scenario resolves the documented sixty eight cell canvas`() {
+  let graph = laidOut(size: TerminalSize(columns: 68, rows: 1)) {
+    Flex(.horizontal, spacing: 1) {
+      FlexibleLeaf(ideal: 4).flex(.length(8))
+      FlexibleLeaf(ideal: 4).flex(.percentage(10))
+      FlexibleLeaf(ideal: 4).flex(.ratio(1, 8))
+      FlexibleLeaf(ideal: 12).flex(.max(9))
+      FlexibleLeaf(ideal: 7).flex(.min(7))
+      FlexibleLeaf(ideal: 6).flex(.fill(2))
+    }
+  }
+
+  assertInlineSnapshot(of: flexibleFrameSummary(in: graph), as: .lines) {
+    """
+    0: (0,0,8x1)
+    1: (9,0,6x1)
+    2: (16,0,7x1)
+    3: (24,0,9x1)
+    4: (34,0,14x1)
+    5: (49,0,19x1)
+    """
+  }
 }

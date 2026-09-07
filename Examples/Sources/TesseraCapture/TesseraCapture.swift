@@ -9,14 +9,14 @@ enum TesseraCapture {
     case usage
 
     var description: String {
-      "Usage: scripts/capture-specimen.sh layout OUTPUT_DIRECTORY"
+      "Usage: scripts/capture-specimen.sh {layout|button} OUTPUT_DIRECTORY"
     }
   }
 
   static func main() async throws {
     let arguments = Array(CommandLine.arguments.dropFirst())
     guard arguments.count == 4,
-      arguments[0] == "layout",
+      ["layout", "button"].contains(arguments[0]),
       arguments[2].count == 40,
       arguments[2].allSatisfy(\.isHexDigit),
       ["clean", "dirty"].contains(arguments[3])
@@ -26,13 +26,16 @@ enum TesseraCapture {
     let destination = URL(fileURLWithPath: arguments[1], isDirectory: true)
     for size in [TerminalSize(columns: 80, rows: 24), TerminalSize(columns: 40, rows: 16)]
     {
-      let checkpoints = try await LayoutCapture.run(size: size)
+      let checkpoints =
+        arguments[0] == "button"
+        ? try await ButtonCapture.run(size: size)
+        : try await LayoutCapture.run(size: size)
       try ReviewBundle.write(
         checkpoints,
         to: destination.appendingPathComponent("\(size.columns)x\(size.rows)"),
         revision: arguments[2],
         dirty: arguments[3] == "dirty",
-        specimen: "layout"
+        specimen: arguments[0]
       )
     }
   }

@@ -5,8 +5,8 @@ set -euo pipefail
 # environment out of the live specimen executable and the user's shell configuration.
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
-if [[ $# != 2 || "$1" != layout ]]; then
-  echo "Usage: scripts/capture-specimen.sh layout OUTPUT_DIRECTORY" >&2
+if [[ $# != 2 || ( "$1" != layout && "$1" != button ) ]]; then
+  echo "Usage: scripts/capture-specimen.sh {layout|button} OUTPUT_DIRECTORY" >&2
   exit 2
 fi
 

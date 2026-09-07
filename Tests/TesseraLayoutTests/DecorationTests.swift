@@ -1,6 +1,7 @@
 import InlineSnapshotTesting
 import TesseraCore
 import TesseraLayout
+import TesseraTerminalBuffer
 import TesseraTerminalCore
 import TesseraTerminalSnapshotSupport
 import TesseraTestSupport
@@ -44,6 +45,25 @@ private func decorationGraph<Root: View>(
   let graph = ViewGraph(root: root, size: size)
   graph.layoutIfNeeded()
   return graph
+}
+
+private func renderDecoration(_ graph: ViewGraph, size: TerminalSize) -> Buffer {
+  var buffer = Buffer(size: size)
+  var cursorPosition: TerminalPosition?
+  withUnsafeMutablePointer(to: &buffer) { bufferStorage in
+    withUnsafeMutablePointer(to: &cursorPosition) { cursorStorage in
+      graph.render(into: Frame(buffer: bufferStorage, cursorPosition: cursorStorage))
+    }
+  }
+  return buffer
+}
+
+private final class DecorationFocusModel {
+  var focused: FocusID?
+
+  var binding: Binding<FocusID?> {
+    Binding(get: { self.focused }, set: { self.focused = $0 })
+  }
 }
 
 @Test
@@ -273,5 +293,93 @@ func `degenerate border snapshots retain only surviving chrome`() {
     """
     ╭──╮
     """
+  }
+}
+
+@Test
+func `focused box preserves double chrome and leaves its content style unchanged`() {
+  let id = FocusID("box")
+  let model = DecorationFocusModel()
+  let size = TerminalSize(columns: 12, rows: 5)
+  let graph = ViewGraph(
+    root: {
+      Box(title: "Status", border: .double) {
+        DecorationPaintLeaf(size: TerminalSize(columns: 1, rows: 1), output: "X")
+          .frame(width: 8, height: 1)
+          .focusable(id)
+          .focused(model.binding, equals: id)
+      }
+    },
+    size: size
+  )
+
+  graph.layoutIfNeeded()
+  let framesBeforeFocus = graph.diagnostics.nodes.map(\.frame)
+  let measurementsBeforeFocus = graph.diagnostics.nodes.map(\.measuredSize)
+  graph.focus.focus(id)
+  let snapshot = renderDecoration(graph, size: size)
+  let focusStyle = EnvironmentValues().semanticStyles.focus
+
+  #expect(snapshot[0, 0].content == .grapheme("╔"))
+  #expect(snapshot[0, 0].style.foreground == focusStyle.background)
+  #expect(snapshot[0, 0].style.background == .default)
+  #expect(snapshot[0, 3].content == .grapheme("S"))
+  #expect(snapshot[0, 3].style.foreground == .default)
+  #expect(snapshot[0, 3].style.background == .default)
+  #expect(snapshot[1, 0].style.attributes == focusStyle.attributes)
+  #expect(snapshot[2, 2].style.background != focusStyle.background)
+
+  #expect(graph.focus.focused == id)
+  #expect(graph.diagnostics.nodes.map(\.frame) == framesBeforeFocus)
+  #expect(graph.diagnostics.nodes.map(\.measuredSize) == measurementsBeforeFocus)
+  assertInlineSnapshot(of: snapshot, as: .bufferState) {
+    """
+    ╔{fg=indexed(3),bold} ═{fg=indexed(3),bold}   S t a t u s   ═{fg=indexed(3),bold} ╗{fg=indexed(3),bold}
+    ║{fg=indexed(3),bold} · · · · · · · · · · ║{fg=indexed(3),bold}
+    ║{fg=indexed(3),bold} · X · · · · · · · · ║{fg=indexed(3),bold}
+    ║{fg=indexed(3),bold} · · · · · · · · · · ║{fg=indexed(3),bold}
+    ╚{fg=indexed(3),bold} ═{fg=indexed(3),bold} ═{fg=indexed(3),bold} ═{fg=indexed(3),bold} ═{fg=indexed(3),bold} ═{fg=indexed(3),bold} ═{fg=indexed(3),bold} ═{fg=indexed(3),bold} ═{fg=indexed(3),bold} ═{fg=indexed(3),bold} ═{fg=indexed(3),bold} ╝{fg=indexed(3),bold}
+    """
+  }
+}
+
+@Test(arguments: [
+  TerminalSize(columns: 0, rows: 0),
+  TerminalSize(columns: 1, rows: 1),
+  TerminalSize(columns: 1, rows: 4),
+  TerminalSize(columns: 4, rows: 1),
+])
+func `focused box clamps delegated chrome to its clipped degenerate bounds`(
+  size: TerminalSize
+) {
+  let id = FocusID("box")
+  let model = DecorationFocusModel()
+  model.focused = id
+  let graph = ViewGraph(
+    root: {
+      Box(title: "Status", border: .double) {
+        DecorationPaintLeaf(size: TerminalSize(columns: 20, rows: 20), output: "overflow")
+          .focusable(id)
+          .focused(model.binding, equals: id)
+      }
+    },
+    size: size
+  )
+
+  graph.layoutIfNeeded()
+  #expect(
+    graph.diagnostics.nodes.first?.frame
+      == Rect(origin: TerminalPosition(column: 0, row: 0), size: size))
+  guard size.columns > 0, size.rows > 0 else {
+    return
+  }
+  let snapshot = renderDecoration(graph, size: size)
+
+  #expect(snapshot[0, 0].content == .grapheme("╔"))
+  if size.columns == 1 {
+    #expect(snapshot[size.rows - 1, 0].content == .grapheme(size.rows == 1 ? "╔" : "╚"))
+  }
+  if size.rows == 1, size.columns > 1 {
+    #expect(snapshot[0, size.columns - 1].content == .grapheme("╗"))
   }
 }

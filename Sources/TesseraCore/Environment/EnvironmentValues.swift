@@ -14,9 +14,22 @@ public struct EnvironmentValues {
 
   private struct ValueBox {
     let value: Any
+    let isEqual: (Self) -> Bool
 
     init<Value>(_ value: Value) {
       self.value = value
+      if let equatable = value as? any Equatable {
+        isEqual = { other in Self.valuesEqual(equatable, other.value) }
+      } else {
+        isEqual = { _ in false }
+      }
+    }
+
+    private static func valuesEqual(_ lhs: any Equatable, _ rhs: Any) -> Bool {
+      func compare<Value: Equatable>(_ typed: Value) -> Bool {
+        (rhs as? Value) == typed
+      }
+      return compare(lhs)
     }
   }
 
@@ -29,6 +42,23 @@ public struct EnvironmentValues {
 
   package func _hasSameStorage(as other: Self) -> Bool {
     storage === other.storage
+  }
+
+  /// Whether both environments carry equal values for the same keys.
+  ///
+  /// Distinct copy-on-write storage created while threading unchanged values (for example a
+  /// stack setting its axis every pass) still compares equal, so reconciliation can reuse the
+  /// prior subtree. Keys holding non-`Equatable` values compare unequal, invalidating safely.
+  package func _hasEqualValues(as other: Self) -> Bool {
+    guard storage.values.count == other.storage.values.count else {
+      return false
+    }
+    for (key, box) in storage.values {
+      guard let otherBox = other.storage.values[key], box.isEqual(otherBox) else {
+        return false
+      }
+    }
+    return true
   }
 
   private mutating func ensureUniqueStorage() {

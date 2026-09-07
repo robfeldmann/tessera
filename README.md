@@ -125,11 +125,24 @@ enum TerminalGreeting {
 }
 ```
 
-Want to see more from a checkout? Run the Showcase:
+Run a small specimen directly, without the Showcase shell:
 
 ```sh
-just core showcase        # or: swift run --package-path Examples TesseraShowcase
+swift run --package-path Examples TesseraLab run layout
+swift run --package-path Examples TesseraLab run button
+scripts/capture-specimen.sh layout .artifacts/review/layout
+scripts/capture-specimen.sh button .artifacts/review/button
 ```
+
+Capture writes versioned styled cells, sanitized graph diagnostics, explicit synthetic
+state, and candidate SVG frames at 80x24 and 40x16. It uses the real renderer and a
+persistent Ghostty virtual terminal; the live host shares its application driver but does
+not link test support. The capture launcher supplies developer-only Xcode test framework
+paths on macOS. Images support printable ASCII, are provisional, and are not canonical
+pixel baselines or human-approved designs. The Button specimen covers immediate keyboard
+activation and disabled traversal, not pointer or held-key visuals.
+
+The larger, historical Showcase remains optional: `just core showcase`.
 
 ## Architecture
 

@@ -4,6 +4,7 @@ import TesseraTerminalCore
 public struct NodeDiagnostics: Equatable, Sendable {
   public let identity: NodeIdentity
   public let viewType: String
+  public let focusID: FocusID?
   public let parentIdentity: NodeIdentity?
   public let childIdentities: [NodeIdentity]
   public let proposal: ProposedSize?
@@ -19,6 +20,7 @@ public struct NodeDiagnostics: Equatable, Sendable {
   public init(
     identity: NodeIdentity,
     viewType: String,
+    focusID: FocusID?,
     parentIdentity: NodeIdentity?,
     childIdentities: [NodeIdentity],
     proposal: ProposedSize?,
@@ -33,6 +35,7 @@ public struct NodeDiagnostics: Equatable, Sendable {
   ) {
     self.identity = identity
     self.viewType = viewType
+    self.focusID = focusID
     self.parentIdentity = parentIdentity
     self.childIdentities = childIdentities
     self.proposal = proposal

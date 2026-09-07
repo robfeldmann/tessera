@@ -11,7 +11,10 @@ enum TesseraLab {
   }
 
   static func main() async throws {
-    guard Array(CommandLine.arguments.dropFirst()) == ["run", "layout"] else {
+    let arguments = Array(CommandLine.arguments.dropFirst())
+    guard arguments.count == 2, arguments[0] == "run",
+      ["layout", "button"].contains(arguments[1])
+    else {
       throw CommandError.usage
     }
     guard TerminalExampleSupport.isRunningInInteractiveTerminal() else {
@@ -20,9 +23,16 @@ enum TesseraLab {
     try await TerminalSession.withApplicationTerminal(
       configuration: .default
     ) { terminal in
-      let model = LayoutSpecimen()
-      let driver = ApplicationDriver(size: TerminalSize(columns: 1, rows: 1)) {
-        model.content
+      let driver: ApplicationDriver
+      let initialSize = TerminalSize(columns: 1, rows: 1)
+      if arguments[1] == "button" {
+        let model = ButtonSpecimen()
+        driver = ApplicationDriver(size: initialSize, focusTraversal: true) {
+          model.content
+        }
+      } else {
+        let model = LayoutSpecimen()
+        driver = ApplicationDriver(size: initialSize) { model.content }
       }
       try await driver.present(to: terminal)
       while driver.step(try await terminal.nextEvent()) {

@@ -32,7 +32,7 @@ public struct BorderGlyphs: Equatable, Sendable {
   }
 }
 
-/// The glyph family rendered by ``View/border(_:_:)``.
+/// The glyph family rendered by the `border(_:_:)` modifier.
 public enum BorderStyle: Equatable, Sendable {
   /// ASCII-safe rules.
   case ascii
@@ -56,7 +56,7 @@ public struct Divider: LeafView {
 
   /// Creates a divider whose orientation follows the nearest linear stack.
   ///
-  /// Pass a style to override the inherited ``EnvironmentValues/dividerStyle``.
+  /// Pass a style to override the inherited `dividerStyle` environment value.
   public init(style: DividerStyle? = nil) {
     dividerStyle = style
   }
@@ -172,7 +172,9 @@ extension View {
 }
 
 /// A bordered group with one content-padding cell and an optional title in its top chrome.
-public struct Box<Content: View>: View {
+public struct Box<Content: View>: View, _FocusAppearanceRendering,
+  _FocusAppearanceResponder
+{
   private let title: String?
   private let borderStyle: BorderStyle
   private let content: Content
@@ -202,6 +204,57 @@ public struct Box<Content: View>: View {
     self.title = title
     borderStyle = border
     self.content = content()
+  }
+
+  package func _renderFocusAppearance(
+    in region: inout RenderRegion,
+    environment: EnvironmentValues
+  ) {
+    let columns = max(region.bounds.size.columns, 0)
+    let rows = max(region.bounds.size.rows, 0)
+    guard columns > 0, rows > 0 else {
+      return
+    }
+
+    let style = Style(foreground: environment.semanticStyles.focus.background).bold()
+    let titleColumns: Range<Int>?
+    if let title, columns >= 7 {
+      var state: Void = ()
+      let titleWidth = min(
+        Text(title).sizeThatFits(
+          .unspecified,
+          state: &state,
+          environment: environment
+        ).columns,
+        max(columns - 6, 0)
+      )
+      titleColumns = 2..<(2 + titleWidth + 2)
+    } else {
+      titleColumns = nil
+    }
+
+    for column in 0..<columns {
+      if !(titleColumns?.contains(column) ?? false) {
+        region._mergeStyle(style, at: TerminalPosition(column: column, row: 0))
+      }
+      if rows > 1 {
+        region._mergeStyle(
+          style,
+          at: TerminalPosition(column: column, row: rows - 1)
+        )
+      }
+    }
+    if rows > 2 {
+      for row in 1..<(rows - 1) {
+        region._mergeStyle(style, at: TerminalPosition(column: 0, row: row))
+        if columns > 1 {
+          region._mergeStyle(
+            style,
+            at: TerminalPosition(column: columns - 1, row: row)
+          )
+        }
+      }
+    }
   }
 
 }

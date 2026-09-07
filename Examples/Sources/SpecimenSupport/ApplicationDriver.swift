@@ -9,7 +9,12 @@ package final class ApplicationDriver {
   package let graph: ViewGraph
   package private(set) var frameSequence = 0
 
-  package init<Root: View>(size: TerminalSize, root: @escaping () -> Root) {
+  private let traversesFocus: Bool
+
+  package init<Root: View>(
+    size: TerminalSize, focusTraversal: Bool = false, root: @escaping () -> Root
+  ) {
+    traversesFocus = focusTraversal
     graph = ViewGraph(root: root, size: size)
   }
 
@@ -18,6 +23,15 @@ package final class ApplicationDriver {
   @discardableResult
   package func step(_ event: InputEvent) -> Bool {
     let disposition = graph.dispatch(event)
+    if disposition == .ignored, traversesFocus,
+      case .key(let key) = event, key.kind == .press, key.code == .tab
+    {
+      if key.modifiers.isEmpty {
+        graph.focus.advance(.forward)
+      } else if key.modifiers == .shift {
+        graph.focus.advance(.backward)
+      }
+    }
     if case .resize(let size) = event {
       graph.resize(to: size)
     }

@@ -1,6 +1,6 @@
 # Execution state
 
-Status: in progress; styling salvage verified, direct specimen integration underway.
+Status: in progress; live layout and keyboard/Button capture loops verified.
 
 ## Session and workspace
 
@@ -15,8 +15,9 @@ Status: in progress; styling salvage verified, direct specimen integration under
   `f9d028c8173c74ccdd5d335cd4c85ccd0bafd7828f9b4d0389eb77b6ec676dfb`.
 - Original tracked-entry listing SHA-256:
   `0c2a4a5d62734b4449f58639f7153fa191d86ba48768c7c4af3c5d17f08fde1e`.
-- Active unit: real-rendered review loop verified; preparing keyboard/Button salvage.
-- Last confirmed push: styling salvage fde4552 to origin/phase4-review-loop.
+- Active unit: committing the keyboard/Button increment, then strengthening
+  metadata/selector evidence.
+- Last confirmed push: runnable evidence loop 03b8731 to origin/phase4-review-loop.
 
 ## Dirty-source provenance
 
@@ -32,14 +33,14 @@ No dirty source has been copied. These Git content hashes identify the read-only
 
 ## Capability and salvage ledger
 
-| Capability         | Evidence                                                        | Decision                                                                                                        | Verification                                       |
-| ------------------ | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| Text/layout/style  | `101400448da64a8020cf7678322375ebfea68605`                      | Port Text, StyleEnvironment, Styling, Decoration, Cell/Style and three test files; no Showcase/ScrollView shell | 49 layout tests passed                             |
-| Small specimens    | `f193135` Gallery Hello/DemoHost patterns                       | Adapt scaffold-free Text/root/session spine into Examples-local support                                         | New real-render test passed at 80x24 and 40x16     |
-| Session/VT capture | Existing in-memory session, Ghostty VT, ScreenSnapshot          | Reuse renderer/encoder and persistent VT; add genuine resize seam                                               | Initial/change frames passed; resize worker active |
-| Focus/keys/Button  | `6ba369b`, `c34129f`, `08d2501`, `7519623`                      | Select coherent latest Core/Layout/Button closure after evidence loop                                           | Source tests inspected; not integrated             |
-| Pointer            | No Button hit testing/capture/pointer routing found             | Defer; keyboard-only is not P4.3 completion                                                                     | Not implemented                                    |
-| Viewport           | Existing local ScrollView fixes `8ffffc2`, `9dcc46e`, `5192e7f` | Preserve as later salvage, not initial dependency                                                               | Not integrated                                     |
+| Capability         | Evidence                                                        | Decision                                                                                                        | Verification                                                                         |
+| ------------------ | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Text/layout/style  | `101400448da64a8020cf7678322375ebfea68605`                      | Port Text, StyleEnvironment, Styling, Decoration, Cell/Style and three test files; no Showcase/ScrollView shell | 49 layout tests passed                                                               |
+| Small specimens    | `f193135` Gallery Hello/DemoHost patterns                       | Adapt scaffold-free Text/root/session spine into Examples-local support                                         | New real-render test passed at 80x24 and 40x16                                       |
+| Session/VT capture | Existing support plus persistent resize                         | Reuse real renderer/encoder, retained VT, shared completed-frame observer                                       | Layout and Button bundles byte-equal across separate runs                            |
+| Focus/keys/Button  | f1061a0 selected Core/Layout/Button files and original tests    | Preserve keyboard behavior, remove unnecessary environment unchecked Sendable conformances                      | 30 focus/Button tests, 689 full root tests, two-size real action/result capture pass |
+| Pointer            | No Button hit testing/capture/pointer routing found             | Defer; keyboard-only is not P4.3 completion                                                                     | Not implemented                                                                      |
+| Viewport           | Existing local ScrollView fixes `8ffffc2`, `9dcc46e`, `5192e7f` | Preserve as later salvage, not initial dependency                                                               | Not integrated                                                                       |
 
 ## Baseline and environment
 
@@ -122,3 +123,16 @@ history.
 - Opened and inspected the actual exported compact SVG in Chromium. Explicit word wrapping
   keeps the compact message readable. Appearance is provisional; cursor outline is a
   diagnostic location marker, not observed cursor visibility or shape.
+- Button command: swift run --package-path Examples TesseraLab run button. Real PTY
+  launched, received traversal/activation/disable keys, and exited 0 on q.
+  scripts/capture-specimen.sh button produced button-a and button-b with byte-equal
+  cells/graphs/state/SVG at both sizes; disabled compact SVG opened in Chromium.
+- Button pilot checks all 12 semantic checkpoints, exact rendered count row, enabled
+  state, repeat/release non-duplication, and forward/backward disabled traversal. Full
+  root suite passed 689 tests. Changed-file SwiftLint passed with zero violations.
+- Keyboard-only limitation: activation is immediate on press, including enhanced press
+  packets; no held-key visual state, pointer hit testing/capture, or blur/removal gesture
+  cancellation is claimed. This is NOT completed P4.3 or a graduated Button design.
+- Ready-platform probe: limactl lists tessera-linux stopped; no VM started or mount
+  changed. Windows Frost doctor failed because the configured CLI is absent and the UTM VM
+  is stopped. Platform suites remain unrun; no installation or VM repair attempted.

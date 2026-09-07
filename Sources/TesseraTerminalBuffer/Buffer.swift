@@ -222,6 +222,14 @@ public struct Buffer: Equatable, Sendable {
     return cells[index(row: row, column: column)]
   }
 
+  package mutating func mergeStyle(_ style: Style, row: Int, column: Int) {
+    guard contains(row: row, column: column) else {
+      return
+    }
+    let index = index(row: row, column: column)
+    cells[index].style = cells[index].style._merging(style)._rendered
+  }
+
   package mutating func set(_ cell: Cell, row: Int, column: Int) throws {
     guard contains(row: row, column: column) else {
       throw BufferBoundsError(row: row, column: column, size: size)

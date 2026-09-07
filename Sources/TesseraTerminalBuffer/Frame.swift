@@ -268,6 +268,21 @@ public struct FrameRegion: ~Copyable, ~Escapable {
     )
   }
 
+  package mutating func _mergeStyle(_ style: Style, at position: TerminalPosition) {
+    guard containsLocal(position),
+      let absolutePosition = absolutePosition(for: position),
+      let clip,
+      clip.contains(absolutePosition)
+    else {
+      return
+    }
+    buffer.pointee.mergeStyle(
+      style,
+      row: absolutePosition.row,
+      column: absolutePosition.column
+    )
+  }
+
   /// Fills the intersection of `rect` and this region with `cell`.
   public mutating func fill(_ cell: Cell, in rect: Rect) {
     guard clip != nil,

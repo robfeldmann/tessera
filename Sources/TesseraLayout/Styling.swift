@@ -12,9 +12,13 @@ public struct SemanticStyles: Equatable, Sendable {
   public var secondary: Style {
     didSet { secondary = secondary._resolved }
   }
-  /// The emphasized presentation used for focus and selection.
+  /// The emphasized presentation used for selected content and application accents.
   public var accent: Style {
     didSet { accent = accent._resolved }
+  }
+  /// The high-contrast presentation used exclusively by focused controls.
+  public var focus: Style {
+    didSet { focus = focus._resolved }
   }
   /// The presentation used by disabled controls.
   public var disabled: Style {
@@ -32,7 +36,9 @@ public struct SemanticStyles: Equatable, Sendable {
       secondary: Style().dim(),
       accent: Style(foreground: .indexed(14)).bold(),
       disabled: Style().dim(),
-      destructive: Style(foreground: .indexed(9)).bold().underline()
+      destructive: Style(foreground: .indexed(9)).bold().underline(),
+      focus: Style(foreground: .indexed(0), background: .indexed(3))
+        .bold()
     )
   }
 
@@ -44,13 +50,18 @@ public struct SemanticStyles: Equatable, Sendable {
     secondary: Style,
     accent: Style,
     disabled: Style,
-    destructive: Style
+    destructive: Style,
+    focus: Style? = nil
   ) {
     self.primary = primary._resolved
     self.secondary = secondary._resolved
     self.accent = accent._resolved
     self.disabled = disabled._resolved
     self.destructive = destructive._resolved
+    self.focus =
+      (focus
+      ?? Style(foreground: .indexed(0), background: .indexed(3))
+      .bold().reverse())._resolved
   }
 }
 
@@ -62,7 +73,10 @@ extension EnvironmentValues {
   /// The complete semantic presentation roles inherited by this subtree.
   public var semanticStyles: SemanticStyles {
     get { self[_SemanticStylesKey.self] }
-    set { self[_SemanticStylesKey.self] = newValue }
+    set {
+      self[_SemanticStylesKey.self] = newValue
+      _focusAppearanceStyle = newValue.focus
+    }
   }
 }
 
@@ -116,7 +130,7 @@ package struct _StyleModifier<Content: View>: View, _LayoutView {
     self.content = content
     self.overlay = overlay
     self.paintsBackground = paintsBackground
-    environmentOverrideName = String(reflecting: \EnvironmentValues.defaultStyle)
+    environmentOverrideName = "defaultStyle"
   }
 
   package func _visitChildren(

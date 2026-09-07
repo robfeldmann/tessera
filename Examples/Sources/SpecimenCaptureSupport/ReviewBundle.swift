@@ -23,6 +23,7 @@ package enum ReviewBundle {
         "schemaVersion": 1,
         "sequence": checkpoint.sequence,
         "label": checkpoint.label,
+        "state": checkpoint.state,
         "cursor": ["column": screen.cursor.column, "row": screen.cursor.row],
         "cells": screen.cells.map { $0.map(cellProjection) },
       ]
