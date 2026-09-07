@@ -198,7 +198,13 @@ names, pricing, APIs, permissions, or a hidden ability to spawn workers. If lowe
 selection is unavailable, reduce delegation or execute serially. Do not install a new agent
 system or wait for the maintainer. Token cost and subscription quota are not assumed equal.
 
-Default to at most two concurrent workers. Before each task, provide:
+Start with two concurrent workers when useful; this is a starting point, not a cap.
+The maintainer explicitly permits more. Scale up for independent, well-scoped tasks when
+additional workers improve throughput, and scale down when integration overhead, build
+contention, resource pressure, or the remaining budget makes more workers counterproductive.
+No additional maintainer approval is needed for worker count within the harness's actual
+permissions and limits. Keep the coordinator-owned integration and write isolation below.
+Before each task, provide:
 
 ```text
 Goal and done condition:
