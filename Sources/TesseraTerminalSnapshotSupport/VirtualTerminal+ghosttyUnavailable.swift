@@ -19,6 +19,7 @@ extension VirtualTerminal {
     let reason = "libghostty-vt is not available in this build"
     return Self(
       feed: unimplemented("VirtualTerminal.feed: \(reason)"),
+      resize: unimplemented("VirtualTerminal.resize: \(reason)"),
       text: unimplemented(
         "VirtualTerminal.text: \(reason)",
         placeholder: ""

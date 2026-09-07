@@ -4,6 +4,8 @@ import TesseraTerminalSnapshotSupport
 import TesseraTerminalTestSupport
 import Testing
 
+@testable import TesseraTerminalSnapshotSupport
+
 @testable import TesseraTerminal
 @testable import TesseraTerminalIO
 
@@ -416,4 +418,70 @@ private func twoByTwoRGBPixels() -> [UInt8] {
     0x00, 0x00, 0xFF,
     0xFF, 0xFF, 0xFF,
   ]
+}
+
+
+@Test(
+  .disabled(
+    if: VirtualTerminal.isGhosttyUnavailable,
+    "Ghostty virtual terminal support is unavailable in this build."
+  )
+)
+func `resize retains cells across shrink and grow`() throws {
+  let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 6, rows: 3)
+  terminal.feed("\u{1B}[?1049h\u{1B}[1;2HAB\u{1B}[2;3HCD")
+
+  try terminal.resize(to: TerminalSize(columns: 3, rows: 2))
+  let shrunk = terminal.snapshot()
+  #expect(shrunk.cells.count == 2)
+  #expect(shrunk.cells.allSatisfy { $0.count == 3 })
+  #expect(terminal.cell(row: 0, column: 1).character == "A")
+  #expect(terminal.cell(row: 1, column: 2).character == "C")
+  #expect(shrunk.cursor.row < 2)
+  #expect(shrunk.cursor.column < 3)
+
+  try terminal.resize(to: TerminalSize(columns: 6, rows: 3))
+  let grown = terminal.snapshot()
+  #expect(grown.cells.count == 3)
+  #expect(grown.cells.allSatisfy { $0.count == 6 })
+  #expect(terminal.cell(row: 0, column: 1).character == "A")
+  #expect(terminal.cell(row: 1, column: 2).character == "C")
+}
+
+@Test(
+  .disabled(
+    if: VirtualTerminal.isGhosttyUnavailable,
+    "Ghostty virtual terminal support is unavailable in this build."
+  )
+)
+func `resize rejects zero and out of range dimensions`() {
+  let terminal = VirtualTerminal.ghosttyOrUnavailable(cols: 2, rows: 2)
+
+  for size in [
+    TerminalSize(columns: 0, rows: 1),
+    TerminalSize(columns: 1, rows: 0),
+    TerminalSize(columns: -1, rows: 1),
+    TerminalSize(columns: 1, rows: -1),
+    TerminalSize(columns: Int(UInt16.max) + 1, rows: 1),
+    TerminalSize(columns: 1, rows: Int(UInt16.max) + 1)
+  ] {
+    var didThrow = false
+    do {
+      try terminal.resize(to: size)
+    } catch let error as VirtualTerminalError {
+      didThrow = true
+      switch error {
+      case .invalidSize(let cols, let rows):
+        #expect(cols == size.columns)
+        #expect(rows == size.rows)
+      #if canImport(CGhosttyVT)
+      case .ghostty:
+        Issue.record("Expected invalid size error, got a Ghostty error")
+      #endif
+      }
+    } catch {
+      Issue.record("Expected VirtualTerminalError, got \(error)")
+    }
+    #expect(didThrow)
+  }
 }

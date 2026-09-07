@@ -71,6 +71,11 @@ public actor InMemoryTerminalDevice {
     self.storedSize = size
   }
 
+  /// Changes the size reported by the device without emitting a resize event.
+  public func resize(to size: TerminalSize) {
+    self.storedSize = size
+  }
+
   private func enterAltScreen() {
     recordedEvents.append(.enterAltScreen)
     storedBytes.append(contentsOf: "\u{1B}[?1049h".utf8)

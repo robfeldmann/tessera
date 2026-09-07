@@ -13,6 +13,7 @@
         let state = try GhosttyTerminalState(columns: cols, rows: rows)
         return Self(
           feed: { bytes in state.feed(bytes) },
+          resize: { size in try state.resize(to: size) },
           text: { row in state.text(row: row) },
           cell: { row, column in state.cell(row: row, column: column) },
           cursor: { state.cursorPosition() },
@@ -129,6 +130,18 @@
       }
     }
 
+    func resize(to size: TerminalSize) throws {
+      guard size.columns > 0, size.rows > 0,
+        size.columns <= Int(UInt16.max), size.rows <= Int(UInt16.max)
+      else {
+        throw VirtualTerminalError.invalidSize(cols: size.columns, rows: size.rows)
+      }
+
+      try self.handles.withLock { handles in
+        try handles.resize(columns: size.columns, rows: size.rows)
+      }
+    }
+
     func text(row: Int) -> String {
       self.handles.withLock { handles in
         guard let cells = handles.cells(row: row) else {
@@ -209,8 +222,8 @@
   }
 
   private struct GhosttyTerminalHandles: Sendable {
-    let columns: Int
-    let rows: Int
+    var columns: Int
+    var rows: Int
     private var terminalAddress: UInt
     private var renderStateAddress: UInt
     private var rowIteratorAddress: UInt
@@ -248,6 +261,21 @@
         ghostty_render_state_update(self.renderState, self.terminal),
         "ghostty_render_state_update"
       )
+    }
+
+    mutating func resize(columns: Int, rows: Int) throws {
+      try check(
+        ghostty_terminal_resize(
+          self.terminal,
+          UInt16(columns),
+          UInt16(rows),
+          0,
+          0
+        ),
+        "ghostty_terminal_resize"
+      )
+      self.columns = columns
+      self.rows = rows
     }
 
     mutating func resetRowIterator() {

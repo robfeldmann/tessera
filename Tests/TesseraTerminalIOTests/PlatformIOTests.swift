@@ -511,3 +511,15 @@ private actor CountingOutputWriter {
     }
   }
 }
+
+
+@Test
+func `in-memory terminal resize changes reported size without emitting events`() async throws {
+  let terminalDevice = InMemoryTerminalDevice(size: TerminalSize(columns: 80, rows: 24))
+  let io = PlatformIO(terminalDevice: await terminalDevice.terminalDevice)
+
+  await terminalDevice.resize(to: TerminalSize(columns: 120, rows: 40))
+
+  #expect(try await io.size() == TerminalSize(columns: 120, rows: 40))
+  #expect(await terminalDevice.events == [])
+}
