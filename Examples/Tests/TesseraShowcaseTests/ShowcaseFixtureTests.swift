@@ -5,6 +5,7 @@ import TesseraTerminal
 import TesseraTerminalSnapshotSupport
 import TesseraTerminalTestSupport
 import Testing
+
 @testable import TesseraShowcase
 
 @Suite(

@@ -17,14 +17,15 @@ package enum CellImageExporter {
         return "the snapshot dimensions overflow the fixed SVG geometry"
       case .hyperlinkUnsupported:
         return "hyperlinks are not represented by this exporter"
-      case let .raggedRows(expected, row, actual):
+      case .raggedRows(let expected, let row, let actual):
         return "row \(row) has \(actual) cells; expected \(expected)"
       case .underlineColorWithoutUnderline:
         return "an underline color cannot be represented without an underline"
       case .underlineStyleUnsupported:
         return "underline style is not supported; only single underline is supported"
-      case let .unsupportedCharacter(character):
-        return "character \(String(character)) is outside the printable ASCII exporter scope"
+      case .unsupportedCharacter(let character):
+        return
+          "character \(String(character)) is outside the printable ASCII exporter scope"
       }
     }
   }
@@ -59,7 +60,7 @@ package enum CellImageExporter {
     }
 
     guard columnCount <= Int.max / Constants.cellWidth,
-          rowCount <= Int.max / Constants.cellHeight
+      rowCount <= Int.max / Constants.cellHeight
     else {
       throw Error.dimensionsOverflow
     }
@@ -78,9 +79,11 @@ package enum CellImageExporter {
     output += "<svg xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\""
     output += " width=\"\(width)\" height=\"\(height)\" viewBox=\"0 0 \(width) \(height)\""
     output += " data-exporter-version=\"\(Constants.version)\""
-    output += " data-cell-width=\"\(Constants.cellWidth)\" data-cell-height=\"\(Constants.cellHeight)\""
+    output +=
+      " data-cell-width=\"\(Constants.cellWidth)\" data-cell-height=\"\(Constants.cellHeight)\""
     output += " xml:space=\"preserve\" shape-rendering=\"crispEdges\">"
-    output += "<desc>Observed terminal cells. The cursor outline is a diagnostic coordinate marker, not observed cursor visibility or shape.</desc>"
+    output +=
+      "<desc>Observed terminal cells. The cursor outline is a diagnostic coordinate marker, not observed cursor visibility or shape.</desc>"
 
     for (row, cells) in screen.cells.enumerated() {
       for (column, cell) in cells.enumerated() {
@@ -91,11 +94,15 @@ package enum CellImageExporter {
         let effectiveForeground = cell.reverse ? background : foreground
         let effectiveBackground = cell.reverse ? foreground : background
 
-        output += "<rect x=\"\(x)\" y=\"\(y)\" width=\"\(Constants.cellWidth)\" height=\"\(Constants.cellHeight)\" fill=\"\(effectiveBackground)\"/>"
+        output +=
+          "<rect x=\"\(x)\" y=\"\(y)\" width=\"\(Constants.cellWidth)\" height=\"\(Constants.cellHeight)\" fill=\"\(effectiveBackground)\"/>"
 
-        var attributes = " x=\"\(x + Constants.cellWidth / 2)\" y=\"\(y + Constants.baselineOffset)\""
-        attributes += " fill=\"\(effectiveForeground)\" font-family=\"\(Constants.fontFamily)\""
-        attributes += " font-size=\"\(Constants.fontSize)\" text-anchor=\"middle\" dominant-baseline=\"alphabetic\""
+        var attributes =
+          " x=\"\(x + Constants.cellWidth / 2)\" y=\"\(y + Constants.baselineOffset)\""
+        attributes +=
+          " fill=\"\(effectiveForeground)\" font-family=\"\(Constants.fontFamily)\""
+        attributes +=
+          " font-size=\"\(Constants.fontSize)\" text-anchor=\"middle\" dominant-baseline=\"alphabetic\""
         if cell.bold { attributes += " font-weight=\"700\"" }
         if cell.italic { attributes += " font-style=\"italic\"" }
         if cell.dim { attributes += " opacity=\"\(Constants.dimOpacity)\"" }
@@ -105,7 +112,8 @@ package enum CellImageExporter {
         if cell.strikethrough { decorations.append("line-through") }
         if !decorations.isEmpty {
           attributes += " text-decoration=\"\(decorations.joined(separator: " "))\""
-          let decorationColor = cell.underlineStyle == .single
+          let decorationColor =
+            cell.underlineStyle == .single
             ? underlineColor(cell.underlineColor, fallback: effectiveForeground)
             : effectiveForeground
           attributes += " text-decoration-color=\"\(decorationColor)\""
@@ -117,23 +125,24 @@ package enum CellImageExporter {
 
     let cursor = screen.cursor
     if cursor.column >= 0, cursor.column < columnCount,
-       cursor.row >= 0, cursor.row < rowCount {
+      cursor.row >= 0, cursor.row < rowCount
+    {
       let x = cursor.column * Constants.cellWidth
       let y = cursor.row * Constants.cellHeight
-      output += "<rect class=\"cursor-marker\" data-diagnostic=\"coordinate-only\" x=\"\(x)\" y=\"\(y)\" width=\"\(Constants.cellWidth)\" height=\"\(Constants.cellHeight)\" fill=\"none\" stroke=\"#FF00FF\" stroke-width=\"1\"/>"
+      output +=
+        "<rect class=\"cursor-marker\" data-diagnostic=\"coordinate-only\" x=\"\(x)\" y=\"\(y)\" width=\"\(Constants.cellWidth)\" height=\"\(Constants.cellHeight)\" fill=\"none\" stroke=\"#FF00FF\" stroke-width=\"1\"/>"
     }
 
     output += "</svg>"
     return output
   }
 
-
   private static func validate(_ cell: RenderedCell) throws {
     let scalars = cell.character.unicodeScalars
     guard scalars.count == 1,
-          let scalar = scalars.first,
-          scalar.value >= 0x20,
-          scalar.value <= 0x7E
+      let scalar = scalars.first,
+      scalar.value >= 0x20,
+      scalar.value <= 0x7E
     else {
       throw Error.unsupportedCharacter(cell.character)
     }
@@ -160,10 +169,11 @@ package enum CellImageExporter {
   private static func color(_ color: RenderedColor, role: ColorRole) -> String {
     switch color {
     case .default:
-      return role == .foreground ? Constants.defaultForeground : Constants.defaultBackground
-    case let .rgb(red, green, blue):
+      return role == .foreground
+        ? Constants.defaultForeground : Constants.defaultBackground
+    case .rgb(let red, let green, let blue):
       return rgb(red, green, blue)
-    case let .indexed(index):
+    case .indexed(let index):
       return indexed(index)
     }
   }

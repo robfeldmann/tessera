@@ -15,8 +15,8 @@ Status: in progress; styling salvage verified, direct specimen integration under
   `f9d028c8173c74ccdd5d335cd4c85ccd0bafd7828f9b4d0389eb77b6ec676dfb`.
 - Original tracked-entry listing SHA-256:
   `0c2a4a5d62734b4449f58639f7153fa191d86ba48768c7c4af3c5d17f08fde1e`.
-- Active unit: shared live/headless layout specimen and completed real-render checkpoints.
-- Last confirmed push: none yet.
+- Active unit: real-rendered review loop verified; preparing keyboard/Button salvage.
+- Last confirmed push: styling salvage fde4552 to origin/phase4-review-loop.
 
 ## Dirty-source provenance
 
@@ -77,15 +77,48 @@ No dirty source has been copied. These Git content hashes identify the read-only
 
 - Lead owns integration, manifests, driver, STATE/REVIEW, commits, and push.
 - Read-only audits `salvage-map` and `capture-seams` completed.
-- `vt-resize`: isolated `phase4-review-vt`, terminal support resize plus focused tests.
-- `cell-export`: isolated `phase4-review-export`, captured-cell SVG and tests only.
-- `adoption-docs`: isolated `phase4-review-docs`, narrow spec/status/Showcase authority
-  alignment.
-- Next: commit verified styling; complete specimen capture command, integrate
-  resize/export, run negative mutation and real launch; then adopt keyboard/Button.
+- Terminal resize worker used its assigned isolated worktree. Export/docs workers did not:
+  see preservation incident below. No further worker writes are authorized.
+- Integrated resize as 2a62cd8, exporter as 5d21d35, and narrow adoption docs as 06b6ae7.
+  Local source code remains the read-only salvage baseline f1061a0.
+- Next: commit the shared specimen/driver/bundle integration, then adopt the smallest
+  keyboard/Button closure.
+
+## Source preservation incident
+
+Two workers ignored their assigned absolute worktrees and committed relative paths in the
+inherited original phase4 directory. Their commits 9fe5e28 and 49fb05d advanced phase4 and
+touched six paths, none of the five original dirty files. Main stopped their writes and
+restored exactly those six paths from f1061a0, then restored the source branch ref to
+f1061a0224bbbfe01a04d95f74ad660acc40454a using a compare-and-swap update-ref. No reset,
+stash, clean, or formatter ran in the original source.
+
+Restoration evidence: original HEAD, four unstaged paths, one untracked path, all five
+dirty-file content hashes, and the entire staged-entry listing checksum match the initial
+inventory. git diff --cached is empty. The raw index checksum changed from
+f9d028c8173c74ccdd5d335cd4c85ccd0bafd7828f9b4d0389eb77b6ec676dfb to
+1a846f7da220039c388f8024a293dfb16af7b51eed312099f8e8d3ce9164a765; no original binary-index
+backup exists. Its exact staged content is restored, but byte-for-byte index preservation
+is NOT claimed. The incident remains visible in the local reflog. Worker changes were
+integrated selectively into the feature branch, never published as original phase4
+history.
 
 ## Checkpoint log
 
-- Created sibling tracking worktree; original branch/index/files remain read-only.
-- Styling dependency closure passed focused tests; initial live/headless driver compiled
-  and real in-memory frame assertions passed.
+- Styling closure: 49 layout tests; baseline: 29 core tests.
+- Live TerminalSession specimen launched through a PTY and exited 0 on q. Live target has
+  no test-support dependency.
+- Real capture command succeeded: scripts/capture-specimen.sh layout
+  .artifacts/phase4-review-loop/normalized-a. The developer-only wrapper supplies Xcode
+  test-framework paths and executes the binary directly; the protected swift shim strips
+  loader environment variables.
+- A second capture to normalized-b compared equal with diff -rq: JSON cells, graph text,
+  plain text, manifest and SVG all byte-equal across processes. Graph export reuses the
+  existing concise snapshot formatter to omit unstable reflected implementation addresses
+  and timings.
+- Five Examples capture/export tests and 15 VT support tests passed. A deliberate
+  padding(2) mutation produced six intended assertion failures; restoring padding(1)
+  restored the passing suite.
+- Opened and inspected the actual exported compact SVG in Chromium. Explicit word wrapping
+  keeps the compact message readable. Appearance is provisional; cursor outline is a
+  diagnostic location marker, not observed cursor visibility or shape.

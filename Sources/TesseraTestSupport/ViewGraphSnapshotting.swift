@@ -9,7 +9,13 @@ extension Snapshotting where Value == ViewGraph, Format == String {
 }
 
 private func viewGraphSnapshot(_ graph: ViewGraph) -> String {
-  let diagnostics = graph.diagnostics
+  graphDiagnosticsText(graph.diagnostics)
+}
+
+/// Formats immutable graph diagnostics without values, generic implementation contexts,
+/// or timing data. This observation never triggers graph work. Developer tools may export
+/// it only under their explicit capture and redaction policy.
+public func graphDiagnosticsText(_ diagnostics: GraphDiagnostics) -> String {
   var lines = diagnostics.nodes.map(viewGraphNodeSnapshot)
   lines.append(graphStatisticsSnapshot(diagnostics.statistics))
   lines.append(

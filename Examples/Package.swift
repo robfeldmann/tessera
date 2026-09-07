@@ -49,6 +49,9 @@ let Tessera: Target.Dependency = .product(
   package: "tessera"
 )
 
+let TesseraTestSupport: Target.Dependency = .product(
+  name: "TesseraTestSupport", package: "tessera")
+
 let TesseraTerminal: Target.Dependency = .product(
   name: "TesseraTerminal",
   package: "tessera"
@@ -74,6 +77,8 @@ let Phase3ProtocolsDemoSupport: Target.Dependency = .byName(
   name: "Phase3ProtocolsDemoSupport"
 )
 let RendererDemo: Target.Dependency = .byName(name: "RendererDemo")
+let SpecimenCaptureSupport: Target.Dependency = .byName(name: "SpecimenCaptureSupport")
+let SpecimenSupport: Target.Dependency = .byName(name: "SpecimenSupport")
 let TesseraShowcase: Target.Dependency = .byName(name: "TesseraShowcase")
 
 let AllTesseraExampleTargetNames: Set<String> = [
@@ -85,6 +90,11 @@ let AllTesseraExampleTargetNames: Set<String> = [
   "Phase3ProtocolsDemo",
   "Phase3ProtocolsDemoSupport",
   "RendererDemo",
+  "SpecimenCaptureSupport",
+  "SpecimenSupport",
+  "SpecimenSupportTests",
+  "TesseraCapture",
+  "TesseraLab",
   "TesseraShowcase",
 ]
 
@@ -232,6 +242,36 @@ package.targets.append(
     ]
   )
 )
+
+// MARK: Specimens
+
+package.products.append(.executable(name: "TesseraCapture", targets: ["TesseraCapture"]))
+package.products.append(.executable(name: "TesseraLab", targets: ["TesseraLab"]))
+package.targets.append(contentsOf: [
+  .target(name: "SpecimenSupport", dependencies: [Tessera]),
+  .target(
+    name: "SpecimenCaptureSupport",
+    dependencies: [
+      SpecimenSupport, Tessera, TesseraTerminalSnapshotSupport, TesseraTerminalTestSupport,
+      TesseraTestSupport,
+    ]
+  ),
+  .executableTarget(
+    name: "TesseraCapture",
+    dependencies: [SpecimenCaptureSupport, Tessera]
+  ),
+  .executableTarget(
+    name: "TesseraLab",
+    dependencies: [ExampleSupport, SpecimenSupport, Tessera]
+  ),
+  .testTarget(
+    name: "SpecimenSupportTests",
+    dependencies: [
+      SpecimenSupport, SpecimenCaptureSupport, Tessera, TesseraTerminalSnapshotSupport,
+      TesseraTerminalTestSupport,
+    ]
+  ),
+])
 
 // MARK: - ⚙️ Shared Swift Settings
 

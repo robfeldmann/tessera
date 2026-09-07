@@ -4,6 +4,7 @@ import Tessera
 import TesseraTerminal
 import TesseraTerminalTestSupport
 import Testing
+
 @testable import TesseraShowcase
 
 @Suite(.serialized)

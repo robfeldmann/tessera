@@ -1,6 +1,7 @@
 import TesseraTerminalCore
 import TesseraTerminalSnapshotSupport
 import Testing
+
 @testable import SpecimenCaptureSupport
 
 @Suite
@@ -8,20 +9,22 @@ struct CellImageExporterTests {
   @Test
   func `exports actual cells with geometry, colors, and styles`() throws {
     let screen = ScreenSnapshot(
-      cells: [[
-        cell(
-          "&",
-          foreground: .rgb(0x12, 0x34, 0x56),
-          background: .indexed(196),
-          bold: true,
-          dim: true,
-          italic: true,
-          reverse: true,
-          strikethrough: true,
-          underline: true
-        ),
-        cell("<"),
-      ]],
+      cells: [
+        [
+          cell(
+            "&",
+            foreground: .rgb(0x12, 0x34, 0x56),
+            background: .indexed(196),
+            bold: true,
+            dim: true,
+            italic: true,
+            reverse: true,
+            strikethrough: true,
+            underline: true
+          ),
+          cell("<"),
+        ]
+      ],
       cursor: TerminalPosition(column: 1, row: 0)
     )
 
@@ -39,7 +42,9 @@ struct CellImageExporterTests {
     #expect(image.contains("text-decoration=\"underline line-through\""))
     #expect(image.contains("&amp;</text>"))
     #expect(image.contains("&lt;</text>"))
-    #expect(image.contains("class=\"cursor-marker\" data-diagnostic=\"coordinate-only\" x=\"10\""))
+    #expect(
+      image.contains(
+        "class=\"cursor-marker\" data-diagnostic=\"coordinate-only\" x=\"10\""))
     #expect(image.contains("not observed cursor visibility or shape"))
   }
 

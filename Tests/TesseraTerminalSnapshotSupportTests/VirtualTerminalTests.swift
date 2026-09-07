@@ -4,8 +4,6 @@ import TesseraTerminalSnapshotSupport
 import TesseraTerminalTestSupport
 import Testing
 
-@testable import TesseraTerminalSnapshotSupport
-
 @testable import TesseraTerminal
 @testable import TesseraTerminalIO
 
@@ -420,7 +418,6 @@ private func twoByTwoRGBPixels() -> [UInt8] {
   ]
 }
 
-
 @Test(
   .disabled(
     if: VirtualTerminal.isGhosttyUnavailable,
@@ -463,7 +460,7 @@ func `resize rejects zero and out of range dimensions`() {
     TerminalSize(columns: -1, rows: 1),
     TerminalSize(columns: 1, rows: -1),
     TerminalSize(columns: Int(UInt16.max) + 1, rows: 1),
-    TerminalSize(columns: 1, rows: Int(UInt16.max) + 1)
+    TerminalSize(columns: 1, rows: Int(UInt16.max) + 1),
   ] {
     var didThrow = false
     do {
@@ -475,8 +472,8 @@ func `resize rejects zero and out of range dimensions`() {
         #expect(cols == size.columns)
         #expect(rows == size.rows)
       #if canImport(CGhosttyVT)
-      case .ghostty:
-        Issue.record("Expected invalid size error, got a Ghostty error")
+        case .ghostty:
+          Issue.record("Expected invalid size error, got a Ghostty error")
       #endif
       }
     } catch {
