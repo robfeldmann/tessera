@@ -55,7 +55,7 @@ public struct Cell: Equatable, Sendable {
     diffPolicy: CellDiffPolicy = .normal
   ) {
     self.content = content
-    self.style = style
+    self.style = style._rendered
     self.diffPolicy = diffPolicy
   }
 

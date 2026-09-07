@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Added
+- Added reusable Text wrapping and truncation, inherited style modifiers, semantic styles, and decoration primitives with their existing regression coverage salvaged from local view-layer development.
 - Established the Swift Package Manager foundation with the `Tessera` and `TesseraTerminal` libraries, Swift 6 strict concurrency, and the `swift-system` and `swift-displaywidth` dependencies.
 - Added repository quality and development tooling with pinned npm markup checks, codespell, swift-format, SwiftLint, Lefthook Conventional Commit validation, Just workflows, cross-platform CI, DocC validation, environment diagnostics, and local-state documentation.
 - Added the Tessera design catalog and runnable Showcase, including component contracts, tokens, templates, wireframe validation, responsive compositions, and local diagnostics.
