@@ -8,6 +8,23 @@ local experimentation, but it is not ready for production use. The terminal subs
 This document is the canonical status, roadmap, and documentation-boundary reference. The
 root [README](../README.md) stays intentionally light and defers here for detail.
 
+## Current Phase 4 review status
+
+Phase 4 remains **in progress and provisional**. The active unit is a small complete
+specimen through a shared caller/session-isolated driver and completed checkpoints, not a
+claim that Phase 4 is complete or that a human has approved visual baselines. The Showcase
+is no longer mandatory acceptance; it remains an integration reference. The current
+planned local command is:
+
+```sh
+swift run --package-path Examples TesseraLab run layout
+```
+
+The capture CLI is still integrating, so this status does not claim completed capture or
+visual-export evidence. Developer/test diagnostics export, when available, is opt-in,
+versioned, sanitized, local-only, and initially limited to synthetic specimens; it has no
+telemetry, reflection, network transport, or raw terminal authority.
+
 ## Supported Today
 
 Tessera targets macOS, Linux, and Windows with Swift 6.3 or later. Current continuous
@@ -39,17 +56,23 @@ Contributions that validate other OS versions, distributions, or architectures a
 
 ## The Tessera Showcase
 
-The Tessera **Showcase** is the project's full-featured integration app: a dense terminal
-application that composes the public view surface, demonstrates one component contract at
-a time, and presents its own live view graph through a read-only diagnostics Inspector. It
-is the canonical proof that the components compose, not a second specification or a
-tutorial.
+The Tessera **Showcase** is the project's historical full-featured integration design: a
+dense terminal application that composes the public view surface, demonstrates one
+component contract at a time, and presents a read-only diagnostics Inspector. It is not a
+second specification or tutorial, and under the adopted review loop it is no longer
+mandatory acceptance. Small complete specimens, driven through the shared
+caller/session-isolated path and reviewed at completed checkpoints, are the current
+acceptance unit.
 
-From a checkout it runs directly:
+The target shape and responsive fixtures remain documented for future integration work in
+[`design/showcase.md`](../design/showcase.md). The current planned command is instead:
 
 ```sh
-just core showcase        # or: swift run --package-path Examples TesseraShowcase
+swift run --package-path Examples TesseraLab run layout
 ```
+
+The capture CLI is still integrating; no completed capture or visual-export evidence is
+claimed here.
 
 Its target shape:
 
@@ -98,8 +121,13 @@ for each component's anatomy, state, sizing, input, and degradation.
 
 ## Roadmap
 
-The active milestone is the Phase 4 view layer, delivered as dependency-ordered slices and
-integrated into the Showcase as each lands:
+The active milestone is the provisional Phase 4 small-specimen review loop, not completed
+Phase 4 delivery. The numbered sequence below is retained as historical roadmap context;
+for remaining order, the
+[review-loop execution pack](../.agents/plans/phase4-review-loop/PLAN.md) is
+authoritative. It keeps final `SplitView` negotiation with its focused pane specimen,
+moves complete single-line `TextField` editing ahead of navigation, and does not require
+every increment to grow the Showcase:
 
 1. Core view graph, reconciliation, and `Text` — **done**.
 2. Layout, stacks, static `SplitView`, and `ScrollView` — **done**.

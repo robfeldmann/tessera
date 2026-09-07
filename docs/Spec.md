@@ -6825,6 +6825,18 @@ Phase 4 may interleave with Phase 3: slices 1–3 can land while Phase 3 protoco
 still in flight, as long as Phase 2 is complete. Phase 2.5 is a deliberate geometry
 stabilization between Phase 4 slices 2 and 3, not a new terminal-substrate dependency.
 
+> **Adopted review-loop authority (remaining delivery).** The execution pack in
+> [`.agents/plans/phase4-review-loop/PLAN.md`](../.agents/plans/phase4-review-loop/PLAN.md),
+> together with its `START-HERE.md`, is authoritative for the remaining Phase 4 delivery
+> order. It supersedes this historical sequence's remaining Showcase gates, blanket
+> developer-export prohibition, and human-approval-as-an-implementation-blocker; it does
+> not rewrite the contracts or historical progress recorded here. The Showcase remains a
+> useful integration design, but is no longer a mandatory acceptance vehicle. Accept a
+> small complete specimen through the shared review loop instead. In particular, follow
+> the execution pack for the earlier complete single-line `TextField` editing and the
+> final `SplitView` negotiation specimen rather than treating the remaining table below as
+> a delivery queue.
+
 The **[Tessera Showcase](../design/showcase.md)** is Phase 4's integration exemplar: a
 runnable app that grows one slice at a time. Each slice may use the smallest temporary
 scaffold needed to demonstrate its foundation, but deletes that scaffold at the later
@@ -7425,18 +7437,25 @@ diagnostics snapshot** from the most recently completed graph pass. Its schema i
 - every node's identity and dynamic type;
 - parent identity and ordered child identities;
 - proposal, measured size, absolute frame, and clip;
+
 - resolved environment override names and installed handler kinds;
 - requested graph and effective session `TerminalRequirements`; and
 - reconciliation counters (node create/destroy/update, body evaluation, equatable skip,
   leaf update, measurement, placement, render, focus, and requirements changes).
 
 No other data enters this schema: it excludes controlled values, raw view values, raw
-input, raw terminal bytes, `NodeState`, closures, and borrowed regions. It is local-only
-and has no serialization, persistence, logging, telemetry, or remote transport. The
-Showcase inspector reads the immutable snapshot only; it cannot mutate the graph, retain a
-borrowed `RenderRegion`, change focus or state, or trigger a pass. The graph reports
-requested requirements; the session is the sole authority that decides and reports
-effective requirements in the snapshot.
+input, raw terminal bytes, `NodeState`, closures, and borrowed regions.
+
+Production diagnostics remain local-only observations: they have no persistence, logging,
+telemetry, network transport, reflection, or raw terminal authority. An explicitly enabled
+developer/test tool may export a **versioned, sanitized projection** to a caller-chosen
+local destination; capture is disabled by default, and repository specimens are synthetic
+initially. Such export never serializes closures, borrowed capabilities, `NodeState`, raw
+handles, controlled values, or raw bytes, and observation never triggers a pass. The
+Showcase inspector itself remains read-only; it cannot mutate the graph, retain a borrowed
+`RenderRegion`, change focus or state, or trigger a pass. The graph reports requested
+requirements; the session is the sole authority that decides and reports effective
+requirements in the snapshot.
 
 #### The reconciliation algorithm
 
@@ -8377,6 +8396,11 @@ selection out of range, and session-effective requirements are mandatory cases.
 6. View-layer targets do not import SwiftUI, AppKit, UIKit, or platform IO shims.
 
 **End of Phase 4:** the library does what it says on the tin. You can build real TUI apps.
+For the adopted review loop, a narrow shared caller/session-isolated application driver
+may land before the full Phase 5 runtime. It may share driving decisions between live and
+headless specimens, but must preserve the caller's isolation domain, synchronous borrowed
+rendering, and `TerminalSession` authority; it is not the `@MainActor` convenience runtime
+or a license to transfer the graph unsafely.
 
 ## Phase 5 — Runtime + polish
 

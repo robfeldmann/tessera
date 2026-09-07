@@ -10,6 +10,29 @@ updated: 2026-07-18
 
 <!-- Allowed status values: planning, in-review, pending, in-progress, complete. -->
 
+> **Remaining-delivery authority.** This plan is retained as a historical progress record;
+> its checkboxes and completed slice history are not rewritten. For remaining Phase 4
+> work, [`phase4-review-loop/PLAN.md`](phase4-review-loop/PLAN.md) and `START-HERE.md`
+> replace this plan's delivery ordering, Showcase acceptance gates, blanket
+> developer-export ban, and human-approval implementation blocker. The Showcase is no
+> longer mandatory acceptance: small complete specimens and their review evidence are
+> sufficient for a scoped increment. The execution pack also keeps final `SplitView`
+> negotiation with its focused pane specimen and moves complete single-line `TextField`
+> editing ahead of navigation.
+
+## Review-loop adoption
+
+The current planned local smoke command is:
+
+```sh
+swift run --package-path Examples TesseraLab run layout
+```
+
+The capture CLI is still integrating, so this plan does not claim completed capture or
+visual-export evidence. The early shared driver may remain caller/session-isolated and
+non-`Sendable` without introducing the full Phase 5 runtime. Any developer/test export is
+opt-in, versioned, sanitized, local-only, and initially limited to synthetic specimens.
+
 ## Progress
 
 - [x] **Phase 0 — Contract, package graph, and design-catalog readiness**
@@ -83,7 +106,8 @@ SwiftPM graph and architecture gates; Phase 1 replaced the placeholder with the 
 TesseraCore view and runtime implementation. Remaining work includes deterministic
 layout/widgets, design-document promotion, DocC graduation, and the final repository
 quality gate. Phase 5 runtime, animation, and future image views remain explicitly out of
-scope.
+scope. A narrow shared caller/session-isolated application driver is permitted earlier
+when it serves the review loop; it does not require or imply the full Phase 5 runtime.
 
 Across every implementation phase, prefer inline snapshots for exhaustive structured
 behavior: graph diagnostics, layout trees, buffers, styles, routed-event traces, and
@@ -138,8 +162,12 @@ the design-catalog process.
   `GraphStatistics`, and the Showcase Inspector. It must include identity/type,
   parent/child order, proposal, measured size, frame, clip, environment override names,
   handler kinds, requested/effective terminal requirements, and reconciliation counters;
-  it must exclude controlled values and raw values and have no serialization, persistence,
-  logging, telemetry, or remote transport.
+  it must exclude controlled values and raw values. Production diagnostics remain local,
+  non-persistent observations with no logging, telemetry, reflection, network transport,
+  or raw authority; an explicitly enabled developer/test tool may export a versioned,
+  sanitized projection to a caller-chosen local destination. Capture is disabled by
+  default, and repository specimens are synthetic initially. Never serialize closures,
+  borrowed capabilities, `NodeState`, raw handles, controlled values, or raw bytes.
 - Define the one-style model before Slice 3: semantic roles are complete `Style` values,
   system/custom styles are environment-resolved, and there is no second view-layer style
   type or color-only alias. Define controlled initializer/action signatures from the
@@ -808,8 +836,10 @@ quality gates before handing the plan's implementation to review.
   spec allows it; never weaken `~Copyable`/`~Escapable` ownership to make compilation
   easy.
 - **Diagnostics can accidentally become a data leak or a second state store.** Enforce
-  immutable completed-pass snapshots, redaction tests, and no serialization/logging/
-  telemetry/raw controlled values. Inspector tests must prove it cannot trigger a pass.
+  immutable completed-pass snapshots and redaction tests; the production inspector has no
+  serialization, logging, telemetry, reflection, network transport, or raw authority. Any
+  developer/test export is explicitly enabled, versioned, sanitized, local-only, and
+  initially synthetic, and must not trigger a pass.
 - **Controlled-only widgets are easy to regress.** No TextField or other widget may retain
   business data in NodeState or maintain a shadow value; test binding replacement and
   state lifetime at every cutover.

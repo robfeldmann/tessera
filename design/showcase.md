@@ -5,13 +5,21 @@ status: wireframed
 
 # Tessera Showcase
 
+> **Adopted review-loop boundary.** This is a historical application-composition design,
+> not the normative acceptance queue. The Showcase is no longer mandatory acceptance;
+> remaining delivery follows the
+> [review-loop execution pack](../.agents/plans/phase4-review-loop/PLAN.md) and accepts
+> small complete specimens first. The current planned local command is
+> `swift run --package-path Examples TesseraLab run layout`; the capture CLI is still
+> integrating, so this document does not claim completed capture evidence.
+
 ## Purpose and 1.0 boundary
 
-**Tessera Showcase** is the runnable Phase 4 integration catalog: a dense app that
-composes the public Tessera surface, demonstrates one focused contract at a time, and
-presents its live local graph through developer diagnostics. It is neither a second
-component specification nor a tutorial, source browser, file mapper, or alternate
-application shell.
+**Tessera Showcase** is the historical runnable Phase 4 integration catalog: a dense app
+that composes the public Tessera surface, demonstrates one focused contract at a time, and
+presents its live local graph through explicitly requested developer diagnostics. It is
+neither a second component specification nor a tutorial, source browser, file mapper, or
+alternate application shell.
 
 The [design catalog process](README.md) remains authoritative for component anatomy,
 state, sizing, input, degradation, and requirements. Showcase owns only integration
@@ -115,7 +123,11 @@ is normative. The Inspector presents the Spec-defined immutable snapshot from th
 recent completed graph pass. Selecting a node changes only app selection; the Inspector
 reads the completed snapshot and cannot mutate the graph or trigger a pass. Its frame and
 clip overlay is presentation only: it is not hit testing, source mapping, a rendering
-pass, or a value-recording debugger.
+pass, or a value-recording debugger. The Inspector itself does not export; an explicitly
+enabled developer/test tool may export only a versioned, sanitized projection to a
+caller-chosen local destination. Capture is disabled by default; no telemetry, reflection,
+network transport, raw terminal authority, or controlled/raw values are permitted, and
+repository specimens are synthetic initially.
 
 ## Runnable composition
 
@@ -605,18 +617,22 @@ Callouts (80x24, 0-based):
 1. r2-r8 c31-c79 Playground overlay -- selected frame and clip metadata rendered over the live specimen without source or event routing behavior.
 2. r9-r20 c0-c29 Node facts -- structural, layout, handler, requirement, and redacted diagnostic metadata only.
 3. r11-r12 c31-c79 Overlay facts -- exact selected frame and clip used by the overlay.
-4. r23 c0-c79 Inspector boundary — selection reads the prior completed in-memory snapshot; it performs no serialization, logging, telemetry, or raw-value capture.
+4. r23 c0-c79 Inspector boundary — selection reads the prior completed in-memory snapshot;
+   the Inspector performs no export, serialization, logging, telemetry, reflection, network
+   transport, or raw-value capture. An explicitly enabled local developer/test exporter may
+   write only a versioned sanitized projection.
 ```
 
 ## How the Showcase grows
 
-The Showcase grows slice by slice according to the
-[Phase 4 slice plan](../docs/Spec.md#phase-4--view-layer-the-tessera-module). Each slice
-adds the specimens and public components that its dependencies make possible, then deletes
-the temporary Showcase scaffold it replaces. Phase 2.5 installs the final Flex-backed
-SplitView geometry before styling and input; Grid, Table, NavigationSplitView, and
-[final catalog integration](../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase)
-retain their later dependency-ordered landings.
+This document preserves the historical Showcase composition and fixture design. Remaining
+implementation order follows the
+[review-loop execution pack](../.agents/plans/phase4-review-loop/PLAN.md), not a
+requirement that every increment grow this app. The pack keeps final Flex-backed
+`SplitView` negotiation with its focused pane specimen, moves complete single-line
+`TextField` editing ahead of navigation, and permits a narrow shared
+caller/session-isolated driver before the full Phase 5 runtime. The Showcase can absorb
+proven specimens later; it is integration evidence, not a mandatory acceptance gate.
 
 ## Verification intent
 
