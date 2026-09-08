@@ -1,0 +1,91 @@
+{
+  "sourceRevision": "5a22022150df0676a5d0f8b6d69c7bd77743a91e",
+  "sourceDirty": false,
+  "checkpointCount": 232,
+  "manifestCount": 16,
+  "repeatComparison": "diff -rq: exit 0, byte-identical full bundles",
+  "profile": "truecolor-graph-managed-protocols",
+  "visualApproval": "provisional-not-human-approved",
+  "files": [
+    {
+      "file": "p48-layout.svg",
+      "source": "layout/80x24/1-initial.svg",
+      "sourceRevision": "5a22022150df0676a5d0f8b6d69c7bd77743a91e",
+      "sourceDirty": false,
+      "sha256": "3e92f0741ea9a09d46b114a4bc8e0648dd48d8e702dc0edbb5f648e4ed7e9379",
+      "status": "provisional-visually-inspected"
+    },
+    {
+      "file": "p48-button-held.svg",
+      "source": "button/40x16/11-pointer-down.svg",
+      "sourceRevision": "5a22022150df0676a5d0f8b6d69c7bd77743a91e",
+      "sourceDirty": false,
+      "sha256": "dcfbb37ce3a7f57e433f600b67280692cc374d48f3495f16f9d7a4195a934129",
+      "status": "provisional-visually-inspected"
+    },
+    {
+      "file": "p48-viewport-boundary.svg",
+      "source": "viewport/40x16/10-boundary-bubble.svg",
+      "sourceRevision": "5a22022150df0676a5d0f8b6d69c7bd77743a91e",
+      "sourceDirty": false,
+      "sha256": "d550a03100bd1da2eb58fb5c814cb279c0874b2620db79575594fbaaab7d7c4e",
+      "status": "provisional-visually-inspected"
+    },
+    {
+      "file": "p48-settings-paste.svg",
+      "source": "settings/80x24/13-paste-name.svg",
+      "sourceRevision": "5a22022150df0676a5d0f8b6d69c7bd77743a91e",
+      "sourceDirty": false,
+      "sha256": "1a0a115cb1c094a307df90edd29c7b5e92486c669ebe9f290522ce7be7deccf3",
+      "status": "provisional-visually-inspected"
+    },
+    {
+      "file": "p48-collections-after.svg",
+      "source": "collections/40x16/11-table-row-up.svg",
+      "sourceRevision": "5a22022150df0676a5d0f8b6d69c7bd77743a91e",
+      "sourceDirty": false,
+      "sha256": "f376178f8c8ce9abc906a34d13787d5d1922156a74d59fa3f97f60b10b43f032",
+      "status": "provisional-visually-inspected"
+    },
+    {
+      "file": "p48-panes-drag.svg",
+      "source": "panes/80x24/14-divider-drag.svg",
+      "sourceRevision": "5a22022150df0676a5d0f8b6d69c7bd77743a91e",
+      "sourceDirty": false,
+      "sha256": "0bcc603794c07c9e32373375611899107c93dd48dd738d6668ef9d9a6090ca85",
+      "status": "provisional-visually-inspected"
+    },
+    {
+      "file": "p48-panes-hover.svg",
+      "source": "panes/40x16/8-hover-enter.svg",
+      "sourceRevision": "5a22022150df0676a5d0f8b6d69c7bd77743a91e",
+      "sourceDirty": false,
+      "sha256": "43b29f7f6f49dea63289bd8c827946823a76503c1f479017d65f4aaba1d2f653",
+      "status": "provisional-visually-inspected"
+    },
+    {
+      "file": "p48-navigation-compact.svg",
+      "source": "navigation/40x16/9-compact-threshold.svg",
+      "sourceRevision": "5a22022150df0676a5d0f8b6d69c7bd77743a91e",
+      "sourceDirty": false,
+      "sha256": "ed38b1983ed95465dafccc747120816edbc8e8a7f56678b088ec9a0ecdb6ce3c",
+      "status": "provisional-visually-inspected"
+    },
+    {
+      "file": "p48-records-resized.svg",
+      "source": "records/80x24/7-divider-up.svg",
+      "sourceRevision": "5a22022150df0676a5d0f8b6d69c7bd77743a91e",
+      "sourceDirty": false,
+      "sha256": "579c40afcebf0062f413c0c3f5e53af346d357d3e909666abb5ebf08acc794df",
+      "status": "provisional-visually-inspected"
+    },
+    {
+      "file": "p48-collections-before.svg",
+      "source": "collections/40x16/11-table-row-up.svg",
+      "sourceRevision": "9119ef3aad5cbdaed278a93faa70cd9915dd2cac",
+      "sourceDirty": false,
+      "sha256": "7580b148a35068be4183fe180fc6a2cbd1f7f955c50c885d906eb5c9f5a8e232",
+      "status": "failed-overlap-before-fix"
+    }
+  ]
+}

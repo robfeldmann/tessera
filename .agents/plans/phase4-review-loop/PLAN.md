@@ -14,6 +14,12 @@ remains subject to human review; the execution brief permits reversible work on 
 feature branch without waiting for that review. Newly invented API names and CLI examples
 below are illustrative, not existing or compile-verified APIs.
 
+Execution checkpoint: the scoped P4.4–P4.8 implementation is committed and host-validated.
+Full graduation remains blocked by the Linux compiler/SDK mismatch and unavailable
+Linux/Windows runtime checks; visual approval remains with the maintainer. This plan
+therefore stays `in-progress`. See [STATE.md](STATE.md) and [REVIEW.md](REVIEW.md) for the
+final evidence and review boundary.
+
 The reviewed `main` was `0697fe28d1accdd2621cdb0d5426a053ed3a2c2d`; its dispatch method
 was still a no-op. More advanced work on local `phase4` takes precedence as implementation
 to inspect and preserve, not as unverified proof of correctness. Do not start the

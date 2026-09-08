@@ -1,0 +1,1826 @@
+[
+  {
+    "path": "records/40x16/manifest.json",
+    "count": 11,
+    "manifest": {
+      "capturePolicy": "explicit-built-in-synthetic-only",
+      "checkpoints": [
+        {
+          "columns": 40,
+          "inputTraceFile": "1-initial.input.txt",
+          "name": "1-initial",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "2-focus-record-1.input.txt",
+          "name": "2-focus-record-1",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "3-focus-record-2.input.txt",
+          "name": "3-focus-record-2",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "4-open-record-2.input.txt",
+          "name": "4-open-record-2",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "5-divider-down.input.txt",
+          "name": "5-divider-down",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "6-divider-drag.input.txt",
+          "name": "6-divider-drag",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "7-divider-up.input.txt",
+          "name": "7-divider-up",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "8-pointer-down.input.txt",
+          "name": "8-pointer-down",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "9-pointer-up.input.txt",
+          "name": "9-pointer-up",
+          "rows": 16
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "10-resized.input.txt",
+          "name": "10-resized",
+          "rows": 24
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "11-restored.input.txt",
+          "name": "11-restored",
+          "rows": 16
+        }
+      ],
+      "exporter": {
+        "cellHeight": 20,
+        "cellWidth": 10,
+        "cursor": "coordinate marker only; visibility and shape not observed",
+        "defaultBackground": "#101010",
+        "defaultForeground": "#D0D0D0",
+        "fontFamily": "monospace",
+        "glyphs": "Unicode graphemes use canonical terminal cell widths; XML-invalid controls and unsupported attributes fail",
+        "rasterizer": "SVG; viewer-dependent, not a canonical pixel baseline",
+        "version": "2"
+      },
+      "profile": "truecolor-graph-managed-protocols",
+      "schemaVersion": 2,
+      "seed": null,
+      "sourceDirty": false,
+      "sourceRevision": "5a22022150df0676a5d0f8b6d69c7bd77743a91e",
+      "specimen": "records",
+      "visualApproval": "provisional-not-human-approved"
+    }
+  },
+  {
+    "path": "records/80x24/manifest.json",
+    "count": 11,
+    "manifest": {
+      "capturePolicy": "explicit-built-in-synthetic-only",
+      "checkpoints": [
+        {
+          "columns": 80,
+          "inputTraceFile": "1-initial.input.txt",
+          "name": "1-initial",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "2-focus-record-1.input.txt",
+          "name": "2-focus-record-1",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "3-focus-record-2.input.txt",
+          "name": "3-focus-record-2",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "4-open-record-2.input.txt",
+          "name": "4-open-record-2",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "5-divider-down.input.txt",
+          "name": "5-divider-down",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "6-divider-drag.input.txt",
+          "name": "6-divider-drag",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "7-divider-up.input.txt",
+          "name": "7-divider-up",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "8-pointer-down.input.txt",
+          "name": "8-pointer-down",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "9-pointer-up.input.txt",
+          "name": "9-pointer-up",
+          "rows": 24
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "10-resized.input.txt",
+          "name": "10-resized",
+          "rows": 16
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "11-restored.input.txt",
+          "name": "11-restored",
+          "rows": 24
+        }
+      ],
+      "exporter": {
+        "cellHeight": 20,
+        "cellWidth": 10,
+        "cursor": "coordinate marker only; visibility and shape not observed",
+        "defaultBackground": "#101010",
+        "defaultForeground": "#D0D0D0",
+        "fontFamily": "monospace",
+        "glyphs": "Unicode graphemes use canonical terminal cell widths; XML-invalid controls and unsupported attributes fail",
+        "rasterizer": "SVG; viewer-dependent, not a canonical pixel baseline",
+        "version": "2"
+      },
+      "profile": "truecolor-graph-managed-protocols",
+      "schemaVersion": 2,
+      "seed": null,
+      "sourceDirty": false,
+      "sourceRevision": "5a22022150df0676a5d0f8b6d69c7bd77743a91e",
+      "specimen": "records",
+      "visualApproval": "provisional-not-human-approved"
+    }
+  },
+  {
+    "path": "navigation/40x16/manifest.json",
+    "count": 12,
+    "manifest": {
+      "capturePolicy": "explicit-built-in-synthetic-only",
+      "checkpoints": [
+        {
+          "columns": 40,
+          "inputTraceFile": "1-initial.input.txt",
+          "name": "1-initial",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "2-focus-settings.input.txt",
+          "name": "2-focus-settings",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "3-select-settings.input.txt",
+          "name": "3-select-settings",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "4-next-navigation.input.txt",
+          "name": "4-next-navigation",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "5-compact-content.input.txt",
+          "name": "5-compact-content",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "6-resize-wide.input.txt",
+          "name": "6-resize-wide",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "7-pointer-down.input.txt",
+          "name": "7-pointer-down",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "8-pointer-up.input.txt",
+          "name": "8-pointer-up",
+          "rows": 16
+        },
+        {
+          "columns": 22,
+          "inputTraceFile": "9-compact-threshold.input.txt",
+          "name": "9-compact-threshold",
+          "rows": 10
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "10-compact-restored.input.txt",
+          "name": "10-compact-restored",
+          "rows": 16
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "11-resized.input.txt",
+          "name": "11-resized",
+          "rows": 24
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "12-restored.input.txt",
+          "name": "12-restored",
+          "rows": 16
+        }
+      ],
+      "exporter": {
+        "cellHeight": 20,
+        "cellWidth": 10,
+        "cursor": "coordinate marker only; visibility and shape not observed",
+        "defaultBackground": "#101010",
+        "defaultForeground": "#D0D0D0",
+        "fontFamily": "monospace",
+        "glyphs": "Unicode graphemes use canonical terminal cell widths; XML-invalid controls and unsupported attributes fail",
+        "rasterizer": "SVG; viewer-dependent, not a canonical pixel baseline",
+        "version": "2"
+      },
+      "profile": "truecolor-graph-managed-protocols",
+      "schemaVersion": 2,
+      "seed": null,
+      "sourceDirty": false,
+      "sourceRevision": "5a22022150df0676a5d0f8b6d69c7bd77743a91e",
+      "specimen": "navigation",
+      "visualApproval": "provisional-not-human-approved"
+    }
+  },
+  {
+    "path": "navigation/80x24/manifest.json",
+    "count": 14,
+    "manifest": {
+      "capturePolicy": "explicit-built-in-synthetic-only",
+      "checkpoints": [
+        {
+          "columns": 80,
+          "inputTraceFile": "1-initial.input.txt",
+          "name": "1-initial",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "2-focus-settings.input.txt",
+          "name": "2-focus-settings",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "3-select-settings.input.txt",
+          "name": "3-select-settings",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "4-next-navigation.input.txt",
+          "name": "4-next-navigation",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "5-compact-content.input.txt",
+          "name": "5-compact-content",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "6-resize-wide.input.txt",
+          "name": "6-resize-wide",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "7-pointer-down.input.txt",
+          "name": "7-pointer-down",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "8-pointer-up.input.txt",
+          "name": "8-pointer-up",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "9-show-detail-down.input.txt",
+          "name": "9-show-detail-down",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "10-show-detail-up.input.txt",
+          "name": "10-show-detail-up",
+          "rows": 24
+        },
+        {
+          "columns": 22,
+          "inputTraceFile": "11-compact-threshold.input.txt",
+          "name": "11-compact-threshold",
+          "rows": 10
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "12-compact-restored.input.txt",
+          "name": "12-compact-restored",
+          "rows": 24
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "13-resized.input.txt",
+          "name": "13-resized",
+          "rows": 16
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "14-restored.input.txt",
+          "name": "14-restored",
+          "rows": 24
+        }
+      ],
+      "exporter": {
+        "cellHeight": 20,
+        "cellWidth": 10,
+        "cursor": "coordinate marker only; visibility and shape not observed",
+        "defaultBackground": "#101010",
+        "defaultForeground": "#D0D0D0",
+        "fontFamily": "monospace",
+        "glyphs": "Unicode graphemes use canonical terminal cell widths; XML-invalid controls and unsupported attributes fail",
+        "rasterizer": "SVG; viewer-dependent, not a canonical pixel baseline",
+        "version": "2"
+      },
+      "profile": "truecolor-graph-managed-protocols",
+      "schemaVersion": 2,
+      "seed": null,
+      "sourceDirty": false,
+      "sourceRevision": "5a22022150df0676a5d0f8b6d69c7bd77743a91e",
+      "specimen": "navigation",
+      "visualApproval": "provisional-not-human-approved"
+    }
+  },
+  {
+    "path": "panes/40x16/manifest.json",
+    "count": 17,
+    "manifest": {
+      "capturePolicy": "explicit-built-in-synthetic-only",
+      "checkpoints": [
+        {
+          "columns": 40,
+          "inputTraceFile": "1-initial.input.txt",
+          "name": "1-initial",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "2-focus-second.input.txt",
+          "name": "2-focus-second",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "3-select-second.input.txt",
+          "name": "3-select-second",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "4-resize-right.input.txt",
+          "name": "4-resize-right",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "5-resize-left.input.txt",
+          "name": "5-resize-left",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "6-pointer-down.input.txt",
+          "name": "6-pointer-down",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "7-pointer-up.input.txt",
+          "name": "7-pointer-up",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "8-hover-enter.input.txt",
+          "name": "8-hover-enter",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "9-hover-blur.input.txt",
+          "name": "9-hover-blur",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "10-hover-focus.input.txt",
+          "name": "10-hover-focus",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "11-hover-reenter.input.txt",
+          "name": "11-hover-reenter",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "12-hover-leave.input.txt",
+          "name": "12-hover-leave",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "13-divider-down.input.txt",
+          "name": "13-divider-down",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "14-divider-drag.input.txt",
+          "name": "14-divider-drag",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "15-divider-up.input.txt",
+          "name": "15-divider-up",
+          "rows": 16
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "16-resized.input.txt",
+          "name": "16-resized",
+          "rows": 24
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "17-restored.input.txt",
+          "name": "17-restored",
+          "rows": 16
+        }
+      ],
+      "exporter": {
+        "cellHeight": 20,
+        "cellWidth": 10,
+        "cursor": "coordinate marker only; visibility and shape not observed",
+        "defaultBackground": "#101010",
+        "defaultForeground": "#D0D0D0",
+        "fontFamily": "monospace",
+        "glyphs": "Unicode graphemes use canonical terminal cell widths; XML-invalid controls and unsupported attributes fail",
+        "rasterizer": "SVG; viewer-dependent, not a canonical pixel baseline",
+        "version": "2"
+      },
+      "profile": "truecolor-graph-managed-protocols",
+      "schemaVersion": 2,
+      "seed": null,
+      "sourceDirty": false,
+      "sourceRevision": "5a22022150df0676a5d0f8b6d69c7bd77743a91e",
+      "specimen": "panes",
+      "visualApproval": "provisional-not-human-approved"
+    }
+  },
+  {
+    "path": "panes/80x24/manifest.json",
+    "count": 17,
+    "manifest": {
+      "capturePolicy": "explicit-built-in-synthetic-only",
+      "checkpoints": [
+        {
+          "columns": 80,
+          "inputTraceFile": "1-initial.input.txt",
+          "name": "1-initial",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "2-focus-second.input.txt",
+          "name": "2-focus-second",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "3-select-second.input.txt",
+          "name": "3-select-second",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "4-resize-right.input.txt",
+          "name": "4-resize-right",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "5-resize-left.input.txt",
+          "name": "5-resize-left",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "6-pointer-down.input.txt",
+          "name": "6-pointer-down",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "7-pointer-up.input.txt",
+          "name": "7-pointer-up",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "8-hover-enter.input.txt",
+          "name": "8-hover-enter",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "9-hover-blur.input.txt",
+          "name": "9-hover-blur",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "10-hover-focus.input.txt",
+          "name": "10-hover-focus",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "11-hover-reenter.input.txt",
+          "name": "11-hover-reenter",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "12-hover-leave.input.txt",
+          "name": "12-hover-leave",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "13-divider-down.input.txt",
+          "name": "13-divider-down",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "14-divider-drag.input.txt",
+          "name": "14-divider-drag",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "15-divider-up.input.txt",
+          "name": "15-divider-up",
+          "rows": 24
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "16-resized.input.txt",
+          "name": "16-resized",
+          "rows": 16
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "17-restored.input.txt",
+          "name": "17-restored",
+          "rows": 24
+        }
+      ],
+      "exporter": {
+        "cellHeight": 20,
+        "cellWidth": 10,
+        "cursor": "coordinate marker only; visibility and shape not observed",
+        "defaultBackground": "#101010",
+        "defaultForeground": "#D0D0D0",
+        "fontFamily": "monospace",
+        "glyphs": "Unicode graphemes use canonical terminal cell widths; XML-invalid controls and unsupported attributes fail",
+        "rasterizer": "SVG; viewer-dependent, not a canonical pixel baseline",
+        "version": "2"
+      },
+      "profile": "truecolor-graph-managed-protocols",
+      "schemaVersion": 2,
+      "seed": null,
+      "sourceDirty": false,
+      "sourceRevision": "5a22022150df0676a5d0f8b6d69c7bd77743a91e",
+      "specimen": "panes",
+      "visualApproval": "provisional-not-human-approved"
+    }
+  },
+  {
+    "path": "collections/40x16/manifest.json",
+    "count": 13,
+    "manifest": {
+      "capturePolicy": "explicit-built-in-synthetic-only",
+      "checkpoints": [
+        {
+          "columns": 40,
+          "inputTraceFile": "1-initial.input.txt",
+          "name": "1-initial",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "2-next-row.input.txt",
+          "name": "2-next-row",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "3-select-row.input.txt",
+          "name": "3-select-row",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "4-scroll-rows.input.txt",
+          "name": "4-scroll-rows",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "5-resize.input.txt",
+          "name": "5-resize",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "6-pointer-down.input.txt",
+          "name": "6-pointer-down",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "7-pointer-up.input.txt",
+          "name": "7-pointer-up",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "8-table-header-down.input.txt",
+          "name": "8-table-header-down",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "9-table-header-up.input.txt",
+          "name": "9-table-header-up",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "10-table-row-down.input.txt",
+          "name": "10-table-row-down",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "11-table-row-up.input.txt",
+          "name": "11-table-row-up",
+          "rows": 16
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "12-resized.input.txt",
+          "name": "12-resized",
+          "rows": 24
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "13-restored.input.txt",
+          "name": "13-restored",
+          "rows": 16
+        }
+      ],
+      "exporter": {
+        "cellHeight": 20,
+        "cellWidth": 10,
+        "cursor": "coordinate marker only; visibility and shape not observed",
+        "defaultBackground": "#101010",
+        "defaultForeground": "#D0D0D0",
+        "fontFamily": "monospace",
+        "glyphs": "Unicode graphemes use canonical terminal cell widths; XML-invalid controls and unsupported attributes fail",
+        "rasterizer": "SVG; viewer-dependent, not a canonical pixel baseline",
+        "version": "2"
+      },
+      "profile": "truecolor-graph-managed-protocols",
+      "schemaVersion": 2,
+      "seed": null,
+      "sourceDirty": false,
+      "sourceRevision": "5a22022150df0676a5d0f8b6d69c7bd77743a91e",
+      "specimen": "collections",
+      "visualApproval": "provisional-not-human-approved"
+    }
+  },
+  {
+    "path": "collections/80x24/manifest.json",
+    "count": 13,
+    "manifest": {
+      "capturePolicy": "explicit-built-in-synthetic-only",
+      "checkpoints": [
+        {
+          "columns": 80,
+          "inputTraceFile": "1-initial.input.txt",
+          "name": "1-initial",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "2-next-row.input.txt",
+          "name": "2-next-row",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "3-select-row.input.txt",
+          "name": "3-select-row",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "4-scroll-rows.input.txt",
+          "name": "4-scroll-rows",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "5-resize.input.txt",
+          "name": "5-resize",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "6-pointer-down.input.txt",
+          "name": "6-pointer-down",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "7-pointer-up.input.txt",
+          "name": "7-pointer-up",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "8-table-header-down.input.txt",
+          "name": "8-table-header-down",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "9-table-header-up.input.txt",
+          "name": "9-table-header-up",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "10-table-row-down.input.txt",
+          "name": "10-table-row-down",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "11-table-row-up.input.txt",
+          "name": "11-table-row-up",
+          "rows": 24
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "12-resized.input.txt",
+          "name": "12-resized",
+          "rows": 16
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "13-restored.input.txt",
+          "name": "13-restored",
+          "rows": 24
+        }
+      ],
+      "exporter": {
+        "cellHeight": 20,
+        "cellWidth": 10,
+        "cursor": "coordinate marker only; visibility and shape not observed",
+        "defaultBackground": "#101010",
+        "defaultForeground": "#D0D0D0",
+        "fontFamily": "monospace",
+        "glyphs": "Unicode graphemes use canonical terminal cell widths; XML-invalid controls and unsupported attributes fail",
+        "rasterizer": "SVG; viewer-dependent, not a canonical pixel baseline",
+        "version": "2"
+      },
+      "profile": "truecolor-graph-managed-protocols",
+      "schemaVersion": 2,
+      "seed": null,
+      "sourceDirty": false,
+      "sourceRevision": "5a22022150df0676a5d0f8b6d69c7bd77743a91e",
+      "specimen": "collections",
+      "visualApproval": "provisional-not-human-approved"
+    }
+  },
+  {
+    "path": "settings/40x16/manifest.json",
+    "count": 15,
+    "manifest": {
+      "capturePolicy": "explicit-built-in-synthetic-only",
+      "checkpoints": [
+        {
+          "columns": 40,
+          "inputTraceFile": "1-initial.input.txt",
+          "name": "1-initial",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "2-focus-name.input.txt",
+          "name": "2-focus-name",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "3-insert-name.input.txt",
+          "name": "3-insert-name",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "4-submit-name.input.txt",
+          "name": "4-submit-name",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "5-next-control.input.txt",
+          "name": "5-next-control",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "6-toggle.input.txt",
+          "name": "6-toggle",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "7-next-volume.input.txt",
+          "name": "7-next-volume",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "8-increment-volume.input.txt",
+          "name": "8-increment-volume",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "9-pointer-down.input.txt",
+          "name": "9-pointer-down",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "10-pointer-up.input.txt",
+          "name": "10-pointer-up",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "11-selection-home.input.txt",
+          "name": "11-selection-home",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "12-selection-shift-end.input.txt",
+          "name": "12-selection-shift-end",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "13-paste-name.input.txt",
+          "name": "13-paste-name",
+          "rows": 16
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "14-resized.input.txt",
+          "name": "14-resized",
+          "rows": 24
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "15-restored.input.txt",
+          "name": "15-restored",
+          "rows": 16
+        }
+      ],
+      "exporter": {
+        "cellHeight": 20,
+        "cellWidth": 10,
+        "cursor": "coordinate marker only; visibility and shape not observed",
+        "defaultBackground": "#101010",
+        "defaultForeground": "#D0D0D0",
+        "fontFamily": "monospace",
+        "glyphs": "Unicode graphemes use canonical terminal cell widths; XML-invalid controls and unsupported attributes fail",
+        "rasterizer": "SVG; viewer-dependent, not a canonical pixel baseline",
+        "version": "2"
+      },
+      "profile": "truecolor-graph-managed-protocols",
+      "schemaVersion": 2,
+      "seed": null,
+      "sourceDirty": false,
+      "sourceRevision": "5a22022150df0676a5d0f8b6d69c7bd77743a91e",
+      "specimen": "settings",
+      "visualApproval": "provisional-not-human-approved"
+    }
+  },
+  {
+    "path": "settings/80x24/manifest.json",
+    "count": 15,
+    "manifest": {
+      "capturePolicy": "explicit-built-in-synthetic-only",
+      "checkpoints": [
+        {
+          "columns": 80,
+          "inputTraceFile": "1-initial.input.txt",
+          "name": "1-initial",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "2-focus-name.input.txt",
+          "name": "2-focus-name",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "3-insert-name.input.txt",
+          "name": "3-insert-name",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "4-submit-name.input.txt",
+          "name": "4-submit-name",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "5-next-control.input.txt",
+          "name": "5-next-control",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "6-toggle.input.txt",
+          "name": "6-toggle",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "7-next-volume.input.txt",
+          "name": "7-next-volume",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "8-increment-volume.input.txt",
+          "name": "8-increment-volume",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "9-pointer-down.input.txt",
+          "name": "9-pointer-down",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "10-pointer-up.input.txt",
+          "name": "10-pointer-up",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "11-selection-home.input.txt",
+          "name": "11-selection-home",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "12-selection-shift-end.input.txt",
+          "name": "12-selection-shift-end",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "13-paste-name.input.txt",
+          "name": "13-paste-name",
+          "rows": 24
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "14-resized.input.txt",
+          "name": "14-resized",
+          "rows": 16
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "15-restored.input.txt",
+          "name": "15-restored",
+          "rows": 24
+        }
+      ],
+      "exporter": {
+        "cellHeight": 20,
+        "cellWidth": 10,
+        "cursor": "coordinate marker only; visibility and shape not observed",
+        "defaultBackground": "#101010",
+        "defaultForeground": "#D0D0D0",
+        "fontFamily": "monospace",
+        "glyphs": "Unicode graphemes use canonical terminal cell widths; XML-invalid controls and unsupported attributes fail",
+        "rasterizer": "SVG; viewer-dependent, not a canonical pixel baseline",
+        "version": "2"
+      },
+      "profile": "truecolor-graph-managed-protocols",
+      "schemaVersion": 2,
+      "seed": null,
+      "sourceDirty": false,
+      "sourceRevision": "5a22022150df0676a5d0f8b6d69c7bd77743a91e",
+      "specimen": "settings",
+      "visualApproval": "provisional-not-human-approved"
+    }
+  },
+  {
+    "path": "viewport/40x16/manifest.json",
+    "count": 17,
+    "manifest": {
+      "capturePolicy": "explicit-built-in-synthetic-only",
+      "checkpoints": [
+        {
+          "columns": 40,
+          "inputTraceFile": "1-initial.input.txt",
+          "name": "1-initial",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "2-focus-outer.input.txt",
+          "name": "2-focus-outer",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "3-focus-inner.input.txt",
+          "name": "3-focus-inner",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "4-inner-down-1.input.txt",
+          "name": "4-inner-down-1",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "5-inner-down-2.input.txt",
+          "name": "5-inner-down-2",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "6-inner-down-3.input.txt",
+          "name": "6-inner-down-3",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "7-inner-down-4.input.txt",
+          "name": "7-inner-down-4",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "8-inner-down-5.input.txt",
+          "name": "8-inner-down-5",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "9-inner-down-6.input.txt",
+          "name": "9-inner-down-6",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "10-boundary-bubble.input.txt",
+          "name": "10-boundary-bubble",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "11-focus-inner-action.input.txt",
+          "name": "11-focus-inner-action",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "12-inner-home.input.txt",
+          "name": "12-inner-home",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "13-pointer-down.input.txt",
+          "name": "13-pointer-down",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "14-pointer-up.input.txt",
+          "name": "14-pointer-up",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "15-wheel-down.input.txt",
+          "name": "15-wheel-down",
+          "rows": 16
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "16-resized.input.txt",
+          "name": "16-resized",
+          "rows": 24
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "17-restored.input.txt",
+          "name": "17-restored",
+          "rows": 16
+        }
+      ],
+      "exporter": {
+        "cellHeight": 20,
+        "cellWidth": 10,
+        "cursor": "coordinate marker only; visibility and shape not observed",
+        "defaultBackground": "#101010",
+        "defaultForeground": "#D0D0D0",
+        "fontFamily": "monospace",
+        "glyphs": "Unicode graphemes use canonical terminal cell widths; XML-invalid controls and unsupported attributes fail",
+        "rasterizer": "SVG; viewer-dependent, not a canonical pixel baseline",
+        "version": "2"
+      },
+      "profile": "truecolor-graph-managed-protocols",
+      "schemaVersion": 2,
+      "seed": null,
+      "sourceDirty": false,
+      "sourceRevision": "5a22022150df0676a5d0f8b6d69c7bd77743a91e",
+      "specimen": "viewport",
+      "visualApproval": "provisional-not-human-approved"
+    }
+  },
+  {
+    "path": "viewport/80x24/manifest.json",
+    "count": 17,
+    "manifest": {
+      "capturePolicy": "explicit-built-in-synthetic-only",
+      "checkpoints": [
+        {
+          "columns": 80,
+          "inputTraceFile": "1-initial.input.txt",
+          "name": "1-initial",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "2-focus-outer.input.txt",
+          "name": "2-focus-outer",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "3-focus-inner.input.txt",
+          "name": "3-focus-inner",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "4-inner-down-1.input.txt",
+          "name": "4-inner-down-1",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "5-inner-down-2.input.txt",
+          "name": "5-inner-down-2",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "6-inner-down-3.input.txt",
+          "name": "6-inner-down-3",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "7-inner-down-4.input.txt",
+          "name": "7-inner-down-4",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "8-inner-down-5.input.txt",
+          "name": "8-inner-down-5",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "9-inner-down-6.input.txt",
+          "name": "9-inner-down-6",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "10-boundary-bubble.input.txt",
+          "name": "10-boundary-bubble",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "11-focus-inner-action.input.txt",
+          "name": "11-focus-inner-action",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "12-inner-home.input.txt",
+          "name": "12-inner-home",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "13-pointer-down.input.txt",
+          "name": "13-pointer-down",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "14-pointer-up.input.txt",
+          "name": "14-pointer-up",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "15-wheel-down.input.txt",
+          "name": "15-wheel-down",
+          "rows": 24
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "16-resized.input.txt",
+          "name": "16-resized",
+          "rows": 16
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "17-restored.input.txt",
+          "name": "17-restored",
+          "rows": 24
+        }
+      ],
+      "exporter": {
+        "cellHeight": 20,
+        "cellWidth": 10,
+        "cursor": "coordinate marker only; visibility and shape not observed",
+        "defaultBackground": "#101010",
+        "defaultForeground": "#D0D0D0",
+        "fontFamily": "monospace",
+        "glyphs": "Unicode graphemes use canonical terminal cell widths; XML-invalid controls and unsupported attributes fail",
+        "rasterizer": "SVG; viewer-dependent, not a canonical pixel baseline",
+        "version": "2"
+      },
+      "profile": "truecolor-graph-managed-protocols",
+      "schemaVersion": 2,
+      "seed": null,
+      "sourceDirty": false,
+      "sourceRevision": "5a22022150df0676a5d0f8b6d69c7bd77743a91e",
+      "specimen": "viewport",
+      "visualApproval": "provisional-not-human-approved"
+    }
+  },
+  {
+    "path": "button/40x16/manifest.json",
+    "count": 26,
+    "manifest": {
+      "capturePolicy": "explicit-built-in-synthetic-only",
+      "checkpoints": [
+        {
+          "columns": 40,
+          "inputTraceFile": "1-initial.input.txt",
+          "name": "1-initial",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "2-focus-add.input.txt",
+          "name": "2-focus-add",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "3-legacy-enter.input.txt",
+          "name": "3-legacy-enter",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "4-legacy-space.input.txt",
+          "name": "4-legacy-space",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "5-kitty-press-only.input.txt",
+          "name": "5-kitty-press-only",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "6-focus-toggle.input.txt",
+          "name": "6-focus-toggle",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "7-phased-press.input.txt",
+          "name": "7-phased-press",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "8-phased-repeat.input.txt",
+          "name": "8-phased-repeat",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "9-phased-release.input.txt",
+          "name": "9-phased-release",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "10-restore-enabled.input.txt",
+          "name": "10-restore-enabled",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "11-pointer-down.input.txt",
+          "name": "11-pointer-down",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "12-pointer-up.input.txt",
+          "name": "12-pointer-up",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "13-plain-style.input.txt",
+          "name": "13-plain-style",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "14-plain-pointer-down.input.txt",
+          "name": "14-plain-pointer-down",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "15-plain-pointer-up.input.txt",
+          "name": "15-plain-pointer-up",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "16-restore-compact.input.txt",
+          "name": "16-restore-compact",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "17-outside-down.input.txt",
+          "name": "17-outside-down",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "18-outside-up.input.txt",
+          "name": "18-outside-up",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "19-focus-loss-down.input.txt",
+          "name": "19-focus-loss-down",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "20-focus-loss.input.txt",
+          "name": "20-focus-loss",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "21-disable-down.input.txt",
+          "name": "21-disable-down",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "22-disable-during-press.input.txt",
+          "name": "22-disable-during-press",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "23-restore-after-disable.input.txt",
+          "name": "23-restore-after-disable",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "24-removal-down.input.txt",
+          "name": "24-removal-down",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "25-removal-during-press.input.txt",
+          "name": "25-removal-during-press",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "26-restore-after-removal.input.txt",
+          "name": "26-restore-after-removal",
+          "rows": 16
+        }
+      ],
+      "exporter": {
+        "cellHeight": 20,
+        "cellWidth": 10,
+        "cursor": "coordinate marker only; visibility and shape not observed",
+        "defaultBackground": "#101010",
+        "defaultForeground": "#D0D0D0",
+        "fontFamily": "monospace",
+        "glyphs": "Unicode graphemes use canonical terminal cell widths; XML-invalid controls and unsupported attributes fail",
+        "rasterizer": "SVG; viewer-dependent, not a canonical pixel baseline",
+        "version": "2"
+      },
+      "profile": "truecolor-graph-managed-protocols",
+      "schemaVersion": 2,
+      "seed": null,
+      "sourceDirty": false,
+      "sourceRevision": "5a22022150df0676a5d0f8b6d69c7bd77743a91e",
+      "specimen": "button",
+      "visualApproval": "provisional-not-human-approved"
+    }
+  },
+  {
+    "path": "button/80x24/manifest.json",
+    "count": 26,
+    "manifest": {
+      "capturePolicy": "explicit-built-in-synthetic-only",
+      "checkpoints": [
+        {
+          "columns": 80,
+          "inputTraceFile": "1-initial.input.txt",
+          "name": "1-initial",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "2-focus-add.input.txt",
+          "name": "2-focus-add",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "3-legacy-enter.input.txt",
+          "name": "3-legacy-enter",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "4-legacy-space.input.txt",
+          "name": "4-legacy-space",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "5-kitty-press-only.input.txt",
+          "name": "5-kitty-press-only",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "6-focus-toggle.input.txt",
+          "name": "6-focus-toggle",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "7-phased-press.input.txt",
+          "name": "7-phased-press",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "8-phased-repeat.input.txt",
+          "name": "8-phased-repeat",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "9-phased-release.input.txt",
+          "name": "9-phased-release",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "10-restore-enabled.input.txt",
+          "name": "10-restore-enabled",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "11-pointer-down.input.txt",
+          "name": "11-pointer-down",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "12-pointer-up.input.txt",
+          "name": "12-pointer-up",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "13-plain-style.input.txt",
+          "name": "13-plain-style",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "14-plain-pointer-down.input.txt",
+          "name": "14-plain-pointer-down",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "15-plain-pointer-up.input.txt",
+          "name": "15-plain-pointer-up",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "16-restore-compact.input.txt",
+          "name": "16-restore-compact",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "17-outside-down.input.txt",
+          "name": "17-outside-down",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "18-outside-up.input.txt",
+          "name": "18-outside-up",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "19-focus-loss-down.input.txt",
+          "name": "19-focus-loss-down",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "20-focus-loss.input.txt",
+          "name": "20-focus-loss",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "21-disable-down.input.txt",
+          "name": "21-disable-down",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "22-disable-during-press.input.txt",
+          "name": "22-disable-during-press",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "23-restore-after-disable.input.txt",
+          "name": "23-restore-after-disable",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "24-removal-down.input.txt",
+          "name": "24-removal-down",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "25-removal-during-press.input.txt",
+          "name": "25-removal-during-press",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "26-restore-after-removal.input.txt",
+          "name": "26-restore-after-removal",
+          "rows": 24
+        }
+      ],
+      "exporter": {
+        "cellHeight": 20,
+        "cellWidth": 10,
+        "cursor": "coordinate marker only; visibility and shape not observed",
+        "defaultBackground": "#101010",
+        "defaultForeground": "#D0D0D0",
+        "fontFamily": "monospace",
+        "glyphs": "Unicode graphemes use canonical terminal cell widths; XML-invalid controls and unsupported attributes fail",
+        "rasterizer": "SVG; viewer-dependent, not a canonical pixel baseline",
+        "version": "2"
+      },
+      "profile": "truecolor-graph-managed-protocols",
+      "schemaVersion": 2,
+      "seed": null,
+      "sourceDirty": false,
+      "sourceRevision": "5a22022150df0676a5d0f8b6d69c7bd77743a91e",
+      "specimen": "button",
+      "visualApproval": "provisional-not-human-approved"
+    }
+  },
+  {
+    "path": "layout/40x16/manifest.json",
+    "count": 4,
+    "manifest": {
+      "capturePolicy": "explicit-built-in-synthetic-only",
+      "checkpoints": [
+        {
+          "columns": 40,
+          "inputTraceFile": "1-initial.input.txt",
+          "name": "1-initial",
+          "rows": 16
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "2-changed.input.txt",
+          "name": "2-changed",
+          "rows": 16
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "3-resized.input.txt",
+          "name": "3-resized",
+          "rows": 24
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "4-restored.input.txt",
+          "name": "4-restored",
+          "rows": 16
+        }
+      ],
+      "exporter": {
+        "cellHeight": 20,
+        "cellWidth": 10,
+        "cursor": "coordinate marker only; visibility and shape not observed",
+        "defaultBackground": "#101010",
+        "defaultForeground": "#D0D0D0",
+        "fontFamily": "monospace",
+        "glyphs": "Unicode graphemes use canonical terminal cell widths; XML-invalid controls and unsupported attributes fail",
+        "rasterizer": "SVG; viewer-dependent, not a canonical pixel baseline",
+        "version": "2"
+      },
+      "profile": "truecolor-graph-managed-protocols",
+      "schemaVersion": 2,
+      "seed": null,
+      "sourceDirty": false,
+      "sourceRevision": "5a22022150df0676a5d0f8b6d69c7bd77743a91e",
+      "specimen": "layout",
+      "visualApproval": "provisional-not-human-approved"
+    }
+  },
+  {
+    "path": "layout/80x24/manifest.json",
+    "count": 4,
+    "manifest": {
+      "capturePolicy": "explicit-built-in-synthetic-only",
+      "checkpoints": [
+        {
+          "columns": 80,
+          "inputTraceFile": "1-initial.input.txt",
+          "name": "1-initial",
+          "rows": 24
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "2-changed.input.txt",
+          "name": "2-changed",
+          "rows": 24
+        },
+        {
+          "columns": 40,
+          "inputTraceFile": "3-resized.input.txt",
+          "name": "3-resized",
+          "rows": 16
+        },
+        {
+          "columns": 80,
+          "inputTraceFile": "4-restored.input.txt",
+          "name": "4-restored",
+          "rows": 24
+        }
+      ],
+      "exporter": {
+        "cellHeight": 20,
+        "cellWidth": 10,
+        "cursor": "coordinate marker only; visibility and shape not observed",
+        "defaultBackground": "#101010",
+        "defaultForeground": "#D0D0D0",
+        "fontFamily": "monospace",
+        "glyphs": "Unicode graphemes use canonical terminal cell widths; XML-invalid controls and unsupported attributes fail",
+        "rasterizer": "SVG; viewer-dependent, not a canonical pixel baseline",
+        "version": "2"
+      },
+      "profile": "truecolor-graph-managed-protocols",
+      "schemaVersion": 2,
+      "seed": null,
+      "sourceDirty": false,
+      "sourceRevision": "5a22022150df0676a5d0f8b6d69c7bd77743a91e",
+      "specimen": "layout",
+      "visualApproval": "provisional-not-human-approved"
+    }
+  }
+]

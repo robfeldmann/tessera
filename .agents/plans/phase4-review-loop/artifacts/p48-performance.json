@@ -1,0 +1,249 @@
+{
+  "architecture": "arm64",
+  "benchmark": "tessera-p4-keyed-graph-render",
+  "buildConfiguration": "release",
+  "hostPlatform": "macOS",
+  "initialSize": {
+    "columns": 200,
+    "rows": 50
+  },
+  "iterations": 7,
+  "nodeCount": 200,
+  "resizedSize": {
+    "columns": 180,
+    "rows": 45
+  },
+  "scenarios": [
+    {
+      "counters": {
+        "bodyEvaluations": 0,
+        "equatableSkips": 0,
+        "focusChanges": 0,
+        "invalidationReasons": [
+          "renderRequested"
+        ],
+        "leafUpdates": 0,
+        "measurements": 601,
+        "nodesCreated": 201,
+        "nodesDestroyed": 0,
+        "nodesUpdated": 0,
+        "placements": 201,
+        "renderedNodes": 50,
+        "terminalRequirementChanges": 0
+      },
+      "countersDeterministic": true,
+      "flushedBytes": [
+        10359,
+        10359,
+        10359,
+        10359,
+        10359,
+        10359,
+        10359
+      ],
+      "graphLayout": {
+        "maximumMilliseconds": 1.829916,
+        "medianMilliseconds": 1.537333,
+        "minimumMilliseconds": 1.352584,
+        "spreadMilliseconds": 0.4773320000000001
+      },
+      "graphRender": {
+        "maximumMilliseconds": 0.350375,
+        "medianMilliseconds": 0.287291,
+        "minimumMilliseconds": 0.2735,
+        "spreadMilliseconds": 0.07687499999999997
+      },
+      "graphUpdate": {
+        "maximumMilliseconds": 0,
+        "medianMilliseconds": 0,
+        "minimumMilliseconds": 0,
+        "spreadMilliseconds": 0
+      },
+      "renderedEverySample": true,
+      "samples": 7,
+      "scenario": "initial",
+      "wall": {
+        "maximumMilliseconds": 3.044042,
+        "medianMilliseconds": 2.577083,
+        "minimumMilliseconds": 2.261833,
+        "spreadMilliseconds": 0.7822089999999999
+      }
+    },
+    {
+      "counters": {
+        "bodyEvaluations": 0,
+        "equatableSkips": 200,
+        "focusChanges": 0,
+        "invalidationReasons": [
+          "layoutViewChanged",
+          "renderRequested",
+          "renderViewChanged",
+          "updateRequested"
+        ],
+        "leafUpdates": 0,
+        "measurements": 1,
+        "nodesCreated": 0,
+        "nodesDestroyed": 0,
+        "nodesUpdated": 1,
+        "placements": 201,
+        "renderedNodes": 50,
+        "terminalRequirementChanges": 0
+      },
+      "countersDeterministic": true,
+      "flushedBytes": [
+        10,
+        10,
+        10,
+        10,
+        10,
+        10,
+        10
+      ],
+      "graphLayout": {
+        "maximumMilliseconds": 0.507792,
+        "medianMilliseconds": 0.434542,
+        "minimumMilliseconds": 0.41575,
+        "spreadMilliseconds": 0.09204200000000001
+      },
+      "graphRender": {
+        "maximumMilliseconds": 0.324416,
+        "medianMilliseconds": 0.215834,
+        "minimumMilliseconds": 0.211708,
+        "spreadMilliseconds": 0.11270799999999997
+      },
+      "graphUpdate": {
+        "maximumMilliseconds": 0.715792,
+        "medianMilliseconds": 0.3985,
+        "minimumMilliseconds": 0.38175,
+        "spreadMilliseconds": 0.334042
+      },
+      "renderedEverySample": true,
+      "samples": 7,
+      "scenario": "unchanged",
+      "wall": {
+        "maximumMilliseconds": 1.871917,
+        "medianMilliseconds": 1.329584,
+        "minimumMilliseconds": 1.267417,
+        "spreadMilliseconds": 0.6045
+      }
+    },
+    {
+      "counters": {
+        "bodyEvaluations": 0,
+        "equatableSkips": 199,
+        "focusChanges": 0,
+        "invalidationReasons": [
+          "layoutViewChanged",
+          "renderRequested",
+          "renderViewChanged",
+          "updateRequested"
+        ],
+        "leafUpdates": 1,
+        "measurements": 4,
+        "nodesCreated": 0,
+        "nodesDestroyed": 0,
+        "nodesUpdated": 2,
+        "placements": 201,
+        "renderedNodes": 50,
+        "terminalRequirementChanges": 0
+      },
+      "countersDeterministic": true,
+      "flushedBytes": [
+        25,
+        25,
+        25,
+        25,
+        25,
+        25,
+        25
+      ],
+      "graphLayout": {
+        "maximumMilliseconds": 0.452583,
+        "medianMilliseconds": 0.443708,
+        "minimumMilliseconds": 0.414209,
+        "spreadMilliseconds": 0.03837400000000002
+      },
+      "graphRender": {
+        "maximumMilliseconds": 0.232792,
+        "medianMilliseconds": 0.229042,
+        "minimumMilliseconds": 0.218167,
+        "spreadMilliseconds": 0.014624999999999999
+      },
+      "graphUpdate": {
+        "maximumMilliseconds": 0.409834,
+        "medianMilliseconds": 0.404042,
+        "minimumMilliseconds": 0.365542,
+        "spreadMilliseconds": 0.044292
+      },
+      "renderedEverySample": true,
+      "samples": 7,
+      "scenario": "one-node-update",
+      "wall": {
+        "maximumMilliseconds": 1.372875,
+        "medianMilliseconds": 1.357041,
+        "minimumMilliseconds": 1.259458,
+        "spreadMilliseconds": 0.1134170000000001
+      }
+    },
+    {
+      "counters": {
+        "bodyEvaluations": 0,
+        "equatableSkips": 200,
+        "focusChanges": 0,
+        "invalidationReasons": [
+          "layoutViewChanged",
+          "layoutViewportChanged",
+          "renderRequested",
+          "renderViewChanged",
+          "renderViewportChanged",
+          "updateRequested"
+        ],
+        "leafUpdates": 0,
+        "measurements": 601,
+        "nodesCreated": 0,
+        "nodesDestroyed": 0,
+        "nodesUpdated": 1,
+        "placements": 201,
+        "renderedNodes": 45,
+        "terminalRequirementChanges": 0
+      },
+      "countersDeterministic": true,
+      "flushedBytes": [
+        8424,
+        8424,
+        8424,
+        8424,
+        8424,
+        8424,
+        8424
+      ],
+      "graphLayout": {
+        "maximumMilliseconds": 1.24275,
+        "medianMilliseconds": 1.140458,
+        "minimumMilliseconds": 1.102458,
+        "spreadMilliseconds": 0.14029200000000008
+      },
+      "graphRender": {
+        "maximumMilliseconds": 0.236625,
+        "medianMilliseconds": 0.202625,
+        "minimumMilliseconds": 0.190625,
+        "spreadMilliseconds": 0.04600000000000001
+      },
+      "graphUpdate": {
+        "maximumMilliseconds": 0.377709,
+        "medianMilliseconds": 0.360583,
+        "minimumMilliseconds": 0.354917,
+        "spreadMilliseconds": 0.022792000000000034
+      },
+      "renderedEverySample": true,
+      "samples": 7,
+      "scenario": "resize",
+      "wall": {
+        "maximumMilliseconds": 2.021541,
+        "medianMilliseconds": 1.870417,
+        "minimumMilliseconds": 1.819709,
+        "spreadMilliseconds": 0.201832
+      }
+    }
+  ]
+}

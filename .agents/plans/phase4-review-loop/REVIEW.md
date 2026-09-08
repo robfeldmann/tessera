@@ -1,134 +1,208 @@
-# P4.3 implementation review packet
+# Phase 4 implementation review packet
 
-P4.3's operable Button slice is implemented: phased keyboard activation, primary pointer
-routing and cancellation, visible held states, and real-rendered semantic capture. All
-host quality gates pass. Visuals remain provisional, not human-approved baselines. This
-does not complete Phase 4 or the entire Button catalog.
+The remaining P4.4–P4.8 implementation is committed and host-validated. All eight specimens
+launch directly and produce real-rendered replay evidence. Full platform graduation is
+**not complete**: Linux compilation failed on a compiler/SDK mismatch, Linux and Windows
+runtime checks remain unavailable, and human API/style and visual approval remain open.
 
 ## Run and inspect
 
-Worktree: `/Users/rob/Developer/robfeldmann/tessera/tessera-phase4-review-loop`. Branch:
-`phase4-review-loop`. Run from this directory, not the original `phase4`.
+Worktree: `/Users/rob/Developer/robfeldmann/tessera/tessera-phase4-review-loop`.
+Branch: `phase4-review-loop`. Use this directory, not the original `phase4`.
 
 ```sh
-swift run --package-path Examples TesseraLab run button
-scripts/capture-specimen.sh button .artifacts/review/button
+swift run --package-path Examples TesseraLab list
+swift run --package-path Examples TesseraLab run settings
+swift run --package-path Examples TesseraLab run records
 ```
 
-The live command needs an interactive terminal. Capture needs neither an interactive
-terminal nor GUI permission. Its wrapper provides process-local macOS test-framework paths
-and directly launches the capture binary; the live host does not link test support.
+The complete registry is `layout`, `button`, `viewport`, `settings`, `collections`,
+`panes`, `navigation`, and `records`. Each supports `TesseraLab run <id>`.
+Tab/Shift-Tab traverse where installed; q quits only when the focused control does not
+consume it. In a TextField, q is ordinary text: Tab out before quitting.
 
-The Button/result specimen uses app-owned count, enabled state, presence, style selection,
-and focus binding. Add uses built-in compact/plain styles; the second control uses a
-generic label and a custom style. Capture records 26 checkpoints at each of 40×16 and
-80×24 through the same driver, real renderer, and persistent Ghostty VT.
+```sh
+for id in layout button viewport settings collections panes navigation records; do
+  scripts/capture-specimen.sh "$id" ".artifacts/review/$id"
+done
+```
 
-The checkpoints cover legacy Enter/Space, bare CSI-u, explicit Kitty press/repeat/release,
-compact/plain pointer down/up, outside release, terminal blur, disablement, and removal.
-External enabled/presence/style changes are explicit app-model updates, not simulated user
-actions. The selector helper resolves unique, enabled Button metadata and chooses a point
-in the current frame/clip intersection. It never assigns focus or invokes an action; the
-normal graph route decides whether the event hits and activates.
+Capture needs no interactive terminal or GUI permission. It uses the shared application
+driver, parser/session boundary, renderer/encoder, and persistent Ghostty virtual terminal.
+The wrapper supplies process-local macOS test-framework paths; the live executable does
+not depend on test support. New captures record the current checkout revision.
 
-## Saved P4.3 previews
+## Commits and review order
 
-- [Compact held, 80x24](artifacts/p43-button-80x24-compact-pressed.svg)
-- [Plain held, 40x16](artifacts/p43-button-40x16-plain-pressed.svg)
-- [Custom style held, 40x16](artifacts/p43-button-40x16-custom-pressed.svg)
-- [Outside release cancelled, 80x24](artifacts/p43-button-80x24-outside-cancelled.svg)
-- [Removed during press, 40x16](artifacts/p43-button-40x16-removed.svg)
-- [Source revision, profile, and SHA-256 checksums](artifacts/p43-provenance.json)
+Start from the previous published packet, `b668977`:
 
-These are exact generated files from clean revision
-`c2e2539628a15e7c56c1fc858cd7e08831dfceea`, not redraws. All four manifests report
-`sourceDirty: false`. `.artifacts/phase4-review-loop/p43-published/` and
-`p43-published-repeat/` compared byte-identical with `diff -rq`, including all JSON, text,
-graph, SVG, and manifest files: 52 Button and eight layout checkpoints. The capture
-profile is `truecolor-graph-managed-protocols`; effective modes are recorded in each
-checkpoint's graph text. The packet commit after that revision changes only saved review
-evidence, not implementation.
+1. `9119ef3`: interactive viewport, editing, controlled controls, collections, panes,
+   navigation, direct examples, Unicode cell export, tests, and durable documentation.
+2. `5a22022`: Section height budgeting and extreme-spacing safety; retained record pane
+   state; meaningful keyboard/divider replay; focused regressions and final status docs.
+3. The following packet commit: saved evidence and execution/review status only.
 
-## Contract and code review order
+Final implementation revision: `5a22022150df0676a5d0f8b6d69c7bd77743a91e`.
 
-Start from the previous published packet, `d70acb4`, then review `ab272c2` (interaction
-implementation) and `c2e2539` (capture profile labeling), in this source order:
+Review the production boundary before the examples:
 
-1. `Key.swift` and `InputParser.swift`: per-event provenance is part of equality. Legacy
-   keys and bare CSI-u activate immediately. Only the modifier parameter's explicit
-   event-kind field enters phased activation; associated text and alternate key codes do
-   not imply a release will arrive.
-2. `Responder.swift`, `RuntimeNode.swift`, and `ViewGraph.swift`: normalized pointer
-   phases, clipped reverse-paint-order hit testing, click-to-focus, and one capture owner.
-   Disabled targets occlude underlays but can bubble to ancestors. New down,
-   outside/invalid up, terminal blur, disablement, and removal cancel pending ownership;
-   same-slot replacement must not inherit it.
-3. `Button.swift`: one node-owned interaction state feeds actions and style configuration.
-   Phased presses activate once on matching release; repeats do not activate. Compact and
-   plain styles reverse their resolved semantic style while held without changing
-   geometry. This emphasis policy is provisional. Custom styles receive the same
-   `isPressed` value.
-4. `ApplicationDriver.swift`: graph requirements enable mouse, keyboard enhancement, and
-   terminal focus reporting without weakening the host's original mode configuration.
-5. `ButtonSpecimen.swift`, `ButtonCapture.swift`, and their tests: inspect app state,
-   selector-derived input, actual rendered output, and cancellation checkpoints together.
+- Core: `InputLeafView`, event/pointer/hover routing, clipped hit targets, focus eligibility
+  before first placement versus hidden compact roles, and terminal requirements.
+- Widgets: controlled values remain in bindings. Node state contains only interaction
+  state such as caret/selection, capture, hover, and focus-reveal bookkeeping.
+- Layout: Section reserves header and spacing before proposing content height. Existing
+  integer-cell/Flex and adjacent-pair SplitView negotiation remain the geometry model.
+- Driver/session: graph requests remain distinct from effective terminal modes. Bracketed
+  paste, focus, mouse, and keyboard requirements preserve the host's original baseline.
+- Examples: settings owns plain mutable state; records uses explicit actions/reduction and
+  owns pane sizing. Neither model is silently observed or stored in the graph.
 
-No compatibility equality, forced focus, direct action invocation, or renderer bypass was
-introduced. Hover/motion delivery, broad gestures, bordered style, ScrollView, and
-TextField are outside this slice. The full mouse API and catalog are not declared
-graduated.
+## Component and API-friction map
 
-## Verification
+Every row has a direct launch, replay, and an inspected image. Root behavioral coverage is
+in the corresponding layout/widget tests; shared-driver and registry coverage is in the
+separate Examples suite.
 
-Current combined evidence:
+| Specimen | Accepted surface and replay | API-friction note |
+| --- | --- | --- |
+| `layout` | Text, stacks, style, initial/update/resize | Ordinary view composition; no inspector or application shell required. |
+| `button` | Focus, legacy/phased keys, primary pointer, cancellation, held styles | Actions stay ordinary closures; generic labels and appearance composition remain available. |
+| `viewport` | ScrollView offsets, reveal, nested boundary, wheel and resize | Nested viewports require explicit focus IDs and app-owned offset bindings, not pilot-forced focus. |
+| `settings` | TextField, Toggle, Stepper, Picker, selection, paste, submit | Binding closures are repetitive but keep ownership explicit; no Form or store abstraction was added. |
+| `collections` | Section, keyed List, Grid, Table selection/sort intent/resize | Callers provide IDs and columns; no virtualization or data-source framework was introduced. |
+| `panes` | SplitView keyboard/drag, hover enter/blur/reenter/leave | Pane sizing values are explicit app state; the sizing setup is the main boilerplate. |
+| `navigation` | Controlled regular/compact role composition | Visibility and compact selection are app-owned; no Showcase breakpoints became framework rules. |
+| `records` | Record/detail selection and retained divider sizing | A small explicit reducer works without automatic observation or framework-owned business state. |
 
-- `just core test`: 710 tests passed.
-- `swift test --package-path Examples`: 30 tests passed.
-- `swift test --filter PointerTests`: 16 regressions passed, including disabled ancestor
-  bubbling, replacement, erased same-slot replacement, clipping, dynamic topmost changes,
-  invalid release, and mixed key sources.
-- `swift test --filter TesseraTerminalInputTests`: passed, including explicit provenance
-  and associated-text cases.
-- `swift test --package-path Examples --filter ApplicationDriverTests`: two baseline-mode
-  transition tests passed, covering both initially disabled and stronger configured modes.
-- `just quality format`, `just quality lint`, `just quality architecture`, and
-  `just docs lint`: passed. Changed Markdown passed `pnpx markdownlint-cli`.
+The ownership requirement is demonstrated by plain and **reducer-style** examples, not by
+an added Observation dependency. Public symbols and enduring contracts are documented in
+DocC; catalog-deferred APIs were not invented to fill out this matrix.
 
-Live PTY verification launched `Examples/.build/debug/TesseraLab run button`. Exact Kitty
-`:1` held the count at 3 with reverse styling; `:2` kept 3; `:3` advanced to 4 and
-restored focus styling. SGR primary down held 4; primary up advanced to 5. An isolated `q`
-exited 0, and the PTY's reconstructed alternate-screen content cleared on teardown.
-Initial input also exercised legacy activation; the managed input tool appended Enter
-until subsequent sends explicitly set `enter: false`.
+## Saved images and critique
 
-Generated SVGs were inspected in a separately spawned headless Helium process using an
-isolated temporary profile. Compact/plain held frames visibly differ from focused idle
-frames, and custom-style, cancellation, and removal frames were examined. The magenta
-cursor outline marks its recorded coordinate, not observed cursor visibility or shape.
-SVGs use fixed cell geometry and a generic monospace font; rasterization is not canonical.
+These are exact generated SVG files, not reconstructed illustrations:
 
-The first headless request unexpectedly attached to the browser relay despite not
-requesting it. That attachment was immediately released and reported as a tool defect.
-Subsequent inspection explicitly spawned the browser executable; no further relay was
-used.
+- [Layout](artifacts/p48-layout.svg)
+- [Button held](artifacts/p48-button-held.svg)
+- [Nested viewport boundary](artifacts/p48-viewport-boundary.svg)
+- [Settings after selected paste](artifacts/p48-settings-paste.svg)
+- [Collections after correction](artifacts/p48-collections-after.svg)
+- [Split divider drag](artifacts/p48-panes-drag.svg)
+- [Hover entered](artifacts/p48-panes-hover.svg)
+- [Compact navigation](artifacts/p48-navigation-compact.svg)
+- [Record selection and retained pane resize](artifacts/p48-records-resized.svg)
 
-Linux and Windows verification remain unrun: the known Linux VM is stopped, Frost's
-configured CLI is unavailable, and UTM was stopped. No VM bootstrap or system-tool
-installation was attempted. Host checks do not establish those platform combinations.
+The [failed collection image](artifacts/p48-collections-before.svg) preserves the actual
+pre-fix overlap at `9119ef3`: multiline List content painted into the following Grid.
+The final Section budget fixes the cause rather than covering the stray cells. The compact
+result displays fewer list rows and leaves the Grid and Table legible. A composition
+regression now covers the failure; extreme spacing is separately guarded against overflow.
 
-## Source preservation and review boundary
+The settings label remains above a single three-row editor while focused. Full-width focus
+emphasis is conspicuous and remains provisional. Pane dividers and compact role controls
+are visible, but narrow panes deliberately clip or wrap content rather than impersonating a
+desktop layout. Review the spacing and emphasis policies as design choices, not approved
+baselines. No numeric contrast or font-rasterization claim is made.
 
-This continuation targets only the separate implementation worktree. The initial session
-had a preservation incident: two workers committed in the original `phase4`; their six
-paths and branch ref were restored. Its tracked/dirty file contents and staged-entry
-listing matched the initial inventory, but raw index bytes changed. **Byte-for-byte index
-preservation is not claimed.** Exact hashes and the restoration boundary remain in
-[STATE.md](STATE.md). This history is not erased by the P4.3 work.
+Actual images were opened in explicitly spawned, isolated headless Helium. The final
+collection and record images were opened from the final code revision; seven other saved
+previews were byte-identical to already inspected images. No browser relay was used in this
+continuation. SVGs use canonical terminal cell widths and a generic monospace font; the
+captured cells, not browser glyph rasterization, are authoritative. A magenta outline marks
+the recorded cursor coordinate, not observed cursor visibility or shape.
 
-The earlier implementation and capture history remains in the branch through `d70acb4`;
-archived preview provenance under `artifacts/` describes that earlier revision unless
-explicitly labeled P4.3. Publish only normal commits to `origin/phase4-review-loop`; no
-force-push, PR, merge, or main-branch push is part of this task.
+## Replay and provenance
 
-Human review remains the boundary for accepting Button API/style choices and visual
-baselines. P4.4 is the next implementation unit; it is not started here.
+[Provenance and checksums](artifacts/p48-provenance.json) and
+[all 16 manifests](artifacts/p48-manifests.json) identify **232 checkpoints** at 40x16 and
+80x24 starting sizes. Each final manifest reports the implementation revision above and
+`sourceDirty: false`. The older failed collection image has its own explicit revision.
+
+Local complete bundles are:
+
+```text
+.artifacts/phase4-review-loop/p48-published/
+.artifacts/phase4-review-loop/p48-published-repeat/
+```
+
+`diff -rq` returned 0 with no differences across JSON, input traces, text, graph diagnostics,
+SVGs, and manifests. Both runs used the graph-managed truecolor profile. This is not a
+claim that every visual has been reviewed under every terminal/color/font combination.
+
+Observed intermediate consequences include:
+
+- At both sizes, the inner viewport reaches offset `0,6`; the next Down leaves it there
+  and moves the outer viewport to `0,1`.
+- Settings changes to `Grace`, volume 4, disabled toggle, and submission count 1.
+- Hover is true on enter, false on terminal blur, true on reentry, and false on leave.
+- Records selects ID 2 through ordinary keyboard input; divider drag changes requested
+  ideals from `28,48` to `36,40`, retained after release and update.
+- Button replay retains press/repeat/release and outside/blur/disable/removal cancellation
+  checkpoints; selectors inject ordinary input rather than calling action closures.
+
+## Final host validation
+
+Commands run after the last production edit:
+
+| Command | Result |
+| --- | --- |
+| `swift test --filter CollectionsTests` | 9 passed |
+| `swift test --package-path Examples --filter SpecimenRegistryTests` | 5 passed |
+| `just core test` | 786 passed |
+| `swift test --package-path Examples` | 37 passed |
+| `just quality format` | Passed; scoped formatting diff inspected |
+| `just quality lint` | Passed; 0 SwiftLint violations |
+| `just quality architecture` | Passed |
+| `just docs lint` | Passed |
+| `pnpx markdownlint-cli` on changed Markdown | Passed |
+
+All eight live specimen commands launched through PTYs and exited 0 on q. In settings,
+Tab then q inserted text rather than quitting. Home, Shift-End, bracketed paste `Grace`,
+and Enter produced `Grace` and `Submitted: 1`; Tab then q exited and the alternate-screen
+projection cleared. The final records app received Tab, Tab, Enter and emitted Waypoint's
+app-owned detail, then exited 0. Protocol replay supplies the finer intermediate-state
+and divider assertions; host PTY smoke does not certify Linux or Windows behavior.
+
+## Measured performance
+
+[Raw results](artifacts/p48-performance.json) and
+[machine/configuration/method](artifacts/p48-performance-context.json) record a release
+benchmark on Apple M5 Max, arm64 macOS, Swift 6.3.3, Xcode 26.6. It uses 200 keyed leaves
+plus the root at 200x50, updates visible leaf 20, and resizes to 180x45. Seven samples per
+scenario used actual graph work and terminal presentation; counters were deterministic.
+
+| Scenario | Median wall ms | Min–max ms | Flushed bytes per sample |
+| --- | ---: | ---: | ---: |
+| Initial | 2.577 | 2.262–3.044 | 10359 |
+| Forced unchanged presentation | 1.330 | 1.267–1.872 | 10 |
+| One visible leaf update | 1.357 | 1.259–1.373 | 25 |
+| Resize | 1.870 | 1.820–2.022 | 8424 |
+
+The unchanged case intentionally forces a draw; it is not an idle-driver benchmark and
+does not emit zero bytes. These measurements are evidence for this machine/configuration,
+not a cross-platform latency guarantee. The temporary harness stayed outside the
+repository; no permanent production target or performance dependency was added.
+
+## Unclosed gates and source preservation
+
+- **Failed Linux static build:** `just linux build` reached compilation, then Swift 6.3.3
+  rejected modules from the installed Swift 6.3.2 static SDK. `swift sdk list`,
+  `swiftly list`, and local Toolchains directories found no matching installed compiler.
+- **Unrun Linux runtime:** the known VM is stopped; the packet forbids VM bootstrap.
+- **Unrun Windows runtime:** the configured Frost CLI is unavailable and no running usable
+  UTM guest was available. No VM, toolchain, or system-tool installation was attempted.
+
+A matching Linux compiler/SDK and usable Linux/Windows runtime environments are required
+before those gates can close. PLAN.md intentionally remains `in-progress`; host success
+is not reported as complete platform graduation. Human API/style and visual-baseline
+approval also remains open. Broad gestures, IME pre-edit, cross-view text selection, and
+explicitly deferred catalog surfaces remain outside this accepted scope.
+
+The original `phase4` remains at `f1061a0224bbbfe01a04d95f74ad660acc40454a`, with the same
+five dirty-file hashes and staged-entry listing. [STATE.md](STATE.md) preserves the earlier
+source-preservation incident: restored file/index contents match, but original raw index
+bytes were not preserved. This continuation's read-only checks match the post-incident
+index hash; no new original-worktree changes are claimed.
+
+Publication is limited to the normal feature branch. No PR, merge, main push, release,
+force-push, or human baseline approval is part of this handoff.
