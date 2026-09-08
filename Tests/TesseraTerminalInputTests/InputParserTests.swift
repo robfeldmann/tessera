@@ -1001,12 +1001,13 @@ func `parser decodes kitty printable key reports`() {
 
   #expect(
     parser.feed(contentsOf: Array("\u{1B}[75u".utf8)) == [
-      .key(Key(code: .character("K")))
+      .key(Key(code: .character("K"), source: .kittyPressOnly))
     ])
   let expectedModifiedKey = InputEvent.key(
     Key(
       code: .character("k"),
-      modifiers: [.shift, .alt, .control, .super, .hyper, .meta]
+      modifiers: [.shift, .alt, .control, .super, .hyper, .meta],
+      source: .kittyPressOnly
     )
   )
   #expect(parser.feed(contentsOf: Array("\u{1B}[107;64u".utf8)) == [expectedModifiedKey])
@@ -1018,15 +1019,15 @@ func `parser decodes kitty key event kinds`() {
 
   #expect(
     parser.feed(contentsOf: Array("\u{1B}[107;1:1u".utf8)) == [
-      .key(Key(code: .character("k"), kind: .press))
+      .key(Key(code: .character("k"), kind: .press, source: .kitty))
     ])
   #expect(
     parser.feed(contentsOf: Array("\u{1B}[107;1:2u".utf8)) == [
-      .key(Key(code: .character("k"), kind: .repeat))
+      .key(Key(code: .character("k"), kind: .repeat, source: .kitty))
     ])
   #expect(
     parser.feed(contentsOf: Array("\u{1B}[107;1:3u".utf8)) == [
-      .key(Key(code: .character("k"), kind: .release))
+      .key(Key(code: .character("k"), kind: .release, source: .kitty))
     ])
 }
 
@@ -1034,30 +1035,37 @@ func `parser decodes kitty key event kinds`() {
 func `parser decodes kitty escape controls and lock keys`() {
   var parser = InputParser()
 
-  #expect(parser.feed(contentsOf: Array("\u{1B}[27u".utf8)) == [.key(Key(code: .escape))])
-  #expect(parser.feed(contentsOf: Array("\u{1B}[9u".utf8)) == [.key(Key(code: .tab))])
-  #expect(parser.feed(contentsOf: Array("\u{1B}[13u".utf8)) == [.key(Key(code: .enter))])
   #expect(
-    parser.feed(contentsOf: Array("\u{1B}[127u".utf8)) == [.key(Key(code: .backspace))]
+    parser.feed(contentsOf: Array("\u{1B}[27u".utf8))
+      == [.key(Key(code: .escape, source: .kittyPressOnly))])
+  #expect(
+    parser.feed(contentsOf: Array("\u{1B}[9u".utf8))
+      == [.key(Key(code: .tab, source: .kittyPressOnly))])
+  #expect(
+    parser.feed(contentsOf: Array("\u{1B}[13u".utf8))
+      == [.key(Key(code: .enter, source: .kittyPressOnly))])
+  #expect(
+    parser.feed(contentsOf: Array("\u{1B}[127u".utf8))
+      == [.key(Key(code: .backspace, source: .kittyPressOnly))]
   )
   #expect(
     parser.feed(contentsOf: Array("\u{1B}[57358u".utf8)) == [
-      .key(Key(code: .capsLock))
+      .key(Key(code: .capsLock, source: .kittyPressOnly))
     ]
   )
   #expect(
     parser.feed(contentsOf: Array("\u{1B}[57359u".utf8)) == [
-      .key(Key(code: .scrollLock))
+      .key(Key(code: .scrollLock, source: .kittyPressOnly))
     ]
   )
   #expect(
     parser.feed(contentsOf: Array("\u{1B}[57360u".utf8)) == [
-      .key(Key(code: .numLock))
+      .key(Key(code: .numLock, source: .kittyPressOnly))
     ]
   )
   #expect(
     parser.feed(contentsOf: Array("\u{1B}[57361u".utf8)) == [
-      .key(Key(code: .printScreen))
+      .key(Key(code: .printScreen, source: .kittyPressOnly))
     ]
   )
 }
@@ -1091,7 +1099,7 @@ func `parser decodes byte by byte kitty reports`() {
 
   #expect(
     events == [
-      .key(Key(code: .character("k"), modifiers: .hyper, kind: .repeat))
+      .key(Key(code: .character("k"), modifiers: .hyper, kind: .repeat, source: .kitty))
     ])
 }
 

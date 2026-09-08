@@ -78,9 +78,11 @@ func
   graph.focus.focus(focus)
   #expect(model.focused == focus)
 
-  #expect(graph.dispatch(.key(Key(code: .enter, kind: .press))) == .handled)
-  #expect(model.actionCount == 1)
-  #expect(graph.dispatch(.key(Key(code: .enter, kind: .release))) == .handled)
+  #expect(
+    graph.dispatch(.key(Key(code: .enter, kind: .press, source: .kitty))) == .handled)
+  #expect(model.actionCount == 0)
+  #expect(
+    graph.dispatch(.key(Key(code: .enter, kind: .release, source: .kitty))) == .handled)
   #expect(model.actionCount == 1)
 
   // A legacy terminal supplies only the press, which remains an activation.

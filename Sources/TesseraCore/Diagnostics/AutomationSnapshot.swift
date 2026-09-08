@@ -29,6 +29,10 @@ public struct AutomationElement: Equatable, Sendable {
   public let isEnabled: Bool
   /// Whether the current focus target is inside this annotated subtree.
   public let isFocused: Bool
+  /// Whether a descendant responder currently has a held press.
+  public let isPressed: Bool
+  /// Whether a descendant responder owns the current pointer capture.
+  public let isPointerCaptured: Bool
 
   /// Supported activation keys for the declared role; disabled elements offer none.
   /// Pointer and held-key protocols are deliberately not advertised by this projection.

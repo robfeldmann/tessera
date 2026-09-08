@@ -65,7 +65,9 @@ private struct GhosttyOracleCase: CustomTestStringConvertible, Sendable {
 private func `parser maps documented Kitty numeric key code`(
   _ testCase: KittyNumericKeyCase
 ) {
-  #expect(parseKey("\u{1B}[\(testCase.code)u") == Key(code: testCase.keyCode))
+  #expect(
+    parseKey("\u{1B}[\(testCase.code)u")
+      == Key(code: testCase.keyCode, source: .kittyPressOnly))
 }
 
 @Test
@@ -78,14 +80,16 @@ func `parser decodes Kitty alternate keys and associated text`() {
         kind: .repeat,
         shiftedCode: .character("K"),
         baseLayoutCode: .character("q"),
-        associatedText: "ab"
+        associatedText: "ab",
+        source: .kitty
       )
   )
   #expect(
     parseKey("\u{1B}[107::113u")
       == Key(
         code: .character("k"),
-        baseLayoutCode: .character("q")
+        baseLayoutCode: .character("q"),
+        source: .kittyPressOnly
       )
   )
 }
@@ -96,7 +100,8 @@ func `parser decodes explicit empty associated text field as empty string`() {
     parseKey("\u{1B}[107;1;u")
       == Key(
         code: .character("k"),
-        associatedText: ""
+        associatedText: "",
+        source: .kittyPressOnly
       )
   )
 }
@@ -105,18 +110,20 @@ func `parser decodes explicit empty associated text field as empty string`() {
 func `parser decodes Ghostty all-keys presses with omitted default modifiers`() {
   #expect(
     parseKey("\u{1B}[113;;113u")
-      == Key(code: .character("q"), associatedText: "q")
+      == Key(code: .character("q"), associatedText: "q", source: .kittyPressOnly)
   )
   for (offset, character) in "0123456789".enumerated() {
     let scalar = 48 + offset
     #expect(
       parseKey("\u{1B}[\(scalar);;\(scalar)u")
-        == Key(code: .character(character), associatedText: String(character))
+        == Key(
+          code: .character(character), associatedText: String(character),
+          source: .kittyPressOnly)
     )
   }
   #expect(
     parseKey("\u{1B}[107;;u")
-      == Key(code: .character("k"), associatedText: "")
+      == Key(code: .character("k"), associatedText: "", source: .kittyPressOnly)
   )
 }
 
@@ -133,25 +140,29 @@ func `parser decodes every Kitty modifier wire value`(_ wireValue: Int) {
     parseKey("\u{1B}[107;\(wireValue)u")
       == Key(
         code: .character("k"),
-        modifiers: expectedModifiers
+        modifiers: expectedModifiers,
+        source: .kittyPressOnly
       )
   )
 }
 
 @Test
 func `parser decodes Kitty event kinds on legacy-shaped reports`() {
-  #expect(parseKey("\u{1B}[1;1:3A") == Key(code: .up, kind: .release))
-  #expect(parseKey("\u{1B}[13;1:2~") == Key(code: .function(3), kind: .repeat))
+  #expect(parseKey("\u{1B}[1;1:3A") == Key(code: .up, kind: .release, source: .legacy))
+  #expect(
+    parseKey("\u{1B}[13;1:2~") == Key(code: .function(3), kind: .repeat, source: .legacy))
 }
 
 @Test
 func `parser preserves unidentified Kitty key codes semantically`() {
-  #expect(parseKey("\u{1B}[57500u") == Key(code: .unidentified(57_500)))
+  #expect(
+    parseKey("\u{1B}[57500u") == Key(code: .unidentified(57_500), source: .kittyPressOnly))
   #expect(
     parseKey("\u{1B}[0;1;97:98u")
       == Key(
         code: .unidentified(0),
-        associatedText: "ab"
+        associatedText: "ab",
+        source: .kittyPressOnly
       )
   )
 }
@@ -167,7 +178,7 @@ func `parser rejects malformed full Kitty reports as unknown`() {
 
 @Test
 func `parser accepts keypad begin through both Kitty terminators`() {
-  #expect(parseKey("\u{1B}[57427u") == Key(code: .keypad(.begin)))
+  #expect(parseKey("\u{1B}[57427u") == Key(code: .keypad(.begin), source: .kittyPressOnly))
   #expect(parseKey("\u{1B}[57427~") == Key(code: .keypad(.begin)))
   #expect(parseKey("\u{1B}[E") == Key(code: .keypad(.begin)))
 }
@@ -193,8 +204,13 @@ private func `parser matches Ghostty Kitty keyboard encoding`(
 
   var parser = InputParser()
   let events = parser.feed(contentsOf: bytes)
+  var expected = testCase.expected
+  expected.source =
+    bytes.last == 0x75
+    ? (testCase.action == .press ? .kittyPressOnly : .kitty)
+    : .legacy
   #expect(
-    events == [.key(testCase.expected)],
+    events == [.key(expected)],
     """
     case "\(testCase.testDescription)": key=\(testCase.keyRawValue) \
     action=\(testCase.action) mods=\(testCase.mods) flags=\(GhosttyKittyKeyEncoder.KittyFlag.all) \
@@ -441,7 +457,8 @@ private func `parser matches Ghostty modifier bit combinations`(
 
   var parser = InputParser()
   let events = parser.feed(contentsOf: bytes)
-  let expected = Key(code: .up, modifiers: testCase.expectedModifiers)
+  let expected = Key(
+    code: .up, modifiers: testCase.expectedModifiers, source: .legacy)
   #expect(
     events == [.key(expected)],
     """

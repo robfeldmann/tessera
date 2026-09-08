@@ -39,6 +39,8 @@ public final class ViewGraph {
   private var focusAppearanceNeedsResolution = true
   private var publishedFocusedID: FocusID?
   private weak var publishedFocusedNode: RuntimeNode?
+  private var pointerCaptureID: NodeIdentity?
+  private var pointerCaptureTargetID: NodeIdentity?
   /// Focus state and live document-order identities owned by this graph.
   public let focus = FocusManager()
   /// Work recorded by the most recently completed graph passes.
@@ -112,6 +114,7 @@ extension ViewGraph {
       environmentOverrides: []
     )
     refreshInteractionState()
+    validatePointerCapture()
     if terminalRequirements != previousRequirements {
       statistics.terminalRequirementChanges += 1
     }
@@ -168,8 +171,18 @@ extension ViewGraph {
     markSubtreeNeedsLayout(rootNode)
   }
 
-  /// Routes focused key and paste events leaf-first through ancestor responders.
+  /// Routes focused key and paste events leaf-first through ancestor responders, and routes
+  /// pointer phases through current geometry and pointer capture.
   public func dispatch(_ event: InputEvent) -> EventDisposition {
+    if case .focusLost = event {
+      cancelPointerCapture()
+      cancelResponderInteractions(in: rootNode)
+      focus.focus(nil)
+      return .handled
+    }
+    if case .mouse(let mouse) = event, let pointer = PointerEvent(mouse: mouse) {
+      return dispatch(pointer)
+    }
     guard event.isRoutableResponderEvent else {
       return .ignored
     }
@@ -190,7 +203,6 @@ extension ViewGraph {
         requestFocus: { [weak self] id in self?.focus.focus(id) },
         requestFocusAdvance: { [weak self] direction in self?.focus.advance(direction) }
       )
-
       var disposition: EventDisposition = .ignored
       if let responderStorage = current.responderStorage {
         disposition = responderStorage.handleEvent(event, context: &context)
@@ -203,14 +215,101 @@ extension ViewGraph {
       {
         disposition = handler._handleKey(key, context: &context)
       }
-
       apply(context, to: current)
-      if disposition == .handled {
-        return .handled
+      refreshResponderPresentation(current)
+      guard disposition == .ignored else {
+        return disposition
       }
       node = current.parent
     }
     return .ignored
+  }
+
+  /// Routes a normalized pointer phase through hit testing and pointer ownership.
+  public func dispatch(_ event: PointerEvent) -> EventDisposition {
+    layoutIfNeeded()
+    switch event.phase {
+    case .down:
+      guard event.button == .left else {
+        return .ignored
+      }
+      cancelPointerCapture()
+      switch hitTestResult(event.position, in: rootNode) {
+      case .outside:
+        return .ignored
+      case .blocked(let blocked):
+        // A disabled topmost target remains an occluding hit, but offers the
+        // event to its pointer-responder ancestors without falling through to
+        // a sibling underlay.
+        return dispatchPointerToAncestors(
+          event, from: blocked.parent, targetID: blocked.identity)
+      case .target(let target):
+        if let focusID = nearestFocusable(in: target)?.focusID {
+          focus.focus(focusID)
+        }
+        guard let resolvedTarget = firstNode(withIdentity: target.identity, in: rootNode),
+          resolvedTarget.responderStorage != nil
+        else {
+          return .ignored
+        }
+        pointerCaptureID = resolvedTarget.identity
+        pointerCaptureTargetID = resolvedTarget.identity
+        let disposition = handlePointer(event, on: resolvedTarget)
+        if disposition == .ignored {
+          pointerCaptureID = nil
+          pointerCaptureTargetID = nil
+          return dispatchPointerToAncestors(
+            event, from: resolvedTarget.parent, targetID: resolvedTarget.identity)
+        }
+        return disposition
+      }
+
+    case .move:
+      guard let owner = capturedNode() else {
+        return .ignored
+      }
+      return handlePointer(event, on: owner)
+
+    case .up:
+      guard let owner = capturedNode() else {
+        return .ignored
+      }
+      guard event.button == .left else {
+        pointerCaptureID = nil
+        pointerCaptureTargetID = nil
+        cancelPointerInteraction(on: owner)
+        return .ignored
+      }
+      guard let captureTargetID = pointerCaptureTargetID,
+        releaseRemainsWithinOwner(
+          event.position, owner: owner, capturedTargetID: captureTargetID)
+      else {
+        pointerCaptureID = nil
+        pointerCaptureTargetID = nil
+        _ = handlePointer(
+          PointerEvent(
+            phase: .cancel,
+            button: event.button,
+            position: event.position,
+            modifiers: event.modifiers
+          ), on: owner)
+        // An outside or occluded release cancels the owner and is deliberately
+        // unconsumed; never route that release to an underlay.
+        return .ignored
+      }
+      pointerCaptureID = nil
+      pointerCaptureTargetID = nil
+      return handlePointer(event, on: owner)
+
+    case .cancel:
+      guard let owner = capturedNode() else {
+        return .ignored
+      }
+      pointerCaptureID = nil
+      pointerCaptureTargetID = nil
+      return handlePointer(event, on: owner)
+
+    }
   }
 
   /// Returns a deterministic, value-free textual projection of the runtime tree.
@@ -256,8 +355,10 @@ extension ViewGraph {
 
     if let structural = view as? any _StructuralView {
       var children: [_ViewChild] = []
+      var projectedEnvironment = environment
+      projectResponderState(of: node, into: &projectedEnvironment)
       structural._visitChildren(
-        in: environment,
+        in: projectedEnvironment,
         environmentOverrides: environmentOverrides
       ) { children.append($0) }
       node.children = children.map { child in
@@ -359,15 +460,17 @@ extension ViewGraph {
     }
 
     var children: [_ViewChild] = []
+    var projectedEnvironment = environment
+    projectResponderState(of: node, into: &projectedEnvironment)
     if let modifier = view as? any _EquatableEnvironmentModifier {
       modifier._visitChildren(
-        in: environment,
+        in: projectedEnvironment,
         environmentOverrides: environmentOverrides,
         reusing: reusedChildEnvironment
       ) { children.append($0) }
     } else {
       structural._visitChildren(
-        in: environment,
+        in: projectedEnvironment,
         environmentOverrides: environmentOverrides
       ) { children.append($0) }
     }
@@ -475,6 +578,14 @@ extension ViewGraph {
   }
 
   private func destroy(_ node: RuntimeNode) {
+    // Teardown is the ownership boundary. Cancel before destroying a captured
+    // node so a replacement at the same structural identity cannot inherit the
+    // old interaction.
+    if let captureID = pointerCaptureID,
+      firstNode(withIdentity: captureID, in: node) != nil
+    {
+      cancelPointerCapture(refresh: false)
+    }
     for child in node.children {
       destroy(child)
     }
@@ -737,13 +848,26 @@ extension ViewGraph {
           frame: node.frame,
           clip: node.clip,
           isEnabled: node.environment.isEnabled,
-          isFocused: focusedNode.map { isDescendant($0, of: node) } ?? false
+          isFocused: focusedNode.map { isDescendant($0, of: node) } ?? false,
+          isPressed: interactionProjection(in: node).isPressed,
+          isPointerCaptured: interactionProjection(in: node).isPointerCaptured
         )
       )
     }
     for child in node.children {
       appendAutomation(child, focusedNode: focusedNode, to: &elements)
     }
+  }
+
+  private func interactionProjection(in node: RuntimeNode) -> _ResponderStateProjection {
+    var result = node.responderStateProjection
+    for child in node.children {
+      let childProjection = interactionProjection(in: child)
+      result.isPressed = result.isPressed || childProjection.isPressed
+      result.isPointerCaptured =
+        result.isPointerCaptured || childProjection.isPointerCaptured
+    }
+    return result
   }
 
   private func diagnosticNodes(_ root: RuntimeNode) -> [NodeDiagnostics] {
@@ -768,7 +892,9 @@ extension ViewGraph {
         handlerKinds: node.handlerKinds,
         requestedTerminalRequirements: node.terminalRequirements,
         needsLayout: node.needsLayout,
-        needsRender: node.needsRender
+        needsRender: node.needsRender,
+        isPressed: node.responderStateProjection.isPressed,
+        isPointerCaptured: node.responderStateProjection.isPointerCaptured
       )
     )
     for child in node.children {
@@ -832,6 +958,7 @@ extension ViewGraph {
   }
 }
 
+// swiftlint:disable type_contents_order
 extension ViewGraph {
   private func rootEnvironment() -> EnvironmentValues {
     var environment = baseEnvironment
@@ -1108,6 +1235,8 @@ extension ViewGraph {
   }
 
   private func focusDidChange() {
+    cancelPointerCapture()
+    cancelResponderInteractions(in: rootNode)
     let previousFocusedID = publishedFocusedID
     let previousFocusedNode = publishedFocusedNode
     publishedFocusedID = focus.focused
@@ -1263,6 +1392,247 @@ extension ViewGraph {
     return false
   }
 
+  private enum HitTestResult {
+    case outside
+    case blocked(RuntimeNode)
+    case target(RuntimeNode)
+  }
+
+  private func handlePointer(
+    _ event: PointerEvent,
+    on node: RuntimeNode
+  ) -> EventDisposition {
+    guard node.environment.isEnabled,
+      node.environment._allowsHitTesting,
+      let responderStorage = node.responderStorage
+    else {
+      return .ignored
+    }
+    let focusedNode = focus.focused.flatMap { firstNode(withFocusID: $0, in: rootNode) }
+    var context = ResponderContext(
+      nodeBounds: node.frame,
+      isFocused: focusedNode.map { isDescendant(node, of: $0) } ?? false,
+      isFocusWithin: focusedNode.map { isDescendant($0, of: node) } ?? false,
+      requestFocus: { [weak self] id in self?.focus.focus(id) },
+      requestFocusAdvance: { [weak self] direction in self?.focus.advance(direction) }
+    )
+    let disposition = responderStorage.handlePointer(event, context: &context)
+    apply(context, to: node)
+    refreshResponderPresentation(node)
+    return disposition
+  }
+  private func dispatchPointerToAncestors(
+    _ event: PointerEvent,
+    from startingNode: RuntimeNode?,
+    targetID: NodeIdentity
+  ) -> EventDisposition {
+    var node = startingNode
+    while let current = node {
+      if current.environment.isEnabled,
+        current.environment._allowsHitTesting,
+        current.responderStorage != nil
+      {
+        pointerCaptureID = current.identity
+        pointerCaptureTargetID = targetID
+        let disposition = handlePointer(event, on: current)
+        if disposition != .ignored {
+          return disposition
+        }
+        pointerCaptureID = nil
+        pointerCaptureTargetID = nil
+      }
+      node = current.parent
+    }
+    return .ignored
+  }
+
+  private func projectResponderState(
+    of node: RuntimeNode,
+    into environment: inout EnvironmentValues
+  ) {
+    guard let responderStorage = node.responderStorage else {
+      return
+    }
+    var projection = _ResponderStateProjection()
+    responderStorage.updateStateProjection(&projection)
+    projection.isPointerCaptured =
+      projection.isPointerCaptured || pointerCaptureID == node.identity
+    node.responderStateProjection = projection
+    environment._responderStateProjection = projection
+  }
+
+  private func refreshResponderPresentation(_ node: RuntimeNode) {
+    guard let responderStorage = node.responderStorage else {
+      return
+    }
+    var projection = _ResponderStateProjection()
+    responderStorage.updateStateProjection(&projection)
+    projection.isPointerCaptured =
+      projection.isPointerCaptured || pointerCaptureID == node.identity
+    node.responderStateProjection = projection
+
+    guard let structural = node.view as? any _StructuralView else {
+      return
+    }
+    var environment = node.environment
+    environment._responderStateProjection = projection
+    var children: [_ViewChild] = []
+    structural._visitChildren(
+      in: environment,
+      environmentOverrides: node.environmentOverrides
+    ) { children.append($0) }
+    reconcileChildren(of: node, with: children, discardExisting: false)
+    node.markNeedsLayout()
+  }
+
+  private func cancelResponderInteractions(in node: RuntimeNode) {
+    node.responderStorage?.cancelInteraction()
+    if node.responderStorage != nil {
+      refreshResponderPresentation(node)
+    }
+    for child in node.children {
+      cancelResponderInteractions(in: child)
+    }
+  }
+
+  private func cancelPointerCapture(refresh: Bool = true) {
+    guard let captureID = pointerCaptureID else {
+      pointerCaptureTargetID = nil
+      return
+    }
+    // Clear ownership before resolving/canceling the node. Cancellation may
+    // invalidate the node's environment, so it must never recurse through
+    // capturedNode().
+    pointerCaptureID = nil
+    pointerCaptureTargetID = nil
+    guard let owner = firstNode(withIdentity: captureID, in: rootNode) else {
+      return
+    }
+    cancelPointerInteraction(on: owner, refresh: refresh)
+  }
+
+  private func cancelPointerInteraction(on node: RuntimeNode, refresh: Bool = true) {
+    guard let responderStorage = node.responderStorage else {
+      return
+    }
+    let focusedNode = focus.focused.flatMap { firstNode(withFocusID: $0, in: rootNode) }
+    var context = ResponderContext(
+      nodeBounds: node.frame,
+      isFocused: focusedNode.map { isDescendant(node, of: $0) } ?? false,
+      isFocusWithin: focusedNode.map { isDescendant($0, of: node) } ?? false,
+      requestFocus: { [weak self] id in self?.focus.focus(id) },
+      requestFocusAdvance: { [weak self] direction in self?.focus.advance(direction) }
+    )
+    _ = responderStorage.handlePointer(
+      PointerEvent(phase: .cancel, position: node.frame.origin), context: &context)
+    apply(context, to: node)
+    if refresh {
+      refreshResponderPresentation(node)
+    }
+  }
+
+  private func capturedNode() -> RuntimeNode? {
+    guard let captureID = pointerCaptureID else {
+      pointerCaptureTargetID = nil
+      return nil
+    }
+    guard let node = firstNode(withIdentity: captureID, in: rootNode) else {
+      pointerCaptureID = nil
+      pointerCaptureTargetID = nil
+      return nil
+    }
+    guard node.environment.isEnabled, node.environment._allowsHitTesting else {
+      pointerCaptureID = nil
+      pointerCaptureTargetID = nil
+      cancelPointerInteraction(on: node)
+      return nil
+    }
+    return node
+  }
+
+  private func validatePointerCapture() {
+    guard pointerCaptureID != nil else {
+      return
+    }
+    _ = capturedNode()
+  }
+
+  private func firstNode(withIdentity identity: NodeIdentity, in node: RuntimeNode)
+    -> RuntimeNode?
+  {
+    if node.identity == identity {
+      return node
+    }
+    for child in node.children {
+      if let match = firstNode(withIdentity: identity, in: child) {
+        return match
+      }
+    }
+    return nil
+  }
+
+  private func hitTest(_ position: TerminalPosition) -> RuntimeNode? {
+    guard case .target(let node) = hitTestResult(position, in: rootNode) else {
+      return nil
+    }
+    return node
+  }
+  private func releaseRemainsWithinOwner(
+    _ position: TerminalPosition,
+    owner: RuntimeNode,
+    capturedTargetID: NodeIdentity
+  ) -> Bool {
+    switch hitTestResult(position, in: rootNode) {
+    case .target(let target):
+      return target.identity == capturedTargetID && isDescendant(target, of: owner)
+    case .blocked(let blocked):
+      return blocked.identity == capturedTargetID && isDescendant(blocked, of: owner)
+    case .outside:
+      return false
+    }
+  }
+
+  private func hitTestResult(
+    _ position: TerminalPosition,
+    in node: RuntimeNode
+  ) -> HitTestResult {
+    guard node.environment._allowsHitTesting, node.clip.contains(position) else {
+      return .outside
+    }
+    // Source-order children render back-to-front in a ZStack; reverse order is topmost.
+    for child in node.children.reversed() {
+      switch hitTestResult(position, in: child) {
+      case .target(let target):
+        return .target(target)
+      case .blocked(let blocked):
+        return .blocked(blocked)
+      case .outside:
+        continue
+      }
+    }
+    guard node.frame.contains(position) else {
+      return .outside
+    }
+    guard node.environment.isEnabled else {
+      return .blocked(node)
+    }
+    guard node.view is any _PointerResponderView else {
+      return .outside
+    }
+    return .target(node)
+  }
+
+  private func nearestFocusable(in node: RuntimeNode) -> RuntimeNode? {
+    var candidate: RuntimeNode? = node
+    while let current = candidate {
+      if current.focusID != nil, current.environment.isEnabled {
+        return current
+      }
+      candidate = current.parent
+    }
+    return nil
+  }
+
   private func apply(_ context: borrowing ResponderContext, to node: RuntimeNode) {
     if context.needsLayout {
       node.markNeedsLayout()
@@ -1284,6 +1654,7 @@ extension InputEvent {
     }
   }
 }
+// swiftlint:enable type_contents_order
 
 private struct _FocusRestorationGroupState {
   var panes: [_FocusRestorationPaneState] = []

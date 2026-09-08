@@ -36,11 +36,14 @@ feeds its bytes to the parser, and handles the resulting events.
 - ``Key``
 - ``KeyCode``
 - ``KeyEventKind``
+- ``KeyEventSource``
 - ``Modifiers``
 
 ### Mouse values
 
 - ``MouseEvent``
+- ``PointerEvent``
+- ``PointerPhase``
 - ``MouseEventKind``
 - ``MouseButton``
 - ``MouseScrollDirection``

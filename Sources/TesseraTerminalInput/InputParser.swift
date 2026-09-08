@@ -677,13 +677,21 @@ public struct InputParser: Sendable {
       return nil
     }
 
+    // Only the modifier parameter's second subparameter is the explicit Kitty
+    // event-kind field. Colons in shifted/base-layout or associated-text fields
+    // do not provide press/repeat/release provenance.
+    let source: KeyEventSource =
+      parameters.parameters.count > 1 && parameters.parameters[1].count > 1
+      ? .kitty
+      : .kittyPressOnly
     return Key(
       code: code,
       modifiers: modifiers,
       kind: kind,
       shiftedCode: shiftedCode,
       baseLayoutCode: baseLayoutCode,
-      associatedText: associatedText.value
+      associatedText: associatedText.value,
+      source: source
     )
   }
 

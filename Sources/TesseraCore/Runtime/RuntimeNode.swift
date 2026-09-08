@@ -23,6 +23,7 @@ package final class RuntimeNode {
   package var needsRender = true
   package var handlerKinds: [String] = []
   package var terminalRequirements = TerminalRequirements()
+  package var responderStateProjection = _ResponderStateProjection()
 
   package init<Content: View>(
     identity: NodeIdentity,
@@ -62,6 +63,9 @@ package final class RuntimeNode {
     if view is any _KeyHandlerView {
       handlerKinds.append("key")
     }
+    if view is any _PointerResponderView {
+      handlerKinds.append("pointer")
+    }
     if focusID != nil {
       handlerKinds.append("focus")
     }
@@ -69,6 +73,12 @@ package final class RuntimeNode {
     terminalRequirements =
       (view as? any _TerminalRequirementsView)?._terminalRequirements
       ?? TerminalRequirements()
+    if view is any _PointerResponderView {
+      terminalRequirements = .union(
+        terminalRequirements,
+        TerminalRequirements(wantsMouse: true)
+      )
+    }
     if focusID != nil {
       terminalRequirements = .union(
         terminalRequirements,
@@ -162,6 +172,12 @@ package protocol _ResponderStorage: AnyObject {
     _ event: InputEvent,
     context: inout ResponderContext
   ) -> EventDisposition
+  func handlePointer(
+    _ event: PointerEvent,
+    context: inout ResponderContext
+  ) -> EventDisposition
+  func cancelInteraction()
+  func updateStateProjection(_ projection: inout _ResponderStateProjection)
 }
 
 private final class ConcreteResponderStorage<Responder: _ResponderView>:
@@ -188,6 +204,21 @@ private final class ConcreteResponderStorage<Responder: _ResponderView>:
     context: inout ResponderContext
   ) -> EventDisposition {
     responder._handleEvent(event, state: &state, context: &context)
+  }
+
+  func handlePointer(
+    _ event: PointerEvent,
+    context: inout ResponderContext
+  ) -> EventDisposition {
+    responder._handlePointer(event, state: &state, context: &context)
+  }
+
+  func cancelInteraction() {
+    responder._cancelResponderState(&state)
+  }
+
+  func updateStateProjection(_ projection: inout _ResponderStateProjection) {
+    responder._updateResponderStateProjection(&projection, state: state)
   }
 }
 

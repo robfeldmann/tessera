@@ -1,13 +1,14 @@
 # Execution state
 
-Status: implementation and host verification complete; review packet ready. Visuals remain
-provisional, not human-approved. Full P4.3 and Phase 4 completion are not claimed.
+Status: P4.3 implementation, interaction verification, and host quality gates complete.
+Clean-revision capture and publication are in progress. Visuals are provisional; the full
+catalog and Phase 4 are not complete.
 
 ## Workspace and checkpoint
 
-- Session start / maximum finish target (UTC): 2026-09-07 22:47 / 2026-09-08 00:47. Start
-  was rounded down conservatively. Implementation stopped before the final-check reserve;
-  no additional feature is in progress.
+- The initial timed review-loop session completed at 2026-09-08 00:19 UTC. The user has
+  now requested P4.3 as a new implementation unit; the original session deadline is
+  historical.
 - Destination branch: `phase4-review-loop`, tracking `origin/phase4-review-loop`.
 - Destination worktree:
   `/Users/rob/Developer/robfeldmann/tessera/tessera-phase4-review-loop`.
@@ -16,15 +17,14 @@ provisional, not human-approved. Full P4.3 and Phase 4 completion are not claime
   `0697fe28d1accdd2621cdb0d5426a053ed3a2c2d`.
 - Original source branch and final restored HEAD: `phase4` at
   `f1061a0224bbbfe01a04d95f74ad660acc40454a`.
-- Last completed implementation commit and confirmed code push:
-  `87d3284ca2bf677fc3010f467e717312336775d1`.
-- The following review-packet commit contains this file, REVIEW.md, saved actual
-  previews/provenance, and formatter exclusions preserving captured bytes; it changes no
-  implementation. Pushes are normal feature-branch pushes, not force-pushes. No PR, merge,
-  or main-branch push occurred.
-- Active workers: none. Completed worker worktrees were removed without force; the
-  implementation worktree remains for review. No feature WIP or fault mutation remains.
-- Next step: the P4.3 pointer/gesture boundary described below and in REVIEW.md.
+- Previous published review-loop checkpoint: `d70acb4`, including code revision
+  `87d3284ca2bf677fc3010f467e717312336775d1` and its review packet.
+- P4.3 implementation is in the destination only. The first isolated worker clone was
+  removed by its runner; its patch was reconstructed in a separate recovery clone and
+  reduced against `d70acb4` before integration. No original dirty content was adopted.
+- Corrective implementation and capture workers used explicit destination paths. Main owns
+  acceptance, final validation, commits, and normal feature-branch publication.
+- No PR, merge, force-push, or main-branch push is part of this task.
 
 ## Source preservation incident and final verification
 
@@ -117,7 +117,7 @@ inputs:
 - Per user request, the browser relay was released. Further automated image viewing must
   use a separate headless browser and must not steal the user's browser focus.
 
-## Verification and artifacts
+## Initial session verification and artifacts
 
 - Baseline: `just core doctor`; `just core build-libghostty-vt`; 29 core tests passed. The
   first attempt lacked the per-worktree generated header bridge; preparation fixed it.
@@ -154,18 +154,31 @@ inputs:
   configured CLI was absent; UTM VM was stopped. No VM boot/reconfiguration or system
   installation was attempted. Linux and Windows suites remain unrun.
 
-## Resume
+## P4.3 verification and resume
 
-Read REVIEW.md and inspect the runnable cases before changing code. Next implement the
-shared normalized pointer/hit-test/capture and gesture-cancellation boundary, then Button
-down/up, release outside, disabled targets, blur/removal cancellation, and honest
-phased-key pressed visuals using this driver/capture loop. Do not call the current
-keyboard subset completed P4.3. Preserve explicit semantic IDs as metadata, not
-reconciliation/focus keys.
+- `just core test`: 710 tests passed. The existing Button phased-key regression now
+  supplies explicit Kitty provenance and verifies no action before release.
+- `swift test --package-path Examples`: 30 tests passed.
+- `swift test --filter PointerTests`: 16 tests passed, covering outside/invalid release,
+  disabled ancestor bubbling, replacement and erased same-slot identity, clipping, dynamic
+  topmost targets, cancellation, and mixed key sources.
+- `swift test --filter TesseraTerminalInputTests`: passed, including associated text
+  without explicit event phase and source-aware equality.
+- `swift test --package-path Examples --filter ApplicationDriverTests`: two tests passed,
+  including initially disabled and stronger configured mouse/keyboard/focus baselines.
+- `just quality format`, `just quality lint`, `just quality architecture`, and
+  `just docs lint`: passed. Changed Markdown passed `pnpx markdownlint-cli`.
+- Real Button captures contain 26 checkpoints per viewport (40x16 and 80x24), including
+  compact/plain/custom held styling and pointer cancellation. Final clean-revision
+  artifacts and independent repeated-run comparison remain pending publication.
+- Live PTY: exact Kitty press/repeat held the count at 3; release advanced to 4. SGR
+  primary down held 4 and up advanced to 5. Isolated q exited 0 and cleared the
+  reconstructed alternate screen. Separate headless Helium inspection confirmed
+  compact/plain held emphasis differs from focused idle and custom/cancellation/removal
+  output is legible. The initial headless API attempt unexpectedly attached to relay; it
+  was immediately released and reported. Subsequent inspection explicitly spawned an
+  isolated headless executable.
 
-Then salvage the existing viewport fixes into a small viewport specimen before starting
-TextField's scoped editing/selection work. Keep source `phase4` and its dirty work
-read-only; use the preserved hashes above if further salvage is needed. Continue normal
-coherent commits and pushes on `phase4-review-loop`, never main. No feature WIP, active
-worker, failed gate, or push recovery is awaiting resumption; human review and non-macOS
-validation are still outstanding.
+P4.3 implements the operable Button slice, not hover, broad gestures, bordered style,
+ScrollView, or TextField. Human API/style and visual approval remains open. P4.4 is the
+next implementation unit. Preserve the original source and use only the destination.

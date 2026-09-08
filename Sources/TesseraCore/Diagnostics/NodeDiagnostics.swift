@@ -16,6 +16,8 @@ public struct NodeDiagnostics: Equatable, Sendable {
   public let requestedTerminalRequirements: TerminalRequirements
   public let needsLayout: Bool
   public let needsRender: Bool
+  public let isPressed: Bool
+  public let isPointerCaptured: Bool
 
   public init(
     identity: NodeIdentity,
@@ -31,7 +33,9 @@ public struct NodeDiagnostics: Equatable, Sendable {
     handlerKinds: [String],
     requestedTerminalRequirements: TerminalRequirements,
     needsLayout: Bool,
-    needsRender: Bool
+    needsRender: Bool,
+    isPressed: Bool = false,
+    isPointerCaptured: Bool = false
   ) {
     self.identity = identity
     self.viewType = viewType
@@ -47,5 +51,7 @@ public struct NodeDiagnostics: Equatable, Sendable {
     self.requestedTerminalRequirements = requestedTerminalRequirements
     self.needsLayout = needsLayout
     self.needsRender = needsRender
+    self.isPressed = isPressed
+    self.isPointerCaptured = isPointerCaptured
   }
 }

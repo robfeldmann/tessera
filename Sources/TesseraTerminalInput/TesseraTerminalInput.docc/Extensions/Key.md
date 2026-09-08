@@ -6,13 +6,14 @@ A semantic terminal key event.
 
 ### Construction
 
-- ``init(code:modifiers:kind:shiftedCode:baseLayoutCode:associatedText:)``
+- ``init(code:modifiers:kind:shiftedCode:baseLayoutCode:associatedText:source:)``
 
 ### Identity
 
 - ``code``
 - ``modifiers``
 - ``kind``
+- ``source``
 
 ### Kitty enrichment
 

@@ -17,8 +17,7 @@ public struct ButtonStyleConfiguration {
   public let isEnabled: Bool
   /// Whether the button owns focus.
   public let isFocused: Bool
-  /// Whether activation is pending across events. Immediate keyboard activation
-  /// supplies false; this Button does not expose a held-key visual state.
+  /// Whether activation is currently held by a phased key or pointer press.
   public let isPressed: Bool
   /// The action's semantic role.
   public let role: ButtonRole?
@@ -116,7 +115,7 @@ private struct _CompactButtonStyleBody: View {
 
   var body: some View {
     EnvironmentReader { environment in
-      let activeStyle = resolvedStyle(in: environment)
+      let activeStyle = pressedStyle(in: environment)
       let delimiterStyle = idleStyle(
         in: environment,
         fallback: environment.semanticStyles.secondary
@@ -146,8 +145,14 @@ private struct _CompactButtonStyleBody: View {
     return fallback
   }
 
-  private func resolvedStyle(in environment: EnvironmentValues) -> Style {
-    idleStyle(in: environment, fallback: environment.semanticStyles.primary)
+  private func pressedStyle(in environment: EnvironmentValues) -> Style {
+    guard configuration.isEnabled else {
+      return environment.semanticStyles.disabled
+    }
+    // Pressed feedback keeps the resolved role/focus style and explicitly adds
+    // reverse video, guaranteeing a visible transition without changing geometry.
+    return idleStyle(in: environment, fallback: environment.semanticStyles.primary)
+      .reverse()
   }
 }
 
@@ -156,7 +161,11 @@ private struct _PlainButtonStyleBody: View {
 
   var body: some View {
     EnvironmentReader { environment in
-      configuration.label.style(resolvedStyle(in: environment))
+      let style =
+        configuration.isPressed
+        ? pressedStyle(in: environment)
+        : resolvedStyle(in: environment)
+      configuration.label.style(style)
     }
   }
 
@@ -172,11 +181,19 @@ private struct _PlainButtonStyleBody: View {
     }
     return environment.semanticStyles.primary
   }
+
+  private func pressedStyle(in environment: EnvironmentValues) -> Style {
+    guard configuration.isEnabled else {
+      return environment.semanticStyles.disabled
+    }
+    // Match compact feedback while preserving the resolved role/focus style.
+    return resolvedStyle(in: environment).reverse()
+  }
 }
 
 /// An application-controlled action with an arbitrary label.
-/// Enter and Space activate immediately on press. Repeat and release packets do not
-/// invoke another action. Pointer activation and held-key visuals are not supported.
+/// Legacy Enter and Space activate on press. Explicit phased key reports activate on
+/// release, and primary pointer down/up pairs activate on release.
 public struct Button<Label: View>: View, _FocusAppearanceResponder {
   private let action: () -> Void
   private let label: Label
@@ -206,12 +223,14 @@ public struct Button<Label: View>: View, _FocusAppearanceResponder {
 }
 
 private struct _ButtonResponder<Label: View>: View, _LayoutView, _ResponderView,
-  _TerminalRequirementsView
+  _PointerResponderView, _TerminalRequirementsView
 {
   typealias Body = Never
 
   struct ResponderState {
     var pressedKey: KeyCode?
+    var pressedKeyIsPhased = false
+    var pointerPressed = false
   }
 
   let action: () -> Void
@@ -220,11 +239,80 @@ private struct _ButtonResponder<Label: View>: View, _LayoutView, _ResponderView,
   let isEnabled: Bool
 
   package var _terminalRequirements: TerminalRequirements {
-    TerminalRequirements(wantsKeyboardEnhancement: true)
+    TerminalRequirements(
+      wantsKeyboardEnhancement: true,
+      wantsMouse: true,
+      wantsFocusReporting: true
+    )
   }
 
   package func _makeResponderState() -> ResponderState {
     ResponderState(pressedKey: nil)
+  }
+
+  package func _updateResponderState(_ state: inout ResponderState) {
+    if !isEnabled {
+      state.pressedKey = nil
+      state.pressedKeyIsPhased = false
+      state.pointerPressed = false
+    }
+  }
+
+  package func _updateResponderStateProjection(
+    _ projection: inout _ResponderStateProjection,
+    state: ResponderState
+  ) {
+    projection.isPressed = state.pressedKeyIsPhased || state.pointerPressed
+    projection.isPointerCaptured = state.pointerPressed
+  }
+
+  package func _cancelResponderState(_ state: inout ResponderState) {
+    state.pressedKey = nil
+    state.pressedKeyIsPhased = false
+    state.pointerPressed = false
+  }
+
+  package func _handlePointer(
+    _ event: PointerEvent,
+    state: inout ResponderState,
+    context: inout ResponderContext
+  ) -> EventDisposition {
+    guard isEnabled else {
+      state.pointerPressed = false
+      return .ignored
+    }
+    switch event.phase {
+    case .down where event.button == .left:
+      guard !state.pointerPressed else {
+        return .handled
+      }
+      state.pointerPressed = true
+      context.setNeedsDisplay()
+      return .handled
+    case .up:
+      guard state.pointerPressed else {
+        return .ignored
+      }
+      let validPrimaryRelease = event.button == .left
+      state.pointerPressed = false
+      context.setNeedsDisplay()
+      if validPrimaryRelease {
+        action()
+        return .handled
+      }
+      return .ignored
+    case .cancel:
+      guard state.pointerPressed else {
+        return .ignored
+      }
+      state.pointerPressed = false
+      context.setNeedsDisplay()
+      return .handled
+    case .move:
+      return state.pointerPressed ? .handled : .ignored
+    default:
+      return .ignored
+    }
   }
 
   package func _handleEvent(
@@ -245,6 +333,7 @@ private struct _ButtonResponder<Label: View>: View, _LayoutView, _ResponderView,
         return .ignored
       }
       state.pressedKey = nil
+      state.pressedKeyIsPhased = false
       context.setNeedsDisplay()
       return .handled
     default:
@@ -261,7 +350,7 @@ private struct _ButtonResponder<Label: View>: View, _LayoutView, _ResponderView,
       label: AnyView(label),
       isEnabled: environment.isEnabled,
       isFocused: environment.isFocused,
-      isPressed: false,
+      isPressed: environment._responderStateProjection.isPressed,
       role: role
     )
     visit(
@@ -303,26 +392,55 @@ private struct _ButtonResponder<Label: View>: View, _LayoutView, _ResponderView,
     state: inout ResponderState,
     context: inout ResponderContext
   ) -> EventDisposition {
-    guard key.modifiers.isEmpty else {
-      return .ignored
-    }
-
     switch key.kind {
-    case .press:
-      // Legacy terminals report only this event. A later enhanced release only clears the
-      // transient press state, so the action remains exactly-once.
-      state.pressedKey = key.code
-      action()
-      context.setNeedsDisplay()
-      return .handled
-    case .repeat:
-      return .handled
     case .release:
+      // A release must always clear a matching held key, even if modifier state
+      // changed while it was held. Activation still requires the same explicit
+      // Kitty provenance and an unmodified release.
       guard state.pressedKey == key.code else {
         return .ignored
       }
+      let wasPhased = state.pressedKeyIsPhased
       state.pressedKey = nil
+      state.pressedKeyIsPhased = false
       context.setNeedsDisplay()
+      if wasPhased, key.source == .kitty, key.modifiers.isEmpty {
+        action()
+      }
+      return .handled
+
+    case .press:
+      guard key.modifiers.isEmpty else {
+        return .ignored
+      }
+      if key.source == .kitty {
+        guard state.pressedKey == nil else {
+          return .handled
+        }
+        state.pressedKey = key.code
+        state.pressedKeyIsPhased = true
+        context.setNeedsDisplay()
+        return .handled
+      }
+      // Legacy and press-only reports have no trustworthy release. Activate immediately
+      // and leave no pending key that could swallow a later genuine phased press.
+      guard key.source == .legacy || key.source == .kittyPressOnly else {
+        return .ignored
+      }
+      state.pressedKey = nil
+      state.pressedKeyIsPhased = false
+      action()
+      context.setNeedsDisplay()
+      return .handled
+
+    case .repeat:
+      guard key.modifiers.isEmpty,
+        key.source == .kitty,
+        state.pressedKeyIsPhased,
+        state.pressedKey == key.code
+      else {
+        return .ignored
+      }
       return .handled
     }
   }

@@ -57,6 +57,35 @@ package protocol _KeyHandlerView {
   func _handleKey(_ key: Key, context: inout ResponderContext) -> EventDisposition
 }
 
+/// State projected by a responder into its rendered descendants.
+package struct _ResponderStateProjection {
+  package var isPressed = false
+  package var isPointerCaptured = false
+}
+
+private struct _ResponderStateProjectionKey: EnvironmentKey {
+  static let defaultValue = _ResponderStateProjection()
+}
+
+extension EnvironmentValues {
+  package var _responderStateProjection: _ResponderStateProjection {
+    get { self[_ResponderStateProjectionKey.self] }
+    set { self[_ResponderStateProjectionKey.self] = newValue }
+  }
+
+  package var _allowsHitTesting: Bool {
+    get { self[_AllowsHitTestingKey.self] }
+    set { self[_AllowsHitTestingKey.self] = newValue }
+  }
+}
+
+private struct _AllowsHitTestingKey: EnvironmentKey {
+  static let defaultValue = true
+}
+
+/// Marks a responder as an eligible pointer hit target.
+package protocol _PointerResponderView {}
+
 /// Internal event-routing seam for structural views and event-only state.
 ///
 /// A stateful ``LeafView`` handles events through ``LeafView/handleEvent(_:state:context:)``
@@ -73,10 +102,30 @@ package protocol _ResponderView: View {
     state: inout ResponderState,
     context: inout ResponderContext
   ) -> EventDisposition
+  func _handlePointer(
+    _ event: PointerEvent,
+    state: inout ResponderState,
+    context: inout ResponderContext
+  ) -> EventDisposition
+  func _cancelResponderState(_ state: inout ResponderState)
+  func _updateResponderStateProjection(
+    _ projection: inout _ResponderStateProjection,
+    state: ResponderState
+  )
 }
 
 extension _ResponderView {
   package func _updateResponderState(_ state: inout ResponderState) {}
+  package func _handlePointer(
+    _ event: PointerEvent,
+    state: inout ResponderState,
+    context: inout ResponderContext
+  ) -> EventDisposition { .ignored }
+  package func _cancelResponderState(_ state: inout ResponderState) {}
+  package func _updateResponderStateProjection(
+    _ projection: inout _ResponderStateProjection,
+    state: ResponderState
+  ) {}
 }
 
 extension _ResponderView where ResponderState == Void {
@@ -166,6 +215,118 @@ private struct _FocusedModifier<Content: View>: View, _FocusBindingView, _Struct
   }
 }
 
+private struct _OnMouseModifier<Content: View>: View, _ResponderView,
+  _PointerResponderView,
+  _StructuralView, _TerminalRequirementsView
+{
+  typealias Body = Never
+
+  let content: Content
+  let handler: (PointerEvent, inout ResponderContext) -> EventDisposition
+
+  var _terminalRequirements: TerminalRequirements {
+    TerminalRequirements(wantsMouse: true, wantsFocusReporting: true)
+  }
+
+  func _handleEvent(
+    _ event: InputEvent,
+    state: inout Void,
+    context: inout ResponderContext
+  ) -> EventDisposition { .ignored }
+
+  func _handlePointer(
+    _ event: PointerEvent,
+    state: inout Void,
+    context: inout ResponderContext
+  ) -> EventDisposition {
+    handler(event, &context)
+  }
+
+  func _visitChildren(
+    in environment: EnvironmentValues,
+    environmentOverrides: [String],
+    _ visit: (_ViewChild) -> Void
+  ) {
+    visit(
+      _ViewChild(
+        slot: .index(0), view: content, environment: environment,
+        environmentOverrides: environmentOverrides))
+  }
+}
+
+private struct _OnTapModifier<Content: View>: View, _ResponderView, _PointerResponderView,
+  _StructuralView, _TerminalRequirementsView
+{
+  typealias Body = Never
+  typealias ResponderState = Bool
+
+  let content: Content
+  let action: (inout ResponderContext) -> Void
+
+  var _terminalRequirements: TerminalRequirements {
+    TerminalRequirements(wantsMouse: true, wantsFocusReporting: true)
+  }
+
+  func _makeResponderState() -> Bool { false }
+
+  func _updateResponderState(_ state: inout Bool) {}
+
+  func _updateResponderStateProjection(
+    _ projection: inout _ResponderStateProjection,
+    state: Bool
+  ) {
+    projection.isPressed = state
+  }
+
+  func _cancelResponderState(_ state: inout Bool) {
+    state = false
+  }
+
+  func _handleEvent(
+    _ event: InputEvent,
+    state: inout Bool,
+    context: inout ResponderContext
+  ) -> EventDisposition { .ignored }
+
+  func _handlePointer(
+    _ event: PointerEvent,
+    state: inout Bool,
+    context: inout ResponderContext
+  ) -> EventDisposition {
+    switch event.phase {
+    case .down where event.button == .left:
+      state = true
+      return .handled
+    case .up where event.button == .left:
+      guard state else {
+        return .ignored
+      }
+      state = false
+      action(&context)
+      return .handled
+    case .cancel:
+      let wasPressed = state
+      state = false
+      return wasPressed ? .handled : .ignored
+    case .move:
+      return state ? .handled : .ignored
+    default:
+      return .ignored
+    }
+  }
+
+  func _visitChildren(
+    in environment: EnvironmentValues,
+    environmentOverrides: [String],
+    _ visit: (_ViewChild) -> Void
+  ) {
+    visit(
+      _ViewChild(
+        slot: .index(0), view: content, environment: environment,
+        environmentOverrides: environmentOverrides))
+  }
+}
+
 private struct _OnKeyModifier<Content: View>: View, _KeyHandlerView,
   _StructuralView, _TerminalRequirementsView
 {
@@ -207,6 +368,25 @@ extension View {
   /// Synchronizes this focus identity with application-owned focus state.
   public func focused(_ binding: Binding<FocusID?>, equals id: FocusID) -> some View {
     _FocusedModifier(content: self, binding: binding, id: id)
+  }
+
+  /// Controls whether this subtree participates in pointer hit testing.
+  public func allowsHitTesting(_ enabled: Bool) -> some View {
+    environment(\._allowsHitTesting, enabled)
+  }
+
+  /// Handles normalized pointer phases.
+  public func onPointer(
+    _ handler: @escaping (PointerEvent, inout ResponderContext) -> EventDisposition
+  ) -> some View {
+    _OnMouseModifier(content: self, handler: handler)
+  }
+
+  /// Runs an action for a primary-button down/up pair.
+  public func onTap(
+    perform action: @escaping (inout ResponderContext) -> Void
+  ) -> some View {
+    _OnTapModifier(content: self, action: action)
   }
 
   /// Handles focused key events while allowing ignored events to bubble.

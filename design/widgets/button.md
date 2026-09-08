@@ -19,6 +19,31 @@ role, and a label builder. The concrete initializer and protocol signatures inte
 remain open; they must preserve an arbitrary label and expose no mutable business value.
 `ButtonRole.destructive` is required for 1.0; a missing role uses the system default.
 
+## P4.3 implementation boundary
+
+The operative P4.3 specimen is complete for the narrow, fully operable `Button` path, but
+this catalog entry remains `status: wireframed`. The implementation boundary is
+intentionally smaller than the complete Button design and therefore does not pass the
+catalog's `implemented` promotion gate.
+
+Implemented in the P4.3 path:
+
+- `KeyEventSource.legacy` and `KeyEventSource.kittyPressOnly` Enter/Space activate
+  immediately; explicit `KeyEventSource.kitty` press/repeat/release phases show one
+  node-owned press state and invoke on a valid release.
+- Primary pointer down/up uses clipped, topmost same-node hit testing, click-to-focus,
+  capture, and cancellation for outside release, focus loss, disablement, or removal.
+- Compact and plain styles project the one press state into
+  `ButtonStyleConfiguration.isPressed`. While held, each currently resolves its full
+  role/focus/disabled `Style` and adds reverse video. This reverse-style projection is a
+  provisional implementation rule, not a new activation contract; custom styles receive
+  `isPressed` as visual feedback only.
+
+Not implemented or not graduated by P4.3: hover, broad gestures, ScrollView or TextField
+pointer behavior, and the bordered style. The broader Slice 5 mouse API and the complete
+catalog requirements remain future acceptance work; do not promote this document to
+`implemented` or treat the operative Button path as completion of the full mouse surface.
+
 ## Prior art
 
 - Ratatui application: `~/Developer/ratatui/ratatui/main/examples/apps/demo2/src/app.rs` —

@@ -10,11 +10,14 @@ root [README](../README.md) stays intentionally light and defers here for detail
 
 ## Current Phase 4 review status
 
-Phase 4 remains **in progress and provisional**. The active unit is a small complete
-specimen through a shared caller/session-isolated driver and completed checkpoints, not a
-claim that Phase 4 is complete or that a human has approved visual baselines. The Showcase
-is no longer mandatory acceptance; it remains an integration reference. The current local
-commands are:
+Phase 4 remains **in progress and provisional**. P4.3, the operative small-specimen slice,
+is complete for one fully operable `Button` path through the shared
+caller/session-isolated driver: legacy and Kitty key provenance, phased activation,
+normalized pointer hit testing, click-to-focus, same-node capture, cancellation, and
+visible press state are implemented. This is not a claim that Phase 4 is complete, that
+the whole catalog is graduated, or that a human has approved visual baselines. The
+Showcase is no longer mandatory acceptance; it remains an integration reference. The
+current local commands are:
 
 ```sh
 swift run --package-path Examples TesseraLab run layout
@@ -27,9 +30,11 @@ Both specimens run live and through real renderer bytes fed into a persistent Gh
 virtual terminal. Two-size captures include styled cells, explicit semantic metadata,
 sanitized graph diagnostics, and provisional ASCII SVG images. Repeated bundles have been
 compared byte-for-byte. Button covers immediate keyboard activation, repeat/release
-non-duplication, and disabled traversal; pointer routing and held-key visuals remain open.
-No human visual approval or complete Phase 4 acceptance is claimed. Developer export is
-opt-in, versioned, local-only, and limited to built-in synthetic specimens; it has no
+non-duplication, and disabled traversal; pointer down/up, outside-release cancellation,
+focus/capture loss, and held-key visuals are covered by the P4.3 path. Hover, broad
+gestures, ScrollView and TextField pointer behavior, and bordered Button styling remain
+open. No human visual approval or complete Phase 4 acceptance is claimed. Developer export
+is opt-in, versioned, local-only, and limited to built-in synthetic specimens; it has no
 telemetry, reflection, network transport, or raw terminal authority.
 
 ## Supported Today
@@ -117,9 +122,11 @@ inventory below.
 
 - Styling and decoration: inherited semantic `Style` values, borders, `Box`, `overlay`,
   `background`, `Divider`, and the shared `ScrollIndicator`.
-- Focus and input: document-order focus, key routing, responder bubbling, mouse hit
-  testing, and application-owned text selection.
-- Controls: `Button`, `Toggle`, `Picker`, `Stepper`, and `TextField`.
+- Focus and input: document-order focus, key routing, responder bubbling, and P4.3 Button
+  pointer hit testing; hover, broad gestures, and application-owned text selection remain
+  future work.
+- Controls: the P4.3 Button key/pointer path is implemented provisionally; `Toggle`,
+  `Picker`, `Stepper`, and `TextField` remain planned.
 - Collections and navigation: `Grid`, `Table`, `List`, `Section`, and
   `NavigationSplitView`.
 

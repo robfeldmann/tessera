@@ -6,10 +6,17 @@ import Tessera
 /// update; observation never performs graph work. Presentation completes only after
 /// the session has flushed the borrowed render transaction. No async work is drained.
 package final class ApplicationDriver {
+  private struct BaselineModes {
+    let mouseTracking: MouseTrackingMode
+    let keyboardProtocol: KeyboardProtocolMode
+    let focusEventsEnabled: Bool
+  }
+
   package let graph: ViewGraph
   package private(set) var frameSequence = 0
 
   private let traversesFocus: Bool
+  private var baselineModes: BaselineModes?
 
   package init<Root: View>(
     size: TerminalSize, focusTraversal: Bool = false, root: @escaping () -> Root
@@ -54,6 +61,7 @@ package final class ApplicationDriver {
   /// The caller must use the same isolation domain that created this driver.
   @discardableResult
   package func present(to terminal: isolated TerminalSession) async throws -> Bool {
+    try await applyTerminalRequirements(to: terminal)
     guard graph.needsRender else {
       return false
     }
@@ -62,5 +70,42 @@ package final class ApplicationDriver {
     }
     frameSequence += 1
     return true
+  }
+
+  private func applyTerminalRequirements(to terminal: isolated TerminalSession)
+    async throws
+  {
+    if baselineModes == nil {
+      baselineModes = BaselineModes(
+        mouseTracking: terminal.mouseTracking,
+        keyboardProtocol: terminal.keyboardProtocol,
+        focusEventsEnabled: terminal.focusEventsEnabled
+      )
+    }
+    let requirements = graph.terminalRequirements
+    guard let baselineModes else {
+      return
+    }
+    let desiredMouse =
+      requirements.wantsMouse
+      ? (baselineModes.mouseTracking == .disabled
+        ? .buttonEvents : baselineModes.mouseTracking)
+      : baselineModes.mouseTracking
+    if terminal.mouseTracking != desiredMouse {
+      try await terminal.setMouseTracking(desiredMouse)
+    }
+    let desiredKeyboard =
+      requirements.wantsKeyboardEnhancement
+      ? (baselineModes.keyboardProtocol == .legacyOnly
+        ? .kittyIfAvailable : baselineModes.keyboardProtocol)
+      : baselineModes.keyboardProtocol
+    if terminal.keyboardProtocol != desiredKeyboard {
+      try await terminal.setKeyboardProtocol(desiredKeyboard)
+    }
+    let desiredFocusEvents =
+      requirements.wantsFocusReporting || baselineModes.focusEventsEnabled
+    if terminal.focusEventsEnabled != desiredFocusEvents {
+      try await terminal.setFocusEvents(desiredFocusEvents)
+    }
   }
 }
