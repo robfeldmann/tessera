@@ -60,7 +60,7 @@ package enum ReviewBundle {
       "sourceRevision": revision,
       "sourceDirty": dirty,
       "capturePolicy": "explicit-built-in-synthetic-only",
-      "profile": "truecolor-no-protocol-modes",
+      "profile": "truecolor-graph-managed-protocols",
       "seed": NSNull(),
       "exporter": [
         "version": CellImageExporter.Constants.version,
