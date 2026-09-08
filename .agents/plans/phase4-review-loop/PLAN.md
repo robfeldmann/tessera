@@ -1,29 +1,25 @@
 ---
 name: Phase 4 - small complete interfaces and inspectable development
-status: in-progress
+archived: true
+historical-status: in-progress
+superseded-by: ../030-phase-4-view-layer.md
 created: 2026-09-07
 reviewed-base: 0697fe28d1accdd2621cdb0d5426a053ed3a2c2d
 ---
 
 # Phase 4: small complete interfaces and inspectable development
 
-This is the self-contained implementation companion to the Phase 4 revision discussed with
-the maintainer. [START-HERE.md](START-HERE.md) authorizes and scopes the autonomous
-session. It is not a claim of implementation or test success. The broader Phase 4 roadmap
-remains subject to human review; the execution brief permits reversible work on the
-feature branch without waiting for that review. Newly invented API names and CLI examples
-below are illustrative, not existing or compile-verified APIs.
+**Archived execution packet — no current execution authority.** On 2026-09-08 the
+maintainer approved [030](../030-phase-4-view-layer.md) as the single forward-looking
+Phase 4 plan. Do not resume this packet or interpret its historical commands, ordering, or
+permissions below as instructions for a new session.
 
-Execution checkpoint: the scoped P4.4–P4.8 implementation is committed and host-validated.
-Full graduation remains blocked by the Linux compiler/SDK mismatch and unavailable
-Linux/Windows runtime checks; visual approval remains with the maintainer. This plan
-therefore stays `in-progress`. See [STATE.md](STATE.md) and [REVIEW.md](REVIEW.md) for the
-final evidence and review boundary.
+The remaining body preserves the earlier execution design, including illustrative APIs and
+commands. [STATE.md](STATE.md), [REVIEW.md](REVIEW.md), and `artifacts/` preserve
+revision-specific implementation evidence. Archiving does not close platform gates or
+grant human visual approval; those open items now belong to 030.
 
-The reviewed `main` was `0697fe28d1accdd2621cdb0d5426a053ed3a2c2d`; its dispatch method
-was still a no-op. More advanced work on local `phase4` takes precedence as implementation
-to inspect and preserve, not as unverified proof of correctness. Do not start the
-framework over merely because this roadmap reorders its delivery.
+## Historical execution design
 
 ## 1. Purpose and preserved architecture
 
@@ -396,12 +392,12 @@ are distinct statuses. A passing snapshot never supplies all five.
 
 ## Source anchors
 
-The enduring contracts remain in `docs/Spec.md`, the relevant `design/` component
-documents, and `.agents/plans/030-phase-4-view-layer-and-showcase.md` except for the
-explicit revisions above. Key reuse candidates on the reviewed main are `ViewGraph`,
-`GraphDiagnostics`, `ViewGraphSnapshotting`, `InMemoryTerminalSession`, and the Showcase
-host/root factory. Inspect actual local paths and signatures rather than copying
-illustrative APIs.
+The historical design used `docs/Spec.md`, the relevant `design/` component documents, and
+the earlier 030 roadmap. Its successor is
+[030-phase-4-view-layer.md](../030-phase-4-view-layer.md); only that plan is current.
+Reuse candidates at the reviewed base were `ViewGraph`, `GraphDiagnostics`,
+`ViewGraphSnapshotting`, `InMemoryTerminalSession`, and the existing example host/root
+factory. The original suggestions were not evidence of implemented APIs.
 
 Development/quality conventions come from CONTRIBUTING.md, justfiles/quality.just, and
 `docs/LocalDevelopmentState.md`. The existing worktree investigation records per-checkout

@@ -1,12 +1,22 @@
 ---
 name: Phase 4 review loop - autonomous execution brief
-status: pending
+archived: true
+historical-status: pending
+superseded-by: ../030-phase-4-view-layer.md
 created: 2026-09-07
 branch: phase4-review-loop
 reviewed-base: 0697fe28d1accdd2621cdb0d5426a053ed3a2c2d
 ---
 
-# Start here: Phase 4 autonomous implementation
+# Archived execution brief
+
+**Superseded on 2026-09-08 by [030](../030-phase-4-view-layer.md).** This file is
+historical evidence, not a start/resume instruction. Its former autonomous-execution
+authorization, time limits, commit/push directions, and priority queue are inactive.
+Follow the canonical plan and the maintainer's current task instead. Source-preservation
+and environment-provisioning safeguards are retained in 030.
+
+The historical brief below is preserved for provenance; it grants no new permission.
 
 ## Mission and authority
 

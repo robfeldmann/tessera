@@ -1,4 +1,10 @@
-# Execution state
+# Archived execution state
+
+Archived on 2026-09-08. [030](../030-phase-4-view-layer.md) is the approved canonical
+plan. All status statements, authorizations, and resume notes below describe earlier
+sessions; they are not current execution instructions. The record is retained for
+decisions, provenance, and the source-preservation caveat. Outstanding requirements and
+approvals are tracked in 030, not in this historical ledger.
 
 Status: P4.4–P4.8 implementation is complete on the feature branch, with host validation
 and review evidence recorded below. Platform graduation remains blocked by the Linux
@@ -194,17 +200,17 @@ instruction while preserving its evidence and incident record.
 ## P4.4–P4.8 final implementation state
 
 Implementation commits are `9119ef3` and `5a22022`. Final code revision:
-`5a22022150df0676a5d0f8b6d69c7bd77743a91e`. The subsequent packet commit contains
-review evidence, not implementation changes.
+`5a22022150df0676a5d0f8b6d69c7bd77743a91e`. The subsequent packet commit contains review
+evidence, not implementation changes.
 
 - P4.4: controlled ScrollView offsets, focus reveal, nested-boundary consumption, hover,
   motion requirements, and terminal-blur clearing are implemented and exercised.
 - P4.5: controlled grapheme-safe TextField editing, selection, commit/paste, submission,
   hardware cursor, Toggle, Stepper, and Picker are integrated in the settings editor.
 - P4.6: Section, keyed List, Grid, and Table are implemented. The final Section reserves
-  header/spacing before proposing content height and clamps extreme spacing safely.
-  The actual multiline collection/Grid overlap was reproduced in captured output and
-  fixed; the regression covers that composition rather than only a fixed-height List.
+  header/spacing before proposing content height and clamps extreme spacing safely. The
+  actual multiline collection/Grid overlap was reproduced in captured output and fixed;
+  the regression covers that composition rather than only a fixed-height List.
 - P4.7: adjacent-pair SplitView input, constraints, collapse/capture lifecycle, and
   controlled regular/compact NavigationSplitView composition are integrated.
 - P4.8 implementation: eight direct specimens share one live/replay driver and registry.
@@ -225,32 +231,32 @@ review evidence, not implementation changes.
   showed `Submitted: 1`; Tab then q exited and cleared the alternate screen. The final
   records app changed to Waypoint through Tab, Tab, Enter and exited 0.
 - Final capture roots `.artifacts/phase4-review-loop/p48-published/` and
-  `p48-published-repeat/` compare byte-identically with `diff -rq`: 232 checkpoints
-  across 16 manifests. Every manifest records the final code revision and
-  `sourceDirty: false`. Saved previews and checksums are linked from REVIEW.md.
-- Actual images were inspected using explicitly spawned, isolated headless Helium, not
-  the browser relay. Final collection and record images were opened after the final
-  source commit; seven unchanged previews matched the already inspected SVGs exactly.
+  `p48-published-repeat/` compare byte-identically with `diff -rq`: 232 checkpoints across
+  16 manifests. Every manifest records the final code revision and `sourceDirty: false`.
+  Saved previews and checksums are linked from REVIEW.md.
+- Actual images were inspected using explicitly spawned, isolated headless Helium, not the
+  browser relay. Final collection and record images were opened after the final source
+  commit; seven unchanged previews matched the already inspected SVGs exactly.
 - Release benchmark: 200 keyed leaves at 200x50, seven samples per scenario. Median wall
-  durations were 2.577 ms initial, 1.330 ms forced unchanged presentation, 1.357 ms visible
-  one-leaf update, and 1.870 ms resize to 180x45. Counters were deterministic. The
+  durations were 2.577 ms initial, 1.330 ms forced unchanged presentation, 1.357 ms
+  visible one-leaf update, and 1.870 ms resize to 180x45. Counters were deterministic. The
   unchanged forced draw emitted 10 control bytes, not zero; the changed leaf emitted 25.
   Results and machine/configuration context are saved with the review artifacts.
 
 ### Unclosed verification and review boundary
 
 `just linux build` **failed**: the installed Swift 6.3.2 static SDK cannot be imported by
-Swift 6.3.3. `swift sdk list`, `swiftly list`, and local Toolchains directories found
-no matching installed compiler. No replacement compiler/SDK was installed.
+Swift 6.3.3. `swift sdk list`, `swiftly list`, and local Toolchains directories found no
+matching installed compiler. No replacement compiler/SDK was installed.
 
 Linux runtime tests remain unrun: the known VM is stopped and the packet forbids VM
-bootstrap. Windows runtime tests remain unrun: the configured Frost CLI is unavailable
-and no running usable UTM guest was available. Host success does not certify either
-platform. Matching-toolchain Linux compilation and Linux/Windows runtime checks remain
-required for full graduation; PLAN.md is intentionally not marked complete.
+bootstrap. Windows runtime tests remain unrun: the configured Frost CLI is unavailable and
+no running usable UTM guest was available. Host success does not certify either platform.
+Matching-toolchain Linux compilation and Linux/Windows runtime checks remain required for
+full graduation; PLAN.md is intentionally not marked complete.
 
 Human API/style and visual-baseline approval remains open. Broad gestures, IME pre-edit,
 cross-view text selection, and the catalog's explicitly deferred surfaces were not added.
 No PR, merge, main push, release, or baseline approval was performed. Continue only in the
-destination worktree. Read-only source verification still matches the original HEAD,
-five dirty-file hashes, staged-entry listing, and post-incident raw index hash above.
+destination worktree. Read-only source verification still matches the original HEAD, five
+dirty-file hashes, staged-entry listing, and post-incident raw index hash above.
