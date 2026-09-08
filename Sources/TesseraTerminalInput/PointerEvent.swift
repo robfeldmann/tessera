@@ -1,5 +1,7 @@
 import TesseraTerminalCore
 
+// Cases intentionally follow pointer lifecycle order: motion, wheel, press, release, cancel.
+// swiftlint:disable sorted_enum_cases
 /// A normalized pointer phase delivered to view responders.
 public enum PointerPhase: Equatable, Sendable {
   /// Cancellation caused by focus loss, removal, disablement, or an invalid release.
@@ -8,9 +10,16 @@ public enum PointerPhase: Equatable, Sendable {
   case down
   /// Pointer motion, with or without a button held.
   case move
+  /// A wheel step in the indicated direction.
+  case scrollUp
+  case scrollDown
+  case scrollLeft
+  case scrollRight
   /// A button release at the event location.
   case up
 }
+
+// swiftlint:enable sorted_enum_cases
 
 /// A normalized pointer event from terminal mouse input. Down/up phases carry a button;
 /// move reports motion and cancel clears an interaction without representing hover state.
@@ -57,8 +66,14 @@ public struct PointerEvent: Equatable, Sendable {
     case .move:
       phase = .move
       button = nil
-    case .scroll:
-      return nil
+    case .scroll(let direction):
+      switch direction {
+      case .up: phase = .scrollUp
+      case .down: phase = .scrollDown
+      case .left: phase = .scrollLeft
+      case .right: phase = .scrollRight
+      }
+      button = nil
     }
     self.init(
       phase: phase, button: button, position: event.position, modifiers: event.modifiers)

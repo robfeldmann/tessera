@@ -3,6 +3,7 @@ import TesseraCore
 import TesseraLayout
 import TesseraTerminalBuffer
 import TesseraTerminalCore
+import TesseraTerminalInput
 import TesseraTestSupport
 import Testing
 
@@ -74,11 +75,12 @@ func `split view renders two horizontal panes and divider`() {
     root SplitView [proposal=(8,2), measured=(8x2), frame=(0,0,8x2), clip=(0,0,8x2)]
       id(left) _SplitPane [proposal=(3,2), measured=(3x2), frame=(0,0,3x2), clip=(0,0,3x2), environmentOverrides=1]
         index(0) Text [proposal=(3,2), measured=(1x1), frame=(0,0,1x1), clip=(0,0,1x1), environmentOverrides=1]
-      explicit(_SplitViewDividerID(leading: AnyHashable("left"), trailing: AnyHashable("right"))) Divider [proposal=(1,2), measured=(1x2), frame=(3,0,1x2), clip=(3,0,1x2), environmentOverrides=1]
+      explicit(_SplitViewDividerID(leading: AnyHashable("left"), trailing: AnyHashable("right"))) _SplitViewDivider [proposal=(1,2), measured=(1x2), frame=(3,0,1x2), clip=(3,0,1x2), environmentOverrides=1, handlers=["event", "pointer", "focus"], requirements=["keyboard", "mouse", "focus"]]
+        index(0) Divider [proposal=(1,2), measured=(1x2), frame=(3,0,1x2), clip=(3,0,1x2), environmentOverrides=2]
       id(right) _SplitPane [proposal=(4,2), measured=(4x2), frame=(4,0,4x2), clip=(4,0,4x2), environmentOverrides=1]
         index(0) Text [proposal=(4,2), measured=(1x1), frame=(4,0,1x1), clip=(4,0,1x1), environmentOverrides=1]
-    statistics: created=6 destroyed=0 updated=0 bodies=0 equatableSkips=0 leaves=0 measurements=6 placements=6 renders=3 reasons=["renderRequested"]
-    requirements: requested=[] effective=unavailable
+    statistics: created=7 destroyed=0 updated=0 bodies=0 equatableSkips=0 leaves=0 measurements=7 placements=7 renders=3 reasons=["renderRequested"]
+    requirements: requested=["keyboard", "mouse", "focus"] effective=unavailable
     """
   }
 }
@@ -121,14 +123,16 @@ func `split view renders three panes in vertical order`() {
     root SplitView [proposal=(3,8), measured=(3x8), frame=(0,0,3x8), clip=(0,0,3x8)]
       id(top) _SplitPane [proposal=(3,2), measured=(3x2), frame=(0,0,3x2), clip=(0,0,3x2), environmentOverrides=1]
         index(0) Text [proposal=(3,2), measured=(1x1), frame=(0,0,1x1), clip=(0,0,1x1), environmentOverrides=1]
-      explicit(_SplitViewDividerID(leading: AnyHashable("top"), trailing: AnyHashable("middle"))) Divider [proposal=(3,1), measured=(3x1), frame=(0,2,3x1), clip=(0,2,3x1), environmentOverrides=1]
+      explicit(_SplitViewDividerID(leading: AnyHashable("top"), trailing: AnyHashable("middle"))) _SplitViewDivider [proposal=(3,1), measured=(3x1), frame=(0,2,3x1), clip=(0,2,3x1), environmentOverrides=1, handlers=["event", "pointer", "focus"], requirements=["keyboard", "mouse", "focus"]]
+        index(0) Divider [proposal=(3,1), measured=(3x1), frame=(0,2,3x1), clip=(0,2,3x1), environmentOverrides=2]
       id(middle) _SplitPane [proposal=(3,2), measured=(3x2), frame=(0,3,3x2), clip=(0,3,3x2), environmentOverrides=1]
         index(0) Text [proposal=(3,2), measured=(1x1), frame=(0,3,1x1), clip=(0,3,1x1), environmentOverrides=1]
-      explicit(_SplitViewDividerID(leading: AnyHashable("middle"), trailing: AnyHashable("bottom"))) Divider [proposal=(3,1), measured=(3x1), frame=(0,5,3x1), clip=(0,5,3x1), environmentOverrides=1]
+      explicit(_SplitViewDividerID(leading: AnyHashable("middle"), trailing: AnyHashable("bottom"))) _SplitViewDivider [proposal=(3,1), measured=(3x1), frame=(0,5,3x1), clip=(0,5,3x1), environmentOverrides=1, handlers=["event", "pointer", "focus"], requirements=["keyboard", "mouse", "focus"]]
+        index(0) Divider [proposal=(3,1), measured=(3x1), frame=(0,5,3x1), clip=(0,5,3x1), environmentOverrides=2]
       id(bottom) _SplitPane [proposal=(3,2), measured=(3x2), frame=(0,6,3x2), clip=(0,6,3x2), environmentOverrides=1]
         index(0) Text [proposal=(3,2), measured=(1x1), frame=(0,6,1x1), clip=(0,6,1x1), environmentOverrides=1]
-    statistics: created=9 destroyed=0 updated=0 bodies=0 equatableSkips=0 leaves=0 measurements=9 placements=9 renders=5 reasons=["renderRequested"]
-    requirements: requested=[] effective=unavailable
+    statistics: created=11 destroyed=0 updated=0 bodies=0 equatableSkips=0 leaves=0 measurements=11 placements=11 renders=5 reasons=["renderRequested"]
+    requirements: requested=["keyboard", "mouse", "focus"] effective=unavailable
     """
   }
 }
@@ -163,13 +167,14 @@ func `split view leaves collapsed panes unplaced and removes their dividers`() {
     root SplitView [proposal=(8,1), measured=(8x1), frame=(0,0,8x1), clip=(0,0,8x1)]
       id(left) _SplitPane [proposal=(2,1), measured=(2x1), frame=(0,0,2x1), clip=(0,0,2x1), environmentOverrides=1]
         index(0) Text [proposal=(2,1), measured=(1x1), frame=(0,0,1x1), clip=(0,0,1x1), environmentOverrides=1]
-      explicit(_SplitViewDividerID(leading: AnyHashable("left"), trailing: AnyHashable("right"))) Divider [proposal=(1,1), measured=(1x1), frame=(2,0,1x1), clip=(2,0,1x1), environmentOverrides=1]
+      explicit(_SplitViewDividerID(leading: AnyHashable("left"), trailing: AnyHashable("right"))) _SplitViewDivider [proposal=(1,1), measured=(1x1), frame=(2,0,1x1), clip=(2,0,1x1), environmentOverrides=1, handlers=["event", "pointer", "focus"], requirements=["keyboard", "mouse", "focus"]]
+        index(0) Divider [proposal=(1,1), measured=(1x1), frame=(2,0,1x1), clip=(2,0,1x1), environmentOverrides=2]
       id(middle) _SplitPane [environmentOverrides=1]
         index(0) Text [proposal=(0,0), measured=(1x1), frame=(0,0,1x1), clip=(0,0,0x0), environmentOverrides=1]
       id(right) _SplitPane [proposal=(5,1), measured=(5x1), frame=(3,0,5x1), clip=(3,0,5x1), environmentOverrides=1]
         index(0) Text [proposal=(5,1), measured=(1x1), frame=(3,0,1x1), clip=(3,0,1x1), environmentOverrides=1]
-    statistics: created=8 destroyed=0 updated=0 bodies=0 equatableSkips=0 leaves=0 measurements=7 placements=8 renders=3 reasons=["renderRequested"]
-    requirements: requested=[] effective=unavailable
+    statistics: created=9 destroyed=0 updated=0 bodies=0 equatableSkips=0 leaves=0 measurements=8 placements=9 renders=3 reasons=["renderRequested"]
+    requirements: requested=["keyboard", "mouse", "focus"] effective=unavailable
     """
   }
 }
@@ -202,11 +207,12 @@ func `split view clips over constrained allocations without mutating panes`() {
     root SplitView [proposal=(5,1), measured=(7x1), frame=(0,0,5x1), clip=(0,0,5x1)]
       id(leading) _SplitPane [proposal=(3,1), measured=(3x1), frame=(0,0,3x1), clip=(0,0,3x1), environmentOverrides=1]
         index(0) Text [proposal=(3,1), measured=(1x1), frame=(0,0,1x1), clip=(0,0,1x1), environmentOverrides=1]
-      explicit(_SplitViewDividerID(leading: AnyHashable("leading"), trailing: AnyHashable("trailing"))) Divider [proposal=(1,1), measured=(1x1), frame=(3,0,1x1), clip=(3,0,1x1), environmentOverrides=1]
+      explicit(_SplitViewDividerID(leading: AnyHashable("leading"), trailing: AnyHashable("trailing"))) _SplitViewDivider [proposal=(1,1), measured=(1x1), frame=(3,0,1x1), clip=(3,0,1x1), environmentOverrides=1, handlers=["event", "pointer"], requirements=["keyboard", "mouse", "focus"]]
+        index(0) Divider [proposal=(1,1), measured=(1x1), frame=(3,0,1x1), clip=(3,0,1x1), environmentOverrides=2]
       id(trailing) _SplitPane [proposal=(3,1), measured=(3x1), frame=(4,0,3x1), clip=(4,0,1x1), environmentOverrides=1]
         index(0) Text [proposal=(3,1), measured=(1x1), frame=(4,0,1x1), clip=(4,0,1x1), environmentOverrides=1]
-    statistics: created=6 destroyed=0 updated=0 bodies=0 equatableSkips=0 leaves=0 measurements=6 placements=6 renders=3 reasons=["renderRequested"]
-    requirements: requested=[] effective=unavailable
+    statistics: created=7 destroyed=0 updated=0 bodies=0 equatableSkips=0 leaves=0 measurements=7 placements=7 renders=3 reasons=["renderRequested"]
+    requirements: requested=["keyboard", "mouse", "focus"] effective=unavailable
     """
   }
   #expect(model.panes.map(\.sizing.requestedIdeal) == [3, 3])
@@ -584,4 +590,147 @@ func `split view divider fills the area proposed through a wrapper view`() {
     · · · │ · · · ·
     """
   }
+}
+@Test
+func
+  `split view divider keyboard resizing preserves the adjacent pair total and clamps bounds`()
+{
+  let model = SplitViewModel([
+    SplitViewPane(id: "left", sizing: .init(minimum: 2, requestedIdeal: 3, maximum: 4)),
+    SplitViewPane(id: "right", sizing: .init(minimum: 2, requestedIdeal: 4, maximum: 5)),
+  ])
+  let graph = ViewGraph(
+    root: {
+      SplitView(panes: model.panesBinding) {
+        Text("L")
+        Text("R")
+      }
+    },
+    size: TerminalSize(columns: 8, rows: 1)
+  )
+
+  graph.layoutIfNeeded()
+  #expect(graph.focus.focusableIDs.count == 1)
+  graph.focus.focus(graph.focus.focusableIDs[0])
+
+  #expect(graph.dispatch(.key(Key(code: .right))) == .handled)
+  #expect(model.panes.map(\.sizing.requestedIdeal) == [4, 3])
+  #expect(graph.dispatch(.key(Key(code: .right))) == .handled)
+  #expect(model.panes.map(\.sizing.requestedIdeal) == [4, 3])
+  #expect(graph.dispatch(.key(Key(code: .left))) == .handled)
+  #expect(model.panes.map(\.sizing.requestedIdeal) == [3, 4])
+}
+
+@Test
+func `split view divider pointer drag updates only adjacent panes`() {
+  let model = SplitViewModel([
+    SplitViewPane(id: "left", sizing: .init(minimum: 1, requestedIdeal: 3, maximum: 6)),
+    SplitViewPane(id: "right", sizing: .init(minimum: 2, requestedIdeal: 4, maximum: 6)),
+    SplitViewPane(id: "far", sizing: .init(requestedIdeal: 2)),
+  ])
+  let graph = ViewGraph(
+    root: {
+      SplitView(panes: model.panesBinding) {
+        Text("L")
+        Text("R")
+        Text("F")
+      }
+    },
+    size: TerminalSize(columns: 11, rows: 1)
+  )
+
+  graph.layoutIfNeeded()
+  #expect(
+    graph.dispatch(
+      PointerEvent(
+        phase: .down,
+        button: .left,
+        position: TerminalPosition(column: 3, row: 0)
+      )) == .handled)
+  #expect(
+    graph.dispatch(
+      PointerEvent(
+        phase: .move,
+        button: .left,
+        position: TerminalPosition(column: 5, row: 0)
+      )) == .handled)
+  #expect(model.panes.map(\.sizing.requestedIdeal) == [5, 2, 2])
+  #expect(
+    graph.dispatch(
+      PointerEvent(
+        phase: .up,
+        button: .left,
+        position: TerminalPosition(column: 5, row: 0)
+      )) == .handled)
+  #expect(model.panes.map(\.sizing.requestedIdeal) == [5, 2, 2])
+}
+@Test
+func `split view divider capture clears when an adjacent pane collapses`() {
+  let model = SplitViewModel([
+    SplitViewPane(id: "left", sizing: .init(requestedIdeal: 3)),
+    SplitViewPane(id: "right", sizing: .init(requestedIdeal: 4)),
+  ])
+  let graph = ViewGraph(
+    root: {
+      SplitView(panes: model.panesBinding) {
+        Text("L")
+        Text("R")
+      }
+    },
+    size: TerminalSize(columns: 8, rows: 1)
+  )
+
+  graph.layoutIfNeeded()
+  #expect(
+    graph.dispatch(
+      PointerEvent(
+        phase: .down,
+        button: .left,
+        position: TerminalPosition(column: 3, row: 0)
+      )) == .handled)
+  model.panes[1].isCollapsed = true
+  graph.update()
+  #expect(
+    graph.dispatch(
+      PointerEvent(
+        phase: .move,
+        button: .left,
+        position: TerminalPosition(column: 4, row: 0)
+      )) == .ignored)
+  #expect(model.panes.map(\.sizing.requestedIdeal) == [3, 4])
+}
+
+@Test
+func `split view divider capture survives resize during drag`() {
+  let model = SplitViewModel([
+    SplitViewPane(id: "left", sizing: .init(requestedIdeal: 3)),
+    SplitViewPane(id: "right", sizing: .init(requestedIdeal: 4)),
+  ])
+  let graph = ViewGraph(
+    root: {
+      SplitView(panes: model.panesBinding) {
+        Text("L")
+        Text("R")
+      }
+    },
+    size: TerminalSize(columns: 8, rows: 1)
+  )
+
+  graph.layoutIfNeeded()
+  #expect(
+    graph.dispatch(
+      PointerEvent(
+        phase: .down,
+        button: .left,
+        position: TerminalPosition(column: 3, row: 0)
+      )) == .handled)
+  graph.resize(to: TerminalSize(columns: 10, rows: 1))
+  #expect(
+    graph.dispatch(
+      PointerEvent(
+        phase: .move,
+        button: .left,
+        position: TerminalPosition(column: 4, row: 0)
+      )) == .handled)
+  #expect(model.panes.map(\.sizing.requestedIdeal) == [4, 3])
 }

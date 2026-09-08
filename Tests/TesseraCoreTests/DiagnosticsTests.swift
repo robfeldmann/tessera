@@ -14,9 +14,9 @@ func `graph dump is stable and excludes view values`() {
   #expect(!graph.dump().contains("private value"))
   assertInlineSnapshot(of: graph.dump(), as: .lines) {
     """
-    root TesseraCore.Text proposal=(4,1) measured=(13x1) frame=(0,0,4x1) clip=(0,0,4x1) dirty=[layout:false,render:false] environment=[] handlers=[] requirements=TerminalRequirements(wantsKeyboardEnhancement: false, wantsMouse: false, wantsBracketedPaste: false, wantsFocusReporting: false)
+    root TesseraCore.Text proposal=(4,1) measured=(13x1) frame=(0,0,4x1) clip=(0,0,4x1) dirty=[layout:false,render:false] environment=[] handlers=[] requirements=TerminalRequirements(wantsKeyboardEnhancement: false, wantsMouse: false, wantsMouseMotion: false, wantsBracketedPaste: false, wantsFocusReporting: false)
     statistics created=1 destroyed=0 updated=0 bodies=0 equatableSkips=0 leaves=0 measurements=1 placements=1 renders=1
-    requirements requested=TerminalRequirements(wantsKeyboardEnhancement: false, wantsMouse: false, wantsBracketedPaste: false, wantsFocusReporting: false) effective=unavailable
+    requirements requested=TerminalRequirements(wantsKeyboardEnhancement: false, wantsMouse: false, wantsMouseMotion: false, wantsBracketedPaste: false, wantsFocusReporting: false) effective=unavailable
     """
   }
 }

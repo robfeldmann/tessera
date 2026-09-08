@@ -12,7 +12,7 @@ private final class FocusBox {
   var trace: [String] = []
 }
 
-private struct RecordingLeaf: LeafView {
+private struct RecordingLeaf: InputLeafView {
   let name: String
   let disposition: EventDisposition
   let box: FocusBox
@@ -323,4 +323,28 @@ func `a focused container does not route keys into a nested focusable control`()
   #expect(disposition == .handled)
   // The container's own key handler runs; the nested leaf never sees the event.
   #expect(box.trace == ["container"])
+}
+
+@Test
+func `new focus binding survives until its first placement`() {
+  let model = FocusEnvironmentModel()
+  model.isVisible = false
+  let graph = ViewGraph(
+    root: { FocusEnvironmentFixture(model: model) },
+    size: TerminalSize(columns: 1, rows: 1)
+  )
+  _ = withTestFrame(size: TerminalSize(columns: 1, rows: 1)) {
+    graph.render(into: $0)
+  }
+
+  model.isVisible = true
+  model.focused = model.id
+  graph.update()
+  #expect(model.focused == model.id)
+
+  _ = withTestFrame(size: TerminalSize(columns: 1, rows: 1)) {
+    graph.render(into: $0)
+  }
+  #expect(model.focused == model.id)
+  #expect(graph.focus.focused == model.id)
 }

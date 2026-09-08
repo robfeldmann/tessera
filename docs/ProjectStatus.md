@@ -10,14 +10,27 @@ root [README](../README.md) stays intentionally light and defers here for detail
 
 ## Current Phase 4 review status
 
-Phase 4 remains **in progress and provisional**. P4.3, the operative small-specimen slice,
-is complete for one fully operable `Button` path through the shared
-caller/session-isolated driver: legacy and Kitty key provenance, phased activation,
-normalized pointer hit testing, click-to-focus, same-node capture, cancellation, and
-visible press state are implemented. This is not a claim that Phase 4 is complete, that
-the whole catalog is graduated, or that a human has approved visual baselines. The
-Showcase is no longer mandatory acceptance; it remains an integration reference. The
-current local commands are:
+Phase 4 remains **in progress and provisional**. The P4.3–P4.8 source surface is
+integrated through the shared caller/session-isolated review path, but focused tests,
+snapshots, and visual acceptance are still under correction. The current surface includes:
+
+- the Button key/pointer path with provenance-aware phases, clipped hit testing, focus,
+  same-node capture, cancellation, and node-owned press state;
+- a clamped ScrollView viewport with keyboard and wheel movement, focus reveal, indicator
+  rendering, and nested-boundary bubbling;
+- controlled single-line TextField editing with grapheme-safe local cursor and selection;
+- controlled Toggle, Stepper, and Picker values;
+- keyed List, Section, and Table selection/sort intent (the app owns actual sorting);
+- row-major Grid, negotiated SplitView panes, and regular/compact NavigationSplitView
+  roles;
+- `onHover` motion enter/exit delivery and normalized `onPointer`/`onTap` routing.
+
+All application values and bindings remain caller-owned. This status does not claim
+complete Phase 4, catalog graduation, human visual approval, or platform runtime
+validation. The Showcase remains an integration reference rather than a mandatory
+acceptance vehicle.
+
+The review-loop commands are available for focused evidence when the parent gate is ready:
 
 ```sh
 swift run --package-path Examples TesseraLab run layout
@@ -26,30 +39,16 @@ scripts/capture-specimen.sh layout .artifacts/review/layout
 scripts/capture-specimen.sh button .artifacts/review/button
 ```
 
-Both specimens run live and through real renderer bytes fed into a persistent Ghostty
-virtual terminal. Two-size captures include styled cells, explicit semantic metadata,
-sanitized graph diagnostics, and provisional ASCII SVG images. Repeated bundles have been
-compared byte-for-byte. Button covers immediate keyboard activation, repeat/release
-non-duplication, and disabled traversal; pointer down/up, outside-release cancellation,
-focus/capture loss, and held-key visuals are covered by the P4.3 path. Hover, broad
-gestures, ScrollView and TextField pointer behavior, and bordered Button styling remain
-open. No human visual approval or complete Phase 4 acceptance is claimed. Developer export
-is opt-in, versioned, local-only, and limited to built-in synthetic specimens; it has no
-telemetry, reflection, network transport, or raw terminal authority.
+Developer export, when used, is opt-in, versioned, local-only, and limited to built-in
+synthetic specimens; it has no telemetry, reflection, network transport, or raw terminal
+authority.
 
 ## Supported Today
 
-Tessera targets macOS, Linux, and Windows with Swift 6.3 or later. Current continuous
-testing covers only these environments:
-
-| Platform | Tested configuration                 | Architecture  |
-| -------- | ------------------------------------ | ------------- |
-| macOS    | 26.5.2                               | Apple silicon |
-| Linux    | Ubuntu 24.04 (project Linux VM)      | ARM64         |
-| Windows  | Windows 11 25H2 (project Windows VM) | ARM64         |
-
-Continuous integration runs the full test suite on all three platforms with Ghostty-backed
-output snapshot coverage (via `libghostty-vt`), including Windows.
+Tessera targets macOS, Linux, and Windows with Swift 6.3 or later. Runtime and platform
+validation evidence is maintained by the review-loop gate; this document does not assert a
+tested platform matrix for the provisional Phase 4 view layer. The terminal substrate and
+package build remain useful for local experimentation, but the view API is not stable.
 
 ### Planned platform widening
 
@@ -76,8 +75,9 @@ mandatory acceptance. Small complete specimens, driven through the shared
 caller/session-isolated path and reviewed at completed checkpoints, are the current
 acceptance unit.
 
-The target shape and responsive fixtures remain documented for future integration work in
-[`design/showcase.md`](../design/showcase.md). The current planned command is instead:
+The target shape and responsive fixtures remain documented as a historical integration
+reference in [`design/showcase.md`](../design/showcase.md). Focused review uses the
+following commands when the gate is ready:
 
 ```sh
 swift run --package-path Examples TesseraLab run layout
@@ -104,31 +104,29 @@ The full responsive policy and fixture matrix live in
 
 ## View Components (in development)
 
-The view layer is under active construction and has no stable public API yet. Foundations
-have landed; controls, collections, and styling are in progress toward the accepted 1.0
-inventory below.
+The view layer is under active construction and has no stable public API yet. The current
+P4.3–P4.8 surfaces are integrated provisionally toward the accepted 1.0 inventory; the
+design catalog remains authoritative for each component's anatomy, state, sizing, input,
+and degradation contract.
 
-**Landed foundations** (`TesseraCore`, `TesseraLayout`, `TesseraWidgets`):
+**Current provisional surfaces** (`TesseraCore`, `TesseraLayout`, `TesseraWidgets`):
 
 - An explicit, inspectable `ViewGraph` with reconciliation, identity, environments, and
   immutable diagnostics.
-- `View`, `ViewBuilder`, `ForEach`, `AnyView`, `EquatableView`, and `Text`
-  (grapheme/width-aware).
-- The integer-cell `Layout` protocol, `VStack`/`HStack`/`ZStack`, `Spacer`, `frame`,
-  `padding`, `layoutPriority`, and the shared `Flex` solver.
-- `ScrollView` and `SplitView` foundations with negotiated pane geometry.
+- `View`, `ViewBuilder`, `ForEach`, `AnyView`, `EquatableView`, and width-aware `Text`.
+- Integer-cell `Layout`, stacks, `Spacer`, `frame`, `padding`, `layoutPriority`, and
+  `Flex`.
+- `ScrollView` with clamped offset, focus reveal, keyboard/wheel input, and indicator
+  state.
+- `SplitView` with min/ideal/max pane negotiation, keyboard resize, and divider dragging.
+- `Grid`, keyed `List`/`Section`, keyed `Table`, and controlled navigation roles.
+- `Button`, `Toggle`, `Picker`, `Stepper`, and single-line `TextField` controlled values.
+- Core motion and pointer modifiers: `onHover`, `onPointer`, and `onTap`.
 
-**Planned for 1.0:**
-
-- Styling and decoration: inherited semantic `Style` values, borders, `Box`, `overlay`,
-  `background`, `Divider`, and the shared `ScrollIndicator`.
-- Focus and input: document-order focus, key routing, responder bubbling, and P4.3 Button
-  pointer hit testing; hover, broad gestures, and application-owned text selection remain
-  future work.
-- Controls: the P4.3 Button key/pointer path is implemented provisionally; `Toggle`,
-  `Picker`, `Stepper`, and `TextField` remain planned.
-- Collections and navigation: `Grid`, `Table`, `List`, `Section`, and
-  `NavigationSplitView`.
+The contracts intentionally defer broad gesture recognition, cross-view text selection,
+IME pre-edit, secure-entry masking, and any custom style semantics not accepted by the
+catalogs. Built-in rendering and style surfaces are provisional until the review gates
+close.
 
 The design catalog under [`design/`](../design/README.md) is the authoritative contract
 for each component's anatomy, state, sizing, input, and degradation.
@@ -137,21 +135,24 @@ for each component's anatomy, state, sizing, input, and degradation.
 
 The active milestone is the provisional Phase 4 small-specimen review loop, not completed
 Phase 4 delivery. The numbered sequence below is retained as historical roadmap context;
-for remaining order, the
-[review-loop execution pack](../.agents/plans/phase4-review-loop/PLAN.md) is
-authoritative. It keeps final `SplitView` negotiation with its focused pane specimen,
-moves complete single-line `TextField` editing ahead of navigation, and does not require
-every increment to grow the Showcase:
+the [review-loop execution pack](../.agents/plans/phase4-review-loop/PLAN.md) and its
+`START-HERE.md` are authoritative for remaining order and gate evidence.
 
 1. Core view graph, reconciliation, and `Text` — **done**.
 2. Layout, stacks, static `SplitView`, and `ScrollView` — **done**.
 3. Flex sizing and final `SplitView` negotiation — **done**.
-4. Styling, text wrapping, decoration, and `ScrollIndicator` — _in progress_.
-5. Focus, key routing, and controlled responders (`Button`, `Toggle`, `Picker`, `Stepper`,
-   `TextField`) — _planned_.
-6. Mouse, hit testing, and application-owned text selection — _planned_.
-7. `Grid`, `Table`, and `NavigationSplitView` composition — _planned_.
-8. `List`, `Section`, controlled cutover, and the complete Showcase — _planned_.
+4. Styling, text wrapping, decoration, and `ScrollIndicator` — **integrated
+   provisionally**.
+5. Focus, key routing, and controlled responders — **integrated provisionally**.
+6. Pointer phases, hit testing, hover, click-to-caret, divider drag, viewport input, and
+   nested-boundary bubbling — **integrated provisionally**.
+7. `Grid`, `Table`, and `NavigationSplitView` composition — **integrated provisionally**.
+8. `List`, `Section`, controlled cutover, and specimen integration — **integrated
+   provisionally**.
+
+Focused test correction, snapshot review, visual approval, and the final
+publication/release gates remain outstanding. No platform runtime claim is implied by the
+roadmap.
 
 After the view layer (spec Phase 5, "Runtime + polish") the work turns to:
 

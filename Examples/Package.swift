@@ -262,13 +262,13 @@ package.targets.append(contentsOf: [
   .target(
     name: "SpecimenCaptureSupport",
     dependencies: [
-      SpecimenSupport, Tessera, TesseraTerminalSnapshotSupport, TesseraTerminalTestSupport,
-      TesseraTestSupport,
+      SpecimenSupport, Tessera, TesseraTerminal, TesseraTerminalSnapshotSupport,
+      TesseraTerminalTestSupport, TesseraTestSupport,
     ]
   ),
   .executableTarget(
     name: "TesseraCapture",
-    dependencies: [ArgumentParser, SpecimenCaptureSupport, Tessera]
+    dependencies: [ArgumentParser, SpecimenCaptureSupport, SpecimenSupport, Tessera]
   ),
   .executableTarget(
     name: "TesseraLab",

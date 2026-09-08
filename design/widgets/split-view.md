@@ -297,22 +297,22 @@ remains unchanged.
 
 ### Key table
 
-| Key   | Precondition                                             | Effect                                                                                                                                                                                             | Consumed |
-| ----- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| Left  | `focused divider handle` is set and `axis` is horizontal | Decrements the leading adjacent pane's `sizing.ideal` by one and increments the trailing adjacent pane's `sizing.ideal` by one through `pane configuration`; clamps at the negotiated pair bounds. | yes      |
-| Right | `focused divider handle` is set and `axis` is horizontal | Increments the leading adjacent pane's `sizing.ideal` by one and decrements the trailing adjacent pane's `sizing.ideal` by one through `pane configuration`; clamps at the negotiated pair bounds. | yes      |
-| Up    | `focused divider handle` is set and `axis` is vertical   | Decrements the leading adjacent pane's `sizing.ideal` by one and increments the trailing adjacent pane's `sizing.ideal` by one through `pane configuration`; clamps at the negotiated pair bounds. | yes      |
-| Down  | `focused divider handle` is set and `axis` is vertical   | Increments the leading adjacent pane's `sizing.ideal` by one and decrements the trailing adjacent pane's `sizing.ideal` by one through `pane configuration`; clamps at the negotiated pair bounds. | yes      |
-| Tab   | `focused divider handle` is set                          | Leaves focus routing to the application's installed handler; does not mutate `pane configuration`.                                                                                                 | no       |
-| Esc   | `focused divider handle` is set                          | Leaves the event available to ancestors and the application; does not mutate `pane configuration`.                                                                                                 | no       |
+| Key   | Precondition                                             | Effect                                                                                                                                                                                                               | Consumed |
+| ----- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| Left  | `focused divider handle` is set and `axis` is horizontal | Decrements the leading adjacent pane's `sizing.requestedIdeal` by one and increments the trailing adjacent pane's `sizing.requestedIdeal` by one through `pane configuration`; clamps at the negotiated pair bounds. | yes      |
+| Right | `focused divider handle` is set and `axis` is horizontal | Increments the leading adjacent pane's `sizing.requestedIdeal` by one and decrements the trailing adjacent pane's `sizing.requestedIdeal` by one through `pane configuration`; clamps at the negotiated pair bounds. | yes      |
+| Up    | `focused divider handle` is set and `axis` is vertical   | Decrements the leading adjacent pane's `sizing.requestedIdeal` by one and increments the trailing adjacent pane's `sizing.requestedIdeal` by one through `pane configuration`; clamps at the negotiated pair bounds. | yes      |
+| Down  | `focused divider handle` is set and `axis` is vertical   | Increments the leading adjacent pane's `sizing.requestedIdeal` by one and decrements the trailing adjacent pane's `sizing.requestedIdeal` by one through `pane configuration`; clamps at the negotiated pair bounds. | yes      |
+| Tab   | `focused divider handle` is set                          | Leaves focus routing to the application's installed handler; does not mutate `pane configuration`.                                                                                                                   | no       |
+| Esc   | `focused divider handle` is set                          | Leaves the event available to ancestors and the application; does not mutate `pane configuration`.                                                                                                                   | no       |
 
 ### Mouse table
 
-| Event | Region         | Precondition                                                                                                | Effect                                                                                                                                                                                                                                                          | Consumed |
-| ----- | -------------- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| click | Divider handle | `pointer drag` is empty and the handle's pair exists in `visible pane sequence`                             | Focuses the corresponding `focused divider handle`; leaves `pane configuration` unchanged.                                                                                                                                                                      | yes      |
-| drag  | Divider handle | the handle's pair exists in `visible pane sequence` and both panes have capacity within their sizing bounds | On the first event, records `pointer drag`; on each event, converts pointer displacement on `axis` to an integer delta, then updates only the pair's `sizing.ideal` values through `pane configuration`, preserving the pair total whenever both bounds permit. | yes      |
-| drag  | Divider handle | `pointer drag` is set and its pair is absent from `visible pane sequence`                                   | Clears `pointer drag` and leaves `pane configuration` unchanged.                                                                                                                                                                                                | yes      |
+| Event | Region         | Precondition                                                                                                | Effect                                                                                                                                                                                                                                                                   | Consumed |
+| ----- | -------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- |
+| click | Divider handle | `pointer drag` is empty and the handle's pair exists in `visible pane sequence`                             | Focuses the corresponding `focused divider handle`; leaves `pane configuration` unchanged.                                                                                                                                                                               | yes      |
+| drag  | Divider handle | the handle's pair exists in `visible pane sequence` and both panes have capacity within their sizing bounds | On the first event, records `pointer drag`; on each event, converts pointer displacement on `axis` to an integer delta, then updates only the pair's `sizing.requestedIdeal` values through `pane configuration`, preserving the pair total whenever both bounds permit. | yes      |
+| drag  | Divider handle | `pointer drag` is set and its pair is absent from `visible pane sequence`                                   | Clears `pointer drag` and leaves `pane configuration` unchanged.                                                                                                                                                                                                         | yes      |
 
 Dragging accepts displacement only along the main axis: vertical movement on a vertical
 handle, and horizontal movement on a horizontal handle. No hover, wheel, double-click, or
@@ -325,26 +325,27 @@ The public controlled sizing value is independent of `FlexConstraint`:
 
 ```swift
 public struct SplitViewPaneSizing: Equatable, Sendable {
-  public init(minimum: Int = 0, ideal: Int, maximum: Int? = nil)
+  public init(minimum: Int = 0, requestedIdeal: Int, maximum: Int? = nil)
 }
 ```
 
-All values are whole cells. Construction requires `0 <= minimum <= ideal <= maximum` when
-maximum is present. `nil` maximum is unbounded. The pane's child may render an intrinsic
-ideal larger than its assigned segment; explicit pane sizing wins and the child clips
-rather than silently changing application state.
+All values are whole cells. Construction requires
+`0 <= minimum <= requestedIdeal <= maximum` when maximum is present. `nil` maximum is
+unbounded. The pane's child may render an intrinsic requestedIdeal larger than its
+assigned segment; explicit pane sizing wins and the child clips rather than silently
+changing application state.
 
 SplitView reserves one cell per adjacent visible pair, then lowers each visible pane to
 the exact [Flex resolver item fields](../primitives/flex.md#constraint-resolution):
 
-| Pane input             | Flex resolver field                                                         |
-| ---------------------- | --------------------------------------------------------------------------- |
-| `sizing.minimum`       | `floor`                                                                     |
-| `sizing.ideal`         | `initial allocation`                                                        |
-| `sizing.maximum`       | `growth cap`; nil remains unbounded                                         |
-| range adapter          | `growth weight = 1`; `compression phase = minimum`                          |
-| child `layoutPriority` | separate priority metadata; never copied into the resolver item             |
-| `isCollapsed == true`  | no resolver item, zero rect, no handle; retain every controlled bound value |
+| Pane input              | Flex resolver field                                                         |
+| ----------------------- | --------------------------------------------------------------------------- |
+| `sizing.minimum`        | `floor`                                                                     |
+| `sizing.requestedIdeal` | `initial allocation`                                                        |
+| `sizing.maximum`        | `growth cap`; nil remains unbounded                                         |
+| range adapter           | `growth weight = 1`; `compression phase = minimum`                          |
+| child `layoutPriority`  | separate priority metadata; never copied into the resolver item             |
+| `isCollapsed == true`   | no resolver item, zero rect, no handle; retain every controlled bound value |
 
 The resolver begins at requested ideals. Positive remainder grows higher-priority panes
 first up to their maxima, with earliest-source integer remainder. Negative remainder

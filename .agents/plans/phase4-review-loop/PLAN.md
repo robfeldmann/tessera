@@ -1,6 +1,6 @@
 ---
 name: Phase 4 - small complete interfaces and inspectable development
-status: in-review
+status: in-progress
 created: 2026-09-07
 reviewed-base: 0697fe28d1accdd2621cdb0d5426a053ed3a2c2d
 ---

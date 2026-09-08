@@ -19,6 +19,8 @@ package final class RuntimeNode {
   package var measuredSize: TerminalSize?
   package var frame = Rect(column: 0, row: 0, columns: 0, rows: 0)
   package var clip = Rect(column: 0, row: 0, columns: 0, rows: 0)
+  // Set by ViewGraph.place after this node receives its first completed frame.
+  package var hasCompletedLayout = false
   package var needsLayout = true
   package var needsRender = true
   package var handlerKinds: [String] = []
@@ -79,6 +81,18 @@ package final class RuntimeNode {
         TerminalRequirements(wantsMouse: true)
       )
     }
+    if view is any _HoverResponderView {
+      terminalRequirements = .union(
+        terminalRequirements,
+        TerminalRequirements(wantsMouse: true, wantsMouseMotion: true)
+      )
+    }
+    if let inputLeaf = view as? any InputLeafView {
+      terminalRequirements = .union(
+        terminalRequirements,
+        inputLeaf.terminalRequirements
+      )
+    }
     if focusID != nil {
       terminalRequirements = .union(
         terminalRequirements,
@@ -116,6 +130,10 @@ package protocol _LeafStorage: AnyObject {
     _ event: InputEvent,
     context: inout ResponderContext
   ) -> EventDisposition
+  func handlePointer(
+    _ event: PointerEvent,
+    context: inout ResponderContext
+  ) -> EventDisposition
 }
 
 private final class ConcreteLeafStorage<Leaf: LeafView>: _LeafStorage {
@@ -151,6 +169,13 @@ private final class ConcreteLeafStorage<Leaf: LeafView>: _LeafStorage {
   ) -> EventDisposition {
     leaf.handleEvent(event, state: &state, context: &context)
   }
+
+  func handlePointer(
+    _ event: PointerEvent,
+    context: inout ResponderContext
+  ) -> EventDisposition {
+    leaf.handlePointer(event, state: &state, context: &context)
+  }
 }
 
 private func _makeLeafStorageIfNeeded<Content: View>(
@@ -176,6 +201,14 @@ package protocol _ResponderStorage: AnyObject {
     _ event: PointerEvent,
     context: inout ResponderContext
   ) -> EventDisposition
+  func handleHover(
+    _ isHovered: Bool,
+    context: inout ResponderContext
+  )
+  func revealFocus(
+    _ focusedBounds: Rect,
+    context: inout ResponderContext
+  ) -> Bool
   func cancelInteraction()
   func updateStateProjection(_ projection: inout _ResponderStateProjection)
 }
@@ -211,6 +244,20 @@ private final class ConcreteResponderStorage<Responder: _ResponderView>:
     context: inout ResponderContext
   ) -> EventDisposition {
     responder._handlePointer(event, state: &state, context: &context)
+  }
+
+  func handleHover(
+    _ isHovered: Bool,
+    context: inout ResponderContext
+  ) {
+    responder._handleHover(isHovered, state: &state, context: &context)
+  }
+
+  func revealFocus(
+    _ focusedBounds: Rect,
+    context: inout ResponderContext
+  ) -> Bool {
+    responder._revealFocus(focusedBounds, state: &state, context: &context)
   }
 
   func cancelInteraction() {

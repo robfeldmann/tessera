@@ -4479,7 +4479,7 @@ click.
 Any-event tracking's motion stream is the noisy stream the ownership and isolation thesis
 has in mind when it promises that Tessera's input design "bounds noisy streams such as
 mouse movement." This section defines that policy; Phase 4 Slice 5 cites it directly for
-`.onMouse`'s raw event stream.
+`onPointer` and pointer-enabled widgets receive this bounded normalized motion stream.
 
 The coalescing seam lives in `AsyncEventBuffer`, not the parser — the parser keeps
 decoding every SGR report into a semantic event; coalescing only bounds how many of those
@@ -6798,9 +6798,12 @@ importing `TesseraTerminal`, `TesseraTerminalIO`, platform shims, or UI framewor
 a frame during its draw transaction. The `TesseraTerminal` and `Tessera` facade source
 files contain re-exports only; implementation code imports its narrow dependency directly.
 
-`TesseraWidgets` starts with the Slice 2 static `ScrollView` viewport and `SplitView`
-geometry, receives controlled responders in Slice 4, and completes its standard widget set
-in Slice 7. There is no temporary widget target.
+`TesseraWidgets` provides the controlled view layer on top of the core and layout targets:
+`ScrollView`, `SplitView`, controls, collections, and navigation composition. These views
+share the same value-description, reconciliation, integer-cell layout, input routing, and
+terminal-requirements contracts. Their data and bindings remain application owned; graph
+state is limited to ephemeral interaction, cursor, focus, capture, and viewport state
+described by each component contract.
 
 ### What Tessera keeps from SwiftUI, and what it deliberately rejects
 
@@ -6850,23 +6853,22 @@ stabilization between Phase 4 slices 2 and 3, not a new terminal-substrate depen
 > developer-export prohibition, and human-approval-as-an-implementation-blocker; it does
 > not rewrite the contracts or historical progress recorded here. The Showcase remains a
 > useful integration design, but is no longer a mandatory acceptance vehicle. Accept a
-> small complete specimen through the shared review loop instead. In particular, follow
-> the execution pack for the earlier complete single-line `TextField` editing and the
-> final `SplitView` negotiation specimen rather than treating the remaining table below as
-> a delivery queue. **P4.3 operative slice complete.** The review-loop P4.3 specimen now
-> has a fully operable Button path: `KeyEventSource` provenance distinguishes legacy and
-> Kitty press-only input from explicit Kitty press/repeat/release phases; `ViewGraph`
-> routes normalized `PointerEvent` down/up/move/cancel phases with clipped, topmost hit
-> testing, click-to-focus, same-node capture, and cancellation; and Button projects one
-> node-owned press state into built-in and custom style rendering. The shared specimen
-> driver preserves baseline mouse, keyboard, and focus-reporting modes while applying
-> graph requirements.
+> small complete specimen through the shared review loop instead. The current integration
+> surface includes the operative Button pointer/key path, the clamped ScrollView viewport
+> with keyboard and wheel movement, controlled single-line TextField editing, controlled
+> Toggle/Stepper/Picker controls, keyed List/Section/Table collections, row-major Grid,
+> negotiated SplitView panes, and regular/compact NavigationSplitView roles. All preserve
+> application-owned values and bindings; `NodeState` contains only the ephemeral state
+> needed by the relevant interaction or layout contract.
 >
-> This is not Phase 4 completion or graduation of the whole catalog. Hover, broad
-> gestures, ScrollView and TextField pointer behavior, and the bordered Button style
-> remain outside the operative slice. The generic Slice 5 mouse API and its broader
-> definition of done remain future work; the implemented contract is the narrow P4.3
-> pointer/key path described above.
+> This paragraph records architecture and current integration scope, not final acceptance
+> or graduation of the catalog. Pointer motion is split deliberately: `onHover` receives
+> enter/exit changes derived from motion tracking, while `onPointer` receives normalized
+> phases and `onTap` owns same-node primary press/release activation. Broad gesture
+> recognition and cross-view text selection remain out of scope. TextField accepts
+> committed input and paste with grapheme-safe local cursor/selection state, but not IME
+> pre-edit or secure-entry masking. Built-in styles and the custom-style protocol remain
+> provisional where their catalogs say so; styles cannot redefine activation semantics.
 
 The **[Tessera Showcase](../design/showcase.md)** is Phase 4's integration exemplar: a
 runnable app that grows one slice at a time. Each slice may use the smallest temporary
@@ -6927,16 +6929,16 @@ buffer diff; cleverness is opt-in later and always observable via diagnostics.
 The catalog owns component contracts; this map records only when their integration
 foundation lands and which deliberately narrow scaffold disappears at cutover.
 
-| Slice/phase | Components landing                                                                                                                                                                                               | Temporary scaffold deleted at cutover                                               |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| 1           | `View`, `ViewGraph`, reconciliation, `Text`, immutable local diagnostics snapshot                                                                                                                                | No-layout multi-child vertical stacking                                             |
-| 2           | `Layout`, stacks, [`Divider`](../design/primitives/divider.md), static controlled [`SplitView`](../design/widgets/split-view.md) pane geometry, static [`ScrollView`](../design/widgets/scroll-view.md) viewport | Slice 1 vertical stacking                                                           |
-| 2.5         | [`Flex`](../design/primitives/flex.md), final min/ideal/max SplitView negotiation, Showcase `23x10` minimum and negotiated columns                                                                               | Slice 2 static SplitView geometry                                                   |
-| 3           | Style plumbing, wrapping/truncation, border decoration, [`ScrollIndicator`](../design/primitives/scroll-indicator.md)                                                                                            | Ad hoc overflow decoration                                                          |
-| 4           | [`Button`](../design/widgets/button.md), [`TextField`](../design/widgets/text-field.md) focus, `Toggle`, `Picker`, `Stepper`, ScrollView keyboard movement, SplitView keyboard resize                            | Static controls and non-interactive viewport/divider behavior                       |
-| 5           | Control clicks for the completed Button path; TextField click-to-caret, SplitView pointer drag, ScrollView pointer input and boundary bubbling remain future integration work                                    | Keyboard-only paths for controls not yet in P4.3, viewport, and divider interaction |
-| 6           | `Grid`, [`Table`](../design/widgets/table.md), [`NavigationSplitView`](../design/widgets/navigation-split-view.md)                                                                                               | Interim collection and responsive-role composition                                  |
-| 7           | [`List` and `Section`](../design/widgets/list.md), controlled TextField cutover, finalized control styles, Showcase and inspector integration                                                                    | Interim catalog/example composition                                                 |
+| Slice/phase | Components landing                                                                                                                                                                                                | Temporary scaffold deleted at cutover                         |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| 1           | `View`, `ViewGraph`, reconciliation, `Text`, immutable local diagnostics snapshot                                                                                                                                 | No-layout multi-child vertical stacking                       |
+| 2           | `Layout`, stacks, [`Divider`](../design/primitives/divider.md), static controlled [`SplitView`](../design/widgets/split-view.md) pane geometry, static [`ScrollView`](../design/widgets/scroll-view.md) viewport  | Slice 1 vertical stacking                                     |
+| 2.5         | [`Flex`](../design/primitives/flex.md), final min/ideal/max SplitView negotiation, Showcase `23x10` minimum and negotiated columns                                                                                | Slice 2 static SplitView geometry                             |
+| 3           | Style plumbing, wrapping/truncation, border decoration, [`ScrollIndicator`](../design/primitives/scroll-indicator.md)                                                                                             | Ad hoc overflow decoration                                    |
+| 4           | [`Button`](../design/widgets/button.md), [`TextField`](../design/widgets/text-field.md) focus, `Toggle`, `Picker`, `Stepper`, ScrollView keyboard movement, SplitView keyboard resize                             | Static controls and non-interactive viewport/divider behavior |
+| 5           | Normalized pointer phases, click-to-focus/capture, control activation, TextField click-to-caret, SplitView divider drag, ScrollView wheel/track input and nested-boundary bubbling; `onHover` motion requirements | Slice 4 non-pointer responder scaffold                        |
+| 6           | `Grid`, [`Table`](../design/widgets/table.md), [`NavigationSplitView`](../design/widgets/navigation-split-view.md), keyed collection geometry and indicator parity                                                | Interim collection and responsive-role composition            |
+| 7           | [`List` and `Section`](../design/widgets/list.md), controlled TextField cutover, controlled control styles, and specimen/example integration                                                                      | Interim catalog/example composition                           |
 
 ```mermaid
 graph LR
@@ -8165,17 +8167,20 @@ machinery after `dispatch` returns.
 public struct TerminalRequirements: Sendable, Equatable {
     public var wantsKeyboardEnhancement: Bool   // Kitty protocol, if available
     public var wantsMouse: Bool                 // requested by live pointer responders, including Button
+    public var wantsMouseMotion: Bool           // requested by live hover/motion responders
     public var wantsBracketedPaste: Bool
     public var wantsFocusReporting: Bool
     public static func union(_ a: Self, _ b: Self) -> Self
 }
 ```
 
-Recomputed during reconciliation as the union over live nodes (an `.onTap` anywhere ⇒
-`wantsMouse`). The app forwards `graph.terminalRequirements` to the session, which checks
-capabilities/configuration and applies deltas through `ModeLifecycle`. Views still never
-touch modes; this is the declarative-requirements design from the ownership thesis made
-concrete.
+Recomputed during reconciliation as the union over live nodes (an `.onTap`, `.onPointer`,
+or `onHover` anywhere requests mouse handling; `InputLeafView/terminalRequirements`
+contributes the leaf's declared modes). The app forwards `graph.terminalRequirements` to
+the session, which checks capabilities/configuration and applies deltas through
+`ModeLifecycle`; views still never touch modes. `TerminalSession/setBracketedPaste(_:)`
+toggles the application-owned paste request without replacing other requested policies;
+requested/effective baseline state and capability evidence remain session-owned.
 
 #### Controls and focused viewport interaction
 
@@ -8185,17 +8190,21 @@ controlled responders: their catalog-owned contracts receive current values thro
 action. The graph supplies focus and routing only; it never manufactures a model value or
 interprets an unhandled key.
 
-[`TextField`](../design/widgets/text-field.md) lands its focus behavior here. It
-participates in document-order focus, receives focused key and paste routing, and requests
-redraw through `ResponderContext`; the complete controlled editing cutover remains
-Slice 7. This preserves the rule that `NodeState` contains only ephemeral UI state.
+[`TextField`](../design/widgets/text-field.md) participates in document-order focus and
+receives focused key and paste routing. Its binding remains the source of truth;
+grapheme-safe cursor, selection, and horizontal reveal are ephemeral `NodeState`.
+Committed input and paste replace whole graphemes through the binding, while IME pre-edit
+and secure-entry masking are outside this contract. A pointer click maps display-cell
+position to a local caret boundary.
 
-The Slice 2 [`ScrollView`](../design/widgets/scroll-view.md) viewport gains keyboard
-movement. Focused movement changes its controlled offset (or its ephemeral offset where
-the catalog permits one) and clamps it to content bounds. The static
-[`SplitView`](../design/widgets/split-view.md) divider gains focused keyboard resize,
-writing its controlled pane state; pointer drag waits for Slice 5 and multi-pane
-negotiation waits for Slice 6.
+The [`ScrollView`](../design/widgets/scroll-view.md) changes its optional controlled
+offset on focused keyboard and pointer wheel/track movement and clamps it to content
+bounds. Focus reveal keeps a focused descendant visible. At a boundary it returns
+`.ignored` so an eligible ancestor can receive the event; it does not swallow nested
+scrolling. The [`SplitView`](../design/widgets/split-view.md) divider uses final
+min/ideal/max pane negotiation and writes the controlled pane state on focused keyboard
+resize or primary pointer drag. Collapsed panes are omitted and divider placement remains
+between adjacent visible panes.
 
 #### Tests
 
@@ -8242,8 +8251,8 @@ Requires Phase 3 Slice 3 (SGR mouse events).
   extension View {
       public func onTap(
           perform: @escaping (inout ResponderContext) -> Void) -> some View
-      public func onMouse(
-          _ handler: @escaping (MouseEvent, inout ResponderContext) -> EventDisposition
+      public func onPointer(
+          _ handler: @escaping (PointerEvent, inout ResponderContext) -> EventDisposition
       ) -> some View
       public func onHover(
           perform: @escaping (_ isHovered: Bool, inout ResponderContext) -> Void
@@ -8252,10 +8261,11 @@ Requires Phase 3 Slice 3 (SGR mouse events).
   }
   ```
 
-  `.onTap` is press+release of the primary button within the same node (no drag threshold
-  cleverness — cells are coarse). `.onMouse` exposes the raw stream (move, drag, scroll,
-  per Phase 3's bounded-coalescing policy) for widgets like `List` and `ScrollView`;
-  `.move` events are delivered only while any-event tracking is active.
+  `.onTap` is a primary-button press/release pair completed on the same captured node; a
+  canceled or retargeted release never invokes the action. `.onPointer` exposes normalized
+  `down`, `move`, `up`, and graph-generated `cancel` phases to the responder path.
+  `.onHover` receives only enter/exit booleans derived from motion tracking, never raw
+  events.
 
   `onHover` derives enter and exit from hit-testing incoming `.move` positions against the
   node's frame; it never receives raw mouse events. Because `.move` only exists while
@@ -8264,15 +8274,14 @@ Requires Phase 3 Slice 3 (SGR mouse events).
 
 - Routing: hit-test the deepest handler-bearing node, bubble while `.ignored`, same as
   keys. A primary-button press on a `.focusable` node focuses it before tap delivery
-  (click-to-focus); this is the one built-in behavior, and it is documented and
-  disableable (`.focusOnTap(false)` if real demand appears — do not pre-build it).
-- Presence of any mouse handler (`.onTap` or `.onMouse`) sets
-  `terminalRequirements.wantsMouse`; presence of any `onHover` handler (or a widget that
-  requests motion directly) sets `terminalRequirements.wantsMouseMotion`. The session maps
-  these onto Phase 3's `MouseTracking`: `wantsMouseMotion` → `.mouseTracking(.anyEvent)`;
-  `wantsMouse` alone → `.mouseTracking(.buttonEvents)`; neither → mouse tracking disabled.
-  This extends the existing dynamic-disable behavior below to two escalating tiers instead
-  of one on/off switch.
+  (click-to-focus); this is the built-in policy, and there is no separate focus-on-tap
+  toggle in this contract).
+- Presence of `.onTap`, `.onPointer`, or a pointer-enabled widget sets
+  `terminalRequirements.wantsMouse`; presence of any `onHover` handler sets
+  `terminalRequirements.wantsMouseMotion`. The session maps these onto Phase 3's
+  `MouseTracking`: `wantsMouseMotion` → `.mouseTracking(.anyEvent)`; `wantsMouse` alone →
+  `.mouseTracking(.buttonEvents)`; neither → mouse tracking disabled. These tiers
+  de-escalate independently when live handlers or widgets are removed.
 - Hover state clears on `focusLost` and whenever motion tracking disables — terminals give
   no mouse-leave signal, so a stuck "hovered" view is otherwise unavoidable once the
   pointer or focus moves away without a trailing event to notice.
@@ -8281,9 +8290,10 @@ Requires Phase 3 Slice 3 (SGR mouse events).
   tables over constructed `.move` position sequences; `wantsMouse`/`wantsMouseMotion`
   escalation and de-escalation as handlers are added and removed.
 
-#### P4.3 operative pointer responder contract
+#### Operative pointer responder contract
 
-P4.3 implements the narrow pointer path used by `Button` and the specimen driver. The
+The P4.3 integration established the pointer baseline used by Button and the specimen
+driver; the same normalized seams remain the foundation for later widget composition. The
 public seams are:
 
 - `View/onPointer(_:)` receives normalized `PointerEvent` phases. The graph's primary down
@@ -8295,27 +8305,27 @@ public seams are:
 - `View/allowsHitTesting(_:)` excludes a subtree. A disabled topmost hit still occludes a
   sibling and may bubble to pointer-responder ancestors.
 
-`PointerPhase/move` is the captured motion stream only. Hover state, hover requirements,
-broad gestures, scroll handling, and other motion APIs are not part of P4.3. The shared
-application driver applies graph `TerminalRequirements` while preserving the terminal's
-baseline mouse-tracking, keyboard-protocol, and focus-reporting modes; it does not replace
-those baseline choices when a graph has no corresponding request.
+`PointerPhase/move` is the captured motion stream for its owner. Separately, `onHover`
+receives enter/exit transitions while any-event tracking is active and clears state on
+focus loss or tracking withdrawal. Scroll handling is widget-owned and returns `.ignored`
+at a boundary so nested ancestors can participate; broad gesture recognition and
+cross-view text selection and IME pre-edit remain outside this contract. The shared driver
+applies graph `TerminalRequirements` while preserving caller-selected baseline modes.
 
 #### Pointer cutover for controls, fields, panes, and viewports
 
 Control clicks activate the focused responder through the same controlled binding/action
-path as keyboard activation. [`TextField`](../design/widgets/text-field.md) gains the
-click-to-caret substrate: hit testing maps the visible grapheme-cell position to its
-ephemeral caret state without capturing the bound text. The static
-[`SplitView`](../design/widgets/split-view.md) divider gains pointer drag, which writes
-the controlled pane state and remains subject to the Slice 2 geometry until Slice 6
-replaces it.
+path as keyboard activation. [`TextField`](../design/widgets/text-field.md) maps a visible
+display-cell position to a grapheme-safe ephemeral caret boundary without capturing or
+mutating the bound text. The [`SplitView`](../design/widgets/split-view.md) divider drag
+updates controlled pane state through final min/ideal/max negotiation; collapsed panes are
+omitted and dividers remain only between adjacent visible panes. The graph keeps pane
+identity, focus, and bindings outside its transient interaction state.
 
-[`ScrollView`](../design/widgets/scroll-view.md) gains complete pointer input. Wheel,
-track, and pointer sequences first attempt to change the clamped local offset; when the
-requested movement reaches a boundary, the viewport returns `.ignored` so the event
-bubbles to an eligible ancestor. This makes nested viewport boundaries explicit rather
-than silently swallowing motion.
+[`ScrollView`](../design/widgets/scroll-view.md) handles pointer wheel, track, and drag
+sequences by first attempting to change its clamped local offset. When the requested
+movement reaches a boundary, the viewport returns `.ignored` so an eligible ancestor can
+receive the event.
 
 #### Definition of done for slice 5
 
@@ -8338,10 +8348,9 @@ reopen either allocator.
 
 ```swift
 public struct Grid<Content: View>: View {
-    public init(columns: [FlexConstraint], spacing: Int = 0,
+    public init(columns: [FlexConstraint] = [.fill(1)], spacing: Int = 0,
                 @ViewBuilder content: () -> Content)
 }
-public struct GridRow<Content: View>: View { … }
 ```
 
 Columns resolve once per grid through the established Flex algorithm; row heights are the
@@ -8379,26 +8388,28 @@ depends on the responsive role policy plus final SplitView negotiation; `List` a
 
 ### Slice 7: Catalog integration — List, Section, controlled widgets, and the Showcase
 
-This slice completes catalog integration rather than introducing another widget subsystem.
-[`List` and `Section`](../design/widgets/list.md) compose their catalog-owned selection,
-section, and overflow contracts into the graph;
-[`ScrollView`](../design/widgets/scroll-view.md) uses the same completed viewport and
-indicator behavior. Final system and custom control styles apply the Slice 3 complete
-semantic `Style` roles consistently across the public controls.
+This slice composes catalog contracts rather than introducing another widget subsystem.
+[`List` and `Section`](../design/widgets/list.md) derive keyed rows and preserve
+controlled selection, section, and overflow behavior.
+[`ScrollView`](../design/widgets/scroll-view.md) shares the same clamped viewport and
+output-only indicator policy. All controls consume the inherited semantic `Style` roles
+and preserve application-owned bindings; built-in and custom style surfaces remain
+presentation-only and provisional.
 
-[`TextField`](../design/widgets/text-field.md) completes its public controlled cutover.
-Edits write through `Binding`; `NodeState` holds only the grapheme-safe cursor and reveal
-offset, clamps both on every bound-value update, and never retains the controlled text.
-Focused paste and dictation commits write through the binding, and submit routes through
-the documented action. Rendering requests the hardware cursor at the resolved caret with
-`RenderRegion.requestCursor(at:)`; the graph forwards the last focused request to the
-session draw and the session positions or hides the terminal cursor.
+[`TextField`](../design/widgets/text-field.md) is controlled: edits write through
+`Binding`, while `NodeState` holds only grapheme-safe cursor, selection, and horizontal
+reveal state. Those values clamp at every bound-value update and never retain the
+controlled text. Focused committed input and bracketed paste write through the binding;
+IME pre-edit and secure-entry masking are not implemented. Submit invokes the documented
+action when present, and focused rendering requests the terminal hardware cursor at the
+resolved caret through `RenderRegion.requestCursor(at:)`.
 
-The full **[Tessera Showcase](../design/showcase.md)** composes every 1.0 component and
-integrates an inspector that reads the Slice 1 immutable diagnostics snapshot. The
-inspector is read-only: it cannot mutate the graph, capture raw controlled values, or
+The **[Tessera Showcase](../design/showcase.md)** remains an integration reference rather
+than a required acceptance vehicle. Any specimen that composes the provisional view
+surface may expose an inspector over the latest completed immutable diagnostics snapshot.
+The inspector is read-only: it cannot mutate the graph, capture raw controlled values, or
 trigger a pass. The graph requests `TerminalRequirements`; the session remains the
-authority that decides and reports effective requirements, including in that snapshot.
+authority for effective modes.
 
 Widget tests remain deterministic state-machine tests with no terminal and no clocks:
 build a graph, dispatch key/paste/pointer scripts, and assert bindings, ephemeral
@@ -8784,7 +8795,7 @@ Sources/
     Styling.swift                 // foreground/bold/style modifiers, defaultStyle key
     Decoration.swift              // border, overlay, background, Divider, Box
     Flex.swift                    // Phase 2.5 FlexConstraint, Flex, .flex
-    Grid.swift                    // Slice 6 Grid, GridRow
+    Grid.swift                    // Slice 6 Grid
 
   TesseraWidgets/               // Phase 4 slices 2, 2.5, 4, and 7
     ScrollView.swift

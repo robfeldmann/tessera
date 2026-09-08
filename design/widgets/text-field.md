@@ -7,9 +7,9 @@ status: wireframed
 
 `TextField` is Tessera's controlled, single-line text-entry widget. It presents an
 optional label and prompt while the application owns the `Binding<String>`; each accepted
-edit writes that binding immediately. Its only `NodeState` is the caret's grapheme
-boundary and horizontal reveal position, both disposable and clamped whenever the app
-replaces the string. The public API uses `TextField` with no compatibility alias.
+edit writes that binding immediately. Its only `NodeState` is the caret and selection's
+grapheme boundaries plus horizontal reveal position, all disposable and clamped whenever
+the app replaces the string. The public API uses `TextField` with no compatibility alias.
 
 The public direction is a string-only field with a label, an optional prompt, an optional
 submit closure, and standard/default plus custom `TextFieldStyle` support. The concrete
@@ -293,6 +293,8 @@ Callouts (48x4, 0-based):
 | ---------------------------------------- | --------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | text                                     | Binding   | `Binding<String>`                   | App-owned source of truth; every accepted edit replaces its value immediately, and external replacement is authoritative.                               |
 | cursor grapheme offset                   | NodeState | `Int`                               | Clamp to `0...graphemeCount(text)` on every reconciliation; if the app changes text, keep the nearest surviving grapheme boundary.                      |
+| selection anchor grapheme offset         | NodeState | `Int`                               | Clamp to `0...graphemeCount(text)` on every reconciliation; equal to the cursor when no range is selected, and never points inside a grapheme.          |
+| selected grapheme range                  | derived   | `Range<Int>`                        | The half-open range between anchor and cursor; replacement and deletion operate on whole graphemes only.                                                |
 | horizontal reveal offset                 | NodeState | `Int` display-cell offset           | Clamp on every layout/update to a legal grapheme boundary between `0` and the maximum reveal; adjust minimally to keep the caret within the input line. |
 | grapheme boundaries and display advances | derived   | `[String.Index]` plus cell advances | Recompute from current `text` during layout/render; combining marks advance zero and wide clusters reserve their measured cells.                        |
 | input viewport width                     | derived   | `Int` cells                         | Recompute from final input-line bounds on every layout; zero width yields no cursor request.                                                            |
@@ -308,23 +310,24 @@ Callouts (48x4, 0-based):
 Word-wise movement uses Unicode word segmentation at legal grapheme boundaries; no byte or
 Unicode- scalar cursor fallback is permitted.
 
-| Key                 | Precondition                                                                           | Effect                                                                                                                                                                    | Consumed                                            |
-| ------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| printable character | focused and effective enabled                                                          | Inserts the supplied grapheme cluster at `cursor grapheme offset` into `text` via Binding, increments the cursor by one grapheme, and adjusts `horizontal reveal offset`. | yes                                                 |
-| Left                | focused and effective enabled                                                          | Decrements `cursor grapheme offset` by one legal grapheme boundary and adjusts reveal.                                                                                    | yes                                                 |
-| Right               | focused and effective enabled                                                          | Increments `cursor grapheme offset` by one legal grapheme boundary and adjusts reveal.                                                                                    | yes                                                 |
-| Alt-Left            | focused and effective enabled                                                          | Moves `cursor grapheme offset` to the preceding word boundary and adjusts reveal.                                                                                         | yes                                                 |
-| Alt-Right           | focused and effective enabled                                                          | Moves `cursor grapheme offset` to the following word boundary and adjusts reveal.                                                                                         | yes                                                 |
-| Ctrl-Left           | focused and effective enabled                                                          | Moves `cursor grapheme offset` to the preceding word boundary when the negotiated keyboard protocol distinguishes this chord; otherwise bubbles.                          | conditional (keyboard protocol distinguishes chord) |
-| Ctrl-Right          | focused and effective enabled                                                          | Moves `cursor grapheme offset` to the following word boundary when the negotiated keyboard protocol distinguishes this chord; otherwise bubbles.                          | conditional (keyboard protocol distinguishes chord) |
-| Home                | focused and effective enabled                                                          | Sets `cursor grapheme offset` and `horizontal reveal offset` to the leading legal boundary.                                                                               | yes                                                 |
-| End                 | focused and effective enabled                                                          | Sets `cursor grapheme offset` to `graphemeCount(text)` and adjusts reveal to show it.                                                                                     | yes                                                 |
-| Backspace           | focused and effective enabled and cursor grapheme offset greater than 0                | Removes the preceding whole grapheme from `text` through Binding, decrements cursor, and adjusts reveal.                                                                  | yes                                                 |
-| Delete              | focused and effective enabled and cursor grapheme offset less than graphemeCount(text) | Removes the following whole grapheme from `text` through Binding and adjusts reveal.                                                                                      | yes                                                 |
-| Enter               | focused and effective enabled and has submit handler is true                           | Invokes the app-owned submit handler with the current `text`; widget state and Binding are otherwise unchanged.                                                           | yes                                                 |
-| Enter               | focused and effective enabled and has submit handler is false                          | Leaves all state unchanged so an ancestor may handle submit.                                                                                                              | no                                                  |
-| Tab                 | focused                                                                                | Leaves all state unchanged so focus traversal may bubble to an app handler.                                                                                               | no                                                  |
-| Esc                 | focused                                                                                | Leaves all state unchanged so dismissal or focus clearing may bubble to an app handler.                                                                                   | no                                                  |
+| Key                 | Precondition                                                                           | Effect                                                                                                                                                               | Consumed                                            |
+| ------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| printable character | focused and effective enabled                                                          | Replaces the selected whole-grapheme range, if any, through Binding; otherwise inserts at `cursor grapheme offset`, then collapses the selection and adjusts reveal. | yes                                                 |
+| Left                | focused and effective enabled                                                          | Decrements `cursor grapheme offset` by one legal grapheme boundary and adjusts reveal.                                                                               | yes                                                 |
+| Right               | focused and effective enabled                                                          | Increments `cursor grapheme offset` by one legal grapheme boundary and adjusts reveal.                                                                               | yes                                                 |
+| Shift-Left/Right    | focused and effective enabled                                                          | Extends the selected range from the anchor by one legal grapheme boundary and adjusts reveal.                                                                        | yes                                                 |
+| Alt-Left            | focused and effective enabled                                                          | Moves `cursor grapheme offset` to the preceding word boundary and adjusts reveal.                                                                                    | yes                                                 |
+| Alt-Right           | focused and effective enabled                                                          | Moves `cursor grapheme offset` to the following word boundary and adjusts reveal.                                                                                    | yes                                                 |
+| Ctrl-Left           | focused and effective enabled                                                          | Moves `cursor grapheme offset` to the preceding word boundary when the negotiated keyboard protocol distinguishes this chord; otherwise bubbles.                     | conditional (keyboard protocol distinguishes chord) |
+| Ctrl-Right          | focused and effective enabled                                                          | Moves `cursor grapheme offset` to the following word boundary when the negotiated keyboard protocol distinguishes this chord; otherwise bubbles.                     | conditional (keyboard protocol distinguishes chord) |
+| Home                | focused and effective enabled                                                          | Sets `cursor grapheme offset` and `horizontal reveal offset` to the leading legal boundary.                                                                          | yes                                                 |
+| End                 | focused and effective enabled                                                          | Sets `cursor grapheme offset` to `graphemeCount(text)` and adjusts reveal to show it.                                                                                | yes                                                 |
+| Backspace           | focused and effective enabled and cursor grapheme offset greater than 0                | Removes the preceding whole grapheme from `text` through Binding, decrements cursor, and adjusts reveal.                                                             | yes                                                 |
+| Delete              | focused and effective enabled and cursor grapheme offset less than graphemeCount(text) | Removes the following whole grapheme from `text` through Binding and adjusts reveal.                                                                                 | yes                                                 |
+| Enter               | focused and effective enabled and has submit handler is true                           | Invokes the app-owned submit handler with the current `text`; widget state and Binding are otherwise unchanged.                                                      | yes                                                 |
+| Enter               | focused and effective enabled and has submit handler is false                          | Leaves all state unchanged so an ancestor may handle submit.                                                                                                         | no                                                  |
+| Tab                 | focused                                                                                | Leaves all state unchanged so focus traversal may bubble to an app handler.                                                                                          | no                                                  |
+| Esc                 | focused                                                                                | Leaves all state unchanged so dismissal or focus clearing may bubble to an app handler.                                                                              | no                                                  |
 
 ## Paste-input contract
 
@@ -354,8 +357,8 @@ cluster as an interior cursor position.
 | Event        | Region     | Precondition               | Effect                                                                                                                                                                                                           | Consumed |
 | ------------ | ---------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
 | click        | input line | effective enabled          | Maps the x cell plus `horizontal reveal offset` to the nearest legal grapheme boundary, sets `cursor grapheme offset`, adjusts reveal, and requests redraw; built-in click-to-focus occurs before this delivery. | yes      |
-| double-click | input line | effective enabled          | Leaves all state unchanged; word selection is outside the single-caret 1.0 scope and bubbles.                                                                                                                    | no       |
-| drag         | input line | always                     | Leaves all state unchanged; range selection is outside 1.0 and bubbles.                                                                                                                                          | no       |
+| double-click | input line | effective enabled          | Leaves the keyboard selection anchor/cursor unchanged; word-wise pointer selection is outside this single-line interaction slice and bubbles.                                                                    | no       |
+| drag         | input line | always                     | Leaves the keyboard selection anchor/cursor unchanged; pointer range selection is outside this interaction slice and bubbles.                                                                                    | no       |
 | click        | input line | effective enabled is false | Leaves `text`, cursor, and reveal unchanged.                                                                                                                                                                     | no       |
 
 ## Sizing
@@ -380,10 +383,10 @@ and respect the offered bounds. `nil` is the layout protocol's unconstrained axi
   degraded frame glyphs.
 - The [degradation ladder](../tokens.md#degradation-ladder) governs `NO_COLOR`, 16-color,
   and ASCII-only fallbacks.
-- The Slice 7 style environment supplies the standard/default `TextFieldStyle`, custom
-  `textFieldStyle(_:)` override, inherited enabled configuration, and the complete
-  semantic `Style` values `semantic.primary`, `semantic.secondary`, `semantic.accent`,
-  `semantic.disabled`, and `semantic.destructive`.
+- The field consumes inherited enabled state and the complete semantic `Style` values
+  `semantic.primary`, `semantic.secondary`, `semantic.accent`, and `semantic.disabled`;
+  `TextFieldStyle` and `textFieldStyle(_:)` remain future/open direction rather than this
+  P4.5 acceptance requirement.
 
 ## Primitive dependencies
 
@@ -404,8 +407,8 @@ and respect the offered bounds. `nil` is the layout protocol's unconstrained axi
 2. Slice 5 supplies the click-to-caret dependency only; it does not expose TextField
    pointer behavior.
 3. Slice 7 ships the renamed controlled TextField: hardware cursor, Binding edits,
-   grapheme cursor/reveal, paste/newline normalization, submit, system/default and custom
-   `TextFieldStyle`, and deterministic buffer/cursor fixtures.
+   grapheme cursor/selection/reveal, paste/newline normalization, submit, and
+   deterministic buffer/cursor fixtures. Custom `TextFieldStyle` remains future/open.
 4. Only secure entry is deferred until post-1.0.
 
 ## Requirements
@@ -418,6 +421,10 @@ and respect the offered bounds. `nil` is the layout protocol's unconstrained axi
   (Paste-input contract: software keyboard and dictation; key table: printable character)
 - `text field clamps its cursor after the app replaces bound text` (state model: cursor
   grapheme offset)
+- `text field clamps its selection anchor after the app replaces bound text` (state model:
+  selection anchor grapheme offset)
+- `text field replaces whole selected graphemes through its binding` (state model:
+  selected grapheme range; key table: printable character)
 - `text field never positions caret inside CJK emoji or combining graphemes` (Grapheme,
   CJK, emoji, and combining marks wireframe; key table: Left)
 - `text field reveals the hardware caret without inserting an ellipsis into editable text`
@@ -432,6 +439,8 @@ and respect the offered bounds. `nil` is the layout protocol's unconstrained axi
   key table: Delete)
 - `text field maps an enabled input-line click to a grapheme boundary` (mouse table: click
   with effective enabled)
+- `text field requests a focused enabled hardware cursor at its visible caret boundary`
+  (state model: caret terminal position; render contract: no software cursor)
 - `text field leaves disabled bindings and routing untouched` (Disabled wireframe; key
   table: printable character; mouse table: disabled click)
 - `text field reports a 17x4 ideal and tight default-style size` (sizing: nil x nil;

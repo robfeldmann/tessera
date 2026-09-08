@@ -41,6 +41,10 @@ public final class ViewGraph {
   private weak var publishedFocusedNode: RuntimeNode?
   private var pointerCaptureID: NodeIdentity?
   private var pointerCaptureTargetID: NodeIdentity?
+  private var hoveredIDs: Set<NodeIdentity> = []
+  // Initial focus IDs are collected before the first layout; afterward zero-frame
+  // nodes are ineligible, while nonzero clipped/offscreen candidates remain valid.
+  private var hasCompletedLayout = false
   /// Focus state and live document-order identities owned by this graph.
   public let focus = FocusManager()
   /// Work recorded by the most recently completed graph passes.
@@ -114,6 +118,9 @@ extension ViewGraph {
       environmentOverrides: []
     )
     refreshInteractionState()
+    if !terminalRequirements.wantsMouseMotion {
+      clearHovered()
+    }
     validatePointerCapture()
     if terminalRequirements != previousRequirements {
       statistics.terminalRequirementChanges += 1
@@ -136,7 +143,11 @@ extension ViewGraph {
     let rootFrame = Rect(column: 0, row: 0, columns: size.columns, rows: size.rows)
     place(rootNode, in: rootFrame, clip: rootFrame)
     clearLayoutFlags(rootNode)
+    hasCompletedLayout = true
     refreshLayoutDependentFocusIDs()
+    // Layout can place a newly inserted focus target without changing its declared ID.
+    // Refresh unconditionally so pending binding requests become focusable immediately.
+    refreshInteractionState()
     resolveFocusAppearanceIfNeeded()
     statistics.layoutDuration = start.duration(to: clock.now)
   }
@@ -171,11 +182,47 @@ extension ViewGraph {
     markSubtreeNeedsLayout(rootNode)
   }
 
+  /// Reveals the focused descendant through every enclosing scroll responder.
+  ///
+  /// This is a layout-time policy owned by the graph driver, not by a focusable leaf. The
+  /// completed frames are used to adjust only the nearest scroll ancestors that cannot
+  /// currently contain the focused bounds; no focus or model value is changed.
+  @discardableResult
+  public func revealFocusedContent() -> Bool {
+    layoutIfNeeded()
+    guard let focusedID = focus.focused,
+      let focusedNode = firstNode(withFocusID: focusedID, in: rootNode)
+    else {
+      return false
+    }
+    var changed = false
+    var ancestor = focusedNode.parent
+    while let node = ancestor {
+      if let storage = node.responderStorage {
+        var context = ResponderContext(
+          nodeBounds: node.frame,
+          isFocused: false,
+          isFocusWithin: true,
+          requestFocus: { [weak self] id in self?.focus.focus(id) },
+          requestFocusAdvance: { [weak self] direction in self?.focus.advance(direction) }
+        )
+        if storage.revealFocus(focusedNode.frame, context: &context) {
+          changed = true
+          apply(context, to: node)
+          refreshResponderPresentation(node)
+        }
+      }
+      ancestor = node.parent
+    }
+    return changed
+  }
+
   /// Routes focused key and paste events leaf-first through ancestor responders, and routes
   /// pointer phases through current geometry and pointer capture.
   public func dispatch(_ event: InputEvent) -> EventDisposition {
     if case .focusLost = event {
       cancelPointerCapture()
+      clearHovered()
       cancelResponderInteractions(in: rootNode)
       focus.focus(nil)
       return .handled
@@ -248,7 +295,7 @@ extension ViewGraph {
           focus.focus(focusID)
         }
         guard let resolvedTarget = firstNode(withIdentity: target.identity, in: rootNode),
-          resolvedTarget.responderStorage != nil
+          resolvedTarget.responderStorage != nil || resolvedTarget.leafStorage != nil
         else {
           return .ignored
         }
@@ -265,10 +312,28 @@ extension ViewGraph {
       }
 
     case .move:
+      let hoverDisposition = updateHover(at: event.position)
       guard let owner = capturedNode() else {
-        return .ignored
+        return hoverDisposition
       }
-      return handlePointer(event, on: owner)
+      let disposition = handlePointer(event, on: owner)
+      return disposition == .ignored ? hoverDisposition : disposition
+
+    case .scrollUp, .scrollDown, .scrollLeft, .scrollRight:
+      switch hitTestResult(event.position, in: rootNode) {
+      case .outside:
+        return .ignored
+      case .blocked(let blocked):
+        return dispatchPointerToAncestors(
+          event, from: blocked.parent, targetID: blocked.identity)
+      case .target(let target):
+        let disposition = handlePointer(event, on: target)
+        if disposition != .ignored {
+          return disposition
+        }
+        return dispatchPointerToAncestors(
+          event, from: target.parent, targetID: target.identity)
+      }
 
     case .up:
       guard let owner = capturedNode() else {
@@ -671,6 +736,7 @@ extension ViewGraph {
 
   private func place(_ node: RuntimeNode, in frame: Rect, clip: Rect) {
     node.frame = frame
+    node.hasCompletedLayout = true
     node.clip =
       frame.intersection(clip)
       ?? Rect(column: frame.origin.column, row: frame.origin.row, columns: 0, rows: 0)
@@ -968,8 +1034,10 @@ extension ViewGraph {
 
   private func refreshInteractionState() {
     var ids: [FocusID] = []
+    var pendingIDs: [FocusID] = []
     var bindings: [_FocusBindingRegistration] = []
-    collectInteractionState(rootNode, ids: &ids, bindings: &bindings)
+    collectInteractionState(
+      rootNode, ids: &ids, pendingIDs: &pendingIDs, bindings: &bindings)
     var restorationGroups: [NodeIdentity: _FocusRestorationGroupState] = [:]
     collectFocusRestorationState(
       rootNode,
@@ -983,7 +1051,7 @@ extension ViewGraph {
     focusRestorationGroups = restorationGroups
     let previousBindings = focusBindings
     focusBindings = previousBindings + bindings
-    focus.replaceFocusableIDs(ids)
+    focus.replaceFocusableIDs(ids, preserving: Set(pendingIDs))
     applyFocusRestoration(
       previousFocused: previousFocused,
       previousGroups: previousGroups,
@@ -999,7 +1067,7 @@ extension ViewGraph {
     {
       focus.focus(nil)
     } else {
-      synchronizeFocusBindings(focusBindings)
+      synchronizeFocusBindings(focusBindings, preserving: Set(pendingIDs))
     }
     focusBindings = bindings
     updatePublishedFocusedNode()
@@ -1033,16 +1101,34 @@ extension ViewGraph {
   private func collectInteractionState(
     _ node: RuntimeNode,
     ids: inout [FocusID],
-    bindings: inout [_FocusBindingRegistration]
+    pendingIDs: inout [FocusID],
+    bindings: inout [_FocusBindingRegistration],
+    ancestorEligible: Bool = true
   ) {
+    let nodeHasArea = node.frame.size.columns > 0 && node.frame.size.rows > 0
+    let eligible =
+      ancestorEligible
+      && (!hasCompletedLayout || (node.hasCompletedLayout && nodeHasArea))
     if let focusID = node.focusID {
-      ids.append(focusID)
+      if eligible {
+        ids.append(focusID)
+      } else if !node.hasCompletedLayout {
+        // Keep a binding request alive until this newly inserted node receives its
+        // first placement; it is not added to traversal IDs until then.
+        pendingIDs.append(focusID)
+      }
     }
     if let focusBinding = node.focusBinding {
       bindings.append(focusBinding)
     }
     for child in node.children {
-      collectInteractionState(child, ids: &ids, bindings: &bindings)
+      collectInteractionState(
+        child,
+        ids: &ids,
+        pendingIDs: &pendingIDs,
+        bindings: &bindings,
+        ancestorEligible: eligible
+      )
     }
   }
 
@@ -1294,10 +1380,14 @@ extension ViewGraph {
     }
   }
 
-  private func synchronizeFocusBindings(_ bindings: [_FocusBindingRegistration]) {
+  private func synchronizeFocusBindings(
+    _ bindings: [_FocusBindingRegistration],
+    preserving pendingIDs: Set<FocusID> = []
+  ) {
     for registration in bindings
     where registration.binding.wrappedValue == registration.id
       && registration.id != focus.focused
+      && !pendingIDs.contains(registration.id)
     {
       registration.binding.wrappedValue = nil
     }
@@ -1350,8 +1440,8 @@ extension ViewGraph {
       }
     }
     if node.responderStorage != nil
-      || node.leafStorage != nil
       || node.view is any _KeyHandlerView
+      || (node.leafStorage != nil && node.view is any InputLeafView)
     {
       return node
     }
@@ -1404,7 +1494,7 @@ extension ViewGraph {
   ) -> EventDisposition {
     guard node.environment.isEnabled,
       node.environment._allowsHitTesting,
-      let responderStorage = node.responderStorage
+      node.responderStorage != nil || node.leafStorage != nil
     else {
       return .ignored
     }
@@ -1416,7 +1506,14 @@ extension ViewGraph {
       requestFocus: { [weak self] id in self?.focus.focus(id) },
       requestFocusAdvance: { [weak self] direction in self?.focus.advance(direction) }
     )
-    let disposition = responderStorage.handlePointer(event, context: &context)
+    let disposition: EventDisposition
+    if let responderStorage = node.responderStorage {
+      disposition = responderStorage.handlePointer(event, context: &context)
+    } else if let leafStorage = node.leafStorage {
+      disposition = leafStorage.handlePointer(event, context: &context)
+    } else {
+      disposition = .ignored
+    }
     apply(context, to: node)
     refreshResponderPresentation(node)
     return disposition
@@ -1430,7 +1527,7 @@ extension ViewGraph {
     while let current = node {
       if current.environment.isEnabled,
         current.environment._allowsHitTesting,
-        current.responderStorage != nil
+        current.responderStorage != nil || current.leafStorage != nil
       {
         pointerCaptureID = current.identity
         pointerCaptureTargetID = targetID
@@ -1446,6 +1543,75 @@ extension ViewGraph {
     return .ignored
   }
 
+  private func updateHover(at position: TerminalPosition) -> EventDisposition {
+    let path = hoverPath(at: position, in: rootNode)
+    let nextIDs = Set(path.map(\.identity))
+    guard nextIDs != hoveredIDs else {
+      return .ignored
+    }
+    let oldIDs = hoveredIDs
+    hoveredIDs = nextIDs
+    for id in oldIDs.subtracting(nextIDs).sorted(by: { $0.description < $1.description }) {
+      if let node = firstNode(withIdentity: id, in: rootNode) {
+        setHover(false, on: node)
+      }
+    }
+    for node in path where !oldIDs.contains(node.identity) {
+      setHover(true, on: node)
+    }
+    return .handled
+  }
+
+  private func clearHovered() {
+    guard !hoveredIDs.isEmpty else {
+      return
+    }
+    let ids = hoveredIDs
+    hoveredIDs.removeAll()
+    for id in ids.sorted(by: { $0.description < $1.description }) {
+      if let node = firstNode(withIdentity: id, in: rootNode) {
+        setHover(false, on: node)
+      }
+    }
+  }
+
+  private func hoverPath(at position: TerminalPosition, in node: RuntimeNode)
+    -> [RuntimeNode]
+  {
+    guard node.environment._allowsHitTesting, node.clip.contains(position) else {
+      return []
+    }
+    var path: [RuntimeNode] = []
+    for child in node.children.reversed() {
+      let childPath = hoverPath(at: position, in: child)
+      if !childPath.isEmpty {
+        path = childPath
+        break
+      }
+    }
+    if node.frame.contains(position), node.view is any _HoverResponderView {
+      path.append(node)
+    }
+    return path
+  }
+
+  private func setHover(_ isHovered: Bool, on node: RuntimeNode) {
+    guard node.environment.isEnabled, node.environment._allowsHitTesting,
+      let responderStorage = node.responderStorage
+    else { return }
+    let focusedNode = focus.focused.flatMap { firstNode(withFocusID: $0, in: rootNode) }
+    var context = ResponderContext(
+      nodeBounds: node.frame,
+      isFocused: focusedNode.map { isDescendant(node, of: $0) } ?? false,
+      isFocusWithin: focusedNode.map { isDescendant($0, of: node) } ?? false,
+      requestFocus: { [weak self] id in self?.focus.focus(id) },
+      requestFocusAdvance: { [weak self] direction in self?.focus.advance(direction) }
+    )
+    responderStorage.handleHover(isHovered, context: &context)
+    apply(context, to: node)
+    refreshResponderPresentation(node)
+  }
+
   private func projectResponderState(
     of node: RuntimeNode,
     into environment: inout EnvironmentValues
@@ -1459,6 +1625,9 @@ extension ViewGraph {
       projection.isPointerCaptured || pointerCaptureID == node.identity
     node.responderStateProjection = projection
     environment._responderStateProjection = projection
+    environment.isHovered = projection.isHovered
+    let focusedNode = focus.focused.flatMap { firstNode(withFocusID: $0, in: rootNode) }
+    environment.isFocusWithin = focusedNode.map { isDescendant($0, of: node) } ?? false
   }
 
   private func refreshResponderPresentation(_ node: RuntimeNode) {
@@ -1476,6 +1645,9 @@ extension ViewGraph {
     }
     var environment = node.environment
     environment._responderStateProjection = projection
+    environment.isHovered = projection.isHovered
+    let focusedNode = focus.focused.flatMap { firstNode(withFocusID: $0, in: rootNode) }
+    environment.isFocusWithin = focusedNode.map { isDescendant($0, of: node) } ?? false
     var children: [_ViewChild] = []
     structural._visitChildren(
       in: environment,
@@ -1512,7 +1684,7 @@ extension ViewGraph {
   }
 
   private func cancelPointerInteraction(on node: RuntimeNode, refresh: Bool = true) {
-    guard let responderStorage = node.responderStorage else {
+    guard node.responderStorage != nil || node.leafStorage != nil else {
       return
     }
     let focusedNode = focus.focused.flatMap { firstNode(withFocusID: $0, in: rootNode) }
@@ -1523,8 +1695,13 @@ extension ViewGraph {
       requestFocus: { [weak self] id in self?.focus.focus(id) },
       requestFocusAdvance: { [weak self] direction in self?.focus.advance(direction) }
     )
-    _ = responderStorage.handlePointer(
-      PointerEvent(phase: .cancel, position: node.frame.origin), context: &context)
+    if let responderStorage = node.responderStorage {
+      _ = responderStorage.handlePointer(
+        PointerEvent(phase: .cancel, position: node.frame.origin), context: &context)
+    } else if let leafStorage = node.leafStorage {
+      _ = leafStorage.handlePointer(
+        PointerEvent(phase: .cancel, position: node.frame.origin), context: &context)
+    }
     apply(context, to: node)
     if refresh {
       refreshResponderPresentation(node)
@@ -1616,7 +1793,10 @@ extension ViewGraph {
     guard node.environment.isEnabled else {
       return .blocked(node)
     }
-    guard node.view is any _PointerResponderView else {
+    guard
+      node.view is any _PointerResponderView
+        || (node.leafStorage != nil && node.view is any InputLeafView)
+    else {
       return .outside
     }
     return .target(node)

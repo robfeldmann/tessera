@@ -1,6 +1,11 @@
+import TesseraTerminal
 import TesseraTerminalSnapshotSupport
 
 /// Exports the observed terminal cells in a screen snapshot as a deliberately bounded SVG.
+/// It uses the canonical terminal cell width resolver and preserves each captured cell's
+/// background, but its generic monospace text rasterization is not pixel-canonical.
+/// SVG output is intended for readable review; exact styled-cell snapshots are the portable
+/// oracle across fonts, platforms, and rasterizers.
 package enum CellImageExporter {
   /// Errors are explicit rather than silently changing an observed cell into a different image.
   package enum Error: Swift.Error, Equatable, CustomStringConvertible {
@@ -10,7 +15,7 @@ package enum CellImageExporter {
     case underlineColorWithoutUnderline
     case underlineStyleUnsupported
     case unsupportedCharacter(Character)
-
+    case xmlInvalidControl(Character)
     package var description: String {
       switch self {
       case .dimensionsOverflow:
@@ -23,16 +28,18 @@ package enum CellImageExporter {
         return "an underline color cannot be represented without an underline"
       case .underlineStyleUnsupported:
         return "underline style is not supported; only single underline is supported"
-      case .unsupportedCharacter(let character):
+      case .xmlInvalidControl(let character):
         return
-          "character \(String(character)) is outside the printable ASCII exporter scope"
+          "XML 1.0 does not permit control character U+\(String(character.unicodeScalars.first?.value ?? 0, radix: 16).uppercased())"
+      case .unsupportedCharacter(let character):
+        return "character \(String(character)) is not a representable terminal grapheme"
       }
     }
   }
 
   /// Constants are part of the image format and must change with the exporter version.
   package enum Constants {
-    package static let version = "1"
+    package static let version = "2"
     package static let cellWidth = 10
     package static let cellHeight = 20
     package static let fontFamily = "monospace"
@@ -85,7 +92,14 @@ package enum CellImageExporter {
     output +=
       "<desc>Observed terminal cells. The cursor outline is a diagnostic coordinate marker, not observed cursor visibility or shape.</desc>"
 
+    output +=
+      "<defs><clipPath id=\"viewport-clip\"><rect x=\"0\" y=\"0\" width=\"\(width)\" height=\"\(height)\"/></clipPath></defs>"
+    output += "<g clip-path=\"url(#viewport-clip)\">"
+    // Ghostty's projection returns a space for trailing cells covered by a wide grapheme.
+    // Keep their captured rectangles and styles, while suppressing duplicate text. The
+    // canonical width on Cell supplies the span; clipped spans remain clipped by this group.
     for (row, cells) in screen.cells.enumerated() {
+      var continuationColumnsRemaining = 0
       for (column, cell) in cells.enumerated() {
         let x = column * Constants.cellWidth
         let y = row * Constants.cellHeight
@@ -97,8 +111,18 @@ package enum CellImageExporter {
         output +=
           "<rect x=\"\(x)\" y=\"\(y)\" width=\"\(Constants.cellWidth)\" height=\"\(Constants.cellHeight)\" fill=\"\(effectiveBackground)\"/>"
 
+        if continuationColumnsRemaining > 0 {
+          continuationColumnsRemaining -= 1
+          continue
+        }
+
+        let span = Cell(character: cell.character).width
+        if span > 1 {
+          continuationColumnsRemaining = min(span - 1, cells.count - column - 1)
+        }
+
         var attributes =
-          " x=\"\(x + Constants.cellWidth / 2)\" y=\"\(y + Constants.baselineOffset)\""
+          " x=\"\(x + span * Constants.cellWidth / 2)\" y=\"\(y + Constants.baselineOffset)\""
         attributes +=
           " fill=\"\(effectiveForeground)\" font-family=\"\(Constants.fontFamily)\""
         attributes +=
@@ -122,6 +146,7 @@ package enum CellImageExporter {
         output += "<text\(attributes)>\(escapeXML(String(cell.character)))</text>"
       }
     }
+    output += "</g>"
 
     let cursor = screen.cursor
     if cursor.column >= 0, cursor.column < columnCount,
@@ -138,12 +163,14 @@ package enum CellImageExporter {
   }
 
   private static func validate(_ cell: RenderedCell) throws {
-    let scalars = cell.character.unicodeScalars
-    guard scalars.count == 1,
-      let scalar = scalars.first,
-      scalar.value >= 0x20,
-      scalar.value <= 0x7E
-    else {
+    for scalar in cell.character.unicodeScalars {
+      let value = scalar.value
+      if value < 0x20 || (0x7F...0x9F).contains(value) {
+        throw Error.xmlInvalidControl(cell.character)
+      }
+    }
+
+    guard Cell(character: cell.character).width > 0 else {
       throw Error.unsupportedCharacter(cell.character)
     }
 

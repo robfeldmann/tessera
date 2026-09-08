@@ -45,25 +45,40 @@ struct CellImageExporterTests {
   }
 
   @Test
-  func `rejects non-printable characters with a typed error`() {
+  func exportsUnicodeGraphemesAndKeepsContinuationStyles() throws {
     let screen = ScreenSnapshot(
-      cells: [[cell("é")]],
+      cells: [
+        [
+          cell("╭"),
+          cell("界", background: .rgb(0x12, 0x34, 0x56)),
+          cell(" ", background: .rgb(0x65, 0x43, 0x21)),
+          cell("é"),
+        ]
+      ],
       cursor: TerminalPosition(column: 0, row: 0)
     )
 
-    #expect(throws: CellImageExporter.Error.unsupportedCharacter("é")) {
-      try CellImageExporter.svg(screen)
-    }
+    let image = try CellImageExporter.svg(screen)
+
+    #expect(image.contains("╭</text>"))
+    #expect(image.contains("界</text>"))
+    #expect(image.contains("é</text>"))
+    #expect(image.contains("fill=\"#123456\""))
+    #expect(image.contains("fill=\"#654321\""))
+    #expect(image.contains("clipPath"))
+    #expect(image.contains("x=\"20\" y=\"15\""))
+    #expect(!image.contains("x=\"25\" y=\"15\""))
   }
 
   @Test
-  func `rejects hyperlinks instead of dropping them`() {
+  func rejectsXMLInvalidControlsWithTypedError() {
+    let control = Character(String(UnicodeScalar(0x07)!))
     let screen = ScreenSnapshot(
-      cells: [[cell("x", hyperlinkURI: "https://example.invalid")]],
+      cells: [[cell(control)]],
       cursor: TerminalPosition(column: 0, row: 0)
     )
 
-    #expect(throws: CellImageExporter.Error.hyperlinkUnsupported) {
+    #expect(throws: CellImageExporter.Error.xmlInvalidControl(control)) {
       try CellImageExporter.svg(screen)
     }
   }

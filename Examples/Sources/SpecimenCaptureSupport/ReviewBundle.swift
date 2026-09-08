@@ -33,6 +33,7 @@ package enum ReviewBundle {
         "sequence": checkpoint.sequence,
         "label": checkpoint.label,
         "state": checkpoint.state,
+        "inputTrace": checkpoint.inputTrace,
         "cursor": ["column": screen.cursor.column, "row": screen.cursor.row],
         "cells": screen.cells.map { $0.map(cellProjection) },
       ]
@@ -40,6 +41,9 @@ package enum ReviewBundle {
         to: directory.appendingPathComponent("\(name).json"), options: .atomic)
       try Data(checkpoint.structure.utf8).write(
         to: directory.appendingPathComponent("\(name).graph.txt"), options: .atomic
+      )
+      try Data(checkpoint.inputTrace.joined(separator: "\n").appending("\n").utf8).write(
+        to: directory.appendingPathComponent("\(name).input.txt"), options: .atomic
       )
       let text =
         screen.cells.map { String($0.map(\.character)) }.joined(separator: "\n") + "\n"
@@ -52,6 +56,7 @@ package enum ReviewBundle {
         "name": name,
         "columns": screen.cells.first?.count ?? 0,
         "rows": screen.cells.count,
+        "inputTraceFile": "\(name).input.txt",
       ])
     }
     let manifest: [String: Any] = [
@@ -70,7 +75,9 @@ package enum ReviewBundle {
         "defaultForeground": CellImageExporter.Constants.defaultForeground,
         "defaultBackground": CellImageExporter.Constants.defaultBackground,
         "rasterizer": "SVG; viewer-dependent, not a canonical pixel baseline",
-        "glyphs": "printable ASCII only; unsupported glyphs and attributes fail",
+        "glyphs":
+          "Unicode graphemes use canonical terminal cell widths; "
+          + "XML-invalid controls and unsupported attributes fail",
         "cursor": "coordinate marker only; visibility and shape not observed",
       ],
       "checkpoints": frames,

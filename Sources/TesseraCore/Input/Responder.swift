@@ -61,6 +61,7 @@ package protocol _KeyHandlerView {
 package struct _ResponderStateProjection {
   package var isPressed = false
   package var isPointerCaptured = false
+  package var isHovered = false
 }
 
 private struct _ResponderStateProjectionKey: EnvironmentKey {
@@ -77,14 +78,35 @@ extension EnvironmentValues {
     get { self[_AllowsHitTestingKey.self] }
     set { self[_AllowsHitTestingKey.self] = newValue }
   }
+
+  /// Whether the pointer is currently inside this view's hit-tested bounds.
+  public var isHovered: Bool {
+    get { self[_IsHoveredKey.self] }
+    set { self[_IsHoveredKey.self] = newValue }
+  }
+
+  package var _isHovered: Bool {
+    get { self[_IsHoveredKey.self] }
+    set { self[_IsHoveredKey.self] = newValue }
+  }
 }
 
 private struct _AllowsHitTestingKey: EnvironmentKey {
   static let defaultValue = true
 }
 
+private struct _IsHoveredKey: EnvironmentKey {
+  static let defaultValue = false
+}
+
 /// Marks a responder as an eligible pointer hit target.
 package protocol _PointerResponderView {}
+
+/// Marks a responder that receives enter/exit transitions for pointer motion.
+package protocol _HoverResponderView {}
+
+/// Marks a stateful input leaf that consumes bracketed paste events.
+package protocol _BracketedPasteResponderLeaf {}
 
 /// Internal event-routing seam for structural views and event-only state.
 ///
@@ -107,6 +129,16 @@ package protocol _ResponderView: View {
     state: inout ResponderState,
     context: inout ResponderContext
   ) -> EventDisposition
+  func _handleHover(
+    _ isHovered: Bool,
+    state: inout ResponderState,
+    context: inout ResponderContext
+  )
+  func _revealFocus(
+    _ focusedBounds: Rect,
+    state: inout ResponderState,
+    context: inout ResponderContext
+  ) -> Bool
   func _cancelResponderState(_ state: inout ResponderState)
   func _updateResponderStateProjection(
     _ projection: inout _ResponderStateProjection,
@@ -115,6 +147,16 @@ package protocol _ResponderView: View {
 }
 
 extension _ResponderView {
+  package func _handleHover(
+    _ isHovered: Bool,
+    state: inout ResponderState,
+    context: inout ResponderContext
+  ) {}
+  package func _revealFocus(
+    _ focusedBounds: Rect,
+    state: inout ResponderState,
+    context: inout ResponderContext
+  ) -> Bool { false }
   package func _updateResponderState(_ state: inout ResponderState) {}
   package func _handlePointer(
     _ event: PointerEvent,
@@ -212,6 +254,65 @@ private struct _FocusedModifier<Content: View>: View, _FocusBindingView, _Struct
         environmentOverrides: environmentOverrides
       )
     )
+  }
+}
+
+private struct _OnHoverModifier<Content: View>: View, _ResponderView,
+  _HoverResponderView, _PointerResponderView,
+  _StructuralView, _TerminalRequirementsView
+{
+  typealias Body = Never
+  typealias ResponderState = Bool
+
+  let content: Content
+  let handler: (Bool, inout ResponderContext) -> Void
+
+  var _terminalRequirements: TerminalRequirements {
+    TerminalRequirements(wantsMouse: true, wantsMouseMotion: true)
+  }
+
+  func _makeResponderState() -> Bool { false }
+
+  func _updateResponderStateProjection(
+    _ projection: inout _ResponderStateProjection,
+    state: Bool
+  ) {
+    projection.isHovered = state
+  }
+
+  func _handleHover(
+    _ isHovered: Bool,
+    state: inout Bool,
+    context: inout ResponderContext
+  ) {
+    guard state != isHovered else {
+      return
+    }
+    state = isHovered
+    handler(isHovered, &context)
+  }
+
+  func _handleEvent(
+    _ event: InputEvent,
+    state: inout Bool,
+    context: inout ResponderContext
+  ) -> EventDisposition { .ignored }
+
+  func _handlePointer(
+    _ event: PointerEvent,
+    state: inout Bool,
+    context: inout ResponderContext
+  ) -> EventDisposition { .ignored }
+
+  func _visitChildren(
+    in environment: EnvironmentValues,
+    environmentOverrides: [String],
+    _ visit: (_ViewChild) -> Void
+  ) {
+    visit(
+      _ViewChild(
+        slot: .index(0), view: content, environment: environment,
+        environmentOverrides: environmentOverrides))
   }
 }
 
@@ -368,6 +469,16 @@ extension View {
   /// Synchronizes this focus identity with application-owned focus state.
   public func focused(_ binding: Binding<FocusID?>, equals id: FocusID) -> some View {
     _FocusedModifier(content: self, binding: binding, id: id)
+  }
+
+  /// Calls the handler when pointer motion enters or leaves this view.
+  ///
+  /// Hover requires any-event mouse tracking. The callback is delivered only when the
+  /// hit-tested state changes; focus loss and tracking withdrawal deliver a final false.
+  public func onHover(
+    perform handler: @escaping (Bool, inout ResponderContext) -> Void
+  ) -> some View {
+    _OnHoverModifier(content: self, handler: handler)
   }
 
   /// Controls whether this subtree participates in pointer hit testing.

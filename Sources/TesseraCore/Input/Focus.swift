@@ -16,6 +16,10 @@ private enum _IsFocusedKey: EnvironmentKey {
   static let defaultValue = false
 }
 
+private enum _IsFocusWithinKey: EnvironmentKey {
+  static let defaultValue = false
+}
+
 private struct _FocusEnvironment: Equatable {
   let manager: FocusManager
 
@@ -33,6 +37,12 @@ extension EnvironmentValues {
   public var isFocused: Bool {
     get { self[_IsFocusedKey.self] }
     set { self[_IsFocusedKey.self] = newValue }
+  }
+
+  /// Whether the current focus is owned by this view or a live descendant.
+  public var isFocusWithin: Bool {
+    get { self[_IsFocusWithinKey.self] }
+    set { self[_IsFocusWithinKey.self] = newValue }
   }
 
   package var _focusManager: FocusManager? {
@@ -95,10 +105,13 @@ public final class FocusManager {
     }
   }
 
-  package func replaceFocusableIDs(_ ids: [FocusID]) {
+  package func replaceFocusableIDs(
+    _ ids: [FocusID],
+    preserving pendingIDs: Set<FocusID> = []
+  ) {
     var seen: Set<FocusID> = []
     focusableIDs = ids.filter { seen.insert($0).inserted }
-    if let focused, !seen.contains(focused) {
+    if let focused, !seen.contains(focused), !pendingIDs.contains(focused) {
       focus(nil)
     }
   }

@@ -1,6 +1,7 @@
 import TesseraCore
 import TesseraLayout
 import TesseraTerminalCore
+import TesseraTerminalInput
 
 /// Application-owned sizing configuration for one pane in a ``SplitView``.
 public struct SplitViewPaneSizing: Hashable {
@@ -67,16 +68,19 @@ public struct SplitView<Content: View>: View, _LayoutView {
 
   private let axis: Binding<Axis>
   private let panes: Binding<[SplitViewPane]>
+  private let keyboardResizingEnabled: Binding<Bool>
   private let content: Content
 
   /// Creates a controlled split view.
   public init(
     axis: Binding<Axis> = .constant(.horizontal),
     panes: Binding<[SplitViewPane]>,
+    keyboardResizingEnabled: Binding<Bool> = .constant(true),
     @ViewBuilder content: () -> Content
   ) {
     self.axis = axis
     self.panes = panes
+    self.keyboardResizingEnabled = keyboardResizingEnabled
     self.content = content()
   }
 
@@ -139,7 +143,13 @@ public struct SplitView<Content: View>: View, _LayoutView {
               )
             )
           ),
-          view: Divider(),
+          view: _SplitViewDivider(
+            axis: splitAxis,
+            leadingID: configuration[index].id,
+            trailingID: configuration[followingVisiblePane].id,
+            panes: panes,
+            keyboardResizingEnabled: keyboardResizingEnabled
+          ),
           environment: childEnvironment,
           environmentOverrides: child.environmentOverrides + ["stackAxis"]
         )
@@ -314,6 +324,294 @@ private struct _SplitPane<Content: View>: View, _LayoutView {
   }
 }
 
+private struct _SplitDividerFocusKey: Hashable, Sendable {
+  let leading: String
+  let trailing: String
+}
+
+private struct _SplitViewDrag {
+  let axis: Axis
+  let origin: Int
+  let leadingStart: Int
+  let trailingStart: Int
+}
+// The responder's associated types and lifecycle hooks stay adjacent.
+// swiftlint:disable type_contents_order
+private struct _SplitViewDivider: View, _LayoutView, _ResponderView,
+  _PointerResponderView, _FocusableView, _TerminalRequirementsView
+{
+  let axis: Axis
+  let leadingID: AnyHashable
+  let trailingID: AnyHashable
+  let panes: Binding<[SplitViewPane]>
+  let keyboardResizingEnabled: Binding<Bool>
+
+  typealias Body = Never
+
+  struct ResponderState {
+    var drag: _SplitViewDrag?
+  }
+
+  package var _terminalRequirements: TerminalRequirements {
+    TerminalRequirements(
+      wantsKeyboardEnhancement: true,
+      wantsMouse: true,
+      wantsFocusReporting: true
+    )
+  }
+
+  package func _makeResponderState() -> ResponderState {
+    ResponderState(drag: nil)
+  }
+
+  package func _updateResponderState(_ state: inout ResponderState) {
+    guard keyboardResizingEnabled.wrappedValue,
+      axisPair() != nil,
+      state.drag?.axis == nil || state.drag?.axis == axis
+    else {
+      state.drag = nil
+      return
+    }
+    guard let drag = state.drag, axisPair() != nil else {
+      return
+    }
+    if drag.axis != axis {
+      state.drag = nil
+    }
+  }
+
+  package func _updateResponderStateProjection(
+    _ projection: inout _ResponderStateProjection,
+    state: ResponderState
+  ) {
+    projection.isPressed = state.drag != nil
+    projection.isPointerCaptured = state.drag != nil
+  }
+
+  package func _cancelResponderState(_ state: inout ResponderState) {
+    state.drag = nil
+  }
+
+  package func _handlePointer(
+    _ event: PointerEvent,
+    state: inout ResponderState,
+    context: inout ResponderContext
+  ) -> EventDisposition {
+    guard keyboardResizingEnabled.wrappedValue else {
+      state.drag = nil
+      return .ignored
+    }
+    switch event.phase {
+    case .down where event.button == .left:
+      guard state.drag == nil, let pair = axisPair(), pair.isAdjustable else {
+        return .ignored
+      }
+      state.drag = _SplitViewDrag(
+        axis: axis,
+        origin: main(of: event.position),
+        leadingStart: pair.leading.sizing.requestedIdeal,
+        trailingStart: pair.trailing.sizing.requestedIdeal
+      )
+      context.setNeedsDisplay()
+      return .handled
+
+    case .move:
+      guard let drag = state.drag, drag.axis == axis, axisPair() != nil else {
+        state.drag = nil
+        return .ignored
+      }
+      let delta = main(of: event.position) - drag.origin
+      apply(
+        leading: drag.leadingStart + delta,
+        trailing: drag.trailingStart - delta
+      )
+      context.setNeedsLayout()
+      return .handled
+
+    case .up where event.button == .left:
+      guard state.drag != nil else {
+        return .ignored
+      }
+      state.drag = nil
+      context.setNeedsDisplay()
+      return .handled
+
+    case .cancel:
+      guard state.drag != nil else {
+        return .ignored
+      }
+      state.drag = nil
+      context.setNeedsDisplay()
+      return .handled
+
+    default:
+      return state.drag == nil ? .ignored : .handled
+    }
+  }
+
+  package func _handleEvent(
+    _ event: InputEvent,
+    state: inout ResponderState,
+    context: inout ResponderContext
+  ) -> EventDisposition {
+    guard context.isFocused,
+      keyboardResizingEnabled.wrappedValue,
+      case .key(let key) = event,
+      key.kind != .release,
+      let delta = keyDelta(key.code),
+      let pair = axisPair(),
+      pair.isAdjustable
+    else {
+      return .ignored
+    }
+    apply(
+      leading: pair.leading.sizing.requestedIdeal + delta,
+      trailing: pair.trailing.sizing.requestedIdeal - delta
+    )
+    context.setNeedsLayout()
+    return .handled
+  }
+
+  package func _focusID(in environment: EnvironmentValues) -> FocusID? {
+    guard environment.isEnabled, keyboardResizingEnabled.wrappedValue,
+      axisPair()?.isAdjustable == true
+    else {
+      return nil
+    }
+    return FocusID(
+      _SplitDividerFocusKey(
+        leading: String(reflecting: leadingID),
+        trailing: String(reflecting: trailingID)
+      )
+    )
+  }
+
+  package func _visitChildren(
+    in environment: EnvironmentValues,
+    environmentOverrides: [String],
+    _ visit: (_ViewChild) -> Void
+  ) {
+    var childEnvironment = environment
+    childEnvironment._stackAxis = axis
+    childEnvironment.isFocused =
+      _focusID(in: environment).map {
+        environment._focusedID == $0
+      } ?? false
+    let style: DividerStyle? = childEnvironment.isFocused ? .double : nil
+    visit(
+      _ViewChild(
+        slot: .index(0),
+        view: Divider(style: style),
+        environment: childEnvironment,
+        environmentOverrides: environmentOverrides + ["stackAxis"]
+      )
+    )
+  }
+
+  package func _sizeThatFits(
+    _ proposal: ProposedSize,
+    subviews: _LayoutSubviewsProxy
+  ) -> TerminalSize {
+    guard subviews.count == 1 else {
+      return TerminalSize(columns: 0, rows: 0)
+    }
+    return subviews[0].measure(proposal)
+  }
+
+  package func _placeSubviews(
+    in bounds: Rect,
+    proposal: ProposedSize,
+    subviews: _LayoutSubviewsProxy
+  ) {
+    guard subviews.count == 1 else {
+      return
+    }
+    subviews[0].place(
+      bounds.origin,
+      ProposedSize(width: bounds.size.columns, height: bounds.size.rows)
+    )
+  }
+
+  private struct Pair {
+    let leading: SplitViewPane
+    let trailing: SplitViewPane
+    let lowerLeading: Int
+    let upperLeading: Int
+
+    var isAdjustable: Bool { lowerLeading < upperLeading }
+  }
+
+  private func axisPair() -> Pair? {
+    let values = panes.wrappedValue
+    guard
+      let leading = values.first(where: { $0.id == leadingID }),
+      let trailing = values.first(where: { $0.id == trailingID }),
+      !leading.isCollapsed,
+      !trailing.isCollapsed
+    else {
+      return nil
+    }
+    let total = saturatingAdd(
+      leading.sizing.requestedIdeal,
+      trailing.sizing.requestedIdeal
+    )
+    let trailingMaximum = trailing.sizing.maximum ?? Int.max
+    let lower = Swift.max(leading.sizing.minimum, total - trailingMaximum)
+    let upper = Swift.min(
+      leading.sizing.maximum ?? total,
+      total - trailing.sizing.minimum
+    )
+    return Pair(
+      leading: leading,
+      trailing: trailing,
+      lowerLeading: lower,
+      upperLeading: Swift.max(lower, upper)
+    )
+  }
+
+  private func apply(leading: Int, trailing: Int) {
+    guard let pair = axisPair() else {
+      return
+    }
+    let total = saturatingAdd(
+      pair.leading.sizing.requestedIdeal,
+      pair.trailing.sizing.requestedIdeal
+    )
+    let requestedLeading = Swift.min(
+      Swift.max(leading, pair.lowerLeading), pair.upperLeading
+    )
+    let requestedTrailing = Swift.max(total - requestedLeading, 0)
+    var values = panes.wrappedValue
+    guard let leadingIndex = values.firstIndex(where: { $0.id == leadingID }),
+      let trailingIndex = values.firstIndex(where: { $0.id == trailingID })
+    else {
+      return
+    }
+    values[leadingIndex].sizing.requestedIdeal = requestedLeading
+    values[trailingIndex].sizing.requestedIdeal = requestedTrailing
+    panes.wrappedValue = values
+  }
+
+  private func keyDelta(_ code: KeyCode) -> Int? {
+    switch (axis, code) {
+    case (.horizontal, .left): return -1
+    case (.horizontal, .right): return 1
+    case (.vertical, .up): return -1
+    case (.vertical, .down): return 1
+    default: return nil
+    }
+  }
+
+  private func main(of position: TerminalPosition) -> Int {
+    axis == .horizontal ? position.column : position.row
+  }
+
+  private func saturatingAdd(_ lhs: Int, _ rhs: Int) -> Int {
+    let result = lhs.addingReportingOverflow(rhs)
+    return result.overflow ? Int.max : result.partialValue
+  }
+}
+// swiftlint:enable type_contents_order
 private struct _SplitViewDividerID: Hashable {
   let leading: AnyHashable
   let trailing: AnyHashable

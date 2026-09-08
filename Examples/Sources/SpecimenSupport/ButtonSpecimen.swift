@@ -77,6 +77,16 @@ package final class ButtonSpecimen {
 
   package init() {}
 
+  package static func input(_ size: TerminalSize) -> [SpecimenInputStep] {
+    [
+      SpecimenInputStep("focus-add", bytes: [0x09]),
+      SpecimenInputStep("activate-add", bytes: [0x0d]),
+      SpecimenInputStep("focus-toggle", bytes: [0x09]),
+      SpecimenInputStep("toggle", bytes: [0x20]),
+      SpecimenInputStep("focus-add-again", bytes: [0x09]),
+    ]
+  }
+
   /// Mutates the app-owned enabled state without routing through a control.
   package func setAddEnabled(_ enabled: Bool) {
     isAddEnabled = enabled

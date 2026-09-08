@@ -10,6 +10,7 @@ package final class ApplicationDriver {
     let mouseTracking: MouseTrackingMode
     let keyboardProtocol: KeyboardProtocolMode
     let focusEventsEnabled: Bool
+    let bracketedPasteEnabled: Bool
   }
 
   package let graph: ViewGraph
@@ -43,6 +44,7 @@ package final class ApplicationDriver {
       graph.resize(to: size)
     }
     graph.update()
+    graph.revealFocusedContent()
     if disposition == .ignored,
       case .key(let key) = event,
       key.kind == .press, key.code == .character("q"), key.modifiers.isEmpty
@@ -55,6 +57,7 @@ package final class ApplicationDriver {
   /// Explicitly reconciles externally completed model work, without presenting it.
   package func update() {
     graph.update()
+    graph.revealFocusedContent()
   }
 
   /// Presents at most once, using actual device geometry, and awaits output completion.
@@ -65,9 +68,24 @@ package final class ApplicationDriver {
     guard graph.needsRender else {
       return false
     }
+    var rendered = false
     try await terminal.draw { frame in
+      // Borrowed frame geometry is authoritative for this checkpoint. Resize before
+      // focus reveal so off-screen descendants are revealed against the real terminal.
+      graph.resize(to: frame.size)
+      graph.revealFocusedContent()
+      guard graph.needsRender else {
+        return
+      }
       graph.render(into: frame)
+      rendered = true
     }
+    guard rendered else {
+      return false
+    }
+    // Layout can change terminal demand (for example, a newly inserted input leaf).
+    // Reconcile modes after the single render transaction without drawing again.
+    try await applyTerminalRequirements(to: terminal)
     frameSequence += 1
     return true
   }
@@ -79,7 +97,8 @@ package final class ApplicationDriver {
       baselineModes = BaselineModes(
         mouseTracking: terminal.mouseTracking,
         keyboardProtocol: terminal.keyboardProtocol,
-        focusEventsEnabled: terminal.focusEventsEnabled
+        focusEventsEnabled: terminal.focusEventsEnabled,
+        bracketedPasteEnabled: terminal.bracketedPasteEnabled
       )
     }
     let requirements = graph.terminalRequirements
@@ -87,10 +106,12 @@ package final class ApplicationDriver {
       return
     }
     let desiredMouse =
-      requirements.wantsMouse
-      ? (baselineModes.mouseTracking == .disabled
-        ? .buttonEvents : baselineModes.mouseTracking)
-      : baselineModes.mouseTracking
+      requirements.wantsMouseMotion
+      ? .anyEvent
+      : requirements.wantsMouse
+        ? (baselineModes.mouseTracking == .disabled
+          ? .buttonEvents : baselineModes.mouseTracking)
+        : baselineModes.mouseTracking
     if terminal.mouseTracking != desiredMouse {
       try await terminal.setMouseTracking(desiredMouse)
     }
@@ -106,6 +127,11 @@ package final class ApplicationDriver {
       requirements.wantsFocusReporting || baselineModes.focusEventsEnabled
     if terminal.focusEventsEnabled != desiredFocusEvents {
       try await terminal.setFocusEvents(desiredFocusEvents)
+    }
+    let desiredBracketedPaste =
+      requirements.wantsBracketedPaste || baselineModes.bracketedPasteEnabled
+    if terminal.bracketedPasteEnabled != desiredBracketedPaste {
+      try await terminal.setBracketedPaste(desiredBracketedPaste)
     }
   }
 }

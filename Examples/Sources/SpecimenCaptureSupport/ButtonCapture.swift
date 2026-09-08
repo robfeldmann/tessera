@@ -1,3 +1,4 @@
+import Foundation
 import SpecimenSupport
 import Tessera
 import TesseraTerminalSnapshotSupport
@@ -52,12 +53,18 @@ package enum ButtonCapture {
         ]
         for (label, bytes) in keyScript {
           step = label
-          driver.step(try parsedEvent(label, bytes: bytes))
+          let event = try parsedEvent(label, bytes: bytes)
+          driver.step(event)
           try await driver.present(to: terminal)
           checkpoints.append(
             await observer.observe(
               label, driver: driver, memory: memory, vt: vt, terminal: terminal,
-              state: model.state
+              state: model.state,
+              inputTrace: [
+                "label=\(label)",
+                "bytes=\(bytes.map { String(format: "%02X", $0) }.joined(separator: " "))",
+                "event=\(String(describing: event))",
+              ]
             ))
         }
 
@@ -70,7 +77,8 @@ package enum ButtonCapture {
         checkpoints.append(
           await observer.observe(
             "restore-enabled", driver: driver, memory: memory, vt: vt, terminal: terminal,
-            state: model.state
+            state: model.state,
+            inputTrace: ["event=app-state", "mutation=setAddEnabled(true)"]
           ))
 
         // Every pointer coordinate comes from the latest automation metadata. We use the
@@ -83,7 +91,11 @@ package enum ButtonCapture {
         checkpoints.append(
           await observer.observe(
             "pointer-down", driver: driver, memory: memory, vt: vt, terminal: terminal,
-            state: model.state
+            state: model.state,
+            inputTrace: [
+              "event=mouse", "phase=press", "button=left",
+              "position=\(pointerTarget.point.column),\(pointerTarget.point.row)",
+            ]
           ))
 
         let currentPointerTarget = try primaryTarget(
@@ -95,7 +107,11 @@ package enum ButtonCapture {
         checkpoints.append(
           await observer.observe(
             "pointer-up", driver: driver, memory: memory, vt: vt, terminal: terminal,
-            state: model.state
+            state: model.state,
+            inputTrace: [
+              "event=mouse", "phase=release", "button=left",
+              "position=\(currentPointerTarget.point.column),\(currentPointerTarget.point.row)",
+            ]
           ))
         // Switch only the app-owned built-in style, then capture its pressed projection.
         model.setAddPlainStyle(true)
@@ -105,7 +121,8 @@ package enum ButtonCapture {
         checkpoints.append(
           await observer.observe(
             "plain-style", driver: driver, memory: memory, vt: vt, terminal: terminal,
-            state: model.state
+            state: model.state,
+            inputTrace: ["event=app-state", "mutation=setAddPlainStyle(true)"]
           ))
         let plainTarget = try primaryTarget(
           in: driver.graph.automationSnapshot, identifier: "add")
@@ -116,7 +133,11 @@ package enum ButtonCapture {
           await observer.observe(
             "plain-pointer-down", driver: driver, memory: memory, vt: vt,
             terminal: terminal,
-            state: model.state
+            state: model.state,
+            inputTrace: [
+              "event=mouse", "phase=press", "button=left",
+              "position=\(plainTarget.point.column),\(plainTarget.point.row)",
+            ]
           ))
         let currentPlainTarget = try primaryTarget(
           in: driver.graph.automationSnapshot, identifier: "add")
@@ -127,7 +148,11 @@ package enum ButtonCapture {
         checkpoints.append(
           await observer.observe(
             "plain-pointer-up", driver: driver, memory: memory, vt: vt, terminal: terminal,
-            state: model.state
+            state: model.state,
+            inputTrace: [
+              "event=mouse", "phase=release", "button=left",
+              "position=\(currentPlainTarget.point.column),\(currentPlainTarget.point.row)",
+            ]
           ))
         model.setAddPlainStyle(false)
         driver.update()
@@ -136,7 +161,8 @@ package enum ButtonCapture {
         checkpoints.append(
           await observer.observe(
             "restore-compact", driver: driver, memory: memory, vt: vt, terminal: terminal,
-            state: model.state
+            state: model.state,
+            inputTrace: ["event=app-state", "mutation=setAddPlainStyle(false)"]
           ))
 
         // A same-button release outside the captured node cancels without invoking Add.
@@ -148,7 +174,11 @@ package enum ButtonCapture {
         checkpoints.append(
           await observer.observe(
             "outside-down", driver: driver, memory: memory, vt: vt, terminal: terminal,
-            state: model.state
+            state: model.state,
+            inputTrace: [
+              "event=mouse", "phase=press", "button=left",
+              "position=\(outsideTarget.point.column),\(outsideTarget.point.row)",
+            ]
           ))
         step = "outside-up"
         driver.step(
@@ -157,7 +187,11 @@ package enum ButtonCapture {
         checkpoints.append(
           await observer.observe(
             "outside-up", driver: driver, memory: memory, vt: vt, terminal: terminal,
-            state: model.state
+            state: model.state,
+            inputTrace: [
+              "event=mouse", "phase=release", "button=left",
+              "position=\(outsideTarget.outsidePoint.column),\(outsideTarget.outsidePoint.row)",
+            ]
           ))
 
         // Focus loss cancels the held pointer before any matching release arrives.
@@ -170,7 +204,11 @@ package enum ButtonCapture {
         checkpoints.append(
           await observer.observe(
             "focus-loss-down", driver: driver, memory: memory, vt: vt, terminal: terminal,
-            state: model.state
+            state: model.state,
+            inputTrace: [
+              "event=mouse", "phase=press", "button=left",
+              "position=\(focusLossTarget.point.column),\(focusLossTarget.point.row)",
+            ]
           ))
         step = "focus-loss"
         driver.step(.focusLost)
@@ -178,7 +216,8 @@ package enum ButtonCapture {
         checkpoints.append(
           await observer.observe(
             "focus-loss", driver: driver, memory: memory, vt: vt, terminal: terminal,
-            state: model.state
+            state: model.state,
+            inputTrace: ["event=focusLost"]
           ))
 
         // Disable the app-owned target while it owns pointer capture; reconciliation must
@@ -191,7 +230,11 @@ package enum ButtonCapture {
         checkpoints.append(
           await observer.observe(
             "disable-down", driver: driver, memory: memory, vt: vt, terminal: terminal,
-            state: model.state
+            state: model.state,
+            inputTrace: [
+              "event=mouse", "phase=press", "button=left",
+              "position=\(disableTarget.point.column),\(disableTarget.point.row)",
+            ]
           ))
         model.setAddEnabled(false)
         driver.update()
@@ -201,7 +244,8 @@ package enum ButtonCapture {
           await observer.observe(
             "disable-during-press", driver: driver, memory: memory, vt: vt,
             terminal: terminal,
-            state: model.state
+            state: model.state,
+            inputTrace: ["event=app-state", "mutation=setAddEnabled(false)"]
           ))
         model.setAddEnabled(true)
         driver.update()
@@ -211,7 +255,8 @@ package enum ButtonCapture {
           await observer.observe(
             "restore-after-disable", driver: driver, memory: memory, vt: vt,
             terminal: terminal,
-            state: model.state
+            state: model.state,
+            inputTrace: ["event=app-state", "mutation=setAddEnabled(true)"]
           ))
 
         // Removing the node while it owns pointer capture must also cancel it.
@@ -223,7 +268,11 @@ package enum ButtonCapture {
         checkpoints.append(
           await observer.observe(
             "removal-down", driver: driver, memory: memory, vt: vt, terminal: terminal,
-            state: model.state
+            state: model.state,
+            inputTrace: [
+              "event=mouse", "phase=press", "button=left",
+              "position=\(removalTarget.point.column),\(removalTarget.point.row)",
+            ]
           ))
         model.setAddPresent(false)
         driver.update()
@@ -233,7 +282,8 @@ package enum ButtonCapture {
           await observer.observe(
             "removal-during-press", driver: driver, memory: memory, vt: vt,
             terminal: terminal,
-            state: model.state
+            state: model.state,
+            inputTrace: ["event=app-state", "mutation=setAddPresent(false)"]
           ))
         model.setAddPresent(true)
         model.setAddEnabled(true)
@@ -244,7 +294,10 @@ package enum ButtonCapture {
           await observer.observe(
             "restore-after-removal", driver: driver, memory: memory, vt: vt,
             terminal: terminal,
-            state: model.state
+            state: model.state,
+            inputTrace: [
+              "event=app-state", "mutation=setAddPresent(true),setAddEnabled(true)",
+            ]
           ))
 
         return checkpoints

@@ -23,7 +23,7 @@ private final class AppearanceTrace {
   }
 }
 
-private struct AppearanceLeaf: LeafView, _FocusAppearanceRendering,
+private struct AppearanceLeaf: InputLeafView, _FocusAppearanceRendering,
   _FocusAppearanceResponder,
   _FocusableView
 {

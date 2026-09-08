@@ -176,6 +176,22 @@ public struct FrameRegion: ~Copyable, ~Escapable {
     self.clip = clip
   }
 
+  /// Requests the hardware cursor at a local cell in this region.
+  ///
+  /// The request is translated to frame coordinates and ignored when the cell is outside
+  /// the region or its completed clip. A new frame starts with no cursor request, so a
+  /// removed, blurred, or clipped input view cannot leave stale cursor state behind.
+  public mutating func setCursorPosition(_ position: TerminalPosition) {
+    guard containsLocal(position),
+      let absolutePosition = absolutePosition(for: position),
+      let clip,
+      clip.contains(absolutePosition)
+    else {
+      return
+    }
+    cursorPosition.pointee = absolutePosition
+  }
+
   /// Writes text without wrapping, clipping every grapheme to this region.
   public mutating func write(
     _ string: String,

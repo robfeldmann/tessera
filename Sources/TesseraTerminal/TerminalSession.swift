@@ -100,6 +100,7 @@ public actor TerminalSession {
   private enum ApplicationModeMutation {
     case cursorStyle(CursorStyle?)
     case focusEvents(Bool)
+    case bracketedPaste(Bool)
     case keyboardProtocol(KeyboardProtocolMode, kittyStatus: CapabilityStatus?)
     case mouseTracking(MouseTrackingMode)
   }
@@ -148,6 +149,11 @@ public actor TerminalSession {
   /// Whether focus-event reporting is currently requested by the application.
   public var focusEventsEnabled: Bool {
     requestedApplicationModes.contains(.focusEvents)
+  }
+
+  /// Whether bracketed paste reporting is currently requested by the application.
+  public var bracketedPasteEnabled: Bool {
+    requestedApplicationModes.contains(.bracketedPaste)
   }
 
   /// The session's semantic terminal event stream.
@@ -504,6 +510,14 @@ public actor TerminalSession {
     try await reconcileApplicationModes(.mouseTracking(mouseTracking))
   }
 
+  /// Enables or disables terminal bracketed-paste reporting at runtime.
+  public func setBracketedPaste(_ enabled: Bool) async throws {
+    guard modeLifecycle != nil else {
+      return
+    }
+    try await reconcileApplicationModes(.bracketedPaste(enabled))
+  }
+
   /// Enables or disables terminal focus-event reporting at runtime.
   public func setFocusEvents(_ enabled: Bool) async throws {
     guard modeLifecycle != nil else {
@@ -731,6 +745,13 @@ public actor TerminalSession {
           desiredModes.insert(.focusEvents)
         } else {
           desiredModes.remove(.focusEvents)
+        }
+
+      case .bracketedPaste(let enabled):
+        if enabled {
+          desiredModes.insert(.bracketedPaste)
+        } else {
+          desiredModes.remove(.bracketedPaste)
         }
 
       case .keyboardProtocol(let policy, let kittyStatus):

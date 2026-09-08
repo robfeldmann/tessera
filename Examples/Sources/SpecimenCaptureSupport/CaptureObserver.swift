@@ -12,6 +12,8 @@ package struct CapturedCheckpoint: Equatable, Sendable {
   package let sequence: Int
   package let state: [String: String]
   package let structure: String
+  /// Human-readable bytes/events at the input boundary for this completed checkpoint.
+  package let inputTrace: [String]
 }
 
 /// Tracks ingestion within one session; the VT itself persists across all checkpoints.
@@ -26,13 +28,18 @@ package struct CaptureObserver {
     memory: InMemoryTerminalSession,
     vt: VirtualTerminal,
     terminal: isolated TerminalSession,
-    state: [String: String] = [:]
+    state: [String: String] = [:],
+    inputTrace: [String] = []
   ) async -> CapturedCheckpoint {
     let bytes = await memory.bytes
     vt.feed(Array(bytes.dropFirst(byteOffset)))
     byteOffset = bytes.count
     let modes = terminal.protocolModeReport.effective.map { String(describing: $0) }
       .sorted()
+    let trace =
+      inputTrace.isEmpty
+      ? ["inputTrace=unavailable", "scenario=\(label)"]
+      : inputTrace
     let session =
       "session effectiveModes=\(modes) effectiveColor=\(terminal.effectiveColorCapability)"
     return CapturedCheckpoint(
@@ -41,7 +48,8 @@ package struct CaptureObserver {
       screen: vt.snapshot(),
       sequence: driver.frameSequence,
       state: state,
-      structure: graphDiagnosticsText(driver.graph.diagnostics) + "\n" + session
+      structure: graphDiagnosticsText(driver.graph.diagnostics) + "\n" + session,
+      inputTrace: trace
     )
   }
 }

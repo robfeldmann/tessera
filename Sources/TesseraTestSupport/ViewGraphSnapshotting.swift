@@ -88,6 +88,9 @@ private func terminalRequirementsSnapshot(_ requirements: TerminalRequirements) 
   if requirements.wantsMouse {
     names.append("mouse")
   }
+  if requirements.wantsMouseMotion {
+    names.append("mouseMotion")
+  }
   if requirements.wantsBracketedPaste {
     names.append("bracketedPaste")
   }

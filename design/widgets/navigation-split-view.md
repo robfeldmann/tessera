@@ -17,10 +17,14 @@ The Showcase names its three supplied roles Catalog, Playground, and Inspector. 
 a component catalog, not source navigation: no file, directory, URL, mapping, or browser
 behavior is part of this widget.
 
-Provisional public direction accepts two- and three-column initializers with optional
-`columnVisibility` and `preferredCompactColumn` bindings. A standard style is default; a
-custom `NavigationSplitViewStyle` protocol is accepted public direction. Its concrete
-signatures and configuration types remain open.
+The shipped API accepts two- and three-column initializers with these application-owned
+bindings: `columnVisibility: Binding<NavigationSplitViewVisibility>`,
+`preferredCompactColumn: Binding<NavigationSplitViewColumn>`, optional
+`focus: Binding<FocusID?>`, and optional
+`focusTargets: Binding<[NavigationSplitViewColumn: FocusID?]>`. The standard style is
+default; `NavigationSplitViewStyle` supplies a divider style through
+`navigationSplitViewStyle(_:)`. The container supplies labeled Sidebar and Detail toggle
+controls.
 
 ## Prior art
 

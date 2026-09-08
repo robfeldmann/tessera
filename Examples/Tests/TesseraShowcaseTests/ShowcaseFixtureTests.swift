@@ -92,20 +92,20 @@ struct ShowcaseFixtureTests {
       """
       Tessera Showcase                                                     three roles
       ────────────────────────┬──────────────────────────────┬────────────────────────
-      Catalog                 │Playground                    │Inspector
-      > Text                  │Selected: Text                │node: selected
-      Overview                │                              │proposal: 80x16
-      Primitives              │Text specimen                 │frame: absolute
-        Divider               │Hello, Tessera                │clip: parent
-        Frame                 │Unicode: café 你好            │state: app-owned
-        Padding               │                              │render: ready
-        Spacer                │[Button placeholder]          │
-      Layout                  │[Toggle placeholder: off]     │
-        HStack                │                              │
-        VStack                │Layout diagnostics remain     │
-        ZStack                │visible through the Inspector.│
-        SplitView             │                              │
-      Scrolling               │                              │
+      Catalog                ┃│Playground                    │Inspector
+      > Text                 ┃│Selected: Text                │node: selected
+      Overview               ┃│                              │proposal: 80x16
+      Primitives             ┃│Text specimen                 │frame: absolute
+        Divider              ┃│Hello, Tessera                │clip: parent
+        Frame                ┃│Unicode: café 你好            │state: app-owned
+        Padding              ┃│                              │render: ready
+        Spacer               ┃│[Button placeholder]          │
+      Layout                 ┃│[Toggle placeholder: off]     │
+        HStack               ││                              │
+        VStack               ││Layout diagnostics remain     │
+        ZStack               ││visible through the Inspector.│
+        SplitView            ││                              │
+      Scrolling              ││                              │
       """
     }
   }
@@ -118,20 +118,20 @@ struct ShowcaseFixtureTests {
       """
       Tessera Showcase                one role
       ────────────────────────────────────────
-      Catalog
-      > Text
-      Overview
-      Primitives
-        Divider
-        Frame
-        Padding
-        Spacer
-      Layout
-        HStack
-        VStack
-        ZStack
-        SplitView
-      Scrolling
+      Catalog                                ┃
+      > Text                                 ┃
+      Overview                               ┃
+      Primitives                             ┃
+        Divider                              ┃
+        Frame                                ┃
+        Padding                              ┃
+        Spacer                               ┃
+      Layout                                 ┃
+        HStack                               │
+        VStack                               │
+        ZStack                               │
+        SplitView                            │
+      Scrolling                              │
       """
     }
   }
