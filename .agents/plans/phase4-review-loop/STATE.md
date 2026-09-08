@@ -1,8 +1,8 @@
 # Execution state
 
-Status: P4.3 implementation, interaction verification, and host quality gates complete.
-Clean-revision capture and publication are in progress. Visuals are provisional; the full
-catalog and Phase 4 are not complete.
+Status: P4.3 implementation, interaction verification, host quality gates, and
+clean-revision capture complete. Visuals remain provisional; the full catalog and Phase 4
+are not complete.
 
 ## Workspace and checkpoint
 
@@ -24,6 +24,11 @@ catalog and Phase 4 are not complete.
   reduced against `d70acb4` before integration. No original dirty content was adopted.
 - Corrective implementation and capture workers used explicit destination paths. Main owns
   acceptance, final validation, commits, and normal feature-branch publication.
+- P4.3 code: `ab272c2`; capture profile correction: `c2e2539`. The following packet commit
+  records actual previews and final evidence without changing implementation.
+- Read-only continuation verification matched the original HEAD, five dirty-file hashes,
+  staged-entry hash, and raw index hash recorded below; no additional source changes
+  occurred.
 - No PR, merge, force-push, or main-branch push is part of this task.
 
 ## Source preservation incident and final verification
@@ -168,9 +173,12 @@ inputs:
   including initially disabled and stronger configured mouse/keyboard/focus baselines.
 - `just quality format`, `just quality lint`, `just quality architecture`, and
   `just docs lint`: passed. Changed Markdown passed `pnpx markdownlint-cli`.
-- Real Button captures contain 26 checkpoints per viewport (40x16 and 80x24), including
-  compact/plain/custom held styling and pointer cancellation. Final clean-revision
-  artifacts and independent repeated-run comparison remain pending publication.
+- Real captures from clean code revision `c2e2539628a15e7c56c1fc858cd7e08831dfceea`
+  contain 26 Button checkpoints and four layout checkpoints per viewport (40x16 and
+  80x24). All four manifests report `sourceDirty: false`. Full bundles at
+  `.artifacts/phase4-review-loop/p43-published/` and `p43-published-repeat/` compared
+  byte-identical with `diff -rq`: 60 completed checkpoints. Exact saved SVGs and SHA-256
+  metadata are linked from REVIEW.md and `artifacts/p43-provenance.json`.
 - Live PTY: exact Kitty press/repeat held the count at 3; release advanced to 4. SGR
   primary down held 4 and up advanced to 5. Isolated q exited 0 and cleared the
   reconstructed alternate screen. Separate headless Helium inspection confirmed

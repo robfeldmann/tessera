@@ -31,10 +31,28 @@ actions. The selector helper resolves unique, enabled Button metadata and choose
 in the current frame/clip intersection. It never assigns focus or invokes an action; the
 normal graph route decides whether the event hits and activates.
 
+## Saved P4.3 previews
+
+- [Compact held, 80x24](artifacts/p43-button-80x24-compact-pressed.svg)
+- [Plain held, 40x16](artifacts/p43-button-40x16-plain-pressed.svg)
+- [Custom style held, 40x16](artifacts/p43-button-40x16-custom-pressed.svg)
+- [Outside release cancelled, 80x24](artifacts/p43-button-80x24-outside-cancelled.svg)
+- [Removed during press, 40x16](artifacts/p43-button-40x16-removed.svg)
+- [Source revision, profile, and SHA-256 checksums](artifacts/p43-provenance.json)
+
+These are exact generated files from clean revision
+`c2e2539628a15e7c56c1fc858cd7e08831dfceea`, not redraws. All four manifests report
+`sourceDirty: false`. `.artifacts/phase4-review-loop/p43-published/` and
+`p43-published-repeat/` compared byte-identical with `diff -rq`, including all JSON, text,
+graph, SVG, and manifest files: 52 Button and eight layout checkpoints. The capture
+profile is `truecolor-graph-managed-protocols`; effective modes are recorded in each
+checkpoint's graph text. The packet commit after that revision changes only saved review
+evidence, not implementation.
+
 ## Contract and code review order
 
-Start from the previous published packet, `d70acb4`, then review the P4.3 change in this
-order:
+Start from the previous published packet, `d70acb4`, then review `ab272c2` (interaction
+implementation) and `c2e2539` (capture profile labeling), in this source order:
 
 1. `Key.swift` and `InputParser.swift`: per-event provenance is part of equality. Legacy
    keys and bare CSI-u activate immediately. Only the modifier parameter's explicit

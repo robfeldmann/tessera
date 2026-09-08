@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 2,
+  "visualApproval": "provisional-not-human-approved",
+  "profile": "truecolor-graph-managed-protocols",
+  "exporter": {
+    "cellHeight": 20,
+    "cellWidth": 10,
+    "cursor": "coordinate marker only; visibility and shape not observed",
+    "defaultBackground": "#101010",
+    "defaultForeground": "#D0D0D0",
+    "fontFamily": "monospace",
+    "glyphs": "printable ASCII only; unsupported glyphs and attributes fail",
+    "rasterizer": "SVG; viewer-dependent, not a canonical pixel baseline",
+    "version": "1"
+  },
+  "artifacts": [
+    {
+      "file": "p43-button-80x24-compact-pressed.svg",
+      "source": ".artifacts/phase4-review-loop/p43-published/button/80x24/11-pointer-down.svg",
+      "sha256": "355b44387d2a4fb2119f71f32e48c756738150d0ccc26f8e7085324f07a5c2b3",
+      "sourceRevision": "c2e2539628a15e7c56c1fc858cd7e08831dfceea",
+      "sourceDirty": false
+    },
+    {
+      "file": "p43-button-40x16-plain-pressed.svg",
+      "source": ".artifacts/phase4-review-loop/p43-published/button/40x16/14-plain-pointer-down.svg",
+      "sha256": "a7e7c6994b22a7a3ed83b556f205106b3d8d65b2ecfa46b0b692f70365fd2b90",
+      "sourceRevision": "c2e2539628a15e7c56c1fc858cd7e08831dfceea",
+      "sourceDirty": false
+    },
+    {
+      "file": "p43-button-40x16-custom-pressed.svg",
+      "source": ".artifacts/phase4-review-loop/p43-published/button/40x16/7-phased-press.svg",
+      "sha256": "05e468540ee139966093a51ad2f18c290b4d9ff73a0015472b5a1dfbf960dc21",
+      "sourceRevision": "c2e2539628a15e7c56c1fc858cd7e08831dfceea",
+      "sourceDirty": false
+    },
+    {
+      "file": "p43-button-80x24-outside-cancelled.svg",
+      "source": ".artifacts/phase4-review-loop/p43-published/button/80x24/18-outside-up.svg",
+      "sha256": "d59e9db20bbedb8fb18a3afd32f72e4aa618d5e8a2c3e32f43c77f1f9fb14523",
+      "sourceRevision": "c2e2539628a15e7c56c1fc858cd7e08831dfceea",
+      "sourceDirty": false
+    },
+    {
+      "file": "p43-button-40x16-removed.svg",
+      "source": ".artifacts/phase4-review-loop/p43-published/button/40x16/25-removal-during-press.svg",
+      "sha256": "e3f04bc9690f1dcd10d8c4346e7e3de1fa7e7dde897853bc64a38aadbab93e34",
+      "sourceRevision": "c2e2539628a15e7c56c1fc858cd7e08831dfceea",
+      "sourceDirty": false
+    }
+  ],
+  "repeatedBundles": "p43-published and p43-published-repeat compared byte-identical; 60 checkpoints across Button and layout at two viewports"
+}
