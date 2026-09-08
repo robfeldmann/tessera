@@ -37,6 +37,7 @@ struct TesseraCapture: AsyncParsableCommand {
       throw ValidationError("Unknown specimen \(specimen).")
     }
     let destination = URL(fileURLWithPath: output, isDirectory: true)
+    try ReviewBundle.ensureFreshRunDirectory(destination)
     for size in [TerminalSize(columns: 80, rows: 24), TerminalSize(columns: 40, rows: 16)]
     {
       let viewportDirectory = destination.appendingPathComponent(
@@ -56,10 +57,15 @@ struct TesseraCapture: AsyncParsableCommand {
           dirty: dirty == "dirty", specimen: specimen
         )
       } catch let failure as CaptureFailure {
-        try ReviewBundle.writeFailure(
-          failure, to: viewportDirectory, revision: revision,
-          dirty: dirty == "dirty", specimen: specimen
-        )
+        do {
+          try ReviewBundle.writeFailure(
+            failure, to: viewportDirectory, revision: revision,
+            dirty: dirty == "dirty", specimen: specimen
+          )
+        } catch let artifactError {
+          throw ReviewBundle.Error.captureAndArtifactFailure(
+            capture: failure, artifact: artifactError)
+        }
         throw failure
       }
     }

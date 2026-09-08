@@ -45,7 +45,9 @@ scripts/capture-specimen.sh button .artifacts/review/button
 
 Developer export, when used, is opt-in, versioned, local-only, and limited to built-in
 synthetic specimens; it has no telemetry, reflection, network transport, or raw terminal
-authority.
+authority. A run directory must be fresh, and manifest.json is published last; readers
+must require its explicit complete=true status. Partial capture and artifact failures
+remain reported with the successfully written evidence.
 
 ## Supported Today
 

@@ -134,13 +134,17 @@ scripts/capture-specimen.sh layout .artifacts/review/layout
 scripts/capture-specimen.sh button .artifacts/review/button
 ```
 
-Capture writes versioned styled cells, sanitized graph diagnostics, explicit synthetic
-state, and candidate SVG frames at 80x24 and 40x16. It uses the real renderer and a
-persistent Ghostty virtual terminal; the live host shares its application driver but does
-not link test support. The capture launcher supplies developer-only Xcode test framework
-paths on macOS. Images support printable ASCII, are provisional, and are not canonical
-pixel baselines or human-approved designs. The Button specimen covers immediate keyboard
-activation and disabled traversal, not pointer or held-key visuals.
+Capture writes schema-v3 bundles with exporter metadata (currently exporter v3),
+explicitly selected synthetic state, structural graph diagnostics, input traces, and
+candidate SVG frames at 80x24 and 40x16. Each run requires a fresh output directory and
+publishes manifest.json last; the directory is not an atomic transaction, so interruptions
+can leave partial files and readers must require complete=true. Image output is a
+readable, provisional SVG projection rather than a pixel-identical terminal capture. The
+ordinary image omits the cursor; an optional diagnostic cursor marker records only a
+coordinate and is identified in the manifest. Dimensions, cell counts, text, and estimated
+output are bounded; zero-area snapshots are valid observations. The workflow is not a
+general sanitization boundary: selected cells, identifiers, traces, errors, and hyperlinks
+can contain content.
 
 The larger, historical Showcase remains optional: `just core showcase`.
 

@@ -33,6 +33,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Added read-only DocC pull-request validation plus main-branch and manual GitHub Pages deployment for the combined static documentation site.
 
 ### Changed
+- Hardened local review bundles with safe generated observation filenames, fresh-run destination rejection, per-artifact statuses, manifest-last publication, capture-plus-artifact failure preservation, and explicit synthetic-only privacy metadata.
 - Relicensed Tessera's original material from the MIT License to the Apache License 2.0 before the first public release.
 - Changed capability detection to use active protocol-native probes and parser-observed evidence; OSC 8 remains explicitly not actively detectable, and conditional Kitty keyboard support enables only after support is observed.
 - Changed color handling to suppress output for the full `TERM=dumb` family and keep the effective capability solely on `TerminalCapabilities.color`, with explicit one-time style resolution.
