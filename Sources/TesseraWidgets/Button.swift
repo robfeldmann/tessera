@@ -17,7 +17,8 @@ public struct ButtonStyleConfiguration {
   public let isEnabled: Bool
   /// Whether the button owns focus.
   public let isFocused: Bool
-  /// Whether an activation key is currently held.
+  /// Whether activation is pending across events. Immediate keyboard activation
+  /// supplies false; this Button does not expose a held-key visual state.
   public let isPressed: Bool
   /// The action's semantic role.
   public let role: ButtonRole?
@@ -174,6 +175,8 @@ private struct _PlainButtonStyleBody: View {
 }
 
 /// An application-controlled action with an arbitrary label.
+/// Enter and Space activate immediately on press. Repeat and release packets do not
+/// invoke another action. Pointer activation and held-key visuals are not supported.
 public struct Button<Label: View>: View, _FocusAppearanceResponder {
   private let action: () -> Void
   private let label: Label

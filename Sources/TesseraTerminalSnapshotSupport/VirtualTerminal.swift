@@ -6,9 +6,6 @@ public struct VirtualTerminal: Sendable {
   /// Returns the rendered cell at a zero-based row and column.
   public var cell: @Sendable (_ row: Int, _ column: Int) -> RenderedCell
 
-  /// Resizes the virtual terminal while retaining its terminal state.
-  public var resize: @Sendable (TerminalSize) throws -> Void
-
   /// Returns the terminal cursor position.
   public var cursor: @Sendable () -> TerminalPosition
 
@@ -20,6 +17,9 @@ public struct VirtualTerminal: Sendable {
 
   /// Returns Kitty Graphics Protocol placements visible in the terminal.
   public var kittyPlacements: @Sendable () -> [RenderedKittyPlacement]
+
+  /// Resizes the virtual terminal while retaining its terminal state.
+  public var resize: @Sendable (TerminalSize) throws -> Void
 
   /// Returns the visible terminal screen.
   public var snapshot: @Sendable () -> ScreenSnapshot

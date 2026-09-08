@@ -7,7 +7,7 @@ state.
 
 ### Construction
 
-- ``init(feed:text:cell:cursor:kittyImages:kittyPlacements:snapshot:)``
+- ``init(feed:resize:text:cell:cursor:kittyImages:kittyPlacements:snapshot:)``
 - ``ghostty(cols:rows:)``
 - ``ghosttyOrUnavailable(cols:rows:)``
 - ``ghosttyUnavailable``
@@ -17,6 +17,12 @@ state.
 
 - ``feed``
 - ``feed(_:)``
+
+### Resizing retained state
+
+- ``resize``
+- ``resize(to:)``
+- ``VirtualTerminalError``
 
 ### Inspecting screen state
 

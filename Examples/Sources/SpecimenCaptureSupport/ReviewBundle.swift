@@ -1,8 +1,16 @@
 import Foundation
+import Tessera
 import TesseraTerminalSnapshotSupport
 
 /// Explicit local export for built-in synthetic specimens only. No ambient app capture.
 package enum ReviewBundle {
+  private struct ArtifactFailure: Error, CustomStringConvertible {
+    let artifact: any Error
+    let capture: CaptureFailure
+
+    var description: String { "\(capture); artifact recording also failed: \(artifact)" }
+  }
+
   /// Writes deterministic styled cells, structural observations, and candidate SVG frames.
   /// Existing files with these generated names are replaced atomically; unrelated files
   /// are untouched. A partial failure leaves earlier completed frames for diagnosis.
@@ -20,7 +28,8 @@ package enum ReviewBundle {
       let name = "\(checkpoint.sequence)-\(checkpoint.label)"
       let screen = checkpoint.screen
       let projection: [String: Any] = [
-        "schemaVersion": 1,
+        "schemaVersion": 2,
+        "automation": checkpoint.automation.elements.map(automationProjection),
         "sequence": checkpoint.sequence,
         "label": checkpoint.label,
         "state": checkpoint.state,
@@ -46,7 +55,7 @@ package enum ReviewBundle {
       ])
     }
     let manifest: [String: Any] = [
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "specimen": specimen,
       "sourceRevision": revision,
       "sourceDirty": dirty,
@@ -71,9 +80,53 @@ package enum ReviewBundle {
       to: directory.appendingPathComponent("manifest.json"), options: .atomic)
   }
 
+  /// Preserves the last successful checkpoints and a bounded failure summary.
+  /// Both causes are retained if writing the diagnostic bundle also fails.
+  package static func writeFailure(
+    _ failure: CaptureFailure, to directory: URL, revision: String, dirty: Bool,
+    specimen: String
+  ) throws {
+    do {
+      try FileManager.default.createDirectory(
+        at: directory, withIntermediateDirectories: true)
+      let summary: [String: Any] = [
+        "schemaVersion": 2,
+        "failedStep": failure.step,
+        "completedCheckpoints": failure.completed.count,
+        "cause": String(describing: failure.cause),
+      ]
+      try json(summary).write(
+        to: directory.appendingPathComponent("failure.json"), options: .atomic)
+      try write(
+        failure.completed, to: directory, revision: revision, dirty: dirty,
+        specimen: specimen)
+    } catch {
+      throw ArtifactFailure(artifact: error, capture: failure)
+    }
+  }
+
   private static func json(_ object: Any) throws -> Data {
     try JSONSerialization.data(
       withJSONObject: object, options: [.prettyPrinted, .sortedKeys])
+  }
+
+  private static func automationProjection(_ element: AutomationElement) -> [String: Any] {
+    [
+      "identifier": element.identifier,
+      "role": element.role.rawValue,
+      "nodeIdentity": element.nodeIdentity.description,
+      "frame": [
+        element.frame.origin.column, element.frame.origin.row, element.frame.size.columns,
+        element.frame.size.rows,
+      ],
+      "clip": [
+        element.clip.origin.column, element.clip.origin.row, element.clip.size.columns,
+        element.clip.size.rows,
+      ],
+      "enabled": element.isEnabled,
+      "focused": element.isFocused,
+      "activationKeys": element.activationKeys,
+    ]
   }
 
   private static func cellProjection(_ cell: RenderedCell) -> [String: Any] {

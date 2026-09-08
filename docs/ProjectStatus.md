@@ -13,16 +13,23 @@ root [README](../README.md) stays intentionally light and defers here for detail
 Phase 4 remains **in progress and provisional**. The active unit is a small complete
 specimen through a shared caller/session-isolated driver and completed checkpoints, not a
 claim that Phase 4 is complete or that a human has approved visual baselines. The Showcase
-is no longer mandatory acceptance; it remains an integration reference. The current
-planned local command is:
+is no longer mandatory acceptance; it remains an integration reference. The current local
+commands are:
 
 ```sh
 swift run --package-path Examples TesseraLab run layout
+swift run --package-path Examples TesseraLab run button
+scripts/capture-specimen.sh layout .artifacts/review/layout
+scripts/capture-specimen.sh button .artifacts/review/button
 ```
 
-The capture CLI is still integrating, so this status does not claim completed capture or
-visual-export evidence. Developer/test diagnostics export, when available, is opt-in,
-versioned, sanitized, local-only, and initially limited to synthetic specimens; it has no
+Both specimens run live and through real renderer bytes fed into a persistent Ghostty
+virtual terminal. Two-size captures include styled cells, explicit semantic metadata,
+sanitized graph diagnostics, and provisional ASCII SVG images. Repeated bundles have been
+compared byte-for-byte. Button covers immediate keyboard activation, repeat/release
+non-duplication, and disabled traversal; pointer routing and held-key visuals remain open.
+No human visual approval or complete Phase 4 acceptance is claimed. Developer export is
+opt-in, versioned, local-only, and limited to built-in synthetic specimens; it has no
 telemetry, reflection, network transport, or raw terminal authority.
 
 ## Supported Today

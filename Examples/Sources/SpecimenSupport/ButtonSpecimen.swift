@@ -14,16 +14,19 @@ package final class ButtonSpecimen {
     VStack(alignment: .leading, spacing: 1) {
       Text("Button / result").bold()
       Text("Count: \(count)")
+        .automationID("count", role: .text)
       HStack(spacing: 2) {
         Button("Add") { self.count += 1 }
           .focusable(Self.addFocus)
           .focused(focusBinding, equals: Self.addFocus)
+          .automationID("add", role: .button)
           .disabled(!isAddEnabled)
         Button(isAddEnabled ? "Disable Add" : "Enable Add") {
           self.isAddEnabled.toggle()
         }
         .focusable(Self.toggleFocus)
         .focused(focusBinding, equals: Self.toggleFocus)
+        .automationID("toggle", role: .button)
       }
       Text(isAddEnabled ? "Add is enabled." : "Add is disabled.")
       Text("Tab / Shift-Tab: focus\nEnter / Space: act\nq: quit")

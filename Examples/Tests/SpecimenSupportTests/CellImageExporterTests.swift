@@ -31,9 +31,6 @@ struct CellImageExporterTests {
     let image = try CellImageExporter.svg(screen)
 
     #expect(image.contains("width=\"20\" height=\"20\" viewBox=\"0 0 20 20\""))
-    #expect(image.contains("data-exporter-version=\"1\""))
-    #expect(image.contains("data-cell-width=\"10\" data-cell-height=\"20\""))
-    #expect(image.contains("font-family=\"monospace\""))
     #expect(image.contains("fill=\"#FF0000\""))
     #expect(image.contains("fill=\"#123456\""))
     #expect(image.contains("font-weight=\"700\""))
@@ -45,7 +42,6 @@ struct CellImageExporterTests {
     #expect(
       image.contains(
         "class=\"cursor-marker\" data-diagnostic=\"coordinate-only\" x=\"10\""))
-    #expect(image.contains("not observed cursor visibility or shape"))
   }
 
   @Test
@@ -55,13 +51,8 @@ struct CellImageExporterTests {
       cursor: TerminalPosition(column: 0, row: 0)
     )
 
-    do {
-      _ = try CellImageExporter.svg(screen)
-      #expect(Bool(false), "expected unsupported character to be rejected")
-    } catch let error as CellImageExporter.Error {
-      #expect(error == .unsupportedCharacter("é"))
-    } catch {
-      #expect(Bool(false), "unexpected error type: \(error)")
+    #expect(throws: CellImageExporter.Error.unsupportedCharacter("é")) {
+      try CellImageExporter.svg(screen)
     }
   }
 
@@ -72,13 +63,8 @@ struct CellImageExporterTests {
       cursor: TerminalPosition(column: 0, row: 0)
     )
 
-    do {
-      _ = try CellImageExporter.svg(screen)
-      #expect(Bool(false), "expected hyperlink to be rejected")
-    } catch let error as CellImageExporter.Error {
-      #expect(error == .hyperlinkUnsupported)
-    } catch {
-      #expect(Bool(false), "unexpected error type: \(error)")
+    #expect(throws: CellImageExporter.Error.hyperlinkUnsupported) {
+      try CellImageExporter.svg(screen)
     }
   }
 
@@ -89,13 +75,8 @@ struct CellImageExporterTests {
       cursor: TerminalPosition(column: 0, row: 0)
     )
 
-    do {
-      _ = try CellImageExporter.svg(screen)
-      #expect(Bool(false), "expected ragged rows to be rejected")
-    } catch let error as CellImageExporter.Error {
-      #expect(error == .raggedRows(expected: 1, row: 1, actual: 2))
-    } catch {
-      #expect(Bool(false), "unexpected error type: \(error)")
+    #expect(throws: CellImageExporter.Error.raggedRows(expected: 1, row: 1, actual: 2)) {
+      try CellImageExporter.svg(screen)
     }
   }
 

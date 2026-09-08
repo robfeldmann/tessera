@@ -15,9 +15,9 @@ Status: in progress; live layout and keyboard/Button capture loops verified.
   `f9d028c8173c74ccdd5d335cd4c85ccd0bafd7828f9b4d0389eb77b6ec676dfb`.
 - Original tracked-entry listing SHA-256:
   `0c2a4a5d62734b4449f58639f7153fa191d86ba48768c7c4af3c5d17f08fde1e`.
-- Active unit: committing the keyboard/Button increment, then strengthening
-  metadata/selector evidence.
-- Last confirmed push: runnable evidence loop 03b8731 to origin/phase4-review-loop.
+- Active unit: semantic metadata and failure retention verified; final code commit and
+  handoff checks next.
+- Last confirmed push: keyboard/Button increment 3e3e763 to origin/phase4-review-loop.
 
 ## Dirty-source provenance
 
@@ -136,3 +136,22 @@ history.
 - Ready-platform probe: limactl lists tessera-linux stopped; no VM started or mount
   changed. Windows Frost doctor failed because the configured CLI is absent and the UTM VM
   is stopped. Platform suites remain unrun; no installation or VM repair attempted.
+- Added opt-in automationID annotations independent of reconciliation and FocusID,
+  immutable tree-ordered semantic geometry/state, and typed missing/ambiguous selector
+  failures. Lookup does not allocate on success; reads do not trigger graph passes. New
+  tests prove identity/focus preservation, ambiguity, disabled metadata, and actual Button
+  bounds/state at every captured checkpoint.
+- Bundle schema 2 adds semantic metadata beside explicitly selected synthetic state.
+  Capture errors retain only completed frames and the original error. An intentional
+  duplicate-ID mutation exited 1 before any input and wrote failure.json plus one initial
+  frame (actionCount=0, focus=none); the mutation was restored and all six specimen tests
+  passed.
+- Reused the source Gallery's swift-argument-parser 1.8.2 pin
+  (6a52f3251125d74daf04fcbd5e6f08a75d074382), Examples-only, to make recoverable CLI
+  failures exit cleanly rather than trap. No existing dependency version changed. Live
+  --help exits 0; invalid specimen exits 64 with usage. Final documented Button live
+  command launched and quit with 0 after traversal/activation input.
+- Current full checks: swift test passed 692 tests; swift test --package-path Examples
+  passed 28 tests; just quality architecture passed; just quality lint passed; just docs
+  lint passed. The resize initializer's stale DocC topic was corrected. Final post-commit
+  artifact generation and final source/index-entry verification remain.

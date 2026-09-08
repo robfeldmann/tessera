@@ -19,6 +19,16 @@ let package = Package(
 
 // MARK: - ⤵️ Dependencies
 
+// MARK: ArgumentParser
+
+// Command parsing and recoverable error reporting remain examples-only.
+package.dependencies.append(
+  .package(url: "https://github.com/apple/swift-argument-parser", exact: "1.8.2")
+)
+let ArgumentParser: Target.Dependency = .product(
+  name: "ArgumentParser", package: "swift-argument-parser"
+)
+
 // MARK: SnapshotTesting
 
 package.dependencies.append(
@@ -258,11 +268,11 @@ package.targets.append(contentsOf: [
   ),
   .executableTarget(
     name: "TesseraCapture",
-    dependencies: [SpecimenCaptureSupport, Tessera]
+    dependencies: [ArgumentParser, SpecimenCaptureSupport, Tessera]
   ),
   .executableTarget(
     name: "TesseraLab",
-    dependencies: [ExampleSupport, SpecimenSupport, Tessera]
+    dependencies: [ArgumentParser, ExampleSupport, SpecimenSupport, Tessera]
   ),
   .testTarget(
     name: "SpecimenSupportTests",

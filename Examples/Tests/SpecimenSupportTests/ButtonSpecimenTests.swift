@@ -26,6 +26,16 @@ struct ButtonSpecimenTests {
       #expect(
         String(checkpoint.screen.cells[3].map(\.character))
           == " Count: \(count)" + String(repeating: " ", count: size.columns - 9))
+      let add = try checkpoint.automation.resolve("add")
+      #expect(
+        add.frame
+          == Rect(
+            origin: TerminalPosition(column: 1, row: 5),
+            size: TerminalSize(columns: 5, rows: 1)
+          ))
+      #expect(add.isFocused == (checkpoint.state["focus"] == "add"))
+      #expect(add.isEnabled == (checkpoint.state["addEnabled"] == "true"))
+      #expect(add.activationKeys == (add.isEnabled ? ["enter", "space"] : []))
     }
     #expect(checkpoints == (try await ButtonCapture.run(size: size)))
   }

@@ -69,6 +69,16 @@ public final class ViewGraph {
     )
   }
 
+  /// Reads explicitly annotated semantics without updating, laying out, or rendering.
+  /// Bounds describe the last completed layout and may be stale while needsLayout is true.
+  /// No application values, closures, or unannotated labels are reflected.
+  public var automationSnapshot: AutomationSnapshot {
+    let focusedNode = focus.focused.flatMap { firstNode(withFocusID: $0, in: rootNode) }
+    var elements: [AutomationElement] = []
+    appendAutomation(rootNode, focusedNode: focusedNode, to: &elements)
+    return AutomationSnapshot(elements: elements)
+  }
+
   /// Creates and lowers the initial root value immediately.
   public init<Root: View>(
     root: @escaping () -> Root,
@@ -712,6 +722,27 @@ extension ViewGraph {
   private func aggregateRequirements(_ node: RuntimeNode) -> TerminalRequirements {
     node.children.reduce(node.terminalRequirements) { result, child in
       .union(result, aggregateRequirements(child))
+    }
+  }
+
+  private func appendAutomation(
+    _ node: RuntimeNode, focusedNode: RuntimeNode?, to elements: inout [AutomationElement]
+  ) {
+    if let annotation = node.view as? any _AutomationView {
+      elements.append(
+        AutomationElement(
+          identifier: annotation.automationIdentifier,
+          role: annotation.automationRole,
+          nodeIdentity: node.identity,
+          frame: node.frame,
+          clip: node.clip,
+          isEnabled: node.environment.isEnabled,
+          isFocused: focusedNode.map { isDescendant($0, of: node) } ?? false
+        )
+      )
+    }
+    for child in node.children {
+      appendAutomation(child, focusedNode: focusedNode, to: &elements)
     }
   }
 

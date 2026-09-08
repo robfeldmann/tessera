@@ -6,6 +6,7 @@ import TesseraTestSupport
 
 /// An immutable observation taken only after presentation and VT ingestion.
 package struct CapturedCheckpoint: Equatable, Sendable {
+  package let automation: AutomationSnapshot
   package let label: String
   package let screen: ScreenSnapshot
   package let sequence: Int
@@ -35,6 +36,7 @@ package struct CaptureObserver {
     let session =
       "session effectiveModes=\(modes) effectiveColor=\(terminal.effectiveColorCapability)"
     return CapturedCheckpoint(
+      automation: driver.graph.automationSnapshot,
       label: label,
       screen: vt.snapshot(),
       sequence: driver.frameSequence,

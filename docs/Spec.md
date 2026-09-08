@@ -7450,12 +7450,25 @@ Production diagnostics remain local-only observations: they have no persistence,
 telemetry, network transport, reflection, or raw terminal authority. An explicitly enabled
 developer/test tool may export a **versioned, sanitized projection** to a caller-chosen
 local destination; capture is disabled by default, and repository specimens are synthetic
-initially. Such export never serializes closures, borrowed capabilities, `NodeState`, raw
-handles, controlled values, or raw bytes, and observation never triggers a pass. The
-Showcase inspector itself remains read-only; it cannot mutate the graph, retain a borrowed
-`RenderRegion`, change focus or state, or trigger a pass. The graph reports requested
-requirements; the session is the sole authority that decides and reports effective
-requirements in the snapshot.
+initially. Such graph export never serializes closures, borrowed capabilities,
+`NodeState`, raw handles, controlled values, or raw bytes, and observation never triggers
+a pass. A separate specimen-state section may contain explicitly listed synthetic fixture
+fields; this permission is not general application-state capture. The Showcase inspector
+itself remains read-only; it cannot mutate the graph, retain a borrowed `RenderRegion`,
+change focus or state, or trigger a pass. The graph reports requested requirements; the
+session is the sole authority that decides and reports effective requirements in the
+snapshot.
+
+The optional `automationID(_:role:)` annotation names a subtree independently of
+reconciliation keys and `FocusID`. Changing its identifier does not remount the subtree or
+move focus. `ViewGraph.automationSnapshot` reads only explicit identifiers,
+caller-declared roles, structural identities, latest bounds/clips, and enabled/focused
+state; it never forces update, layout, or render. Dirty geometry remains explicitly the
+last completed geometry. Role declarations do not add input behavior or terminal
+authority. Exact selector lookup rejects both missing and ambiguous matches, reporting
+available identifiers or candidate geometry rather than choosing a first match. Exported
+Button metadata currently advertises immediate keyboard activation only, not pointer or
+held-key protocols.
 
 #### The reconciliation algorithm
 

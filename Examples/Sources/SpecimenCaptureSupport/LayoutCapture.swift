@@ -17,30 +17,37 @@ package enum LayoutCapture {
       let driver = ApplicationDriver(size: size) { model.content }
       var observer = CaptureObserver()
       var checkpoints: [CapturedCheckpoint] = []
-      try await driver.present(to: terminal)
-      checkpoints.append(
-        await observer.observe(
-          "initial", driver: driver, memory: memory, vt: vt, terminal: terminal))
-      model.message = "Changed."
-      driver.update()
-      try await driver.present(to: terminal)
-      checkpoints.append(
-        await observer.observe(
-          "changed", driver: driver, memory: memory, vt: vt, terminal: terminal))
-      let alternate =
-        size.columns == 80
-        ? TerminalSize(columns: 40, rows: 16)
-        : TerminalSize(columns: 80, rows: 24)
-      for (label, viewport) in [("resized", alternate), ("restored", size)] {
-        try vt.resize(to: viewport)
-        await memory.device.resize(to: viewport)
-        driver.step(.resize(viewport))
+      var step = "initial"
+      do {
         try await driver.present(to: terminal)
         checkpoints.append(
           await observer.observe(
-            label, driver: driver, memory: memory, vt: vt, terminal: terminal))
+            "initial", driver: driver, memory: memory, vt: vt, terminal: terminal))
+        step = "changed"
+        model.message = "Changed."
+        driver.update()
+        try await driver.present(to: terminal)
+        checkpoints.append(
+          await observer.observe(
+            "changed", driver: driver, memory: memory, vt: vt, terminal: terminal))
+        let alternate =
+          size.columns == 80
+          ? TerminalSize(columns: 40, rows: 16)
+          : TerminalSize(columns: 80, rows: 24)
+        for (label, viewport) in [("resized", alternate), ("restored", size)] {
+          step = label
+          try vt.resize(to: viewport)
+          await memory.device.resize(to: viewport)
+          driver.step(.resize(viewport))
+          try await driver.present(to: terminal)
+          checkpoints.append(
+            await observer.observe(
+              label, driver: driver, memory: memory, vt: vt, terminal: terminal))
+        }
+        return checkpoints
+      } catch {
+        throw CaptureFailure(step: step, completed: checkpoints, cause: error)
       }
-      return checkpoints
     }
   }
 }

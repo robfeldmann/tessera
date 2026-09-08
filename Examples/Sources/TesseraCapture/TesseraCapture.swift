@@ -1,42 +1,54 @@
+import ArgumentParser
 import Foundation
 import SpecimenCaptureSupport
 import Tessera
 
 /// Developer-only command; the wrapper supplies toolchain test-framework search paths.
 @main
-enum TesseraCapture {
-  enum CommandError: Error, CustomStringConvertible {
-    case usage
+struct TesseraCapture: AsyncParsableCommand {
+  @Argument(help: "The built-in synthetic specimen: layout or button.")
+  var specimen: String
 
-    var description: String {
-      "Usage: scripts/capture-specimen.sh {layout|button} OUTPUT_DIRECTORY"
+  @Argument(help: "The output directory.")
+  var output: String
+
+  @Argument(help: "The source Git revision, supplied by the capture wrapper.")
+  var revision: String
+
+  @Argument(help: "The source state: clean or dirty, supplied by the capture wrapper.")
+  var dirty: String
+
+  mutating func validate() throws {
+    guard ["layout", "button"].contains(specimen), revision.count == 40,
+      revision.allSatisfy(\.isHexDigit), ["clean", "dirty"].contains(dirty)
+    else {
+      throw ValidationError(
+        "Use scripts/capture-specimen.sh {layout|button} OUTPUT_DIRECTORY.")
     }
   }
 
-  static func main() async throws {
-    let arguments = Array(CommandLine.arguments.dropFirst())
-    guard arguments.count == 4,
-      ["layout", "button"].contains(arguments[0]),
-      arguments[2].count == 40,
-      arguments[2].allSatisfy(\.isHexDigit),
-      ["clean", "dirty"].contains(arguments[3])
-    else {
-      throw CommandError.usage
-    }
-    let destination = URL(fileURLWithPath: arguments[1], isDirectory: true)
+  func run() async throws {
+    let destination = URL(fileURLWithPath: output, isDirectory: true)
     for size in [TerminalSize(columns: 80, rows: 24), TerminalSize(columns: 40, rows: 16)]
     {
-      let checkpoints =
-        arguments[0] == "button"
-        ? try await ButtonCapture.run(size: size)
-        : try await LayoutCapture.run(size: size)
-      try ReviewBundle.write(
-        checkpoints,
-        to: destination.appendingPathComponent("\(size.columns)x\(size.rows)"),
-        revision: arguments[2],
-        dirty: arguments[3] == "dirty",
-        specimen: arguments[0]
-      )
+      let viewportDirectory = destination.appendingPathComponent(
+        "\(size.columns)x\(size.rows)")
+      do {
+        let checkpoints =
+          specimen == "button"
+          ? try await ButtonCapture.run(size: size)
+          : try await LayoutCapture.run(size: size)
+        try ReviewBundle.write(
+          checkpoints, to: viewportDirectory, revision: revision,
+          dirty: dirty == "dirty", specimen: specimen
+        )
+      } catch let failure as CaptureFailure {
+        try ReviewBundle.writeFailure(
+          failure, to: viewportDirectory, revision: revision,
+          dirty: dirty == "dirty", specimen: specimen
+        )
+        throw failure
+      }
     }
   }
 }

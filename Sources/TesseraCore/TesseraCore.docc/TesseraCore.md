@@ -12,3 +12,11 @@ Core view-layer protocols and shared types.
 ### Views
 
 - ``View``
+
+### Explicit developer observations
+
+- ``ViewGraph/automationSnapshot``
+- ``View/automationID(_:role:)``
+- ``AutomationRole``
+- ``AutomationElement``
+- ``AutomationSnapshot``
