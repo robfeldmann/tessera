@@ -39,6 +39,26 @@ struct SpecimenRegistryTests {
   }
 
   @Test
+  func `reducer record selection and divider resize remain app-owned`()
+    async throws
+  {
+    for size in [
+      TerminalSize(columns: 40, rows: 16), TerminalSize(columns: 80, rows: 24),
+    ] {
+      let checkpoints = try await RegisteredCapture.run(id: .records, size: size)
+      let opened = try #require(checkpoints.first { $0.label == "open-record-2" })
+      let dragged = try #require(checkpoints.first { $0.label == "divider-drag" })
+      let released = try #require(checkpoints.first { $0.label == "divider-up" })
+      let pointer = try #require(checkpoints.first { $0.label == "pointer-up" })
+      #expect(opened.state["selectedID"] == "2")
+      #expect(dragged.state["paneIdeals"] == "36,40")
+      #expect(released.state["paneIdeals"] == dragged.state["paneIdeals"])
+      #expect(pointer.state["selectedID"] == "2")
+      #expect(checkpoints == (try await RegisteredCapture.run(id: .records, size: size)))
+    }
+  }
+
+  @Test
   func `viewport replay reveals the nested action and moves its child offset`()
     async throws
   {

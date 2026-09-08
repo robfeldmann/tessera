@@ -57,10 +57,16 @@ public struct Section<Header: View, Content: View>: View, _LayoutView {
       return TerminalSize(columns: 0, rows: 0)
     }
     let headerSize = subviews[0].measure(proposal)
-    let contentSize = subviews[1].measure(proposal)
+    let contentProposal = ProposedSize(
+      width: proposal.width,
+      height: proposal.height.map { _sectionRemaining($0, headerSize.rows, spacing) }
+    )
+    let contentSize = subviews[1].measure(contentProposal)
+    let naturalHeight = _sectionAdd(
+      headerSize.rows, _sectionAdd(spacing, contentSize.rows))
     return TerminalSize(
       columns: max(headerSize.columns, contentSize.columns),
-      rows: _sectionAdd(headerSize.rows, _sectionAdd(spacing, contentSize.rows))
+      rows: proposal.height ?? naturalHeight
     )
   }
 
@@ -88,7 +94,7 @@ public struct Section<Header: View, Content: View>: View, _LayoutView {
       at: contentOrigin,
       proposal: ProposedSize(
         width: bounds.size.columns,
-        height: max(bounds.size.rows - headerSize.rows - spacing, 0)
+        height: _sectionRemaining(bounds.size.rows, headerSize.rows, spacing)
       ),
       clip: bounds
     )
@@ -109,4 +115,15 @@ extension Section where Header == Text {
 private func _sectionAdd(_ lhs: Int, _ rhs: Int) -> Int {
   let result = lhs.addingReportingOverflow(rhs)
   return result.overflow ? (rhs >= 0 ? Int.max : Int.min) : result.partialValue
+}
+private func _sectionRemaining(_ total: Int, _ header: Int, _ spacing: Int) -> Int {
+  _sectionSubtract(_sectionSubtract(total, header), spacing)
+}
+
+private func _sectionSubtract(_ lhs: Int, _ rhs: Int) -> Int {
+  let result = lhs.subtractingReportingOverflow(rhs)
+  if result.overflow {
+    return rhs >= 0 ? 0 : Int.max
+  }
+  return max(result.partialValue, 0)
 }

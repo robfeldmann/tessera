@@ -441,7 +441,7 @@ package struct _ListResponderState {
   package var pressedIndex: Int?
 }
 
-private struct _ListRow<Content: View, ID: Hashable>: View {
+private struct _ListRow<Content: View, ID: Hashable>: View, _PointerResponderView {
   let content: Content
   let id: ID
   let selected: Bool

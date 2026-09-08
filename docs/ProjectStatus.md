@@ -10,9 +10,11 @@ root [README](../README.md) stays intentionally light and defers here for detail
 
 ## Current Phase 4 review status
 
-Phase 4 remains **in progress and provisional**. The P4.3–P4.8 source surface is
-integrated through the shared caller/session-isolated review path, but focused tests,
-snapshots, and visual acceptance are still under correction. The current surface includes:
+Phase 4 remains **in progress and provisional**. The accepted implementation surface
+P4.3–P4.8 is integrated through the shared caller/session-isolated review path, and
+host-gate validation has passed for root and Examples; all eight live-app smoke runs
+exited cleanly. Visual outputs remain provisional pending maintainer approval. The current
+surface includes:
 
 - the Button key/pointer path with provenance-aware phases, clipped hit testing, focus,
   same-node capture, cancellation, and node-owned press state;
@@ -27,8 +29,10 @@ snapshots, and visual acceptance are still under correction. The current surface
 
 All application values and bindings remain caller-owned. This status does not claim
 complete Phase 4, catalog graduation, human visual approval, or platform runtime
-validation. The Showcase remains an integration reference rather than a mandatory
-acceptance vehicle.
+graduation. The Linux static build failed because the installed Swift 6.3.2 SDK cannot be
+imported by the available Swift 6.3.3 compiler; no matching compiler is installed. Linux
+and Windows runtime validation is unavailable under the no-bootstrap policy. The Showcase
+remains an integration reference rather than a mandatory acceptance vehicle.
 
 The review-loop commands are available for focused evidence when the parent gate is ready:
 
@@ -45,10 +49,13 @@ authority.
 
 ## Supported Today
 
-Tessera targets macOS, Linux, and Windows with Swift 6.3 or later. Runtime and platform
-validation evidence is maintained by the review-loop gate; this document does not assert a
-tested platform matrix for the provisional Phase 4 view layer. The terminal substrate and
-package build remain useful for local experimentation, but the view API is not stable.
+Tessera targets macOS, Linux, and Windows with Swift 6.3 or later. Host validation covers
+the integrated implementation, but this document does not claim a tested platform matrix
+or platform graduation. The Linux static build failed because the installed Swift 6.3.2
+SDK cannot be imported by the available Swift 6.3.3 compiler; no matching compiler is
+installed. Linux and Windows runtime validation is unavailable under the no-bootstrap
+policy. The terminal substrate and package build remain useful for local experimentation,
+but the view API is not stable.
 
 ### Planned platform widening
 

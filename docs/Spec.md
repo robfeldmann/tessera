@@ -6861,11 +6861,12 @@ stabilization between Phase 4 slices 2 and 3, not a new terminal-substrate depen
 > application-owned values and bindings; `NodeState` contains only the ephemeral state
 > needed by the relevant interaction or layout contract.
 >
-> This paragraph records architecture and current integration scope, not final acceptance
-> or graduation of the catalog. Pointer motion is split deliberately: `onHover` receives
-> enter/exit changes derived from motion tracking, while `onPointer` receives normalized
-> phases and `onTap` owns same-node primary press/release activation. Broad gesture
-> recognition and cross-view text selection remain out of scope. TextField accepts
+> Host-gate validation covers the integrated root and Examples implementation; visual
+> outputs remain provisional pending maintainer approval. This paragraph does not claim
+> final acceptance or catalog graduation. Pointer motion is split deliberately: `onHover`
+> receives enter/exit changes derived from motion tracking, while `onPointer` receives
+> normalized phases and `onTap` owns same-node primary press/release activation. Broad
+> gesture recognition and cross-view text selection remain out of scope. TextField accepts
 > committed input and paste with grapheme-safe local cursor/selection state, but not IME
 > pre-edit or secure-entry masking. Built-in styles and the custom-style protocol remain
 > provisional where their catalogs say so; styles cannot redefine activation semantics.

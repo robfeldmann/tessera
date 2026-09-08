@@ -183,8 +183,8 @@ func `Section remains a structural boundary for empty and adjacent content`() {
 
   graph.layoutIfNeeded()
   let dump = graph.dump()
-  #expect(dump.contains("measured=(5x2)"))
-  #expect(dump.contains("frame=(0,2,6x2)"))
+  #expect(dump.contains("measured=(5x3)"))
+  #expect(dump.contains("frame=(0,3,6x2)"))
 }
 @Test
 func `List row pointer selection and wheel offset stay controlled`() {
@@ -303,4 +303,68 @@ func `List clips rows before a following Grid at persistent sizes`() {
     #expect(row.contains("Grid A"))
     #expect(row.contains("Grid B"))
   }
+}
+@Test
+func `multiline List rows do not paint through a following Grid sibling`() {
+  let records = [
+    CollectionRecord(id: 1, title: "Inbox"),
+    CollectionRecord(id: 2, title: "Today"),
+    CollectionRecord(id: 3, title: "Archive"),
+    CollectionRecord(id: 4, title: "Empty"),
+  ]
+  let model = CollectionModel(records: records)
+  let graph = ViewGraph(
+    root: {
+      VStack(alignment: .leading, spacing: 1) {
+        Section("Collections", spacing: 1) {
+          List(records, selection: selectionBinding(model)) { record in
+            Button(
+              action: { model.selection = record.id },
+              label: {
+                VStack(alignment: .leading, spacing: 0) {
+                  Text(record.title)
+                  Text("Long-lived synthetic history")
+                }
+              }
+            )
+          }
+        }
+        Grid(columns: [.fill(1), .fill(1)], spacing: 1) {
+          Text("Grid A")
+          Text("Grid B")
+          Text("Grid C")
+          Text("Grid D")
+        }
+      }
+    },
+    size: TerminalSize(columns: 40, rows: 16)
+  )
+
+  graph.layoutIfNeeded()
+  let size = TerminalSize(columns: 40, rows: 16)
+  let buffer = collectionTestFrame(size: size) { graph.render(into: $0) }
+  let rows = (0..<size.rows).map { row in
+    (0..<size.columns).map { column in
+      if case .grapheme(let value) = buffer[row, column].content {
+        return value
+      }
+      return " "
+    }.joined()
+  }
+  let gridRows = rows.filter { $0.contains("Grid A") }
+  #expect(gridRows.count == 1)
+  #expect(gridRows[0].contains("Grid B"))
+  #expect(!gridRows[0].contains("Long-lived synthetic history"))
+}
+@Test
+func `Section zero proposal and maximum spacing remain bounded`() {
+  let graph = ViewGraph(
+    root: {
+      Section(spacing: Int.max, header: { Text("Header") }, content: { Text("Content") })
+    },
+    size: TerminalSize(columns: 10, rows: 0)
+  )
+
+  graph.layoutIfNeeded()
+  #expect(graph.dump().contains("measured=(7x0)"))
 }
