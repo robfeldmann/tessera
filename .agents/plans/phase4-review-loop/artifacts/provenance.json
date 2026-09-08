@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 2,
+  "visualApproval": "provisional-not-human-approved",
+  "profile": "truecolor-no-protocol-modes",
+  "exporter": {
+    "cellHeight": 20,
+    "cellWidth": 10,
+    "cursor": "coordinate marker only; visibility and shape not observed",
+    "defaultBackground": "#101010",
+    "defaultForeground": "#D0D0D0",
+    "fontFamily": "monospace",
+    "glyphs": "printable ASCII only; unsupported glyphs and attributes fail",
+    "rasterizer": "SVG; viewer-dependent, not a canonical pixel baseline",
+    "version": "1"
+  },
+  "artifacts": [
+    {
+      "file": "layout-80x24-initial.svg",
+      "source": ".artifacts/phase4-review-loop/final/layout/80x24/1-initial.svg",
+      "sha256": "8267f2a592f280239799b6017396e1628e49972e05cf1061488253069ccbb481",
+      "sourceRevision": "87d3284ca2bf677fc3010f467e717312336775d1",
+      "sourceDirty": false
+    },
+    {
+      "file": "layout-40x16-initial.svg",
+      "source": ".artifacts/phase4-review-loop/final/layout/40x16/1-initial.svg",
+      "sha256": "c4b54dbb65660f5b6f17890828a86e4420af9dedcda4f06456c79559301f0010",
+      "sourceRevision": "87d3284ca2bf677fc3010f467e717312336775d1",
+      "sourceDirty": false
+    },
+    {
+      "file": "button-80x24-result.svg",
+      "source": ".artifacts/phase4-review-loop/final/button/80x24/12-space-restored.svg",
+      "sha256": "dd4b80ff9a973778a89e31036fb18406f7b353cf52c14250fdd4b5d0f51af525",
+      "sourceRevision": "87d3284ca2bf677fc3010f467e717312336775d1",
+      "sourceDirty": false
+    },
+    {
+      "file": "button-40x16-disabled.svg",
+      "source": ".artifacts/phase4-review-loop/final/button/40x16/8-disable.svg",
+      "sha256": "8d6d6078ef77155759547fe4560034be0b70f6ff90d131a9eaf9f0614b79f173",
+      "sourceRevision": "87d3284ca2bf677fc3010f467e717312336775d1",
+      "sourceDirty": false
+    },
+    {
+      "file": "negative-duplicate-failure.json",
+      "source": ".artifacts/phase4-review-loop/negative-duplicate/80x24/failure.json",
+      "sha256": "b2b0d219b55a5e41da1d428525b5f42627fb75b17f94b78a8762323dc7c406c9",
+      "sourceRevision": "3e3e76341f973c9d4b412f2c5333ee611bf6236e",
+      "sourceDirty": true
+    }
+  ],
+  "negativeProof": "Temporary duplicate automation identifier; failed before input after one completed frame. Mutation restored."
+}

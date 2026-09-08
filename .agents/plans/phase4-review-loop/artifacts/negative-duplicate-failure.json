@@ -1,0 +1,6 @@
+{
+  "cause" : "Ambiguous automation identifier 'add': root\/index(0)\/index(2)\/index(0)\/index(0) frame=Rect(origin: TesseraTerminalCore.TerminalPosition(column: 1, row: 5), size: TesseraTerminalCore.TerminalSize(columns: 5, rows: 1)) clip=Rect(origin: TesseraTerminalCore.TerminalPosition(column: 1, row: 5), size: TesseraTerminalCore.TerminalSize(columns: 5, rows: 1)); root\/index(0)\/index(2)\/index(1) frame=Rect(origin: TesseraTerminalCore.TerminalPosition(column: 8, row: 5), size: TesseraTerminalCore.TerminalSize(columns: 13, rows: 1)) clip=Rect(origin: TesseraTerminalCore.TerminalPosition(column: 8, row: 5), size: TesseraTerminalCore.TerminalSize(columns: 13, rows: 1))",
+  "completedCheckpoints" : 1,
+  "failedStep" : "selectors",
+  "schemaVersion" : 2
+}

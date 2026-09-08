@@ -9,9 +9,13 @@ CHANGELOG.md
 Sources/**/Documentation.docc/**/*.md
 
 # Build artifacts
+.artifacts/
 .build/
 Packages/
 node_modules/
 **/Package.resolved
 package-lock.json
 Sources/CGhosttyVT/include/ghostty/
+
+# Review captures retain their exact exporter bytes and recorded checksums
+.agents/plans/phase4-review-loop/artifacts/
