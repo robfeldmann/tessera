@@ -262,7 +262,7 @@ change their controlled sizes.
 | pane configuration        | Binding      | ordered `[SplitViewPane]` containing stable `ID`, `SplitViewPaneSizing`, and `isCollapsed`               | App is authoritative. Every sizing value is valid by construction. A collapsed pane retains its sizing and receives a zero main-axis rect.                                                                                                  |
 | axis                      | Binding      | `Axis`                                                                                                   | App is authoritative. On change, transpose main/cross-axis negotiation, cancel `pointer drag`, and clear a `focused divider handle` that is no longer live.                                                                                 |
 | visible pane sequence     | derived      | ordered `[Pane.ID]`                                                                                      | Recompute from `pane configuration` on every update; omit collapsed panes without changing their identity or order in the binding.                                                                                                          |
-| pane priority             | layout value | integer from the child view's `.layoutPriority(_:)`; default 0                                           | Read on every layout. It controls shared Flex growth and compression tiers; SplitViewPane does not store a second priority.                                                                                                                 |
+| pane priority             | layout value | integer from the child view's `.layoutPriority(_:)`; default 0                                           | Read on every layout. The shared Flex resolver grows the highest-priority pane first, capped at its maximum, and compresses lower priorities first; SplitViewPane does not store a second priority.                                         |
 | negotiated pane rects     | derived      | `[Pane.ID: Rect]`                                                                                        | Recompute from `pane configuration`, pane priority, `axis`, and parent bounds through the shared Flex resolver; clamp all extents to nonnegative integers and parent clipping.                                                              |
 | focused divider handle    | derived      | `FocusID?`                                                                                               | Recompute from the FocusManager after layout; clear if its adjacent visible pair disappears or becomes nonresizable.                                                                                                                        |
 | pointer drag              | NodeState    | optional `(leadingID: Pane.ID, trailingID: Pane.ID, origin: Int, leadingStart: Int, trailingStart: Int)` | Set only during a drag on a live `divider handle`; retain through ordinary reconciliation while the same stable adjacent pane pair remains live; clear only on release, axis change, pair disappearance, focus loss, or node identity loss. |
@@ -286,6 +286,12 @@ IDs, for example `split.files.editor`; it is focusable only while
 `keyboard resizing enabled` is true and the pair has an adjustable cell. Clicking a handle
 follows Slice 5's click-to-focus rule before this widget's mouse action.
 
+Divider identities are the narrow stable-runtime-identity exception: SplitView derives
+each live divider's manager-only `FocusID` from its stable adjacent pane pair and axis.
+They are not public `id:` or `focused:` initializer arguments, and callers do not receive
+automatic IDs. Ordinary controls still require explicit caller composition with
+`.focusable(id).focused(binding, equals: id)`.
+
 When the application collapses a pane containing the graph's focused descendant, SplitView
 records that descendant as the pane's `focus return candidate`, then requests the nearest
 focusable descendant in the next visible pane; if none exists, it requests the previous
@@ -305,6 +311,10 @@ remains unchanged.
 | Down  | `focused divider handle` is set and `axis` is vertical   | Increments the leading adjacent pane's `sizing.ideal` by one and decrements the trailing adjacent pane's `sizing.ideal` by one through `pane configuration`; clamps at the negotiated pair bounds. | yes      |
 | Tab   | `focused divider handle` is set                          | Leaves focus routing to the application's installed handler; does not mutate `pane configuration`.                                                                                                 | no       |
 | Esc   | `focused divider handle` is set                          | Leaves the event available to ancestors and the application; does not mutate `pane configuration`.                                                                                                 | no       |
+
+With the flexible, slack-absorbing pane at the higher priority, each successful arrow-key
+resize moves the resolved divider boundary on its first key press rather than consuming
+slack by refilling a fixed side pane.
 
 ### Mouse table
 
@@ -349,9 +359,11 @@ the exact [Flex resolver item fields](../primitives/flex.md#constraint-resolutio
 The resolver begins at requested ideals. Positive remainder grows higher-priority panes
 first up to their maxima, with earliest-source integer remainder. Negative remainder
 compresses lower-priority panes first toward their minima, with later-source remainder
-yielding first. If visible minima plus handles still exceed the proposal, SplitView
-reports that floor and the parent clips trailing placement. It never writes reconciled
-sizes back to the binding.
+yielding first. A container that needs immediate divider response gives its flexible,
+slack-absorbing pane the higher priority, so fixed side panes remain at their requested
+ideals instead of being refilled from slack. If visible minima plus handles still exceed
+the proposal, SplitView reports that floor and the parent clips trailing placement. It
+never writes reconciled sizes back to the binding.
 
 The table is fixture-specific so every result is exact:
 
@@ -368,20 +380,22 @@ The table is fixture-specific so every result is exact:
 
 - `semantic.primary` -- inherited by ordinary pane content.
 - `semantic.secondary` -- applied to an unfocused divider handle.
-- `semantic.accent` -- applied to a focused divider handle.
+- `semantic.focus` -- applied as a foreground-only, bold focus-color overlay to a focused
+  divider glyph; its background remains transparent.
 - `semantic.disabled` -- applied to a nonresizable divider handle.
 - `divider.style` -- [Divider](../primitives/divider.md) glyph selection. SplitView draws
   `light` by default and receives identical geometry for every glyph style.
 - `focus.border` and the focus degradation rules in [tokens.md](../tokens.md#focus) --
-  focus presentation for the one-cell handle without inventing a component-specific focus
-  color.
+  provide the foreground-only focus presentation for the one-cell handle without inventing
+  a component-specific focus color.
 - `truncation.mark` and the degradation ladder in [tokens.md](../tokens.md) -- consumed by
   pane content and the split's ASCII fallback; SplitView never cuts a grapheme itself.
 
 System and custom styling use the shared complete-`Style` environment merge fixed by
 [system and custom style plumbing](../../docs/Spec.md#system-and-custom-style-plumbing).
-SplitView does not introduce a parallel `SplitViewStyle` protocol or expose pane business
-state to styling.
+The focused divider is the exception: it overlays only the focus foreground and boldness,
+leaving its background transparent. SplitView does not introduce a parallel
+`SplitViewStyle` protocol or expose pane business state to styling.
 
 ## Primitive dependencies
 
@@ -426,6 +440,8 @@ responsibilities of this low-level adjacency widget.
   model: focus return candidate)
 - `split view moves focus to the nearest visible pane when collapsing the focused pane`
   (state model: collapse focus target)
+- `focused divider arrow keys move the boundary on first press with flexible slack` (key
+  table; sizing: resolver rules)
 - `horizontal divider handle arrow keys resize only its adjacent controlled pane pair`
   (key table: Left and Right)
 - `vertical divider handle arrow keys resize only its adjacent controlled pane pair` (key
@@ -440,8 +456,8 @@ responsibilities of this low-level adjacency widget.
   drag row)
 - `split view grows higher priority panes before lower priority panes reach surplus`
   (sizing: pane adapter table)
-- `split view compresses the flexible middle pane before capped higher priority side panes`
-  (sizing: pane adapter table)
+- `a higher-priority flexible pane absorbs surplus before fixed side panes are refilled`
+  (sizing: resolver rules)
 - `split view never writes effective negotiated sizes back to pane configuration` (state
   model: pane configuration; sizing: resolver rules)
 - `split view uses flex floors before clipping trailing panes under over-constraint`
@@ -454,17 +470,18 @@ responsibilities of this low-level adjacency widget.
   wireframe)
 - `split view transposes divider hit geometry for vertical axis` (horizontal divider
   anatomy)
-- `standard split view style applies semantic full styles without hard-coded colors`
-  (state model: split view styles)
+- `focused divider styling overlays only a bold focus foreground with a transparent background`
+  (environment: `semantic.focus`)
 
 ## Degradation
 
 - **`NO_COLOR`:** preserve Divider glyphs, one-cell geometry, hit regions, and keyboard
-  behavior. The semantic `accent` Style degrades through the token ladder's bold treatment
-  instead of a color distinction.
+  behavior. The focused divider's foreground-only focus treatment degrades through the
+  token ladder's bold treatment instead of a color distinction.
 - **16-color:** retain the same semantic `primary`, `secondary`, `accent`, and `disabled`
-  full styles using the environment's indexed approximation; allocation and clipping do
-  not change.
+  styles using the environment's indexed approximation; a focused divider still overlays
+  only its bold focus foreground, with no background fill. Allocation and clipping do not
+  change.
 - **ASCII-only:** replace `│` and `─` with the Divider `ascii` glyphs `|` and `-`; replace
   pane-content truncation `…` with `~` according to
   [tokens.md](../tokens.md#degradation-ladder). Handles remain exactly one cell and fully
@@ -484,9 +501,10 @@ responsibilities of this low-level adjacency widget.
   growth and compression tiers. SplitView lowers both into the shared
   [Flex contract](../primitives/flex.md), keeps the public pane model independent of
   `FlexConstraint`, and has no static fallback allocator.
-- **Styling:** SplitView consumes the shared semantic complete-`Style` values. It does not
-  define a separate style protocol; custom application styling uses the same environment
-  merge fixed by
+- **Styling:** SplitView consumes the shared semantic complete-`Style` values. A focused
+  divider overlays only the bold focus foreground, leaving its background transparent; it
+  does not define a separate style protocol. Custom application styling uses the same
+  environment merge fixed by
   [system and custom style plumbing](../../docs/Spec.md#system-and-custom-style-plumbing).
 - **Programmatic expansion focus:** A saved descendant is restored only while focus is
   nil. Expansion never steals a newer focus selection.

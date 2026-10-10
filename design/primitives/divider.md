@@ -125,6 +125,57 @@ Only the glyph changes, never the geometry:
 Per the [degradation ladder](../tokens.md#degradation-ladder): `NO_COLOR` and 16-color are
 unchanged; ascii-only swaps in the `ascii` glyph row.
 
+## Blended junctions
+
+Specified 2026-08-17 (prompted by NavigationSplitView's header rule crossing SplitView
+divider columns); not yet implemented. Blending lets two crossing rules render a junction
+glyph (`┼`, `├`, `┤`, `┬`, `┴`) instead of the later rule overwriting the earlier one --
+Monodraw's "blended" line setting is the visual model.
+
+- **Opt-in:** a `divider.blending` environment value, default `.replace`. `.blended`
+  requests arm-union rendering for the Divider (and for widget-rendered dividers such as
+  SplitView's, which enable it for their divider cells).
+- **Semantics:** writing a blended line glyph into a cell whose existing content is a
+  box-drawing line glyph from the same glyph family stores the union of both glyphs'
+  directional arms (`─` into `│` is `┼`; `─` ending at `│` is `├` or `┤`). Union is
+  commutative, so paint order never changes the result. When the existing content is not a
+  recognized line glyph, or the union has no glyph in the active family, the incoming
+  glyph replaces.
+- **Scope:** v1 covers the `light` and `ascii` families only. Every `ascii` union is `+`.
+  `heavy`, `double`, and `dashed` replace rather than blend (dashed has no junction forms;
+  mixed-weight unions are not worth their glyph table yet).
+- **Seam:** `FrameRegion` is a write-only surface with no public cell read. The
+  read-modify-write lives inside `TesseraTerminalBuffer.Buffer`, mirroring the existing
+  `FrameRegion._mergeStyle` -> `Buffer.mergeStyle` precedent: a merge-line operation on
+  `FrameRegion` delegates the arm-union to the buffer, and no cell-read API is exposed to
+  higher layers.
+- **Geometry is untouched:** blending changes glyph selection only; sizing, orientation,
+  and degradation geometry are exactly the base Divider contract.
+
+A blended horizontal rule crossing a vertical `SplitView` divider:
+
+```wireframe 24x4
+ Folders  │ From: Ada
+──────────┼─────────────
+ Inbox    │ Subject: Hi
+ Sent     │ Sent: Jul 6
+```
+
+```text
+Callouts (24x4, 0-based):
+1. r1 c10  Junction -- `┼`, the arm-union of the blended rule and the divider column
+2. r1      Blended rule -- `divider.light` glyphs; ascii degradation renders `+` at c10
+```
+
+Requirements (traced to the crossing wireframe; gated on the buffer merge seam):
+
+- `blended horizontal rule crossing a vertical divider renders a junction glyph` (crossing
+  wireframe: r1 c10)
+- `blending is commutative across paint order` (crossing wireframe: r1 c10)
+- `non-line content under a blended rule is replaced not merged` (semantics bullet;
+  crossing wireframe rows r0, r2-r3 keep text intact)
+- `ascii blending renders plus at every junction` (crossing wireframe callout 2)
+
 ## Decisions
 
 Divider follows the normative [Slice 2 orientation contract](../../docs/Spec.md#divider):

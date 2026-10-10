@@ -8,9 +8,6 @@ while this catalog owns per-component detail: appearance, interaction tables, st
 models, and requirements. Never restate a spec rule here; link to it, for example
 [Slice 7](../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase).
 
-The Showcase is the runnable integration catalog; its design lives in
-[showcase.md](showcase.md).
-
 The catalog's core trick: a terminal UI's medium is a character grid, so a wireframe drawn
 at exact dimensions is simultaneously the full-fidelity design and a candidate golden
 fixture for the [snapshot harness](../docs/Spec.md#slice-1-the-snapshot-harness).
@@ -23,7 +20,6 @@ design/
   README.md         this file: process, conventions, table schemas, index
   tokens.md         shared visual vocabulary: viewports, borders, selection, ...
   inbox.md          append-only inspiration capture
-  showcase.md       reference integration app composing the catalog
   templates/        starting points for new docs
     primitive.md
     widget.md
@@ -44,7 +40,7 @@ status: sketch # sketch | wireframed | specified | ready | implemented
 it has no component anatomy or interaction tables: it is `specified` when every token row
 defines its full and degradation behavior, and `ready` when those decisions are closed,
 its requirements trace to token rows, and every `ready` catalog consumer can name the row
-it uses. `app` is reserved for runnable integration designs such as Showcase.
+it uses. `app` is reserved for runnable integration designs.
 
 Promotion gates:
 
@@ -203,6 +199,13 @@ Columns: `State | Owner | Type | Reset or clamp rule`
   is the
   [Slice 7 baseline](../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase).
 
+Runtime ownership invariant: every `NodeState` row has exactly one live storage owner. A
+stateful `LeafView` handles events through `LeafView.handleEvent`, so measurement,
+rendering, and events share that `NodeState`. A component must not mirror the same
+ephemeral value into a separate responder or wrapper store, or transfer it between
+independent stores across graph updates. Measurement and `body` stay pure: state changes
+only through event handling.
+
 Example:
 
 | State         | Owner     | Type          | Reset or clamp rule                      |
@@ -292,32 +295,37 @@ not substitute globally installed `pnpx`, `prettier`, or markdownlint commands.
 
 ## Index
 
-| Component                                               | Kind      | Status     | Blocked on                                                |
-| ------------------------------------------------------- | --------- | ---------- | --------------------------------------------------------- |
-| [Background](primitives/background.md)                  | primitive | sketch     | Slice 3 sizing, style, and Slice 5 hit-testing decisions  |
-| [Button](widgets/button.md)                             | widget    | wireframed | focus/key routing + hit testing + semantic style API      |
-| [Border](primitives/border.md)                          | primitive | sketch     | Slice 3 glyph, sizing, and degenerate-frame decisions     |
-| [Box](primitives/box.md)                                | primitive | sketch     | Border, Text, Padding, and title-policy design            |
-| [Divider](primitives/divider.md)                        | primitive | ready      | —                                                         |
-| [Frame](primitives/frame.md)                            | primitive | ready      | —                                                         |
-| [Flex](primitives/flex.md)                              | primitive | ready      | —                                                         |
-| [Linear stacks](primitives/stacks.md)                   | primitive | ready      | —                                                         |
-| [List](widgets/list.md)                                 | widget    | sketch     | Slice 3 style + Slice 4/5 routing + List contract design  |
-| [NavigationSplitView](widgets/navigation-split-view.md) | widget    | wireframed | SplitView + List/Section + compact policy                 |
-| [Overlay](primitives/overlay.md)                        | primitive | sketch     | Slice 3 sizing plus Slice 5 layer-hit policy              |
-| [Padding](primitives/padding.md)                        | primitive | ready      | —                                                         |
-| [Picker](widgets/picker.md)                             | widget    | sketch     | focus/key routing + control contract design               |
-| [Section](widgets/section.md)                           | widget    | sketch     | List composition + grouping contract design               |
-| [Showcase](showcase.md)                                 | app       | wireframed | component contracts + reconciliation questions            |
-| [ScrollIndicator](primitives/scroll-indicator.md)       | primitive | wireframed | axis/API spelling + shared style protocol                 |
-| [ScrollView](widgets/scroll-view.md)                    | widget    | ready      | —                                                         |
-| [SplitView](widgets/split-view.md)                      | widget    | ready      | —                                                         |
-| [Stepper](widgets/stepper.md)                           | widget    | sketch     | focus/key routing + control contract design               |
-| [Style modifiers](primitives/style-modifiers.md)        | primitive | sketch     | `Style` API and environment-inheritance design            |
-| [Table](widgets/table.md)                               | widget    | specified  | Text truncation + ScrollIndicator primitives (ready gate) |
-| [Text](primitives/text.md)                              | primitive | ready      | —                                                         |
-| [Text selection](primitives/text-selection.md)          | primitive | sketch     | Slice 5 hit testing, pointer capture, and copy policy     |
-| [TextField](widgets/text-field.md)                      | widget    | wireframed | focus/key/paste + hardware cursor + semantic style API    |
-| [Tokens](tokens.md)                                     | tokens    | ready      | —                                                         |
-| [Toggle](widgets/toggle.md)                             | widget    | sketch     | focus/key routing + control contract design               |
-| [ZStack](primitives/z-stack.md)                         | primitive | ready      | —                                                         |
+Statuses below are the documents' own. Docs marked "omp2 review" have adjustments the
+owner accepted in plan 032's review, which step 5.2 writes into the doc before it can be
+treated as `ready` again; several also still mention the abandoned Showcase, which 5.2
+removes.
+
+| Component                                               | Kind      | Status     | Blocked on                                                    |
+| ------------------------------------------------------- | --------- | ---------- | ------------------------------------------------------------- |
+| [Background](primitives/background.md)                  | primitive | ready      | —                                                             |
+| [Button](widgets/button.md)                             | widget    | ready      | omp2 review (button styles, capsule ends)                     |
+| [Border](primitives/border.md)                          | primitive | ready      | omp2 review (focus border)                                    |
+| [Box](primitives/box.md)                                | primitive | ready      | omp2 review (focus-within tint)                               |
+| [Divider](primitives/divider.md)                        | primitive | ready      | — (blended junctions: specified, await the Buffer merge seam) |
+| [Frame](primitives/frame.md)                            | primitive | ready      | —                                                             |
+| [Flex](primitives/flex.md)                              | primitive | ready      | —                                                             |
+| [Grid](primitives/grid.md)                              | primitive | sketch     | Flex + public API and measurement decisions; ViewThatFits     |
+| [Linear stacks](primitives/stacks.md)                   | primitive | ready      | —                                                             |
+| [List](widgets/list.md)                                 | widget    | specified  | mouse routing (ready gate); omp2 review (list-detail)         |
+| [NavigationSplitView](widgets/navigation-split-view.md) | widget    | wireframed | post-1.0 (omp2 assessment decision 10)                        |
+| [Overlay](primitives/overlay.md)                        | primitive | ready      | —                                                             |
+| [Padding](primitives/padding.md)                        | primitive | ready      | —                                                             |
+| [Picker](widgets/picker.md)                             | widget    | ready      | omp2 review (radio, menu, segmented)                          |
+| [Section](widgets/section.md)                           | widget    | specified  | List ready gate                                               |
+| [ScrollIndicator](primitives/scroll-indicator.md)       | primitive | ready      | omp2 review (thumb and track styles, in-border placement)     |
+| [ScrollView](widgets/scroll-view.md)                    | widget    | ready      | omp2 review (indicator styles)                                |
+| [SplitView](widgets/split-view.md)                      | widget    | ready      | omp2 review (list-detail edge cases, content minimum)         |
+| [Stepper](widgets/stepper.md)                           | widget    | ready      | omp2 review (arrows, limits, disabled)                        |
+| [Style modifiers](primitives/style-modifiers.md)        | primitive | ready      | —                                                             |
+| [Table](widgets/table.md)                               | widget    | specified  | omp2 review (table styles, alternating rows); open questions  |
+| [Text](primitives/text.md)                              | primitive | ready      | omp2 review (middle truncation)                               |
+| [Text selection](primitives/text-selection.md)          | primitive | sketch     | hit testing, pointer capture, and copy policy                 |
+| [TextField](widgets/text-field.md)                      | widget    | wireframed | omp2 review (counter); focus/key/paste + hardware cursor      |
+| [Tokens](tokens.md)                                     | tokens    | ready      | plan 032 step 5.3 token proposals                             |
+| [Toggle](widgets/toggle.md)                             | widget    | ready      | omp2 review (checkbox)                                        |
+| [ZStack](primitives/z-stack.md)                         | primitive | ready      | —                                                             |

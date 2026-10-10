@@ -36,7 +36,8 @@ a subtree. The initial vocabulary is intentionally small:
 | ---------------------- | ------------------------------------------------------ | ------------------- | ------------------------------------ |
 | `semantic.primary`     | terminal-default foreground                            | unchanged           | ordinary labels and content          |
 | `semantic.secondary`   | dim terminal-default foreground                        | dim                 | supporting labels and inactive facts |
-| `semantic.accent`      | ANSI bright cyan (index 14) + bold                     | bold                | focus and selected controls          |
+| `semantic.accent`      | ANSI bright cyan (index 14) + bold                     | bold                | selection and application accents    |
+| `semantic.focus`       | ANSI black on dark yellow (indices 0/3) + bold         | bold                | the current focus owner only         |
 | `semantic.disabled`    | dim terminal-default foreground                        | dim                 | disabled control presentation        |
 | `semantic.destructive` | ANSI bright red (index 9) + bold + underline when able | bold + underline    | destructive actions and warnings     |
 
@@ -76,25 +77,54 @@ Glyph tables for `Border`/frame drawing. Names follow the style, not the codepoi
 | `selection.inactive` | dim instead of reverse    | unfocused widgets |
 | `selection.ascii`    | `>` in the leading gutter | degradation       |
 
+## Disclosure
+
+How a collapsible [Section](widgets/section.md) header announces its expansion state, in
+the host List's gutter column.
+
+| Token                  | Value     | Used by                                   |
+| ---------------------- | --------- | ----------------------------------------- |
+| `disclosure.expanded`  | `▾`       | Section headers with an expansion binding |
+| `disclosure.collapsed` | `▸`       | Section headers with an expansion binding |
+| `disclosure.ascii`     | `-` / `+` | degradation (expanded / collapsed)        |
+
 ## Focus
 
 How a focused widget announces itself. System-wide decision, not per-widget.
 
-| Token           | Value                                            | Notes                                          |
-| --------------- | ------------------------------------------------ | ---------------------------------------------- |
-| `focus.border`  | border switches to `rounded` + `semantic.accent` | bordered widgets; title position never changes |
-| `focus.content` | selection tokens switch active/inactive variant  | borderless widgets (List, Table)               |
+| Token           | Value                                                                                                                                                 | Notes                                                                    |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `focus.border`  | border glyphs switch to `rounded` and take the focus color as a foreground overlay (bold); background unchanged; title text preserved (not recolored) | focus-owning bordered controls; delegated hosts preserve declared chrome |
+| `focus.content` | complete focus owner uses `semantic.focus`                                                                                                            | borderless widgets and controls                                          |
 
 ## Scroll indicators
 
-| Token             | Value        | Notes                                           |
-| ----------------- | ------------ | ----------------------------------------------- |
-| `scrollbar.track` | `│` / `─`    | vertical / horizontal                           |
-| `scrollbar.thumb` | `█` / `■`    | thumb length = max(1, viewport/content x track) |
-| `scrollbar.ascii` | `\|` and `#` | degradation                                     |
+The shared [ScrollIndicator](primitives/scroll-indicator.md) is built from two independent
+style axes plus a placement mode. `scrollbar.weight` sets the thumb weight;
+`scrollbar.track` sets the track treatment; reduced capability falls back to the ASCII
+glyphs.
 
-Scrollbars appear only when content overflows; they occupy one cell on the trailing or
-bottom edge, inside the component's frame.
+| `scrollbar.weight` | Vertical thumb | Horizontal thumb | Notes                          |
+| ------------------ | -------------- | ---------------- | ------------------------------ |
+| `line` (default)   | `┃`            | `━`              | thin heavy-line thumb          |
+| `mid`              | `▐`            | `▄`              | half block; the lazygit weight |
+| `block`            | `█`            | `■`              | solid, high-contrast           |
+
+| `scrollbar.track` | Vertical track | Horizontal track | Notes                              |
+| ----------------- | -------------- | ---------------- | ---------------------------------- |
+| `solid` (default) | `│`            | `─`              | continuous rule                    |
+| `dashed`          | `╎`            | `╌`              | shares the `dashed` divider glyphs |
+| `none`            | (blank)        | (blank)          | only the thumb paints              |
+
+`scrollbar.ascii` is the shared degradation target: track `\|` / `-`, thumb `#`; a `none`
+track stays blank.
+
+Placement is parent-owned. `reserved` (default) gives the strip one trailing column or
+bottom row inside the component frame. `onBorder` rides an adjacent
+[Border](primitives/border.md) or [Box](primitives/box.md) edge: the border line is the
+track, the thumb overlays the edge cells, and no extra cell is reserved. Thumb length is
+`max(1, floor(track x viewport / content))` for every combination. Scroll indicators
+appear only when content overflows.
 
 ## Truncation
 
@@ -109,21 +139,29 @@ What each family becomes as capabilities shrink. Capability detection is advisor
 ([Slice 6](../docs/Spec.md#slice-6-terminal-capability-detection)); the ladder is what
 "reduce feature use, do not break" looks like, decided once here.
 
-| Family          | Full            | `NO_COLOR`         | 16-color                   | ASCII-only      |
-| --------------- | --------------- | ------------------ | -------------------------- | --------------- |
-| borders         | any set         | unchanged          | unchanged                  | `ascii` set     |
-| selection       | fill + bar      | reverse video only | indexed reverse            | `>` gutter      |
-| focus           | accent          | bold               | indexed accent             | bold            |
-| scrollbar       | track+thumb     | unchanged          | unchanged                  | `\|` and `#`    |
-| truncation      | `…`             | unchanged          | unchanged                  | `~`             |
-| semantic styles | full role Style | attributes only    | indexed color + attributes | attributes only |
+| Family          | Full             | `NO_COLOR`         | 16-color                   | ASCII-only      |
+| --------------- | ---------------- | ------------------ | -------------------------- | --------------- |
+| borders         | any set          | unchanged          | unchanged                  | `ascii` set     |
+| selection       | fill + bar       | reverse video only | indexed reverse            | `>` gutter      |
+| focus           | `semantic.focus` | bold               | indexed black/yellow pair  | bold            |
+| scrollbar       | weight + track   | unchanged          | unchanged                  | `\|` and `#`    |
+| disclosure      | `▾` / `▸`        | unchanged          | unchanged                  | `-` / `+`       |
+| truncation      | `…`              | unchanged          | unchanged                  | `~`             |
+| semantic styles | full role Style  | attributes only    | indexed color + attributes | attributes only |
 
 ## Requirements
 
 - `semantic accent has a deterministic indexed-color fallback` (semantic styles:
   `semantic.accent`).
+- `semantic focus uses a yellow background plus bold when color is available` (semantic
+  styles: `semantic.focus`).
 - `semantic destructive preserves emphasis without color` (semantic styles:
   `semantic.destructive`).
+- `disclosure glyphs degrade to minus and plus in ascii` (disclosure: `disclosure.ascii`).
 - `focused bordered controls retain their title geometry` (focus: `focus.border`).
 - `ascii degradation substitutes only the shared glyph families` (degradation ladder:
   ASCII-only).
+- `scroll indicator weight and track axes resolve independent glyphs` (scroll indicators:
+  weight and track tables).
+- `on-border placement reserves no cell and rides the edge` (scroll indicators:
+  placement).

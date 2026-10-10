@@ -5,34 +5,58 @@ status: ready
 
 # ScrollView
 
-`ScrollView` is the mobile-critical viewport widget: it exposes a translated, clipped
-window onto one child in `.vertical`, `.horizontal`, or both axes. The app owns content
-and, when supplied, its `TerminalPosition` through an optional binding; the widget owns
-only an uncontrolled fallback position in `NodeState`. It is deliberately a cell viewport,
-not a physics simulation: every input changes an integer offset immediately, and it offers
-neither zoom nor smooth animation. Its public viewport and programmatic-offset foundation
-begins in [Slice 2](../../docs/Spec.md#slice-2-the-layout-protocol-and-stack-containers)
-and its final style/public-API delivery completes in
-[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase).
+`ScrollView` is a viewport widget: it exposes a translated, clipped window onto one child
+in `.vertical`, `.horizontal`, or both axes. The app owns content and any supplied
+`TerminalPosition` offset binding. It is deliberately a cell viewport, not a physics
+simulation: every accepted keyboard input changes an integer offset immediately, and it
+offers neither zoom nor smooth animation.
 
-Public viewport vocabulary:
+The implemented initializer is:
 
 ```swift
-public struct ScrollView<Content: View>: View {
-    public init(
-        _ axes: Axis.Set = .vertical,
-        offset: Binding<TerminalPosition>? = nil,
-        @ViewBuilder content: () -> Content
-    )
-}
+public init(
+    _ axes: Axis.Set = .vertical,
+    offset: Binding<TerminalPosition>? = nil,
+    @ViewBuilder content: () -> Content
+)
+
+func focusable(whileScrollable id: FocusID) -> ScrollView
 ```
 
-`offset` is `(x, y)` in cells. Disabled-axis components render and behave as zero. A
-supplied binding is both the app's programmatic-scroll input and the recipient of user
-scroll changes. A binding value outside the newly measured range is **effectively clamped
-for layout and rendering**, but passive reconciliation does not write a corrective value
-into app state; the next user scroll begins from that effective value. The no-binding form
-creates the fallback position only in `NodeState`.
+A `ScrollView` becomes keyboard-focusable in one of two ways. Preferred: supply an offset
+and mark it `focusable(whileScrollable:)`; the viewport then registers itself as focusable
+only while its content actually overflows on an enabled axis, so focus traversal never
+stops on a viewport with nothing to scroll, and it drops out of the focus order again when
+a resize or content change makes everything fit:
+
+```swift
+ScrollView(.vertical, offset: offset) { content }
+    .focusable(whileScrollable: scrollFocusID)
+```
+
+Alternatively, compose an explicit external identity, which registers unconditionally:
+
+```swift
+ScrollView(.vertical, offset: offset) { content }
+    .focusable(scrollFocusID)
+    .focused(focused, equals: scrollFocusID)
+```
+
+The offset binding is both the app's programmatic-scroll input and the recipient of
+keyboard scroll changes. ScrollView renders from `EnvironmentValues.isFocused` or its own
+focus identity, and handles keys when `ResponderContext.isFocused` is true or when focus
+lives inside its subtree (`ResponderContext.isFocusWithin`), so keys a focused descendant
+declines scroll the nearest able enclosing viewport. An owned
+`focusable(whileScrollable:)` identity additionally requires the offset binding and
+registers or withdraws as soon as a layout pass settles. Its effective enabled state gates
+all of this, so a disabled viewport paints no focus chrome and does not consume scroll
+keys. Disabled-axis components render and behave as zero. A binding value outside the
+newly measured range is effectively clamped for layout and rendering, but passive
+reconciliation does not write a corrective value into app state; the next user scroll
+begins from that effective value.
+
+> Deferred: An uncontrolled fallback scroll position and mouse, wheel, or drag scrolling
+> land in a later slice.
 
 ## Prior art
 
@@ -71,18 +95,18 @@ cells (`max(1, floor(11 * 11 / 24))`) at r3-r7. The horizontal thumb is forty ce
 padding of its own.
 
 ```wireframe 52x12
-release notes — Q3 preview — internal draft        │
-the document is translated by offset (12, 8)       │
-content outside the viewport is not painted here.  │
-left edge begins after a long hidden line prefix   █
-visible content remains unstyled by the scroll view█
-long lines extend beyond the right edge            █
-scroll indicators occupy viewport edge cells only  █
-not app-owned content or additional chrome         █
-programmatic offset uses the same integer position │
-no zoom and no animated intermediate position      │
-wheel bubbles when this offset reaches an edge     │
-──────────■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■─│
+Here's to the crazy ones. The misfits. The rebels. │
+The troublemakers. The round pegs in the square    │
+holes. The ones who see things differently. They're│
+not fond of rules. And they have no respect for the┃
+status quo. You can quote them, disagree with them,┃
+glorify or vilify them. About the only thing you   ┃
+can't do is ignore them. Because they change       ┃
+things. They push the human race forward. And while┃
+some may see them as the crazy ones, we see genius.│
+Because the people who are crazy enough to think   │
+they can change the world, are the ones who do.    │
+──────────━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━─│
 ```
 
 ```text
@@ -99,14 +123,20 @@ Callouts (52x12, 0-based):
 
 Indicators have no endpoint arrows and do not change the child proposal. If only one axis
 overflows, only its one-cell edge is reserved; if neither overflows, the child receives
-the whole assigned rectangle. For each overflowing axis, with track length `T`, viewport
-extent `V`, content extent `C`, and effective offset `O`, the thumb has
-`max(1, floor(T * V / C))` cells and starts at `floor(O * (T - thumb) / max(1, C - V))`.
-The last formula puts the thumb exactly at the trailing/bottom end when the position is
-maximum. An indicator is visible only when its enabled axis overflows and the stabilized
-reservation leaves a content viewport at least `1x1`; otherwise that edge is omitted.
+the whole assigned rectangle. A fixed cross-axis proposal owns that reservation inside its
+assigned extent. When the cross axis is unspecified, `ScrollView` includes the one-cell
+edge in its natural size so an indicator never replaces the content's final row or column.
+For each overflowing axis, with track length `T`, viewport extent `V`, content extent `C`,
+and effective offset `O`, the thumb has `max(1, floor(T * V / C))` cells and starts at
+`floor(O * (T - thumb) / max(1, C - V))`. The last formula puts the thumb exactly at the
+trailing/bottom end when the position is maximum. An indicator is visible only when its
+enabled axis overflows and the stabilized reservation leaves a content viewport at least
+`1x1`; otherwise that edge is omitted.
 
 ## States
+
+> Deferred: Keyboard-interaction claims in the following fixtures apply only when callers
+> compose explicit focus modifiers. Mouse, wheel, and drag interaction remain deferred.
 
 ### Mobile
 
@@ -117,22 +147,22 @@ thumb is `max(1, floor(16 * 16 / 24)) = 10` cells; at the maximum offset it star
 prose because ScrollView does not add a border or inset.
 
 ```wireframe 40x16
-Release notes                          │
-ScrollView is a clipped viewport, not  │
-a second layout system.                │
-The app owns content and may own its   │
-position binding.                      │
-NodeState is used only with no binding │
-Arrow keys move one cell.              █
-Page keys move one viewport.           █
-Touch terminals report wheel events.   █
-At an edge the event bubbles outward.  █
-The trailing edge is an indicator.     █
-It does not become a second focus stop █
-No zoom. No smooth animation.          █
-Programmatic updates clamp on layout.  █
-Content stays app-owned.               █
-                                       █
+Here's to the crazy ones. The misfits. │
+The rebels. The troublemakers. The     │
+round pegs in the square holes. The    │
+ones who see things differently.       │
+They're not fond of rules. And they    │
+have no respect for the status quo. You│
+can quote them, disagree with them,    ┃
+glorify or vilify them. About the only ┃
+thing you can't do is ignore them.     ┃
+Because they change things. They push  ┃
+the human race forward. And while some ┃
+may see them as the crazy ones, we see ┃
+genius. Because the people who are     ┃
+crazy enough to think they can change  ┃
+the world, are the ones who do.        ┃
+                                       ┃
 ```
 
 ```text
@@ -149,10 +179,10 @@ status text to sacrifice. The short thumb is intentionally still one cell rather
 disappearing.
 
 ```wireframe 12x4
-scrolling  │
-clips only █
-integer    │
-content.   │
+Here's to  │
+the crazy  ┃
+ones. The  │
+misfits.   │
 ```
 
 ```text
@@ -171,21 +201,24 @@ proposal or a layout failure.
 
 Horizontal scrolling reserves only a bottom edge. The fixture is `52x6`, content is
 `80x5`, and effective offset is `(18, 0)`; vertical movement is disabled and always
-remains zero.
+remains zero. The fence shows columns 18-69 of the 80-wide content, so lines enter and
+exit mid-word -- that is the translation, not a typo.
 
 ```wireframe 52x6
-segment 18: component content continues to the right
-segment 19: translated slice is visible
-segment 20: vertical wheel input is not claimed here
-segment 21: Left and Right are the focused controls
-segment 22: position x is clamped after every layout
-────────────■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■────
+y ones. The misfits. The rebels. The troublemakers.
+ holes. The ones who see things differently. They're
+ have no respect for the status quo. You can quote t
+, glorify or vilify them. About the only thing you c
+se they change things. They push the human race forw
+────────────━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━───────
 ```
 
 ```text
 Callouts (52x6, 0-based):
 0. r0-r4 c0-c51  Viewport content -- horizontally translated child cells
-1. r5 c0-c51     Horizontal scroll indicator -- bottom edge; proportional thumb is present
+1. r5 c0-c51     Horizontal scroll indicator -- bottom edge; thirty-three-cell thumb at
+                  c12-c44 (`max(1, floor(52 * 52 / 80))` cells starting at
+                  `floor(18 * (52 - 33) / (80 - 52))`)
 ```
 
 ### No overflow and empty child
@@ -221,11 +254,11 @@ This `40x6` vertical-overflow fixture uses the canonical ASCII glyph replacement
 color. Geometry and input routing match the full-capability state.
 
 ```wireframe 40x6
-Release notes                          |
-Clipped cells remain readable.         #
-The app still owns the position.       #
-Boundary events still bubble.          |
-No animation is introduced.            |
+Here's to the crazy ones. The misfits. |
+The rebels. The troublemakers. The     #
+round pegs in the square holes. The    #
+ones who see things differently.       |
+They're not fond of rules. And they    |
                                        |
 ```
 
@@ -241,14 +274,16 @@ Callouts (40x6, 0-based):
 | ------------------------------- | ----------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | axes                            | derived     | `Axis.Set`                    | Re-derived from the immutable initializer on every reconciliation; disabled components of every offset are zero.                                                                                                                  |
 | controlled offset               | Binding     | `Binding<TerminalPosition>?`  | Exists only when supplied; app mutations are read on every layout, then effective offset clamps to the current bounds without passively rewriting the binding.                                                                    |
-| fallback offset                 | NodeState   | `TerminalPosition`            | Exists only when controlled offset is nil; clamps each layout, resize, content update, and axes update to `0...maximum` per enabled axis.                                                                                         |
-| effective offset                | derived     | `TerminalPosition`            | Chooses controlled or fallback offset, zeroes disabled axes, and clamps to `0...maximum` on every layout before rendering or event handling.                                                                                      |
+| effective offset                | derived     | `TerminalPosition`            | Uses the supplied binding when present; otherwise it is the origin. It zeroes disabled axes and clamps to `0...maximum` on every layout before rendering or event handling.                                                       |
 | content extent                  | derived     | `TerminalSize`                | Re-measured each layout; scrollable axes are proposed `nil`, non-scrollable axes receive the assigned viewport proposal.                                                                                                          |
 | viewport extent                 | derived     | `TerminalSize`                | Recomputed after reserving only visible indicator edges; never negative and, whenever an edge is reserved, remains at least `1x1`.                                                                                                |
 | maximum offset                  | derived     | `TerminalPosition`            | Recomputed as `max(0, content extent - viewport extent)` per enabled axis after resize, content, axes, or binding changes.                                                                                                        |
 | vertical indicator visibility   | derived     | `Bool`                        | True exactly when axes contains vertical, content height exceeds the stabilized viewport height, and the trailing-edge reservation leaves the stabilized content viewport at least `1x1`; otherwise no trailing edge is reserved. |
 | horizontal indicator visibility | derived     | `Bool`                        | True exactly when axes contains horizontal, content width exceeds the stabilized viewport width, and the bottom-edge reservation leaves the stabilized content viewport at least `1x1`; otherwise no bottom edge is reserved.     |
 | scroll view styles              | Environment | semantic `Style` roles        | Resolve `semantic.primary`, `semantic.secondary`, and `semantic.accent` each render; never retain style in widget state.                                                                                                          |
+| is focused                      | Environment | `Bool`                        | Injected below the explicit `.focusable` modifier from the FocusManager's live identity; ScrollView reads it for rendering and checks `ResponderContext.isFocused` for keyboard movement.                                         |
+| owned focus eligibility         | derived     | `FocusID?`                    | `focusable(whileScrollable:)` publishes its identity exactly when enabled, offset-bound, and overflowing an enabled axis; recomputed as each layout pass settles, so registration and withdrawal never lag a graph update.        |
+| is focus-within                 | Responder   | `Bool`                        | Supplied per dispatch as `ResponderContext.isFocusWithin`; lets the viewport consume unmodified press/repeat scroll keys its focused descendant declined.                                                                         |
 | motion model                    | derived     | immediate integer translation | Every accepted input writes a whole-cell offset synchronously; there is no zoom factor, fractional position, animation, or momentum state.                                                                                        |
 
 The potentially circular indicator calculation resolves deterministically: first measure
@@ -260,27 +295,47 @@ maxima, offset, and thumbs.
 
 ## Key table
 
-| Key   | Precondition                                                                    | Effect                                                                                                                        | Consumed |
-| ----- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | -------- |
-| Down  | focused, axes contains vertical, effective offset is below vertical maximum     | increments the effective vertical offset by one and writes it through controlled offset or fallback offset                    | yes      |
-| Up    | focused, axes contains vertical, effective offset is above 0                    | decrements the effective vertical offset by one and writes it through controlled offset or fallback offset                    | yes      |
-| Right | focused, axes contains horizontal, effective offset is below horizontal maximum | increments the effective horizontal offset by one and writes it through controlled offset or fallback offset                  | yes      |
-| Left  | focused, axes contains horizontal, effective offset is above 0                  | decrements the effective horizontal offset by one and writes it through controlled offset or fallback offset                  | yes      |
-| PgDn  | focused, axes contains vertical, effective offset is below vertical maximum     | increments the effective vertical offset by viewport extent height and writes it through controlled offset or fallback offset | yes      |
-| PgUp  | focused, axes contains vertical, effective offset is above 0                    | decrements the effective vertical offset by viewport extent height and writes it through controlled offset or fallback offset | yes      |
-| Home  | focused, effective offset is not origin                                         | sets every enabled component of effective offset to 0 and writes it through controlled offset or fallback offset              | yes      |
-| End   | focused, effective offset is below maximum offset                               | sets every enabled component of effective offset to maximum offset and writes it through controlled offset or fallback offset | yes      |
-| Down  | focused, axes contains vertical, effective offset is at vertical maximum        | leaves effective offset unchanged and returns ignored for ancestor routing                                                    | no       |
-| Up    | focused, axes contains vertical, effective offset is at origin vertically       | leaves effective offset unchanged and returns ignored for ancestor routing                                                    | no       |
-| Right | focused, axes contains horizontal, effective offset is at horizontal maximum    | leaves effective offset unchanged and returns ignored for ancestor routing                                                    | no       |
-| Left  | focused, axes contains horizontal, effective offset is at origin horizontally   | leaves effective offset unchanged and returns ignored for ancestor routing                                                    | no       |
+These keys are handled by a ScrollView with a required `offset` binding that is focused or
+whose subtree holds focus (focus-within), on unmodified press and repeat events alike, so
+a held key keeps scrolling and keys a focused descendant cannot use scroll the nearest
+able enclosing viewport. Every successful movement writes through that offset binding.
 
-The focused widget is the only key claimant. `Tab` remains unclaimed so the app's explicit
-focus policy from
-[Slice 4](../../docs/Spec.md#slice-4-focus-and-key-routing-the-responder-system) can
-advance focus. There is no key for zoom, inertial motion, or animation.
+| Key   | Precondition                                                                    | Effect                                                      | Consumed |
+| ----- | ------------------------------------------------------------------------------- | ----------------------------------------------------------- | -------- |
+| Down  | focused, axes contains vertical, effective offset is below vertical maximum     | increments the effective vertical offset by one             | yes      |
+| Up    | focused, axes contains vertical, effective offset is above 0                    | decrements the effective vertical offset by one             | yes      |
+| Right | focused, axes contains horizontal, effective offset is below horizontal maximum | increments the effective horizontal offset by one           | yes      |
+| Left  | focused, axes contains horizontal, effective offset is above 0                  | decrements the effective horizontal offset by one           | yes      |
+| PgDn  | focused, axes contains vertical, effective offset is below vertical maximum     | increments the effective vertical offset by viewport height | yes      |
+| PgUp  | focused, axes contains vertical, effective offset is above 0                    | decrements the effective vertical offset by viewport height | yes      |
+| Home  | focused, effective offset is not origin                                         | sets every enabled component to 0                           | yes      |
+| End   | focused, effective offset is below maximum offset                               | sets every enabled component to maximum offset              | yes      |
+| Down  | focused, axes contains vertical, effective offset is at vertical maximum        | leaves offset unchanged for ancestor routing                | no       |
+| Up    | focused, axes contains vertical, effective offset is at origin vertically       | leaves offset unchanged for ancestor routing                | no       |
+| Right | focused, axes contains horizontal, effective offset is at horizontal maximum    | leaves offset unchanged for ancestor routing                | no       |
+| Left  | focused, axes contains horizontal, effective offset is at origin horizontally   | leaves offset unchanged for ancestor routing                | no       |
+
+`Tab` remains unclaimed so the app's explicit focus policy can advance focus. The
+non-focus initializer receives no keyboard scroll events. There is no key for zoom,
+inertial motion, or animation.
+
+## Focus appearance
+
+`ScrollView` delegates automatic focus appearance to an enclosing willing focus host such
+as `Box`; that host paints after descendants without acquiring a focus-list entry or any
+key events. Its border glyphs use the focus color as a bold foreground-only overlay, with
+their background unchanged. The ScrollView remains the focused key responder and retains
+its own edge-riding, overflow-only scroll indicator. The indicator is the focus telegraph:
+a focused viewport paints its indicator thumbs bold in the focus accent and applies no
+other local treatment, so scrolled content is never restyled. A focused fitting viewport
+therefore shows no local treatment (only reachable through an external `.focusable`
+identity, since `focusable(whileScrollable:)` withdraws when nothing can scroll); callers
+that need a visible ring host one with `focusAppearance(_:)` or a `Box`. Unfocused thumbs
+remain a secondary `semantic.accent` affordance.
 
 ## Mouse table
+
+> Deferred: This mouse table lands in a later slice.
 
 | Event       | Region                      | Precondition                                                           | Effect                                                                                                                                          | Consumed |
 | ----------- | --------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
@@ -321,10 +376,13 @@ scrollable axis.
 | 10x3      | 10x3   | Under minimum fills exactly; both overflowing axes reserve edges because the remaining `9x2` viewport retains at least one content cell on both axes, while any edge that would not is omitted. |
 | 120x40    | 120x40 | Over maximum fills exactly; the child is measured with nil enabled axes, blank surplus remains child/parent layout space, and no indicator appears if content no longer overflows.              |
 
-For a vertical-only instance with `nil x 12`, the child is measured at ideal width and
-proposed height `nil`; it reports `64x12` for this data. For a horizontal-only instance
-with `52 x nil`, the child is proposed width `nil` and ideal height; it reports `52x24`.
-These asymmetric cases pin the nil-axis rule without making a second measurement protocol.
+For a vertical-only instance under a `nil x 12` parent proposal, the child receives an
+unspecified scrolling-axis proposal and reports its `64x24` ideal size; the viewport
+reports `65x12`, including the vertical indicator column. The symmetric horizontal case
+under `52 x nil` reports `52x25`, including the horizontal indicator row. Degenerate `5x1`
+horizontal and `1x5` vertical content similarly report `3x2` and `2x3` viewports when
+constrained to three cells on the scrolling axis. These cases pin the nil-axis indicator
+contract without introducing a second measurement protocol.
 
 ## Environment
 
@@ -340,10 +398,12 @@ Existing canonical tokens consumed by the standard/default rendering are:
 The semantic environment roles are complete `Style` values named `semantic.primary`,
 `semantic.secondary`, `semantic.accent`, `semantic.disabled`, and `semantic.destructive`,
 never colors or partial foreground values. Standard rendering uses `semantic.primary` for
-child-default text, `semantic.secondary` for tracks, and `semantic.accent` for thumbs and
-focus. Custom applications replace those same environment values; ScrollView does not
-introduce a parallel `ScrollViewStyle` protocol. No hex colors, ANSI sequences, or
-noncanonical glyph set is introduced here.
+child-default text, `semantic.secondary` for tracks, and `semantic.accent` for unfocused
+thumbs; a focused viewport paints its thumbs bold in the focus accent (`semantic.focus`'s
+background color), which is the viewport's entire focus telegraph. Custom applications
+replace those same environment values; ScrollView does not introduce a parallel
+`ScrollViewStyle` protocol. No hex colors, ANSI sequences, or noncanonical glyph set is
+introduced here.
 
 ## Primitive dependencies
 
@@ -397,28 +457,28 @@ noncanonical glyph set is introduced here.
   scroll indicators; state model: indicator visibility)
 - `scroll indicator thumb is proportional and reaches the trailing bound` (Anatomy: thumb
   formula; states: mobile)
-- `vertical-only scroll view measures its scrollable nil axis at ideal size` (sizing:
-  `nil x 12`)
-- `horizontal-only scroll view measures its scrollable nil axis at ideal size` (sizing:
-  `52 x nil`)
+- `intrinsic sizing reserves indicator edges only for overflowing axes` (sizing:
+  `nil x 12`, `52 x nil`, and single-row/single-column degenerate content)
 - `controlled offsets clamp without rewriting app state` (state model: controlled offset)
-- `uncontrolled fallback offset clamps after resize content and axes changes` (state
-  model: fallback offset)
 - `disabled axes always render and retain zero offset components` (state model: axes)
 - `focused arrow keys move one cell on their enabled axis` (key table: Down and Right)
 - `page home and end keys clamp to the viewport bounds` (key table: PgDn, PgUp, Home, End)
-- `keyboard input bubbles from a scroll view at its boundary` (key table: boundary rows)
-- `wheel input changes the matching enabled axis without changing app content` (mouse
-  table: wheel-down and wheel-right)
-- `nested scroll views give the clipped inner viewport first wheel precedence` (mouse
-  table: viewport content; nested-scroll routing)
-- `wheel input bubbles to an ancestor when the inner viewport reaches its boundary` (mouse
-  table: wheel boundary rows)
-- `horizontal wheel input moves the horizontal axis and bubbles at its boundary` (mouse
-  table: wheel-left and wheel-right boundary rows)
-- `scroll indicators do not capture pointer drags` (mouse table: drag rows)
+- `keyboard input bubbles from a focusable scroll view at its boundary` (key table:
+  boundary rows)
 - `no-overflow child renders with no reserved indicator edge` (states: no overflow and
   empty child)
+- `focused scroll view delegates a foreground-only box border while retaining key ownership and its edge-riding indicator`
+  (focus appearance)
+- `focused fitting scroll view shows no local treatment without an indicator` (focus
+  appearance; states: no overflow and empty child)
+- `focused viewport paints indicator thumbs in the focus accent without restyling content`
+  (focus appearance)
+- `owned focus identity registers and withdraws as layout settles` (state model: owned
+  focus eligibility)
+- `owned focus identity requires an offset binding` (state model: owned focus eligibility)
+- `key repeats scroll exactly like presses` (key table preamble)
+- `unconsumed scroll keys bubble to a focus-within ancestor viewport` (state model: is
+  focus-within)
 - `indicator reservation preserves one content cell per axis` (states: declared minimum;
   sizing: `10x3`)
 - `empty loading and error child states remain app-owned` (states: no overflow and empty
@@ -428,14 +488,17 @@ noncanonical glyph set is introduced here.
 - `ascii degradation preserves scroll geometry and boundary routing` (states: degraded)
 - `scroll view exposes no zoom or smooth animation transition` (state model: motion model)
 
+> Deferred: Pointer, wheel, drag, and uncontrolled-fallback requirements land in a later
+> slice.
+
 ## Degradation
 
 - `NO_COLOR`: keep the same glyph geometry; focus falls back to bold and any child
   selection uses reverse video according to the
   [degradation ladder](../tokens.md#degradation-ladder).
 - 16-color: resolve `semantic.primary`, `semantic.secondary`, and `semantic.accent` to
-  indexed terminal styles; tracks remain `semantic.secondary` and thumbs/focus remain
-  `semantic.accent`.
+  indexed terminal styles; tracks remain `semantic.secondary` and thumbs
+  `semantic.accent`, while a host border remains foreground-only in the focus color.
 - ASCII-only: use `|` track, `#` thumb, and any child truncation's `~`, as the degraded
   fixture shows. No Unicode-only gesture affordance carries meaning.
 - Below `12x4`: fill the proposed non-negative rectangle, clip first, then omit any
@@ -455,6 +518,8 @@ noncanonical glyph set is introduced here.
   following
   [system and custom style plumbing](../../docs/Spec.md#system-and-custom-style-plumbing).
   It has no separate style protocol.
+- **Reconciliation:** Unchanged ScrollView subtrees skip reconciliation and reuse cached
+  measurements; this is a performance property, not a behavior or API change.
 - **Pointer drag:** Indicators are output-only in 1.0. Clicks and drags return ignored;
   wheel boundary bubbling remains the only pointer-scroll contract.
 

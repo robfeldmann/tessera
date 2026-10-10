@@ -1,23 +1,48 @@
 ---
 kind: widget
-status: wireframed
+status: ready
 ---
 
 # Button
 
 `Button` is a focusable, controlled action control with an arbitrary `Label: View`, an
 app-supplied action, and an optional semantic role. It retains no business state: the app
-owns the action's effects and explicit focus binding, while the button may keep only its
-transient press bit in `NodeState` so a `ButtonStyle` can draw standard pressed feedback.
-This is a widget-layer design following the controlled-widget rule in
-[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase),
-with focus and pointer delivery supplied by
-[Slices 4–5](../../docs/Spec.md#slice-4-focus-and-key-routing-the-responder-system).
+owns the action's effects, while the button may keep only its transient press bit in
+`NodeState` so a `ButtonStyle` can draw standard pressed feedback. Focus identity and
+app-owned tracking are attached by composition, not stored by Button.
 
-The accepted public direction is `Button<Label: View>` with an action closure, an optional
-role, and a label builder. The concrete initializer and protocol signatures intentionally
-remain open; they must preserve an arbitrary label and expose no mutable business value.
-`ButtonRole.destructive` is required for 1.0; a missing role uses the system default.
+The implemented API retains an arbitrary `Label: View`, an action closure, and an optional
+role:
+
+```swift
+public init(
+    role: ButtonRole? = nil,
+    action: @escaping () -> Void,
+    @ViewBuilder label: () -> Label
+)
+
+public init(
+    _ title: String,
+    role: ButtonRole? = nil,
+    action: @escaping () -> Void
+) where Label == Text
+```
+
+A caller keeps identity explicit:
+
+```swift
+Button("Save") { save() }
+    .focusable(saveFocusID)
+    .focused(focused, equals: saveFocusID)
+```
+
+The button renders from `EnvironmentValues.isFocused` and accepts keys only when its
+`ResponderContext.isFocused` is true.
+
+`ButtonRole` currently supports only `.destructive`; `nil` selects the default semantic
+role.
+
+> Deferred: Additional `ButtonRole` cases land in a later slice.
 
 ## Prior art
 
@@ -33,9 +58,8 @@ remain open; they must preserve an arbitrary label and expose no mutable busines
   decorates the supplied label rather than owning a second content model.
 - Apple SwiftUI [Button](https://developer.apple.com/documentation/swiftui/button) — copy
   the action plus arbitrary-label model, optional destructive role, and context-adaptive
-  system appearance. Reject convenience image/string initializers for the first Tessera
-  release: `Text` and composed label views already express them without a parallel label
-  vocabulary.
+  system appearance. Tessera also ships the string-title convenience above; image and
+  other convenience initializers remain outside this widget's current contract.
 - Apple SwiftUI
   [ButtonStyle](https://developer.apple.com/documentation/swiftui/buttonstyle) — copy the
   split where `ButtonStyle` changes appearance while retaining standard platform
@@ -46,10 +70,12 @@ remain open; they must preserve an arbitrary label and expose no mutable busines
 
 The system default is `.compact`: a one-row, label-hugging action control for dense
 application chrome such as the Showcase header, Catalog/Inspector controls, and action
-rows. `.bordered` retains the larger three-row target for applications that need a more
-substantial standalone action. `.plain` is an unadorned label action, suitable for menus
-and command-like rows. Style selection changes presentation only; every enabled variant
-has the same focus, keyboard, and pointer contract.
+rows. `.plain` is an unadorned label action, suitable for menus and command-like rows.
+Style selection changes presentation only; every enabled variant has the same focus and
+keyboard contract.
+
+> Deferred: The `.bordered` Button style, pointer activation, and visual pressed feedback
+> land in a later slice.
 
 ### Compact fixture
 
@@ -100,6 +126,9 @@ padding property. Padding applied around the Button itself remains ordinary oute
 spacing rather than changing the compact chrome. This keeps `ButtonStyle` responsible for
 decoration while the shared layout modifier owns content insets.
 
+> Deferred: This padded compact fixture remains valid composition around the implemented
+> `.compact` style; the `.bordered` fixture below lands in a later slice.
+
 ### Bordered fixture
 
 `.bordered` is the former system-style presentation. It hugs the supplied label at its
@@ -116,7 +145,7 @@ Callouts (12x3, 0-based):
 1. r0-r2 c0-c11 Button hit target -- the complete allocated button frame; primary-pointer
    press and release must both resolve to this same node. It is the sole mouse Region.
 2. r0 c0-c11, r2 c0-c11, r1 c0, r1 c11 Bordered chrome -- `Border` decoration;
-   `semantic.secondary` Style while unfocused, `semantic.accent` Style with the `rounded`
+   `semantic.secondary` Style while unfocused, `semantic.focus` Style with the `rounded`
    border set while focused.
 3. r1 c1-c10 Bordered label slot -- arbitrary `Label: View`, centered by the bordered
    style; `semantic.primary` Style unless the role or enabled environment selects another
@@ -125,7 +154,7 @@ Callouts (12x3, 0-based):
 
 ### Focused and pressed fixtures
 
-Focused `.compact` keeps its compact geometry. Its complete frame uses `semantic.accent`;
+Focused `.compact` keeps its compact geometry. Its complete frame uses `semantic.focus`;
 pressed `.compact` uses that full Style, including its resolved background or other
 emphasis, for the same complete frame. This is a styled-grid distinction, not extra glyph
 noise.
@@ -134,10 +163,10 @@ noise.
 [Save]
 ```
 
-Focused `.bordered` uses token `focus.border`: rounded chrome in `semantic.accent`.
-Pressed `.bordered` retains that geometry and applies `semantic.accent` as a full Style to
-its complete bordered label slot (`r1 c1-c10`). A primary down or phased `Enter`/`Space`
-down begins the press and its matching release ends it; the action runs only on that valid
+Focused `.bordered` uses token `focus.border`: rounded chrome in `semantic.focus`. Pressed
+`.bordered` retains that geometry and applies `semantic.accent` as a full Style to its
+complete bordered label slot (`r1 c1-c10`). A primary down or phased `Enter`/`Space` down
+begins the press and its matching release ends it; the action runs only on that valid
 release. A legacy press-only `Enter` or `Space` event invokes the action immediately and
 clears `isPressed` before the event returns.
 
@@ -191,6 +220,32 @@ Each built-in style has its own natural floor: `.plain` with `Text("Go")` is `2x
 measures `0x1`, `.compact` measures `2x1` (`[]`), and `.bordered` retains its `6x3` framed
 floor.
 
+The default `.compact`/`.automatic` floor is the declared component minimum:
+
+```wireframe 4x1
+[Go]
+```
+
+```text
+Callouts (4x1, 0-based):
+1. r0 c0-c3 Button hit target -- default `.compact` floor for a `Text("Go")` label: two
+   bracket delimiters around the two label cells.
+```
+
+The independently useful `.bordered` floor is `6x3`:
+
+```wireframe 6x3
+┌────┐
+│ Go │
+└────┘
+```
+
+```text
+Callouts (6x3, 0-based):
+1. r0-r2 c0-c5 Button hit target -- `.bordered` floor: the border ring plus one-cell
+   horizontal space around a `Text("Go")` label.
+```
+
 ### Mobile fixture
 
 This `mobile` viewport uses a parent-forced full-width `.compact` allocation. Its 40-cell
@@ -227,12 +282,14 @@ horizontal frame, not just the visible label glyphs, is the touch-wide primary h
 
 ## States
 
+> Deferred: References to `.bordered` minimums in this section land in a later slice.
+
 - **Idle, enabled, unfocused:** `.compact` shows `semantic.secondary` delimiters around a
   `semantic.primary` label; `.plain` has only that label; `.bordered` shows its light
   border and centered label.
-- **Focused:** only an explicit `FocusID` match produces focus presentation and keyboard
-  delivery. `.compact` and `.plain` use their resolved full focus Style; `.bordered` also
-  uses `focus.border`.
+- **Focused:** an explicit `.focusable(id).focused(binding, equals: id)` composition
+  injects `EnvironmentValues.isFocused` below the modifier. `.compact` and `.plain` use
+  their resolved full focus Style; `.bordered` also uses `focus.border`.
 - **Pressed:** for phased activation input, `isPressed` exists only from down until the
   matching release, cancellation, focus loss, disabled update, or node removal. Every
   built-in style uses its resolved full pressed Style without changing its geometry. A
@@ -256,17 +313,16 @@ horizontal frame, not just the visible label glyphs, is the touch-wide primary h
 
 | State                     | Owner       | Type                                                                                                                             | Reset or clamp rule                                                                                                                                                                                                                                                                                                                                                                           |
 | ------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| focus identity            | Binding     | `FocusID?`                                                                                                                       | App-owned explicit focus; if this button's focus ID disappears, Slice 4 clears the binding to `nil`; Button never chooses a replacement.                                                                                                                                                                                                                                                      |
 | is enabled                | Environment | `Bool`                                                                                                                           | Read on every reconciliation. A transition to `false` clears `isPressed`, removes the node from focusability, and prevents activation immediately.                                                                                                                                                                                                                                            |
 | current button style      | Environment | `any ButtonStyle`                                                                                                                | Read on every reconciliation; changing it recomposes from the same label, role, enabled, focus, and press inputs without retaining a previous style.                                                                                                                                                                                                                                          |
 | semantic Styles           | Environment | `semantic.primary`, `semantic.secondary`, `semantic.accent`, `semantic.disabled`, and `semantic.destructive` full `Style` values | Read on every render; nearest environment value wins under Slice 3 style inheritance. These canonical semantic roles are planned environment values, with concrete key grouping left open.                                                                                                                                                                                                    |
-| is focused                | derived     | `Bool`                                                                                                                           | Recomputed from the explicit focus binding and this node's `FocusID` on every update; false when disabled or when no matching ID exists.                                                                                                                                                                                                                                                      |
+| is focused                | Environment | `Bool`                                                                                                                           | Injected below the explicit `.focusable` modifier from the FocusManager's live identity; Button reads it during rendering and checks `ResponderContext.isFocused` for events.                                                                                                                                                                                                                 |
 | is pressed                | NodeState   | `Bool`                                                                                                                           | Set for primary down or the down phase of enabled phased keyboard activation. Clear on its matching release, cancellation, focus loss, disablement, node removal, and every update where the node is not focused. A legacy press-only `Enter` or `Space` event invokes the action once and clears `isPressed` before its dispatch returns; it never represents app work or action completion. |
 | label size and truncation | derived     | `TerminalSize` and rendered grapheme range                                                                                       | Recomputed from the proposed label slot on every layout; clamp to the allocated rectangle and use tail truncation for the selected built-in textual style.                                                                                                                                                                                                                                    |
 
-The role, label closure, action closure, and focus ID are immutable widget configuration,
-not retained business state. `isPressed` is supplied to styles solely as visual
-interaction feedback; custom styles cannot turn it into an alternate activation mechanism.
+The role, label closure, and action closure are immutable widget configuration, not
+retained business state. `isPressed` is supplied to styles solely as visual interaction
+feedback; custom styles cannot turn it into an alternate activation mechanism.
 
 ## Key table
 
@@ -332,11 +388,11 @@ The built-in style direction is `.automatic`, `.plain`, `.compact`, and `.border
 when a larger standalone affordance is warranted. Exact environment-key and type-erasure
 signatures remain open.
 
-| Style                     | Idle, enabled, no role                                               | Focused and pressed                                                             | Disabled and destructive                                                                                            | Geometry                                            |
-| ------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| `.plain`                  | `semantic.primary` label                                             | Resolved full focus or pressed Style on the label slot                          | All visible label cells resolve `semantic.disabled` or `semantic.destructive`                                       | Unframed label; no implicit padding                 |
-| `.compact` / `.automatic` | `semantic.secondary` delimiters; `semantic.primary` label            | Resolved full focus or pressed Style on the complete compact frame              | All visible cells resolve `semantic.disabled` or `semantic.destructive`                                             | Square-bracket delimiters around the label slot     |
-| `.bordered`               | `semantic.secondary` light border; `semantic.primary` centered label | `focus.border` rounded accent border; pressed full `semantic.accent` label slot | All visible cells resolve `semantic.disabled` or `semantic.destructive`; focus does not erase destructive semantics | One-cell border ring with internal horizontal space |
+| Style                     | Idle, enabled, no role                                               | Focused and pressed                                                            | Disabled and destructive                                                                                                                                               | Geometry                                            |
+| ------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `.plain`                  | `semantic.primary` label                                             | Resolved full focus or pressed Style on the label slot                         | All visible label cells resolve `semantic.disabled` or `semantic.destructive`                                                                                          | Unframed label; no implicit padding                 |
+| `.compact` / `.automatic` | `semantic.secondary` delimiters; `semantic.primary` label            | Resolved full focus or pressed Style on the complete compact frame             | All visible cells resolve `semantic.disabled` or `semantic.destructive`                                                                                                | Square-bracket delimiters around the label slot     |
+| `.bordered`               | `semantic.secondary` light border; `semantic.primary` centered label | `focus.border` rounded focus border; pressed full `semantic.accent` label slot | All visible cells resolve `semantic.disabled` or `semantic.destructive`; focus temporarily replaces destructive presentation and destructive returns when focus leaves | One-cell border ring with internal horizontal space |
 
 There is no Button-specific padding property or padded Button style. To produce
 `[ Save ]`, compose the shared layout `padding` modifier inside the label builder; to add
@@ -437,7 +493,7 @@ implied by a Button label or action.
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Full capability                | `.plain` remains unframed; `.compact` keeps ASCII-safe square delimiters; `.bordered` uses light/rounded border sets; all styles use semantic full Styles and `…` tail truncation.                                                                                                     |
 | `NO_COLOR`                     | `.plain` and `.compact` retain semantic distinction through attributes; focus uses bold and pressed uses reverse video. `.bordered` additionally keeps its border glyphs.                                                                                                              |
-| 16-color                       | All styles resolve the five semantic full Styles to the indexed palette; focus retains indexed `semantic.accent` and destructive keeps its distinct indexed Style.                                                                                                                     |
+| 16-color                       | All styles resolve the six semantic full Styles to the indexed palette; focus retains indexed `semantic.focus` and destructive keeps its distinct indexed Style.                                                                                                                       |
 | ASCII-only                     | `.plain` and `.compact` keep their literal glyphs; `.bordered` uses plus, hyphen, and vertical-bar glyphs; tail truncation changes from `…` to `~`; focus uses bold.                                                                                                                   |
 | Below a selected style's floor | `.plain` and `.compact` retain their one-row geometry while constraining their label slot. `.bordered` omits its border ring below `6x3`, tail-truncates default text, and leaves the allocated rectangle as the primary hit region. Interaction and enabled semantics do not degrade. |
 

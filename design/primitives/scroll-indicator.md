@@ -1,6 +1,6 @@
 ---
 kind: primitive
-status: wireframed
+status: ready
 ---
 
 # ScrollIndicator
@@ -42,8 +42,7 @@ meet.
 
 ## Inputs and geometry
 
-The public vocabulary is intentionally small. The following is a candidate spelling, not a
-committed declaration:
+The public vocabulary is intentionally small and now committed for implementation:
 
 ```swift
 public struct ScrollIndicator: View {
@@ -96,8 +95,8 @@ The geometry is `L = floor(10 * 10 / 40) = 2` and
 │
 │
 │
-█
-█
+┃
+┃
 │
 │
 │
@@ -118,9 +117,9 @@ These are three independent horizontal `12x1` snapshots stacked for comparison. 
 `36` (the maximum). The middle start is `floor(18 * 9 / 36) = 4`.
 
 ```wireframe 12x3
-■■■─────────
-────■■■─────
-─────────■■■
+━━━─────────
+────━━━─────
+─────────━━━
 ```
 
 ```text
@@ -149,10 +148,10 @@ are allocation examples, not chrome owned by this primitive.
 │
 │
 │
-█
-█
-█
-█
+┃
+┃
+┃
+┃
 │
 │
 │
@@ -169,7 +168,7 @@ Callouts (1x16, 0-based):
 ```
 
 ```wireframe 40x1
-─────────────■■■■■■■■■■■■■──────────────
+─────────────━━━━━━━━━━━━━──────────────
 ```
 
 ```text
@@ -185,7 +184,7 @@ A one-cell track has no smaller useful renderable geometry. With `T = 1`, `C = 1
 `V = 10`, and `O = 90 = M`, floor rounding still produces `L = 1` and `S = 0`.
 
 ```wireframe 1x1
-█
+┃
 ```
 
 ```text
@@ -198,17 +197,124 @@ nothing; it does not create a one-cell minimum outside the rectangle.
 
 ## Variants
 
-| Variant               | Geometry | Glyph and placement rule                                                                                                     |
-| --------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Vertical              | `1xT`    | Parent places the strip in its trailing column; track uses `scrollbar.track` vertical `│`, thumb uses `scrollbar.thumb` `█`. |
-| Horizontal            | `Tx1`    | Parent places the strip in its bottom row; track uses `scrollbar.track` horizontal `─`, thumb uses `scrollbar.thumb` `■`.    |
-| ASCII-only vertical   | `1xT`    | Same geometry; use the ASCII vertical bar for the track and `#` for the thumb from `scrollbar.ascii`.                        |
-| ASCII-only horizontal | `Tx1`    | Same cells and geometry; replace track with `-` and thumb with `#` from `scrollbar.ascii`.                                   |
+The strip has three independent axes: orientation (set by the parent's placement), weight
+(`scrollbar.weight`), and track treatment (`scrollbar.track`). Geometry is identical
+across every combination; only the glyph pair changes.
 
-There are deliberately no leading/left, top, endpoint-arrow, disabled, focused, draggable,
-or per-instance-glyph variants. Placement belongs to the parent layout; focus and disabled
-semantics belong to an interactive parent; glyph selection comes only from the
-environment.
+| Orientation | Geometry | Placement rule                                  |
+| ----------- | -------- | ----------------------------------------------- |
+| Vertical    | `1xT`    | Parent places the strip in its trailing column. |
+| Horizontal  | `Tx1`    | Parent places the strip in its bottom row.      |
+
+| `scrollbar.weight` | Vertical thumb | Horizontal thumb |
+| ------------------ | -------------- | ---------------- |
+| `line` (default)   | `┃`            | `━`              |
+| `mid`              | `▐`            | `▄`              |
+| `block`            | `█`            | `■`              |
+
+| `scrollbar.track` | Vertical track | Horizontal track |
+| ----------------- | -------------- | ---------------- |
+| `solid` (default) | `│`            | `─`              |
+| `dashed`          | `╎`            | `╌`              |
+| `none`            | (blank)        | (blank)          |
+
+Anatomy renders the default `line` weight (`┃`) on a `solid` track. The `mid` weight is
+the lazygit half block and the `block` weight is solid; both keep the same `C = 40`,
+`V = 10`, `O = 15` geometry with the thumb at r4-r5:
+
+```wireframe 1x10
+│
+│
+│
+│
+▐
+▐
+│
+│
+│
+│
+```
+
+```text
+Callouts (1x10, 0-based):
+0. r4-r5  Mid thumb -- `▐` half block, the lazygit weight, on a `solid` track
+```
+
+```wireframe 1x10
+│
+│
+│
+│
+█
+█
+│
+│
+│
+│
+```
+
+```text
+Callouts (1x10, 0-based):
+0. r4-r5  Block thumb -- `█` solid weight on a `solid` track
+```
+
+A `dashed` track (left column) keeps the thumb on a dashed rule; a `none` track (right
+column) paints only the thumb:
+
+```wireframe 3x10
+╎
+╎
+╎
+╎
+┃ ┃
+┃ ┃
+╎
+╎
+╎
+╎
+```
+
+```text
+Callouts (3x10, 0-based):
+0. c0     Dashed track -- `╎` rule with a `┃` thumb at r4-r5
+1. c2     None track -- blank track; only the `┃` thumb at r4-r5 paints
+```
+
+Placement is parent-owned:
+
+| Placement            | Reserves                          | Track             | Used by                 |
+| -------------------- | --------------------------------- | ----------------- | ----------------------- |
+| `reserved` (default) | one trailing column or bottom row | `scrollbar.track` | ScrollView, List, Table |
+| `onBorder`           | nothing                           | the border line   | Border, Box             |
+
+In `onBorder` placement the thumb overlays an adjacent [Border](border.md) or
+[Box](box.md) edge; the border line is the track, `scrollbar.track` is ignored, and no
+cell is reserved. lazygit renders exactly this with a `mid` `▐` thumb on the right border.
+The fixture uses the checker-safe `┃`; the `mid` weight paints `▐`:
+
+```wireframe 20x8
+╭─ Files ──────────╮
+│ Spec.md          │
+│ Package.swift    ┃
+│ README.md        ┃
+│ CHANGELOG.md     ┃
+│ LICENSE          │
+│ Brewfile         │
+╰──────────────────╯
+```
+
+```text
+Callouts (20x8, 0-based):
+0. r0, r7        Box border -- top and bottom chrome; no interior column is reserved
+1. c19           Track edge -- the right border column doubles as the indicator track
+2. r2-r4 c19     Thumb -- rides the border edge (fixture `┃`, `mid` weight paints `▐`)
+3. r1-r6 c2-c17  Content -- Box interior, unreduced by the indicator
+```
+
+There are deliberately no leading/left, top, endpoint-arrow, disabled, focused, or
+draggable variants, and no per-instance glyph override. Placement belongs to the parent
+layout; focus and disabled semantics belong to an interactive parent; weight and track
+come only from the environment.
 
 ## Parent contract and absence states
 
@@ -224,6 +330,14 @@ A parent follows this order for each enabled axis:
    if the assigned track length is zero, omit the primitive and reserve no cell for it.
 4. If both axes overflow, the parent owns the one-cell intersection and paints no child
    content there unless its own component design explicitly assigns it a role.
+
+The numbered order above is the `reserved` placement. In `onBorder` placement the parent
+instead rides an adjacent [Border](border.md) or [Box](box.md) edge: it reserves no extra
+cell, treats the border line as the track, and paints only the thumb onto the border's
+edge cells at the resolved thumb rows or columns. This is the deliberate exception to
+"reserve exactly one trailing column or bottom row"; the thumb math is unchanged, and
+because the border owns the track glyph, `scrollbar.track` does not apply. The parent
+still omits the indicator when the axis has no overflow.
 
 This primitive does not own idle, loading, error, or empty business states. Those are
 parent/app content states: a loading or error viewport may still show an indicator when
@@ -250,14 +364,21 @@ produces no cells.
 | horizontal, `10x0`      | `10x0` | Under-minimum cross axis is honored as zero; no row is invented.         |
 | horizontal, `16x4`      | `16x1` | Over-maximum cross axis is ignored while the finite primary track fills. |
 
+In `onBorder` placement the primitive reports a zero-area contribution: it reserves no
+cell of its own and composites the thumb onto the border edge the parent already
+allocated. The thumb length and position come from the same equation applied to the border
+edge extent.
+
 ## Environment
 
 The system/default rendering consumes only catalog tokens and complete semantic `Style`
 values from the environment:
 
-- `scrollbar.track` supplies the orientation-specific full-capability track glyph.
-- `scrollbar.thumb` supplies the orientation-specific full-capability thumb glyph.
-- `scrollbar.ascii` supplies the ASCII `|`/`-` tracks and `#` thumbs.
+- `scrollbar.weight` selects the thumb weight (`line` default, `mid`, or `block`); it
+  chooses the thumb glyph without changing the normalized geometry.
+- `scrollbar.track` selects the track treatment (`solid` default, `dashed`, or `none`); a
+  `none` track paints no track cell. It is ignored under `onBorder` placement.
+- `scrollbar.ascii` supplies the ASCII `|`/`-` track and `#` thumb.
 - `semantic.secondary` is the complete `Style` applied to the track, including any
   attributes and background as well as foreground.
 - `semantic.accent` is the complete `Style` applied to the thumb, including any attributes
@@ -304,8 +425,8 @@ source browsing, or source mapping.
   minimum; sizing: under-minimum rows)
 - `parent omits indicator and reserves no edge for zero or nonoverflow content` (Parent
   contract and absence states)
-- `vertical and horizontal parents reserve exactly one trailing column or bottom row`
-  (Variants; Anatomy: mobile allocations)
+- `reserved placement reserves exactly one trailing column or bottom row` (Variants:
+  placement; Anatomy: mobile allocations)
 - `mobile forty column horizontal allocation preserves exact thumb geometry` (Anatomy:
   mobile allocations, `40x1`)
 - `ascii indicator preserves full capability geometry with canonical glyph replacements`
@@ -314,6 +435,12 @@ source browsing, or source mapping.
   contract and absence states)
 - `scroll view list and table use identical indicator geometry for equal metrics`
   (Dependencies and readiness cutover)
+- `weight axis renders line mid and block thumbs at identical geometry` (Variants: weight
+  table and strips)
+- `track axis renders solid dashed and none tracks` (Variants: track table and dashed and
+  none strip)
+- `on-border placement rides the edge and reserves no cell` (Variants: placement and
+  on-border box wireframe; Parent contract and absence states)
 
 ## Degradation
 
@@ -321,9 +448,10 @@ source browsing, or source mapping.
   `semantic.secondary` and `semantic.accent` fall back to their token-defined attributes.
 - 16-color: retain geometry; resolve those full semantic styles to indexed terminal
   styles.
-- ASCII-only: replace vertical track `│` with `|`, horizontal track `─` with `-`, and
-  either thumb (`█` or `■`) with `#`. The `40x1` mobile allocation below is the exact
-  degraded horizontal fixture for `C = 120`, `V = 40`, `O = 40`.
+- ASCII-only: collapse every thumb weight to `#`; replace a `solid` or `dashed` track with
+  `|` (vertical) or `-` (horizontal); a `none` track stays blank. The `40x1` mobile
+  allocation below is the exact degraded horizontal fixture for `C = 120`, `V = 40`,
+  `O = 40`.
 
 ```wireframe 40x1
 -------------#############--------------
@@ -340,20 +468,43 @@ Callouts (40x1, 0-based):
   non-negative assigned rectangle and paint nothing outside it. The parent omission rule
   remains unchanged; no fallback border, label, spinner, or status text appears.
 
+## Decisions
+
+The public axis parameter uses the existing singular `Axis`; `.vertical` and `.horizontal`
+each name one strip and the type never admits an `Axis.Set`. The immutable inputs stay
+four scalar values — `axis`, `contentExtent`, `viewportExtent`, and `effectiveOffset` — on
+the selected axis rather than a wrapper struct, so a parent supplies its already-final
+metrics with no extra type. These spellings are the committed contract; the geometry,
+normalization, and floor equation above do not depend on the choice.
+
+Reviewed against the
+[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): the primitive
+is output-only rendered data, appearance comes from shared tokens and complete semantic
+`Style` roles, and its thumb geometry is deterministic integer-cell output shared by every
+parent.
+
+Presentation factors into three orthogonal axes — orientation, `scrollbar.weight`, and
+`scrollbar.track` — so a thin thumb, a heavy thumb, a dashed track, or a trackless thumb
+are combinations rather than separate components. The `mid` half block matches lazygit's
+edge scrollbar.
+
+Placement adds `onBorder` beside the default `reserved` mode. `onBorder` is the deliberate
+exception to reserving a trailing cell: it rides an existing Border or Box edge, uses that
+line as the track, and paints only the thumb. It changes reservation and track ownership,
+never the thumb equation or the input-free contract.
+
 ## Open questions
 
-- Should the public axis parameter use the existing singular `Axis`, or a dedicated
-  `ScrollIndicatorAxis` that prevents an accidental `Axis.Set` call? The semantic contract
-  is one axis either way.
-- Are `contentExtent`, `viewportExtent`, and `effectiveOffset` the accepted public labels,
-  or should the immutable input be a single `ScrollIndicatorMetrics` value? Keep all four
-  values immutable and scalar on the selected axis regardless of spelling.
-- Should custom presentation be an environment `ScrollIndicatorStyle` protocol with a
-  resolved `Configuration`, or a closure-style environment value? It must receive complete
-  semantic `Style` roles and resolved geometry, not raw colors or control state.
-- After terminal pointer behavior is proven, should an interactive parent layer a separate
-  hit target over this output primitive? Any such work must retain this primitive's
-  input-free API and use its resolved geometry rather than reimplementing thumb math.
+- A custom presentation surface (an environment `ScrollIndicatorStyle` protocol with a
+  resolved configuration, or a closure-style environment value) is deferred to
+  [Slice 3](../../docs/Spec.md#slice-3-styling-text-wrapping-and-decoration). Any such
+  surface must receive complete semantic `Style` roles and resolved geometry, never raw
+  colors or control state, and must not change the normalized geometry or input-free
+  nature.
+- Whether an interactive parent layers a separate hit target over this output primitive is
+  deferred to [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing). Any such work
+  must retain this primitive's input-free API and reuse its resolved geometry rather than
+  reimplementing thumb math.
 
 ## Inspiration
 

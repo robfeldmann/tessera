@@ -46,9 +46,9 @@ where Data.Element: Identifiable, Data.Element.ID == ID {
 ```wireframe 46x9
  Name              Size  Modified
 ──────────────────────────────────────────────
- Spec.md         372 KB  2026-07-06          █
-▌Package.swift    12 KB  2026-07-01          █
- README.md       2.6 KB  2026-06-28          █
+ Spec.md         372 KB  2026-07-06          ┃
+▌Package.swift    12 KB  2026-07-01          ┃
+ README.md       2.6 KB  2026-06-28          ┃
  CHANGELOG.md    8.8 KB  2026-06-28          │
  CONTRIBUTING…    13 KB  2026-06-27          │
  LICENSE         1.1 KB  2026-06-20          │
@@ -80,15 +80,15 @@ of 20 rows visible.
 ```wireframe 40x16
  Name                         Size
 ────────────────────────────────────────
- Spec.md                    372 KB     █
-▌Package.swift               12 KB     █
- README.md                  2.6 KB     █
- CHANGELOG.md               8.8 KB     █
- CONTRIBUTING.md             13 KB     █
- LICENSE                    1.1 KB     █
- CODE_OF_CONDUCT.md         5.3 KB     █
- Brewfile                    531 B     █
- Justfile                    721 B     █
+ Spec.md                    372 KB     ┃
+▌Package.swift               12 KB     ┃
+ README.md                  2.6 KB     ┃
+ CHANGELOG.md               8.8 KB     ┃
+ CONTRIBUTING.md             13 KB     ┃
+ LICENSE                    1.1 KB     ┃
+ CODE_OF_CONDUCT.md         5.3 KB     ┃
+ Brewfile                    531 B     ┃
+ Justfile                    721 B     ┃
  UpdatingGhosttyVT.md       4.2 KB     │
  WindowsFrostVM.md         13.5 KB     │
  LocalDevelopmentState.md   4.6 KB     │
@@ -102,7 +102,7 @@ width Table renders truncated single-column rows rather than failing.
 ```wireframe 24x5
  Name
 ────────────────────────
-▌Package.swift         █
+▌Package.swift         ┃
  README.md             │
  row 2 of 12
 ```
@@ -147,6 +147,12 @@ Degraded ascii/no-color (46x6): geometry identical, glyphs swapped per the
 The "selection ID vanished" rule is this widget's version of Slice 7's mandatory "app
 mutated data under the widget" case: Table must render sanely and must not write to the
 binding to "fix" it -- the app owns that decision.
+
+The scroll offset has exactly one runtime owner. If `Table` is implemented as a
+`LeafView`, keyboard and mouse handling use `LeafView.handleEvent` and the same
+`NodeState` read by layout and rendering. The implementation must not mirror the offset
+into `_ResponderView.ResponderState` or transfer it between independent stores during a
+graph update.
 
 ## Key table
 
@@ -209,14 +215,13 @@ questions: this is Grid's solver.
 
 ## Primitive dependencies
 
-- [Divider](../primitives/divider.md) -- header rule. Exists (`specified`).
+- [Divider](../primitives/divider.md) -- header rule. Ready.
 - [Text truncation policies](../primitives/text.md#variants) -- `tail`, grapheme-safe;
-  specified. Blocks `ready` until Slice 3 delivers the linked wrapping/truncation
-  contract.
+  ready. The Slice 3 wrapping/truncation contract (`wrapped`, `.truncation(.clip/.tail)`)
+  is implemented (plan 030 Step 3.2).
 - [ScrollIndicator](../primitives/scroll-indicator.md) -- shared with ScrollView and List;
   output-only, so Table supplies its viewport state but does not route pointer input to
-  it. Exists (`wireframed`); its API spelling and style protocol must graduate before
-  `ready`.
+  it. Ready.
 - Column width distribution -- consumes the ready shared [Flex](../primitives/flex.md)
   constraint vocabulary; Slice 6 Grid and Table delegate to its one resolver rather than
   designing a second allocator.
@@ -227,6 +232,8 @@ questions: this is Grid's solver.
   model: rows)
 - `selection stays visible when moved past the viewport edge` (key table: Down; state:
   scroll offset)
+- `successive selection moves separated by graph updates keep selection and scroll offset synchronized`
+  (key table: Down; state: selection and scroll offset)
 - `wheel scrolling moves viewport without changing selection` (mouse table: wheel-down)
 - `scroll indicator is output-only and has no drag interaction` (anatomy: callout 7; mouse
   table)
