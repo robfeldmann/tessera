@@ -6,6 +6,9 @@ public struct VirtualTerminal: Sendable {
   /// Returns the rendered cell at a zero-based row and column.
   public var cell: @Sendable (_ row: Int, _ column: Int) -> RenderedCell
 
+  /// Resizes the virtual terminal while retaining its terminal state.
+  public var resize: @Sendable (TerminalSize) throws -> Void
+
   /// Returns the terminal cursor position.
   public var cursor: @Sendable () -> TerminalPosition
 
@@ -27,6 +30,9 @@ public struct VirtualTerminal: Sendable {
   public init(
     feed: @escaping @Sendable ([UInt8]) -> Void = unimplemented(
       "VirtualTerminal.feed"
+    ),
+    resize: @escaping @Sendable (TerminalSize) throws -> Void = unimplemented(
+      "VirtualTerminal.resize"
     ),
     text: @escaping @Sendable (Int) -> String = unimplemented(
       "VirtualTerminal.text",
@@ -58,6 +64,7 @@ public struct VirtualTerminal: Sendable {
     )
   ) {
     self.feed = feed
+    self.resize = resize
     self.text = text
     self.cell = cell
     self.cursor = cursor
@@ -69,6 +76,11 @@ public struct VirtualTerminal: Sendable {
   /// Feeds UTF-8 text into the virtual terminal.
   public func feed(_ string: String) {
     self.feed(Array(string.utf8))
+  }
+
+  /// Resizes the virtual terminal while retaining its terminal state.
+  public func resize(to size: TerminalSize) throws {
+    try self.resize(size)
   }
 
   /// Returns the visible text for a zero-based row.
