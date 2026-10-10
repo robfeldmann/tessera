@@ -7,9 +7,11 @@ cd "$repo_root"
 fixture="Tests/CompileFailFixtures/FrameRegionEscape.swift"
 expected="requires that 'FrameRegion' conform to 'Escapable'"
 
-shopt -s nullglob
+# Ask SwiftPM where the active toolchain puts debug products: the native build system
+# writes modules to `<bin>/Modules`, Swift Build (the default from Swift 6.4) to `<bin>`.
+bin_path="$(swift build --show-bin-path)"
 module_dirs=()
-for candidate in .build/*/debug/Modules; do
+for candidate in "$bin_path/Modules" "$bin_path"; do
   if [[ -e "$candidate/TesseraTerminalBuffer.swiftmodule" ]]; then
     module_dirs+=("$candidate")
   fi
