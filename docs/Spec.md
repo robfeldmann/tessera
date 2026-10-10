@@ -6825,14 +6825,16 @@ Phase 4 may interleave with Phase 3: slices 1–3 can land while Phase 3 protoco
 still in flight, as long as Phase 2 is complete. Phase 2.5 is a deliberate geometry
 stabilization between Phase 4 slices 2 and 3, not a new terminal-substrate dependency.
 
-The **[Tessera Showcase](../design/showcase.md)** is Phase 4's integration exemplar: a
-runnable app that grows one slice at a time. Each slice may use the smallest temporary
-scaffold needed to demonstrate its foundation, but deletes that scaffold at the later
-cutover that replaces it. The 1.0 public surface is `Button`, `Toggle`, `Picker`,
-`Stepper`, `TextField`, `List`, `ScrollView`, `Section`, `Table`, `SplitView`, and
-`NavigationSplitView`. `Form`, `Outline`, and source browsing/mapping are post-1.0. The
-Slice 2 static SplitView allocator is one such scaffold: Phase 2.5 deletes it before
-style, keyboard, and pointer behavior attach to pane geometry.
+Phase 4 components are exercised by small per-component demos that double as snapshot
+fixtures, assembled at the end into an intro app (the Showcase app was abandoned on
+2026-10-10; see `.agents/plans/032-omp2-reference-gallery-and-phase-4-redesign.md`). Each
+slice may use the smallest temporary scaffold needed to demonstrate its foundation, but
+deletes that scaffold at the later cutover that replaces it. The 1.0 public surface is
+`Button`, `Toggle`, `Picker`, `Stepper`, `TextField`, `List`, `ScrollView`, `Section`,
+`Table`, `SplitView`, and `NavigationSplitView`. `Form`, `Outline`, and source
+browsing/mapping are post-1.0. The Slice 2 static SplitView allocator is one such
+scaffold: Phase 2.5 deletes it before style, keyboard, and pointer behavior attach to pane
+geometry.
 
 ### Architecture: three layers, four passes
 
@@ -8310,11 +8312,9 @@ the documented action. Rendering requests the hardware cursor at the resolved ca
 `RenderRegion.requestCursor(at:)`; the graph forwards the last focused request to the
 session draw and the session positions or hides the terminal cursor.
 
-The full **[Tessera Showcase](../design/showcase.md)** composes every 1.0 component and
-integrates an inspector that reads the Slice 1 immutable diagnostics snapshot. The
-inspector is read-only: it cannot mutate the graph, capture raw controlled values, or
-trigger a pass. The graph requests `TerminalRequirements`; the session remains the
-authority that decides and reports effective requirements, including in that snapshot.
+The Phase 4 intro app composes the per-component demos for every 1.0 component. The graph
+requests `TerminalRequirements`; the session remains the authority that decides and
+reports effective requirements, including in the diagnostics snapshot.
 
 Widget tests remain deterministic state-machine tests with no terminal and no clocks:
 build a graph, dispatch key/paste/pointer scripts, and assert bindings, ephemeral
@@ -8363,10 +8363,10 @@ selection out of range, and session-effective requirements are mandatory cases.
 ### Definition of done for Phase 4
 
 1. All seven slices' definitions of done hold.
-2. The **[Tessera Showcase](../design/showcase.md)** is the canonical integration proof:
-   it composes the 1.0 surface with stacks, flex, borders, focus, mouse, and controlled
-   widgets, driven by a plain model object — and by an `@Observable` variant — proving
-   architecture-agnosticism.
+2. The Phase 4 intro app, assembled from the per-component demos, is the integration
+   proof: it composes the 1.0 surface with stacks, flex, borders, focus, mouse, and
+   controlled widgets, driven by a plain model object — and by an `@Observable` variant —
+   proving architecture-agnosticism.
 3. `graph.dump()` and `statistics` are good enough that every "why did it render/focus/
    lay out like that" question in this phase's development was answered with them, not
    with print statements. (If they weren't, fix the tools.)

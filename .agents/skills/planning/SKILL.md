@@ -35,7 +35,7 @@ Every plan MUST have:
 ---
 name: Plan Name
 description: One-line description of what this plan delivers.
-status: pending # pending | in-progress | completed
+status: pending # pending | in-progress | completed | superseded
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
 ---
@@ -111,7 +111,9 @@ single agent turn.
 5. If all steps in a phase are complete, tick the phase checkbox.
 6. After completing each phase, pause and await user review and explicit approval before
    proceeding to the next phase.
-7. When every phase is complete, set `status: completed`.
+7. When every phase is complete, set `status: completed`. When another plan replaces this
+   one before it finishes, set `status: superseded`, add `superseded-by:` with the
+   replacing plan's file name, and leave the body as history.
 8. If a step turns out to be wrong, **edit the plan first** (add/split/remove steps), then
    resume.
 

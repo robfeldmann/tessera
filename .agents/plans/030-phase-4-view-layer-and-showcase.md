@@ -3,12 +3,20 @@ name: Phase 4 View Layer and Tessera Showcase
 description:
   Implement the seven-slice Tessera view layer with design-catalog readiness gates and a
   progressively executable Showcase integration app.
-status: pending
+status: superseded
+superseded-by: 032-omp2-reference-gallery-and-phase-4-redesign.md
 created: 2026-07-17
-updated: 2026-07-18
+updated: 2026-10-10
 ---
 
-<!-- Allowed status values: planning, in-review, pending, in-progress, complete. -->
+<!-- Allowed status values: planning, in-review, pending, in-progress, complete, superseded. -->
+
+> **Superseded 2026-10-10 by plan 032.** Phases 0 through 2.5 (Slices 1, 2, and 2.5) are
+> done and stay in `main`. The rest of this plan, including the Showcase, was replaced:
+> plan 032 now carries the Phase 4 implementation in a new order built around
+> per-component demos. The abandoned attempts at Phases 3 onward are archived as the
+> `archive/phase4` and `archive/phase4-review-loop` tags; see
+> `.agents/investigations/036-phase-4-salvage-review.md`. This file is kept as history.
 
 ## Progress
 

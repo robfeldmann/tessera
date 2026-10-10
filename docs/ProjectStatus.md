@@ -37,35 +37,13 @@ or by a contributor:
 Contributions that validate other OS versions, distributions, or architectures are welcome
 — see [CONTRIBUTING.md](../CONTRIBUTING.md).
 
-## The Tessera Showcase
+## Component Demos
 
-The Tessera **Showcase** is the project's full-featured integration app: a dense terminal
-application that composes the public view surface, demonstrates one component contract at
-a time, and presents its own live view graph through a read-only diagnostics Inspector. It
-is the canonical proof that the components compose, not a second specification or a
-tutorial.
-
-From a checkout it runs directly:
-
-```sh
-just core showcase        # or: swift run --package-path Examples TesseraShowcase
-```
-
-Its target shape:
-
-- A three-role workspace — **Catalog**, **Playground**, and **Inspector** — composed
-  through `NavigationSplitView` and the negotiated `SplitView` geometry.
-- Responsive presentation that adapts from a dense `120x24` desktop down to a canonical
-  `40x16` mobile fixture, collapsing from three roles to two to one and finally to a
-  resize guard below `23x10`, always keeping critical material inside a `ScrollView`
-  rather than clipping it.
-- Every user operation driven by visible, labeled public controls (including Catalog,
-  Inspector, and open/close affordances at compact sizes) with keyboard and pointer paths.
-- An Inspector rendered purely over the most recent completed, immutable graph snapshot:
-  it can never mutate the graph, trigger a render pass, or capture controlled values.
-
-The full responsive policy and fixture matrix live in
-[`design/showcase.md`](../design/showcase.md).
+Each view component will ship with a small standalone demo that shows what it does and how
+to use it. The demos also render headlessly at fixed sizes, so they double as the snapshot
+fixtures that test each component, and they will later be assembled into an introductory
+demo app. They replace the earlier plan for a single Showcase app, whose example is being
+retired.
 
 ## View Components (in development)
 
@@ -85,31 +63,40 @@ inventory below.
 
 **Planned for 1.0:**
 
-- Styling and decoration: inherited semantic `Style` values, borders, `Box`, `overlay`,
-  `background`, `Divider`, and the shared `ScrollIndicator`.
-- Focus and input: document-order focus, key routing, responder bubbling, mouse hit
-  testing, and application-owned text selection.
+- Styling and decoration: inherited semantic `Style` values and tones, styled text,
+  borders, `Box`, `overlay`, `background`, a focus border, and the shared
+  `ScrollIndicator`.
+- Focus and input: document-order focus, key routing, responder bubbling, a `KeyLegend`
+  built from key bindings, and mouse hit testing with hover.
 - Controls: `Button`, `Toggle`, `Picker`, `Stepper`, and `TextField`.
-- Collections and navigation: `Grid`, `Table`, `List`, `Section`, and
-  `NavigationSplitView`.
+- Collections and layout: `List`, `Section`, `Outline`, `Grid`, `Table`, flow layout,
+  `ViewThatFits`, and interactive `SplitView`.
+- Status and content: `ProgressView`, `Callout`, `LabeledContent`, `Label`, `Badge`,
+  `TabView`, `Form`, Markdown, a code view, `Image`, and `ContentUnavailableView`, with a
+  small animation path for spinners and elapsed time.
 
 The design catalog under [`design/`](../design/README.md) is the authoritative contract
 for each component's anatomy, state, sizing, input, and degradation.
 
 ## Roadmap
 
-The active milestone is the Phase 4 view layer, delivered as dependency-ordered slices and
-integrated into the Showcase as each lands:
+The active milestone is the Phase 4 view layer. Each step lands its components with tests
+and a demo:
 
 1. Core view graph, reconciliation, and `Text` — **done**.
 2. Layout, stacks, static `SplitView`, and `ScrollView` — **done**.
 3. Flex sizing and final `SplitView` negotiation — **done**.
-4. Styling, text wrapping, decoration, and `ScrollIndicator` — _in progress_.
-5. Focus, key routing, and controlled responders (`Button`, `Toggle`, `Picker`, `Stepper`,
-   `TextField`) — _planned_.
-6. Mouse, hit testing, and application-owned text selection — _planned_.
-7. `Grid`, `Table`, and `NavigationSplitView` composition — _planned_.
-8. `List`, `Section`, controlled cutover, and the complete Showcase — _planned_.
+4. Component designs revised against a reference TUI — _in progress_.
+5. The demo harness — _planned_.
+6. Styling and decoration — _planned_.
+7. Focus, key routing, and `KeyLegend` — _planned_.
+8. Mouse, hit testing, and hover — _planned_.
+9. Interactive `ScrollView` — _planned_.
+10. Controls — _planned_.
+11. Collections and fitting — _planned_.
+12. Interactive `SplitView` — _planned_.
+13. The remaining 1.0 views — _planned_.
+14. The intro demo app — _planned_.
 
 After the view layer (spec Phase 5, "Runtime + polish") the work turns to:
 
