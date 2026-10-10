@@ -1,34 +1,36 @@
 ---
 name: Phase 4 Tessera Showcase
 date: 2026-07-12
-status: open
+status: resolved
 ---
 
 # Phase 4 Tessera Showcase
 
-The durable Showcase design now lives in [design/showcase.md](../../design/showcase.md).
-The Phase 4 slice plan lives in [docs/Spec.md](../../docs/Spec.md).
+**Superseded 2026-10-10.** The owner abandoned the Showcase in favour of small
+per-component demos assembled later into an intro app, and `design/showcase.md` was
+removed (it is in git history and in the `archive/phase4` tag). NavigationSplitView left
+1.0, and `Form` and `Outline` moved into it; see `design/omp2-assessment.md` and plan 032.
+The record below is kept for its history; its links to `design/showcase.md` are now plain
+text.
 
 ## Accepted decisions
 
 - **1.0 boundary:** Button, Toggle, Picker, Stepper, TextField, List, ScrollView, Section,
   Table, SplitView, and NavigationSplitView are public; `Form`, `Outline`, source
   browsing, and source-to-node mapping are post-1.0. System and custom styles are public,
-  and all five semantic roles are complete `Style` values. See the
-  [Showcase 1.0 boundary](../../design/showcase.md#purpose-and-10-boundary).
+  and all five semantic roles are complete `Style` values. See the Showcase 1.0 boundary
+  in `design/showcase.md`.
 - **Diagnostics boundary:** the Inspector is presentation over the Spec-defined immutable
   completed-pass snapshot; it does not mutate the graph or trigger a pass. See the
-  [Showcase diagnostics presentation](../../design/showcase.md#diagnostics-presentation)
-  and the
+  diagnostics presentation in `design/showcase.md` and the
   [normative Slice 1 contract](../../docs/Spec.md#slice-1-tesseracore--view-viewgraph-reconciliation-text).
 - **Responsive policy:** `120x24` is a provisional Showcase fixture; compact roles replace
   rather than squeeze panes, critical content scrolls, and the app model survives a resize
-  guard. See the [responsive policy](../../design/showcase.md#responsive-policy).
+  guard. See the responsive policy in `design/showcase.md`.
 - **Seven-slice delivery:** the Showcase lands in dependency order, with each cutover
   deleting its temporary scaffold; progressive SplitView reaches final negotiation before
-  NavigationSplitView composes it. See
-  [How the Showcase grows](../../design/showcase.md#how-the-showcase-grows) and the
-  [Phase 4 slice plan](../../docs/Spec.md#phase-4--view-layer-the-tessera-module).
+  NavigationSplitView composes it. See "How the Showcase grows" in `design/showcase.md`
+  and the [Phase 4 slice plan](../../docs/Spec.md#phase-4--view-layer-the-tessera-module).
 
 ## Open reconciliation questions (resolve during Phase 4 planning)
 
