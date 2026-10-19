@@ -1,6 +1,6 @@
 ---
 kind: widget
-status: ready
+status: specified
 ---
 
 # Toggle
@@ -15,10 +15,14 @@ Explicit focus and keyboard delivery come from
 pointer delivery comes from the
 [mouse and hit-testing slice](../../docs/Spec.md#slice-5-mouse-and-hit-testing).
 
-The implemented presentation is the ASCII-safe checkbox: `[x]` when the binding is true
-and `[ ]` when it is false, followed by one space and the required caller-supplied label.
-The label supplies the accessible name. The controlled, focus, keyboard, pointer, and
-enabled contract is shared by every future presentation.
+The standalone default presentation is omp2's checkbox, adopted by owner decision (omp2
+review, 2026-10): `☑` when the binding is true and `☐` when it is false, followed by one
+space and the required caller-supplied label. The charset selects the marker: the Nerd
+Font charset swaps in U+F14A and U+F096, and the ASCII charset uses `[x]` and `[ ]`.
+Inside a Form row the default is the `.text` style, which draws the bound value as the
+words `true` or `false` (owner decision, 2026-10-10; see [Text style](#text-style)). The
+label supplies the accessible name. The controlled, focus, keyboard, pointer, and enabled
+contract is shared by every presentation.
 
 ## Prior art
 
@@ -36,6 +40,11 @@ enabled contract is shared by every future presentation.
   and text-mode on/off presentations. Copy their immediate state legibility; reject their
   widget-owned value model and the implication that a switch presentation changes
   activation semantics.
+- omp2 `Checkbox`
+  ([`checkbox.rs`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/checkbox.rs#L12-L158))
+  -- adopt its glyph set, one-cell marker plus separator geometry, and label underline
+  focus mark (glyph resolution L99-119; paint L91-124). Reject its internal `checked` flag
+  seeded by `Prop::Checked` (L27-29): the bound Boolean stays the source of truth.
 
 ## API direction
 
@@ -67,98 +76,173 @@ Toggle("Receive mail", isOn: isOn)
 Toggle renders from `EnvironmentValues.isFocused` and handles keyboard activation only
 when `ResponderContext.isFocused` is true.
 
-> Deferred: `ToggleStyle`, environment-selected styles, the `.circle` presentation, and
-> custom style configuration land in a later slice. They must preserve this controlled and
-> focus contract.
+Built-in styles are a closed set chosen with `.toggleStyle(_:)`: `.checkbox`, `.circle`,
+and `.text` (owner decision, 2026-10-10, for `.text`). They land with Toggle in plan 032
+step 13.2, the same way Button's built-in styles do. The default depends on context:
+standalone, Toggle uses `.checkbox`; inside a Form row, it uses `.text` (owner decision,
+2026-10-10). An explicit `.toggleStyle(_:)` on the Toggle or on any ancestor, including
+the Form, wins over the default, so `Form { ... }.toggleStyle(.checkbox)` gives
+checkboxes. Resolution takes the nearest explicit style; the context default applies only
+when none exists. There is no public `.automatic` style. Custom style configuration (a
+`ToggleStyle` protocol for app-defined presentations) lands later and must preserve this
+controlled and focus contract.
+
+Inside a Form row the Form's row focus rule replaces the underline: the row shows the `❯`
+cursor (`>` in ASCII) and the label turns bold in the focus colour; the ASCII charset has
+no colour, so its focused label is bold alone, the same mark as every other Form row and
+Stepper (owner decision, 2026-10-10). A standalone Toggle keeps the underlined label. The
+Form publishes its row context through the environment; the row focus rule and the `.text`
+default both read it, and Toggle holds no Form-specific state.
 
 ## Anatomy
 
 The natural, enabled, unfocused fixture shows an on Toggle with a `Text("Receive mail")`
-label. The checkbox marker is ASCII-safe; it needs no alternate glyph under ASCII-only
-capability.
+label in the default Unicode charset. Owner decision, omp2 review, 2026-10: the glyphs,
+label geometry, and underline focus mark are omp2's checkbox, adopted as-is. The marker
+and its separator take two cells, so the natural width is 14 cells.
 
-```wireframe 16x1
-[x] Receive mail
+```wireframe 14x1
+☑ Receive mail
 ```
 
 ```text
-Callouts (16x1, 0-based):
-1. r0 c0-c15 Toggle hit target -- complete allocated Toggle rectangle; primary press and
-   release must both resolve to this same node. It is the sole mouse Region.
-2. r0 c0-c2 Checkbox marker -- `[x]` for a true binding and `[ ]` for a false binding;
-   system checkbox chrome using `semantic.secondary` when idle.
-3. r0 c4-c15 Label slot -- required caller-supplied Label, using `semantic.primary` when
-   idle; default textual labels tail-truncate at grapheme boundaries in their allocation.
+Callouts (14x1, 0-based):
+1. r0 c0-c13  Toggle hit target -- complete allocated Toggle rectangle; primary press and
+              release must both resolve to this same node. It is the sole mouse Region.
+2. r0 c0      Checkbox marker -- `☑` for a true binding and `☐` for a false binding; `accent`
+              when true, `muted` when false.
+3. r0 c2-c13  Label slot -- required caller-supplied Label in `primary`; default textual
+              labels tail-truncate at grapheme boundaries in their allocation.
+```
+
+```text
+── chars ──
+☑ Receive mail
+── style ──
+ABBBBBBBBBBBBB
+── legend ──
+.  default
+A  fg=accent
+B  fg=primary
+```
+
+The false binding uses `☐` in `muted`, with the same label geometry:
+
+```wireframe 14x1
+☐ Receive mail
+```
+
+```text
+Callouts (14x1, 0-based):
+1. r0 c0-c13  Toggle hit target -- complete allocation.
+2. r0 c0      Checkbox marker -- `☐` for a false binding; `muted`.
+3. r0 c2-c13  Label slot -- required caller label in `primary`.
+```
+
+```text
+── chars ──
+☐ Receive mail
+── style ──
+CBBBBBBBBBBBBB
+── legend ──
+.  default
+B  fg=primary
+C  fg=muted
+```
+
+In the Nerd Font charset, the same states use U+F14A for true and U+F096 for false, in the
+same one-cell marker:
+
+```wireframe 14x1
+ Receive mail
+```
+
+```text
+Callouts (14x1, 0-based):
+1. r0 c0      Checkbox marker -- U+F14A for a true binding (`accent`); U+F096 for false
+              (`muted`).
+2. r0 c2-c13  Label slot -- unchanged from the Unicode state.
 ```
 
 ## States
 
 ### Mobile
 
-`mobile` is the canonical 40x16 viewport. A parent-forced full-width Toggle keeps its
-one-row checkbox geometry while its `Toggle hit target` spans all 40 columns; the blank
-rows demonstrate that Toggle does not manufacture vertical fill.
+`mobile` is 40 columns wide at natural height. A parent-forced full-width Toggle keeps its
+one-row checkbox geometry while its `Toggle hit target` spans all 40 columns; the fixture
+has no padded rows, so Toggle does not manufacture vertical fill (owner decision,
+2026-10-10).
 
-```wireframe 40x16
-[x] Receive notifications
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+```wireframe 40x1
+☑ Receive notifications
 ```
 
 ```text
-Callouts (40x16, 0-based):
-1. r0 c0-c39 Toggle hit target -- the parent-forced allocation is the target even where
-   the trailing cells are visually empty.
-2. r0 c0-c2 Checkbox marker -- true binding marker; it remains at the leading edge.
-3. r0 c4-c24 Label slot -- caller label within the full-width allocation.
+Callouts (40x1, 0-based):
+1. r0 c0-c39 Toggle hit target -- the parent-forced allocation spans all 40 columns; the
+   trailing cells are visually empty.
+2. r0 c0      Checkbox marker -- `☑` in `accent` for a true binding; it remains at the leading edge.
+3. r0 c2-c22 Label slot -- caller label within the full-width allocation.
 ```
 
 ### Minimum
 
-The component-specific `min` floor is 3x1: an empty label still preserves one complete
-checkbox marker. It is the smallest useful control that neither draws a partial marker nor
-loses the value's visible state.
+The component-specific `min` floor is charset-derived (owner decision, 2026-10-10): 2x1
+under the Unicode charset, where the one-cell marker and its separator are the whole
+control, and 4x1 under ASCII, where `[ ]` and its separator take four cells. Each floor
+keeps one complete marker: an empty label still preserves the full marker. It is the
+smallest useful control that neither draws a partial marker nor loses the value's visible
+state.
 
-```wireframe 3x1
+```wireframe 2x1
+☐
+```
+
+```text
+Callouts (2x1, 0-based):
+1. r0 c0-c1 Toggle hit target -- complete Unicode minimum allocation.
+2. r0 c0 Checkbox marker -- false binding marker; the separator cell and the empty label have no visible cells.
+```
+
+```wireframe 4x1
 [ ]
 ```
 
 ```text
-Callouts (3x1, 0-based):
-1. r0 c0-c2 Toggle hit target -- complete minimum allocation.
-2. r0 c0-c2 Checkbox marker -- false binding marker; the empty label has no allocated
-   visible cells.
+Callouts (4x1, 0-based):
+1. r0 c0-c3 Toggle hit target -- complete ASCII minimum allocation.
+2. r0 c0-c2 Checkbox marker -- false binding marker; the separator cell and the empty label have no visible cells.
 ```
 
 ### Focused and pressed
 
-Focused and pressed states preserve the checkbox's glyph geometry. An explicit `FocusID`
-match selects focus presentation; a phased press applies pressed presentation only from
-down through the matching release.
+Owner decision, omp2 review, 2026-10: the focus mark is an underline on the label; the
+marker keeps its checked or unchecked colour. An explicit `FocusID` match selects focus
+presentation. A phased press applies pressed presentation only from down through the
+matching release; its resolved full pressed Style covers the same cells. Both states
+preserve the checkbox's glyph geometry.
 
-```wireframe 16x1
-[x] Receive mail
+```wireframe 14x1
+☑ Receive mail
 ```
 
 ```text
-Styled-grid overlay (16x1):
-[x] Receive mail
-AAAAAAAAAAAAAAAA
-Legend: A = `semantic.focus` full Style for the focused checkbox presentation; the
-pressed overlay uses that resolved full pressed Style on the same cells.
+Callouts (14x1, 0-based):
+1. r0 c0-c13  Toggle hit target -- complete allocation; focus and pressed presentation
+              never change its geometry.
+2. r0 c0      Checkbox marker -- `☑` in `accent`; unchanged by focus.
+3. r0 c2-c13  Label slot -- `primary` with an underline while focused.
+```
+
+```text
+── chars ──
+☑ Receive mail
+── style ──
+ABBBBBBBBBBBBB
+── legend ──
+.  default
+A  fg=accent
+B  fg=primary underline
 ```
 
 ### Disabled
@@ -166,21 +250,30 @@ pressed overlay uses that resolved full pressed Style on the same cells.
 A disabled Toggle has no focus or activation presentation; all visible cells use
 `semantic.disabled`.
 
-```wireframe 16x1
-[x] Receive mail
+```wireframe 14x1
+☑ Receive mail
 ```
 
 ```text
-Styled-grid overlay (16x1):
-[x] Receive mail
-DDDDDDDDDDDDDDDD
-Legend: D = `semantic.disabled` full Style.
+Callouts (14x1, 0-based):
+1. r0 c0-c13 Toggle hit target -- disabled; absent from focus and never activates.
+```
+
+```text
+── chars ──
+☑ Receive mail
+── style ──
+DDDDDDDDDDDDDD
+── legend ──
+D  semantic.disabled full Style
 ```
 
 ### ASCII
 
-The default marker is already ASCII-safe. ASCII-only capability changes focus styling to
-its shared bold fallback but does not substitute `[x]` or `[ ]`.
+Owner decision, omp2 review, 2026-10: the ASCII charset falls back to `[x]` and `[ ]`,
+each followed by one space, a four-cell marker. The literal marker needs no alternate
+glyph. Standalone focus stays an underline on the label in every charset; inside a Form
+row the row focus rule applies instead.
 
 ```wireframe 16x1
 [x] Receive mail
@@ -188,22 +281,30 @@ its shared bold fallback but does not substitute `[x]` or `[ ]`.
 
 ```text
 Callouts (16x1, 0-based):
-1. r0 c0-c15 Toggle hit target -- unchanged ASCII-safe allocation.
-2. r0 c0-c2 Checkbox marker -- literal `[x]` marker; no glyph substitution occurs.
-3. r0 c4-c15 Label slot -- ordinary textual label; truncation uses the ASCII fallback only
-   if truncation is required.
+1. r0 c0-c15 Toggle hit target -- unchanged ASCII allocation.
+2. r0 c0-c2  Checkbox marker -- literal `[x]` in `accent`; no glyph substitution occurs.
+3. r0 c4-c15 Label slot -- ordinary textual label in `primary`; truncation uses the ASCII
+              fallback only if truncation is required.
 ```
 
-### Deferred circle style
+```text
+── chars ──
+[x] Receive mail
+── style ──
+AAABBBBBBBBBBBBB
+── legend ──
+.  default
+A  fg=accent
+B  fg=primary
+```
 
-> Deferred: The `.circle` presentation lands in a later slice; the following fixtures
-> preserve its design intent and are not part of the implemented presentation.
+### Circle style
 
 The alternative built-in `.circle` style shows a filled `◉` marker for a true binding and
 a hollow `○` marker for a false one, followed by one space and the label. It keeps every
-interaction rule of the checkbox; only the marker differs. The Unicode marker is one cell
-wide, so the circle style is two cells narrower than the checkbox for the same label until
-ASCII-only capability widens the marker.
+interaction rule of the checkbox; only the marker differs. The Unicode circle marker takes
+the same two cells as the Unicode checkbox, so both share one natural width. The ASCII
+charset widens both the circle marker and the checkbox marker to four cells.
 
 ```wireframe 14x1
 ◉ Receive mail
@@ -213,7 +314,7 @@ ASCII-only capability widens the marker.
 Callouts (14x1, 0-based):
 1. r0 c0-c13 Toggle hit target -- complete allocation; interaction matches the checkbox
    style.
-2. r0 c0 Circle marker -- filled `◉` for a true binding; `semantic.secondary` when idle.
+2. r0 c0 Circle marker -- filled `◉` for a true binding, in `accent`.
 3. r0 c2-c13 Label slot -- required caller label in `semantic.primary` when idle.
 ```
 
@@ -229,16 +330,16 @@ Callouts (14x1, 0-based):
 2. r0 c2-c13 Label slot -- required caller label.
 ```
 
-Under ASCII-only capability the circle markers become the conventional terminal radio
-glyphs `(*)` for true and `( )` for false; the three-cell ASCII marker widens the control
-by two cells to the checkbox geometry.
+Under the ASCII charset the circle markers become the conventional terminal radio glyphs
+`(*)` for true and `( )` for false; the three-cell ASCII marker plus its separator widens
+the control by two cells to the ASCII checkbox geometry.
 
 ```wireframe 16x1
 (*) Receive mail
 ```
 
-- **Idle, enabled, unfocused:** the checkbox marker uses `semantic.secondary` and the
-  label uses `semantic.primary`.
+- **Idle, enabled, unfocused:** the checked marker uses `accent`, the unchecked marker
+  uses `muted` (token pending plan 032 step 5.3), and the label uses `primary`.
 - **Focused:** explicit `.focusable(id).focused(binding, equals: id)` composition injects
   `EnvironmentValues.isFocused` for presentation; Toggle accepts keyboard delivery only
   through `ResponderContext.isFocused`.
@@ -253,16 +354,82 @@ by two cells to the checkbox geometry.
 - **Pointer and touch:** a primary contact toggles only when press and release hit the
   same `Toggle hit target` node. Click-to-focus occurs before pointer activation.
 
+### Text style
+
+Owner decision, 2026-10-10. The `.text` style draws the bound value as a word in place of
+the checkbox marker: `true` in `success` (token pending plan 032 step 5.3) when the
+binding is true, `false` in `muted` (token pending plan 032 step 5.3) when it is false. It
+has no marker or glyph, so the same words draw under the Unicode, Nerd Font, and ASCII
+charsets. Inside a Form row the Form draws the row label, so the style omits its label and
+draws only the word; the label remains the accessible name and the Form's row rules apply
+(see [Form](form.md#anatomy)). Standalone, the word is followed by one space and the
+label, with the checkbox's focus and press geometry.
+
+Inside a Form row, a click anywhere on the row, including its label column and blank
+space, acts as Enter on that row and inverts the bound value once (owner decision,
+2026-10-10; see the [Form mouse table](form.md#mouse-table)). The Toggle's same-node
+pointer rule above governs standalone use only.
+
+```wireframe 17x1
+true Receive mail
+```
+
+```text
+Callouts (17x1, 0-based):
+1. r0 c0-c16  Toggle hit target -- complete allocated Toggle rectangle.
+2. r0 c0-c3   Value word "true" -- `success`.
+3. r0 c4      Separator -- one default cell.
+4. r0 c5-c16  Label slot -- required caller-supplied label in `primary`.
+```
+
+```text
+── chars ──
+true Receive mail
+── style ──
+DDDD.BBBBBBBBBBBB
+── legend ──
+.  default
+B  fg=primary
+D  fg=success (token pending plan 032 step 5.3)
+```
+
+The false binding draws the word in `muted`, with the same label geometry:
+
+```wireframe 18x1
+false Receive mail
+```
+
+```text
+Callouts (18x1, 0-based):
+1. r0 c0-c17  Toggle hit target -- complete allocated Toggle rectangle.
+2. r0 c0-c4   Value word "false" -- `muted`.
+3. r0 c5      Separator -- one default cell.
+4. r0 c6-c17  Label slot -- required caller-supplied label in `primary`.
+```
+
+```text
+── chars ──
+false Receive mail
+── style ──
+EEEEE.BBBBBBBBBBBB
+── legend ──
+.  default
+B  fg=primary
+E  fg=muted (token pending plan 032 step 5.3)
+```
+
 ## State model
 
-| State                     | Owner       | Type                                                                                                                             | Reset or clamp rule                                                                                                                                                           |
-| ------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| bound value               | Binding     | `Bool`                                                                                                                           | App-owned; Toggle reads it on every update and writes only the one inverted Boolean on a valid activation.                                                                    |
-| is enabled                | Environment | `Bool`                                                                                                                           | Read on every reconciliation. A transition to `false` clears `isPressed`, removes the node from focusability, and prevents activation immediately.                            |
-| semantic Styles           | Environment | `semantic.primary`, `semantic.secondary`, `semantic.accent`, `semantic.disabled`, and `semantic.destructive` full `Style` values | Read on every render; nearest environment value wins. These roles are complete Styles, not foreground-color aliases.                                                          |
-| is focused                | Environment | `Bool`                                                                                                                           | Injected below the explicit `.focusable` modifier from the FocusManager's live identity; Toggle reads it during rendering and checks `ResponderContext.isFocused` for events. |
-| is pressed                | NodeState   | `Bool`                                                                                                                           | Set for enabled primary down or phased Enter/Space down. Clear on matching release, cancellation, focus loss, disablement, node removal, and every update when unfocused.     |
-| label size and truncation | derived     | `TerminalSize` and rendered grapheme range                                                                                       | Recomputed from the proposed label slot on every layout; clamps to the allocated rectangle and tail-truncates default text.                                                   |
+| State                     | Owner       | Type                                                                                                                                                           | Reset or clamp rule                                                                                                                                                           |
+| ------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| bound value               | Binding     | `Bool`                                                                                                                                                         | App-owned; Toggle reads it on every update and writes only the one inverted Boolean on a valid activation.                                                                    |
+| is enabled                | Environment | `Bool`                                                                                                                                                         | Read on every reconciliation. A transition to `false` clears `isPressed`, removes the node from focusability, and prevents activation immediately.                            |
+| semantic Styles           | Environment | `semantic.primary`, `semantic.accent`, `semantic.muted` (token pending plan 032 step 5.3), `semantic.disabled`, and `semantic.destructive` full `Style` values | Read on every render; nearest environment value wins. These roles are complete Styles, not foreground-color aliases.                                                          |
+| is focused                | Environment | `Bool`                                                                                                                                                         | Injected below the explicit `.focusable` modifier from the FocusManager's live identity; Toggle reads it during rendering and checks `ResponderContext.isFocused` for events. |
+| is pressed                | NodeState   | `Bool`                                                                                                                                                         | Set for enabled primary down or phased Enter/Space down. Clear on matching release, cancellation, focus loss, disablement, node removal, and every update when unfocused.     |
+| label size and truncation | derived     | `TerminalSize` and rendered grapheme range                                                                                                                     | Recomputed from the proposed label slot on every layout; clamps to the allocated rectangle and tail-truncates default text.                                                   |
+| text value word           | derived     | `String`, `true` or `false`                                                                                                                                    | Derived from `bound value` on every render; never stored. Read only by the `.text` style.                                                                                     |
+| form-row context          | Environment | `Bool`                                                                                                                                                         | Set by Form on each row; read on every render. Selects the `.text` default and omits the label in `.text`. An explicit `.toggleStyle` overrides the default.                  |
 
 The label closure is immutable widget configuration, not retained business state. A legacy
 press-only Enter or Space event inverts `bound value` once and clears `isPressed` before
@@ -300,23 +467,31 @@ semantics, not a marker-only hit test or drag threshold.
 The default checkbox style is one row high and label-hugging unless a parent forces a
 horizontal allocation. Its complete final allocation is the `Toggle hit target`.
 
-| Proposal                                                          | Result | Rule                                                                                                                                   |
-| ----------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------- |
-| nil x nil with `Text("Receive mail")`                             | 16x1   | Natural default: three marker cells, one separator, and twelve label cells.                                                            |
-| 16x1 with `Text("Receive mail")`                                  | 16x1   | Tight fit preserves the complete on checkbox and full label.                                                                           |
-| 2x1 with an empty label                                           | 0x1    | Below the 3x1 floor, suppress the control rather than draw a partial checkbox or advertise an incomplete hit target.                   |
-| 80x24 with `Text("Receive mail")`                                 | 16x1   | Extra available space does not make a label-hugging Toggle grow opportunistically.                                                     |
-| 40x1 forced frame allocation with `Text("Receive notifications")` | 40x1   | Parent-forced width expands the final hit target while preserving leading checkbox and label geometry, as shown by the mobile fixture. |
+| Proposal                                                          | Result | Rule                                                                                                                                 |
+| ----------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| nil x nil with `Text("Receive mail")`                             | 14x1   | Natural default: one marker cell, one separator, and twelve label cells in Unicode and Nerd Font; ASCII renders 16x1.                |
+| 16x1 with `Text("Receive mail")`                                  | 14x1   | Label-hugging: the proposal is not filled; the control keeps its natural width.                                                      |
+| 1x1 with an empty label, Unicode charset                          | 0x1    | Below the 2x1 Unicode floor: suppress the control rather than draw a partial marker or advertise an incomplete hit target.           |
+| 2x1 with an empty label, Unicode charset                          | 2x1    | At the Unicode floor: the one-cell marker and its separator are allocated; the empty label takes no cells.                           |
+| 3x1 with an empty label, ASCII charset                            | 0x1    | Below the 4x1 ASCII floor: suppress the control rather than draw a partial `[ ]` or advertise an incomplete hit target.              |
+| 4x1 with an empty label, ASCII charset                            | 4x1    | At the ASCII floor: the complete `[ ]` marker and its separator are allocated; the empty label takes no cells.                       |
+| 80x24 with `Text("Receive mail")`                                 | 14x1   | Extra available space does not make a label-hugging Toggle grow opportunistically.                                                   |
+| 40x1 forced frame allocation with `Text("Receive notifications")` | 40x1   | Parent-forced width expands the final hit target while preserving leading marker and label geometry, as shown by the mobile fixture. |
 
 ## Environment
 
-`Toggle` consumes `isEnabled` and its implemented semantic Styles: `semantic.primary` for
-the label, `semantic.secondary` for the checkbox marker, `semantic.focus` while focused,
-and `semantic.disabled` while disabled. The checkbox marker is literal ASCII and needs no
-`ascii` substitution; `truncation.mark` defines default-label overflow.
+`Toggle` consumes `isEnabled` and its semantic Styles: `semantic.primary` for the label,
+`semantic.accent` for a checked marker, `semantic.muted` (token pending plan 032 step 5.3)
+for an unchecked marker, and `semantic.disabled` while disabled. Focus is an underline on
+the label, so no focus Style applies to the mark. The marker glyph resolves through the
+charset: Unicode `☑`/`☐`, Nerd Font U+F14A/U+F096, or ASCII `[x]`/`[ ]`. `truncation.mark`
+defines default-label overflow. The `.text` style reads the bound value as `true` or
+`false` and the form-row context to choose its default and omit its label (see Text
+style).
 
-> Deferred: custom Toggle styles, `toggleStyle`, `focus.border`, circle glyph degradation,
-> and custom-style environment inputs land in a later slice.
+> Deferred: custom Toggle styles (an app-defined `ToggleStyle`) and their environment
+> inputs land in a later slice. `.toggleStyle(.checkbox)`, `.toggleStyle(.circle)`, and
+> `.toggleStyle(.text)` land with Toggle, with the circle's ASCII radio glyphs.
 
 ## Primitive dependencies
 
@@ -347,38 +522,70 @@ and `semantic.disabled` while disabled. The checkbox marker is literal ASCII and
   click).
 - `toggle clears a pending press when a pointer release leaves its node` (mouse table:
   drag).
-- `toggle suppresses rather than partially draws below its minimum floor` (sizing: 2x1).
-- `default checkbox marker remains literal under ascii-only capability` (states: ASCII
-  fixture; degradation: ASCII-only).
-
-> Deferred: Circle-style rendering and its ASCII radio-glyph degradation land in a later
-> slice. The circle fixtures above preserve that design intent.
+- `toggle suppresses rather than partially draws below its minimum floor` (sizing: 1x1
+  Unicode; 3x1 ASCII).
+- `checkbox marker falls back to [x] and [ ] under the ASCII charset` (states: ASCII
+  fixture; degradation: ASCII).
+- `toggle draws checked and unchecked markers in accent and muted` (anatomy: natural and
+  unchecked fixtures).
+- `toggle draws Nerd Font markers under the Nerd Font charset` (anatomy: Nerd Font
+  fixture; degradation: Nerd Font).
+- `standalone focused toggle marks its label with an underline and keeps its marker colour`
+  (states: focused and pressed fixture).
+- `focused toggle in a form row shows the row cursor and a bold focus label without an underline`
+  (API direction: Form rows; [Form](form.md) key table).
+- `circle style displays a filled marker for true and a hollow marker for false` (circle
+  style fixtures).
+- `circle style falls back to (*) and ( ) under the ASCII charset` (circle style: ASCII
+  fixture).
+- `standalone toggle defaults to the checkbox style and a toggle in a form row to the text style`
+  (API direction; Text style).
+- `explicit toggle style on the toggle or any ancestor, including a form, overrides the form-row text default`
+  (API direction: `Form { ... }.toggleStyle(.checkbox)`).
+- `text style draws true in success and false in muted with no marker` (Text style
+  fixtures).
+- `text style in a form row draws only the value word and keeps the label as accessible name`
+  (Text style; Form anatomy).
+- `standalone text style draws the value word, one space, then the label` (Text style).
+- `text style keeps the checkbox keyboard, pointer, focus, and disabled contract` (key
+  table; mouse table; states).
+- `a click anywhere on a text-style Form row acts as Enter and inverts the value once`
+  (Text style; [Form](form.md) mouse table).
 
 ## Degradation
 
+- **Default charset:** Unicode is the default charset of the first implementation (owner
+  decision, 2026-10-10); ASCII is the fallback charset.
 - **NO_COLOR:** semantic roles retain their attribute-only fallbacks; focus feedback is
-  bold, and checkbox glyphs remain unchanged.
+  the label underline, which needs no colour, and checkbox glyphs remain unchanged.
 - **16-color:** semantic roles use their indexed-color-plus-attribute fallbacks; checkbox
   glyphs remain unchanged.
-- **ASCII-only:** `[x]` and `[ ]` are already ASCII-safe. If a label truncates,
+- **ASCII charset:** `☑`, `☐`, and the Nerd Font glyphs are not drawn; the ASCII charset
+  draws `[x]` and `[ ]`, each followed by one space. If a label truncates,
   `truncation.mark` becomes `~`.
-- **Deferred circle style:** the `◉`/`○` markers become radio glyphs `(*)`/`( )`; the
-  three-cell ASCII marker widens the control by two cells without changing interaction.
-- **Below minimum:** below 3x1, Toggle reports 0x1 and paints no partial marker or hit
-  target.
+- **Nerd Font:** the Nerd Font charset draws U+F14A and U+F096 in the same one-cell marker
+  in place of the Unicode glyphs. It is a charset choice, not a capability.
+- **Circle style:** the `◉`/`○` markers become radio glyphs `(*)`/`( )`; the three-cell
+  ASCII marker widens the control by two cells without changing interaction.
+- **Below minimum:** below the charset floor (2x1 Unicode, 4x1 ASCII), Toggle reports 0x1
+  and paints no partial marker or hit target.
+- **Text style:** the words `true` and `false` draw under every charset. Under NO_COLOR
+  the `success` and `muted` difference is lost, so the words are the only signal; they
+  remain.
 
-## Open questions
+## Deferred beyond 1.0
 
 - **Label-less Toggle:** deferred beyond 1.0. Unblock only when the public accessibility
   policy defines a non-label accessible-name source and an exact initializer contract.
 - **Switch-style presentation:** deferred beyond 1.0. Unblock only when a proposed
   `ToggleStyle` proves a switch can preserve the checkbox keyboard, pointer, focus, and
   disabled contract through fixtures and interaction tables.
-- **`ToggleStyle` representation:** concrete configuration, type-erasure, and environment
-  key signatures are deferred to the
+- **Custom `ToggleStyle` representation:** concrete configuration, type-erasure, and
+  environment key signatures for app-defined styles are deferred to the
   [Slice 7 catalog integration contract](../../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase).
-  Unblock only when that contract names the standard/custom style representation without
-  weakening Toggle's required `Binding<Bool>` initializer.
+  Unblock only when that contract names the custom style representation without weakening
+  Toggle's required `Binding<Bool>` initializer. The built-in `.checkbox`, `.circle`, and
+  `.text` styles do not wait for it.
 
 ## Inspiration
 

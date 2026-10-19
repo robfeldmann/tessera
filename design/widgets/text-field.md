@@ -12,9 +12,10 @@ grapheme boundaries plus horizontal reveal position, all disposable and clamped 
 the app replaces the string. The public API uses `TextField` with no compatibility alias.
 
 The public direction is a string-only field with a label, an optional prompt, an optional
-submit closure, and standard/default plus custom `TextFieldStyle` support. The concrete
-initializer and style-configuration signatures remain open. `TextField` is neither a
-multiline editor nor secure entry in 1.0.
+submit closure, the standard/default style, and an environment-applied
+`.characterLimit(_:)` (owner decision, 2026-10-10). Custom `TextFieldStyle` is deferred
+with Toggle and Button (owner decision, 2026-10-10). The concrete initializer signature
+remains open. `TextField` is neither a multiline editor nor secure entry in 1.0.
 
 ## Prior art
 
@@ -33,6 +34,13 @@ multiline editor nor secure entry in 1.0.
   `onSubmit`, and environment-applied default/custom style direction; reject value/format
   initializers, scrollable-axis text fields, and the platform-specific `Form` presentation
   before 1.0.
+- omp2's `Input` counter
+  ([limit](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/input.rs#L196-L201),
+  [render](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/input.rs#L511-L516))
+  shows the remaining count right-aligned in muted, and a limit counts without capping
+  input. Copy that placement and the non-capping rule; reject its `-N` overage and warn
+  role, which the owner replaced with `+N` in `error` (owner decision, omp2 review,
+  2026-10).
 
 ## API direction
 
@@ -43,6 +51,7 @@ public struct TextField<Label: View>: View {
     // string Binding, optional prompt, label, optional onSubmit
 }
 
+// Deferred with Toggle and Button; outside 1.0 (owner decision, 2026-10-10).
 public protocol TextFieldStyle {
     associatedtype Body: View
     @ViewBuilder func makeBody(configuration: TextFieldStyleConfiguration) -> Body
@@ -50,6 +59,7 @@ public protocol TextFieldStyle {
 
 extension View {
     public func textFieldStyle(_ style: some TextFieldStyle) -> some View
+    public func characterLimit(_ limit: Int?) -> some View
 }
 ```
 
@@ -59,9 +69,10 @@ state, and caret request site; it may change chrome but cannot own text, selecti
 submit behavior. Planned semantic roles are complete `Style` values, not hard-coded
 colors: `semantic.primary`, `semantic.secondary`, `semantic.accent`, `semantic.disabled`,
 and `semantic.destructive`. Slice 7 supplies the environment keys and the exact
-style-configuration protocol for the standard/default and custom `TextFieldStyle`; until
-then, this document uses only the canonical focus, border, truncation, and degradation
-tokens in [tokens](../tokens.md).
+style-configuration protocol for the standard/default style; custom `TextFieldStyle` is
+deferred with Toggle and Button (owner decision, 2026-10-10). Until then, this document
+uses only the canonical focus, border, truncation, and degradation tokens in
+[tokens](../tokens.md).
 
 ## Anatomy
 
@@ -96,37 +107,24 @@ Region names for the mouse table: input line.
 
 ### Mobile
 
-`mobile` is the canonical 40x16 viewport. The field remains its natural four rows at the
-top; the twelve blank buffer rows below are intentional, demonstrating that a single-line
-widget does not manufacture vertical padding to fill a phone terminal.
+`mobile` is the component at 40 columns at its natural four rows, not padded to a 40x16
+frame. A single-line field does not manufacture vertical padding to fill a phone terminal
+(owner decision, 2026-10-10).
 
-```wireframe 40x16
+```wireframe 40x4
 Username
 ╭──────────────────────────────────────╮
 │mruiz2@icloud.com                     │
 ╰──────────────────────────────────────╯
-
-
-
-
-
-
-
-
-
-
-
-
 ```
 
 ```text
-Callouts (40x16, 0-based):
+Callouts (40x4, 0-based):
 1. r0       Label -- visible before prompt because the 40-column viewport exceeds the
             declared minimum.
 2. r1-r3    Field frame -- compact default-style chrome; width tracks the offered 40 cells.
 3. r2 c1-c38 Input line -- 38-cell viewport; content reveals horizontally instead of
             wrapping.
-4. r4-r15   Unoccupied viewport -- not TextField output; blank buffer cells remain blank.
 ```
 
 ### Minimum
@@ -262,6 +260,50 @@ Callouts (48x4, 0-based):
 3. r2 c1-c46 Input line -- read-only visual value and noninteractive hit region.
 ```
 
+### Character counter
+
+Owner decision, omp2 review, 2026-10. A field with an app-supplied character limit shows a
+right-aligned counter. At or under the limit it shows the remaining count in `muted`; over
+it it shows `+N`, the number of grapheme clusters past the limit, in `error`. The counter
+never caps input: an over-limit value stays bound and editable through `text`. The two
+sample rows show both states: row 1 has 21 grapheme clusters under a limit of 40, and row
+2 has 25 grapheme clusters over a limit of 12.
+
+Owner decision, 2026-10-10: the counter unit is grapheme clusters, matching the cursor and
+edits. An exact limit shows `0` in `muted`. The limit is set by `.characterLimit(_:)` in
+the environment, so it is configuration rather than state.
+
+```wireframe 40x2
+❯ Release notes for 2.4               19
+❯ build-and-test-everything          +13
+```
+
+```text
+Callouts (40x2, 0-based):
+1. c0-c1    row cursor `❯` -- `accent` on the focused row and `muted` on the other. It is
+            host-row chrome (Focus border rule 3), not TextField output.
+2. c2-c26   input text -- bound value in `primary`; row 1 is 21 grapheme clusters, row 2 is 25.
+3. r0 c38-c39 remaining count `19` -- `muted`: the limit of 40 minus 21 grapheme clusters.
+4. r1 c37-c39 overflow count `+13` -- `error`: 25 grapheme clusters minus the limit of 12.
+```
+
+Styled grid (owner review, verbatim):
+
+```text
+── chars ──
+❯ Release notes for 2.4               19
+❯ build-and-test-everything          +13
+── style ──
+AABBBBBBBBBBBBBBBBBBBBB...............CC
+CCBBBBBBBBBBBBBBBBBBBBBBBBB..........RRR
+── legend ──
+.  default
+A  fg=accent
+B  fg=primary
+C  fg=muted
+R  fg=error
+```
+
 ### Degraded
 
 This is the ASCII-only focused fixture. `+`, `-`, and `|` come from the `ascii` border
@@ -289,19 +331,22 @@ Callouts (48x4, 0-based):
 
 ## State model
 
-| State                                    | Owner     | Type                                | Reset or clamp rule                                                                                                                                     |
-| ---------------------------------------- | --------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| text                                     | Binding   | `Binding<String>`                   | App-owned source of truth; every accepted edit replaces its value immediately, and external replacement is authoritative.                               |
-| cursor grapheme offset                   | NodeState | `Int`                               | Clamp to `0...graphemeCount(text)` on every reconciliation; if the app changes text, keep the nearest surviving grapheme boundary.                      |
-| selection anchor grapheme offset         | NodeState | `Int`                               | Clamp to `0...graphemeCount(text)` on every reconciliation; equal to the cursor when no range is selected, and never points inside a grapheme.          |
-| selected grapheme range                  | derived   | `Range<Int>`                        | The half-open range between anchor and cursor; replacement and deletion operate on whole graphemes only.                                                |
-| horizontal reveal offset                 | NodeState | `Int` display-cell offset           | Clamp on every layout/update to a legal grapheme boundary between `0` and the maximum reveal; adjust minimally to keep the caret within the input line. |
-| grapheme boundaries and display advances | derived   | `[String.Index]` plus cell advances | Recompute from current `text` during layout/render; combining marks advance zero and wide clusters reserve their measured cells.                        |
-| input viewport width                     | derived   | `Int` cells                         | Recompute from final input-line bounds on every layout; zero width yields no cursor request.                                                            |
-| effective enabled                        | derived   | `Bool`                              | Recompute from the inherited enabled configuration on every update; false disables focus/edit behavior without copying text.                            |
-| focused                                  | derived   | `Bool`                              | Recompute from `FocusManager`; if this node disappears, focus clears under Slice 4 and cursor request disappears.                                       |
-| has submit handler                       | derived   | `Bool`                              | Recompute from the optional submit closure on every update; true exactly when the closure is non-nil.                                                   |
-| caret terminal position                  | derived   | `TerminalPosition?`                 | Recompute from bounds, reveal offset, and cursor boundary; nil unless focused, enabled, and a visible input cell exists.                                |
+| State                                    | Owner       | Type                                | Reset or clamp rule                                                                                                                                                                                |
+| ---------------------------------------- | ----------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| text                                     | Binding     | `Binding<String>`                   | App-owned source of truth; every accepted edit replaces its value immediately, and external replacement is authoritative.                                                                          |
+| cursor grapheme offset                   | NodeState   | `Int`                               | Clamp to `0...graphemeCount(text)` on every reconciliation; if the app changes text, keep the nearest surviving grapheme boundary.                                                                 |
+| selection anchor grapheme offset         | NodeState   | `Int`                               | Clamp to `0...graphemeCount(text)` on every reconciliation; equal to the cursor when no range is selected, and never points inside a grapheme.                                                     |
+| selected grapheme range                  | derived     | `Range<Int>`                        | The half-open range between anchor and cursor; replacement and deletion operate on whole graphemes only.                                                                                           |
+| horizontal reveal offset                 | NodeState   | `Int` display-cell offset           | Clamp on every layout/update to a legal grapheme boundary between `0` and the maximum reveal; adjust minimally to keep the caret within the input line.                                            |
+| grapheme boundaries and display advances | derived     | `[String.Index]` plus cell advances | Recompute from current `text` during layout/render; combining marks advance zero and wide clusters reserve their measured cells.                                                                   |
+| input viewport width                     | derived     | `Int` cells                         | Recompute from final input-line bounds on every layout; zero width yields no cursor request.                                                                                                       |
+| effective enabled                        | derived     | `Bool`                              | Recompute from the inherited enabled configuration on every update; false disables focus/edit behavior without copying text.                                                                       |
+| focused                                  | derived     | `Bool`                              | Recompute from `FocusManager`; if this node disappears, focus clears under Slice 4 and cursor request disappears.                                                                                  |
+| has submit handler                       | derived     | `Bool`                              | Recompute from the optional submit closure on every update; true exactly when the closure is non-nil.                                                                                              |
+| caret terminal position                  | derived     | `TerminalPosition?`                 | Recompute from bounds, reveal offset, and cursor boundary; nil unless focused, enabled, and a visible input cell exists.                                                                           |
+| character limit                          | Environment | `Int?`                              | Configuration, not state: read on every render from `.characterLimit(_:)`; nil draws no counter. The limit counts but never caps input (accepted sample: 25 over 12). Owner decision, 2026-10-10.  |
+| character count                          | derived     | `Int` graphemes                     | Recompute as `graphemeCount(text)` on every render; the unit is grapheme clusters (owner decision, 2026-10-10).                                                                                    |
+| counter display                          | derived     | `Int?` plus role                    | At or under the limit, including exactly `0` remaining: `limit - count` in `muted` (owner decision, 2026-10-10). Over it: `count - limit` as `+N` in `error`. Nil without a limit; never negative. |
 
 ## Key table
 
@@ -385,8 +430,12 @@ and respect the offered bounds. `nil` is the layout protocol's unconstrained axi
   and ASCII-only fallbacks.
 - The field consumes inherited enabled state and the complete semantic `Style` values
   `semantic.primary`, `semantic.secondary`, `semantic.accent`, and `semantic.disabled`;
-  `TextFieldStyle` and `textFieldStyle(_:)` remain future/open direction rather than this
-  P4.5 acceptance requirement.
+  custom `TextFieldStyle` and `textFieldStyle(_:)` are deferred with Toggle and Button
+  (owner decision, 2026-10-10), outside this P4.5 acceptance requirement.
+- The character counter consumes `muted` for the remaining count and `error` for the
+  overflow count; both roles are token pending plan 032 step 5.3. The character limit is
+  environment configuration set by `.characterLimit(_:)` (owner decision, 2026-10-10), not
+  a style role.
 
 ## Primitive dependencies
 
@@ -408,8 +457,11 @@ and respect the offered bounds. `nil` is the layout protocol's unconstrained axi
    pointer behavior.
 3. Slice 7 ships the renamed controlled TextField: hardware cursor, Binding edits,
    grapheme cursor/selection/reveal, paste/newline normalization, submit, and
-   deterministic buffer/cursor fixtures. Custom `TextFieldStyle` remains future/open.
-4. Only secure entry is deferred until post-1.0.
+   deterministic buffer/cursor fixtures. Custom `TextFieldStyle` is deferred with Toggle
+   and Button (owner decision, 2026-10-10).
+4. The character counter is the TextField demo step (plan 032 step 13) (owner decision,
+   2026-10-10).
+5. Only secure entry is deferred until post-1.0.
 
 ## Requirements
 
@@ -449,6 +501,14 @@ and respect the offered bounds. `nil` is the layout protocol's unconstrained axi
   Minimum wireframe; sizing: 11x2)
 - `text field applies ascii degradation without creating a software cursor` (Degraded
   wireframe)
+- `text field shows the remaining count in muted under its limit` (Character counter
+  wireframe; state model: counter display)
+- `text field shows a zero remaining count in muted when the count equals its limit`
+  (state model: counter display; owner decision, 2026-10-10)
+- `text field shows an overflow count in error without capping its binding` (Character
+  counter wireframe; state model: counter display and character limit)
+- `text field draws no counter without an app-supplied limit` (state model: character
+  limit)
 
 ## Degradation
 
@@ -459,13 +519,21 @@ uses the degraded fixture's `+`/`-`/`|` frame and `|` cursor diagram convention;
 text remains grapheme/display-width-safe. Below `12x4`, it reports the offered size,
 removes frame before label, then removes label before input, and clips rather than wraps.
 At zero input cells it makes no cursor request. No degradation changes the Binding or
-turns prompt text into data.
+turns prompt text into data. The counter keeps its text at every capability level; its
+`muted` and `error` colours follow the ladder once those roles have tokens (token pending
+plan 032 step 5.3).
 
 ## Deferred post-1.0
 
 - **Secure entry:** Defer `SecureField`/masking, reveal-last-character timing, clipboard
   policy, and accessibility implications until post-1.0. A secure option must not silently
   be added to TextField because it changes rendering and input-policy contracts.
+
+## Open questions
+
+- **Counter roles (blocks `ready`).** The roles `muted` and `error` are absent from
+  `design/tokens.md`; token pending plan 032 step 5.3. Their degradation under `NO_COLOR`
+  and 16-color follows once those tokens land.
 
 ## Inspiration
 

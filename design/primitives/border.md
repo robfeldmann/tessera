@@ -1,6 +1,6 @@
 ---
 kind: primitive
-status: ready
+status: specified
 ---
 
 # Border
@@ -170,9 +170,111 @@ a `Frame` should own.
   [tokens.md](../tokens.md#border-sets); the `BorderStyle` case selects the row.
 - `lineStyle` is a complete [`Style`](style-modifiers.md); with the empty default the ring
   inherits `semantic.primary` through the ambient `defaultStyle`.
-- [`focus.border`](../tokens.md#focus) is the system focus presentation a bordered widget
-  applies through this same modifier: it switches the set to `rounded` and the line to
-  `semantic.focus` without changing geometry. The primitive itself has no focus state.
+- Focus presentation follows the [Focus border](#focus-border) rules. The owning bordered
+  view chooses the set and `lineStyle` through this modifier; the primitive itself has no
+  focus state.
+
+## Focus border
+
+Owner decision, omp2 review, 2026-10. Box, Button, Stepper, SplitView, and Table each
+settled their focus look in their own review. This section gathers those looks so they can
+be checked together, and it replaces the `focus.border` direction in
+[tokens.md](../tokens.md#focus). Every look uses one colour, the `focus` role, whose
+provisional default is violet (see Focus colour below).
+
+Summary of the accepted focus looks: one specimen per rule, with the rules following the
+grid.
+
+```wireframe 40x12
+┏━━━━━━━━━━━━━━━━━━━━━━┓
+┃ selectable card      ┃
+┗━━━━━━━━━━━━━━━━━━━━━━┛
+
+┌─ Deploy ─────────────┐
+│ ▐Cancel▌ ▐Deploy▌    │
+└──────────────────────┘
+
+❯ Replicas    ◂ 4 ▸
+  Timeout     ◂ 30 ▸
+
+ Files ┃ main.swift
+```
+
+```text
+Callouts (40x12, 0-based):
+1. r0-r2 c0-c23  Self-focused box -- rule 1: `heavy` set in the `focus` role
+2. r4-r6 c0-c23  Focus-within box -- rule 2: nearest bordered ring at normal weight
+3. r5 c11-c18    Deploy button -- the control's own focus: `focus` fill, bold (rule 2)
+4. r8 c0, c2-c9  Focused cursor row -- rule 3: `❯` cursor and bold `focus` label
+5. r9 c14-c19    Unfocused stepper -- rule 3: arrows kept
+6. r11 c7        Divider -- rule 4: `focus` heavy vertical line; joints turn heavy
+7. r5 c2-c9     Cancel button -- unfocused secondary action: `.tinted`, `secondary` label on a
+   faint `secondary` fill (`faint(secondary)`, token pending plan 032 step 5.3)
+```
+
+```text
+── chars ──
+┏━━━━━━━━━━━━━━━━━━━━━━┓
+┃ selectable card      ┃
+┗━━━━━━━━━━━━━━━━━━━━━━┛
+
+┌─ Deploy ─────────────┐
+│ ▐Cancel▌ ▐Deploy▌    │
+└──────────────────────┘
+
+❯ Replicas    ◂ 4 ▸
+  Timeout     ◂ 30 ▸
+
+ Files ┃ main.swift
+── style ──
+PPPPPPPPPPPPPPPPPPPPPPPP
+PTTTTTTTTTTTTTTTTTTTTTTP
+PPPPPPPPPPPPPPPPPPPPPPPP
+........................
+PPPFFFFFFPPPPPPPPPPPPPPP
+P.BbbbbbbB.PppppppP....P
+PPPPPPPPPPPPPPPPPPPPPPPP
+........................
+PPFFFFFFFFFFFFMMGMM
+..TTTTTTTTTTTTMMGGMM
+........................
+TTTTTTTPTTTTTTTTTTT
+── legend ──
+.  default
+P  fg=focus
+F  fg=focus bold
+T  fg=primary
+M  fg=muted
+p  fg=contrast bg=focus bold
+B  fg=faint(secondary)*
+b  fg=secondary bg=faint(secondary)*
+G  fg=warning
+```
+
+Rules, owner decision, omp2 review, 2026-10:
+
+1. **Self focus.** A bordered view that takes focus itself paints its ring in the `focus`
+   role with the `heavy` set. Rounded and single rings change set; the geometry is the
+   same. Heavy and double rings change colour only (rule 6).
+2. **Focus within.** The nearest bordered ancestor of a focused control paints its ring in
+   the `focus` role at normal weight, and the control shows its own focus. This is on by
+   default; `.focusSection()` and the `focusWithinBorder` environment switch turn it off.
+   Outer bordered ancestors stay plain.
+3. **Cursor rows.** Form rows, Stepper host rows, Picker menu rows, and the TabView bar
+   take the `❯` cursor and a bold `focus` label. An unfocused stepper keeps its arrows.
+   List and Table show focus through their selection tokens instead.
+4. **Split dividers.** A SplitView divider paints in the `focus` role as a heavy line, and
+   its joints turn heavy to match.
+5. **Tables.** A bordered table takes rule 1 or rule 2 on its outer border.
+6. **Heavy, double, ASCII.** Heavy and double rings keep their weight and change colour
+   only. ASCII has no heavier line, so focus shows in bold.
+
+**Focus colour.** Owner decision, 2026-10-10: `focus` is violet (16-colour magenta 5/13),
+foreground-only, bold, with no background. Keeping the role foreground-only leaves rule 6
+possible on heavy rings, since a colour-only change can carry focus there. Violet is a
+provisional default; the owner is not yet settled that it is the official colour. Ideally
+Tessera picks a good default, and developers can set their own focus colour; the override
+surface is not specified here.
 
 ## Requirements
 
@@ -190,14 +292,22 @@ a `Frame` should own.
 - `zero area frame paints nothing` (anatomy: declared minimum; sizing: 1x1 rule)
 - `custom glyph wider than one cell fails a precondition` (public API: `.custom`)
 - `ascii degradation substitutes the ascii border set` (degradation: ASCII-only)
-- `focus presentation switches set and line without moving the ring` (environment:
-  `focus.border`)
+- `self focus paints a heavy ring in the focus role without moving the ring` (focus
+  border: summary, rule 1)
+- `focus within tints the nearest bordered ring at normal weight` (focus border: rule 2)
+- `focused row shows the cursor and a bold focus label` (focus border: rule 3)
+- `split divider and joints take the focus role as heavy lines` (focus border: rule 4)
+- `bordered table outer ring follows the self or within focus rule` (focus border: rule 5)
+- `heavy and double rings change colour only on focus` (focus border: rule 6)
+- `ascii focus renders bold on the ascii ring` (focus border: rule 6; degradation:
+  ASCII-only)
 
 ## Degradation
 
 Per the [degradation ladder](../tokens.md#degradation-ladder), borders keep their geometry
 at `NO_COLOR` and 16-color; only `lineStyle` color resolves through its semantic role.
-ASCII-only swaps in the `ascii` set (`+` corners, `-` horizontal, `|` vertical).
+ASCII-only swaps in the `ascii` set (`+` corners, `-` horizontal, `|` vertical). Focus in
+ASCII is bold, since ASCII has no heavier line (focus border rule 6).
 
 ```wireframe 12x4
 +----------+
@@ -225,21 +335,35 @@ same reserved ring, so a malformed set cannot desynchronize the corners from the
 Degenerate frames clamp rather than crash: below two cells on an axis the interior is
 zero, `1x1` paints the top-left corner, and a zero-area frame paints nothing.
 
+The focus look uses one colour, the `focus` role, and the weight rules in the
+[Focus border](#focus-border) section (owner decision, omp2 review, 2026-10). Border holds
+no focus state: the owning view chooses the set and `lineStyle` through this modifier.
+Heavy and double rings change colour only, since no heavier line exists; ASCII shows focus
+in bold.
+
 Reviewed against the
 [Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): Border is a
 unary layout wrapper plus a render decoration, appearance comes from shared tokens, and
 geometry is deterministic integer-cell output.
 
+Owner decision, 2026-10-10: an interactive bordered child's decorative-versus-hit question
+is deferred to [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing). The border
+ring is decorative; hit testing follows the wrapped child's final frame and clip.
+
 The border edge also serves as an edge-riding scroll-indicator track: a scrollable
-descendant may mount a [ScrollIndicator](scroll-indicator.md) in `onBorder` placement
-whose thumb overpaints the ring cells at the resolved thumb rows, reserving no extra cell.
-The `onBorder` thumb weight paints over `lineStyle`; the ring geometry is unchanged.
+descendant may mount a [ScrollIndicator](scroll-indicator.md) in `.border` placement
+(`.scrollIndicatorPlacement(.border)`) whose thumb overpaints the ring cells at the
+resolved thumb rows, reserving no extra cell. The `.border` thumb weight paints over
+`lineStyle`; the ring geometry is unchanged.
 
 ## Open questions
 
-- Whether an interactive bordered child needs a distinct decorative-versus-hit region is
-  deferred to [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing); the border ring
-  is decorative and hit testing follows the wrapped child's final frame and clip.
+- The `focus` colour token is pending plan 032 step 5.3.
+  [tokens.md](../tokens.md#semantic-styles) still records `semantic.focus` as ANSI black
+  on dark yellow, which conflicts with the violet default in
+  [Focus border](#focus-border). Until plan 032 settles the token, the violet default
+  stays provisional and this doc stays `specified`. The `focus.border` row in
+  [tokens.md](../tokens.md#focus) is superseded by the Focus border section.
 
 ## Inspiration
 

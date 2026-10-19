@@ -1,6 +1,6 @@
 ---
 kind: widget
-status: ready
+status: specified
 ---
 
 # ScrollView
@@ -64,8 +64,11 @@ begins from that effective value.
   `https://github.com/ratatui/ratatui/blob/main/ratatui-widgets/src/scrollbar.rs` -- copy
   its distinct vertical/horizontal orientations and thumb geometry derived from content
   length, viewport length, and position. Reject its separately constructed, caller-owned
-  `ScrollbarState`, endpoint arrows, and decorative track configuration: Tessera derives
-  indicator state from the viewport and uses the canonical token glyphs.
+  `ScrollbarState` and endpoint arrows. Tessera derives indicator state from the viewport
+  and reads glyphs from the catalog. Tessera's look is one curated `ScrollIndicatorStyle`
+  preset, fixing each thumb and track pair, which reverses the earlier rejection of
+  configurable styles (owner decision, omp2 review, 2026-10; presets owner decision,
+  2026-10-10; see [ScrollIndicator](../primitives/scroll-indicator.md#decisions)).
 - Ratatui paragraph:
   `https://github.com/ratatui/ratatui/blob/main/ratatui-widgets/src/paragraph.rs` -- copy
   the two-dimensional offset concept and the discipline of rendering only into the
@@ -98,25 +101,26 @@ padding of its own.
 Here's to the crazy ones. The misfits. The rebels. │
 The troublemakers. The round pegs in the square    │
 holes. The ones who see things differently. They're│
-not fond of rules. And they have no respect for the┃
-status quo. You can quote them, disagree with them,┃
-glorify or vilify them. About the only thing you   ┃
-can't do is ignore them. Because they change       ┃
-things. They push the human race forward. And while┃
+not fond of rules. And they have no respect for the█
+status quo. You can quote them, disagree with them,█
+glorify or vilify them. About the only thing you   █
+can't do is ignore them. Because they change       █
+things. They push the human race forward. And while█
 some may see them as the crazy ones, we see genius.│
 Because the people who are crazy enough to think   │
 they can change the world, are the ones who do.    │
-──────────━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━─│
+──────────🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋─│
 ```
 
 ```text
 Callouts (52x12, 0-based):
 0. r0-r10 c0-c50  Viewport content -- child `View` rendered through a translated, clipped
                    `RenderRegion`; this is the primary wheel and click region
-1. r0-r10 c51     Vertical scroll indicator -- `scrollbar.track` / `scrollbar.thumb`; five-cell
-                   thumb at r3-r7, present only for vertical overflow
-2. r11 c0-c50     Horizontal scroll indicator -- `scrollbar.track` / `scrollbar.thumb`; forty-cell
-                   thumb at c10-c49, present only for horizontal overflow
+1. r0-r10 c51     Vertical scroll indicator -- `█` thumb (`accent`) on a `│` track
+                   (`muted`); five-cell thumb at r3-r7, present only for vertical overflow
+2. r11 c0-c50     Horizontal scroll indicator -- `🬋` thumb (`accent`) on a `─` track
+                   (`muted`); forty-cell thumb at c10-c49, present only for horizontal
+                   overflow
 3. r11 c51        Indicator corner -- reserved intersection of the two indicator edges; no
                    content and no independent action
 ```
@@ -132,6 +136,147 @@ and effective offset `O`, the thumb has `max(1, floor(T * V / C))` cells and sta
 trailing/bottom end when the position is maximum. An indicator is visible only when its
 enabled axis overflows and the stabilized reservation leaves a content viewport at least
 `1x1`; otherwise that edge is omitted.
+
+## Indicator styles
+
+The default look is omp2's vertical one: an accent `█` thumb on a muted `│` track. For
+horizontal scrolling the thumb is `🬋`, a centred one-third bar on a `─` track, which is
+thicker than omp2's `━` (owner decision, 2026-10-11). The look is one curated
+`ScrollIndicatorStyle` preset, set with
+`.scrollIndicatorStyle(_ style: ScrollIndicatorStyle)`; each preset fixes its thumb and
+track together for both axes, so a mismatched pair cannot be written. Placement inside a
+box's border is a separate opt-in modifier. The preset list (confirmed, owner decision,
+2026-10-11) and its glyphs for both axes are in
+[ScrollIndicator](../primitives/scroll-indicator.md#variants). All of them ship in 1.0
+(owner decision, 2026-10-10).
+
+### Standard
+
+Six rows show the default `standard` preset: the thumb is three cells at r1-r3 and the
+track is `muted`.
+
+```wireframe 40x6
+step 04 compile tui                    │
+step 05 compile cli                    █
+step 06 link binaries                  █
+step 07 run unit tests                 █
+step 08 run doc tests                  │
+step 09 run lints                      │
+```
+
+```text
+Callouts (40x6, 0-based):
+0. r0-r5 c0-c38  Viewport content -- child rows translated and clipped; the same region as
+                 Anatomy callout 0
+1. r0, r4-r5 c39 Vertical track -- `muted` `│` (the `standard` track)
+2. r1-r3 c39     Vertical thumb -- `accent` `█` (the `standard` thumb), three cells
+```
+
+```text
+── chars ──
+step 04 compile tui                    │
+step 05 compile cli                    █
+step 06 link binaries                  █
+step 07 run unit tests                 █
+step 08 run doc tests                  │
+step 09 run lints                      │
+── style ──
+.......................................A
+.......................................B
+.......................................B
+.......................................B
+.......................................A
+.......................................A
+── legend ──
+.  default
+A  fg=muted
+B  fg=accent
+```
+
+### Placement in a box border
+
+When a ScrollView fills a bordered Box and `.scrollIndicatorPlacement(.border)` is set,
+the thumb replaces part of the box's right border instead of taking a column of its own,
+as lazygit does. The border line is the track, so the preset's track glyph does not paint
+and no cell is reserved. The placement applies only when the ScrollView's nearest ancestor
+is a bordered Box; otherwise the default placement from Anatomy applies. Owner decision,
+omp2 review, 2026-10. Each box names its preset in its title and shows the thumb in the
+top band at rows 2-4 and in the bottom band at rows 10-12.
+
+```wireframe 40x16
+┌─ standard ───────┐┌─ thin ───────────┐
+│ 04 compile tui   ││ 04 compile tui   │
+│ 05 compile cli   █│ 05 compile cli   ┃
+│ 06 link binaries █│ 06 link binaries ┃
+│ 07 run unit test █│ 07 run unit test ┃
+│ 08 run doc tests ││ 08 run doc tests │
+│ 09 run lints     ││ 09 run lints     │
+└──────────────────┘└──────────────────┘
+┌─ outer ──────────┐┌─ inner ──────────┐
+│ 04 compile tui   ││ 04 compile tui   │
+│ 05 compile cli   ▐│ 05 compile cli   ▌
+│ 06 link binaries ▐│ 06 link binaries ▌
+│ 07 run unit test ▐│ 07 run unit test ▌
+│ 08 run doc tests ││ 08 run doc tests │
+│ 09 run lints     ││ 09 run lints     │
+└──────────────────┘└──────────────────┘
+```
+
+```text
+Callouts (40x16, 0-based):
+0. r0-r7 c0-c19    Bordered Box `standard` -- title in the top border (`secondary` bold); the
+                   ScrollView fills the interior r1-r6 c1-c18
+1. r0-r7 c20-c39   Bordered Box `thin` -- same placement
+2. r8-r15 c0-c19   Bordered Box `outer` -- same placement
+3. r8-r15 c20-c39  Bordered Box `inner` -- same placement
+4. r2-r4 c19       Thumb `accent` `█` replacing part of the right border; the `border` role
+                   keeps the rest of the column
+5. r2-r4 c39       Thumb `accent` `┃` (`thin`)
+6. r10-r12 c19     Thumb `accent` `▐` (`outer`)
+7. r10-r12 c39    Thumb `accent` `▌` (`inner`)
+```
+
+```text
+── chars ──
+┌─ standard ───────┐┌─ thin ───────────┐
+│ 04 compile tui   ││ 04 compile tui   │
+│ 05 compile cli   █│ 05 compile cli   ┃
+│ 06 link binaries █│ 06 link binaries ┃
+│ 07 run unit test █│ 07 run unit test ┃
+│ 08 run doc tests ││ 08 run doc tests │
+│ 09 run lints     ││ 09 run lints     │
+└──────────────────┘└──────────────────┘
+┌─ outer ──────────┐┌─ inner ──────────┐
+│ 04 compile tui   ││ 04 compile tui   │
+│ 05 compile cli   ▐│ 05 compile cli   ▌
+│ 06 link binaries ▐│ 06 link binaries ▌
+│ 07 run unit test ▐│ 07 run unit test ▌
+│ 08 run doc tests ││ 08 run doc tests │
+│ 09 run lints     ││ 09 run lints     │
+└──────────────────┘└──────────────────┘
+── style ──
+RRHHHHHHHHHRRRRRRRRRRRHHHHHHRRRRRRRRRRRR
+R..................RR..................R
+R..................BR..................B
+R..................BR..................B
+R..................BR..................B
+R..................RR..................R
+R..................RR..................R
+RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+RRHHHHHHHRRRRRRRRRRRRRHHHHHHHRRRRRRRRRRR
+R..................RR..................R
+R..................BR..................B
+R..................BR..................B
+R..................BR..................B
+R..................RR..................R
+R..................RR..................R
+RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+── legend ──
+.  default
+B  fg=accent
+H  fg=secondary bold
+R  fg=border
+```
 
 ## States
 
@@ -153,22 +298,23 @@ round pegs in the square holes. The    │
 ones who see things differently.       │
 They're not fond of rules. And they    │
 have no respect for the status quo. You│
-can quote them, disagree with them,    ┃
-glorify or vilify them. About the only ┃
-thing you can't do is ignore them.     ┃
-Because they change things. They push  ┃
-the human race forward. And while some ┃
-may see them as the crazy ones, we see ┃
-genius. Because the people who are     ┃
-crazy enough to think they can change  ┃
-the world, are the ones who do.        ┃
-                                       ┃
+can quote them, disagree with them,    █
+glorify or vilify them. About the only █
+thing you can't do is ignore them.     █
+Because they change things. They push  █
+the human race forward. And while some █
+may see them as the crazy ones, we see █
+genius. Because the people who are     █
+crazy enough to think they can change  █
+the world, are the ones who do.        █
+                                       █
 ```
 
 ```text
 Callouts (40x16, 0-based):
 0. r0-r15 c0-c38  Viewport content -- translated child cells; the same region as Anatomy callout 0
-1. r0-r15 c39     Vertical scroll indicator -- mobile trailing edge; the ten-cell thumb is r6-r15
+1. r0-r15 c39     Vertical scroll indicator -- mobile trailing edge; `accent` `█` thumb,
+                   ten cells at r6-r15, on a `muted` `│` track
 ```
 
 ### Declared minimum
@@ -180,7 +326,7 @@ disappearing.
 
 ```wireframe 12x4
 Here's to  │
-the crazy  ┃
+the crazy  █
 ones. The  │
 misfits.   │
 ```
@@ -188,7 +334,7 @@ misfits.   │
 ```text
 Callouts (12x4, 0-based):
 0. r0-r3 c0-c10  Viewport content -- clipped child cells, tail clipping is the child's concern
-1. r0-r3 c11     Vertical scroll indicator -- one-cell minimum thumb at r1
+1. r0-r3 c11     Vertical scroll indicator -- one-cell minimum `accent` `█` thumb at r1
 ```
 
 Below `12x4`, ScrollView takes the assigned non-negative rectangle and continues clipping.
@@ -210,15 +356,15 @@ y ones. The misfits. The rebels. The troublemakers.
  have no respect for the status quo. You can quote t
 , glorify or vilify them. About the only thing you c
 se they change things. They push the human race forw
-────────────━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━───────
+────────────🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋───────
 ```
 
 ```text
 Callouts (52x6, 0-based):
 0. r0-r4 c0-c51  Viewport content -- horizontally translated child cells
-1. r5 c0-c51     Horizontal scroll indicator -- bottom edge; thirty-three-cell thumb at
-                  c12-c44 (`max(1, floor(52 * 52 / 80))` cells starting at
-                  `floor(18 * (52 - 33) / (80 - 52))`)
+1. r5 c0-c51     Horizontal scroll indicator -- bottom edge; `accent` thumb on a `muted`
+                  track; thirty-three-cell thumb at c12-c44 (`max(1, floor(52 * 52 / 80))`
+                  cells starting at `floor(18 * (52 - 33) / (80 - 52))`)
 ```
 
 ### No overflow and empty child
@@ -265,7 +411,7 @@ They're not fond of rules. And they    |
 ```text
 Callouts (40x6, 0-based):
 0. r0-r5 c0-c38  Viewport content -- same translated and clipped child region
-1. r0-r5 c39     Vertical scroll indicator -- `scrollbar.ascii`; `#` is the thumb
+1. r0-r5 c39     Vertical scroll indicator -- `scrollbar.ascii`: `|` track, `#` thumb
 ```
 
 ## State model
@@ -280,7 +426,7 @@ Callouts (40x6, 0-based):
 | maximum offset                  | derived     | `TerminalPosition`            | Recomputed as `max(0, content extent - viewport extent)` per enabled axis after resize, content, axes, or binding changes.                                                                                                        |
 | vertical indicator visibility   | derived     | `Bool`                        | True exactly when axes contains vertical, content height exceeds the stabilized viewport height, and the trailing-edge reservation leaves the stabilized content viewport at least `1x1`; otherwise no trailing edge is reserved. |
 | horizontal indicator visibility | derived     | `Bool`                        | True exactly when axes contains horizontal, content width exceeds the stabilized viewport width, and the bottom-edge reservation leaves the stabilized content viewport at least `1x1`; otherwise no bottom edge is reserved.     |
-| scroll view styles              | Environment | semantic `Style` roles        | Resolve `semantic.primary`, `semantic.secondary`, and `semantic.accent` each render; never retain style in widget state.                                                                                                          |
+| scroll view styles              | Environment | semantic `Style` roles        | Resolve `semantic.primary`, `muted` (tracks, token pending plan 032 step 5.3), and `semantic.accent` (thumbs) each render; never retain style in widget state.                                                                    |
 | is focused                      | Environment | `Bool`                        | Injected below the explicit `.focusable` modifier from the FocusManager's live identity; ScrollView reads it for rendering and checks `ResponderContext.isFocused` for keyboard movement.                                         |
 | owned focus eligibility         | derived     | `FocusID?`                    | `focusable(whileScrollable:)` publishes its identity exactly when enabled, offset-bound, and overflowing an enabled axis; recomputed as each layout pass settles, so registration and withdrawal never lag a graph update.        |
 | is focus-within                 | Responder   | `Bool`                        | Supplied per dispatch as `ResponderContext.isFocusWithin`; lets the viewport consume unmodified press/repeat scroll keys its focused descendant declined.                                                                         |
@@ -388,8 +534,10 @@ contract without introducing a second measurement protocol.
 
 Existing canonical tokens consumed by the standard/default rendering are:
 
-- `scrollbar.track`, `scrollbar.thumb`, and `scrollbar.ascii` for proportional edge
-  indicators.
+- `scrollbar.ascii` for the ASCII fallback of proportional edge indicators (`|` track, `#`
+  thumb). Thumb and track glyphs come from the indicator's style selection, see
+  [ScrollIndicator](../primitives/scroll-indicator.md#environment); their token rows are
+  pending plan 032 step 5.3.
 - `focus.border` and `focus.content` when the surrounding style elects to expose focus;
   ScrollView adds no focus chrome by itself.
 - `truncation.mark` only if the child `Text` chooses tail truncation. ScrollView clips; it
@@ -398,12 +546,12 @@ Existing canonical tokens consumed by the standard/default rendering are:
 The semantic environment roles are complete `Style` values named `semantic.primary`,
 `semantic.secondary`, `semantic.accent`, `semantic.disabled`, and `semantic.destructive`,
 never colors or partial foreground values. Standard rendering uses `semantic.primary` for
-child-default text, `semantic.secondary` for tracks, and `semantic.accent` for unfocused
-thumbs; a focused viewport paints its thumbs bold in the focus accent (`semantic.focus`'s
-background color), which is the viewport's entire focus telegraph. Custom applications
-replace those same environment values; ScrollView does not introduce a parallel
-`ScrollViewStyle` protocol. No hex colors, ANSI sequences, or noncanonical glyph set is
-introduced here.
+child-default text, `muted` for tracks (token pending plan 032 step 5.3), and
+`semantic.accent` for unfocused thumbs; a focused viewport paints its thumbs bold in the
+focus accent (`semantic.focus`'s background color), which is the viewport's entire focus
+telegraph. Custom applications replace those same environment values; ScrollView does not
+introduce a parallel `ScrollViewStyle` protocol. No hex colors, ANSI sequences, or
+noncanonical glyph set is introduced here.
 
 ## Primitive dependencies
 
@@ -487,6 +635,17 @@ introduced here.
   minimum; sizing: `10x3`)
 - `ascii degradation preserves scroll geometry and boundary routing` (states: degraded)
 - `scroll view exposes no zoom or smooth animation transition` (state model: motion model)
+- `standard preset paints an accent block thumb on a muted track` (Indicator styles:
+  standard)
+- `a preset fixes its thumb and track glyphs and keeps the proportional geometry`
+  (Indicator styles; ScrollIndicator Variants)
+- `thumbOnly preset paints no track cells` (ScrollIndicator Variants: presets)
+- `the indicator look is set only by a curated preset; no thumb or track parameter exists`
+  (Indicator styles)
+- `in-border placement draws the thumb over the box's right border without reserving a column`
+  (Indicator styles: placement)
+- `in-border placement applies only under a nearest bordered Box ancestor` (Indicator
+  styles: placement)
 
 > Deferred: Pointer, wheel, drag, and uncontrolled-fallback requirements land in a later
 > slice.
@@ -496,10 +655,11 @@ introduced here.
 - `NO_COLOR`: keep the same glyph geometry; focus falls back to bold and any child
   selection uses reverse video according to the
   [degradation ladder](../tokens.md#degradation-ladder).
-- 16-color: resolve `semantic.primary`, `semantic.secondary`, and `semantic.accent` to
-  indexed terminal styles; tracks remain `semantic.secondary` and thumbs
-  `semantic.accent`, while a host border remains foreground-only in the focus color.
-- ASCII-only: use `|` track, `#` thumb, and any child truncation's `~`, as the degraded
+- 16-color: resolve `semantic.primary`, `muted`, and `semantic.accent` to indexed terminal
+  styles; tracks use `muted` and thumbs `semantic.accent`, while a host border remains
+  foreground-only in the focus color.
+- ASCII-only: every preset draws `#` as its thumb and `|` (vertical) or `-` (horizontal)
+  as its track, and `thumbOnly` draws no track; child truncation's `~`, as the degraded
   fixture shows. No Unicode-only gesture affordance carries meaning.
 - Below `12x4`: fill the proposed non-negative rectangle, clip first, then omit any
   indicator edge whose reservation would leave the content viewport below `1x1`. No
@@ -518,6 +678,19 @@ introduced here.
   following
   [system and custom style plumbing](../../docs/Spec.md#system-and-custom-style-plumbing).
   It has no separate style protocol.
+- **Indicator presentation (owner decision, omp2 review, 2026-10):** omp2's look stays the
+  default vertically: an accent `█` thumb on a muted `│` track. Horizontally the default
+  thumb is `🬋` on `─` (owner decision, 2026-10-11). The look is one curated
+  `ScrollIndicatorStyle` preset, set with `.scrollIndicatorStyle(_ style:)`; each preset
+  fixes its thumb and track together for both axes. The confirmed preset list is
+  `standard` (default), `thin`, `inner`, `outer`, `dashed`, `dotted`, `heavy`, and
+  `thumbOnly`; `thick`, `smooth`, and `stipple` were dropped in review. Placement inside a
+  box's border is a separate opt-in modifier, `.scrollIndicatorPlacement(.border)`; it
+  applies only when the ScrollView's nearest ancestor is a bordered Box, and the border
+  line then serves as the track. Without one it falls back to `reserved`. This reverses
+  the earlier rejection of configurable indicator styles recorded in
+  [ScrollIndicator](../primitives/scroll-indicator.md#decisions). Every preset and
+  `.border` placement ship in 1.0 (owner decision, 2026-10-10).
 - **Reconciliation:** Unchanged ScrollView subtrees skip reconciliation and reuse cached
   measurements; this is a performance property, not a behavior or API change.
 - **Pointer drag:** Indicators are output-only in 1.0. Clicks and drags return ignored;
@@ -527,6 +700,12 @@ This design was reviewed against the
 [Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): content and
 optional position are controlled, fallback position is ephemeral, input changes integer
 state synchronously, and rendering is a translated clipped region.
+
+## Open questions
+
+- Track role: the accepted wireframes paint tracks in the `muted` role, which `tokens.md`
+  does not define; token pending plan 032 step 5.3.
+- Token rows for the preset thumb and track roles are pending plan 032 step 5.3.
 
 ## Inspiration
 

@@ -23,10 +23,6 @@ Format: `- YYYY-MM-DD -- thought`
 - 2026-07-12 -- Rename the controlled single-line `TextInput` proposal to
   [TextField](widgets/text-field.md), matching the SwiftUI-shaped vocabulary while
   retaining grapheme-safe terminal editing and app-owned text.
-- 2026-07-12 -- The Showcase's public control rule promotes [Button](widgets/button.md),
-  TextField, ScrollView, SplitView, NavigationSplitView, and the existing Table design
-  into the Phase 4 sequencing discussion; Form, Outline, and source browsing remain
-  post-1.0.
 - 2026-08-17 -- Symbol presets: an opt-in environment axis that re-skins glyph tokens at
   render time without touching the design contract. Motivation: the disclosure chevrons
   from Oh My Pi's TUI (rejected as _token values_ because they are Nerd Font Private Use
@@ -119,3 +115,7 @@ Format: `- YYYY-MM-DD -- thought`
   030 phase 6), decide whether equal-track sizing belongs in its contract so apps do not
   each rewrite this layout; the gallery chips should migrate to it. SwiftUI precedent:
   `Grid`/`GridRow` column behavior.
+- 2026-10-11 -- Picker fuzzy filter: type-to-filter the menu's options with fuzzy matching
+  (omp2's select has it). Deferred out of 1.0 by the owner; worth a "Feature Requests,
+  Ideas" GitHub Discussion if it isn't picked up later. Multi-select, digit quick-select,
+  and option descriptions are in 1.0 (see [Picker](widgets/picker.md)).

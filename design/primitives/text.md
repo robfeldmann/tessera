@@ -23,6 +23,11 @@ reconcile the graph.
   copy grapheme-aware text rendering and explicit wrap policy. Reject combining text,
   alignment, scrolling, a surrounding Block, and widget-local style into Tessera's `Text`:
   they compose separately as layout, ScrollView, decoration, and style modifiers.
+- omp2 `TextLeaf` truncation -- `crates/tui/src/components/text.rs` `limited_text` (lines
+  82-88) at the pinned
+  [omp2 source](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/text.rs#L82-L88).
+  Copy the choice of which end keeps text; reject its UTF-16 unit limit, because Tessera
+  measures truncation in display cells.
 - Apple SwiftUI [Text](https://developer.apple.com/documentation/swiftui/text) — copy the
   immutable value-view model and composition with modifiers. Reject treating Text as an
   input control; editable text belongs to TextField.
@@ -105,27 +110,78 @@ Callouts (8x2, 0-based):
    breaking a word that fits intact.
 ```
 
-Also at Slice 3, `.truncation(.tail)` makes overflow explicit without changing height:
+### Truncation
 
-```wireframe 8x1
-release…
+Owner decision, omp2 review, 2026-10: truncation follows SwiftUI. `.truncationMode(_:)`
+takes a `TruncationMode` and defaults to `.tail`; `.head` and `.middle` are additional
+modes. Truncation applies from Slice 3, when a rendered row still exceeds its assigned
+rectangle.
+
+- `.tail` keeps the leading cells and draws the mark in the last cell.
+- `.head` draws the mark in the first cell and keeps the trailing cells.
+- `.middle` keeps the first `ceil((width - 1) / 2)` cells, draws the mark, and keeps the
+  remaining cells after it.
+- `.clip` draws no mark; the allocated region clips the overflowing suffix.
+
+Cuts are measured in display cells and never split an extended grapheme cluster. A wide
+grapheme that would straddle the cut moves to the mark side: the kept text ends one cell
+early, and the freed cell stays blank. The mark uses the text's resolved Style. Truncation
+never changes Text's measured size.
+
+Path rows show tail, head, and middle truncation at 40 columns (rows 0-2); the status
+sentence shows tail and middle (rows 3-4).
+
+```wireframe 40x5
+crates/tui/src/components/markdown/rend…
+…/markdown/render/table_layout_solver.rs
+crates/tui/src/compo…le_layout_solver.rs
+Long status text that would otherwise w…
+Long status text tha…l rows of the panel
 ```
 
 ```text
-Callouts (8x1, 0-based):
-1. r0 c0-c7 Tail truncation -- `truncation.mark` replaces the invisible suffix at a
-   grapheme-safe boundary.
+Callouts (40x5, 0-based):
+1. r0 c39   Tail truncation, default -- Text, `truncation.mark` in c39; c0-c38 keep the
+            leading cells.
+2. r1 c0    Head truncation -- Text, `truncation.mark` in c0; c1-c39 keep the trailing
+            cells.
+3. r2 c20   Middle truncation -- Text, `truncation.mark` in c20; c0-c19 are
+            `ceil((40 - 1) / 2)` leading cells and c21-c39 keep the remaining cells.
+4. r3 c39   Tail truncation, status sentence -- same rule as callout 1.
+5. r4 c20   Middle truncation, status sentence -- same rule as callout 3.
+```
+
+The same source at 24 columns, with the same modes:
+
+```wireframe 24x5
+crates/tui/src/componen…
+…/table_layout_solver.rs
+crates/tui/s…t_solver.rs
+Long status text that w…
+Long status …f the panel
+```
+
+```text
+Callouts (24x5, 0-based):
+1. r0 c23   Tail truncation, default -- Text, `truncation.mark` in c23.
+2. r1 c0    Head truncation -- Text, `truncation.mark` in c0.
+3. r2 c12   Middle truncation -- Text, `truncation.mark` in c12; c0-c11 are
+            `ceil((24 - 1) / 2)` leading cells and c13-c23 keep the remaining cells.
+4. r3 c23   Tail truncation, status sentence -- same rule as callout 1.
+5. r4 c12   Middle truncation, status sentence -- same rule as callout 3.
 ```
 
 ## Variants
 
-| Configuration                    | Earliest slice | Behavior                                                                                                               |
-| -------------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `.wrapped(.none)`                | Slice 1        | Default. Source newlines are preserved; no additional rows are invented; rendering clips at the allocated region edge. |
-| `.wrapped(.word)`                | Slice 3        | Reflows at Unicode word boundaries for a finite width. A word wider than the region falls back to character wrapping.  |
-| `.wrapped(.character)`           | Slice 3        | Reflows at extended-grapheme-cluster boundaries for a finite width. It never splits a grapheme cluster.                |
-| `.truncation(.tail)`             | Slice 3        | Replaces the invisible suffix with `truncation.mark` at a grapheme-safe boundary.                                      |
-| `.truncation(.head)` / `.middle` | Slice 3        | The public `TruncationMode` is `.clip`, `.tail`, `.head`, and `.middle`; each policy keeps whole grapheme clusters.    |
+| Configuration              | Earliest slice | Behavior                                                                                                                                                  |
+| -------------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.wrapped(.none)`          | Slice 1        | Default. Source newlines are preserved; no additional rows are invented; overflow clips at the region edge until Slice 3, then follows `.truncationMode`. |
+| `.wrapped(.word)`          | Slice 3        | Reflows at Unicode word boundaries for a finite width. A word wider than the region falls back to character wrapping.                                     |
+| `.wrapped(.character)`     | Slice 3        | Reflows at extended-grapheme-cluster boundaries for a finite width. It never splits a grapheme cluster.                                                   |
+| `.truncationMode(.tail)`   | Slice 3        | Default. Replaces the cells past the cut with `truncation.mark` in the last cell, at a grapheme-safe boundary.                                            |
+| `.truncationMode(.head)`   | Slice 3        | Draws the mark in the first cell and keeps the trailing cells.                                                                                            |
+| `.truncationMode(.middle)` | Slice 3        | Keeps `ceil((width - 1) / 2)` leading cells, draws the mark, then keeps the remaining cells.                                                              |
+| `.truncationMode(.clip)`   | Slice 3        | Opt-out: draws no mark; the allocated region clips the overflowing suffix.                                                                                |
 
 Wrapping and truncation are mutually resolved by the chosen layout policy: wrapping
 controls how Text measures and produces rows; truncation applies when a rendered source or
@@ -158,7 +214,7 @@ never stretch Text or add blank content rows.
 | inherited Style  | `defaultStyle` arrives with Slice 3; nearest ancestor wins per attribute, then explicit Text attributes win.                        |
 | shared modifiers | `.foreground`, `.background`, `.bold`, `.italic`, `.underline`, and `.style` are shared Slice 3 modifiers; Text has no private API. |
 | background fill  | `background` fills Text's allocated rectangle while foreground and attributes apply only to written cells.                          |
-| truncation mark  | `truncation.mark` supplies `…`; ASCII-only output substitutes `~`.                                                                  |
+| truncation mark  | `truncation.mark` supplies `…`, drawn in the text's resolved Style; ASCII-only output substitutes `~`.                              |
 
 ## Progressive slice sequence
 
@@ -202,13 +258,13 @@ fixture-testable without giving a leaf focus or state.
 - `text preserves normalized source newline rows` (anatomy: Source rows; sizing:
   `Text("a\r\nb")`, nil x nil).
 - `unwrapped text reports intrinsic size and clips in a constrained region` (anatomy:
-  Unwrapped clip; sizing: `Text("Hello")`, 3x1, `.none`).
+  Unwrapped clip; sizing: `Text("Hello")`, 3x1, `.none`, with `.truncationMode(.clip)`).
 - `word-wrapped text reflows at a finite proposal` (anatomy: First wrapped row and Wrapped
   continuation; sizing: `Text("Ship one thing")`, 8xnil, `.word`).
 - `character-wrapped text does not split an extended grapheme cluster` (variants:
   `.wrapped(.character)`).
-- `tail-truncated text uses the truncation mark at a grapheme-safe boundary` (anatomy:
-  Tail truncation; variants: `.truncation(.tail)`).
+- `tail-truncated text is the default and uses the mark at a grapheme-safe boundary`
+  (anatomy: Tail truncation; variants: `.truncationMode(.tail)`).
 - `text does not stretch for excess proposal` (sizing: `Text("Hello")`, 80x24).
 - `empty text measures zero by one and paints no cells` (sizing: `Text("")`, nil x nil).
 - `text merges inherited and explicit styles by attribute precedence` (environment:
@@ -216,18 +272,25 @@ fixture-testable without giving a leaf focus or state.
 - `text background fills its allocated rectangle` (environment: background fill).
 - `text substitutes ascii truncation mark without changing geometry` (environment:
   truncation mark; degradation: ASCII-only).
+- `head-truncated text keeps trailing cells behind a leading mark` (anatomy: Head
+  truncation; variants: `.truncationMode(.head)`).
+- `middle-truncated text keeps ceil((width - 1) / 2) leading cells` (anatomy: Middle
+  truncation; variants: `.truncationMode(.middle)`).
+- `a wide grapheme straddling a truncation cut moves to the mark side and leaves its cell blank`
+  (variants: every `.truncationMode` row; Truncation section).
+- `truncation mark takes the text's resolved style` (environment: truncation mark).
 - `text never consumes keyboard or pointer input` (key table: printable characters, Enter,
   and Up / Down / Left / Right; mouse table: click, drag, wheel-up, and wheel-down).
 
 ## Degradation
 
-| Capability or space        | Text behavior                                                                                                                                                                                                 |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Full capability            | Uses the resolved full Style; wide and combining grapheme geometry remains exact; tail truncation uses `…`.                                                                                                   |
-| `NO_COLOR`                 | Preserves text and geometry; resolved Styles degrade to their attributes per the [degradation ladder](../tokens.md#degradation-ladder).                                                                       |
-| 16-color                   | Preserves text geometry and resolves the inherited full Style to the indexed palette.                                                                                                                         |
-| ASCII-only                 | Preserves source ASCII text; borderless Text needs no glyph substitution; tail truncation changes from `…` to `~`. Unicode source text is rendered only when the active terminal capability can represent it. |
-| Narrow or short allocation | `.none` clips; wrapped modes reflow only for a finite width; truncating modes use their selected marker. Text never creates scroll state or focus.                                                            |
+| Capability or space        | Text behavior                                                                                                                                                                                            |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Full capability            | Uses the resolved full Style; wide and combining grapheme geometry remains exact; truncation uses `…`.                                                                                                   |
+| `NO_COLOR`                 | Preserves text and geometry; resolved Styles degrade to their attributes per the [degradation ladder](../tokens.md#degradation-ladder).                                                                  |
+| 16-color                   | Preserves text geometry and resolves the inherited full Style to the indexed palette.                                                                                                                    |
+| ASCII-only                 | Preserves source ASCII text; borderless Text needs no glyph substitution; truncation changes from `…` to `~`. Unicode source text is rendered only when the active terminal capability can represent it. |
+| Narrow or short allocation | `.none` clips; wrapped modes reflow only for a finite width; truncating modes use their selected marker. Text never creates scroll state or focus.                                                       |
 
 ## Deferred scope
 
@@ -239,7 +302,6 @@ document model.
 
 ## Inspiration
 
-The Showcase Core specimen should render ordinary, wide, combining, multiline,
-constrained, wrapped, and truncated Text fixtures before it introduces focusable controls.
-Text has no Showcase-only behavior; the specimen proves the public leaf through a real
-`ViewGraph` and `Frame`.
+The Text demo renders ordinary, wide, combining, multiline, constrained, wrapped, and
+truncated Text fixtures before it introduces focusable controls. Text has no demo-only
+behavior; the demo proves the public leaf through a real `ViewGraph` and `Frame`.

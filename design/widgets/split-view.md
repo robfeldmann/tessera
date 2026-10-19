@@ -1,6 +1,6 @@
 ---
 kind: widget
-status: ready
+status: specified
 ---
 
 # SplitView
@@ -173,7 +173,10 @@ At the canonical `mobile` viewport, all three application-selected panes remain 
 8 + 1 + 24 + 1 + 6 = 40 cells. Labels use each pane's own truncation policy; SplitView
 does not collapse or replace a pane merely because the terminal is narrow.
 
-```wireframe 40x16
+Wireframed at its natural height: 40 columns by 10 rows (cross-axis ideal 10; see the
+sizing table), not padded to a 40x16 frame (owner decision, 2026-10-10).
+
+```wireframe 40x10
 Files   │Letter.md               │Info
 Inbox   │To: Ada                 │3 chg
 Sent    │                        │
@@ -184,21 +187,15 @@ Drafts  │Body…                   │
         │                        │
         │                        │
         │                        │
-        │                        │
-        │                        │
-        │                        │
-        │                        │
-        │                        │
-
 ```
 
 ```text
-Callouts (40x16, 0-based):
-1. r0-r15 c0-c7   Leading pane -- 8-cell `files` allocation
-2. r0-r15 c8      Divider handle -- one-cell boundary
-3. r0-r15 c9-c32  Middle pane -- 24-cell `editor` allocation
-4. r0-r15 c33     Divider handle -- one-cell boundary
-5. r0-r15 c34-c39 Trailing pane -- 6-cell `inspector` allocation
+Callouts (40x10, 0-based):
+1. r0-r9 c0-c7   Leading pane -- 8-cell `files` allocation
+2. r0-r9 c8      Divider handle -- one-cell boundary
+3. r0-r9 c9-c32  Middle pane -- 24-cell `editor` allocation
+4. r0-r9 c33     Divider handle -- one-cell boundary
+5. r0-r9 c34-c39 Trailing pane -- 6-cell `inspector` allocation
 ```
 
 ### Declared minimum
@@ -245,21 +242,316 @@ Callouts (24x8, 0-based):
 3. r4-r7  Trailing pane -- application content below the boundary
 ```
 
+### Nested layout with junctions
+
+`files` is the leading pane of the outer SplitView. The middle column is a nested vertical
+SplitView holding `editor` over `terminal`; `inspector` is the trailing pane. The inner
+handle meets both outer handles, so each boundary joins instead of crossing or stopping:
+`├` where it meets the leading handle and `┤` where it meets the trailing one. SplitView
+sets `divider.blending` on its divider cells, so each junction is the arm-union of the
+crossing light rules.
+
+```wireframe 80x14
+ Files       │ main.swift                                   │ Inspector
+ ▾ Sources   │ import Tessera                               │ Size   1.2 KB
+   App.swift │                                              │ Lines  48
+   main.swift│ @main                                        │ Saved  2 min ago
+ ▸ Tests     │ struct Demo: App {                           │
+             │     var body: some Scene { … }               │
+             │ }                                            │
+             │                                              │
+             ├──────────────────────────────────────────────┤
+             │ Terminal                                     │
+             │ $ swift build                                │
+             │ Compiling Demo main.swift                    │
+             │ Build complete!                              │
+             │                                              │
+```
+
+```text
+Callouts (80x14, 0-based):
+1. r0-r13 c0-c12   Leading pane -- stable ID `files`, clipped to its assigned rect
+2. r0-r13 c13      Divider handle -- outer handle, Divider `light`; `├` at r8 joins the inner handle
+3. r0-r7 c14-c59   Upper pane -- stable ID `editor`, leading pane of the inner SplitView
+4. r8 c14-c59      Divider handle -- inner handle between `editor` and `terminal`, Divider `light`
+5. r9-r13 c14-c59  Lower pane -- stable ID `terminal`, trailing pane of the inner SplitView
+6. r0-r13 c60      Divider handle -- outer handle; `┤` at r8 joins the inner handle
+7. r0-r13 c61-c79  Trailing pane -- stable ID `inspector`
+```
+
+```text
+── chars ──
+ Files       │ main.swift                                   │ Inspector
+ ▾ Sources   │ import Tessera                               │ Size   1.2 KB
+   App.swift │                                              │ Lines  48
+   main.swift│ @main                                        │ Saved  2 min ago
+ ▸ Tests     │ struct Demo: App {                           │
+             │     var body: some Scene { … }               │
+             │ }                                            │
+             │                                              │
+             ├──────────────────────────────────────────────┤
+             │ Terminal                                     │
+             │ $ swift build                                │
+             │ Compiling Demo main.swift                    │
+             │ Build complete!                              │
+             │                                              │
+── style ──
+.HHHHH.......D.HHHHHHHHHH...................................D.HHHHHHHHH
+.PPPPPPPPP...D.PPPPPPPPPPPPPP...............................D.PPPPPPPPPPPPP
+.PPPPPPPPPPP.D..............................................D.PPPPPPPPP
+.SSSSSSSSSSSSD.AAAAA........................................D.PPPPPPPPPPPPPPPP
+.PPPPPPP.....D.PPPPPPPPPPPPPPPPPP...........................D
+.............D.PPPPPPPPPPPPPPPPPPPPPPPPPPPPPP...............D
+.............D.P............................................D
+.............D..............................................D
+.............DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
+.............D.HHHHHHHH.....................................D
+.............D.PPPPPPPPPPPPP................................D
+.............D.MMMMMMMMMMMMMMMMMMMMMMMMM....................D
+.............D.KKKKKKKKKKKKKKK..............................D
+.............D..............................................D
+── legend ──
+.  default
+D  fg=border
+H  fg=secondary bold
+P  fg=primary
+M  fg=muted
+A  fg=accent
+S  fg=primary bg=selection
+K  fg=success
+```
+
+### Focused horizontal divider
+
+The handle between `editor` and `terminal` has keyboard focus. It draws the `heavy` line
+`━` in the focus role, foreground-only bold, with no background. This replaces the accent
+colour the catalog used before (owner decision, omp2 review, 2026-10). Its junctions on
+the focused side use the heavy set's junction glyphs, `┣` and `┫` (owner decision,
+2026-10-10), so the joint is heavy rather than mixed-weight.
+
+```wireframe 80x14
+ Files       │ main.swift                                   │ Inspector
+ ▾ Sources   │ import Tessera                               │ Size   1.2 KB
+   App.swift │                                              │ Lines  48
+   main.swift│ @main                                        │ Saved  2 min ago
+ ▸ Tests     │ struct Demo: App {                           │
+             │     var body: some Scene { … }               │
+             │ }                                            │
+             │                                              │
+             ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
+             │ Terminal                                     │
+             │ $ swift build                                │
+             │ Compiling Demo main.swift                    │
+             │ Build complete!                              │
+             │                                              │
+```
+
+```text
+Callouts (80x14, 0-based):
+1. r0-r13 c0-c12   Leading pane -- stable ID `files`, clipped to its assigned rect
+2. r0-r13 c13      Divider handle -- outer handle, Divider `light`; `┣` at r8 is the heavy
+                   junction on the focused side
+3. r0-r7 c14-c59   Upper pane -- stable ID `editor`, leading pane of the inner SplitView
+4. r8 c14-c59      Divider handle -- focused inner handle, Divider `heavy` line in the
+                   focus role
+5. r9-r13 c14-c59  Lower pane -- stable ID `terminal`, trailing pane of the inner SplitView
+6. r0-r13 c60      Divider handle -- outer handle, Divider `light`; `┫` at r8 is the heavy
+                   junction on the focused side
+7. r0-r13 c61-c79  Trailing pane -- stable ID `inspector`
+```
+
+```text
+── chars ──
+ Files       │ main.swift                                   │ Inspector
+ ▾ Sources   │ import Tessera                               │ Size   1.2 KB
+   App.swift │                                              │ Lines  48
+   main.swift│ @main                                        │ Saved  2 min ago
+ ▸ Tests     │ struct Demo: App {                           │
+             │     var body: some Scene { … }               │
+             │ }                                            │
+             │                                              │
+             ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
+             │ Terminal                                     │
+             │ $ swift build                                │
+             │ Compiling Demo main.swift                    │
+             │ Build complete!                              │
+             │                                              │
+── style ──
+.HHHHH.......D.HHHHHHHHHH...................................D.HHHHHHHHH
+.PPPPPPPPP...D.PPPPPPPPPPPPPP...............................D.PPPPPPPPPPPPP
+.PPPPPPPPPPP.D..............................................D.PPPPPPPPP
+.SSSSSSSSSSSSD.AAAAA........................................D.PPPPPPPPPPPPPPPP
+.PPPPPPP.....D.PPPPPPPPPPPPPPPPPP...........................D
+.............D.PPPPPPPPPPPPPPPPPPPPPPPPPPPPPP...............D
+.............D.P............................................D
+.............D..............................................D
+.............FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+.............D.HHHHHHHH.....................................D
+.............D.PPPPPPPPPPPPP................................D
+.............D.MMMMMMMMMMMMMMMMMMMMMMMMM....................D
+.............D.KKKKKKKKKKKKKKK..............................D
+.............D..............................................D
+── legend ──
+.  default
+D  fg=border
+F  fg=focus bold
+H  fg=secondary bold
+P  fg=primary
+M  fg=muted
+A  fg=accent
+S  fg=primary bg=selection
+K  fg=success
+```
+
+### Focused vertical divider
+
+The handle between `files` and the nested column has focus. It draws the `heavy` line `┃`
+in the focus role, foreground-only bold, with no background. This replaces the accent
+colour the catalog used before (owner decision, omp2 review, 2026-10). The inner `light`
+handle meets it at `┣`, the heavy-set junction (owner decision, 2026-10-10).
+
+```wireframe 80x14
+ Files       ┃ main.swift                                   │ Inspector
+ ▾ Sources   ┃ import Tessera                               │ Size   1.2 KB
+   App.swift ┃                                              │ Lines  48
+   main.swift┃ @main                                        │ Saved  2 min ago
+ ▸ Tests     ┃ struct Demo: App {                           │
+             ┃     var body: some Scene { … }               │
+             ┃ }                                            │
+             ┃                                              │
+             ┣──────────────────────────────────────────────┤
+             ┃ Terminal                                     │
+             ┃ $ swift build                                │
+             ┃ Compiling Demo main.swift                    │
+             ┃ Build complete!                              │
+             ┃                                              │
+```
+
+```text
+Callouts (80x14, 0-based):
+1. r0-r13 c0-c12   Leading pane -- stable ID `files`, clipped to its assigned rect
+2. r0-r13 c13      Divider handle -- outer handle, focused: Divider `heavy` line; `┣` at r8
+                   is the heavy-set junction
+3. r0-r7 c14-c59   Upper pane -- stable ID `editor`, leading pane of the inner SplitView
+4. r8 c14-c59      Divider handle -- inner handle, Divider `light`; `┤` at r8 c60 joins the
+                   outer handle
+5. r9-r13 c14-c59  Lower pane -- stable ID `terminal`, trailing pane of the inner SplitView
+6. r0-r13 c60      Divider handle -- outer handle, Divider `light`
+7. r0-r13 c61-c79  Trailing pane -- stable ID `inspector`
+```
+
+```text
+── chars ──
+ Files       ┃ main.swift                                   │ Inspector
+ ▾ Sources   ┃ import Tessera                               │ Size   1.2 KB
+   App.swift ┃                                              │ Lines  48
+   main.swift┃ @main                                        │ Saved  2 min ago
+ ▸ Tests     ┃ struct Demo: App {                           │
+             ┃     var body: some Scene { … }               │
+             ┃ }                                            │
+             ┃                                              │
+             ┣──────────────────────────────────────────────┤
+             ┃ Terminal                                     │
+             ┃ $ swift build                                │
+             ┃ Compiling Demo main.swift                    │
+             ┃ Build complete!                              │
+             ┃                                              │
+── style ──
+.HHHHH.......F.HHHHHHHHHH...................................D.HHHHHHHHH
+.PPPPPPPPP...F.PPPPPPPPPPPPPP...............................D.PPPPPPPPPPPPP
+.PPPPPPPPPPP.F..............................................D.PPPPPPPPP
+.SSSSSSSSSSSSF.AAAAA........................................D.PPPPPPPPPPPPPPPP
+.PPPPPPP.....F.PPPPPPPPPPPPPPPPPP...........................D
+.............F.PPPPPPPPPPPPPPPPPPPPPPPPPPPPPP...............D
+.............F.P............................................D
+.............F..............................................D
+.............FDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
+.............F.HHHHHHHH.....................................D
+.............F.PPPPPPPPPPPPP................................D
+.............F.MMMMMMMMMMMMMMMMMMMMMMMMM....................D
+.............F.KKKKKKKKKKKKKKK..............................D
+.............F..............................................D
+── legend ──
+.  default
+D  fg=border
+F  fg=focus bold
+H  fg=secondary bold
+P  fg=primary
+M  fg=muted
+A  fg=accent
+S  fg=primary bg=selection
+K  fg=success
+```
+
+### Content minimum at 40 columns
+
+At 40 columns `files` uses the content minimum: it keeps the 13 cells its rows need.
+`editor` takes the remaining 26 cells and truncates its own rows. The app has collapsed
+`inspector`, which has no rect and no handle.
+
+```wireframe 40x8
+ Files       │ main.swift
+ ▾ Sources   │ import Tessera
+   App.swift │
+   main.swift│ @main
+ ▸ Tests     │ struct Demo: App {
+             │     var body: some Sce…
+             │ }
+             │
+```
+
+```text
+Callouts (40x8, 0-based):
+1. r0-r7 c0-c12   Leading pane -- stable ID `files`; `.content` minimum, floor 13 cells
+2. r0-r7 c13      Divider handle -- one-cell boundary between `files` and `editor`, Divider `light`
+3. r0-r7 c14-c39  Trailing pane -- stable ID `editor`, 26-cell remainder; `Text` truncates
+                  row 5 with `…` under its own policy; SplitView adds no ellipsis
+```
+
+```text
+── chars ──
+ Files       │ main.swift
+ ▾ Sources   │ import Tessera
+   App.swift │
+   main.swift│ @main
+ ▸ Tests     │ struct Demo: App {
+             │     var body: some Sce…
+             │ }
+             │
+── style ──
+.HHHHH.......D.HHHHHHHHHH
+.PPPPPPPPP...D.PPPPPPPPPPPPPP
+.PPPPPPPPPPP.D
+.SSSSSSSSSSSSD.AAAAA
+.PPPPPPP.....D.PPPPPPPPPPPPPPPPPP
+.............D.PPPPPPPPPPPPPPPPPPPPPPP
+.............D.P
+.............D
+── legend ──
+.  default
+D  fg=border
+H  fg=secondary bold
+P  fg=primary
+A  fg=accent
+S  fg=primary bg=selection
+```
+
 ## States
 
 The fixtures cover natural two-pane and three-pane arrangements, a completed drag,
-application-driven collapse, a 24x6 over-constrained allocation, the 40x16 `mobile`
-viewport, the declared 17x4 `min` viewport, and both axes. Idle is any stable fixture
-without an active pointer drag; loading, empty, and error remain pane-content states and
-are rendered by the application-provided child, not by SplitView. A disabled handle is
-visually secondary and has no resize interaction when its adjacent visible panes cannot
-change their controlled sizes.
+application-driven collapse, a 24x6 over-constrained allocation, the 40-column `mobile`
+state at natural height (40x10), the declared 17x4 `min` viewport, both axes, nested
+junctions, focused handles in both axes, and a 40x8 content-minimum pane. Idle is any
+stable fixture without an active pointer drag; loading, empty, and error remain
+pane-content states and are rendered by the application-provided child, not by SplitView.
+A disabled handle is visually secondary and has no resize interaction when its adjacent
+visible panes cannot change their controlled sizes.
 
 ## State model
 
 | State                     | Owner        | Type                                                                                                     | Reset or clamp rule                                                                                                                                                                                                                         |
 | ------------------------- | ------------ | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| pane configuration        | Binding      | ordered `[SplitViewPane]` containing stable `ID`, `SplitViewPaneSizing`, and `isCollapsed`               | App is authoritative. Every sizing value is valid by construction. A collapsed pane retains its sizing and receives a zero main-axis rect.                                                                                                  |
+| pane configuration        | Binding      | ordered `[SplitViewPane]` containing stable `ID`, `SplitViewPaneSizing`, and `isCollapsed`               | App is authoritative. Every sizing value is valid by construction. Drag and keys change only `sizing.ideal`; `defaultIdeal` changes only through the binding. A collapsed pane retains its sizing and receives a zero main-axis rect.       |
 | axis                      | Binding      | `Axis`                                                                                                   | App is authoritative. On change, transpose main/cross-axis negotiation, cancel `pointer drag`, and clear a `focused divider handle` that is no longer live.                                                                                 |
 | visible pane sequence     | derived      | ordered `[Pane.ID]`                                                                                      | Recompute from `pane configuration` on every update; omit collapsed panes without changing their identity or order in the binding.                                                                                                          |
 | pane priority             | layout value | integer from the child view's `.layoutPriority(_:)`; default 0                                           | Read on every layout. The shared Flex resolver grows the highest-priority pane first, capped at its maximum, and compresses lower priorities first; SplitViewPane does not store a second priority.                                         |
@@ -269,13 +561,13 @@ change their controlled sizes.
 | focus return candidate    | NodeState    | `[Pane.ID: FocusID]`                                                                                     | When a focused descendant is hidden by `pane configuration`, remember it only if it belongs to that pane; discard it when that focus ID is no longer live.                                                                                  |
 | keyboard resizing enabled | Binding      | `Bool`                                                                                                   | App is authoritative. When false, omit divider focusability and clear `focused divider handle` on reconciliation.                                                                                                                           |
 | collapse focus target     | derived      | `FocusID?`                                                                                               | When a focused descendant is hidden, choose the first focusable descendant in the next visible pane, then the previous visible pane, otherwise nil; recompute whenever visibility or focusability changes.                                  |
-| split view styles         | Environment  | semantic `Style` roles                                                                                   | Resolve `semantic.primary`, `semantic.secondary`, `semantic.accent`, and `semantic.disabled` each render; never retain style in widget state.                                                                                               |
+| split view styles         | Environment  | semantic `Style` roles                                                                                   | Resolve `semantic.primary`, `semantic.secondary`, `semantic.focus`, and `semantic.disabled` each render; never retain style in widget state.                                                                                                |
 
 A pane's ID is stable across a sizing or visibility mutation. Reordering the binding is an
 explicit application operation; SplitView must not interpret a changed index as the old
-pane. `SplitViewPaneSizing` validates nonnegative whole-cell bounds at construction. A
-visible pane's actual allocation is derived, so over-constraint can shrink or clip it
-without mutating the binding.
+pane. `SplitViewPaneSizing` validates its bounds at construction, and a `.content` minimum
+is measured at layout. A visible pane's actual allocation is derived, so over-constraint
+can shrink or clip it without mutating the binding.
 
 ## Interaction
 
@@ -303,14 +595,19 @@ remains unchanged.
 
 ### Key table
 
-| Key   | Precondition                                             | Effect                                                                                                                                                                                             | Consumed |
-| ----- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| Left  | `focused divider handle` is set and `axis` is horizontal | Decrements the leading adjacent pane's `sizing.ideal` by one and increments the trailing adjacent pane's `sizing.ideal` by one through `pane configuration`; clamps at the negotiated pair bounds. | yes      |
-| Right | `focused divider handle` is set and `axis` is horizontal | Increments the leading adjacent pane's `sizing.ideal` by one and decrements the trailing adjacent pane's `sizing.ideal` by one through `pane configuration`; clamps at the negotiated pair bounds. | yes      |
-| Up    | `focused divider handle` is set and `axis` is vertical   | Decrements the leading adjacent pane's `sizing.ideal` by one and increments the trailing adjacent pane's `sizing.ideal` by one through `pane configuration`; clamps at the negotiated pair bounds. | yes      |
-| Down  | `focused divider handle` is set and `axis` is vertical   | Increments the leading adjacent pane's `sizing.ideal` by one and decrements the trailing adjacent pane's `sizing.ideal` by one through `pane configuration`; clamps at the negotiated pair bounds. | yes      |
-| Tab   | `focused divider handle` is set                          | Leaves focus routing to the application's installed handler; does not mutate `pane configuration`.                                                                                                 | no       |
-| Esc   | `focused divider handle` is set                          | Leaves the event available to ancestors and the application; does not mutate `pane configuration`.                                                                                                 | no       |
+| Key         | Precondition                                             | Effect                                                                                                                                                                                               | Consumed |
+| ----------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| Left        | `focused divider handle` is set and `axis` is horizontal | Decrements the leading adjacent pane's `sizing.ideal` by one and increments the trailing adjacent pane's `sizing.ideal` by one through `pane configuration`; clamps at the negotiated pair bounds.   | yes      |
+| Right       | `focused divider handle` is set and `axis` is horizontal | Increments the leading adjacent pane's `sizing.ideal` by one and decrements the trailing adjacent pane's `sizing.ideal` by one through `pane configuration`; clamps at the negotiated pair bounds.   | yes      |
+| Up          | `focused divider handle` is set and `axis` is vertical   | Decrements the leading adjacent pane's `sizing.ideal` by one and increments the trailing adjacent pane's `sizing.ideal` by one through `pane configuration`; clamps at the negotiated pair bounds.   | yes      |
+| Down        | `focused divider handle` is set and `axis` is vertical   | Increments the leading adjacent pane's `sizing.ideal` by one and decrements the trailing adjacent pane's `sizing.ideal` by one through `pane configuration`; clamps at the negotiated pair bounds.   | yes      |
+| Shift-Left  | `focused divider handle` is set and `axis` is horizontal | Decrements the leading adjacent pane's `sizing.ideal` by five and increments the trailing adjacent pane's `sizing.ideal` by five through `pane configuration`; clamps at the negotiated pair bounds. | yes      |
+| Shift-Right | `focused divider handle` is set and `axis` is horizontal | Increments the leading adjacent pane's `sizing.ideal` by five and decrements the trailing adjacent pane's `sizing.ideal` by five through `pane configuration`; clamps at the negotiated pair bounds. | yes      |
+| Shift-Up    | `focused divider handle` is set and `axis` is vertical   | Decrements the leading adjacent pane's `sizing.ideal` by five and increments the trailing adjacent pane's `sizing.ideal` by five through `pane configuration`; clamps at the negotiated pair bounds. | yes      |
+| Shift-Down  | `focused divider handle` is set and `axis` is vertical   | Increments the leading adjacent pane's `sizing.ideal` by five and decrements the trailing adjacent pane's `sizing.ideal` by five through `pane configuration`; clamps at the negotiated pair bounds. | yes      |
+| `=`         | `focused divider handle` is set                          | Sets the leading and trailing adjacent panes' `sizing.ideal` to their `sizing.defaultIdeal` through `pane configuration`; other panes are unchanged.                                                 | yes      |
+| Tab         | `focused divider handle` is set                          | Leaves focus routing to the application's installed handler; does not mutate `pane configuration`.                                                                                                   | no       |
+| Esc         | `focused divider handle` is set                          | Leaves the event available to ancestors and the application; does not mutate `pane configuration`.                                                                                                   | no       |
 
 With the flexible, slack-absorbing pane at the higher priority, each successful arrow-key
 resize moves the resolved divider boundary on its first key press rather than consuming
@@ -318,16 +615,22 @@ slack by refilling a fixed side pane.
 
 ### Mouse table
 
-| Event | Region         | Precondition                                                                                                | Effect                                                                                                                                                                                                                                                          | Consumed |
-| ----- | -------------- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| click | Divider handle | `pointer drag` is empty and the handle's pair exists in `visible pane sequence`                             | Focuses the corresponding `focused divider handle`; leaves `pane configuration` unchanged.                                                                                                                                                                      | yes      |
-| drag  | Divider handle | the handle's pair exists in `visible pane sequence` and both panes have capacity within their sizing bounds | On the first event, records `pointer drag`; on each event, converts pointer displacement on `axis` to an integer delta, then updates only the pair's `sizing.ideal` values through `pane configuration`, preserving the pair total whenever both bounds permit. | yes      |
-| drag  | Divider handle | `pointer drag` is set and its pair is absent from `visible pane sequence`                                   | Clears `pointer drag` and leaves `pane configuration` unchanged.                                                                                                                                                                                                | yes      |
+| Event        | Region         | Precondition                                                                                                | Effect                                                                                                                                                                                                                                                          | Consumed |
+| ------------ | -------------- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| click        | Divider handle | `pointer drag` is empty and the handle's pair exists in `visible pane sequence`                             | Focuses the corresponding `focused divider handle`; leaves `pane configuration` unchanged.                                                                                                                                                                      | yes      |
+| drag         | Divider handle | the handle's pair exists in `visible pane sequence` and both panes have capacity within their sizing bounds | On the first event, records `pointer drag`; on each event, converts pointer displacement on `axis` to an integer delta, then updates only the pair's `sizing.ideal` values through `pane configuration`, preserving the pair total whenever both bounds permit. | yes      |
+| drag         | Divider handle | `pointer drag` is set and its pair is absent from `visible pane sequence`                                   | Clears `pointer drag` and leaves `pane configuration` unchanged.                                                                                                                                                                                                | yes      |
+| double-click | Divider handle | the handle's pair exists in `visible pane sequence`                                                         | Focuses the handle as a click does, then sets the pair's `sizing.ideal` values to their `sizing.defaultIdeal` through `pane configuration`, as `=` does.                                                                                                        | yes      |
 
 Dragging accepts displacement only along the main axis: vertical movement on a vertical
-handle, and horizontal movement on a horizontal handle. No hover, wheel, double-click, or
-click-to-collapse behavior is specified. That restraint keeps a one-cell boundary
-predictable and leaves visibility entirely controlled by the app.
+handle, and horizontal movement on a horizontal handle. The grab zone is the one-cell
+handle plus one cell on each side in the direction the handle moves (left and right for a
+vertical divider, up and down for a horizontal one). Those extra cells take hit-test
+precedence over pane content but draw nothing, so the rendered divider stays one cell.
+Double-click on a handle, or `=` while it is focused, resets the pair to
+`sizing.defaultIdeal`. No hover, wheel, or click-to-collapse behavior is specified:
+visibility stays entirely under app control, and nothing collapses automatically when
+panes are clipped.
 
 ## Sizing
 
@@ -335,26 +638,42 @@ The public controlled sizing value is independent of `FlexConstraint`:
 
 ```swift
 public struct SplitViewPaneSizing: Equatable, Sendable {
-  public init(minimum: Int = 0, ideal: Int, maximum: Int? = nil)
+  public enum Minimum: Equatable, Sendable, ExpressibleByIntegerLiteral {
+    case cells(Int)
+    case content  // the child's measured main-axis minimum
+
+    public init(integerLiteral value: Int) { self = .cells(value) }
+  }
+
+  public init(minimum: Minimum = .cells(0), ideal: Int, defaultIdeal: Int? = nil, maximum: Int? = nil)
 }
 ```
 
-All values are whole cells. Construction requires `0 <= minimum <= ideal <= maximum` when
-maximum is present. `nil` maximum is unbounded. The pane's child may render an intrinsic
-ideal larger than its assigned segment; explicit pane sizing wins and the child clips
-rather than silently changing application state.
+All values are whole cells. For `.cells(n)`, construction requires
+`0 <= n <= ideal <= maximum` when maximum is present; `.content` is checked against
+`maximum` only, and `defaultIdeal` is checked like `ideal`. `nil` maximum is unbounded.
+The pane's child may render an intrinsic ideal larger than its assigned segment; explicit
+pane sizing wins and the child clips rather than silently changing application state.
+
+`.content` is a floor measured on every layout from the child's main-axis minimum and
+capped at `maximum`. It is never stored: the resolver raises the initial allocation to the
+floor when the floor is larger, and the binding's `ideal` is unchanged. `ideal` is the
+requested size; `defaultIdeal` is the reset target. It defaults to `ideal` and changes
+only through the binding, never through drag or keys. Drag and keys change `ideal` alone,
+and `=` or a double-click moves the pair back to `defaultIdeal`.
 
 SplitView reserves one cell per adjacent visible pair, then lowers each visible pane to
 the exact [Flex resolver item fields](../primitives/flex.md#constraint-resolution):
 
-| Pane input             | Flex resolver field                                                         |
-| ---------------------- | --------------------------------------------------------------------------- |
-| `sizing.minimum`       | `floor`                                                                     |
-| `sizing.ideal`         | `initial allocation`                                                        |
-| `sizing.maximum`       | `growth cap`; nil remains unbounded                                         |
-| range adapter          | `growth weight = 1`; `compression phase = minimum`                          |
-| child `layoutPriority` | separate priority metadata; never copied into the resolver item             |
-| `isCollapsed == true`  | no resolver item, zero rect, no handle; retain every controlled bound value |
+| Pane input             | Flex resolver field                                                                                |
+| ---------------------- | -------------------------------------------------------------------------------------------------- |
+| `sizing.minimum`       | `floor`: `.cells(n)` gives `n`; `.content` gives the child's measured minimum, capped at `maximum` |
+| `sizing.ideal`         | `initial allocation`; raised to the floor when the floor is larger                                 |
+| `sizing.maximum`       | `growth cap`; nil remains unbounded                                                                |
+| `sizing.defaultIdeal`  | none; reset target only, never a resolver item                                                     |
+| range adapter          | `growth weight = 1`; `compression phase = minimum`                                                 |
+| child `layoutPriority` | separate priority metadata; never copied into the resolver item                                    |
+| `isCollapsed == true`  | no resolver item, zero rect, no handle; retain every controlled bound value                        |
 
 The resolver begins at requested ideals. Positive remainder grows higher-priority panes
 first up to their maxima, with earliest-source integer remainder. Negative remainder
@@ -365,49 +684,67 @@ ideals instead of being refilled from slack. If visible minima plus handles stil
 the proposal, SplitView reports that floor and the parent clips trailing placement. It
 never writes reconciled sizes back to the binding.
 
+A pane that does not fit is clipped at the trailing edge of the parent's clip rect.
+SplitView adds no ellipsis to its rows; any truncation comes from the pane's own content.
+Nothing collapses automatically. An app that prefers collapsing sets `isCollapsed` itself,
+for example from a width check.
+
 The table is fixture-specific so every result is exact:
 
-| Proposal                                        | Result | Rule                                                                                                                   |
-| ----------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------- |
-| nil x nil                                       | 80x10  | Natural three-pane requested ideals sum 16 + 1 + 46 + 1 + 16; cross-axis ideal is 10.                                  |
-| 80x10                                           | 80x10  | Tight proposal exactly matches the natural three-pane requested ideals.                                                |
-| 12x3                                            | 17x4   | Two pane minima plus one handle report the 17x4 floor; a parent assigning 12x3 clips placement.                        |
-| 120x20                                          | 80x10  | All fixture panes have reached their maxima, so SplitView reports 80x10 and leaves parent slack unused.                |
-| 40x16                                           | 40x16  | Mobile's controlled 8 + 1 + 24 + 1 + 6 requested allocation exactly fills the main axis and finite cross axis.         |
-| 24x6 parent allocation after a 30x6 measurement | 30x6   | Three pane minima and handles measure 8 + 1 + 12 + 1 + 8; graph clipping produces the 24x6 over-constrained rendering. |
+| Proposal                                        | Result | Rule                                                                                                                               |
+| ----------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| nil x nil                                       | 80x10  | Natural three-pane requested ideals sum 16 + 1 + 46 + 1 + 16; cross-axis ideal is 10.                                              |
+| 80x10                                           | 80x10  | Tight proposal exactly matches the natural three-pane requested ideals.                                                            |
+| 12x3                                            | 17x4   | Two pane minima plus one handle report the 17x4 floor; a parent assigning 12x3 clips placement.                                    |
+| 120x20                                          | 80x10  | All fixture panes have reached their maxima, so SplitView reports 80x10 and leaves parent slack unused.                            |
+| 40x nil                                         | 40x10  | Mobile's controlled 8 + 1 + 24 + 1 + 6 requested allocation fills the main axis; cross-axis ideal is 10 at natural height.         |
+| 24x6 parent allocation after a 30x6 measurement | 30x6   | Three pane minima and handles measure 8 + 1 + 12 + 1 + 8; graph clipping produces the 24x6 over-constrained rendering.             |
+| 40x8                                            | 40x8   | `files` is `.content` and keeps the 13 cells its rows need; collapsed `inspector` has no item, so `editor` takes the remaining 26. |
 
 ## Environment
 
 - `semantic.primary` -- inherited by ordinary pane content.
 - `semantic.secondary` -- applied to an unfocused divider handle.
-- `semantic.focus` -- applied as a foreground-only, bold focus-color overlay to a focused
-  divider glyph; its background remains transparent.
+- `semantic.focus` -- applied as a bold focus-color foreground overlay to a focused
+  divider. The focus role is foreground-only bold, with no background and no rounded
+  corner glyphs (owner decision, 2026-10-10). A focused handle draws the `heavy` line of
+  Divider's glyph table, and its junctions are the heavy set's `┣ ┫ ┳ ┻ ╋` (owner
+  decision, 2026-10-10). The heavy junction column is not yet in `tokens.md`: token
+  pending plan 032 step 5.3.
 - `semantic.disabled` -- applied to a nonresizable divider handle.
 - `divider.style` -- [Divider](../primitives/divider.md) glyph selection. SplitView draws
-  `light` by default and receives identical geometry for every glyph style.
+  `light` by default, switches a focused handle to `heavy`, and receives identical
+  geometry for every glyph style.
+- `divider.blending` -- `.blended` on SplitView's divider cells, so crossing light handles
+  join as `├`, `┤`, `┬`, `┴`, or `┼`; ASCII junctions are `+`.
 - `focus.border` and the focus degradation rules in [tokens.md](../tokens.md#focus) --
   provide the foreground-only focus presentation for the one-cell handle without inventing
-  a component-specific focus color.
+  a component-specific focus color, and without the background or rounded corner glyphs of
+  the focus border (owner decision, 2026-10-10).
 - `truncation.mark` and the degradation ladder in [tokens.md](../tokens.md) -- consumed by
   pane content and the split's ASCII fallback; SplitView never cuts a grapheme itself.
 
 System and custom styling use the shared complete-`Style` environment merge fixed by
 [system and custom style plumbing](../../docs/Spec.md#system-and-custom-style-plumbing).
 The focused divider is the exception: it overlays only the focus foreground and boldness,
-leaving its background transparent. SplitView does not introduce a parallel
+leaving its background transparent. This replaces the accent color the divider used before
+(owner decision, omp2 review, 2026-10). SplitView does not introduce a parallel
 `SplitViewStyle` protocol or expose pane business state to styling.
 
 ## Primitive dependencies
 
-- [Divider](../primitives/divider.md) (`ready`) -- supplies only the one-cell rule glyph
-  and sizing; SplitView owns handle focus, hit testing, and drag.
+- [Divider](../primitives/divider.md) (`specified`) -- supplies the `light` and `heavy`
+  rule glyphs, the blended junction rule, and sizing; SplitView owns handle focus, hit
+  testing, and drag. The heavy junction column of the border sets is token pending plan
+  032 step 5.3.
 - `Text` (Slice 1) -- pane labels and content in the fixtures; actual child content is
   application supplied.
 - `FocusManager` and `.focusable` (Slice 4) -- divider keyboard focus and safe focus
   reassignment during collapse.
 - `.onMouse` and hit testing (Slice 5) -- pointer drag and click-to-focus on a handle.
 - [Flex](../primitives/flex.md) (`ready`) -- the canonical integer constraint resolver;
-  SplitView adapts pane ranges to it and never owns a competing allocator.
+  SplitView adapts pane ranges to it, measures `.content` floors from its child, and never
+  owns a competing allocator.
 
 No `Form` or `Outline` dependency is introduced before 1.0. Source browsing, directory
 mapping, and route-oriented sidebars are post-1.0 application composition concerns, not
@@ -418,12 +755,14 @@ responsibilities of this low-level adjacency widget.
 1. **Slice 2** supplies integer proposal, placement, absolute frames, clipping, stable
    view IDs, and the static controlled foundation.
 2. **Phase 2.5** deletes the static allocator and installs the shared Flex resolver plus
-   the final min/ideal/max pane adapter documented here. All later behavior consumes its
-   immutable resolved pane frames.
-3. **Slice 4** adds focusable divider handles, arrow-key resizing, and the collapse focus
-   restoration rule. It depends on the graph's explicit FocusID and routing order.
-4. **Slice 5**, after mouse support, adds click-to-focus and raw drag dispatch. The visual
-   one-cell handle remains available without mouse capability.
+   the final min/ideal/max pane adapter, including `.content` floors, documented here. All
+   later behavior consumes its immutable resolved pane frames.
+3. **Slice 4** adds focusable divider handles, arrow-key resizing, Shift-arrow five-cell
+   steps, `=` reset, and the collapse focus restoration rule. It depends on the graph's
+   explicit FocusID and routing order.
+4. **Slice 5**, after mouse support, adds click-to-focus, raw drag dispatch, the wider
+   grab zone, and double-click reset. The visual one-cell handle remains available without
+   mouse capability.
 5. **Slice 7 and later** may place controlled application widgets inside panes. SplitView
    remains separate from navigation semantics throughout; it is available progressively as
    layout and input capabilities arrive rather than waiting for a navigation shell.
@@ -470,22 +809,47 @@ responsibilities of this low-level adjacency widget.
   wireframe)
 - `split view transposes divider hit geometry for vertical axis` (horizontal divider
   anatomy)
-- `focused divider styling overlays only a bold focus foreground with a transparent background`
+- `focused divider styling overlays only a bold focus foreground with no background`
   (environment: `semantic.focus`)
+- `split view moves a focused divider five cells with shift arrow keys` (key table:
+  Shift-Left, Shift-Right, Shift-Up, Shift-Down)
+- `split view resets a focused divider pair to defaultIdeal with equals` (key table: `=`)
+- `split view resets a divider pair to defaultIdeal on double-click` (mouse table:
+  double-click row)
+- `divider grab zone hit-tests one cell to each side without drawing extra cells`
+  (interaction: grab zone; nested anatomy)
+- `split view changes defaultIdeal only through the pane binding` (state model: pane
+  configuration; sizing: defaultIdeal row)
+- `content minimum floor is measured from the child on every layout and capped at maximum`
+  (sizing: minimum enum; Flex table)
+- `split view keeps a content-minimum pane at the cells its rows need at 40 columns`
+  (narrow-40 wireframe; sizing: minimum enum)
+- `split view clips a pane that does not fit at the trailing edge with no ellipsis`
+  (sizing: clipping paragraph; declared minimum wireframe)
+- `split view never collapses a pane automatically under over-constraint` (degradation:
+  below the declared minimum; collapsed wireframe)
+- `nested split handles join at blended junctions` (nested layout anatomy)
+- `focused divider draws the heavy line in the focus style` (nested-focused and
+  divider-focused anatomy; environment: `semantic.focus`)
+- `focused divider junctions render heavy junction glyphs` (nested-focused anatomy; owner
+  decision, 2026-10-10)
+- `ascii fallback draws plus at junctions and bolds a focused divider` (degradation:
+  ASCII-only)
 
 ## Degradation
 
 - **`NO_COLOR`:** preserve Divider glyphs, one-cell geometry, hit regions, and keyboard
   behavior. The focused divider's foreground-only focus treatment degrades through the
   token ladder's bold treatment instead of a color distinction.
-- **16-color:** retain the same semantic `primary`, `secondary`, `accent`, and `disabled`
+- **16-color:** retain the same semantic `primary`, `secondary`, `focus`, and `disabled`
   styles using the environment's indexed approximation; a focused divider still overlays
   only its bold focus foreground, with no background fill. Allocation and clipping do not
   change.
-- **ASCII-only:** replace `│` and `─` with the Divider `ascii` glyphs `|` and `-`; replace
-  pane-content truncation `…` with `~` according to
-  [tokens.md](../tokens.md#degradation-ladder). Handles remain exactly one cell and fully
-  interactive.
+- **ASCII-only:** replace `│` and `─` with the Divider `ascii` glyphs `|` and `-`, and
+  junctions with `+`. A focused divider cannot take the heavier line, so it stays `|` or
+  `-` and is drawn in bold instead. Replace pane-content truncation `…` with `~` according
+  to [tokens.md](../tokens.md#degradation-ladder). Handles remain exactly one cell and
+  fully interactive.
 - **Below the declared minimum:** report the floor during measurement, accept the parent's
   smaller clip rect during placement, and paint only visible leading cells. Never collapse
   a pane, mutate its sizing, or substitute navigation content automatically.
@@ -496,25 +860,45 @@ responsibilities of this low-level adjacency widget.
   `[SplitViewPane]`. Each element contains its stable ID, valid `SplitViewPaneSizing`, and
   collapsed flag. Separate parallel bindings are rejected because they can diverge in
   membership or order.
-- **Sizing adapter:** `SplitViewPaneSizing` owns the explicit minimum, requested ideal,
-  and optional maximum. The child view's existing `.layoutPriority(_:)` value controls
-  growth and compression tiers. SplitView lowers both into the shared
-  [Flex contract](../primitives/flex.md), keeps the public pane model independent of
-  `FlexConstraint`, and has no static fallback allocator.
+- **Sizing adapter:** `SplitViewPaneSizing` owns the minimum (fixed cells or `.content`),
+  requested ideal, reset target, and optional maximum. The child view's existing
+  `.layoutPriority(_:)` value controls growth and compression tiers. SplitView lowers both
+  into the shared [Flex contract](../primitives/flex.md), keeps the public pane model
+  independent of `FlexConstraint`, and has no static fallback allocator.
 - **Styling:** SplitView consumes the shared semantic complete-`Style` values. A focused
-  divider overlays only the bold focus foreground, leaving its background transparent; it
-  does not define a separate style protocol. Custom application styling uses the same
-  environment merge fixed by
+  divider draws the `heavy` line and overlays only the bold focus foreground, leaving its
+  background transparent; it does not define a separate style protocol. Custom application
+  styling uses the same environment merge fixed by
   [system and custom style plumbing](../../docs/Spec.md#system-and-custom-style-plumbing).
 - **Programmatic expansion focus:** A saved descendant is restored only while focus is
   nil. Expansion never steals a newer focus selection.
 - **Pane removal during drag:** Removing either stable pane cancels the drag. SplitView
   never retargets by positional index.
+- **Nested junctions:** nested splits join where their handles meet, using blended light
+  junctions; a focused heavy handle's junctions use the heavy set's `┣ ┫ ┳ ┻ ╋` (owner
+  decision, 2026-10-10). Blended light junctions: owner decision, omp2 review, 2026-10.
+- **Content minimum:** each pane chooses a fixed cell minimum or `.content`, the child's
+  measured minimum. Owner decision, omp2 review, 2026-10.
+- **Keyboard step and reset:** Shift-arrow keys move a focused divider five cells; `=` and
+  double-click reset the pair to `sizing.defaultIdeal`. Owner decision, omp2 review,
+  2026-10.
+- **Grab zone:** a handle hit-tests one cell to each side; drawn cells are unchanged.
+  Owner decision, omp2 review, 2026-10.
+- **Clipping:** a parent too small for every minimum clips trailing panes with no
+  ellipsis; nothing collapses automatically, and an app may collapse explicitly. Owner
+  decision, omp2 review, 2026-10.
+- **ASCII focus:** junctions are `+`, and a focused divider is bold. Owner decision, omp2
+  review, 2026-10.
 
 This design was reviewed against the
 [Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): pane data is
 controlled, drag state is ephemeral and identity-bound, input is routed explicitly, and
 all geometry is deterministic integer-cell output.
+
+## Open questions
+
+None. Junction and focus-role decisions are recorded under Environment and Decisions
+(owner decision, 2026-10-10).
 
 ## Inspiration
 

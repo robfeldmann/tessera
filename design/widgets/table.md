@@ -9,22 +9,45 @@ A columnar, selectable, scrollable data view: List's structured sibling. Control
 throughout, per
 [Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase):
 the app supplies immutable data, selection, and sort order; selection and sort order use
-bindings, while Table derives rows from its data input on every update. Table owns only a
-scroll offset in `NodeState`. Table renders chrome (header, rule, selection, scrollbar)
-but never invents data, selection, or ordering.
+bindings, while Table derives rows from its data input on every update. Table owns only
+view state in `NodeState`: a scroll offset, a cursor row (multi-select), and a header
+cursor (keyboard sorting; owner decision, 2026-10-10). Table renders chrome (header, rule,
+selection, scrollbar, and the optional frame of a table style) but never invents data,
+selection, or ordering.
 
 Provisional API shape (vocabulary, not a commitment):
 
 ```swift
-public struct Table<Data: RandomAccessCollection, ID: Hashable>: View
+public struct Table<Data: RandomAccessCollection, ID: Hashable, ColumnID: Hashable>: View
 where Data.Element: Identifiable, Data.Element.ID == ID {
+    /// Single selection: `selection` is the selected row's ID, or nil.
     public init(
         _ data: Data,
         selection: Binding<ID?>,
-        sortOrder: Binding<[SortDescriptor<Data.Element>]>? = nil,
-        columns: [TableColumn<Data.Element>],
+        sortOrder: Binding<[TableSortOrder<ColumnID>]>? = nil,
+        columns: [TableColumn<Data.Element, ColumnID>],
         onActivate: ((Data.Element) -> Void)? = nil
     )
+
+    /// Multi-select (owner decision, 2026-10-10): `selection` is the membership set; the
+    /// cursor row and header cursor live in NodeState.
+    public init(
+        _ data: Data,
+        selection: Binding<Set<ID>>,
+        sortOrder: Binding<[TableSortOrder<ColumnID>]>? = nil,
+        columns: [TableColumn<Data.Element, ColumnID>],
+        onActivate: ((Data.Element) -> Void)? = nil
+    )
+}
+
+public struct TableColumn<Element, ColumnID: Hashable> {
+    public let id: ColumnID   // sort identity; the title is display text only
+    public let title: String
+}
+
+public struct TableSortOrder<ColumnID: Hashable> {
+    public var column: ColumnID
+    public var ascending: Bool
 }
 ```
 
@@ -37,11 +60,35 @@ where Data.Element: Identifiable, Data.Element.ID == ID {
 - Bubbles `table` -- good interaction feel for keyboard navigation; reject its ownership
   model (the widget owns rows and cursor), which is exactly the coupling the controlled
   rule exists to prevent.
-- SwiftUI `Table` -- copy the `TableColumn` + `sortOrder: Binding<[SortDescriptor]>` API
-  vocabulary; reject its macOS-scale feature set (column reordering, multi-select) for v1.
+- SwiftUI `Table` -- copy the `TableColumn` + `sortOrder` binding vocabulary and the
+  `.tableStyle(_:)` modifier shape; reject its macOS-scale feature set for v1, except
+  multi-select, which is designed here (Multi-select and keyboard sorting) with `Set<ID>`
+  as its binding. Column reordering stays out. Sort entries name a column identity, not a
+  title or a comparator over `Element`.
+- omp2 `Table` (`crates/tui/src/components/table.rs`): grid-aligned columns with row bands
+  and an optional overflow footer. It draws no header row, rules, or borders, and its
+  inventory entry lists no selection or sorting, so `.bordered`, `.grid`, the header rule,
+  and sorting are Tessera additions. Struct and doc:
+  <https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/table.rs#L20-L38>
+- omp2 cell truncation (`table.rs#L281-L330`): clips a flattened cell at its edge with
+  `…`. In omp2's 20-column truncation capture the cut text carried a column-gap space
+  inside the cut (the file names `table.rs` and `tree.rs` came out split by a space), so
+  the cut spilled past the cell's own column. Tessera contains each cut inside its own
+  column (anatomy callout 6; Requirements):
+  <https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/table.rs#L281-L330>
+- omp2 Markdown tables (`crates/tui/src/markdown/mod.rs`): a recognised pipe table renders
+  as a full box-bordered grid with per-column alignment, and ASCII uses `+`, `-`, `|`. The
+  delimiter needs at least three dashes (`table_alignment`,
+  <https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/markdown/mod.rs#L1529-L1541>),
+  and header and delimiter need equal cell counts (`table_header`,
+  <https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/markdown/mod.rs#L1467-L1474>).
+  Tessera's Markdown tables reuse this renderer in the `grid` style, matching omp2's
+  full-grid Markdown table.
 - Scrollbar geometry: `~/Developer/ratatui/ratatui/main/ratatui-widgets/src/scrollbar.rs`.
 
 ## Anatomy
+
+The anatomy is the `plain` style, the default. The other styles are under Styles.
 
 ```wireframe 46x9
  Name              Size  Modified
@@ -63,37 +110,350 @@ Callouts (46x9, 0-based):
 3. r1       Header rule -- Divider, token `divider.light`, full width
 4. r3 c0    Selection bar -- token `selection.bar`; row also gets `selection.fill`
 5. r2-r7    Data row -- one row per visible element; 6 of 12 visible here
-6. r6 c14   Truncation -- Text `tail` policy, `truncation.mark`, grapheme-safe
+6. r6 c14   Truncation -- Text `tail` policy, `truncation.mark` (`…`; ASCII `~`),
+            grapheme-safe, cut inside the cell's own column
 7. c45      Scrollbar -- output-only ScrollIndicator; track `scrollbar.track`, thumb
             `scrollbar.thumb`, thumb = max(1, visible/total x track) = 3 of 6
-8. r8       Footer -- app-provided slot, NOT Table chrome (see Open questions)
+8. r8       Footer -- app-provided slot, NOT Table chrome (owner decision, 2026-10-10)
 ```
 
 Region names for the mouse table: header row, header cell, data row, selection bar (part
-of data row), scrollbar.
+of data row), mark gutter (part of data row; multi-select only), scrollbar.
+
+## Styles
+
+Owner decision, omp2 review, 2026-10: `plain` is the default; `bordered` and `grid` ship
+as options. `.alternatingRowBackgrounds()` is a separate modifier, not a style, so it
+applies to every style. Markdown tables render through this same renderer in the `grid`
+style, so there is one table renderer, not two.
+
+Borders use the shared border sets: `light` by default, with the `ascii` set (`+`, `-`,
+`|`) under degradation. A bordered table takes the box focus rules on its outer border
+([Focus border](../primitives/border.md#focus-border), rule 5): the heavy set in the
+`focus` role when the table itself has focus, `light` weight in the `focus` role when
+focus is inside it, and bold under ASCII. Heavy and double sets keep their weight and
+change colour only.
+
+The header rule of `plain` is a Divider; in `bordered` and `grid` the header rule and row
+rules are border-set lines joined into the frame.
+
+```swift
+extension View {
+    /// `.plain` (default), `.bordered`, `.grid`; set on a Table and read from Environment.
+    public func tableStyle(_ style: TableStyle) -> some View
+    /// Stripes every second data row, starting with the second; applies to every style.
+    public func alternatingRowBackgrounds() -> some View
+}
+
+public struct TableStyle: Sendable {
+    public static let plain: TableStyle
+    public static let bordered: TableStyle
+    public static let grid: TableStyle
+}
+```
+
+### Plain (default)
+
+Data rows with a header rule and no frame. Four rows fit, so no scrollbar is drawn.
+
+```wireframe 40x6
+ Name                    Size   Modified
+────────────────────────────────────────
+ Spec.md               372 KB 2026-07-06
+▌Package.swift          12 KB 2026-07-01
+ README.md             2.6 KB 2026-06-28
+ CHANGELOG.md          8.8 KB 2026-06-28
+```
+
+```text
+Callouts (40x6, 0-based):
+1. r0       Header row -- Text per column, `semantic.primary` plus bold; no rule
+            above it; pinned, never scrolls
+2. r1       Header rule -- Divider, token `divider.light`; the only rule in plain
+3. r3 c0    Selection bar -- token `selection.bar`; row also gets `selection.fill`
+4. r2-r5    Data rows -- all four rows fit, so no ScrollIndicator is drawn
+```
+
+```text
+── chars ──
+ Name                    Size   Modified
+────────────────────────────────────────
+ Spec.md               372 KB 2026-07-06
+▌Package.swift          12 KB 2026-07-01
+ README.md             2.6 KB 2026-06-28
+ CHANGELOG.md          8.8 KB 2026-06-28
+── style ──
+.HHHH....................HHHH...HHHHHHHH
+DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
+.PPPPPPP...............PPP.PP.PPPPPPPPPP
+BSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+.PPPPPPPPP.............PPP.PP.PPPPPPPPPP
+.PPPPPPPPPPPP..........PPP.PP.PPPPPPPPPP
+── legend ──
+.  default
+H  fg=primary bold
+D  fg=border
+P  fg=primary
+S  fg=primary bg=selection
+B  fg=accent bg=selection
+```
+
+### Bordered
+
+An outer frame, column separators, and a header rule joined into the frame. No rules
+between rows, so the table stays dense. The selection is the fill alone: the left border
+takes the bar's column.
+
+```wireframe 40x8
+┌───────────────┬─────────┬────────────┐
+│ Name          │    Size │ Modified   │
+├───────────────┼─────────┼────────────┤
+│ Spec.md       │  372 KB │ 2026-07-06 │
+│ Package.swift │   12 KB │ 2026-07-01 │
+│ README.md     │  2.6 KB │ 2026-06-28 │
+│ CHANGELOG.md  │  8.8 KB │ 2026-06-28 │
+└───────────────┴─────────┴────────────┘
+```
+
+```text
+Callouts (40x8, 0-based):
+1. r0, r7   Border -- shared `light` set (`┌┐└┘`, `─`, `│`), unfocused; focus rules
+            apply to this ring (see Styles)
+2. r1       Header row -- as plain: bold `semantic.primary`, pinned
+3. r2       Header rule -- `├ ┼ ┤` on the border set, joined into the frame; junction
+            glyphs use the `border` role, token pending plan 032 step 5.3
+4. r0 c16, r0 c26, r7 c16, r7 c26 -- `┬` and `┴` where the column separators meet
+            the top and bottom edges; same junction token pending plan 032 step 5.3
+5. r4 c1-c15 Selection fill -- `selection.fill` on the cell interiors; no bar, because
+            the left border occupies the bar's column
+6. r3-r6    Data rows -- all four rows fit, so no ScrollIndicator is drawn
+7. c0, c16, c26, c39 -- `│` column separators and side borders, border role
+```
+
+```text
+── chars ──
+┌───────────────┬─────────┬────────────┐
+│ Name          │    Size │ Modified   │
+├───────────────┼─────────┼────────────┤
+│ Spec.md       │  372 KB │ 2026-07-06 │
+│ Package.swift │   12 KB │ 2026-07-01 │
+│ README.md     │  2.6 KB │ 2026-06-28 │
+│ CHANGELOG.md  │  8.8 KB │ 2026-06-28 │
+└───────────────┴─────────┴────────────┘
+── style ──
+DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
+DHHHHHHHHHHHHHHHDHHHHHHHHHDHHHHHHHHHHHHD
+DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
+DPPPPPPPPPPPPPPPDPPPPPPPPPDPPPPPPPPPPPPD
+DSSSSSSSSSSSSSSSDSSSSSSSSSDSSSSSSSSSSSSD
+DPPPPPPPPPPPPPPPDPPPPPPPPPDPPPPPPPPPPPPD
+DPPPPPPPPPPPPPPPDPPPPPPPPPDPPPPPPPPPPPPD
+DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
+── legend ──
+.  default
+H  fg=primary bold
+D  fg=border
+P  fg=primary
+S  fg=primary bg=selection
+```
+
+### Grid
+
+A bordered table with a rule between every row, which is what omp2's Markdown tables look
+like. It takes twice the height, so it suits short reference tables rather than long
+scrolling lists.
+
+```wireframe 40x11
+┌───────────────┬─────────┬────────────┐
+│ Name          │    Size │ Modified   │
+├───────────────┼─────────┼────────────┤
+│ Spec.md       │  372 KB │ 2026-07-06 │
+├───────────────┼─────────┼────────────┤
+│ Package.swift │   12 KB │ 2026-07-01 │
+├───────────────┼─────────┼────────────┤
+│ README.md     │  2.6 KB │ 2026-06-28 │
+├───────────────┼─────────┼────────────┤
+│ CHANGELOG.md  │  8.8 KB │ 2026-06-28 │
+└───────────────┴─────────┴────────────┘
+```
+
+```text
+Callouts (40x11, 0-based):
+1. r0, r10  Border -- shared `light` set, unfocused; focus rules apply to this ring
+2. r1       Header row -- bold `semantic.primary`, pinned
+3. r2       Header rule -- `├ ┼ ┤`, joined into the frame
+4. r4, r6, r8 Row rules -- one between every pair of rows; junctions on the border set
+            (token pending plan 032 step 5.3)
+5. r5 c1-c15 Selection fill -- `selection.fill` on the cell interiors; no bar
+6. r3-r9    Data rows -- all four rows fit, so no ScrollIndicator is drawn
+7. c16, c26 Column separators -- `│` between cells; `┼` where they meet a row rule
+```
+
+```text
+── chars ──
+┌───────────────┬─────────┬────────────┐
+│ Name          │    Size │ Modified   │
+├───────────────┼─────────┼────────────┤
+│ Spec.md       │  372 KB │ 2026-07-06 │
+├───────────────┼─────────┼────────────┤
+│ Package.swift │   12 KB │ 2026-07-01 │
+├───────────────┼─────────┼────────────┤
+│ README.md     │  2.6 KB │ 2026-06-28 │
+├───────────────┼─────────┼────────────┤
+│ CHANGELOG.md  │  8.8 KB │ 2026-06-28 │
+└───────────────┴─────────┴────────────┘
+── style ──
+DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
+DHHHHHHHHHHHHHHHDHHHHHHHHHDHHHHHHHHHHHHD
+DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
+DPPPPPPPPPPPPPPPDPPPPPPPPPDPPPPPPPPPPPPD
+DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
+DSSSSSSSSSSSSSSSDSSSSSSSSSDSSSSSSSSSSSSD
+DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
+DPPPPPPPPPPPPPPPDPPPPPPPPPDPPPPPPPPPPPPD
+DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
+DPPPPPPPPPPPPPPPDPPPPPPPPPDPPPPPPPPPPPPD
+DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
+── legend ──
+.  default
+H  fg=primary bold
+D  fg=border
+P  fg=primary
+S  fg=primary bg=selection
+```
+
+### Striped (alternating rows, plain)
+
+`.alternatingRowBackgrounds()` on the default style. Owner decision, 2026-10-10: the
+stripe is the `surface` role on every second data row, token pending plan 032 step 5.3,
+never `hover`, so a hovered row and a stripe stay distinct. The selected row keeps
+`selection.fill`, so the stripe is hidden under it. Under NO_COLOR the stripe is dropped
+(see Degradation).
+
+```wireframe 40x6
+ Name                    Size   Modified
+────────────────────────────────────────
+ Spec.md               372 KB 2026-07-06
+▌Package.swift          12 KB 2026-07-01
+ README.md             2.6 KB 2026-06-28
+ CHANGELOG.md          8.8 KB 2026-06-28
+```
+
+```text
+Callouts (40x6, 0-based):
+1. r0       Header row -- as plain
+2. r1       Header rule -- Divider, token `divider.light`
+3. r3 c0    Selection bar -- token `selection.bar`; the row gets `selection.fill`, which
+            replaces the stripe on this row
+4. r2, r4   Data rows -- no stripe (first and third data rows)
+5. r3, r5   Stripe -- `surface` background on the second and fourth data rows; token
+            pending plan 032 step 5.3; dropped under NO_COLOR
+```
+
+```text
+── chars ──
+ Name                    Size   Modified
+────────────────────────────────────────
+ Spec.md               372 KB 2026-07-06
+▌Package.swift          12 KB 2026-07-01
+ README.md             2.6 KB 2026-06-28
+ CHANGELOG.md          8.8 KB 2026-06-28
+── style ──
+.HHHH....................HHHH...HHHHHHHH
+DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
+.PPPPPPP...............PPP.PP.PPPPPPPPPP
+BSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+.PPPPPPPPP.............PPP.PP.PPPPPPPPPP
+ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ
+── legend ──
+.  default
+H  fg=primary bold
+D  fg=border
+P  fg=primary
+S  fg=primary bg=selection
+B  fg=accent bg=selection
+Z  fg=primary bg=surface
+```
+
+### Bordered striped
+
+`.bordered` with `.alternatingRowBackgrounds()`. Same frame and selection rules as
+Bordered; the stripe covers the whole interior of the striped row, not the separators.
+
+```wireframe 40x8
+┌───────────────┬─────────┬────────────┐
+│ Name          │    Size │ Modified   │
+├───────────────┼─────────┼────────────┤
+│ Spec.md       │  372 KB │ 2026-07-06 │
+│ Package.swift │   12 KB │ 2026-07-01 │
+│ README.md     │  2.6 KB │ 2026-06-28 │
+│ CHANGELOG.md  │  8.8 KB │ 2026-06-28 │
+└───────────────┴─────────┴────────────┘
+```
+
+```text
+Callouts (40x8, 0-based):
+1. r0, r7   Border -- shared `light` set, unfocused; focus rules apply to this ring
+2. r1       Header row -- as plain: bold `semantic.primary`, pinned
+3. r2       Header rule -- `├ ┼ ┤`, joined into the frame
+4. r4 c1-c15 Selection fill -- `selection.fill` on the second data row, which is also
+            a stripe row; selection wins over the stripe
+5. r6 c1-c15 Stripe -- `surface` background on the fourth data row; the column separators
+            keep the border role; token pending plan 032 step 5.3; dropped under NO_COLOR
+6. r3-r6    Data rows -- all four rows fit, so no ScrollIndicator is drawn
+```
+
+```text
+── chars ──
+┌───────────────┬─────────┬────────────┐
+│ Name          │    Size │ Modified   │
+├───────────────┼─────────┼────────────┤
+│ Spec.md       │  372 KB │ 2026-07-06 │
+│ Package.swift │   12 KB │ 2026-07-01 │
+│ README.md     │  2.6 KB │ 2026-06-28 │
+│ CHANGELOG.md  │  8.8 KB │ 2026-06-28 │
+└───────────────┴─────────┴────────────┘
+── style ──
+DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
+DHHHHHHHHHHHHHHHDHHHHHHHHHDHHHHHHHHHHHHD
+DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
+DPPPPPPPPPPPPPPPDPPPPPPPPPDPPPPPPPPPPPPD
+DSSSSSSSSSSSSSSSDSSSSSSSSSDSSSSSSSSSSSSD
+DPPPPPPPPPPPPPPPDPPPPPPPPPDPPPPPPPPPPPPD
+DZZZZZZZZZZZZZZZDZZZZZZZZZDZZZZZZZZZZZZD
+DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
+── legend ──
+.  default
+H  fg=primary bold
+D  fg=border
+P  fg=primary
+S  fg=primary bg=selection
+Z  fg=primary bg=surface
+```
 
 ## States
 
-Mobile (40x16): the Modified column is dropped by column priority; Name gets the slack. 13
-of 20 rows visible.
+Mobile (40 columns at natural height, 40x14): the Modified column is dropped by column
+priority; Name gets the slack. All 12 rows fit at natural height, so no ScrollIndicator
+and no footer are drawn (owner decision, 2026-10-10: components are wireframed at natural
+height; mobile means 40 columns, not a padded frame). Column priority is a Tessera
+addition (see Prior art).
 
-```wireframe 40x16
- Name                         Size
+```wireframe 40x14
+ Name                               Size
 ────────────────────────────────────────
- Spec.md                    372 KB     ┃
-▌Package.swift               12 KB     ┃
- README.md                  2.6 KB     ┃
- CHANGELOG.md               8.8 KB     ┃
- CONTRIBUTING.md             13 KB     ┃
- LICENSE                    1.1 KB     ┃
- CODE_OF_CONDUCT.md         5.3 KB     ┃
- Brewfile                    531 B     ┃
- Justfile                    721 B     ┃
- UpdatingGhosttyVT.md       4.2 KB     │
- WindowsFrostVM.md         13.5 KB     │
- LocalDevelopmentState.md   4.6 KB     │
- a-very-long-filename-ex…     1 KB     │
- row 2 of 20
+ Spec.md                          372 KB
+▌Package.swift                     12 KB
+ README.md                        2.6 KB
+ CHANGELOG.md                     8.8 KB
+ CONTRIBUTING.md                   13 KB
+ LICENSE                          1.1 KB
+ CODE_OF_CONDUCT.md               5.3 KB
+ Brewfile                          531 B
+ Justfile                          721 B
+ a-very-long-filename-example-v…  4.2 KB
+ WindowsFrostVM.md               13.5 KB
+ LocalDevelopmentState.md         4.6 KB
 ```
 
 Min (24x5, the declared floor): only the highest-priority column survives; below this
@@ -107,15 +467,13 @@ width Table renders truncated single-column rows rather than failing.
  row 2 of 12
 ```
 
-Empty (46x5): header and rule stay; the body shows the app-provided empty message (default
-"No files" here) centered.
+Empty (46x3 at natural height, owner decision, 2026-10-10): header and rule stay; the body
+is one row showing the app-provided empty message (default "No files" here), centered.
 
-```wireframe 46x5
- Name              Size  Modified
+```wireframe 46x3
+ Name                          Size   Modified
 ──────────────────────────────────────────────
-
                    No files
-
 ```
 
 Degraded ascii/no-color (46x6): geometry identical, glyphs swapped per the
@@ -133,56 +491,189 @@ Degraded ascii/no-color (46x6): geometry identical, glyphs swapped per the
 
 ## State model
 
-| State                 | Owner       | Type                                      | Reset or clamp rule                                                                                                 |
-| --------------------- | ----------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| rows                  | derived     | immutable `Data` (RandomAccessCollection) | recomputed from the data input on every update; never stored or bound                                               |
-| selection             | Binding     | `Element.ID?`                             | Table never invents a value; if the ID vanishes from data, selection renders nowhere but the binding is not mutated |
-| sort order            | Binding     | `[SortDescriptor<Element>]?`              | Table only marks the header; the app re-sorts data itself                                                           |
-| scroll offset         | NodeState   | `Int` (first visible row)                 | clamps to `0...maximum scroll offset` on every update; keeps selection visible after selection-moving keys          |
-| maximum scroll offset | derived     | `Int`                                     | recomputed as `max(0, count - visible)` on every update and layout pass; never stored                               |
-| column widths         | derived     | `[Int]`                                   | recomputed per layout pass from column policy; never stored                                                         |
-| header styling        | Environment | `semantic.primary` plus bold              | default header style; `TableStyle` may override                                                                     |
-| selection style       | Environment | `selection.*` tokens                      | active vs inactive chosen by focus                                                                                  |
+| State                 | Owner       | Type                                                | Reset or clamp rule                                                                                                                                                                                                                                                                |
+| --------------------- | ----------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| rows                  | derived     | immutable `Data` (RandomAccessCollection)           | recomputed from the data input on every update; never stored or bound                                                                                                                                                                                                              |
+| selection mode        | derived     | single or multi                                     | multi when the `Set<ID>` initializer is used, single when the `ID?` initializer is used; never stored                                                                                                                                                                              |
+| selection             | Binding     | `Element.ID?` (single) or `Set<Element.ID>` (multi) | Table never invents a value; if an ID vanishes from data, selection renders nowhere but the binding is not mutated; a vanished multi-select ID stays in the set                                                                                                                    |
+| cursor                | NodeState   | `Int?` (row index; multi-select only)               | nil until a cursor key or click; clamped to `0..<count` on every update; nil when data is empty; cursor moves never write the selection binding                                                                                                                                    |
+| header mode           | derived     | `Bool`                                              | true while the header cursor is set; never stored                                                                                                                                                                                                                                  |
+| header cursor         | NodeState   | `Int?` (column index)                               | set by Ctrl-↑ to the first column; clamped to the first and last column on every update; cleared by ↑, ↓, Esc, or focus loss                                                                                                                                                       |
+| sort order            | Binding     | `[TableSortOrder<ColumnID>]?`                       | keyed by column identity, not title; Table marks the header of each named column with its direction, and the app re-sorts data itself; an entry naming no column ID is ignored and the binding is not mutated; header Space and header click write the binding on user action only |
+| sort marks            | derived     | `↑`, `↓` (ASCII `^`, `v`)                           | drawn on each header whose column ID has an entry in the sort order binding; never stored                                                                                                                                                                                          |
+| scroll offset         | NodeState   | `Int` (first visible row)                           | clamps to `0...maximum scroll offset` on every update; keeps the cursor or selection visible after cursor- or selection-moving keys                                                                                                                                                |
+| maximum scroll offset | derived     | `Int`                                               | recomputed as `max(0, count - visible)` on every update and layout pass; never stored                                                                                                                                                                                              |
+| column widths         | derived     | `[Int]`                                             | recomputed per layout pass from column policy; never stored                                                                                                                                                                                                                        |
+| table style           | Environment | `TableStyle` (`plain`, `bordered`, `grid`)          | default `plain`; set by `.tableStyle(_:)`; a style never changes rows, selection, or scroll offset                                                                                                                                                                                 |
+| alternating rows      | Environment | `Bool`                                              | set by `.alternatingRowBackgrounds()`; applies to every style; the selected row keeps `selection.fill` over the stripe                                                                                                                                                             |
+| header styling        | Environment | `semantic.primary` plus bold                        | default header style; `TableStyle` may override                                                                                                                                                                                                                                    |
+| selection style       | Environment | `selection.*` tokens                                | active (`selection.bar`, `selection.fill`) when focused and not in header mode; `selection.inactive` for the row in header mode; header cursor cell uses `selection.fill` in header mode                                                                                           |
 
 The "selection ID vanished" rule is this widget's version of Slice 7's mandatory "app
 mutated data under the widget" case: Table must render sanely and must not write to the
-binding to "fix" it -- the app owns that decision.
+binding to "fix" it -- the app owns that decision. The sort-order rule follows the same
+pattern: an unknown column ID changes nothing and the app owns the sort decision.
 
-The scroll offset has exactly one runtime owner. If `Table` is implemented as a
-`LeafView`, keyboard and mouse handling use `LeafView.handleEvent` and the same
-`NodeState` read by layout and rendering. The implementation must not mirror the offset
-into `_ResponderView.ResponderState` or transfer it between independent stores during a
-graph update.
+The scroll offset and both keyboard cursors have exactly one runtime owner. If `Table` is
+implemented as a `LeafView`, keyboard and mouse handling use `LeafView.handleEvent` and
+the same `NodeState` read by layout and rendering. The implementation must not mirror the
+offset into `_ResponderView.ResponderState` or transfer it between independent stores
+during a graph update.
 
 ## Key table
 
-| Key   | Precondition               | Effect                                                | Consumed |
-| ----- | -------------------------- | ----------------------------------------------------- | -------- |
-| Down  | focused                    | moves selection to next row via binding               | yes      |
-| Up    | focused                    | moves selection to previous row via binding           | yes      |
-| PgDn  | focused                    | moves selection down by visible-row count via binding | yes      |
-| PgUp  | focused                    | moves selection up by visible-row count via binding   | yes      |
-| Home  | focused                    | moves selection to first row via binding              | yes      |
-| End   | focused                    | moves selection to last row via binding               | yes      |
-| Enter | focused, selection is set  | calls `onActivate` with the selected element          | yes      |
-| Down  | focused, selection not set | sets selection to first visible row via binding       | yes      |
+| Key    | Precondition                                     | Effect                                                                                          | Consumed |
+| ------ | ------------------------------------------------ | ----------------------------------------------------------------------------------------------- | -------- |
+| ↓      | focused, single-select                           | moves selection to next row via binding                                                         | yes      |
+| ↑      | focused, single-select                           | moves selection to previous row via binding                                                     | yes      |
+| PgDn   | focused, single-select                           | moves selection down by visible-row count via binding                                           | yes      |
+| PgUp   | focused, single-select                           | moves selection up by visible-row count via binding                                             | yes      |
+| Home   | focused, single-select                           | moves selection to first row via binding                                                        | yes      |
+| End    | focused, single-select                           | moves selection to last row via binding                                                         | yes      |
+| Enter  | focused, single-select, selection is set         | calls `onActivate` with the selected element                                                    | yes      |
+| ↓      | focused, single-select, selection not set        | sets selection to first visible row via binding                                                 | yes      |
+| ↓      | focused, multi-select, cursor is set             | moves cursor to next row; membership unchanged                                                  | yes      |
+| ↑      | focused, multi-select, cursor is set             | moves cursor to previous row; membership unchanged                                              | yes      |
+| PgDn   | focused, multi-select, cursor is set             | moves cursor down by visible-row count; membership unchanged                                    | yes      |
+| PgUp   | focused, multi-select, cursor is set             | moves cursor up by visible-row count; membership unchanged                                      | yes      |
+| Home   | focused, multi-select, cursor is set             | moves cursor to first row; membership unchanged                                                 | yes      |
+| End    | focused, multi-select, cursor is set             | moves cursor to last row; membership unchanged                                                  | yes      |
+| ↓      | focused, multi-select, cursor not set            | sets cursor to first visible row; membership unchanged                                          | yes      |
+| Space  | focused, multi-select, cursor is set             | toggles the cursor row's membership via binding; cursor stays                                   | yes      |
+| Enter  | focused, multi-select, cursor is set             | calls `onActivate` with the cursor row                                                          | yes      |
+| Ctrl-↑ | focused, sort order binding set, not header mode | enters header mode; header cursor set to the first column                                       | yes      |
+| ←      | header mode                                      | moves header cursor to previous column, clamped at the first column                             | yes      |
+| →      | header mode                                      | moves header cursor to next column, clamped at the last column                                  | yes      |
+| Space  | header mode                                      | cycles the header cursor column's sort entry through ascending, descending, removed via binding | yes      |
+| ↑      | header mode                                      | leaves header mode; header cursor cleared                                                       | yes      |
+| ↓      | header mode                                      | leaves header mode; header cursor cleared                                                       | yes      |
+| Esc    | header mode                                      | leaves header mode; header cursor cleared                                                       | yes      |
 
-Every selection-moving effect also updates the `NodeState` scroll offset per its clamp
-rule so the selection stays visible.
+Every cursor- or selection-moving key also updates the `NodeState` scroll offset per its
+clamp rule so the moved row stays visible.
 
 ## Mouse table
 
-| Event        | Region      | Precondition                          | Effect                                            | Consumed |
-| ------------ | ----------- | ------------------------------------- | ------------------------------------------------- | -------- |
-| click        | data row    | always                                | sets selection to that row's ID via binding       | yes      |
-| double-click | data row    | always                                | sets selection, then calls `onActivate`           | yes      |
-| click        | header cell | sort order binding set                | toggles that column's sort descriptor via binding | yes      |
-| wheel-down   | data row    | scroll offset < maximum scroll offset | increments NodeState scroll offset                | yes      |
-| wheel-up     | data row    | scroll offset > 0                     | decrements NodeState scroll offset                | yes      |
+| Event        | Region      | Precondition                          | Effect                                                                             | Consumed |
+| ------------ | ----------- | ------------------------------------- | ---------------------------------------------------------------------------------- | -------- |
+| click        | data row    | single-select                         | sets selection to that row's ID via binding                                        | yes      |
+| click        | data row    | multi-select                          | replaces the selection set with that row's ID via binding; cursor moves to the row | yes      |
+| click        | mark gutter | multi-select                          | toggles that row's ID in the selection set via binding; cursor moves to the row    | yes      |
+| double-click | data row    | always                                | runs the click effect for that row, then calls `onActivate`                        | yes      |
+| click        | header cell | sort order binding set                | cycles that column's entry (by column ID) through the Space sequence via binding   | yes      |
+| wheel-down   | data row    | scroll offset < maximum scroll offset | increments NodeState scroll offset                                                 | yes      |
+| wheel-up     | data row    | scroll offset > 0                     | decrements NodeState scroll offset                                                 | yes      |
 
 Wheel scrolling moves the viewport without touching selection (selection may scroll out of
 view; the bar and fill simply are not rendered until it returns). The ScrollIndicator is
-output-only and has no drag interaction.
+output-only and has no drag interaction. In multi-select the mark gutter is part of the
+data row region; its click wins over the data-row click.
+
+## Multi-select and keyboard sorting
+
+Owner decision, 2026-10-10: multi-select and keyboard sorting are designed for v1.
+Shift-range selection is the one part deferred (see Open questions).
+
+Multi-select uses the second initializer in the API, which takes
+`selection: Binding<Set<ID>>`. Membership is the binding and nothing else. The cursor
+lives in `NodeState`, and moving it never changes membership. A member row is drawn with a
+mark gutter (`●`, ASCII `*`) and `selection.fill`; the cursor row gets `selection.bar`
+only, so a cursor on a non-member row has no fill.
+
+```wireframe 40x6
+  Name                   Size   Modified
+────────────────────────────────────────
+ ●Spec.md              372 KB 2026-07-06
+ ●Package.swift         12 KB 2026-07-01
+▌ README.md            2.6 KB 2026-06-28
+ ●CHANGELOG.md         8.8 KB 2026-06-28
+```
+
+```text
+Callouts (40x6, 0-based):
+1. r0       Header row -- as plain; the mark gutter has no header
+2. r2-r5 c1 Mark gutter -- member mark `●` (ASCII `*`) on members, blank otherwise; click
+            toggles membership; part of the data row, and its click wins over the data-row click
+3. r2, r3, r5 Membership fill -- `selection.fill` on each member row
+4. r4 c0    Cursor bar -- `selection.bar` on the cursor row; the cursor row is not a member
+```
+
+```text
+── chars ──
+  Name                   Size   Modified
+────────────────────────────────────────
+ ●Spec.md              372 KB 2026-07-06
+ ●Package.swift         12 KB 2026-07-01
+▌ README.md            2.6 KB 2026-06-28
+ ●CHANGELOG.md         8.8 KB 2026-06-28
+── style ──
+..HHHH...................HHHH...HHHHHHHH
+DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
+SBSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+SBSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+A.PPPPPPPPP............PPP.PP.PPPPPPPPPP
+SBSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+── legend ──
+.  default
+H  fg=primary bold
+D  fg=border
+P  fg=primary
+S  fg=primary bg=selection
+B  fg=accent bg=selection
+A  fg=accent
+```
+
+Keyboard sorting needs no mouse. Ctrl-↑ enters header mode when a sort-order binding is
+set. In header mode, ← and → move the header cursor across the columns, clamped at the
+first and last column, and Space cycles the header cursor column's sort entry through
+ascending, descending, and removed. Header mode dims the row selection to
+`selection.inactive` and draws the header cursor cell in `selection.fill`. ↑, ↓, or Esc
+leaves header mode; focus loss clears the header cursor. Each sorted column shows its
+direction as a sort mark: `↑` for ascending, `↓` for descending (ASCII `^` and `v`). Table
+never reorders data; the app sorts it from the sort-order binding.
+
+```wireframe 40x6
+ Name ↑                  Size   Modified
+────────────────────────────────────────
+ CHANGELOG.md          8.8 KB 2026-06-28
+▌Package.swift          12 KB 2026-07-01
+ README.md             2.6 KB 2026-06-28
+ Spec.md               372 KB 2026-07-06
+```
+
+```text
+Callouts (40x6, 0-based); header mode is on the Size column and Name is sorted ascending:
+1. r0 c6     Sort mark -- `↑` on the sorted column's title; `↓` when descending; token
+             pending plan 032 step 5.3
+2. r0 c22-28 Header cursor cell -- `selection.fill` on the cell under the header cursor,
+             drawn only in header mode
+3. r3 c0-c39 Inactive row -- `selection.inactive` for the bar and fill of the row selection
+             while in header mode
+```
+
+```text
+── chars ──
+ Name ↑                  Size   Modified
+────────────────────────────────────────
+ CHANGELOG.md          8.8 KB 2026-06-28
+▌Package.swift          12 KB 2026-07-01
+ README.md             2.6 KB 2026-06-28
+ Spec.md               372 KB 2026-07-06
+── style ──
+.HHHH.H...............SSSSSSS...HHHHHHHH
+DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
+.PPPPPPPPPPPP..........PPP.PP.PPPPPPPPPP
+IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
+.PPPPPPPPP.............PPP.PP.PPPPPPPPPP
+.PPPPPPP...............PPP.PP.PPPPPPPPPP
+── legend ──
+.  default
+H  fg=primary bold
+D  fg=border
+P  fg=primary
+S  fg=primary bg=selection
+I  fg=primary bg=selection.inactive
+```
 
 ## Sizing
 
@@ -191,6 +682,7 @@ Table is greedy on both axes when proposed; its ideal is content-driven.
 | Proposal  | Result | Rule                                                                                                                                                                              |
 | --------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | nil x nil | 45x14  | ideal: all 12 rows fit, so there is no ScrollIndicator or scrollbar reservation; content-resolved columns are 45 wide; height = header + rule + all 12 rows (no footer: app slot) |
+| 40 x nil  | 40x14  | mobile state: Modified dropped by column priority; height = header + rule + all 12 rows at natural height, no footer (owner decision, 2026-10-10)                                 |
 | 46 x 9    | 46x9   | fills the proposal exactly; rows beyond the viewport scroll                                                                                                                       |
 | 24 x 5    | 24x5   | fills; column priority drops columns to fit (min state)                                                                                                                           |
 | 10 x 3    | 10x3   | fills; single truncated column, no scrollbar below width 12                                                                                                                       |
@@ -199,17 +691,43 @@ Table is greedy on both axes when proposed; its ideal is content-driven.
 Numbers in the nil x nil row are for the anatomy example's data set; the rule, not the
 numbers, is normative.
 
-Column width policy (baseline, pending the shared solver): each `TableColumn` declares
-`fixed(n)`, `min(n)`, or `fill(weight:)`; fixed first, then min at their minimums, then
-remaining slack distributed to fill columns by weight, integer remainders leading-first.
-Columns also carry a drop priority for narrow viewports (mobile state). See Open
-questions: this is Grid's solver.
+Horizontal overflow (owner decision, 2026-10-10): a nil-width proposal lays every column
+out at ideal width with no drops, and a narrower proposal drops columns by priority. Table
+adds no horizontal scrolling of its own; an app that needs a wide table in a narrow
+proposal wraps it in `ScrollView(.horizontal)`.
+
+Style chrome adds to the content size and is part of the ideal:
+
+- `plain`: no chrome. Height = header + header rule + rows; width = sum of column widths.
+- `bordered`: width = sum of column widths + one separator per column boundary + 2 ring
+  columns; height = 2 ring rows + header + header rule + rows. The 40-column example is
+  15 + 9 + 12 + 2 + 2 = 40 wide and 2 + 1 + 1 + 4 = 8 rows tall.
+- `grid`: as `bordered`, plus one rule row between each pair of data rows; height = 2 ring
+  rows + header + header rule + rows + (rows - 1). The 40-column example is 11 rows tall.
+
+Column width policy (baseline; the shared solver stays with Grid, deferred to
+[Slice 6](../../docs/Spec.md#slice-6-grid-table-and-navigationsplitview-composition),
+owner decision, 2026-10-10): each `TableColumn` declares `fixed(n)`, `min(n)`, or
+`fill(weight:)`; fixed first, then min at their minimums, then remaining slack distributed
+to fill columns by weight, integer remainders leading-first. Columns also carry a drop
+priority for narrow viewports (mobile state); drop priority stays in v1 (owner decision,
+2026-10-10).
 
 ## Environment
 
 - `semantic.primary` plus bold -- default header text style; `TableStyle` may override it
 - `selection.bar`, `selection.fill`, `selection.inactive`, `selection.ascii`
-- `divider.light` for the header rule
+- `divider.light` for the plain header rule
+- `border` role -- frame, separators, junction glyphs (`├ ┼ ┤`), frame corners, and row
+  rules of `bordered` and `grid`; token pending plan 032 step 5.3
+- shared border sets (`light`, `heavy`, `ascii`) -- see
+  [border sets](../tokens.md#border-sets)
+- `focus` role -- outer ring of a bordered table when it or its content has focus; token
+  pending plan 032 step 5.3; ASCII uses bold
+- `surface` role -- alternating row background (`.alternatingRowBackgrounds()`), never
+  `hover`; token pending plan 032 step 5.3
+- member mark glyph `●` (ASCII `*`) and sort mark glyphs `↑`, `↓` (ASCII `^`, `v`) --
+  token pending plan 032 step 5.3
 - `scrollbar.track`, `scrollbar.thumb` for the output-only ScrollIndicator
 - `truncation.mark`
 
@@ -230,10 +748,10 @@ questions: this is Grid's solver.
 
 - `rows recompute from immutable data input on every update without a binding` (state
   model: rows)
-- `selection stays visible when moved past the viewport edge` (key table: Down; state:
-  scroll offset)
+- `selection stays visible when moved past the viewport edge` (key table: ↓; state: scroll
+  offset)
 - `successive selection moves separated by graph updates keep selection and scroll offset synchronized`
-  (key table: Down; state: selection and scroll offset)
+  (key table: ↓; state: selection and scroll offset)
 - `wheel scrolling moves viewport without changing selection` (mouse table: wheel-down)
 - `scroll indicator is output-only and has no drag interaction` (anatomy: callout 7; mouse
   table)
@@ -244,9 +762,16 @@ questions: this is Grid's solver.
   offset)
 - `default header uses bold semantic.primary and TableStyle can override it` (state model:
   header styling)
-- `header click toggles sort descriptor through binding` (mouse table: header cell)
+- `header click cycles the sort entry for that column id through binding` (mouse table:
+  header cell)
+- `sort order is keyed by column id so retitling a column keeps its sort` (state model:
+  sort order)
+- `sort entry naming no column id is ignored and does not mutate the binding` (state
+  model: sort order)
 - `enter activates the selected element` (key table: Enter)
-- `column narrower than content renders ellipsis not overflow` (anatomy: callout 6)
+- `column narrower than content renders truncation mark not overflow` (anatomy: callout 6)
+- `cell cut by truncation stays inside its own column` (anatomy: callout 6; prior art:
+  omp2 cell truncation)
 - `cjk cell content truncates on grapheme boundary` (anatomy: callout 6; Slice 7 mandatory
   case)
 - `columns drop by priority at mobile width` (states: mobile)
@@ -255,31 +780,83 @@ questions: this is Grid's solver.
   nil)
 - `empty data renders header and empty message` (states: empty)
 - `ascii degradation preserves geometry` (states: degraded)
+- `plain style draws no frame and keeps the header rule` (styles: plain)
+- `bordered style draws an outer frame, column separators, and a header rule` (styles:
+  bordered)
+- `bordered selection fill leaves the border column unchanged` (styles: bordered)
+- `grid style draws a rule between every row` (styles: grid)
+- `alternating row backgrounds stripe every second data row in every style` (styles:
+  striped; bordered striped)
+- `selected row keeps selection fill over the stripe` (styles: striped; bordered striped)
+- `table with focus draws its outer ring in the focus role with the heavy set; focus inside draws it at light weight`
+  (styles: environment)
+- `ascii focus renders bold on the bordered ring` (styles: environment; degradation)
+- `bordered and grid table height and width match the sizing rules` (sizing: style chrome)
+- `markdown tables render through the grid style` (styles: intro)
+- `multi-select click on a data row replaces the selection set and moves the cursor there`
+  (mouse table: click data row, multi-select)
+- `mark gutter click toggles membership and moves the cursor` (mouse table: mark gutter)
+- `double-click runs the click effect, then activates the row, in single and multi-select`
+  (mouse table: double-click)
+- `multi-select arrow keys move the cursor and leave membership unchanged` (key table: ↓;
+  state model: cursor)
+- `multi-select space toggles the cursor row membership and leaves the cursor in place`
+  (key table: Space; state model: cursor)
+- `multi-select enter activates the cursor row` (key table: Enter)
+- `multi-select cursor clamps to the data count and clears when data is empty` (state
+  model: cursor)
+- `vanished multi-select id renders nowhere and stays in the set without a binding write`
+  (state model: selection)
+- `multi-select membership draws selection fill with a member mark in the gutter`
+  (multi-select wireframe: callouts 3-4)
+- `ctrl-up enters header mode only when a sort order binding is set` (key table: Ctrl-↑)
+- `space in header mode cycles that column's sort entry through none, ascending, descending, removed`
+  (key table: Space; mouse table: header cell)
+- `left and right clamp the header cursor to the first and last column` (key table: ← →;
+  state model: header cursor)
+- `down and escape leave header mode, and focus loss clears the header cursor` (key table:
+  ↓, Esc; state model: header cursor)
+- `header mode draws the header cursor cell in selection fill and dims the row selection`
+  (state model: selection style; keyboard sorting wireframe: callouts 2-3)
+- `sort marks name each sorted column and table never reorders data` (state model: sort
+  order; keyboard sorting wireframe: callout 1)
+- `mobile state at 40 columns is natural height with no scrollbar or footer` (sizing: 40 x
+  nil; states: mobile)
+- `nil width proposal lays out every column at ideal width without dropping` (sizing: nil
+  x nil; states: mobile)
+- `alternating stripe uses the surface role and is dropped under NO_COLOR` (styles:
+  striped; degradation)
+- `cut mark renders as an ellipsis, or a tilde under ASCII` (anatomy: callout 6;
+  degradation)
+- `ascii multi-select and sort marks render as asterisk, greater-than, caret, and v`
+  (degradation: ASCII-only)
 
 ## Degradation
 
-- `NO_COLOR`: selection falls back to reverse video; header to bold.
+- `NO_COLOR`: selection falls back to reverse video; header to bold. Membership keeps its
+  member mark, and the header cursor cell keeps reverse video, so neither depends on
+  colour.
 - 16-color: indexed equivalents of the accent; geometry unchanged.
 - ASCII-only: degraded wireframe above -- `-` rule, `>` selection, `|`/`#` scrollbar, `~`
   truncation mark.
+- ASCII-only, multi-select and keyboard sorting: member mark `*`, cursor bar `>`, sort
+  marks `^` (ascending) and `v` (descending).
+- ASCII-only, bordered and grid: the `ascii` border set -- `+` for every corner and
+  junction, `-` for horizontal edges and rules, `|` for vertical edges and separators.
+  Geometry is identical to the Unicode styles.
+- Stripes have no ASCII glyph and are dropped under `NO_COLOR` (owner decision,
+  2026-10-10): the stripe is a background only, and the selection keeps reverse video.
 - Below `min` width (24): single truncated column, scrollbar dropped below width 12, never
   a layout failure.
 
 ## Open questions
 
-- Column width solver: final `fixed/min/fill(weight:)` semantics must be decided jointly
-  with Grid (Slice 6). Baseline above is the working assumption; promotion of either doc
-  to `ready` requires the shared decision.
-- Footer/status line: keep as pure app slot (current position) or offer an optional
-  `statusText` convenience? Lean app slot; the wireframes show it only to fix the vertical
-  rhythm.
-- Multi-select (`Binding<Set<ID>>`): deliberately out of v1; revisit after List and Table
-  ship single-select with identical semantics.
-- Keyboard sorting (without a mouse): header cells are not focusable in this design.
-  Possible later: a `Ctrl-s` cycling chord or focusable header mode. Needs a use case.
-- Horizontal overflow: mobile drops columns instead of scrolling horizontally. Is a
-  horizontal-scroll mode (wrapping Table in ScrollView `.horizontal`) sufficient for wide
-  data sets? Test with a real 10-column dataset before deciding.
+- Shift-range selection in multi-select (`Shift-↓`, `Shift-↑` extend membership from an
+  anchor row to the cursor) is deferred. Reason: it needs an anchor row in NodeState,
+  which is a new state model row, plus a reset rule for the anchor when rows are reordered
+  or vanish, and no use case is named yet. Deferred under the owner decision of 2026-10-10
+  to defer any multi-select part that proves too complex to specify. Multi-select itself
+  is designed in [Multi-select and keyboard sorting](#multi-select-and-keyboard-sorting).
 
 ## Inspiration
 

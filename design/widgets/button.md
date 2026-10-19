@@ -1,18 +1,19 @@
 ---
 kind: widget
-status: ready
+status: specified
 ---
 
 # Button
 
 `Button` is a focusable, controlled action control with an arbitrary `Label: View`, an
-app-supplied action, and an optional semantic role. It retains no business state: the app
-owns the action's effects, while the button may keep only its transient press bit in
-`NodeState` so a `ButtonStyle` can draw standard pressed feedback. Focus identity and
-app-owned tracking are attached by composition, not stored by Button.
+app-supplied action, and an optional role. It retains no business state: the app owns the
+action's effects, while the button may keep only its transient press and hover bits in
+`NodeState` so a style can draw pressed and hovered feedback. Focus identity and app-owned
+tracking are attached by composition, not stored by Button.
 
-The implemented API retains an arbitrary `Label: View`, an action closure, and an optional
-role:
+Every design decision in this doc is an owner decision, 2026-10-10. The API is identical
+in every mode (Nerd Font, Unicode, ASCII, NO_COLOR). Modes change only how a shape and
+emphasis are drawn, never which values exist.
 
 ```swift
 public init(
@@ -28,21 +29,32 @@ public init(
 ) where Label == Text
 ```
 
-A caller keeps identity explicit:
+The public action is `() -> Void` (owner decision, 2026-10-10). Redraw comes from the
+app's binding write, since state is the app's job; this is SwiftUI parity.
+
+```swift
+Button("Deploy") { deploy() }
+    .buttonStyle(.filled)
+    .buttonBorderShape(.squared)
+
+Button("Save") { save() }
+    .keyboardShortcut(.defaultAction)
+
+Button("Cancel", role: .cancel) { close() }
+    .keyboardShortcut(.cancelAction)
+```
+
+A caller keeps focus identity explicit. The focus binding is app-supplied; the button
+never stores it:
 
 ```swift
 Button("Save") { save() }
     .focusable(saveFocusID)
-    .focused(focused, equals: saveFocusID)
+    .focused(focusedID, equals: saveFocusID)
 ```
 
-The button renders from `EnvironmentValues.isFocused` and accepts keys only when its
-`ResponderContext.isFocused` is true.
-
-`ButtonRole` currently supports only `.destructive`; `nil` selects the default semantic
-role.
-
-> Deferred: Additional `ButtonRole` cases land in a later slice.
+`ButtonRole` has `.cancel` and `.destructive`; `nil` selects the default intent. SwiftUI's
+`.confirm` and `.close` are not adopted.
 
 ## Prior art
 
@@ -54,286 +66,543 @@ role.
 - Ratatui block: `~/Developer/ratatui/ratatui/main/ratatui-widgets/src/block.rs` — copy
   the ordering principle that base style, border style, and content style compose in
   layers, and that an inset decoration computes its content area. Reject making `Block`
-  the public button API or adding a title/padding configuration surface; a Button style
+  the public button API or adding a title/padding configuration surface; a Button shape
   decorates the supplied label rather than owning a second content model.
 - Apple SwiftUI [Button](https://developer.apple.com/documentation/swiftui/button) — copy
-  the action plus arbitrary-label model, optional destructive role, and context-adaptive
-  system appearance. Tessera also ships the string-title convenience above; image and
-  other convenience initializers remain outside this widget's current contract.
+  the action plus arbitrary-label model, the optional cancel and destructive roles, and
+  context-adaptive system appearance. Tessera also ships the string-title convenience
+  above; image and other convenience initializers remain outside this widget's current
+  contract.
 - Apple SwiftUI
   [ButtonStyle](https://developer.apple.com/documentation/swiftui/buttonstyle) — copy the
   split where `ButtonStyle` changes appearance while retaining standard platform
   interaction. Reject a `PrimitiveButtonStyle` equivalent for 1.0: changing activation
   semantics is deliberately outside this widget's first public contract.
+- SwiftUI `.borderedProminent` and `.bordered` are the models for the filled and tinted
+  emphases. Tessera names them `.filled` and `.tinted`, because "bordered" reads as a
+  drawn box in a terminal.
+- omp2 `Button`
+  ([`button.rs`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/button.rs#L115-L157))
+  -- copy the capsule caps and charset fallback (`paint_pill` L115-133) and the soft
+  tinted colouring (`soft_colors` L136-157). omp2 calls its unadorned variant Ghost;
+  Tessera names that emphasis `.plain`. Reject its `Confirm` arming: activation stays this
+  widget's contract, and an emphasis or shape changes appearance only.
 
 ## Anatomy
 
-The system default is `.compact`: a one-row, label-hugging action control for dense
-application chrome such as the Showcase header, Catalog/Inspector controls, and action
-rows. `.plain` is an unadorned label action, suitable for menus and command-like rows.
-Style selection changes presentation only; every enabled variant has the same focus and
-keyboard contract.
+A Button has four independent dimensions. Intent chooses the colour, emphasis chooses how
+that colour is applied, shape chooses the ends, and state changes the result on top. Every
+emphasis follows the same state rule.
 
-> Deferred: The `.bordered` Button style, pointer activation, and visual pressed feedback
-> land in a later slice.
+| Dimension | Decides                                      | API                                                                                      |
+| --------- | -------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Intent    | colour                                       | `role:` (`nil`, `.cancel`, `.destructive`) and `.keyboardShortcut(.defaultAction)`       |
+| Emphasis  | how the colour is applied                    | `.buttonStyle(.filled / .tinted / .plain)`                                               |
+| Shape     | the ends                                     | `.buttonBorderShape(.squared / .capsule / .rectangle / .brackets / .box / .custom(...))` |
+| State     | changes on top, same rule for every emphasis | focused, pressed, hovered, disabled (environment / NodeState)                            |
 
-### Compact fixture
-
-Natural fixture: the default `.compact` style around a `Text("Save")` label, unfocused and
-enabled.
+The anatomy fixture is a tinted, squared Button with no default action, which is the
+default shape and the default emphasis for a plain `Button`:
 
 ```wireframe 6x1
-[Save]
+▐Save▌
 ```
 
 ```text
 Callouts (6x1, 0-based):
-1. r0 c0-c5 Button hit target -- the complete allocated button frame; primary-pointer
-   press and release must both resolve to this same node. It is the sole mouse Region.
-2. r0 c0, c5 Compact chrome -- literal square-bracket delimiters in
-   `semantic.secondary` while unfocused; the complete compact frame receives the focused,
-   pressed, disabled, or role-selected Style when applicable.
-3. r0 c1-c4 Label slot -- arbitrary `Label: View`, measured at its ideal size and styled
-   with `semantic.primary` unless the role or enabled environment selects another semantic
-   Style.
-```
-
-### Plain fixture
-
-`.plain` draws no delimiter or implicit padding. It is appropriate when surrounding menu
-or command layout already supplies the visual grouping.
-
-```wireframe 4x1
-Save
-```
-
-The complete label rectangle is both the hit target and label slot. Focus and press remain
-visible through the resolved full semantic Style; no focus border is manufactured for this
-borderless style.
-
-### Padded compact composition fixture
-
-Interior padding is composition, not a second compact style. A caller applies the shared
-[Padding](../primitives/padding.md) modifier to the label inside the Button label builder;
-`.compact` then wraps that padded label as normal.
-
-```wireframe 8x1
-[ Save ]
-```
-
-The two spaces belong to the padded label slot (`r0 c1-c6`), not to a Button-specific
-padding property. Padding applied around the Button itself remains ordinary outer layout
-spacing rather than changing the compact chrome. This keeps `ButtonStyle` responsible for
-decoration while the shared layout modifier owns content insets.
-
-> Deferred: This padded compact fixture remains valid composition around the implemented
-> `.compact` style; the `.bordered` fixture below lands in a later slice.
-
-### Bordered fixture
-
-`.bordered` is the former system-style presentation. It hugs the supplied label at its
-ideal size, applies internal horizontal space, and uses `Border` decoration.
-
-```wireframe 12x3
-┌──────────┐
-│   Save   │
-└──────────┘
+1. r0 c0     Leading end -- half block `▐` in the fill colour, `faint(accent)*`.
+2. r0 c1-c4  Label slot -- label in `accent` on the `faint(accent)*` fill.
+3. r0 c5     Trailing end -- half block `▌` in the fill colour.
+4. r0 c0-c5  Button hit target -- the whole allocated frame; press and release must both resolve to this node.
 ```
 
 ```text
-Callouts (12x3, 0-based):
-1. r0-r2 c0-c11 Button hit target -- the complete allocated button frame; primary-pointer
-   press and release must both resolve to this same node. It is the sole mouse Region.
-2. r0 c0-c11, r2 c0-c11, r1 c0, r1 c11 Bordered chrome -- `Border` decoration;
-   `semantic.secondary` Style while unfocused, `semantic.focus` Style with the `rounded`
-   border set while focused.
-3. r1 c1-c10 Bordered label slot -- arbitrary `Label: View`, centered by the bordered
-   style; `semantic.primary` Style unless the role or enabled environment selects another
-   semantic Style.
+── chars ──
+▐Save▌
+── style ──
+ABBBBA
+── legend ──
+.  default
+A  fg=faint(accent)*
+B  fg=accent bg=faint(accent)*
 ```
 
-### Focused and pressed fixtures
+### Mobile
 
-Focused `.compact` keeps its compact geometry. Its complete frame uses `semantic.focus`;
-pressed `.compact` uses that full Style, including its resolved background or other
-emphasis, for the same complete frame. This is a styled-grid distinction, not extra glyph
-noise.
+At the `mobile` viewport a parent may force a full-width allocation. A filled, squared
+Button spans it: the ends sit at the allocation edges, the fill covers the slack, and the
+label stays at the leading end (Sizing: 40x1 row).
 
-```wireframe 6x1
-[Save]
-```
-
-Focused `.bordered` uses token `focus.border`: rounded chrome in `semantic.focus`. Pressed
-`.bordered` retains that geometry and applies `semantic.accent` as a full Style to its
-complete bordered label slot (`r1 c1-c10`). A primary down or phased `Enter`/`Space` down
-begins the press and its matching release ends it; the action runs only on that valid
-release. A legacy press-only `Enter` or `Space` event invokes the action immediately and
-clears `isPressed` before the event returns.
-
-```wireframe 12x3
-╭──────────╮
-│   Save   │
-╰──────────╯
-```
-
-Focus is never inferred from position; the app installs the explicit focus identity
-described in
-[Slice 4](../../docs/Spec.md#slice-4-focus-and-key-routing-the-responder-system).
-
-### Disabled fixture
-
-```wireframe 6x1
-[Save]
-```
-
-All compact chrome and label cells use `semantic.disabled`. A disabled button is absent
-from the focusable list, never becomes pressed, and leaves keys and clicks unconsumed so
-an ancestor may interpret them. `.plain` and `.bordered` use the same disabled interaction
-rule with their own geometry.
-
-### Destructive fixture
-
-```wireframe 8x1
-[Delete]
-```
-
-`role: .destructive` selects `semantic.destructive` for the label and chrome. Focus stays
-visible without replacing destructive semantics; pressed state lets that same full Style
-supply the emphasis treatment. `.bordered` applies the same role selection to its border
-and label slot.
-
-### Long-label truncation fixture
-
-```wireframe 13x1
-[Long label…]
-```
-
-The source label is `Text("Long label continues")`. In this constrained compact fixture
-the label slot is `r0 c1-c11`; default `Text` uses grapheme-safe tail truncation with
-`truncation.mark` instead of wrapping or increasing the Button height. A custom label owns
-its own layout policy within the rectangle assigned by its selected style.
-
-### Minimum fixtures
-
-Each built-in style has its own natural floor: `.plain` with `Text("Go")` is `2x1`,
-`.compact` is `4x1`, and `.bordered` is `6x3`. An empty label remains valid: `.plain`
-measures `0x1`, `.compact` measures `2x1` (`[]`), and `.bordered` retains its `6x3` framed
-floor.
-
-The default `.compact`/`.automatic` floor is the declared component minimum:
-
-```wireframe 4x1
-[Go]
+```wireframe 40x1
+▐Touch target fills available width    ▌
 ```
 
 ```text
-Callouts (4x1, 0-based):
-1. r0 c0-c3 Button hit target -- default `.compact` floor for a `Text("Go")` label: two
-   bracket delimiters around the two label cells.
+Callouts (40x1, 0-based):
+1. r0 c0       Leading end -- half block `▐` in `accent`.
+2. r0 c1-c34   Label slot -- `contrast*` bold on the `accent` fill, at the leading end.
+3. r0 c35-c38  Slack -- `accent` fill to the trailing end.
+4. r0 c39      Trailing end -- half block `▌` in `accent`.
+5. r0 c0-c39   Button hit target -- the whole forced allocation.
 ```
 
-The independently useful `.bordered` floor is `6x3`:
+```text
+── chars ──
+▐Touch target fills available width    ▌
+── style ──
+ABBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBCCCCA
+── legend ──
+.  default
+A  fg=accent
+B  fg=contrast* bg=accent bold
+C  bg=accent
+```
+
+### Intent
+
+- Roles: `nil` (the default intent), `.cancel`, and `.destructive`.
+- Default action: `.keyboardShortcut(.defaultAction)` (SwiftUI spelling) binds Return. A
+  cancel button pairs with `.keyboardShortcut(.cancelAction)` (Esc). Each fires when the
+  focused responder in the same focus section does not consume the key, and KeyLegend
+  lists it (owner decision, 2026-10-10).
+- Intent colour C: normal and default action use `accent`; cancel uses `secondary`;
+  destructive uses the `error` tone, which `.destructive` maps to (owner decision,
+  2026-10-10; see Destructive under States).
+
+### Emphasis
+
+- `.filled`: solid fill in C; label `contrast` bold.
+- `.tinted`: faint fill derived from C; label in C.
+- `.plain`: label only. Normal and default-action plain labels use `primary`; cancel and
+  destructive keep their intent colour (owner decision, 2026-10-10). Plain keeps the
+  shape's footprint with blank ends, so switching emphasis never changes layout. Brackets,
+  box, and custom glyphs still draw.
+- Default: a button with `.keyboardShortcut(.defaultAction)` resolves to `.filled`; every
+  other button resolves to `.tinted`. An explicit `.buttonStyle(_:)` on the button or an
+  ancestor wins. There is no public `.automatic`.
+- Closed set: `.filled`, `.tinted`, and `.plain` are the only emphasis styles in 1.0. An
+  app-supplied `ButtonStyle` protocol is deferred with Toggle's `ToggleStyle` to the
+  [Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase)
+  style contract (owner decision, 2026-10-10).
+
+Colour roles: the roles `primary`, `secondary`, `accent`, `focus`, `disabled`, and
+`destructive` exist in [tokens.md](../tokens.md#semantic-styles). Roles marked `*` are
+absent from tokens.md and are token pending plan 032 step 5.3: `contrast*`,
+`faint(accent)*`, `faint(secondary)*`, `faint(destructive)*`, `faint-focus*`,
+`disabled-fill*`, and `disabled-label*`. No other token names are used.
+
+Intent colour runs across each row of the intents fixture below; emphasis runs down it.
+
+#### Intents and emphasis
+
+```wireframe 24x3
+▐Save▌ ▐Cancel▌ ▐Delete▌
+▐Save▌ ▐Cancel▌ ▐Delete▌
+ Save   Cancel   Delete
+```
+
+```text
+Callouts (24x3, 0-based):
+1. r0 c0-c5    Filled, normal -- `accent` caps and fill; `contrast*` bold label.
+2. r0 c7-c14   Filled, cancel -- `secondary` caps and fill; `contrast*` bold label.
+3. r0 c16-c23  Filled, destructive -- `destructive` caps and fill; `contrast*` bold label.
+4. r1          Tinted, each intent -- faint fill of the intent colour; label in the intent colour.
+5. r2          Plain, each intent -- label only, blank ends; normal `primary`, cancel `secondary`, destructive `destructive`.
+```
+
+```text
+── chars ──
+▐Save▌ ▐Cancel▌ ▐Delete▌
+▐Save▌ ▐Cancel▌ ▐Delete▌
+ Save   Cancel   Delete
+── style ──
+ABBBBA.CDDDDDDC.EFFFFFFE
+GHHHHG.IJJJJJJI.KLLLLLLK
+.MMMM...CCCCCC...EEEEEE.
+── legend ──
+.  default
+A  fg=accent
+B  fg=contrast* bold bg=accent
+C  fg=secondary
+D  fg=contrast* bold bg=secondary
+E  fg=destructive
+F  fg=contrast* bold bg=destructive
+G  fg=faint(accent)*
+H  fg=accent bg=faint(accent)*
+I  fg=faint(secondary)*
+J  fg=secondary bg=faint(secondary)*
+K  fg=faint(destructive)*
+L  fg=destructive bg=faint(destructive)*
+M  fg=primary
+```
+
+### Shape
+
+`.buttonBorderShape(_:)` chooses the ends. Shape and emphasis are independent; the filled
+shapes fixture below shows filled emphasis on each shape.
+
+| Shape                                      | Nerd Font                                                                                                                                        | Unicode                                                                               | ASCII                                         | NO_COLOR                                                       |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- | --------------------------------------------- | -------------------------------------------------------------- |
+| `.squared` (default)                       | `▐`/`▌` half blocks in the fill colour: fill reaches half a cell past the label                                                                  | same                                                                                  | falls back to `.rectangle`                    | half blocks in default foreground around a reverse-video label |
+| `.capsule`                                 | Powerline round caps U+E0B6/U+E0B4 in the fill colour                                                                                            | falls back to `.squared`                                                              | falls back to `.rectangle`                    | caps in default foreground around a reverse-video label        |
+| `.rectangle`                               | one full fill cell each side                                                                                                                     | same                                                                                  | same                                          | reverse-video padded label                                     |
+| `.brackets`                                | `[label]`: only the label takes the fill; the brackets are unfilled, in the intent colour (plain: the label colour) (owner decision, 2026-10-10) | same                                                                                  | same                                          | `[` reverse-video label `]`                                    |
+| `.box`                                     | three rows: light border in C around the label; interior per emphasis (filled: solid fill; tinted: faint fill; plain: none)                      | same                                                                                  | `+`, `-`, `\|`                                | border and reverse-video label                                 |
+| `.custom(leading:trailing:unicode:ascii:)` | the app's `leading`/`trailing` glyphs in the fill colour, like caps                                                                              | the optional `unicode:` pair when the main glyphs need a Nerd Font, else `.rectangle` | the optional `ascii:` pair, else `.rectangle` | as the charset, around a reverse-video label                   |
+
+`.squared` and `.capsule` share a footprint (label + 2 cells), as do `.rectangle`,
+`.brackets`, and `.custom`. `.box` is label + 4 cells wide and 3 rows tall: its border
+ring plus one interior cell on each side of the label.
+
+Custom fallback pairs are optional and per charset (owner decision, 2026-10-10):
+
+```swift
+Button("Save") { save() }
+    .buttonBorderShape(.custom(
+        leading: "\u{E0B2}",
+        trailing: "\u{E0B0}",
+        unicode: ("<", ">"),
+        ascii: ("<", ">")
+    ))
+```
+
+A fallback pair is text, not a fill edge, so it draws unfilled in the intent colour, like
+brackets. A charset with no pair draws `.rectangle` ends.
+
+#### Filled shapes
+
+```wireframe 30x1
+▐Save▌  Save   Save   [Save]
+```
+
+```text
+Callouts (30x1, 0-based):
+1. r0 c0-c5    Squared -- half blocks `▐` and `▌` in `accent`; the fill reaches half a cell past the label.
+2. r0 c8-c13   Capsule (Nerd Font) -- Powerline round caps U+E0B6 and U+E0B4 in `accent`; without a Nerd Font this falls back to squared.
+3. r0 c16-c21  Rectangle -- one full `accent` fill cell on each side of the label.
+4. r0 c24-c29  Brackets -- `[` and `]` unfilled in `accent`; only the label takes the fill.
+```
+
+```text
+── chars ──
+▐Save▌  Save   Save   [Save]
+── style ──
+ABBBBA..ABBBBA..DBBBBD..ABBBBA
+── legend ──
+.  default
+A  fg=accent
+B  fg=contrast* bold bg=accent
+D  bg=accent
+```
+
+#### Box
+
+The box is three rows. Its border is light in C at rest and heavy in `focus` when focused
+([focus border rule 1](../primitives/border.md#focus-border)). The heavy focus border wins
+over the `rounded` that tokens.md `focus.border` names; that row is rewritten in plan 032
+step 5.3 (owner decision, 2026-10-10). Its interior follows the emphasis: filled takes a
+solid fill, tinted takes a faint fill, and plain has none. Below three rows the box falls
+back to `.squared`, keeping one-row geometry and the label (owner decision, 2026-10-10).
+
+```wireframe 17x3
+┌──────┐ ┏━━━━━━┓
+│ Save │ ┃ Save ┃
+└──────┘ ┗━━━━━━┛
+```
+
+```text
+Callouts (17x3, 0-based):
+1. r0-r2 c0-c7   Box, tinted, rest -- light border in `accent`; interior `faint(accent)*` fill at c1 and c6; label `accent` at c2-c5.
+2. r0-r2 c9-c16  Box, tinted, focused -- heavy border in `focus`; interior `faint-focus*` fill; label `focus` bold.
+```
+
+```text
+── chars ──
+┌──────┐ ┏━━━━━━┓
+│ Save │ ┃ Save ┃
+└──────┘ ┗━━━━━━┛
+── style ──
+AAAAAAAA.GGGGGGGG
+ADCCCCDA.GHIIIIHG
+AAAAAAAA.GGGGGGGG
+── legend ──
+.  default
+A  fg=accent
+C  fg=accent bg=faint(accent)*
+D  bg=faint(accent)*
+G  fg=focus
+H  bg=faint-focus*
+I  fg=focus bold bg=faint-focus*
+```
+
+#### Brackets
+
+Brackets fill only the label. Under focus, the brackets switch to `focus` with the rest of
+the intent colour.
+
+```wireframe 13x2
+[Save] [Save]
+[Save] [Save]
+```
+
+```text
+Callouts (13x2, 0-based):
+1. r0 c0-c5   Brackets, filled, rest -- `[` and `]` in `accent`; label `contrast*` bold on the `accent` fill.
+2. r0 c7-c12  Brackets, filled, focused -- brackets in `focus`; label `contrast*` bold on the `focus` fill.
+3. r1 c0-c5   Brackets, tinted, rest -- brackets in `accent`; label `accent` on the faint fill.
+4. r1 c7-c12  Brackets, tinted, focused -- brackets in `focus`; label `focus` bold on the faint focus fill.
+```
+
+```text
+── chars ──
+[Save] [Save]
+[Save] [Save]
+── style ──
+ABBBBA.GHHHHG
+ACCCCA.GIIIIG
+── legend ──
+.  default
+A  fg=accent
+B  fg=contrast* bold bg=accent
+C  fg=accent bg=faint(accent)*
+G  fg=focus
+H  fg=contrast* bold bg=focus
+I  fg=focus bold bg=faint-focus*
+```
+
+#### Custom
+
+```wireframe 6x2
+Save
+<Save>
+```
+
+```text
+Callouts (6x2, 0-based):
+1. r0 c0-c5  Custom, Nerd Font -- `leading` U+E0B2 and `trailing` U+E0B0 in `accent`, drawn like caps; the label takes the fill.
+2. r1 c0-c5  Custom, `unicode:` and `ascii:` pair `("<", ">")` -- unfilled `accent` pair, like brackets; the label takes the fill. A charset with no pair draws `.rectangle` ends.
+```
+
+```text
+── chars ──
+Save
+<Save>
+── style ──
+ABBBBA
+ABBBBA
+── legend ──
+.  default
+A  fg=accent
+B  fg=contrast* bold bg=accent
+```
+
+#### ASCII
+
+ASCII drops every cap. Squared and capsule fall back to `.rectangle`. Box uses `+`, `-`,
+and `|`. Focus adds bold (focus rule 6); a focused plain label is bold without underline.
+
+```wireframe 30x1
+ Save    Save    Save    Save
+```
+
+```text
+Callouts (30x1, 0-based):
+1. r0 c0-c5    Filled, rest -- squared falls back to `.rectangle`: one full `accent` fill cell each side; `contrast*` bold label.
+2. r0 c8-c13   Tinted, rest -- rectangle on a faint `accent` fill; `accent` label.
+3. r0 c16-c21  Filled, focused -- `focus` fill; `contrast*` bold label. Bold is the ASCII focus signal (focus rule 6).
+4. r0 c24-c29  Plain, focused -- no fill; label in `focus`, bold, no underline.
+```
+
+```text
+── chars ──
+ Save    Save    Save    Save
+── style ──
+DBBBBD..EFFFFE..GHHHHG...IIII.
+── legend ──
+.  default
+B  fg=contrast* bold bg=accent
+D  bg=accent
+E  bg=faint(accent)*
+F  fg=accent bg=faint(accent)*
+G  bg=focus
+H  fg=contrast* bold bg=focus
+I  fg=focus bold
+```
 
 ```wireframe 6x3
-┌────┐
-│ Go │
-└────┘
++----+
+| Go |
++----+
 ```
 
 ```text
 Callouts (6x3, 0-based):
-1. r0-r2 c0-c5 Button hit target -- `.bordered` floor: the border ring plus one-cell
-   horizontal space around a `Text("Go")` label.
-```
-
-### Mobile fixture
-
-This `mobile` viewport uses a parent-forced full-width `.compact` allocation. Its 40-cell
-horizontal frame, not just the visible label glyphs, is the touch-wide primary hit target.
-
-```wireframe 40x16
-[Touch target fills available width    ]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-```
-
-### ASCII fixture
-
-`.plain` and `.compact` already use ASCII-safe glyphs. `.bordered` degrades as follows:
-
-```wireframe 12x3
-+----------+
-|   Save   |
-+----------+
+1. r0-r2 c0-c5  Button hit target -- ASCII box floor for `Text("Go")`: `+`, `-`, and `|` border around the label, one interior cell each side.
 ```
 
 ## States
 
-> Deferred: References to `.bordered` minimums in this section land in a later slice.
+State changes sit on top of emphasis and shape, with the same rule for every emphasis. The
+states fixture below shows each state on the three emphases. The pressed and hovered rows
+are shown on the idle base. A focused button also takes the pressed trade, on its focused
+look (owner decision, 2026-10-10).
 
-- **Idle, enabled, unfocused:** `.compact` shows `semantic.secondary` delimiters around a
-  `semantic.primary` label; `.plain` has only that label; `.bordered` shows its light
-  border and centered label.
-- **Focused:** an explicit `.focusable(id).focused(binding, equals: id)` composition
-  injects `EnvironmentValues.isFocused` below the modifier. `.compact` and `.plain` use
-  their resolved full focus Style; `.bordered` also uses `focus.border`.
-- **Pressed:** for phased activation input, `isPressed` exists only from down until the
-  matching release, cancellation, focus loss, disabled update, or node removal. Every
-  built-in style uses its resolved full pressed Style without changing its geometry. A
-  legacy press-only `Enter` or `Space` event invokes and clears it during that same press
-  dispatch, so it cannot remain pressed.
-- **Disabled:** no action, press feedback, focus participation, or event consumption
-  occurs; each style renders all of its visible cells in `semantic.disabled`.
-- **Destructive:** the role selects `semantic.destructive` styling, not different event
-  semantics.
+### States fixture
+
+```wireframe 20x5
+▐Save▌ ▐Save▌  Save
+▐Save▌ ▐Save▌  Save
+▐Save▌ ▐Save▌  Save
+▐Save▌ ▐Save▌  Save
+▐Save▌ ▐Save▌  Save
+```
+
+```text
+Callouts (20x5, 0-based):
+1. r0  Idle, enabled -- filled c0-c5 (`accent` caps and fill, `contrast*` bold label); tinted c7-c12 (`faint(accent)*` caps and fill, `accent` label); plain c14-c19 (`primary` label, blank ends).
+2. r1  Focused -- filled takes `focus` caps and fill with a `contrast*` bold label; tinted takes a `faint-focus*` fill with a bold `focus` label; plain underlines its label in `focus`.
+3. r2  Pressed -- filled takes the tinted look and tinted takes the filled look; plain turns its label bold.
+4. r3  Hovered -- every label is underlined; fills and caps do not change.
+5. r4  Disabled -- caps and fill in `disabled-fill*`; labels in `disabled-label*`; unfilled glyphs in `semantic.disabled`.
+```
+
+```text
+── chars ──
+▐Save▌ ▐Save▌  Save
+▐Save▌ ▐Save▌  Save
+▐Save▌ ▐Save▌  Save
+▐Save▌ ▐Save▌  Save
+▐Save▌ ▐Save▌  Save
+── style ──
+ABBBBA.CDDDDC..EEEE.
+FGGGGF.HIIIIH..JJJJ.
+CDDDDC.ABBBBA..KKKK.
+ALLLLA.CMMMMC..NNNN.
+OPPPPO.OPPPPO..QQQQ.
+── legend ──
+.  default
+A  fg=accent
+B  fg=contrast* bold bg=accent
+C  fg=faint(accent)*
+D  fg=accent bg=faint(accent)*
+E  fg=primary
+F  fg=focus
+G  fg=contrast* bold bg=focus
+H  fg=faint-focus*
+I  fg=focus bold bg=faint-focus*
+J  fg=focus underline
+K  fg=primary bold
+L  fg=contrast* bold underline bg=accent
+M  fg=accent underline bg=faint(accent)*
+N  fg=primary underline
+O  fg=disabled-fill*
+P  fg=disabled-label* bg=disabled-fill*
+Q  fg=disabled-label*
+```
+
+- **Focused:** explicit `.focusable(id).focused(binding, equals: id)` injects
+  `EnvironmentValues.isFocused` below the modifier. Every cell that carries the intent
+  colour switches to `focus`. Filled takes a solid `focus` fill and a `contrast*` bold
+  label. Tinted takes a faint focus fill (`faint-focus*`) and a bold `focus` label (owner
+  decision, 2026-10-10). Plain underlines its label in `focus` (owner decision,
+  2026-10-10). Brackets and box borders switch to `focus` too; a focused box draws a heavy
+  border. NO_COLOR focus is an underline; ASCII focus adds bold (focus rule 6).
+- **Pressed:** for phased activation input, `isPressed` is set from down until the
+  matching release, cancellation, focus loss, disablement, or node removal. Filled and
+  tinted trade looks while pressed: a pressed filled button takes the tinted look, and a
+  pressed tinted button takes the filled look. Plain turns its label bold (owner decision,
+  2026-10-10). A focused and pressed button applies the trade to its focused look:
+  filled-focused shows the faint focus fill, and tinted-focused shows the solid focus fill
+  (owner decision, 2026-10-10). A legacy press-only `Enter` or `Space` invokes and clears
+  it during that same dispatch, so it cannot remain pressed.
+- **Hovered:** the label is underlined; fills, caps, and borders do not change (owner
+  decision, 2026-10-10). Hover needs pointer-move input. Button requests it through its
+  built-in hover style; a view with no hover consumer in its subtree does not request it.
+- **Disabled:** every visible cell takes a disabled role. Fill cells and caps use
+  `disabled-fill*`; labels use `disabled-label*`; unfilled glyphs (brackets, box border)
+  use `semantic.disabled`. The fill is darker and the label lighter than the first lab
+  draft, for readable contrast (owner decision, 2026-10-10). A disabled button is absent
+  from the focusable list and never presses; see the Key and Mouse tables.
+- **Destructive:** the `.destructive` role draws the `error` tone in every emphasis. It is
+  one colour with `semantic.destructive`, the environment role name. It changes styling
+  only, not event semantics, and carries no underline: the `semantic.destructive` row in
+  tokens.md adds one, and that row is rewritten in plan 032 step 5.3 (owner decision,
+  2026-10-10). Focus and pressed apply to it the same way they apply to any intent colour.
 - **Overflow:** default textual labels tail-truncate in the slot assigned by their chosen
-  style. Custom labels may choose a different layout that still fits their assigned
-  rectangle.
-- **Empty label:** an arbitrary empty label is valid. `.plain` is `0x1`, `.compact` is
-  `2x1`, and `.bordered` is `6x3`; every enabled variant has the same activation
-  semantics.
-- **Pointer and touch:** a primary contact is valid only if press and release hit this
-  same `Button hit target` node. A touch contact receives the final allocated width,
-  including a parent-forced horizontal width as in the mobile fixture.
+  shape. Custom labels may choose a layout that still fits their assigned rectangle.
+- **Empty label:** valid. Squared, capsule, rectangle, brackets, and custom measure 2x1
+  (ends or brackets only). Plain squared measures 2x1 with blank ends. Box measures 4x3.
+- **Pointer and touch:** a primary contact is valid only if press and release hit the same
+  `Button hit target` node. A touch contact receives the final allocated width, including
+  a parent-forced width as in the 40x1 Sizing row.
+
+### NO_COLOR
+
+Filled and tinted both use reverse video, so emphasis levels look alike without colour
+(owner decision, 2026-10-10). Plain is plain text. Focus is an underline. Disabled is dim.
+Ends and brackets stay in the default foreground. Intents look alike under NO_COLOR; that
+is the accepted cost of the mode.
+
+```wireframe 13x3
+▐Save▌ ▐Save▌
+▐Save▌ ▐Save▌
+ Save   Save
+```
+
+```text
+Callouts (13x3, 0-based):
+1. r0-r1 c0-c5   Filled and tinted, rest -- default-foreground half blocks around a reverse-video label.
+2. r0-r1 c7-c12  Filled and tinted, focused -- the same, with an underline added to the label.
+3. r2 c0-c5      Plain, rest -- unadorned label, no reverse video.
+4. r2 c7-c12     Plain, focused -- underlined label.
+```
+
+```text
+── chars ──
+▐Save▌ ▐Save▌
+▐Save▌ ▐Save▌
+ Save   Save
+── style ──
+.BBBB...CCCC.
+.BBBB...CCCC.
+........DDDD.
+── legend ──
+.  default
+B  reverse
+C  reverse underline
+D  underline
+```
 
 ## State model
 
-| State                     | Owner       | Type                                                                                                                             | Reset or clamp rule                                                                                                                                                                                                                                                                                                                                                                           |
-| ------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| is enabled                | Environment | `Bool`                                                                                                                           | Read on every reconciliation. A transition to `false` clears `isPressed`, removes the node from focusability, and prevents activation immediately.                                                                                                                                                                                                                                            |
-| current button style      | Environment | `any ButtonStyle`                                                                                                                | Read on every reconciliation; changing it recomposes from the same label, role, enabled, focus, and press inputs without retaining a previous style.                                                                                                                                                                                                                                          |
-| semantic Styles           | Environment | `semantic.primary`, `semantic.secondary`, `semantic.accent`, `semantic.disabled`, and `semantic.destructive` full `Style` values | Read on every render; nearest environment value wins under Slice 3 style inheritance. These canonical semantic roles are planned environment values, with concrete key grouping left open.                                                                                                                                                                                                    |
-| is focused                | Environment | `Bool`                                                                                                                           | Injected below the explicit `.focusable` modifier from the FocusManager's live identity; Button reads it during rendering and checks `ResponderContext.isFocused` for events.                                                                                                                                                                                                                 |
-| is pressed                | NodeState   | `Bool`                                                                                                                           | Set for primary down or the down phase of enabled phased keyboard activation. Clear on its matching release, cancellation, focus loss, disablement, node removal, and every update where the node is not focused. A legacy press-only `Enter` or `Space` event invokes the action once and clears `isPressed` before its dispatch returns; it never represents app work or action completion. |
-| label size and truncation | derived     | `TerminalSize` and rendered grapheme range                                                                                       | Recomputed from the proposed label slot on every layout; clamp to the allocated rectangle and use tail truncation for the selected built-in textual style.                                                                                                                                                                                                                                    |
+| State                     | Owner       | Type                                                                                                                                               | Reset or clamp rule                                                                                                                                                                                                                                                                                                                                                                           |
+| ------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| is enabled                | Environment | `Bool`                                                                                                                                             | Read on every reconciliation. A transition to `false` clears `isPressed` and `isHovered`, removes the node from focusability, and prevents activation immediately.                                                                                                                                                                                                                            |
+| current button style      | Environment | `ButtonStyle` (built-in `.filled`, `.tinted`, `.plain`)                                                                                            | Read on every reconciliation; changing it recomposes from the same label, role, enabled, focus, and press inputs without retaining a previous style.                                                                                                                                                                                                                                          |
+| current button shape      | Environment | `ButtonBorderShape` (`.squared`, `.capsule`, `.rectangle`, `.brackets`, `.box`, `.custom(...)`)                                                    | Read on every reconciliation; changing it recomposes from the same label and style inputs.                                                                                                                                                                                                                                                                                                    |
+| semantic roles            | Environment | `semantic.primary`, `semantic.secondary`, `semantic.accent`, `semantic.focus`, `semantic.disabled`, and `semantic.destructive` full `Style` values | Read on every render; nearest environment value wins under Slice 3 style inheritance. These canonical semantic roles are planned environment values, with concrete key grouping left open.                                                                                                                                                                                                    |
+| is focused                | Environment | `Bool`                                                                                                                                             | Injected below the explicit `.focusable` modifier from the FocusManager's live identity; Button reads it during rendering and checks `ResponderContext.isFocused` for events. A focused button switches every cell that carries the intent colour to `focus` as described under States.                                                                                                       |
+| is pressed                | NodeState   | `Bool`                                                                                                                                             | Set for primary down or the down phase of enabled phased keyboard activation. Clear on its matching release, cancellation, focus loss, disablement, node removal, and every update where the node is not focused. A legacy press-only `Enter` or `Space` event invokes the action once and clears `isPressed` before its dispatch returns; it never represents app work or action completion. |
+| is hovered                | NodeState   | `Bool`                                                                                                                                             | Set when a pointer move enters the hit target while enabled. Clear on move out, disablement, and node removal. Requires pointer-move input, requested through the built-in hover style (owner decision, 2026-10-10).                                                                                                                                                                          |
+| label size and truncation | derived     | `TerminalSize` and rendered grapheme range                                                                                                         | Recomputed from the proposed label slot on every layout; clamp to the allocated rectangle and use tail truncation for default text.                                                                                                                                                                                                                                                           |
 
 The role, label closure, and action closure are immutable widget configuration, not
-retained business state. `isPressed` is supplied to styles solely as visual interaction
-feedback; custom styles cannot turn it into an alternate activation mechanism.
+retained business state. `isPressed` and `isHovered` are supplied to styles solely as
+visual interaction feedback; custom styles cannot turn them into an alternate activation
+mechanism.
 
 ## Key table
 
-| Key                  | Precondition                    | Effect                                                                                                                                                                                                                                                                                       | Consumed |
-| -------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| Enter                | focused and is enabled          | For a phased key stream, down sets `isPressed`; its matching release invokes the app action once only if focus and enabled state still hold, then clears `isPressed`. For a legacy press-only event, invoke the app action once on that press and clear `isPressed` before dispatch returns. | yes      |
-| Space                | focused and is enabled          | For a phased key stream, down sets `isPressed`; its matching release invokes the app action once only if focus and enabled state still hold, then clears `isPressed`. For a legacy press-only event, invoke the app action once on that press and clear `isPressed` before dispatch returns. | yes      |
-| Enter                | focused and is enabled is false | Does not mutate `isPressed` or invoke the action; bubbles to ancestors.                                                                                                                                                                                                                      | no       |
-| Space                | focused and is enabled is false | Does not mutate `isPressed` or invoke the action; bubbles to ancestors.                                                                                                                                                                                                                      | no       |
-| printable characters | focused                         | Does not mutate Button state; bubbles to ancestors.                                                                                                                                                                                                                                          | no       |
-| Esc                  | is pressed is true              | Cancels the pending visual press by clearing `isPressed`; does not invoke the action.                                                                                                                                                                                                        | no       |
+| Key                       | Precondition                                                                                                                                                    | Effect                                                                                                                                                                                                                                                                                       | Consumed |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| Enter                     | focused and is enabled                                                                                                                                          | For a phased key stream, down sets `isPressed`; its matching release invokes the app action once only if focus and enabled state still hold, then clears `isPressed`. For a legacy press-only event, invoke the app action once on that press and clear `isPressed` before dispatch returns. | yes      |
+| Space                     | focused and is enabled                                                                                                                                          | For a phased key stream, down sets `isPressed`; its matching release invokes the app action once only if focus and enabled state still hold, then clears `isPressed`. For a legacy press-only event, invoke the app action once on that press and clear `isPressed` before dispatch returns. | yes      |
+| Enter                     | focused and is enabled is false                                                                                                                                 | Does not mutate `isPressed` or invoke the action; bubbles to ancestors.                                                                                                                                                                                                                      | no       |
+| Space                     | focused and is enabled is false                                                                                                                                 | Does not mutate `isPressed` or invoke the action; bubbles to ancestors.                                                                                                                                                                                                                      | no       |
+| printable characters      | focused                                                                                                                                                         | Does not mutate Button state; bubbles to ancestors.                                                                                                                                                                                                                                          | no       |
+| Esc                       | is pressed is true                                                                                                                                              | Cancels the pending visual press by clearing `isPressed`; does not invoke the action.                                                                                                                                                                                                        | no       |
+| Return (`.defaultAction`) | the button is enabled and bound with `.keyboardShortcut(.defaultAction)`; the focused responder in its focus section does not consume Return                    | Invokes the action once for the Return press.                                                                                                                                                                                                                                                | yes      |
+| Esc (`.cancelAction`)     | the button is enabled, bound with `.keyboardShortcut(.cancelAction)`, and `isPressed` is false; the focused responder in its focus section does not consume Esc | Invokes the action once for the Esc press.                                                                                                                                                                                                                                                   | yes      |
 
 Press/release pairing uses the normalized key-event phase supplied below the public key
 name when that phase is available. A legacy keyboard event has only its press phase, so it
@@ -349,61 +618,52 @@ ephemeral press state and cannot invoke the action.
 | click        | Button hit target | is enabled is false | Does not focus, press, or invoke; bubbles to an ancestor.                                                                                                                                                          | no       |
 | double-click | Button hit target | is enabled          | Has no distinct Button gesture; each constituent valid primary same-node click follows the `click` row and therefore invokes once.                                                                                 | yes      |
 | drag         | Button hit target | is pressed is true  | Clears visual `isPressed` when release is outside this node; never invokes the action for that release.                                                                                                            | no       |
+| move         | Button hit target | is enabled          | Sets `isHovered` on entry and clears it on exit. Requires pointer-move input, requested through the built-in hover style (owner decision, 2026-10-10).                                                             | no       |
 
-The raw primary stream is internal so the built-in and custom `ButtonStyle` paths share
-the same press feedback. The public pointer contract is nevertheless exactly Slice 5's
-same-node tap semantics, not a drag threshold or label-glyph hit test.
+The raw primary stream is internal so the built-in and custom style paths share the same
+press feedback. The public pointer contract is Slice 5's same-node tap semantics, not a
+drag threshold or label-glyph hit test.
 
 ## Sizing
 
-Results name the selected built-in style and fixture label. A parent `frame` may allocate
-a larger rectangle after measurement; the Button node always keeps that final rectangle as
-its hit target. `.compact` and `.bordered` span a forced horizontal allocation with their
-delimiters or border; `.plain` leaves its label unadorned inside the allocation.
+Results name the shape and label. A parent `frame` may allocate a larger rectangle after
+measurement; the Button node always keeps that final rectangle as its hit target. Filled
+and tinted fills span a forced horizontal allocation with their ends at its edges, and the
+label stays at the leading end. Plain keeps blank ends at the allocation edges.
 
-| Style and proposal                           | Result | Rule                                                                                                                                                     |
-| -------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `.compact`, nil x nil with `Text("Save")`    | 6x1    | Natural default: four label cells plus two square-bracket delimiters.                                                                                    |
-| `.plain`, nil x nil with `Text("Save")`      | 4x1    | Natural label size; plain adds neither chrome nor padding.                                                                                               |
-| `.compact`, padded `Text("Save")`, nil x nil | 8x1    | Horizontal padding composed inside the label builder contributes two label-slot cells before compact decoration.                                         |
-| `.bordered`, nil x nil with `Text("Save")`   | 12x3   | Explicit large presentation: default horizontal space plus a one-cell border ring.                                                                       |
-| `.compact`, 5x1                              | 5x1    | Constrain the label slot and tail-truncate default text without changing the one-row geometry.                                                           |
-| `.bordered`, 5x2                             | 5x2    | Below the `6x3` bordered floor, omit the border ring rather than draw partial corners; tail-truncate default text and preserve the allocated hit target. |
-| `.compact`, 80x24                            | 6x1    | Extra available space does not make a label-hugging button grow opportunistically.                                                                       |
-| `.compact`, 40x1 forced frame allocation     | 40x1   | The compact delimiters and primary hit target span the full allocation, as shown by the mobile fixture.                                                  |
-| `.compact`, nil x nil with `Text("Go")`      | 4x1    | The compact fixture is the default system-style floor for this label.                                                                                    |
-| `.bordered`, nil x nil with `Text("Go")`     | 6x3    | The bordered fixture retains its independently useful framed floor.                                                                                      |
+| Proposal  | Result | Rule                                                                                                                                               |
+| --------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| nil x nil | 6x1    | `.squared`, `Text("Save")`: label plus one end cell on each side.                                                                                  |
+| nil x nil | 6x1    | `.plain`, `.squared`, `Text("Save")`: plain keeps the shape footprint with blank ends, so switching emphasis never changes layout.                 |
+| nil x nil | 6x1    | `.brackets`, `Text("Save")`: label plus two bracket cells.                                                                                         |
+| nil x nil | 8x3    | `.box`, `Text("Save")`: label plus one interior cell each side plus the one-cell border ring, three rows.                                          |
+| nil x nil | 8x1    | `.squared`, horizontal padding composed inside the label builder on `Text("Save")`: the padding adds two label-slot cells before the squared ends. |
+| nil x nil | 4x1    | `.squared`, `Text("Go")`: the floor for a two-cell label.                                                                                          |
+| nil x nil | 6x3    | `.box`, `Text("Go")`: the floor for a two-cell label.                                                                                              |
+| nil x nil | 8x2    | `.box`, `Text("Save")` below three rows: falls back to `.squared`; one-row geometry and label kept, so the label-hugging rule gives 6x1.           |
+| 6x1       | 6x1    | `.squared`, `Text("Save")`: tight fit at natural size.                                                                                             |
+| 5x1       | 5x1    | `.squared`, `Text("Save")`: label slot constrained to three cells; tail truncation gives `Sa…` and the one-row geometry is kept.                   |
+| 3x1       | 3x1    | `.squared`, `Text("Save")`: under the natural width; label slot constrained to one cell, so only the truncation mark remains.                      |
+| 80x24     | 6x1    | `.squared`, `Text("Save")`: extra available space does not make a label-hugging button grow.                                                       |
+| 40x1      | 40x1   | `.squared` filled, forced allocation with `Text("Touch target fills available width")`: the ends and fill span the full allocation.                |
+| 13x1      | 13x1   | `.squared`, `Text("Long label continues")`: label slot is eleven cells; tail truncation with `…`.                                                  |
 
 ## Environment
 
-`Button` consumes the planned `isEnabled`, `buttonStyle`, and semantic-Style environment
-values. The latter names are exactly `semantic.primary`, `semantic.secondary`,
-`semantic.accent`, `semantic.disabled`, and `semantic.destructive`; each is a complete
-`Style`, not a foreground-color alias, so it can carry foreground, background, and
-emphasis coherently. The visual glyph vocabulary comes from [tokens](../tokens.md):
-`focus.border`, `rounded`, `ascii`, and `truncation.mark`.
+`Button` consumes the planned `isEnabled`, `buttonStyle`, `buttonBorderShape`, and
+semantic-role environment values. The role values are exactly `semantic.primary`,
+`semantic.secondary`, `semantic.accent`, `semantic.focus`, `semantic.disabled`, and
+`semantic.destructive`. Each is a complete `Style`, not a foreground-colour alias, so it
+can carry foreground, background, and emphasis coherently. The `contrast*`, faint fill,
+and disabled fill roles are token pending plan 032 step 5.3. The visual glyph vocabulary
+comes from [tokens](../tokens.md): `light`, `heavy`, `ascii`, and `truncation.mark`. Exact
+environment-key and type-erasure signatures remain open.
 
-The built-in style direction is `.automatic`, `.plain`, `.compact`, and `.bordered`.
-`.automatic` resolves to `.compact` in 1.0; applications select `.bordered` explicitly
-when a larger standalone affordance is warranted. Exact environment-key and type-erasure
-signatures remain open.
-
-| Style                     | Idle, enabled, no role                                               | Focused and pressed                                                            | Disabled and destructive                                                                                                                                               | Geometry                                            |
-| ------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| `.plain`                  | `semantic.primary` label                                             | Resolved full focus or pressed Style on the label slot                         | All visible label cells resolve `semantic.disabled` or `semantic.destructive`                                                                                          | Unframed label; no implicit padding                 |
-| `.compact` / `.automatic` | `semantic.secondary` delimiters; `semantic.primary` label            | Resolved full focus or pressed Style on the complete compact frame             | All visible cells resolve `semantic.disabled` or `semantic.destructive`                                                                                                | Square-bracket delimiters around the label slot     |
-| `.bordered`               | `semantic.secondary` light border; `semantic.primary` centered label | `focus.border` rounded focus border; pressed full `semantic.accent` label slot | All visible cells resolve `semantic.disabled` or `semantic.destructive`; focus temporarily replaces destructive presentation and destructive returns when focus leaves | One-cell border ring with internal horizontal space |
-
-There is no Button-specific padding property or padded Button style. To produce
-`[ Save ]`, compose the shared layout `padding` modifier inside the label builder; to add
-space around a Button in a row or stack, compose that modifier outside the Button. This
-keeps content insets in the shared layout vocabulary and lets every `ButtonStyle` receive
-the same supplied label.
-
-A system style and custom `ButtonStyle` protocol are accepted public direction. The custom
-style receives the label, optional role, `isEnabled`, `isFocused`, and `isPressed`, and is
-constrained to this standard activation contract. It may choose geometry and decoration,
-but it does not redefine keyboard, focus, pointer, enabled, or action behavior.
+There is no Button-specific padding property. To produce `[ Save ]`, compose the shared
+layout `padding` modifier inside the label builder; to add space around a Button in a row
+or stack, compose that modifier outside the Button. This keeps content insets in the
+shared layout vocabulary and lets every shape and emphasis receive the same supplied
+label.
 
 ## Primitive dependencies
 
@@ -412,113 +672,156 @@ but it does not redefine keyboard, focus, pointer, enabled, or action behavior.
   behavior; Text itself arrives in Slice 1 and its wrapping/truncation features in
   Slice 3.
 - [`Border` decoration and `Style`](../../docs/Spec.md#slice-3-styling-text-wrapping-and-decoration)
-  — needed for `.bordered`, focus border treatment, and the five full semantic Styles;
-  available with Slice 3.
+  — needed for `.box`, the focus border treatment, and the semantic Styles; available with
+  Slice 3.
 - [Focus manager and responder context](../../docs/Spec.md#slice-4-focus-and-key-routing-the-responder-system)
   — needed for explicit focus and Enter/Space routing; available with Slice 4.
 - [Mouse hit testing](../../docs/Spec.md#slice-5-mouse-and-hit-testing) — needed for
-  primary same-node activation, click-to-focus, and touch-width hit geometry; available
-  with Slice 5.
+  primary same-node activation, click-to-focus, hover, and touch-width hit geometry;
+  available with Slice 5.
 
-`Form` and `Outline` are not Button dependencies and are not part of the 1.0 widget
-surface. Source browsing or source-mapping affordances are explicitly post-1.0 and are not
-implied by a Button label or action.
+`Form` and `Outline` are not Button dependencies. Source browsing or source-mapping
+affordances are explicitly post-1.0 and are not implied by a Button label or action.
 
 ## Progressive slice sequence
 
-1. **After Slice 3:** Button may render an arbitrary label through `.plain`, `.compact`,
-   `.bordered`, and a custom style; resolve role/enabled semantic Styles; measure its
-   default textual label; and show the idle, disabled, destructive, overflow, ASCII, and
-   forced-width fixtures. It does not claim focus or activate yet.
+1. **After Slice 3:** Button may render an arbitrary label through `.filled`, `.tinted`,
+   and `.plain`, with every shape it supports; resolve intent and semantic roles; measure
+   its default textual label; and show the idle, intent, shape, NO_COLOR, and ASCII
+   fixtures and the forced-width Sizing row (40x1). It does not claim focus or activate
+   yet.
 2. **After Slice 4:** an explicitly identified enabled Button joins the focus list. It
    receives `Enter` and `Space` through responder routing. For a phased key stream, down
    supplies pressed feedback and the matching release invokes once; for a legacy
    press-only event, that press invokes once and clears `isPressed` before returning.
-   Unfocused or disabled input keeps bubbling.
+   Unfocused or disabled input keeps bubbling. `.defaultAction` and `.cancelAction` fire
+   on Return and Esc when the focused responder in the same focus section does not consume
+   them (owner decision, 2026-10-10).
 3. **After Slice 5:** Button requests pointer input, gains click-to-focus and valid
    primary same-node activation, and uses its final allocated frame as the touch-wide
-   horizontal hit target. The mobile fixture becomes interactive at this point.
-4. **At the Phase 4 Showcase:** compact header/action-row buttons, a bordered standalone
-   specimen, a plain menu specimen, a custom `ButtonStyle`, and enabled, disabled, and
-   destructive states are demonstrated together. No custom activation semantics, Form,
-   Outline, or source browsing/mapping is required for this showcase.
+   horizontal hit target. Forced-width buttons (Sizing 40x1) become interactive at this
+   point. Hover becomes live through the pointer-move input its built-in hover style
+   requests (owner decision, 2026-10-10).
+4. **At the Phase 4 demo:** filled and tinted header and action rows, a plain menu
+   specimen, a boxed standalone action, a `.custom` shape, and enabled, disabled, cancel,
+   and destructive states are demonstrated together. No custom activation semantics, Form,
+   Outline, or source browsing/mapping is required for this demo.
 
 ## Requirements
 
-- `button renders an arbitrary label at its natural compact-style size` (compact anatomy
-  fixture; sizing: `.compact`, nil x nil)
-- `plain button renders its label without implicit chrome or padding` (plain fixture;
-  environment built-in styles)
-- `compact button decorates a padded label without owning padding configuration` (padded
-  compact composition fixture; environment padding rule)
-- `bordered button renders an arbitrary label at its framed natural size` (bordered
-  anatomy fixture; sizing: `.bordered`, nil x nil)
-- `button styles preserve the standard focus and activation contract` (anatomy style
-  direction; key and mouse tables)
-- `button shows focus only for its explicit matching focus identity` (focused fixture;
-  state model: is focused)
+- `button renders its label with the squared shape by default` (anatomy fixture; Shape
+  table)
+- `button with the default action and no style modifier renders filled` (Emphasis:
+  default)
+- `button without a style modifier or default action renders tinted` (Emphasis: default)
+- `explicit button style on an ancestor overrides the default emphasis` (Emphasis:
+  default)
+- `filled button fills its label with the intent colour and a bold contrast label`
+  (Intents and emphasis, filled row)
+- `tinted button draws a faint intent fill with an intent-coloured label` (Intents and
+  emphasis, tinted row)
+- `plain button keeps its shape footprint with blank ends` (Intents and emphasis, plain
+  row; Sizing)
+- `plain normal and default-action labels use primary while cancel and destructive keep their intent colour`
+  (Intents and emphasis, plain row)
+- `brackets fill only the label and draw unfilled brackets in the intent colour` (Brackets
+  fixture)
+- `capsule ends draw Powerline caps in the fill colour with a Nerd Font` (Filled shapes
+  fixture; Shape table)
+- `capsule falls back to squared half blocks without a Nerd Font` (Shape table, Unicode
+  column)
+- `squared and capsule fall back to rectangle ends in ASCII` (ASCII fixture; Shape table)
+- `box draws a light three-row border around the label in the intent colour` (Box fixture,
+  rest)
+- `focused box draws its border heavy in focus` (Box fixture, focused)
+- `box renders plus, hyphen, and vertical-bar glyphs in ASCII` (ASCII box fixture)
+- `custom shape draws its fallback pair unfilled in the intent colour` (Custom fixture;
+  Shape table)
+- `custom shape without a fallback pair for the charset draws rectangle ends` (Custom
+  fixture; Shape table)
+- `focused filled button takes the focus fill with a bold contrast label` (States fixture,
+  focused row)
+- `focused tinted button takes a faint focus fill with a bold focus label` (States
+  fixture, focused row)
+- `focused plain button underlines its label in focus` (States fixture, focused row)
+- `pressed filled button takes the tinted look and pressed tinted takes the filled look`
+  (States fixture, pressed row)
+- `pressed plain button renders its label bold` (States fixture, pressed row)
+- `hovered button underlines its label` (States fixture, hovered row; state model: is
+  hovered)
+- `disabled button renders every visible cell in disabled roles` (States fixture, disabled
+  row)
+- `NO_COLOR filled and tinted buttons use reverse video` (NO_COLOR fixture)
+- `NO_COLOR focus underlines the label` (NO_COLOR fixture)
+- `ASCII focus adds bold to the label` (ASCII fixture, focused cells)
+- `button applies semantic.destructive styling without changing activation behavior`
+  (Intents and emphasis, destructive column)
+- `squared minimum is four cells wide for a two-cell label` (Sizing: 4x1 row)
+- `box minimum is six by three for a two-cell label` (Sizing: 6x3 row)
+- `default textual button tail-truncates long label without changing its one-row height`
+  (Sizing: 13x1 row; state model: label size and truncation)
+- `filled button uses its full forced width as its touch-wide hit target` (Sizing: 40x1)
 - `button invokes its action exactly once for a phased enabled enter press and matching release`
-  (key table: Enter; state model: is pressed)
+  (Key table: Enter; state model: is pressed)
 - `button invokes its action exactly once for a legacy enabled enter press-only event`
-  (key table: Enter; state model: is pressed)
+  (Key table: Enter; state model: is pressed)
 - `button invokes its action exactly once for a phased enabled space press and matching release`
-  (key table: Space; state model: is pressed)
+  (Key table: Space; state model: is pressed)
 - `button invokes its action exactly once for a legacy enabled space press-only event`
-  (key table: Space; state model: is pressed)
-- `legacy keyboard activation clears isPressed before dispatch returns` (key table: Enter
+  (Key table: Space; state model: is pressed)
+- `legacy keyboard activation clears isPressed before dispatch returns` (Key table: Enter
   and Space; state model: is pressed)
 - `button cancels a pending press when focus or enabled state changes before release`
-  (state model: is pressed; key release note)
-- `disabled button neither joins focus nor invokes or consumes activation input` (disabled
-  fixture; key and mouse tables: disabled click)
+  (state model: is pressed)
+- `disabled button neither joins focus nor invokes or consumes activation input` (States
+  fixture, disabled row; Key and Mouse tables: disabled click)
 - `button activates a primary pointer only when press and release hit the same button node`
-  (anatomy callout 1; mouse table: click)
-- `button uses the full forced horizontal allocation as its touch-wide hit target` (mobile
-  fixture; sizing: `.compact`, 40x1 forced frame allocation)
-- `button applies semantic.destructive styling without changing standard activation behavior`
-  (destructive fixture; environment built-in styles table)
-- `button exposes transient isPressed only to standard and custom style rendering`
-  (focused and pressed fixtures; state model: is pressed)
-- `default textual button tail-truncates long label without changing compact height`
-  (long-label fixture; state model: label size and truncation)
-- `bordered button degrades its border and truncation mark in ascii-only output` (ASCII
-  fixture; degradation: ASCII-only)
-- `bordered button stays unframed below its visual minimum` (sizing: `.bordered`, 5x2)
-- `custom button style receives semantic interaction configuration` (environment: custom
-  style direction; key and mouse tables)
+  (Mouse table: click)
+- `button shows focus only for its explicit matching focus identity` (state model: is
+  focused)
+- `button exposes transient isPressed and isHovered only to style rendering` (state model:
+  is pressed, is hovered)
+- `button requests pointer-move input only through a hover consumer in its subtree` (Mouse
+  table: move)
+- `default action fires on Return when the focused responder does not consume it` (Key
+  table: Return)
+- `cancel action fires on Esc when no press is pending and the focused responder does not consume it`
+  (Key table: Esc)
+- `focused and pressed button applies the pressed trade to its focused look` (States text,
+  Pressed; state model: is pressed)
+- `button style set is closed to filled, tinted, and plain in 1.0` (Emphasis)
+- `box below three rows falls back to squared with one-row geometry` (Box; Degradation)
 
 ## Degradation
 
-| Capability or space            | Button behavior                                                                                                                                                                                                                                                                        |
-| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Full capability                | `.plain` remains unframed; `.compact` keeps ASCII-safe square delimiters; `.bordered` uses light/rounded border sets; all styles use semantic full Styles and `…` tail truncation.                                                                                                     |
-| `NO_COLOR`                     | `.plain` and `.compact` retain semantic distinction through attributes; focus uses bold and pressed uses reverse video. `.bordered` additionally keeps its border glyphs.                                                                                                              |
-| 16-color                       | All styles resolve the six semantic full Styles to the indexed palette; focus retains indexed `semantic.focus` and destructive keeps its distinct indexed Style.                                                                                                                       |
-| ASCII-only                     | `.plain` and `.compact` keep their literal glyphs; `.bordered` uses plus, hyphen, and vertical-bar glyphs; tail truncation changes from `…` to `~`; focus uses bold.                                                                                                                   |
-| Below a selected style's floor | `.plain` and `.compact` retain their one-row geometry while constraining their label slot. `.bordered` omits its border ring below `6x3`, tail-truncates default text, and leaves the allocated rectangle as the primary hit region. Interaction and enabled semantics do not degrade. |
+| Capability or space            | Button behavior                                                                                                                                                                                                                                                                   |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Full capability (Nerd Font)    | Squared ends are half blocks; capsule ends are Powerline caps U+E0B6 and U+E0B4, both in the fill colour; box is light in the intent colour and heavy in `focus`; brackets and custom glyphs draw; filled, tinted, and plain use semantic roles; truncation is `…`.               |
+| Unicode without a Nerd Font    | Capsule falls back to squared half blocks; `.custom` uses its `unicode:` pair when given, else `.rectangle`; box and brackets are unchanged; roles are unchanged.                                                                                                                 |
+| `NO_COLOR`                     | Filled and tinted both use reverse video; plain is plain text; focus adds an underline; pressed plain is bold; hovered adds an underline; disabled is dim; ends and brackets stay in the default foreground. Intents look alike; this is the accepted cost of the mode.           |
+| 16-colour                      | All roles resolve to the indexed palette; focus keeps indexed `semantic.focus`; destructive keeps its distinct indexed Style; faint and disabled fills follow token pending plan 032 step 5.3.                                                                                    |
+| ASCII-only                     | Squared and capsule fall back to `.rectangle`; brackets are unchanged; box uses `+`, `-`, and `\|`; `.custom` uses its `ascii:` pair when given, else `.rectangle`; truncation changes from `…` to `~`; focus adds bold, and a focused plain label is bold without underline.     |
+| Below a selected shape's floor | Squared, capsule, rectangle, brackets, and custom keep their one-row geometry and constrain the label slot. Box below three rows falls back to `.squared`, keeping one-row geometry and the label (owner decision, 2026-10-10). Interaction and enabled semantics do not degrade. |
 
 ## Open questions
 
-- **Action closure shape:** whether the public action is `() -> Void` or receives an
-  `inout ResponderContext` must be decided alongside the first widget action API. The
-  decision is unblocked by a Slice 4 prototype that demonstrates a button action needing
-  `setNeedsDisplay` without giving the widget access to app business state.
-- **`ButtonStyle` representation:** associated-type protocol, existential environment
-  storage, and any type-erasure boundary remain open. The decision is unblocked by
-  `.plain`, `.compact`, `.bordered`, and one external custom `ButtonStyle` compiling in a
-  minimal Showcase example.
-- **Role set beyond destructive:** `destructive` is required; cancel, confirmation, and
-  other roles need evidence from a post-Showcase application before expanding the public
-  enum. The decision is unblocked by two independently motivated uses with distinct
-  semantic styling.
-- **Touch event normalization:** the final platform input adapter may expose touch as a
-  primary click or as a distinct contact event. The Button invariant is already fixed: the
-  whole allocated frame is hit-tested and activation requires press/release on this node.
-  The adapter decision is unblocked by the Phase 5 runtime's first touch-capable backend.
+No decision from the 2026-10-10 review lab remains open; those are recorded inline as
+owner decisions. The items below are what the spec still leaves open.
+
+- **Faint and disabled fill tokens:** `contrast*`, `faint(accent)*`, `faint(secondary)*`,
+  `faint(destructive)*`, `faint-focus*`, `disabled-fill*`, and `disabled-label*` have no
+  token rows (token pending plan 032 step 5.3).
+- **Nerd Font capability:** the capability that selects Powerline caps has no token row
+  (token pending plan 032 step 5.3).
+- **Touch normalization (deferred to Phase 5, owner decision, 2026-10-10):** the final
+  platform input adapter may expose touch as a primary click or as a distinct contact
+  event. The Button invariant is already fixed: the whole allocated frame is hit-tested
+  and activation requires press and release on this node. The adapter decision is
+  unblocked by the Phase 5 runtime's first touch-capable backend.
 
 ## Inspiration
 
-The Phase 4 Showcase should use compact Buttons for dense header and action rows, a plain
-menu specimen, an explicitly bordered standalone action, and one visibly custom
-`ButtonStyle`. These are review targets for interaction consistency, not commitments to a
-Form, Outline, toolbar, source browser, or source-mapping UI.
+The Phase 4 demo should use filled and tinted Buttons for header and action rows, a plain
+menu specimen, a boxed standalone action, and one `.custom` shape. These are review
+targets for interaction consistency, not commitments to a toolbar, source browser, or
+source-mapping UI.

@@ -5,6 +5,10 @@ status: wireframed
 
 # NavigationSplitView
 
+> **Post-1.0.** Owner decision, omp2 review, 2026-10: NavigationSplitView moves out of 1.0
+> to a later phase, possibly after 1.0. Apps compose multi-column layouts from
+> [SplitView](split-view.md) for 1.0.
+
 `NavigationSplitView` is a controlled semantic container for **sidebar**, **content**, and
 optional **inspector** columns. It owns exactly the coordination every multi-pane app
 re-derives by hand -- responsive presentation tiers, rendered-column resolution from an
@@ -21,8 +25,8 @@ Every affordance for showing or hiding a column belongs to the app: a keybinding
 in an app hint bar, a menu item, or an app-composed Button that writes the visibility
 binding. This matches every surveyed TUI ecosystem (see prior art), where pane toggles are
 keybindings advertised in a bottom hint bar or menu -- never buttons baked into container
-chrome. The Showcase names its three supplied columns Catalog, Playground, and Inspector
-and binds its own toggle keys; Catalog is a component catalog, not source navigation.
+chrome. An app names its three supplied columns and binds its own toggle keys. A component
+catalog's sidebar lists components, not source navigation.
 
 Which column has focus is communicated by the column's own content, not by container
 chrome: a child `List` dims its selection from `selection.fill` to `selection.inactive`
@@ -151,8 +155,8 @@ Button
 ────────────────────────────────────────────────────────────────────────────────
 The app set column visibility to the content column only.
 
-Playground receives the full width. The sidebar List and Inspector are not
-composed; restoring them is an app affordance -- the Showcase binds s and i.
+Content receives the full width. The sidebar List and Inspector are not
+composed; restoring them is an app affordance -- the app binds s and i.
 
 
 
@@ -230,7 +234,7 @@ Catalog
   Stepper
   TextField
 
-Select a component to open Playground.
+Select a component to open content.
 
 visible: sidebar
 preferred: sidebar
@@ -247,7 +251,7 @@ Callouts (40x16, 0-based):
 4. r15     Hint bar -- app-supplied; compact keeps every toggle reachable.
 ```
 
-### Mobile Playground
+### Mobile content
 
 ```wireframe 40x16
 Button
@@ -351,8 +355,8 @@ selection into `NodeState` or `_ResponderView.ResponderState`.
 ## Draft key table
 
 The container defines and consumes no keys. Column toggles are app keybindings that write
-the visibility or compact-preference binding (the Showcase binds `s` and `i` and surfaces
-them in its hint bar). A sidebar `List`'s Up/Down selection writes -- and the content
+the visibility or compact-preference binding (an app may bind `s` and `i` and surface them
+in its hint bar). A sidebar `List`'s Up/Down selection writes -- and the content
 recomposition they trigger -- are ordinary child-binding behavior, not container
 delegation. The rows below document delegation, not container behavior.
 
@@ -417,8 +421,8 @@ styles remain complete `Style` values -- `primary`, `secondary`, `accent`, `disa
   [Blended junctions](../primitives/divider.md#blended-junctions) -- specified 2026-08-17,
   awaiting the buffer merge seam; the anatomy's `┼` junctions depend on it.
 - [Text](../primitives/text.md) -- labels and safe clipping. Ready.
-- [List](list.md) -- the Showcase's sidebar child and the inactive-selection dimming
-  story; `specified`, blocks the Showcase composition but not the container contract.
+- [List](list.md) -- the sidebar child and the inactive-selection dimming story;
+  `specified`, blocks a sidebar-list demo but not the container contract.
 - Delegated focus appearance
   ([Slice 4](../../docs/Spec.md#slice-4-focus-and-key-routing-the-responder-system)) --
   implemented; the app-side mechanism for emphasizing a focused column without container
@@ -441,9 +445,9 @@ styles remain complete `Style` values -- `primary`, `secondary`, `accent`, `disa
    composes regular, standard, and compact generic column children through those
    established contracts.
 6. [Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase)
-   supplies the controlled Catalog `List` for the Showcase sidebar.
+   supplies the controlled `List` for a sidebar column.
 
-Before these land, Showcase columns may be static app-supplied content only. They must not
+Before these land, app-supplied columns may be static content only. They must not
 substitute a private navigator, animation shim, source browser, or layout solver.
 
 ## Requirements
@@ -494,13 +498,12 @@ substitute a private navigator, animation shim, source browser, or layout solver
   `content`, and `inspector`: content is the wide primary surface, inspector the optional
   trailing column, named for Apple's inspector presentation. SwiftUI's `detail` is
   rejected -- its master/detail lineage reads as the _main_ surface and contradicts a
-  trailing auxiliary column. The Showcase's Catalog/Playground/Inspector are app names for
-  its three columns.
+  trailing auxiliary column.
 - **No `NavigationSplitViewStyle` protocol in 1.0** (2026-08-17 hunk review): left out
   unless a need is discovered; the container paints nothing a style protocol would vary.
   Divider appearance customization stays on the existing token/environment path.
-- **No framework-suggested toggle keys** (2026-08-17 hunk review): the Showcase serves as
-  the canonical example in API documentation; the framework implements no default keys.
+- **No framework-suggested toggle keys** (2026-08-17 hunk review): a demo serves as the
+  canonical example in API documentation; the framework implements no default keys.
 - **Column emphasis** (2026-08-17 hunk review): child chrome plus app-hosted delegated
   focus appearance is the emphasis model; the container paints no emphasis and no divider
   dimming of its own.
@@ -508,6 +511,9 @@ substitute a private navigator, animation shim, source browser, or layout solver
   catalog defaults (regular 73, standard 48, compact 23, guard floor 23x10).
 
 ## Open questions
+
+Deferred to post-1.0 (owner decision, 2026-10-10): all three questions stay open with no
+action until this container is scheduled. They are not blocking any 1.0 deliverable.
 
 - Does visibility name columns or visible sets for two and three columns -- and which side
   resolves in standard space when the binding names both? The resolution must be a
@@ -523,7 +529,7 @@ substitute a private navigator, animation shim, source browser, or layout solver
 
 - 2026-07-06 -- [inbox](../inbox.md) identifies `SplitView` as the exemplar for divider
   drag, min-size negotiation, and collapse. This design preserves those as `SplitView`
-  geometry and layers controlled semantic navigation columns for the Showcase.
+  geometry and layers controlled semantic navigation columns for a demo.
 - 2026-08-17 -- Adversarial review against hunk's three-column layout and omp's `/model`
   selector, backed by a four-ecosystem survey (Ratatui/gitui, Textual/Harlequin,
   Charm/crush/soft-serve/gh-dash, OpenTUI/hunk): no framework ships container chrome, all
@@ -531,8 +537,7 @@ substitute a private navigator, animation shim, source browser, or layout solver
   border/selection emphasis. The container's titlebar toggles, centered title, and bare
   `X` closes were removed and returned to the app. This supersedes, at the container
   level, the 2026-07-24 QA decision that NavigationSplitView must render the settled
-  Showcase titlebar chrome; that chrome remains valid app-owned Showcase composition until
-  the Showcase's own redesign.
+  titlebar chrome; that chrome remains valid as app-owned composition.
 - 2026-08-17 -- hunk review feedback (11 threads): column vocabulary replaced "role";
   blended divider junctions specced in
   [divider.md](../primitives/divider.md#blended-junctions); tier breakpoints made

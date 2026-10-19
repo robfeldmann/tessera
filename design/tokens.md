@@ -15,16 +15,15 @@ environment-key design doc for
 
 Named sizes for wireframes and, later, snapshot fixtures.
 
-| Viewport  | Size          | Rationale                                                                                                                                                                                                               |
-| --------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `desktop` | 80x24         | The classic baseline; default for CI fixtures.                                                                                                                                                                          |
-| `mobile`  | 40x16         | Deliberately tighter than a real phone terminal (Termius/Blink portrait is typically 45-55 cols). If a component works at 40x16, phones are comfortable. Measure the real device with `stty size` and adjust here once. |
-| `min`     | per-component | Each component declares its own floor and its degradation below it.                                                                                                                                                     |
+| Viewport  | Size          | Rationale                                                                                                                                                                                                                                                                                                              |
+| --------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `desktop` | 80x24         | The classic baseline; default for CI fixtures.                                                                                                                                                                                                                                                                         |
+| `mobile`  | 40 columns    | Deliberately tighter than a real phone terminal (Termius/Blink portrait is typically 45-55 cols). If a component works at 40 columns, phones are comfortable. Components are wireframed at their natural height; screen-filling compositions use 40x16. Measure the real device with `stty size` and adjust here once. |
+| `min`     | per-component | Each component declares its own floor and its degradation below it.                                                                                                                                                                                                                                                    |
 
 Wider fixtures are component-specific. A component may declare a wider natural fixture
 when width changes its anatomy, but the catalog does not assign that size a global
-viewport name until device testing establishes a reusable breakpoint. Tessera Showcase
-uses `120x24` as its documented simultaneous three-region composition fixture.
+viewport name until device testing establishes a reusable breakpoint.
 
 ## Semantic styles
 

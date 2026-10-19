@@ -1,12 +1,13 @@
 ---
 kind: primitive
-status: ready
+status: specified
 ---
 
 # Divider
 
 A one-cell-thick rule separating content along the enclosing stack's cross axis: `─`
-inside a vertical stack, `│` inside a horizontal stack. Divider draws glyphs and
+inside a vertical stack, `│` inside a horizontal stack. A horizontal rule can carry a text
+label docked at its leading edge, centre, or trailing edge. Divider draws glyphs and
 participates in layout; it does nothing else. It has no focus, no state, no events.
 Interactive separators (a draggable split handle) are a widget concern (SplitView) that
 _renders_ a Divider but owns the behavior itself.
@@ -23,6 +24,13 @@ _renders_ a Divider but owns the behavior itself.
   the coupling of separation to a surrounding block.
 - Bubbles -- no divider primitive; apps hand-render `strings.Repeat("─", w)`. That gap is
   the argument for having one: every app reinvents it slightly differently.
+- omp2 `Hr` -- copy the docked label (start, center, or end), its spacing (two rule cells
+  before a leading label and after a trailing one, a space on each side of the label), its
+  rule that the outermost rule cell on each side is never covered, its tail truncation
+  with `…`, and its `border` colour for the rule. Reject its `title`/`label` dual spelling
+  and its join to an adjacent border column (Tessera's blended junctions below cover
+  that):
+  <https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/hr.rs#L129-L252>
 
 ## Anatomy
 
@@ -55,6 +63,61 @@ Callouts (24x4, 0-based):
 1. c10   Rule -- glyph from `divider.light`, repeated down the full proposed height
 ```
 
+Labeled, at the `mobile` width (owner decision, omp2 review, 2026-10). The rule keeps the
+`border` role; the label keeps the ambient text style:
+
+```wireframe 40x4
+── Output ──────────────────────────────
+──────────────── Build ─────────────────
+─────────────────────────────── Tests ──
+─ A label far too long for a narrow r… ─
+```
+
+```text
+Callouts (40x4, 0-based):
+1. r0 c2-c9    Leading label -- `Divider("Output")`; two rule cells, a space, the label,
+               a space, then rule to the trailing edge
+2. r1 c16-c22  Centred label -- `alignment: .center`; the label block (spaces included)
+               starts at `floor((width - block) / 2)`
+3. r2 c31-c37  Trailing label -- `alignment: .trailing`; the block ends two rule cells
+               before the trailing edge
+4. r3 c1-c38   Truncated label -- the label cuts at its tail with `truncation.mark`; the
+               outermost rule cell on each side is never covered
+```
+
+```text
+── chars ──
+── Output ──────────────────────────────
+──────────────── Build ─────────────────
+─────────────────────────────── Tests ──
+─ A label far too long for a narrow r… ─
+── style ──
+BB........BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBBBBBBB.......BBBBBBBBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB.......BB
+B......................................B
+── legend ──
+.  default
+B  fg=border
+```
+
+Labeled, at the declared minimum for a labeled rule. Below three cells the label is
+dropped and the plain rule draws:
+
+```wireframe 14x4
+── Output ────
+─── Build ────
+───── Tests ──
+─ A label f… ─
+```
+
+```text
+Callouts (14x4, 0-based):
+1. r0-r2  Docked labels -- the same placement rules at 14 columns
+2. r3     Truncated label -- one rule cell, a space, the cut label with its mark, a
+          space, one rule cell
+```
+
 ## Variants
 
 Orientation is derived from the nearest enclosing stack's `stackAxis` layout context:
@@ -70,8 +133,30 @@ measurement and rendering.
 
 Glyph per style and axis comes from the
 [divider glyph table](../tokens.md#divider-glyphs): `light` (default), `heavy`, `double`,
-`dashed`, `ascii`. Divider has no labeled variant; a section label composes Text and
-Divider as a separate higher-level primitive.
+`dashed`, `ascii`.
+
+A label is a `Text` docked with a `HorizontalAlignment`:
+
+```swift
+Divider()                                     // plain rule
+Divider("Output")                             // leading label (default)
+Divider("Build", alignment: .center)
+Divider(Text("Tests").bold(), alignment: .trailing)
+```
+
+| Label placement | Block position (block = space + label + space)                                  |
+| --------------- | ------------------------------------------------------------------------------- |
+| `.leading`      | starts after two rule cells                                                     |
+| `.center`       | starts at `floor((width - block) / 2)`                                          |
+| `.trailing`     | ends two rule cells before the trailing edge                                    |
+| any, too long   | label cuts at its tail with `truncation.mark`; one rule cell stays on each side |
+
+At small widths the spaces collapse before the label disappears: with
+`interior = width - 2`, the leading space shows when `interior >= 2` and the trailing
+space when `interior >= 3`. Below three cells the label is dropped. A label never changes
+the rule's size, and only horizontal rules draw one: a labeled Divider inside an `HStack`
+draws the plain vertical rule, because orientation comes from layout context, not the
+type.
 
 ## Sizing
 
@@ -95,7 +180,9 @@ contexts where minimal is least surprising.
 
 - `divider.style` -- selects the glyph row from [tokens.md](../tokens.md#divider-glyphs);
   defaults to `light`.
-- Foreground color inherits from the ambient style; no divider-specific color token.
+- The rule draws in the `border` role, an alias of the dim default foreground (owner
+  decision, 2026-10-10); token pending plan 032 step 5.3. A label keeps the ambient text
+  style, and styling on its `Text` (for example `.bold()`) applies to the label only.
 - `stackAxis` -- layout context established by an enclosing linear stack; absent context
   uses the horizontal fallback.
 
@@ -108,6 +195,16 @@ contexts where minimal is least surprising.
 - `divider renders style glyph across its full extent` (anatomy: r1)
 - `divider clips at its assigned extent without changing thickness` (sizing: 0 x nil and
   24 x 5)
+- `divider rule draws in the border role` (anatomy: labeled styled grid)
+- `leading label starts after two rule cells` (anatomy: 40x4 r0)
+- `centred label block starts at floor of the remaining width over two` (anatomy: 40x4 r1)
+- `trailing label ends two rule cells before the edge` (anatomy: 40x4 r2)
+- `overlong label truncates at its tail and keeps one rule cell on each side` (anatomy:
+  40x4 r3 and 14x4 r3)
+- `label spaces collapse before the label is dropped below three cells` (variants: label
+  placement)
+- `label never changes divider size` (sizing: 24 x nil)
+- `vertical divider ignores its label` (variants: label placement)
 - `ascii degradation replaces glyph without size change` (degradation wireframe)
 - `divider inside a horizontal stack renders the vertical rule` (variants: `HStack` row;
   anatomy: 24x4 vertical wireframe)
@@ -123,7 +220,12 @@ Only the glyph changes, never the geometry:
 ```
 
 Per the [degradation ladder](../tokens.md#degradation-ladder): `NO_COLOR` and 16-color are
-unchanged; ascii-only swaps in the `ascii` glyph row.
+unchanged; ascii-only swaps in the `ascii` glyph row and the `~` truncation mark, and a
+label keeps its placement:
+
+```wireframe 40x1
+-- Output ------------------------------
+```
 
 ## Blended junctions
 
@@ -183,9 +285,9 @@ an enclosing stack publishes `stackAxis`, and Divider renders across that stack'
 axis. A bare Divider falls back to horizontal, matching its `1x1` unconstrained
 measurement. No public orientation argument is added.
 
-Divider has no labeled variant. A future section-heading primitive may compose Text and
-Divider, but labels do not add text layout, truncation, or alignment state to this
-primitive.
+Divider carries an optional `Text` label docked leading, centred, or trailing (owner
+decision, omp2 review, 2026-10). The label adds placement and tail truncation only; it
+never changes the rule's size. A label that is any `View` rather than `Text` is post-1.0.
 
 This contract was reviewed against the
 [Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): orientation

@@ -59,8 +59,10 @@ into `inbox.md`, is always legal. Only promotion costs effort.
 
 Canonical sizes live in [tokens.md](tokens.md#viewports) and are referenced by name.
 Widgets must wireframe `mobile` and `min` to pass `wireframed`; the anatomy wireframe may
-use any natural component size. Full `desktop` mockups are only required when the
-component's whole point is filling a screen.
+use any natural component size. A component is wireframed at its natural height: its
+`mobile` state is the component at 40 columns, not padded to a 40x16 frame (owner
+decision, 2026-10-10). Full-height `mobile` and `desktop` mockups are only required when
+the component's whole point is filling a screen.
 
 ## Wireframe conventions
 
@@ -191,8 +193,8 @@ Columns: `State | Owner | Type | Reset or clamp rule`
   - `Binding` -- app-owned; must appear in the init signature.
   - `NodeState` -- ephemeral; throwing it away may lose position (scroll, cursor) but
     never data. If losing it loses data, it must be a binding.
-  - `Environment` -- styling or configuration; must be a token defined in
-    [tokens.md](tokens.md).
+  - `Environment` -- styling or configuration read from the environment; a styling value
+    must be a token defined in [tokens.md](tokens.md).
   - `derived` -- recomputed during layout or render, never stored.
 - `Reset or clamp rule`: what happens when the app mutates the binding underneath the
   widget. Every `NodeState` and `derived` row must answer this; "clamps on every update"
@@ -295,37 +297,50 @@ not substitute globally installed `pnpx`, `prettier`, or markdownlint commands.
 
 ## Index
 
-Statuses below are the documents' own. Docs marked "omp2 review" have adjustments the
-owner accepted in plan 032's review, which step 5.2 writes into the doc before it can be
-treated as `ready` again; several also still mention the abandoned Showcase, which 5.2
-removes.
+Statuses below are the documents' own. Plan 032 step 5.2 wrote the owner's omp2 review
+decisions into these docs; many now wait on token rows from step 5.3 ("tokens") or on open
+questions their docs list.
 
-| Component                                               | Kind      | Status     | Blocked on                                                    |
-| ------------------------------------------------------- | --------- | ---------- | ------------------------------------------------------------- |
-| [Background](primitives/background.md)                  | primitive | ready      | —                                                             |
-| [Button](widgets/button.md)                             | widget    | ready      | omp2 review (button styles, capsule ends)                     |
-| [Border](primitives/border.md)                          | primitive | ready      | omp2 review (focus border)                                    |
-| [Box](primitives/box.md)                                | primitive | ready      | omp2 review (focus-within tint)                               |
-| [Divider](primitives/divider.md)                        | primitive | ready      | — (blended junctions: specified, await the Buffer merge seam) |
-| [Frame](primitives/frame.md)                            | primitive | ready      | —                                                             |
-| [Flex](primitives/flex.md)                              | primitive | ready      | —                                                             |
-| [Grid](primitives/grid.md)                              | primitive | sketch     | Flex + public API and measurement decisions; ViewThatFits     |
-| [Linear stacks](primitives/stacks.md)                   | primitive | ready      | —                                                             |
-| [List](widgets/list.md)                                 | widget    | specified  | mouse routing (ready gate); omp2 review (list-detail)         |
-| [NavigationSplitView](widgets/navigation-split-view.md) | widget    | wireframed | post-1.0 (omp2 assessment decision 10)                        |
-| [Overlay](primitives/overlay.md)                        | primitive | ready      | —                                                             |
-| [Padding](primitives/padding.md)                        | primitive | ready      | —                                                             |
-| [Picker](widgets/picker.md)                             | widget    | ready      | omp2 review (radio, menu, segmented)                          |
-| [Section](widgets/section.md)                           | widget    | specified  | List ready gate                                               |
-| [ScrollIndicator](primitives/scroll-indicator.md)       | primitive | ready      | omp2 review (thumb and track styles, in-border placement)     |
-| [ScrollView](widgets/scroll-view.md)                    | widget    | ready      | omp2 review (indicator styles)                                |
-| [SplitView](widgets/split-view.md)                      | widget    | ready      | omp2 review (list-detail edge cases, content minimum)         |
-| [Stepper](widgets/stepper.md)                           | widget    | ready      | omp2 review (arrows, limits, disabled)                        |
-| [Style modifiers](primitives/style-modifiers.md)        | primitive | ready      | —                                                             |
-| [Table](widgets/table.md)                               | widget    | specified  | omp2 review (table styles, alternating rows); open questions  |
-| [Text](primitives/text.md)                              | primitive | ready      | omp2 review (middle truncation)                               |
-| [Text selection](primitives/text-selection.md)          | primitive | sketch     | hit testing, pointer capture, and copy policy                 |
-| [TextField](widgets/text-field.md)                      | widget    | wireframed | omp2 review (counter); focus/key/paste + hardware cursor      |
-| [Tokens](tokens.md)                                     | tokens    | ready      | plan 032 step 5.3 token proposals                             |
-| [Toggle](widgets/toggle.md)                             | widget    | ready      | omp2 review (checkbox)                                        |
-| [ZStack](primitives/z-stack.md)                         | primitive | ready      | —                                                             |
+| Component                                                     | Kind      | Status     | Blocked on                                                   |
+| ------------------------------------------------------------- | --------- | ---------- | ------------------------------------------------------------ |
+| [Background](primitives/background.md)                        | primitive | ready      | —                                                            |
+| [Badge](primitives/badge.md)                                  | primitive | wireframed | tokens (tones); sizing; default shape (owner)                |
+| [Border](primitives/border.md)                                | primitive | specified  | tokens (focus colour)                                        |
+| [Box](primitives/box.md)                                      | primitive | specified  | tokens (focus colour)                                        |
+| [Button](widgets/button.md)                                   | widget    | specified  | pointer-move for hover, focused plus pressed (owner); tokens |
+| [Callout](widgets/callout.md)                                 | widget    | wireframed | schema tables; tokens (kinds)                                |
+| [Code view](widgets/code-view.md)                             | widget    | wireframed | highlighting hook (owner); sizing; tokens                    |
+| [ContentUnavailableView](widgets/content-unavailable-view.md) | widget    | wireframed | tokens                                                       |
+| [Divider](primitives/divider.md)                              | primitive | specified  | tokens (border role)                                         |
+| [Flex](primitives/flex.md)                                    | primitive | ready      | —                                                            |
+| [Form](widgets/form.md)                                       | widget    | specified  | multi-select and other open questions (owner); tokens        |
+| [Frame](primitives/frame.md)                                  | primitive | ready      | —                                                            |
+| [Grid](primitives/grid.md)                                    | primitive | sketch     | Flex + public API and measurement decisions; ViewThatFits    |
+| [Image](widgets/image.md)                                     | widget    | wireframed | placeholder text; tokens                                     |
+| [KeyLegend](widgets/key-legend.md)                            | widget    | specified  | tokens                                                       |
+| [Label](primitives/label.md)                                  | primitive | wireframed | charset default, under-minimum (owner); tokens               |
+| [LabeledContent](widgets/labeled-content.md)                  | widget    | wireframed | tokens                                                       |
+| [Leading rail](primitives/leading-rail.md)                    | primitive | wireframed | rail column beside wide icons; tokens                        |
+| [Linear stacks](primitives/stacks.md)                         | primitive | ready      | —                                                            |
+| [List](widgets/list.md)                                       | widget    | specified  | context menus, bulk expand chords; mouse routing             |
+| [Markdown](widgets/markdown.md)                               | widget    | wireframed | link activation API; tokens                                  |
+| [NavigationSplitView](widgets/navigation-split-view.md)       | widget    | wireframed | post-1.0 (owner decision, 2026-10-09)                        |
+| [Outline](widgets/outline.md)                                 | widget    | wireframed | no-colour cue; sizing rows; tokens                           |
+| [Overlay](primitives/overlay.md)                              | primitive | ready      | —                                                            |
+| [Padding](primitives/padding.md)                              | primitive | ready      | —                                                            |
+| [Picker](widgets/picker.md)                                   | widget    | specified  | segmented ASCII icons; tokens                                |
+| [ProgressView](widgets/progress-view.md)                      | widget    | wireframed | ideal-width sizing row; tokens                               |
+| [ScrollIndicator](primitives/scroll-indicator.md)             | primitive | specified  | thumb on a heavy track (owner); tokens                       |
+| [ScrollView](widgets/scroll-view.md)                          | widget    | specified  | tokens (thumb, track)                                        |
+| [Section](widgets/section.md)                                 | widget    | specified  | List ready gate                                              |
+| [SplitView](widgets/split-view.md)                            | widget    | specified  | Divider ready gate; tokens (junctions)                       |
+| [Stepper](widgets/stepper.md)                                 | widget    | specified  | tokens                                                       |
+| [Style modifiers](primitives/style-modifiers.md)              | primitive | ready      | —                                                            |
+| [TabView](widgets/tab-view.md)                                | widget    | wireframed | under-24 sizing; tokens                                      |
+| [Table](widgets/table.md)                                     | widget    | specified  | Shift-range selection; tokens                                |
+| [Text](primitives/text.md)                                    | primitive | ready      | —                                                            |
+| [Text selection](primitives/text-selection.md)                | primitive | sketch     | hit testing, pointer capture, and copy policy                |
+| [TextField](widgets/text-field.md)                            | widget    | wireframed | initializer and style signatures; tokens                     |
+| [Tokens](tokens.md)                                           | tokens    | ready      | plan 032 step 5.3 token proposals                            |
+| [Toggle](widgets/toggle.md)                                   | widget    | specified  | tokens                                                       |
+| [ZStack](primitives/z-stack.md)                               | primitive | ready      | —                                                            |

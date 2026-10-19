@@ -1,6 +1,6 @@
 ---
 kind: primitive
-status: ready
+status: specified
 ---
 
 # ScrollIndicator
@@ -27,9 +27,19 @@ meet.
   vertical and horizontal strips, saturating treatment of malformed dimensions, bounded
   thumb, and the invariant that the terminal position puts the thumb wholly at track end.
   Reject its caller-owned mutable `ScrollbarState`, endpoint arrows, left/top placements,
-  configurable symbols and styles, and nearest-integer rounding. Tessera receives
-  immutable render inputs, has a parent-chosen placement, uses catalog glyph tokens, and
-  floors the documented proportional equation so all three parents share the same result.
+  and nearest-integer rounding. Its configurable symbols and styles are not copied as an
+  open-ended API: owner decision, omp2 review, 2026-10, reverses the earlier rejection of
+  configurable styles; owner decision, 2026-10-10, replaces free thumb and track choices
+  with curated presets, each a fixed thumb and track pair (see Decisions). Tessera
+  receives immutable render inputs, has a parent-chosen placement, uses catalog glyph
+  tokens, and floors the documented proportional equation so all three parents share the
+  same result.
+- omp2 `Scroll`
+  ([scroll.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/scroll.rs#L181-L185),
+  thumb formula at
+  [L172](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/scroll.rs#L172))
+  -- the default look, the `standard` preset: an accent `█` thumb on a muted `│` track,
+  unchanged by the review.
 - [ScrollView](../widgets/scroll-view.md) -- copy its final-viewport inputs and its
   `floor`-based equation (`thumb = max(1, floor(track * viewport / content))`). Reject
   embedding that equation in a viewport widget: ScrollView determines stable overflow and
@@ -95,8 +105,8 @@ The geometry is `L = floor(10 * 10 / 40) = 2` and
 │
 │
 │
-┃
-┃
+█
+█
 │
 │
 │
@@ -105,9 +115,9 @@ The geometry is `L = floor(10 * 10 / 40) = 2` and
 
 ```text
 Callouts (1x10, 0-based):
-0. r0-r3  Leading track -- four `scrollbar.track` cells before the vertical thumb
-1. r4-r5  Thumb -- two `scrollbar.thumb` cells, styled with `semantic.accent`
-2. r6-r9  Trailing track -- four `scrollbar.track` cells after the thumb
+0. r0-r3  Leading track -- four track cells (`muted`) before the vertical thumb
+1. r4-r5  Thumb -- two `standard` `█` thumb cells, styled with `semantic.accent`
+2. r6-r9  Trailing track -- four track cells (`muted`) after the thumb
 ```
 
 ### Horizontal start middle and end
@@ -116,20 +126,24 @@ These are three independent horizontal `12x1` snapshots stacked for comparison. 
 `C = 48`, `V = 12`, and `L = 3`. Their effective offsets are respectively `0`, `18`, and
 `36` (the maximum). The middle start is `floor(18 * 9 / 36) = 4`.
 
+The fixtures use the `standard` preset: a `🬋` thumb on a `─` track. A full block is twice
+as tall as it is wide, so horizontal strips use a centred one-third bar instead of `█`
+(owner decisions, 2026-10-10 and 2026-10-11).
+
 ```wireframe 12x3
-━━━─────────
-────━━━─────
-─────────━━━
+🬋🬋🬋─────────
+────🬋🬋🬋─────
+─────────🬋🬋🬋
 ```
 
 ```text
 Callouts (12x3, 0-based):
 0. r0 c0-c2   Start thumb -- `O = 0`; thumb touches the leading edge
-1. r0 c3-c11  Start trailing track -- nine `scrollbar.track` cells
-2. r1 c0-c3   Middle leading track -- four `scrollbar.track` cells
-3. r1 c4-c6   Middle thumb -- `O = 18`; three `scrollbar.thumb` cells
-4. r1 c7-c11  Middle trailing track -- five `scrollbar.track` cells
-5. r2 c0-c8   End leading track -- nine `scrollbar.track` cells
+1. r0 c3-c11  Start trailing track -- nine track cells (`muted`)
+2. r1 c0-c3   Middle leading track -- four track cells (`muted`)
+3. r1 c4-c6   Middle thumb -- `O = 18`; three thumb cells (`accent`)
+4. r1 c7-c11  Middle trailing track -- five track cells (`muted`)
+5. r2 c0-c8   End leading track -- nine track cells (`muted`)
 6. r2 c9-c11  End thumb -- `O = 36 = M`; thumb touches the bottom/trailing end
 ```
 
@@ -148,10 +162,10 @@ are allocation examples, not chrome owned by this primitive.
 │
 │
 │
-┃
-┃
-┃
-┃
+█
+█
+█
+█
 │
 │
 │
@@ -163,18 +177,18 @@ are allocation examples, not chrome owned by this primitive.
 ```text
 Callouts (1x16, 0-based):
 0. r0-r5    Leading track -- vertical mobile allocation before the thumb
-1. r6-r9    Thumb -- four `scrollbar.thumb` cells in the parent's trailing column
+1. r6-r9    Thumb -- four thumb cells (`accent`) in the parent's trailing column
 2. r10-r15  Trailing track -- vertical mobile allocation after the thumb
 ```
 
 ```wireframe 40x1
-─────────────━━━━━━━━━━━━━──────────────
+─────────────🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋──────────────
 ```
 
 ```text
 Callouts (40x1, 0-based):
 0. r0 c0-c12   Leading track -- thirteen cells in the parent's bottom row
-1. r0 c13-c25  Thumb -- thirteen `scrollbar.thumb` cells
+1. r0 c13-c25  Thumb -- thirteen thumb cells (`accent`)
 2. r0 c26-c39  Trailing track -- fourteen cells; the complete strip is exactly 40 columns
 ```
 
@@ -184,12 +198,12 @@ A one-cell track has no smaller useful renderable geometry. With `T = 1`, `C = 1
 `V = 10`, and `O = 90 = M`, floor rounding still produces `L = 1` and `S = 0`.
 
 ```wireframe 1x1
-┃
+█
 ```
 
 ```text
 Callouts (1x1, 0-based):
-0. r0 c0  Minimum thumb -- the sole track cell is the one-cell minimum `scrollbar.thumb`
+0. r0 c0  Minimum thumb -- the sole track cell is the one-cell minimum thumb (`accent`)
 ```
 
 A zero-length proposal has no fixture because its render region has no cells. It paints
@@ -197,100 +211,157 @@ nothing; it does not create a one-cell minimum outside the rectangle.
 
 ## Variants
 
-The strip has three independent axes: orientation (set by the parent's placement), weight
-(`scrollbar.weight`), and track treatment (`scrollbar.track`). Geometry is identical
-across every combination; only the glyph pair changes.
+The strip has three axes: orientation (set by the parent's placement), the curated preset,
+and placement. A preset fixes the thumb and the track together, so a thumb is never paired
+with a track it was not designed for. Geometry is identical across every combination; only
+glyphs and paint change. The thumb arithmetic never changes. The default look, the
+`standard` preset, is omp2's unchanged look (owner decision, omp2 review, 2026-10).
 
 | Orientation | Geometry | Placement rule                                  |
 | ----------- | -------- | ----------------------------------------------- |
 | Vertical    | `1xT`    | Parent places the strip in its trailing column. |
 | Horizontal  | `Tx1`    | Parent places the strip in its bottom row.      |
 
-| `scrollbar.weight` | Vertical thumb | Horizontal thumb |
-| ------------------ | -------------- | ---------------- |
-| `line` (default)   | `┃`            | `━`              |
-| `mid`              | `▐`            | `▄`              |
-| `block`            | `█`            | `■`              |
+Curated presets (`.scrollIndicatorStyle(_ style: ScrollIndicatorStyle)`; owner decision,
+2026-10-10; list and glyphs confirmed, owner decision, 2026-10-11). There is one list of
+eight presets, and each preset has a vertical glyph pair and a horizontal glyph pair; the
+set is closed, and thumb and track are never chosen separately.
 
-| `scrollbar.track` | Vertical track | Horizontal track |
-| ----------------- | -------------- | ---------------- |
-| `solid` (default) | `│`            | `─`              |
-| `dashed`          | `╎`            | `╌`              |
-| `none`            | (blank)        | (blank)          |
+| Preset               | Vertical thumb | Vertical track | Horizontal thumb | Horizontal track |
+| -------------------- | -------------- | -------------- | ---------------- | ---------------- |
+| `standard` (default) | `█`            | `│`            | `🬋`              | `─`              |
+| `thin`               | `┃`            | `│`            | `━`              | `─`              |
+| `inner`              | `▌`            | `│`            | `🮂`              | `─`              |
+| `outer`              | `▐`            | `│`            | `▂`              | `─`              |
+| `dashed`             | `█`            | `╎`            | `🬋`              | `╌`              |
+| `dotted`             | `█`            | `┊`            | `🬋`              | `┈`              |
+| `heavy`              | `█`            | `┃`            | `🬋`              | `━`              |
+| `thumbOnly`          | `█`            | none           | `🬋`              | none             |
 
-Anatomy renders the default `line` weight (`┃`) on a `solid` track. The `mid` weight is
-the lazygit half block and the `block` weight is solid; both keep the same `C = 40`,
-`V = 10`, `O = 15` geometry with the thumb at r4-r5:
+The table's glyphs are the vocabulary the presets draw from, not public enums. Curated
+presets exclude mismatched pairs: no preset puts a thumb on a track of the same glyph, so
+every thumb stays distinguishable without colour, and no preset uses a full block on a
+horizontal track, which is too tall there (owner decision, 2026-10-10).
 
-```wireframe 1x10
-│
-│
-│
-│
-▐
-▐
-│
-│
-│
-│
+Horizontal thumbs match the visual thickness of their vertical counterparts, because a
+cell is about twice as tall as it is wide (owner decision, 2026-10-11):
+
+- `standard`'s horizontal thumb is `🬋` (BLOCK SEXTANT-34), a centred bar one third of the
+  cell high, so it reads as thicker than `thin`'s `━` the way `█` does against `┃`.
+- `inner` and `outer` use quarter blocks, `🮂` (UPPER ONE QUARTER BLOCK) and `▂` (LOWER ONE
+  QUARTER BLOCK), which are as thick as the vertical half blocks `▌` and `▐`. `inner` sits
+  toward the content (left, or the top of a horizontal strip); `outer` sits toward the
+  screen edge (right, or the bottom). Horizontally they hug the cell edge, leaving a small
+  gap from the centred track, rather than touching it as `▌` and `▐` do. The sheets list
+  `inner` before `outer` so the two thumbs face away from each other instead of meeting.
+- `heavy`'s thumb is the standard thumb, `█` and `🬋`, centred and fully covering the heavy
+  track. A half-block thumb only covers half the track's thickness, which left a notch in
+  the track at each end of the thumb.
+
+`🬋` and `🮂` come from Unicode's Symbols for Legacy Computing block, so the table shows the
+Nerd Font charset; the Unicode charset draws `━` and `▔` instead (see
+[Degradation](#degradation)). The `stipple` track and the `thick` and `smooth` thumbs were
+dropped in review and are not presets.
+
+Horizontal strips, one preset per row, each on the same 15-cell strip with the thumb at
+the same offset:
+
+```wireframe 25x8
+standard  ────🬋🬋🬋────────
+thin      ────━━━────────
+inner     ────🮂🮂🮂────────
+outer     ────▂▂▂────────
+dashed    ╌╌╌╌🬋🬋🬋╌╌╌╌╌╌╌╌
+dotted    ┈┈┈┈🬋🬋🬋┈┈┈┈┈┈┈┈
+heavy     ━━━━🬋🬋🬋━━━━━━━━
+thumbOnly     🬋🬋🬋
 ```
 
 ```text
-Callouts (1x10, 0-based):
-0. r4-r5  Mid thumb -- `▐` half block, the lazygit weight, on a `solid` track
+Callouts (25x8, 0-based):
+1. r0-r7 c0-c9             Preset names -- one preset per row; its thumb and track pair is fixed
+2. r0-r7 c14-c16           Thumb -- three cells at the same offset in every row; only the glyph
+                           changes
+3. r0-r6 c10-c13, c17-c24  Track -- the preset's horizontal track (`muted`); r7 (`thumbOnly`)
+                           paints no track
 ```
 
-```wireframe 1x10
-│
-│
-│
-│
-█
-█
-│
-│
-│
-│
-```
+Vertical strips, one preset per column in the same order as the horizontal sheet. The
+thumb sits in rows r4-r6 in every column, on the centred track:
 
-```text
-Callouts (1x10, 0-based):
-0. r4-r5  Block thumb -- `█` solid weight on a `solid` track
-```
-
-A `dashed` track (left column) keeps the thumb on a dashed rule; a `none` track (right
-column) paints only the thumb:
-
-```wireframe 3x10
-╎
-╎
-╎
-╎
-┃ ┃
-┃ ┃
-╎
-╎
-╎
-╎
+```wireframe 75x10
+┌─ Vertical presets ──────────────────────────────────────────────────────┐
+│ standard   thin    inner    outer    dashed   dotted   heavy  thumbOnly │
+│    │        │        │        │        ╎        ┊        ┃              │
+│    │        │        │        │        ╎        ┊        ┃              │
+│    █        ┃        ▌        ▐        █        █        █        █     │
+│    █        ┃        ▌        ▐        █        █        █        █     │
+│    █        ┃        ▌        ▐        █        █        █        █     │
+│    │        │        │        │        ╎        ┊        ┃              │
+│    │        │        │        │        ╎        ┊        ┃              │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ```text
-Callouts (3x10, 0-based):
-0. c0     Dashed track -- `╎` rule with a `┃` thumb at r4-r5
-1. c2     None track -- blank track; only the `┃` thumb at r4-r5 paints
+Callouts (75x10, 0-based):
+0. r1              Preset names -- one preset per column, centred over its strip
+1. r4-r6 c5        `standard` -- `█` thumb (`accent`) on the centred `│` track; the default
+2. r4-r6 c14       `thin` -- `┃` thumb on the `│` track
+3. r4-r6 c23       `inner` -- `▌` half block; the left half sits toward the content
+4. r4-r6 c32       `outer` -- `▐` half block; the right half sits toward the screen edge
+5. r4-r6 c41       `dashed` -- `█` thumb on the `╎` track
+6. r4-r6 c50       `dotted` -- `█` thumb on the `┊` track
+7. r4-r6 c59       `heavy` -- `█` thumb covering the `┃` track
+8. r4-r6 c68       `thumbOnly` -- `█` thumb with no track; r2-r3 and r7-r8 at c68 paint nothing
+9. r2-r3, r7-r8    Track -- each preset's vertical track (`muted`)
+```
+
+```text
+── chars ──
+┌─ Vertical presets ──────────────────────────────────────────────────────┐
+│ standard   thin    inner    outer    dashed   dotted   heavy  thumbOnly │
+│    │        │        │        │        ╎        ┊        ┃              │
+│    │        │        │        │        ╎        ┊        ┃              │
+│    █        ┃        ▌        ▐        █        █        █        █     │
+│    █        ┃        ▌        ▐        █        █        █        █     │
+│    █        ┃        ▌        ▐        █        █        █        █     │
+│    │        │        │        │        ╎        ┊        ┃              │
+│    │        │        │        │        ╎        ┊        ┃              │
+└─────────────────────────────────────────────────────────────────────────┘
+── style ──
+RRRTTTTTTTTRTTTTTTTRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+R.HHHHHHHH...HHHH....HHHHH....HHHHH....HHHHHH...HHHHHH...HHHHH..HHHHHHHHH.R
+R....A........A........A........A........A........A........A..............R
+R....A........A........A........A........A........A........A..............R
+R....B........B........B........B........B........B........B........B.....R
+R....B........B........B........B........B........B........B........B.....R
+R....B........B........B........B........B........B........B........B.....R
+R....A........A........A........A........A........A........A..............R
+R....A........A........A........A........A........A........A..............R
+RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+── legend ──
+.  default
+A  fg=muted
+B  fg=accent
+H  fg=secondary bold
+R  fg=border
+T  fg=primary bold
 ```
 
 Placement is parent-owned:
 
-| Placement            | Reserves                          | Track             | Used by                 |
-| -------------------- | --------------------------------- | ----------------- | ----------------------- |
-| `reserved` (default) | one trailing column or bottom row | `scrollbar.track` | ScrollView, List, Table |
-| `onBorder`           | nothing                           | the border line   | Border, Box             |
+| Placement            | Reserves                          | Track           | Used by                 |
+| -------------------- | --------------------------------- | --------------- | ----------------------- |
+| `reserved` (default) | one trailing column or bottom row | preset track    | ScrollView, List, Table |
+| `.border`            | nothing                           | the border line | Border, Box             |
 
-In `onBorder` placement the thumb overlays an adjacent [Border](border.md) or
-[Box](box.md) edge; the border line is the track, `scrollbar.track` is ignored, and no
-cell is reserved. lazygit renders exactly this with a `mid` `▐` thumb on the right border.
-The fixture uses the checker-safe `┃`; the `mid` weight paints `▐`:
+`.border` is opt-in with `.scrollIndicatorPlacement(.border)`, and applies only when the
+nearest ancestor is a bordered [Box](box.md). Without one, `.border` falls back to
+`reserved` (owner decision, 2026-10-10). The thumb overlays the box's right border; the
+border line is the track, the preset's track glyph is ignored, and no cell is reserved.
+lazygit draws the thumb over the border this way. The fixture paints the `thin` `┃` thumb;
+`inner` and `outer` ride the same edge, as shown in the
+[ScrollView](../widgets/scroll-view.md) in-border wireframe:
 
 ```wireframe 20x8
 ╭─ Files ──────────╮
@@ -307,14 +378,15 @@ The fixture uses the checker-safe `┃`; the `mid` weight paints `▐`:
 Callouts (20x8, 0-based):
 0. r0, r7        Box border -- top and bottom chrome; no interior column is reserved
 1. c19           Track edge -- the right border column doubles as the indicator track
-2. r2-r4 c19     Thumb -- rides the border edge (fixture `┃`, `mid` weight paints `▐`)
+2. r2-r4 c19     Thumb -- rides the border edge (`thin` `┃`)
 3. r1-r6 c2-c17  Content -- Box interior, unreduced by the indicator
 ```
 
 There are deliberately no leading/left, top, endpoint-arrow, disabled, focused, or
 draggable variants, and no per-instance glyph override. Placement belongs to the parent
-layout; focus and disabled semantics belong to an interactive parent; weight and track
-come only from the environment.
+layout; focus and disabled semantics belong to an interactive parent. The preset and
+placement are set on a subtree with modifiers and reach the indicator through the
+environment.
 
 ## Parent contract and absence states
 
@@ -331,13 +403,13 @@ A parent follows this order for each enabled axis:
 4. If both axes overflow, the parent owns the one-cell intersection and paints no child
    content there unless its own component design explicitly assigns it a role.
 
-The numbered order above is the `reserved` placement. In `onBorder` placement the parent
+The numbered order above is the `reserved` placement. In `.border` placement the parent
 instead rides an adjacent [Border](border.md) or [Box](box.md) edge: it reserves no extra
 cell, treats the border line as the track, and paints only the thumb onto the border's
 edge cells at the resolved thumb rows or columns. This is the deliberate exception to
 "reserve exactly one trailing column or bottom row"; the thumb math is unchanged, and
-because the border owns the track glyph, `scrollbar.track` does not apply. The parent
-still omits the indicator when the axis has no overflow.
+because the border owns the track glyph, the preset's track does not apply and only its
+thumb paints. The parent still omits the indicator when the axis has no overflow.
 
 This primitive does not own idle, loading, error, or empty business states. Those are
 parent/app content states: a loading or error viewport may still show an indicator when
@@ -364,23 +436,25 @@ produces no cells.
 | horizontal, `10x0`      | `10x0` | Under-minimum cross axis is honored as zero; no row is invented.         |
 | horizontal, `16x4`      | `16x1` | Over-maximum cross axis is ignored while the finite primary track fills. |
 
-In `onBorder` placement the primitive reports a zero-area contribution: it reserves no
-cell of its own and composites the thumb onto the border edge the parent already
-allocated. The thumb length and position come from the same equation applied to the border
-edge extent.
+In `.border` placement the primitive reports a zero-area contribution: it reserves no cell
+of its own and composites the thumb onto the border edge the parent already allocated. The
+thumb length and position come from the same equation applied to the border edge extent.
 
 ## Environment
 
 The system/default rendering consumes only catalog tokens and complete semantic `Style`
 values from the environment:
 
-- `scrollbar.weight` selects the thumb weight (`line` default, `mid`, or `block`); it
-  chooses the thumb glyph without changing the normalized geometry.
-- `scrollbar.track` selects the track treatment (`solid` default, `dashed`, or `none`); a
-  `none` track paints no track cell. It is ignored under `onBorder` placement.
+- Preset (`standard`, the default; `thin`; `inner`; `outer`; `dashed`; `dotted`; `heavy`;
+  or `thumbOnly`), set by `.scrollIndicatorStyle(_:)`, selects the thumb and track glyphs
+  for the strip's axis without changing the normalized geometry. `thumbOnly` paints no
+  track cell.
+- Placement, set by `.scrollIndicatorPlacement(_:)`, selects `reserved` (the default) or
+  `.border`. Under `.border` the border line is the track, so the preset's track glyph is
+  ignored and only its thumb paints.
 - `scrollbar.ascii` supplies the ASCII `|`/`-` track and `#` thumb.
-- `semantic.secondary` is the complete `Style` applied to the track, including any
-  attributes and background as well as foreground.
+- `muted` is the complete `Style` applied to the track, including any attributes and
+  background as well as foreground. Token pending plan 032 step 5.3.
 - `semantic.accent` is the complete `Style` applied to the thumb, including any attributes
   and background as well as foreground.
 
@@ -396,8 +470,9 @@ style remain open rather than adding an unregistered token here.
 
 - Slice 2 layout/render substrate -- `Axis`, finite and nil `ProposedSize`, placement, and
   buffer painting are needed to allocate the one-cell strip.
-- Slice 3 environment style resolution -- supplies the full `semantic.secondary` and
-  `semantic.accent` `Style` values and the degradation capability selection.
+- Slice 3 environment style resolution -- supplies the full `muted` (track, token pending
+  plan 032 step 5.3) and `semantic.accent` (thumb) `Style` values and the degradation
+  capability selection.
 - [ScrollView](../widgets/scroll-view.md), List, and [Table](../widgets/table.md) depend
   on this primitive's geometry and output contract. They own their own measurement,
   effective offset, visibility, and reservation; they do not carry a duplicate thumb
@@ -435,23 +510,33 @@ source browsing, or source mapping.
   contract and absence states)
 - `scroll view list and table use identical indicator geometry for equal metrics`
   (Dependencies and readiness cutover)
-- `weight axis renders line mid and block thumbs at identical geometry` (Variants: weight
-  table and strips)
-- `track axis renders solid dashed and none tracks` (Variants: track table and dashed and
-  none strip)
+- `each preset renders its fixed thumb and track pair at identical geometry on both axes`
+  (Variants: preset table and strips)
+- `thumbOnly preset paints no track cells on either axis` (Variants: preset strips)
+- `no preset pairs a thumb with a track of the same glyph` (Variants: preset table)
+- `inner and outer presets draw on the centred track, not on an edge track` (Variants:
+  preset strips)
+- `unicode charset draws ━ and ▔ where the nerd font charset draws 🬋 and 🮂` (Degradation:
+  Symbols for Legacy Computing)
 - `on-border placement rides the edge and reserves no cell` (Variants: placement and
   on-border box wireframe; Parent contract and absence states)
 
 ## Degradation
 
-- `NO_COLOR`: retain the canonical Unicode geometry and glyphs; resolved
-  `semantic.secondary` and `semantic.accent` fall back to their token-defined attributes.
+- `NO_COLOR`: retain the canonical Unicode geometry and glyphs; resolved `muted` (track)
+  and `accent` (thumb) fall back to their token-defined attributes. Token pending plan 032
+  step 5.3 for `muted`.
 - 16-color: retain geometry; resolve those full semantic styles to indexed terminal
   styles.
-- ASCII-only: collapse every thumb weight to `#`; replace a `solid` or `dashed` track with
-  `|` (vertical) or `-` (horizontal); a `none` track stays blank. The `40x1` mobile
-  allocation below is the exact degraded horizontal fixture for `C = 120`, `V = 40`,
-  `O = 40`.
+- Symbols for Legacy Computing: `🬋` and `🮂` are drawn only in the Nerd Font charset. The
+  Unicode charset falls back to `━` for `🬋` and `▔` for `🮂`, staying within Block Elements
+  and box drawing (owner decision, 2026-10-11). Ghostty, kitty and WezTerm draw the Legacy
+  Computing glyphs themselves; Terminal.app and Windows Terminal are checked in
+  implementation QA.
+- ASCII-only: collapse every preset's thumb to `#`; replace every track with `|`
+  (vertical) or `-` (horizontal), except `thumbOnly`, whose track stays blank. The `40x1`
+  mobile allocation below is the exact degraded horizontal fixture for `C = 120`,
+  `V = 40`, `O = 40`.
 
 ```wireframe 40x1
 -------------#############--------------
@@ -483,28 +568,55 @@ is output-only rendered data, appearance comes from shared tokens and complete s
 `Style` roles, and its thumb geometry is deterministic integer-cell output shared by every
 parent.
 
-Presentation factors into three orthogonal axes — orientation, `scrollbar.weight`, and
-`scrollbar.track` — so a thin thumb, a heavy thumb, a dashed track, or a trackless thumb
-are combinations rather than separate components. The `mid` half block matches lazygit's
-edge scrollbar.
+Owner decision, omp2 review, 2026-10: the earlier rejection of configurable indicator
+styles is withdrawn, so that the look can be chosen per use while omp2's look stays the
+default. Tessera offers a placement that draws the thumb inside a box's border as lazygit
+does, and a set of curated looks. Owner decision, 2026-10-10: the look is one curated
+`ScrollIndicatorStyle` preset, selected with
+`.scrollIndicatorStyle(_ style: ScrollIndicatorStyle)`. Each preset fixes a thumb and a
+track together for both axes; no open-ended style API exists and thumb and track cannot be
+chosen separately. Every preset and `.border` placement ship in 1.0 (owner decision,
+2026-10-10).
 
-Placement adds `onBorder` beside the default `reserved` mode. `onBorder` is the deliberate
+Preset list and glyphs confirmed (owner decision, 2026-10-11): `standard` (default),
+`thin`, `inner`, `outer`, `dashed`, `dotted`, `heavy`, and `thumbOnly`, with glyphs as in
+[Variants](#variants). Horizontal thumbs match their vertical counterparts' visual
+thickness, and `heavy` uses the standard thumb so it covers the heavy track. The old thumb
+and track tables are the glyph vocabulary the presets draw from, not public enums.
+
+Curated presets exclude mismatched pairs. A type-level split into free thumb and track
+parameters would need a second parameter to reach the heavy track, the shape the owner
+rejected for `stipple`, and would admit pairs such as a `┃` thumb on a `┃` track. Under
+curation no preset puts a thumb on a track of the same glyph, so every thumb stays
+distinguishable without colour, and no preset uses a full block on a horizontal track,
+which is too tall there (owner decision, 2026-10-10). `thick` and `smooth` thumbs were
+dropped in review.
+
+Placement adds `.border` beside the default `reserved` mode, set by its own modifier,
+`.scrollIndicatorPlacement(_:)`, separate from the preset. `.border` is the deliberate
 exception to reserving a trailing cell: it rides an existing Border or Box edge, uses that
 line as the track, and paints only the thumb. It changes reservation and track ownership,
 never the thumb equation or the input-free contract.
 
+Owner decision, 2026-10-10: a custom presentation surface beyond the curated presets (an
+environment protocol with a resolved configuration, or a closure-style environment value)
+stays deferred to
+[Slice 3](../../docs/Spec.md#slice-3-styling-text-wrapping-and-decoration). Any such
+surface must receive complete semantic `Style` roles and resolved geometry, never raw
+colors or control state, and must not change the normalized geometry or input-free nature.
+Whether an interactive parent layers a separate hit target over this output primitive also
+stays deferred, to [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing). Any such
+work must retain this primitive's input-free API and reuse its resolved geometry rather
+than reimplementing thumb math.
+
 ## Open questions
 
-- A custom presentation surface (an environment `ScrollIndicatorStyle` protocol with a
-  resolved configuration, or a closure-style environment value) is deferred to
-  [Slice 3](../../docs/Spec.md#slice-3-styling-text-wrapping-and-decoration). Any such
-  surface must receive complete semantic `Style` roles and resolved geometry, never raw
-  colors or control state, and must not change the normalized geometry or input-free
-  nature.
-- Whether an interactive parent layers a separate hit target over this output primitive is
-  deferred to [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing). Any such work
-  must retain this primitive's input-free API and reuse its resolved geometry rather than
-  reimplementing thumb math.
+- Track role: the accepted grids paint tracks in the `muted` role, which tokens.md does
+  not define. Token pending plan 032 step 5.3.
+- Token rows (plan 032 step 5.3): tokens.md still has `scrollbar.weight` rows (`line`,
+  `mid`, `block`) and horizontal values for the old weights, which the curated preset
+  glyphs supersede; `scrollbar.thumb` is absent. The environment spelling of the style
+  modifier is `.scrollIndicatorStyle(_:)`, not yet registered as an environment key.
 
 ## Inspiration
 

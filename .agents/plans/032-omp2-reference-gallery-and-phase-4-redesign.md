@@ -377,11 +377,51 @@ classification (Phase 4) no longer gates capture.
 - Remove the remaining Showcase mentions from the ported docs, and re-check each doc's
   status against its accepted adjustments: a doc whose decided behaviour is not yet
   written into it is not `ready`.
+- Done (2026-10-10), pending owner review of the staged diff: every accepted Tessera
+  wireframe and every adopted omp2 case is now a `wireframe` block, with callouts and a
+  styled grid where colour or focus matters, in 13 updated docs and 13 new ones (Badge,
+  Label, Callout, ContentUnavailableView, Form, KeyLegend, LabeledContent, Outline,
+  ProgressView, TabView, Markdown, code view, Image). Decisions are attributed in each doc
+  as "owner decision, omp2 review, 2026-10", and prior-art links point at omp2's source on
+  GitHub at the pinned commit. Box and Border carry the focus rules; Table, SplitView,
+  Button, and Stepper follow them. Showcase mentions are gone from the catalog (the
+  `docs/Spec.md` Slice 7 anchor stays until step 7.2). `scripts/check-wireframes.py` now
+  accepts scroll thumbs (`█▐▌`) in a box's vertical edge, which in-border indicator
+  placement needs.
+- Status re-check: Border, Box, Button, Divider, Picker, ScrollIndicator, ScrollView,
+  SplitView, Stepper, and Toggle dropped from `ready` to `specified`; most wait on token
+  rows (step 5.3) or on open questions their docs now list. New docs are `wireframed`,
+  except Markdown, code view, and Image, which stay `sketch` until they have a `min` state
+  (omp2 has no minimum case for them).
+- Button redesign (2026-10-10): the omp2-derived pill/soft/tint/ghost set proved
+  confusing, so the owner set the API first, then judged looks in a coloured "Button lab"
+  on the review site. Button now has four independent dimensions: intent (`role:`
+  `.cancel`/`.destructive`, `.keyboardShortcut(.defaultAction)`), emphasis
+  (`.filled`/`.tinted`/`.plain`; the default action resolves to filled, everything else to
+  tinted), shape (`.squared` default, `.capsule`, `.rectangle`, `.brackets`, `.box`,
+  `.custom` with optional per-charset pairs), and state. The API is the same in every
+  charset and under NO_COLOR; modes only change how a shape draws.
+- Review round 3 applied (2026-10-11): the owner answered the critic's suggested answers
+  in a hunk review of the staged diff; every answered thread is applied in its doc and
+  deleted. Form now treats its select and multi rows as Picker's menu collapsed in a host
+  row, stacks labels above values below 24 columns through `ViewThatFits`, and takes its
+  validation wording from the app. Picker gained multi-select (`.menu` and radio group
+  only), digit 1-9 quick-select, and one-line option descriptions; the fuzzy filter stays
+  out of 1.0 (`design/inbox.md`). Left for the owner: the 13 token threads on
+  `design/tokens.md` (step 5.3 input), the ScrollIndicator preset list, and the inferences
+  listed in Form's and Picker's open questions (Form's 12-cell narrow floor and default
+  `<Label> is required` / `<Label> is invalid` wording; Picker's multi initializer shape,
+  digits past 9, and description layout).
 
 ### Step 5.3 — Propose token changes implied by the decisions
 
 - Tones, icon catalog and charsets, border defaults, and motion tokens for
   `design/tokens.md`. Proposals only; confirm with the owner before editing.
+- Nothing in `design/tokens.md` is fixed: the proposals may overturn any existing row or
+  rule, including "no `success`, `warning`, or `information` roles in 1.0" (owner
+  decision, 2026-10-10). Inputs: every "token pending plan 032 step 5.3" marker in the
+  catalog, the remaining `focus.border` consumers, and the critic's role-grouped token
+  suggestions (posted to the owner's hunk review on `design/tokens.md`).
 
 ## Phase 6 — Write the Rust-to-Swift translation key
 
@@ -564,8 +604,9 @@ Each control lands with its demo, keyboard and pointer paths, and disabled state
 
 ### Step 13.2 — Toggle and Picker styles
 
-- Toggle as a checkbox; Picker as radio group (chips wrap, never clip), menu (including
-  the custom "Other" row), and segmented (icons-only and tail truncation when narrow).
+- Toggle with the `.checkbox` (default) and `.circle` styles, taking the Form row focus
+  rule inside a Form; Picker as radio group (chips wrap, never clip), menu (including the
+  custom "Other" row), and segmented (icons-only and tail truncation when narrow).
 
 ### Step 13.3 — Stepper
 

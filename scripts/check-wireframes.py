@@ -181,6 +181,10 @@ SUPPORTED_CORNERS = (
 
 FULL_CAPABILITY_INDICATORS = frozenset("│┃█")
 ASCII_INDICATORS = frozenset("|#")
+# A scroll indicator placed in a box's border draws its thumb in the edge column, so
+# these glyphs continue a vertical edge. They never start one: a solid bar elsewhere in a
+# grid is not a broken edge.
+EDGE_THUMBS = frozenset("█▐▌")
 DIRECTION_OFFSETS = {
     "N": (-1, 0),
     "E": (0, 1),
@@ -223,6 +227,10 @@ def _connects(ch: str | None, direction: str) -> bool:
     return direction in CONNECTIONS.get(ch or "", ())
 
 
+def _continues_vertical_edge(ch: str | None, direction: str) -> bool:
+    return _connects(ch, direction) or (ch in EDGE_THUMBS and direction in "NS")
+
+
 def _corner_columns(cells: dict[int, str], corners: frozenset[str]) -> list[int]:
     return [column for column, ch in cells.items() if ch in corners]
 
@@ -252,7 +260,7 @@ def _check_vertical_edge(
     for row in range(top, bottom):
         source = grid[row].get(column)
         below = grid[row + 1].get(column)
-        if _connects(source, "S") and _connects(below, "N"):
+        if _continues_vertical_edge(source, "S") and _continues_vertical_edge(below, "N"):
             continue
 
         shifted_column = next(
@@ -291,7 +299,9 @@ def _check_shifted_vertical_connections(
     """Catch a displaced divider without treating an endpoint as a broken box."""
     for row, cells in enumerate(grid[:-1]):
         for column, source in cells.items():
-            if not _connects(source, "S") or _connects(grid[row + 1].get(column), "N"):
+            if not _connects(source, "S") or _continues_vertical_edge(
+                grid[row + 1].get(column), "N"
+            ):
                 continue
             shifted_column = next(
                 (
@@ -420,8 +430,8 @@ def _has_reciprocal_vertical_edge(
     grid: list[dict[int, str]], top: int, bottom: int, column: int
 ) -> bool:
     return all(
-        _connects(grid[row].get(column), "S")
-        and _connects(grid[row + 1].get(column), "N")
+        _continues_vertical_edge(grid[row].get(column), "S")
+        and _continues_vertical_edge(grid[row + 1].get(column), "N")
         for row in range(top, bottom)
     )
 

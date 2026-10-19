@@ -45,6 +45,38 @@ Callouts (9x1, 0-based):
 `VStack` uses the same semantics after transposition: `spacing` is rows, Spacer consumes
 rows, and `.leading` / `.center` / `.trailing` align each child on the horizontal axis.
 
+`VStack` rows stack with no gap at the default `spacing: 0`, and `.leading` keeps every
+child at the left edge:
+
+```wireframe 13x3
+Build started
+pass core
+warn 2 lints
+```
+
+```text
+Callouts (13x3, 0-based):
+1. r0 c0-c12 Leading child -- first row at the main-axis origin.
+2. r1 c0-c8 Next child -- placed directly below; spacing 0 adds no row.
+3. r2 c0-c11 Trailing child -- last row; `.leading` pins every child to column 0.
+```
+
+Two equal-priority Spacers split the leftover main-axis cells, and the earliest Spacer
+takes the odd cell:
+
+```wireframe 40x1
+left             middle            right
+```
+
+```text
+Callouts (40x1, 0-based):
+1. r0 c0-c3   Leading child -- `left`, rigid four cells.
+2. r0 c4-c16  First Spacer -- 13 cells; receives the one-cell remainder.
+3. r0 c17-c22 Middle child -- `middle`, rigid six cells.
+4. r0 c23-c34 Second Spacer -- 12 cells.
+5. r0 c35-c39 Trailing child -- `right`, rigid five cells.
+```
+
 ## Variants
 
 | Component                       | Default                             | Main axis                                | Cross-axis alignment                              |
@@ -142,6 +174,16 @@ Negative spacing and `minLength` use the pre-layout `precondition` diagnostics i
 alignment is explicitly excluded from Phase 4 pending the scoped
 [deferred baseline alignment](../../docs/Spec.md#deferred-baseline-alignment) proposal; it
 must not appear as an undocumented enum case.
+
+Two equal Spacers share the remainder by source order: the earliest Spacer takes the extra
+cell (owner decision, 2026-10-10). omp2's spacer example gives it to the later Spacer
+(gaps of 12 and 13 cells at 40 columns). Tessera keeps the earliest-Spacer rule, as the
+allocation fixtures above state, under the normative
+[Slice 2 stack algorithm](../../docs/Spec.md#the-stack-algorithm-normative).
+
+Flow layout (a row that wraps children onto new lines when the width runs out) is not an
+HStack mode. `HStack` never wraps and gains no `wrap` argument. A wrapping layout is
+planned as its own step (plan 032 step 14.1) and sits outside the Slice 2 stack contract.
 
 ## Inspiration
 

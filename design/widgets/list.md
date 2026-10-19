@@ -17,8 +17,9 @@ selection, or expansion.
 
 Row content is an app-supplied row builder, not a column model: file lists, message
 timelines, and navigation sidebars are all the same widget with different row views.
-Accessories and badges are ordinary row composition (trailing `Text` styled
-`semantic.secondary`), not a dedicated List API.
+Accessories are ordinary row composition. A trailing count or label is the one shared
+affordance: `.badge(_:)` on a row, see [Row badges](#row-badges) and
+[Badge](../primitives/badge.md).
 
 Provisional API shape (vocabulary, not a commitment):
 
@@ -33,9 +34,10 @@ where Data.Element: Identifiable, Data.Element.ID == ID {
     )
 }
 
-// Builder form for Section grouping; rows keep the same identity rules.
-List(selection: $selection) {
-    Section("Mailboxes", isExpanded: $mailboxes) { ForEach(boxes) { box in row(box) } }
+// Builder form for Section grouping; rows keep the same identity rules. `selection` and
+// `mailboxesExpanded` are Bindings from the app's model.
+List(selection: selection) {
+    Section("Mailboxes", isExpanded: mailboxesExpanded) { ForEach(boxes) { box in row(box) } }
     Section("Tags") { ForEach(tags) { tag in row(tag) } }
 }
 ```
@@ -97,8 +99,8 @@ Callouts (26x12, 0-based):
 2. r1-r4    Data row -- one per visible row; text from the app row builder at c3
             (Section's two-column row indent; sectionless rows start at c1)
 3. r2 c0    Selection bar -- token `selection.bar`; row also gets `selection.fill`
-4. r1 c22   Badge -- row-content convention: trailing Text, `semantic.secondary`,
-            right-aligned by the app's row builder; not a List API
+4. r1 c22   Badge -- trailing count from plain text or `.badge(_:)`; neutral tone by
+            default (see Row badges); right-aligned by the app's row builder
 5. r5, r7   Section spacer -- List chrome, one blank row between adjacent sections
 6. r6       Collapsed header -- `disclosure.collapsed`; the section's rows are hidden
 7. c25      Scrollbar -- output-only ScrollIndicator; 12 of 18 flattened rows visible
@@ -107,6 +109,28 @@ Callouts (26x12, 0-based):
 ```
 
 Region names for the mouse table: data row, section header, viewport.
+
+## Row badges
+
+Owner decision, omp2 review, 2026-10: a row takes `.badge(_:)` for a count or short label,
+as in SwiftUI. The badge is a [Badge](../primitives/badge.md) and trails the row content
+at the trailing edge; it is row content, not List chrome. The default tone is neutral, so
+a count stays quiet; an app passes another tone for a row that needs attention. Tab items
+take the same modifier ([TabView](tab-view.md)).
+
+Two unselected rows with neutral count badges, as apps use them.
+
+```wireframe 40x2
+Inbox                               ▐12▌
+Drafts                               ▐3▌
+```
+
+```text
+Callouts (40x2, 0-based):
+1. r0 c36-c39  Count badge, neutral -- trailing row content from `.badge(_:)`; the Inbox
+               count, default tone
+2. r1 c37-c39  Count badge, neutral -- the Drafts count
+```
 
 ## States
 
@@ -125,7 +149,7 @@ thumb = max(1, floor(16x16/40)) = 6 starting at floor(8x(16-6)/(40-16)) = 3.
  Priya Patel                     08:58 ┃
   Monodraw snippet library feedback    ┃
  Deploy Bot                      08:30 ┃
-  showcase preview deployed to staging │
+  demo app preview deployed to staging │
  Maya Chen                       07:55 │
   Scroll indicator thumb rounding      │
  Linh Tran                       07:41 │
@@ -253,8 +277,7 @@ anatomy's data set (18 flattened rows); the rule, not the numbers, is normative.
 - `selection.bar`, `selection.fill`, `selection.inactive`, `selection.ascii`
 - `disclosure.expanded`, `disclosure.collapsed`, `disclosure.ascii` -- collapsible Section
   headers ([tokens](../tokens.md#disclosure))
-- `semantic.secondary` -- Section header default and the badge/preview row-content
-  convention
+- `semantic.secondary` -- Section header default and the preview row-content convention
 - `scrollbar.track`, `scrollbar.thumb`, `scrollbar.ascii` for the output-only
   ScrollIndicator
 - `truncation.mark`
@@ -265,6 +288,7 @@ anatomy's data set (18 flattened rows); the rule, not the numbers, is normative.
 
 - [Section](section.md) -- companion widget owning header anatomy and expansion
   presentation; specified in the same pass.
+- [Badge](../primitives/badge.md) -- trailing row badge via `.badge(_:)` (see Row badges).
 - [ScrollIndicator](../primitives/scroll-indicator.md) -- shared with ScrollView and
   Table; output-only, List supplies viewport state but routes no pointer input to it.
   Ready.
@@ -311,6 +335,7 @@ anatomy's data set (18 flattened rows); the rule, not the numbers, is normative.
 - `nil x nil fits all rows without an indicator reservation` (sizing: nil x nil)
 - `unfocused selection renders the inactive tint` (state model: selection style)
 - `ascii degradation preserves geometry` (states: degraded)
+- `row badge trails the row content at the trailing edge` (row badges)
 
 ## Degradation
 
@@ -321,22 +346,24 @@ anatomy's data set (18 flattened rows); the rule, not the numbers, is normative.
 - Below `min` (12x3): truncated rows, scrollbar dropped below width 8, never a layout
   failure.
 
+## Scope decisions
+
+- Selection styling: `listSelectionStyle` is deferred to the
+  [Slice 3](../../docs/Spec.md#slice-3-styling-text-wrapping-and-decoration)
+  style/environment contract. v1 consumes the `selection.*` tokens directly with no
+  parallel style protocol (ScrollView precedent); List keeps its selection tokens (owner
+  decision, 2026-10-10).
+- Multi-select `Binding<Set<ID>>` is out of v1, shared with
+  [Table](table.md#open-questions). Revisit after both ship single-select with identical
+  semantics (owner decision, 2026-10-10).
+
 ## Open questions
 
-- `listSelectionStyle` spelling and scope: deferred to the
-  [Slice 3](../../docs/Spec.md#slice-3-styling-text-wrapping-and-decoration)
-  style/environment contract; v1 consumes the `selection.*` tokens directly with no
-  parallel style protocol (ScrollView precedent).
 - Context menus: out of v1. Unblocked by extending the catalog's
   [mouse-event vocabulary](../README.md#mouse-table) with a secondary-click event plus
   Slice 5 routing; the target API shape is SwiftUI's
   `contextMenu(forSelectionType:menu:primaryAction:)`, whose menu closure receives the
   selection so empty-space and on-row menus differ.
-- Multi-select `Binding<Set<ID>>`: deliberately out of v1, shared decision with
-  [Table](table.md#open-questions); revisit after both ship single-select with identical
-  semantics.
-- A `.badge(_:)` convenience modifier: v1 uses row composition; revisit with Form post-1.0
-  if the convention proves repetitive.
 - Bulk expand/collapse chords (Shift-Left/Right): needs a use case; the expansion bindings
   already let apps implement it.
 

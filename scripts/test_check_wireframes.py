@@ -131,6 +131,14 @@ class GeometryTests(unittest.TestCase):
             any("trailing indicator shifts to column 9" in error for error in ascii_errors)
         )
 
+    def test_scroll_thumbs_continue_a_box_edge_without_starting_one(self) -> None:
+        for thumb in "█▐▌":
+            self.assert_geometry_clean(["┌──┐┌──┐", "│ a││ a│", f"│ b{thumb}│ b{thumb}", "└──┘└──┘"])
+
+        errors = checker.check_wireframe_geometry(["┌──┐", "│ a│", "│ b █", "└──┘"], 1)
+        self.assertTrue(any("vertical edge lacks a reciprocal connection below" in e for e in errors))
+        self.assert_geometry_clean(["█", "│"])
+
     def test_shifted_right_border_reports_display_coordinates(self) -> None:
         errors = checker.check_wireframe_geometry(["┌──┐", "│  │", "└──  ┘"], 40)
         self.assertTrue(any("line 41 column 3" in error for error in errors))

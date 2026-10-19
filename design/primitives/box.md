@@ -1,6 +1,6 @@
 ---
 kind: primitive
-status: ready
+status: specified
 ---
 
 # Box
@@ -22,6 +22,11 @@ and [Frame](frame.md) contracts rather than introducing private layout or input 
   authoritative content-inset primitive and adds only one base cell of chrome padding.
 - Tessera [Slice 3](../../docs/Spec.md#slice-3-styling-text-wrapping-and-decoration) —
   owns the public API and the default rounded-border direction.
+- omp2 `Boxed`: bordered container with a `focus` prop whose focused box looks the same as
+  an unfocused one
+  (`https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/boxed.rs#L14-L209`,
+  focus prop at `boxed.rs#L183` and `#L202`). The focus look here is Tessera's own; see
+  [Focus](#focus).
 
 ## Anatomy
 
@@ -118,6 +123,10 @@ and never redraws a ring itself. `title` is optional plain text placed on the to
 Box applies exactly one base cell of content padding through [Padding](padding.md);
 further inset is ordinary child `.padding` composition, not a second Box parameter.
 
+The focus-within tint switch is the environment value `focusWithinBorder: Bool`, default
+`true`, and the modifier `.focusWithinBorder(false)`. `.focusSection()` sets it to `false`
+for its whole subtree (owner decision, 2026-10-10).
+
 ## Sizing
 
 Schema: [README](../README.md#sizing-table). The child measured here has an eight-by-two
@@ -130,17 +139,204 @@ ideal; chrome adds two cells on each edge (one border, one padding).
 | 1x1       | 1x1    | under-minimum: chrome collapses through Border; only the corner paints   |
 | 40x20     | 12x6   | over-proposed: child measures its ideal; parent slack is unused          |
 
+## State model
+
+Box stores no focus state. Each row names an input owned by the focus system or the
+environment.
+
+| State                     | Owner                                                                                   | Type                   | Reset                                                     |
+| ------------------------- | --------------------------------------------------------------------------------------- | ---------------------- | --------------------------------------------------------- |
+| Self focus                | Focus system: this Box's `.focusable(id)` holds focus                                   | `Bool`, derived        | Recomputed as focus moves; false when focus leaves        |
+| Focus within              | Focus system: a focused descendant sits under this Box                                  | `Bool`, derived        | Recomputed as focus moves; ignored when the switch is off |
+| Nearest bordered ancestor | Layout tree: first bordered Box above the focused control                               | derived                | Recomputed each frame; outer Boxes stay plain             |
+| Tint switch               | Environment `focusWithinBorder`; `.focusWithinBorder(false)`; `.focusSection()` subtree | `Bool`, default `true` | Set by the environment; focus moves do not change it      |
+
+## Focus
+
+Owner decision, omp2 review, 2026-10. The look follows the
+[Focus border](border.md#focus-border) rules: one `focus` role colour, with weight set by
+rule. The three states below are the accepted wireframes.
+
+Owner decision, 2026-10-10: the focus colour is violet (16-colour magenta 5/13) for now,
+foreground-only, bold, with no background. Tessera picks the default; developers can set
+their own colour. The `focus` token row stays pending plan 032 step 5.3.
+
+### Self focus
+
+A Box marked `.focusable(id)` that holds focus paints its ring in the `focus` role with
+the `heavy` set (rule 1). Geometry does not move. The unfocused box beside it keeps
+`single`.
+
+```wireframe 40x6
+┌──────────────────────────────────────┐
+│ first box, unfocused                 │
+└──────────────────────────────────────┘
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ second box, focused                  ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+```
+
+```text
+Callouts (40x6, 0-based):
+1. r0-r2 c0-c39  Unfocused box -- `single` set in the `border` role; no focus
+2. r3-r5 c0-c39  Focused box -- `heavy` set in the `focus` role; geometry unchanged (rule 1)
+3. r4 c1-c38     Child -- default style; the ring alone carries focus
+```
+
+```text
+── chars ──
+┌──────────────────────────────────────┐
+│ first box, unfocused                 │
+└──────────────────────────────────────┘
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ second box, focused                  ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+── style ──
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+A......................................A
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
+P......................................P
+PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
+── legend ──
+.  default
+A  fg=border
+P  fg=focus
+```
+
+### Focus within
+
+A bordered container with a focused descendant tints its nearest bordered ring in the
+`focus` role at normal weight (rule 2). The focused control shows its own focus: the
+Deploy button fills with the focus colour. The sibling box stays plain.
+
+```wireframe 40x8
+┌─ Build ──────────────────────────────┐
+│ 12 steps, last run 4 minutes ago     │
+│ ▐Rerun▌  ▐Logs▌                      │
+└──────────────────────────────────────┘
+┌─ Deploy ─────────────────────────────┐
+│ production, 3 replicas               │
+│ ▐Cancel▌  ▐Deploy▌                   │
+└──────────────────────────────────────┘
+```
+
+```text
+Callouts (40x8, 0-based):
+1. r0-r3 c0-c39  Sibling box (Build) -- `single` set in `border`; not an ancestor of the focus
+2. r4-r7 c0-c39  Focus-within box (Deploy) -- `single` set in `focus` at normal weight (rule 2)
+3. r4 c2-c9      Title -- bold `focus` label
+4. r6 c12-c19    Deploy button -- the focused control: `contrast` on `focus` fill, bold
+5. r6 c2-c9      Cancel button -- unfocused secondary action: tinted, `faint(secondary)*` fill
+```
+
+```text
+── chars ──
+┌─ Build ──────────────────────────────┐
+│ 12 steps, last run 4 minutes ago     │
+│ ▐Rerun▌  ▐Logs▌                      │
+└──────────────────────────────────────┘
+┌─ Deploy ─────────────────────────────┐
+│ production, 3 replicas               │
+│ ▐Cancel▌  ▐Deploy▌                   │
+└──────────────────────────────────────┘
+── style ──
+AATTTTTTTAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+A.MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM.....A
+A.BbbbbbB..BbbbbB......................A
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+PPFFFFFFFFPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
+P.MMMMMMMMMMMMMMMMMMMMMM...............P
+P.BbbbbbbB..PppppppP...................P
+PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
+── legend ──
+.  default
+A  fg=border
+F  fg=focus bold
+T  fg=primary bold
+M  fg=muted
+B  fg=faint(secondary)*
+b  fg=secondary bg=faint(secondary)*
+P  fg=focus
+p  fg=contrast bg=focus bold
+```
+
+### Nested
+
+Only the nearest bordered ancestor of the focused control tints. The outer Release box and
+the sibling api box stay plain, so enclosing frames do not all light up at once.
+
+```wireframe 40x8
+┌─ Release ────────────────────────────┐
+│ two services ship together           │
+│ ┌─ api ──────────┐┌─ worker ───────┐ │
+│ │ v2.4.0         ││ v1.9.2         │ │
+│ │ ▐Pin▌          ││ ▐Pin▌          │ │
+│ │                ││                │ │
+│ └────────────────┘└────────────────┘ │
+└──────────────────────────────────────┘
+```
+
+```text
+Callouts (40x8, 0-based):
+1. r0-r7 c0-c39  Outer box (Release) -- `single` set in `border`; stays plain; title bold `primary`
+2. r2-r6 c2-c19  Sibling box (api) -- plain; not an ancestor of the focus
+3. r2-r6 c20-c37 Nearest bordered ancestor (worker) -- `single` set in `focus`, normal weight
+4. r2 c22-c29    Worker title -- bold `focus` label
+5. r4 c22-c26    Pin button (worker) -- the focused control: `contrast` on `focus` fill, bold
+6. r4 c4-c8      Pin button (api) -- unfocused secondary action: tinted, `faint(secondary)*` fill
+```
+
+```text
+── chars ──
+┌─ Release ────────────────────────────┐
+│ two services ship together           │
+│ ┌─ api ──────────┐┌─ worker ───────┐ │
+│ │ v2.4.0         ││ v1.9.2         │ │
+│ │ ▐Pin▌          ││ ▐Pin▌          │ │
+│ │                ││                │ │
+│ └────────────────┘└────────────────┘ │
+└──────────────────────────────────────┘
+── style ──
+AATTTTTTTTTAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+A.MMMMMMMMMMMMMMMMMMMMMMMMMM...........A
+A.AATTTTTAAAAAAAAAAAPPFFFFFFFFPPPPPPPP.A
+A.A.MMMMMM.........AP.MMMMMM.........P.A
+A.A.BbbbB..........AP.PpppP..........P.A
+A.A................AP................P.A
+A.AAAAAAAAAAAAAAAAAAPPPPPPPPPPPPPPPPPP.A
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+── legend ──
+.  default
+A  fg=border
+F  fg=focus bold
+T  fg=primary bold
+M  fg=muted
+B  fg=faint(secondary)*
+b  fg=secondary bg=faint(secondary)*
+P  fg=focus
+p  fg=contrast bg=focus bold
+```
+
 ## Environment
 
 - Border sets resolve exactly as in the [Border](border.md) contract; Box adds no border
   token of its own.
-- When Box handles delegated focus appearance, it retains its declared `BorderStyle` and
-  title position, paints only the foreground of border glyphs with the focus color (bold),
-  leaves their backgrounds transparent, skips title cells, and does not consume the
-  focus-owner-only `focus.border` rounded switch.
-- Delegated appearance paints after descendants. A descendant ScrollView therefore keeps
-  its own key ownership and, when it overflows, its edge-riding indicator; only the Box
-  ring receives the primary focus foreground overlay.
+- The focus colour is the `focus` role; its value is token pending plan 032 step 5.3. Box
+  adds no focus token; the rules are in the [Focus border](border.md#focus-border)
+  section.
+- Focus paints only the foreground of border glyphs and the title text, leaves backgrounds
+  transparent, and keeps the declared `BorderStyle` and title position.
+- Delegated focus appearance paints after descendants. A descendant ScrollView therefore
+  keeps its own key ownership and, when it overflows, its edge-riding indicator; only the
+  Box ring takes the focus-role foreground.
+- The focus-within tint is on by default for bordered containers. The environment value
+  `focusWithinBorder` (default `true`) and `.focusWithinBorder(false)` turn it off;
+  `.focusSection()` sets it to `false` for its whole subtree (owner decision, 2026-10-10).
+  See the [state model](#state-model).
+- Unfocused secondary actions in the wireframes are tinted buttons (Button's default
+  emphasis) with a `faint(secondary)` fill: token pending plan 032 step 5.3. The focused
+  button keeps the focus fill.
 - The title uses `semantic.primary` through the ambient
   [`defaultStyle`](style-modifiers.md) and the
   [`truncation.mark`](../tokens.md#truncation) for tail truncation.
@@ -160,14 +356,22 @@ ideal; chrome adds two cells on each edge (one border, one padding).
   sizing: 1x1)
 - `zero area box paints nothing` (anatomy: declared minimum)
 - `ascii degradation renders the ascii ring and truncation mark` (degradation: ASCII-only)
-- `delegated focus repaints only the foreground of declared box border glyphs after descendants and excludes the title`
-  (environment: delegated focus appearance; decisions: edge-riding scroll indicator)
+- `self focus paints the heavy set in the focus role without moving the ring` (focus: self
+  focus; focus border: rule 1)
+- `focus within tints the nearest bordered ring at normal weight` (focus: focus within;
+  focus border: rule 2)
+- `focus within title takes the bold focus role` (focus: focus within)
+- `nested focus tints only the nearest bordered ancestor` (focus: nested)
+- `box with nothing focusable inside never changes` (focus: focus within)
+- `focus within is off under focusSection or focusWithinBorder(false)` (state model: tint
+  switch)
 
 ## Degradation
 
 Per the [degradation ladder](../tokens.md#degradation-ladder), Box inherits Border's ring
 degradation and Text's truncation degradation: `NO_COLOR` and 16-color keep the geometry,
-ASCII-only swaps in the `ascii` ring and the `~` truncation mark.
+ASCII-only swaps in the `ascii` ring and the `~` truncation mark. ASCII focus shows in
+bold, since ASCII has no heavier ring (focus border rule 6).
 
 ```wireframe 16x3
 +- Long titl~ -+
@@ -197,22 +401,28 @@ an ordinary `.padding` on the child rather than a second Box padding parameter. 
 Reviewed against the
 [Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): Box is static
 chrome composed from existing primitives, appearance comes from shared tokens, and
-geometry is deterministic integer-cell output. It remains a primitive, not a focusable
-panel widget.
+geometry is deterministic integer-cell output.
+
+Focus is an owner decision (omp2 review, 2026-10). A Box marked `.focusable(id)` paints
+the self-focus ring; a Box with a focused descendant tints its nearest bordered ring; a
+Box with nothing focusable inside never changes. The look follows the
+[Focus border](border.md#focus-border) rules. Box owns no key routing.
 
 Box also anchors an edge-riding scroll indicator: a scrollable descendant may mount a
-[ScrollIndicator](scroll-indicator.md) in `onBorder` placement so its thumb rides the Box
-border edge, treating the border line as the track and reserving no interior cell. The Box
-chrome is otherwise unchanged; only the thumb cells on the border edge are overpainted.
+[ScrollIndicator](scroll-indicator.md) in border placement
+(`.scrollIndicatorPlacement(.border)`) so its thumb rides the Box border edge, treating
+the border line as the track and reserving no interior cell. The Box chrome is otherwise
+unchanged; only the thumb cells on the border edge are overpainted.
+
+Owner decision, 2026-10-10: Box hit testing is deferred to
+[Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing), together with whether an
+interactive bordered child needs a distinct decorative-versus-hit region.
 
 ## Open questions
 
-- Box chrome is decorative: hit testing follows the Box final frame and child clip, and
-  title or border cells do not intercept pointer input unless a descendant installs a
-  handler. A future interactive-title affordance would need a separate widget contract;
-  its routing is deferred to [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing).
+None.
 
 ## Inspiration
 
-Box is static terminal chrome for grouping content. It must remain a primitive, not a
-focusable panel widget.
+Box is static terminal chrome for grouping content. It must remain a primitive: it may
+take focus for its look, never for key handling.
