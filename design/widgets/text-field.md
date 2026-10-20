@@ -90,16 +90,29 @@ Email address
 ```text
 Callouts (48x4, 0-based):
 1. r0       Label -- caller-supplied Label, style role `semantic.primary`; omitted only
-            when the caller supplies an empty label.
+            when the caller supplies an empty label; content, wraps above the frame.
 2. r1-r3    Field frame -- default TextFieldStyle, token `focus.border` when focused;
             rounded border set is visual chrome, not a hit target.
-3. r2 c1-c46 Input line -- single unwrapped display viewport; primary click-to-caret
-            region and the only mouse region in this document.
+3. r2 c1-c46 Input line -- single unwrapped display viewport; the edited text, one row,
+            scrolls horizontally around the caret, no wrap, no tail mark (Wrap exception
+            below); primary click-to-caret region and the only mouse region in this document.
 4. r2 c1-c46 Prompt slot -- the same input line when text is empty; prompt uses planned
-            `semantic.secondary` Style and never becomes bound text.
+            `semantic.secondary` Style and never becomes bound text; content, one-row budget
+            (the input line), so a long prompt ends in `…`.
 5. r2       Caret site -- derived terminal position; a focused enabled field requests the
             hardware cursor here instead of rendering a virtual cursor glyph.
 ```
+
+> Wrap exception (rule 1): the editing line stays single-line and scrolls horizontally
+> around the caret, with no wrap and no tail mark. Wrapping would move text under the
+> caret as the user types. Prompt and label are content (owner decision, 2026-10-18).
+
+The label is content: it word-wraps at the field's width, and the label rows add to the
+field's height (see [Label wrapping](#label-wrapping)). The prompt is content too, but it
+lives in the input line, whose row budget is one row, so under that fixed budget it marks
+its last (only) visible row with `…` instead of growing the frame, which would shift the
+frame when the first character replaces it. The label and prompt inherit `lineLimit` and
+`truncationMode` from the environment; the editing line pins its own single-line behavior.
 
 Region names for the mouse table: input line.
 
@@ -121,16 +134,21 @@ Username
 ```text
 Callouts (40x4, 0-based):
 1. r0       Label -- visible before prompt because the 40-column viewport exceeds the
-            declared minimum.
+            declared minimum; content, wraps (it fits one row here).
 2. r1-r3    Field frame -- compact default-style chrome; width tracks the offered 40 cells.
-3. r2 c1-c38 Input line -- 38-cell viewport; content reveals horizontally instead of
-            wrapping.
+3. r2 c1-c38 Input line -- 38-cell viewport; editing line, content reveals horizontally
+            instead of wrapping.
 ```
 
 ### Minimum
 
-The declared normal-rendering floor is `12x4`. It leaves one label row, a three-row frame,
-and ten cells of input viewport. The field never wraps text or increases its row count.
+The declared normal-rendering floor is `12x4` (owner decision, 2026-10-18 re-derivation):
+the larger of 12 columns and the label's widest word, by one frame of three rows plus the
+rows the label needs at that width. Twelve columns leaves ten cells of input viewport
+inside the frame, which keeps caret reveal usable; that count is a design choice, not
+derived from words, and the input line has none to break. The fixture label `Search` has a
+widest word of 6, so one label row and `12x4`. A label with a wider word raises the floor
+to that word's width. The editing line never wraps.
 
 ```wireframe 12x4
 Search
@@ -141,8 +159,8 @@ Search
 
 ```text
 Callouts (12x4, 0-based):
-1. r0       Label -- natural-width label; it may tail-truncate at a grapheme boundary when
-            its available width is narrower than the fixture.
+1. r0       Label -- `Search`, whole at the floor; content, wraps. Below the floor it wraps
+            and breaks between graphemes rather than dropping.
 2. r1-r3    Field frame -- the smallest complete default-style frame.
 3. r2 c1-c10 Input line -- ten-cell single-line viewport; editing and hardware-cursor
             placement still work at the floor.
@@ -163,10 +181,10 @@ Email address
 
 ```text
 Callouts (48x4, 0-based):
-1. r0       Label -- caller-supplied field name in the `semantic.primary` role.
+1. r0       Label -- caller-supplied field name in the `semantic.primary` role; content, wraps.
 2. r1-r3    Field frame -- unfocused default-style border.
-3. r2 c1-c46 Prompt slot -- muted `semantic.secondary` text in the input line; its
-            displayed characters are not part of the bound string.
+3. r2 c1-c46 Prompt slot -- muted `semantic.secondary` text in the input line; content, one-row
+            budget; its displayed characters are not part of the bound string.
 ```
 
 ### Focused
@@ -185,9 +203,9 @@ Email address
 
 ```text
 Callouts (48x4, 0-based):
-1. r0       Label -- unchanged by focus; emphasis stays on the editing region.
+1. r0       Label -- unchanged by focus; emphasis stays on the editing region; content, wraps.
 2. r1-r3    Field frame -- rounded border in the token `focus.border` accent treatment.
-3. r2 c1-c46 Input line -- bound text rendered without wrapping.
+3. r2 c1-c46 Input line -- bound text rendered without wrapping; editing line.
 4. r2 c12   Caret site -- hardware cursor overlays the `l` cell at the grapheme boundary
             before it; `▏` replaces that cell in this fixture only.
 ```
@@ -208,10 +226,10 @@ Repository path
 
 ```text
 Callouts (48x4, 0-based):
-1. r0       Label -- identifies the independently bound field.
+1. r0       Label -- identifies the independently bound field; content, wraps.
 2. r1-r3    Field frame -- focus styling remains visible during reveal.
-3. r2 c1-c46 Input line -- clipped, unwrapped slice of a longer bound value; neither side
-            receives `truncation.mark` because this is an editable viewport.
+3. r2 c1-c46 Input line -- clipped, unwrapped slice of a longer bound value; editing
+            exception: neither side receives `truncation.mark`, because this is an editable viewport.
 4. r2 c41   Caret site -- end boundary remains in the viewport after reveal offset clamps.
 ```
 
@@ -232,7 +250,7 @@ Display name
 ```text
 Callouts (48x4, 0-based):
 1. r0       Label -- ordinary `semantic.primary` text, independent of input-cluster
-            measurement.
+            measurement; content, wraps.
 2. r1-r3    Field frame -- unchanged for wide or combining input.
 3. r2 c1-c46 Input line -- display-cell viewport: `東京` is four cells, `👩🏽‍💻` is two,
             and `é` is one.
@@ -255,9 +273,46 @@ Email address
 
 ```text
 Callouts (48x4, 0-based):
-1. r0       Label -- `semantic.disabled` Style rather than a second color palette.
+1. r0       Label -- `semantic.disabled` Style rather than a second color palette; content, wraps.
 2. r1-r3    Field frame -- disabled chrome; it has no focus accent.
 3. r2 c1-c46 Input line -- read-only visual value and noninteractive hit region.
+```
+
+### Label wrapping
+
+The label is content (owner decision, 2026-10-18): at a finite width it word-wraps above
+the frame, a word wider than the field breaks between grapheme clusters, and the field
+grows by the rows the label needs. A finite height is a fixed row budget; see
+[Sizing](#sizing) for which region gives up rows first. The prompt, in the one-row input
+line, ends in `…` when it is too long.
+
+```wireframe 16x5
+Email address
+for billing
+╭──────────────╮
+│bob@acme.io   │
+╰──────────────╯
+```
+
+```text
+Callouts (16x5, 0-based):
+1. r0-r1     Label -- `Email address for billing` wrapped at 16 columns; content, wraps.
+2. r2-r4     Field frame -- unchanged three-row chrome below the label rows.
+3. r3 c1-c14 Input line -- editing line, one row; bound text `bob@acme.io`.
+```
+
+```wireframe 20x4
+Work email
+╭──────────────────╮
+│you@example.com (…│
+╰──────────────────╯
+```
+
+```text
+Callouts (20x4, 0-based):
+1. r0       Label -- `Work email`; content, wraps (fits one row).
+2. r1-r3    Field frame -- chrome.
+3. r2 c1-c18 Prompt slot -- `you@example.com (work)` under a one-row budget: the 18-cell line keeps 17 cells and ends in `…`; content, one row.
 ```
 
 ### Character counter
@@ -283,8 +338,8 @@ Callouts (40x2, 0-based):
 1. c0-c1    row cursor `❯` -- `accent` on the focused row and `muted` on the other. It is
             host-row chrome (Focus border rule 3), not TextField output.
 2. c2-c26   input text -- bound value in `primary`; row 1 is 21 grapheme clusters, row 2 is 25.
-3. r0 c38-c39 remaining count `19` -- `muted`: the limit of 40 minus 21 grapheme clusters.
-4. r1 c37-c39 overflow count `+13` -- `error`: 25 grapheme clusters minus the limit of 12.
+3. r0 c38-c39 remaining count `19` -- `muted`: the limit of 40 minus 21 grapheme clusters; chrome, one row.
+4. r1 c37-c39 overflow count `+13` -- `error`: 25 grapheme clusters minus the limit of 12; chrome, one row.
 ```
 
 Styled grid (owner review, verbatim):
@@ -321,10 +376,10 @@ Email address
 
 ```text
 Callouts (48x4, 0-based):
-1. r0       Label -- plain terminal-default text when color is unavailable.
+1. r0       Label -- plain terminal-default text when color is unavailable; content, wraps.
 2. r1-r3    Field frame -- token `borders.ascii`, preserving the component boundary without
             Unicode glyphs.
-3. r2 c1-c46 Input line -- remains the same editable display viewport under degradation.
+3. r2 c1-c46 Input line -- remains the same editable display viewport under degradation; editing line.
 4. r2 c12   Caret site -- terminal cursor overlay represented by ASCII `|`; it replaces
             the underlying `l` cell in this fixture only.
 ```
@@ -337,7 +392,7 @@ Callouts (48x4, 0-based):
 | cursor grapheme offset                   | NodeState   | `Int`                               | Clamp to `0...graphemeCount(text)` on every reconciliation; if the app changes text, keep the nearest surviving grapheme boundary.                                                                 |
 | selection anchor grapheme offset         | NodeState   | `Int`                               | Clamp to `0...graphemeCount(text)` on every reconciliation; equal to the cursor when no range is selected, and never points inside a grapheme.                                                     |
 | selected grapheme range                  | derived     | `Range<Int>`                        | The half-open range between anchor and cursor; replacement and deletion operate on whole graphemes only.                                                                                           |
-| horizontal reveal offset                 | NodeState   | `Int` display-cell offset           | Clamp on every layout/update to a legal grapheme boundary between `0` and the maximum reveal; adjust minimally to keep the caret within the input line.                                            |
+| horizontal reveal offset                 | NodeState   | `Int` display-cell offset           | Clamp on every layout/update to a legal grapheme boundary between `0` and the maximum reveal; adjust minimally to keep the caret within the input line. The editing line never wraps.              |
 | grapheme boundaries and display advances | derived     | `[String.Index]` plus cell advances | Recompute from current `text` during layout/render; combining marks advance zero and wide clusters reserve their measured cells.                                                                   |
 | input viewport width                     | derived     | `Int` cells                         | Recompute from final input-line bounds on every layout; zero width yields no cursor request.                                                                                                       |
 | effective enabled                        | derived     | `Bool`                              | Recompute from the inherited enabled configuration on every update; false disables focus/edit behavior without copying text.                                                                       |
@@ -409,16 +464,24 @@ cluster as an interior cursor position.
 ## Sizing
 
 These exact results use the default style, label `Email address`, empty text, and prompt
-`you@example.com`; the default style places label plus a three-row rounded field. A custom
-style controls its own chrome metrics but must still offer a single unwrapped input line
-and respect the offered bounds. `nil` is the layout protocol's unconstrained axis.
+`you@example.com`; the default style places the label rows plus a three-row rounded field.
+A custom style controls its own chrome metrics but must still offer a single unwrapped
+input line and respect the offered bounds. `nil` is the layout protocol's unconstrained
+axis.
 
-| Proposal  | Result | Rule                                                                                                                                                           |
-| --------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| nil x nil | 17x4   | Ideal width is max(label 13, prompt 15) plus the two frame columns; default-style height is label plus three frame rows.                                       |
-| 17x4      | 17x4   | Tight fit accepts the ideal width and intrinsic four-row height.                                                                                               |
-| 11x2      | 11x2   | Under the declared `12x4` floor, accepts the offered bounds; it drops frame first, then label, and clips the unwrapped input line without losing Binding data. |
-| 80x24     | 80x4   | Over maximum height stays intrinsic while offered width becomes the single-line viewport width.                                                                |
+Under a finite height, the rows are shared by the label, the frame, and the input line.
+The input line keeps its row first; the frame (chrome) drops before the label loses rows;
+the label then takes the remaining rows and marks its last visible row with `…`; a label
+left with zero rows is absent (owner decision, 2026-10-18).
+
+| Proposal  | Result | Rule                                                                                                                                                                                                                 |
+| --------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| nil x nil | 17x4   | Ideal width is max(label 13, prompt 15) plus the two frame columns; default-style height is label plus three frame rows.                                                                                             |
+| 17x4      | 17x4   | Tight fit accepts the ideal width and intrinsic four-row height.                                                                                                                                                     |
+| 11x2      | 11x2   | Under the declared `12x4` floor, accepts the offered bounds. The input line keeps its row, the frame drops, and the label takes the one remaining row: `Email addr…` over the input line. The binding is never lost. |
+| 80x24     | 80x4   | Over maximum height stays intrinsic while offered width becomes the single-line viewport width.                                                                                                                      |
+| 12xnil    | 12x5   | Label `Email address` wraps to `Email` and `address` (two rows), then the three-row frame; the editing line stays one row.                                                                                           |
+| 11x1      | 11x1   | The input line keeps the only row; the frame and the label drop (a zero-row label is absent); the prompt ends in `…`.                                                                                                |
 
 ## Environment
 
@@ -481,6 +544,14 @@ and respect the offered bounds. `nil` is the layout protocol's unconstrained axi
   CJK, emoji, and combining marks wireframe; key table: Left)
 - `text field reveals the hardware caret without inserting an ellipsis into editable text`
   (Horizontal overflow wireframe; state model: horizontal reveal offset)
+- `text field label word-wraps above the frame and grows the field height` (Label wrapping
+  wireframe 16x5; sizing: 12xnil).
+- `text field editing line stays single-line with no wrap and no tail mark` (Wrap
+  exception; Horizontal overflow wireframe; Mobile wireframe).
+- `text field prompt ends in the truncation mark under the one-row input line` (Label
+  wrapping wireframe 20x4).
+- `text field keeps the input row first, then the frame, then label rows under a fixed height`
+  (sizing: 11x2, 11x1).
 - `text field invokes submit without owning or clearing app text` (key table: Enter with
   has submit handler is true)
 - `text field bubbles Enter when has submit handler is false` (key table: Enter with has
@@ -516,12 +587,13 @@ At normal capability, the default style uses the rounded frame and `focus.border
 At `NO_COLOR`, it retains glyphs but substitutes bold focus, per the ladder. At 16-color
 it uses the indexed accent mapping, never a hard-coded RGB approximation. At ASCII-only it
 uses the degraded fixture's `+`/`-`/`|` frame and `|` cursor diagram convention; editable
-text remains grapheme/display-width-safe. Below `12x4`, it reports the offered size,
-removes frame before label, then removes label before input, and clips rather than wraps.
-At zero input cells it makes no cursor request. No degradation changes the Binding or
-turns prompt text into data. The counter keeps its text at every capability level; its
-`muted` and `error` colours follow the ladder once those roles have tokens (token pending
-plan 032 step 5.3).
+text remains grapheme/display-width-safe. Below `12x4`, it reports the offered size. Under
+a fixed height the input line keeps its row, then the frame drops, then the label loses
+rows (its last visible row ends in `…`); in width the label wraps and breaks between
+graphemes, and the editing line scrolls and never wraps. At zero input cells it makes no
+cursor request. No degradation changes the Binding or turns prompt text into data. The
+counter keeps its text at every capability level; its `muted` and `error` colours follow
+the ladder once those roles have tokens (token pending plan 032 step 5.3).
 
 ## Deferred post-1.0
 

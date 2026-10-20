@@ -72,6 +72,12 @@ An unknown name draws no icon. A tab without an icon never shrinks. A tab badge 
 trailing, outside its chip, as list rows draw badges: `▐Inbox▌ ▐3▌` (owner decision,
 2026-10-10).
 
+Tab chips are chrome (owner decision, 2026-10-18): each chip title is a `Text` with
+`.lineLimit(1)` applied by TabView itself, so an app's inherited `lineLimit` never reaches
+it, and each chip stays one row. The bar wrapping chips onto more rows is the component's
+own layout of chrome items; no chip wraps internally. The pane is app content: it inherits
+`lineLimit` and `truncationMode` and word-wraps at the pane width.
+
 ## Anatomy
 
 Natural fixture: three tabs, the first active, the view focused so the cursor is drawn,
@@ -89,12 +95,12 @@ Callouts (80x3, 0-based):
 1. r0 c0-1    Cursor -- `❯` in `focus` while the tab view is focused; two spaces otherwise.
               Drawn on the bar row only.
 2. r0 c2-11   Active chip "Overview" -- caps `▐` and `▌` and the fill in `focus` while
-              focused; bold title in `contrast` on the `focus` fill.
-3. r0 c15-18  Inactive chip "Logs" -- title in `muted`; no caps, no fill.
+              focused; bold title in `contrast` on the `focus` fill; chrome, one row.
+3. r0 c15-18  Inactive chip "Logs" -- title in `muted`; no caps, no fill; chrome, one row.
 4. r0 c23-28  Inactive chip "Config" -- same as callout 3.
 5. r1 c0-79   Rule -- `─` repeated to the content width, `muted`.
 6. r2 c0-29   Pane -- the active tab's content, placed on the row below the rule with the
-              full content width.
+              full content width; content, wraps.
 7. frame      Whole view -- not a drawn element. Receives pointer events that hit no chip,
               rule, or pane, including the gaps between chips.
 ```
@@ -138,11 +144,11 @@ Build passed on main.
 
 ```text
 Callouts (40x5, 0-based):
-1. r0-r2   Bar -- chips wrap onto extra rows; chips without an icon never shrink, so the bar
-           wraps instead of collapsing.
+1. r0-r2   Bar -- chips wrap onto extra rows (the component's own layout of chrome, each chip
+           one row); chips without an icon never shrink, so the bar wraps instead of collapsing.
 2. r0 c0   Cursor -- `❯` in `focus` on the first bar row only.
 3. r3      Rule -- sits under the last bar row, not under the first.
-4. r4      Pane -- starts on the row below the rule.
+4. r4      Pane -- starts on the row below the rule; content, wraps.
 ```
 
 ```text
@@ -209,7 +215,7 @@ D  fg=primary: pane content
 
 At 24 columns the active tab keeps its label. Inactive tabs with an icon collapse to the
 icon alone. Config's icon wraps onto the second bar row because the collapsed bar would
-overflow row one (derived, not captured). The pane wraps within 24 columns.
+overflow row one (derived, not captured). The pane is content and wraps within 24 columns.
 
 ```wireframe 24x5
 ❯ ▐🏠 Overview▌   💻
@@ -287,6 +293,32 @@ A  fg=focus (`semantic.focus`): cursor
 B  fg=focus, bold: active label
 C  fg=muted (token pending plan 032 step 5.3): icon names and rule
 D  fg=primary: pane content
+```
+
+### Under the minimum: truncated active label (12x6)
+
+Derived from the settled truncation order, not captured (owner decision, 2026-10-10 for
+the order; the integer result follows from it). At 12 columns the 13-cell active chip does
+not fit beside the 2-cell cursor, so its label tail-truncates (chrome, one row): `Over…`.
+The collapsed icon chips wrap onto the second bar row; the rule spans the proposal; the
+pane is content and wraps at 12 columns.
+
+```wireframe 12x6
+❯ ▐🏠 Over…▌
+   💻   ⚙
+────────────
+Build passed
+on main at
+14:02.
+```
+
+```text
+Callouts (12x6, 0-based):
+1. r0 c0-1    Cursor -- `❯` in `focus`.
+2. r0 c2-11   Active chip -- `🏠` icon and the label cut to `Over…`; chrome, one row.
+3. r1 c3-8    Collapsed chips -- `terminal` and `gear` icons alone, in `muted`, on the second bar row.
+4. r2 c0-11   Rule -- `─` repeated to the 12-column proposal, `muted`.
+5. r3-r5      Pane -- the active tab's content; content, wraps at 12 columns.
 ```
 
 ### Unfocused
@@ -408,16 +440,19 @@ Schema: [README](../README.md#mouse-table). Regions must be named in the anatomy
 ## Sizing
 
 Schema: [README](../README.md#sizing-table). Results derived from the formula are marked
-as such; the bar width is `2 + Σ(title width + 4)` per tab, with icons ignored.
+as such; the bar width is `2 + Σ(title width + 4)` per tab, with icons ignored. Chips are
+chrome and stay one row; the pane is content and wraps at the proposed width.
 
-| Proposal   | Result | Rule                                                                                                                                                    |
-| ---------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| nil x nil  | 32x3   | Natural width is the larger of the bar and the widest pane; height is bar rows + 1 + pane rows (derived, not captured).                                 |
-| 24x5       | 24x5   | Tight fit at the minimum: `min(bar, 24)`; inactive icon chips collapse and chips without an icon wrap instead of shrinking (derived, not captured).     |
-| 40x3       | 40x3   | Captured default: the bar fits at full labels, and the rule and one pane line fill the height.                                                          |
-| 40xnil     | 40x5   | Captured wrap: chips wrap onto extra rows before the pane, and the rule follows the last bar row.                                                       |
-| W<24 x nil | open   | Under the minimum the active label truncates first, then inactive chips show icons only, then the pill caps drop. The integer size is an open question. |
-| 80x3       | 80x3   | Over-maximum: there is no maximum width; the rule spans the proposal and the pane takes the full content width.                                         |
+| Proposal   | Result                         | Rule                                                                                                                                                                                                                                                                                                                 |
+| ---------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| nil x nil  | 32x3                           | Natural width is the larger of the bar and the widest pane; height is bar rows + 1 + pane rows (derived, not captured).                                                                                                                                                                                              |
+| 24x5       | 24x5                           | Tight fit at the minimum: `min(bar, 24)`; inactive icon chips collapse and chips without an icon wrap instead of shrinking (derived, not captured).                                                                                                                                                                  |
+| 40x3       | 40x3                           | Captured default: the bar fits at full labels, and the rule and one pane line fill the height.                                                                                                                                                                                                                       |
+| 40xnil     | 40x5                           | Captured wrap: chips wrap onto extra rows before the pane, and the rule follows the last bar row.                                                                                                                                                                                                                    |
+| 16xnil     | 16x5                           | Under the minimum (derived): the active chip still fits (15 cells), the icon chips wrap to a second bar row, the rule spans 16, and the pane wraps to two rows: 2 + 1 + 2.                                                                                                                                           |
+| 12xnil     | 12x6                           | Under the minimum (derived): the active label tail-truncates to `Over…` first (settled order), the icon chips wrap to a second bar row, the rule spans 12, and the pane wraps to three rows: 2 + 1 + 3. See the 12x6 state.                                                                                          |
+| W<24 x nil | W x (bar rows + 1 + pane rows) | Under the minimum the result width is the proposal (the rule spans it) and the height is the bar rows plus the rule plus the pane rows at W. The order the bar gives way in is settled (owner decision, 2026-10-10): the active label truncates first, then inactive chips show icons only, then the pill caps drop. |
+| 80x3       | 80x3                           | Over-maximum: there is no maximum width; the rule spans the proposal and the pane takes the full content width.                                                                                                                                                                                                      |
 
 ## Environment
 
@@ -469,7 +504,11 @@ Schema: [README](../README.md#requirements-list).
 - `narrow bar keeps the active tab labeled and collapses inactive icon tabs` (states:
   minimum).
 - `under 24 columns truncates the active label, then collapses inactive chips to icons, then drops the pill caps`
-  (sizing: under 24).
+  (sizing: under 24; states: under the minimum).
+- `under 24 columns the result width is the proposal and the height is bar rows plus rule plus pane rows`
+  (sizing: 16xnil, 12xnil).
+- `tab chips are one row and never wrap internally; the pane wraps at its width` (anatomy
+  callouts 2-6; states: under the minimum).
 - `selected tab moves the pill without changing the pane layout` (states: switched).
 - `tab view height is bar rows plus rule row plus active pane height` (sizing: nil x nil).
 - `natural width is the larger of the bar and the widest pane` (sizing: nil x nil).
@@ -484,16 +523,12 @@ Schema: [README](../README.md#requirements-list).
   is `-`; icons paint their ASCII names (`home`, `term`, `gear`) instead of glyphs.
   Collapse and wrapping behave as in Unicode.
 - Below 24 columns the truncation order in the sizing table applies (owner decision,
-  2026-10-10). No wireframe is drawn for it.
+  2026-10-10), and the result follows from it (states: under the minimum, 12x6).
 
 ## Open questions
 
 Decisions deliberately not made yet, each with what unblocks it.
 
-- **Under-minimum result.** The truncation order under 24 columns is settled (owner
-  decision, 2026-10-10). The integer size for a proposal under 24 columns is not derived
-  yet, so that sizing row stays open. Unblocks: a derived or captured size at a proposal
-  under 24 columns.
 - **Collapse dependency.** Collapse is specified here as the Tessera chip rule. Until the
   [Label](../primitives/label.md) icon table is settled, the set of collapsible icons is a
   design reference, not a settled API.

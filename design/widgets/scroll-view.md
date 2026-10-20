@@ -11,6 +11,11 @@ in `.vertical`, `.horizontal`, or both axes. The app owns content and any suppli
 simulation: every accepted keyboard input changes an integer offset immediately, and it
 offers neither zoom nor smooth animation.
 
+A vertical viewport hands its child a finite width, so content wraps to fit and scrolls by
+rows; the [cross-axis proposal](#cross-axis-proposal) and
+[rows and variable-height content](#rows-and-variable-height-content) are the contract
+List, Picker menus, and Form build on.
+
 The implemented initializer is:
 
 ```swift
@@ -73,9 +78,10 @@ begins from that effective value.
   `https://github.com/ratatui/ratatui/blob/main/ratatui-widgets/src/paragraph.rs` -- copy
   the two-dimensional offset concept and the discipline of rendering only into the
   intersected area (its `scroll((y, x))` is intentionally reversed from Tessera's
-  `TerminalPosition(x:y:)`). Reject paragraph-specific post-wrap scrolling: ScrollView
-  moves arbitrary already-laid-out content before clipping, so it must not reflow or
-  reinterpret the child.
+  `TerminalPosition(x:y:)`). Reject paragraph-specific post-wrap scrolling: the child
+  wraps itself against the cross-axis width ScrollView proposes, and ScrollView then
+  translates the laid-out rows before clipping; it never reflows or reinterprets the
+  child.
 - Ratatui list state:
   `https://github.com/ratatui/ratatui/blob/main/ratatui-widgets/src/list/state.rs` -- copy
   the visible-offset invariant and saturating boundary behavior. Reject coupling offset to
@@ -90,25 +96,28 @@ begins from that effective value.
 
 ## Anatomy
 
-Natural fixture: both axes overflow. The proposed frame is `52x12`, content's ideal extent
-is `64x24`, and effective offset is `(12, 8)`. The content viewport is `51x11`: the
-vertical and horizontal indicator edges reserve one cell each. Its vertical thumb is five
-cells (`max(1, floor(11 * 11 / 24))`) at r3-r7. The horizontal thumb is forty cells
+Natural fixture: both axes overflow. The proposed frame is `52x12`. The child is a build
+log of 24 preformatted source lines, each 64 cells wide; a two-axis ScrollView proposes
+`nil` on both axes, so the lines keep their source breaks and the content's ideal extent
+is `64x24`. Effective offset is `(12, 8)`, so the viewport shows content rows 8-18 and
+columns 12-62. The content viewport is `51x11`: the vertical and horizontal indicator
+edges reserve one cell each. Its vertical thumb is five cells
+(`max(1, floor(11 * 11 / 24))`) at r3-r7. The horizontal thumb is forty cells
 (`max(1, floor(51 * 51 / 64))`) beginning at c10. The component has no border, title, or
 padding of its own.
 
 ```wireframe 52x12
-Here's to the crazy ones. The misfits. The rebels. │
-The troublemakers. The round pegs in the square    │
-holes. The ones who see things differently. They're│
-not fond of rules. And they have no respect for the█
-status quo. You can quote them, disagree with them,█
-glorify or vilify them. About the only thing you   █
-can't do is ignore them. Because they change       █
-things. They push the human race forward. And while█
-some may see them as the crazy ones, we see genius.│
-Because the people who are crazy enough to think   │
-they can change the world, are the ones who do.    │
+pile  TesseraShowcase        ok     0.69s  cache hi│
+k     tessera-showcase       ok     0.21s  cache hi│
+t     TesseraCoreTests       ok     4.12s  cache hi│
+t     TesseraLayoutTests     ok     5.63s  cache hi█
+t     TesseraWidgetsTests    ok     9.40s  cache hi█
+t     TesseraSnapshotTests   ok     2.97s  cache hi█
+t     swift-format           ok     8.20s  cache hi█
+t     check-wireframes       ok     7.84s  cache hi█
+s     Tessera.docc           ok     0.61s  cache hi│
+s     catalog index          ok     2.28s  cache hi│
+ch    layout passes          ok     5.33s  cache hi│
 ──────────🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋🬋─│
 ```
 
@@ -125,17 +134,88 @@ Callouts (52x12, 0-based):
                    content and no independent action
 ```
 
-Indicators have no endpoint arrows and do not change the child proposal. If only one axis
-overflows, only its one-cell edge is reserved; if neither overflows, the child receives
-the whole assigned rectangle. A fixed cross-axis proposal owns that reservation inside its
-assigned extent. When the cross axis is unspecified, `ScrollView` includes the one-cell
-edge in its natural size so an indicator never replaces the content's final row or column.
-For each overflowing axis, with track length `T`, viewport extent `V`, content extent `C`,
-and effective offset `O`, the thumb has `max(1, floor(T * V / C))` cells and starts at
-`floor(O * (T - thumb) / max(1, C - V))`. The last formula puts the thumb exactly at the
-trailing/bottom end when the position is maximum. An indicator is visible only when its
-enabled axis overflows and the stabilized reservation leaves a content viewport at least
-`1x1`; otherwise that edge is omitted.
+Indicators have no endpoint arrows. If only one axis overflows, only its one-cell edge is
+reserved; if neither overflows, the child receives the whole assigned rectangle. A visible
+vertical indicator narrows the width proposed to a vertical-only child by its one column
+(see [cross-axis proposal](#cross-axis-proposal)). A fixed cross-axis proposal owns that
+reservation inside its assigned extent. When the cross axis is unspecified, `ScrollView`
+includes the one-cell edge in its natural size so an indicator never replaces the
+content's final row or column. For each overflowing axis, with track length `T`, viewport
+extent `V`, content extent `C`, and effective offset `O`, the thumb has
+`max(1, floor(T * V / C))` cells and starts at `floor(O * (T - thumb) / max(1, C - V))`.
+The last formula puts the thumb exactly at the trailing/bottom end when the position is
+maximum. An indicator is visible only when its enabled axis overflows and the stabilized
+reservation leaves a content viewport at least `1x1`; otherwise that edge is omitted.
+
+## Cross-axis proposal
+
+ScrollView proposes `nil` on each scrolling axis and its own finite viewport extent on the
+other (owner decision, 2026-10-18):
+
+- **Vertical only:** the child is proposed the content viewport's width and a `nil`
+  height. Content therefore wraps to the viewport (README rule 1) and gets every row it
+  needs (rule 2); Text draws no truncation mark inside a vertical ScrollView unless the
+  app sets a `lineLimit`.
+- **Horizontal only, or both axes:** the child is proposed a `nil` width, so nothing wraps
+  and source lines stay rows. A horizontal-only child receives the viewport height as its
+  row budget.
+- **Nil width proposal to the ScrollView itself:** the child is proposed a `nil` width as
+  well and reports its unwrapped ideal; a vertical indicator then adds its column to the
+  natural size.
+
+Width and overflow depend on each other, so the order is fixed: measure the child at the
+full assigned width; if it overflows vertically, reserve the indicator column and measure
+again at one column less. Wrapping at a narrower width never yields fewer rows, so the
+overflow stands; for any child, a reserved edge stays reserved for the rest of that layout
+pass. The mobile and degraded fixtures wrap at 39 columns for this reason.
+
+## Rows and variable-height content
+
+List, Picker menus, and Form build on this contract whether they embed a ScrollView or
+keep their own scroll offset (owner decision, 2026-10-18):
+
+- **Unit:** the vertical offset, the indicator, and paging are measured in terminal rows,
+  never in items. Offset `O` counts the content rows above the viewport; content extent
+  `C` is the sum of every item's measured height; viewport extent `V` is the visible rows.
+- **Item heights vary.** Each item is measured at the content width with a `nil` height,
+  so a wrapping item reports every row it needs. A width change re-measures every item.
+- **A partially visible item draws its visible rows.** An item cut by the top or bottom
+  edge draws the rows that fall inside the viewport. It is not hidden, not snapped to an
+  item boundary, and gets no truncation mark; the indicator is the overflow cue.
+- **Paging** moves the offset by `V` rows, whatever item boundaries it crosses.
+- **Reveal:** to bring an item into view (after a selection move, say), a collection
+  changes the offset by the fewest rows that show every row of the item; an item taller
+  than the viewport aligns its first row with the viewport's top.
+- **Selection** belongs to the collection and covers every row of the selected item; a
+  partially visible selected item paints its visible rows. ScrollView itself has no
+  selection.
+- **Resize:** ScrollView only clamps the offset after a width change re-wraps the items; a
+  collection with a selection then applies reveal to it.
+
+A vertical ScrollView at `40x6` holds release notes of 3, 1, 3, and 2 rows separated by
+one-row Dividers, so `C = 12`. Offset is 2 rows: the first note shows only its last row
+and the third note only its first two. The thumb is `max(1, floor(6 * 6 / 12)) = 3` cells
+starting at `floor(2 * (6 - 3) / (12 - 6)) = 1`.
+
+```wireframe 40x6
+instead of being cut off.              │
+───────────────────────────────────────█
+ScrollView offsets are counted in rows.█
+───────────────────────────────────────█
+Lists and Picker menus draw rows of    │
+different heights, and a partially     │
+```
+
+```text
+Callouts (40x6, 0-based):
+0. r0 c0-c38     Partial item, top -- third row of a three-row note (content row 2); its
+                 first two rows sit above the viewport; content, wraps
+1. r1, r3 c0-c38 Item separators -- Divider, one row each
+2. r2 c0-c38     Whole item -- one-row note (content row 4)
+3. r4-r5 c0-c38  Partial item, bottom -- first two rows of a three-row note (content rows
+                 6-7); its third row is below the viewport, no mark
+4. r0-r5 c39     Vertical scroll indicator -- three-cell thumb at r1-r3, counted in rows
+```
 
 ## Indicator styles
 
@@ -285,19 +365,22 @@ R  fg=border
 
 ### Mobile
 
-Mobile is the required `40x16` fixture. It is vertical-only with content `39x24`,
-effective offset `(0, 8)`, and `T = 16`, `V = 16`, `C = 24`, `O = 8`. Its proportional
-thumb is `max(1, floor(16 * 16 / 24)) = 10` cells; at the maximum offset it starts at
-`floor(8 * (16 - 10) / (24 - 16)) = 6`, occupying r6-r15. The width remains useful for
-prose because ScrollView does not add a border or inset.
+Mobile is the required `40x16` fixture. It is vertical-only; the child is one Text: a
+title, a blank row, the quote, a blank row, and the attribution. Measured at 40 columns it
+needs 19 rows, so the indicator column is reserved and the child is measured again at 39
+columns, still 19 rows: content `39x19`. The effective offset is the maximum, `(0, 3)`, so
+`T = 16`, `V = 16`, `C = 19`, `O = 3`. Its proportional thumb is
+`max(1, floor(16 * 16 / 19)) = 13` cells; at the maximum offset it starts at
+`floor(3 * (16 - 13) / (19 - 16)) = 3`, occupying r3-r15. The quote is partially visible:
+its first row sits above the viewport. The width remains useful for prose because
+ScrollView does not add a border or inset.
 
 ```wireframe 40x16
-Here's to the crazy ones. The misfits. │
 The rebels. The troublemakers. The     │
 round pegs in the square holes. The    │
 ones who see things differently.       │
-They're not fond of rules. And they    │
-have no respect for the status quo. You│
+They're not fond of rules. And they    █
+have no respect for the status quo. You█
 can quote them, disagree with them,    █
 glorify or vilify them. About the only █
 thing you can't do is ignore them.     █
@@ -308,33 +391,38 @@ genius. Because the people who are     █
 crazy enough to think they can change  █
 the world, are the ones who do.        █
                                        █
+— Apple, 1997                          █
 ```
 
 ```text
 Callouts (40x16, 0-based):
-0. r0-r15 c0-c38  Viewport content -- translated child cells; the same region as Anatomy callout 0
+0. r0-r15 c0-c38  Viewport content -- content rows 3-18 of the child wrapped at 39 columns;
+                   the same region as Anatomy callout 0; content, wraps
 1. r0-r15 c39     Vertical scroll indicator -- mobile trailing edge; `accent` `█` thumb,
-                   ten cells at r6-r15, on a `muted` `│` track
+                   thirteen cells at r3-r15, on a `muted` `│` track
 ```
 
 ### Declared minimum
 
 `12x4` is the declared floor. At the floor, useful content remains eleven cells wide after
-the trailing indicator; the widget still clips and scrolls. There is no title, padding, or
-status text to sacrifice. The short thumb is intentionally still one cell rather than
-disappearing.
+the trailing indicator; the widget still clips and scrolls. ScrollView has no title,
+padding, or status text of its own, so its floor is a viewport floor rather than a
+content-derived one: the child's words follow the child's own rules. The quote needs 50
+rows at 12 columns, so the indicator is reserved and the quote is measured again at 11
+columns: content `11x57`, offset 0. The short thumb, `max(1, floor(4 * 4 / 57)) = 1` cell,
+intentionally stays visible rather than disappearing.
 
 ```wireframe 12x4
-Here's to  │
-the crazy  █
+Here's to  █
+the crazy  │
 ones. The  │
 misfits.   │
 ```
 
 ```text
 Callouts (12x4, 0-based):
-0. r0-r3 c0-c10  Viewport content -- clipped child cells, tail clipping is the child's concern
-1. r0-r3 c11     Vertical scroll indicator -- one-cell minimum `accent` `█` thumb at r1
+0. r0-r3 c0-c10  Viewport content -- the quote wrapped at 11 columns, first four rows
+1. r0-r3 c11     Vertical scroll indicator -- one-cell minimum `accent` `█` thumb at r0
 ```
 
 Below `12x4`, ScrollView takes the assigned non-negative rectangle and continues clipping.
@@ -345,10 +433,12 @@ proposal or a layout failure.
 
 ### Horizontal only
 
-Horizontal scrolling reserves only a bottom edge. The fixture is `52x6`, content is
-`80x5`, and effective offset is `(18, 0)`; vertical movement is disabled and always
-remains zero. The fence shows columns 18-69 of the 80-wide content, so lines enter and
-exit mid-word -- that is the translation, not a typo.
+Horizontal scrolling reserves only a bottom edge. The fixture is `52x6`; the child is five
+preformatted source lines (the quote set at 80 columns), and a horizontal ScrollView
+proposes it a `nil` width, so the lines keep their breaks and content is `80x5`. Effective
+offset is `(18, 0)`; vertical movement is disabled and always remains zero. The fence
+shows columns 18-69 of the 80-wide content, so lines enter and exit mid-word -- that is
+the translation, not a typo.
 
 ```wireframe 52x6
 y ones. The misfits. The rebels. The troublemakers.
@@ -397,21 +487,24 @@ status.
 ### Degraded
 
 This `40x6` vertical-overflow fixture uses the canonical ASCII glyph replacements and no
-color. Geometry and input routing match the full-capability state.
+color. Geometry and input routing match the full-capability state. The child is the quote
+alone: 15 rows at 40 columns overflow six, so it is measured again at 39 columns (still 15
+rows). At offset 0 the thumb is `max(1, floor(6 * 6 / 15)) = 2` cells at r0-r1.
 
 ```wireframe 40x6
-Here's to the crazy ones. The misfits. |
+Here's to the crazy ones. The misfits. #
 The rebels. The troublemakers. The     #
-round pegs in the square holes. The    #
+round pegs in the square holes. The    |
 ones who see things differently.       |
 They're not fond of rules. And they    |
-                                       |
+have no respect for the status quo. You|
 ```
 
 ```text
 Callouts (40x6, 0-based):
-0. r0-r5 c0-c38  Viewport content -- same translated and clipped child region
-1. r0-r5 c39     Vertical scroll indicator -- `scrollbar.ascii`: `|` track, `#` thumb
+0. r0-r5 c0-c38  Viewport content -- the quote wrapped at 39 columns, rows 0-5
+1. r0-r5 c39     Vertical scroll indicator -- `scrollbar.ascii`: `|` track, `#` thumb at
+                  r0-r1
 ```
 
 ## State model
@@ -421,7 +514,7 @@ Callouts (40x6, 0-based):
 | axes                            | derived     | `Axis.Set`                    | Re-derived from the immutable initializer on every reconciliation; disabled components of every offset are zero.                                                                                                                  |
 | controlled offset               | Binding     | `Binding<TerminalPosition>?`  | Exists only when supplied; app mutations are read on every layout, then effective offset clamps to the current bounds without passively rewriting the binding.                                                                    |
 | effective offset                | derived     | `TerminalPosition`            | Uses the supplied binding when present; otherwise it is the origin. It zeroes disabled axes and clamps to `0...maximum` on every layout before rendering or event handling.                                                       |
-| content extent                  | derived     | `TerminalSize`                | Re-measured each layout; scrollable axes are proposed `nil`, non-scrollable axes receive the assigned viewport proposal.                                                                                                          |
+| content extent                  | derived     | `TerminalSize`                | Re-measured each layout; scrollable axes are proposed `nil`, and a non-scrollable axis is proposed the content viewport's extent after indicator reservation, so vertical-only content wraps to the viewport width.               |
 | viewport extent                 | derived     | `TerminalSize`                | Recomputed after reserving only visible indicator edges; never negative and, whenever an edge is reserved, remains at least `1x1`.                                                                                                |
 | maximum offset                  | derived     | `TerminalPosition`            | Recomputed as `max(0, content extent - viewport extent)` per enabled axis after resize, content, axes, or binding changes.                                                                                                        |
 | vertical indicator visibility   | derived     | `Bool`                        | True exactly when axes contains vertical, content height exceeds the stabilized viewport height, and the trailing-edge reservation leaves the stabilized content viewport at least `1x1`; otherwise no trailing edge is reserved. |
@@ -433,11 +526,13 @@ Callouts (40x6, 0-based):
 | motion model                    | derived     | immediate integer translation | Every accepted input writes a whole-cell offset synchronously; there is no zoom factor, fractional position, animation, or momentum state.                                                                                        |
 
 The potentially circular indicator calculation resolves deterministically: first measure
-content with `nil` on enabled axes; start with the full assigned rectangle; reserve an
-axis edge only when its enabled axis overflows and that reservation leaves the candidate
-content viewport at least `1x1`; re-evaluate the other axis after that reservation until
-visibility is stable (at most one additional reservation per axis); then compute viewport,
-maxima, offset, and thumbs.
+content with `nil` on enabled axes and the full assigned extent on a non-scrolling axis;
+start with the full assigned rectangle; reserve an axis edge only when its enabled axis
+overflows and that reservation leaves the candidate content viewport at least `1x1`; when
+a reservation narrows the non-scrolling axis, measure the content again at the narrowed
+extent; re-evaluate the other axis after that reservation until visibility is stable (at
+most one additional reservation per axis, and a reserved edge is never withdrawn within
+the pass); then compute viewport, maxima, offset, and thumbs.
 
 ## Key table
 
@@ -509,10 +604,10 @@ Shift-wheel or signed deltas.
 
 ## Sizing
 
-The sizing examples use the `64x24` intrinsic child from Anatomy. ScrollView is greedy for
-a finite proposal; it never imposes a content-sized maximum. A `nil` component means
-"report the child's ideal on that component" and gives the child a `nil` proposal on that
-scrollable axis.
+The first table uses the `64x24` intrinsic child from Anatomy on both axes. ScrollView is
+greedy for a finite proposal; it never imposes a content-sized maximum. A `nil` component
+means "report the child's ideal on that component" and gives the child a `nil` proposal on
+that scrollable axis.
 
 | Proposal  | Result | Rule                                                                                                                                                                                            |
 | --------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -530,6 +625,19 @@ horizontal and `1x5` vertical content similarly report `3x2` and `2x3` viewports
 constrained to three cells on the scrolling axis. These cases pin the nil-axis indicator
 contract without introducing a second measurement protocol.
 
+The cross-axis proposal decides how wrapping content sizes. A vertical-only ScrollView
+whose child is `Text` holding the 549-cell quote from the States fixtures (the last row is
+a horizontal-only instance with the same child):
+
+| Proposal            | Result | Rule                                                                                                                |
+| ------------------- | ------ | ------------------------------------------------------------------------------------------------------------------- |
+| nil x nil           | 549x1  | A nil width reaches the child, so the quote stays one unwrapped row.                                                |
+| 40xnil              | 40x15  | The child wraps at 40 columns and a nil height reports all 15 rows; nothing overflows, so no indicator is reserved. |
+| 40x16               | 40x16  | Fifteen rows fit in sixteen, so no indicator is reserved and the child keeps all 40 columns.                        |
+| 40x6                | 40x6   | Fifteen rows overflow six: the indicator takes c39 and the child is measured again at 39 columns, still 15 rows.    |
+| 12x4                | 12x4   | Fifty rows at 12 columns overflow; measured again at 11 columns, the child needs 57 rows.                           |
+| `.horizontal`, 52x6 | 52x6   | The child is proposed a nil width and keeps one 549-cell row; the bottom edge becomes the indicator.                |
+
 ## Environment
 
 Existing canonical tokens consumed by the standard/default rendering are:
@@ -540,8 +648,10 @@ Existing canonical tokens consumed by the standard/default rendering are:
   pending plan 032 step 5.3.
 - `focus.border` and `focus.content` when the surrounding style elects to expose focus;
   ScrollView adds no focus chrome by itself.
-- `truncation.mark` only if the child `Text` chooses tail truncation. ScrollView clips; it
-  never inserts a truncation glyph.
+- `truncation.mark` only when a child draws it under its own row budget, such as an app
+  `lineLimit`. ScrollView content has an unbounded height, so wrapped content shows every
+  row and draws no mark; ScrollView clips at the viewport, never inserts a truncation
+  glyph, and leaves the indicator as the overflow cue.
 
 The semantic environment roles are complete `Style` values named `semantic.primary`,
 `semantic.secondary`, `semantic.accent`, `semantic.disabled`, and `semantic.destructive`,
@@ -559,9 +669,9 @@ noncanonical glyph set is introduced here.
   [Slice 2](../../docs/Spec.md#slice-2-the-layout-protocol-and-stack-containers):
   `ProposedSize`, child ideal measurement, absolute placement, clipping, and the
   translated `RenderRegion` operation are required before a static viewport can exist.
-- [Text](../../docs/Spec.md#slice-1-tesseracore--view-viewgraph-reconciliation-text) --
-  supplies normal content measurement; wrapping and truncation remain Text's
-  responsibility.
+- [Text](../primitives/text.md) -- supplies normal content measurement; wrapping, row
+  budgets, and truncation remain Text's responsibility. ScrollView only chooses the
+  cross-axis proposal Text wraps against.
 - Focus/key dispatch --
   [Slice 4](../../docs/Spec.md#slice-4-focus-and-key-routing-the-responder-system):
   required for focused keyboard movement and boundary bubbling.
@@ -579,10 +689,11 @@ noncanonical glyph set is introduced here.
 
 1. **Slice 2 — public viewport and programmatic-offset foundation:** deliver the public
    viewport with its axes and optional `offset` binding, layout measurement with `nil`
-   enabled-axis proposals, translated clipping, effective clamping after
-   content/resize/app updates, and static no-overflow/overflow buffer snapshots. The
+   enabled-axis proposals and the content viewport's extent on a non-scrolling axis
+   (re-measured after an indicator reservation), translated clipping, effective clamping
+   after content/resize/app updates, and static no-overflow/overflow buffer snapshots. The
    foundation owns proportional one-cell indicator output. There is no focus or pointer
-   behavior yet.
+   behavior yet. Wrapped content follows once Text wraps in Slice 3.
 2. **Slice 3 — ScrollIndicator cutover:** replace the foundation's indicator output with
    the shared `ScrollIndicator`; delete the original renderer so the primitive owns thumb
    rounding, track/thumb glyph output, and output-only presentation.
@@ -607,6 +718,21 @@ noncanonical glyph set is introduced here.
   formula; states: mobile)
 - `intrinsic sizing reserves indicator edges only for overflowing axes` (sizing:
   `nil x 12`, `52 x nil`, and single-row/single-column degenerate content)
+- `vertical scroll view proposes its content viewport width so content wraps` (cross-axis
+  proposal: vertical only; sizing: `40xnil` and `40x16`)
+- `vertical indicator reservation re-measures the child one column narrower` (cross-axis
+  proposal; sizing: `40x6` and `12x4`; states: degraded and declared minimum)
+- `horizontal scrolling proposes a nil width so content keeps its source lines`
+  (cross-axis proposal: horizontal only; states: horizontal only; sizing: `.horizontal`,
+  `52x6`)
+- `vertical offset indicator and paging count rows not items` (rows and variable-height
+  content: unit and paging; key table: PgDn and PgUp)
+- `partially visible items draw their visible rows without a mark` (rows and
+  variable-height content: Partial item, top and Partial item, bottom; states: mobile)
+- `reveal scrolls the fewest rows that show a whole item and top-aligns a taller one`
+  (rows and variable-height content: reveal)
+- `a width change re-measures items and clamps the offset` (rows and variable-height
+  content: item heights and resize; state model: content extent)
 - `controlled offsets clamp without rewriting app state` (state model: controlled offset)
 - `disabled axes always render and retain zero offset components` (state model: axes)
 - `focused arrow keys move one cell on their enabled axis` (key table: Down and Right)
@@ -659,8 +785,9 @@ noncanonical glyph set is introduced here.
   styles; tracks use `muted` and thumbs `semantic.accent`, while a host border remains
   foreground-only in the focus color.
 - ASCII-only: every preset draws `#` as its thumb and `|` (vertical) or `-` (horizontal)
-  as its track, and `thumbOnly` draws no track; child truncation's `~`, as the degraded
-  fixture shows. No Unicode-only gesture affordance carries meaning.
+  as its track, and `thumbOnly` draws no track, as the degraded fixture shows; a child
+  that draws a truncation mark degrades it to `~` under its own rules. No Unicode-only
+  gesture affordance carries meaning.
 - Below `12x4`: fill the proposed non-negative rectangle, clip first, then omit any
   indicator edge whose reservation would leave the content viewport below `1x1`. No
   content is fabricated and no layout failure is allowed.
@@ -695,6 +822,11 @@ noncanonical glyph set is introduced here.
   measurements; this is a performance property, not a behavior or API change.
 - **Pointer drag:** Indicators are output-only in 1.0. Clicks and drags return ignored;
   wheel boundary bubbling remains the only pointer-scroll contract.
+- **Cross-axis proposal and rows (owner decision, 2026-10-18):** a vertical ScrollView
+  proposes its finite content width so content wraps, and a horizontal one proposes a
+  `nil` width. The vertical offset, indicator, and paging count rows; items may differ in
+  height; a partially visible item draws its visible rows. List, Picker menus, and Form
+  build on this contract rather than scrolling by whole items.
 
 This design was reviewed against the
 [Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): content and
@@ -709,10 +841,11 @@ state synchronously, and rendering is a translated clipped region.
 
 ## Inspiration
 
-- The anatomy deliberately treats a scroll viewport as a translated clipped rectangle, not
-  a text-only reflow primitive; that preserves arbitrary composition and matches the
-  Ratatui paragraph source's explicit two-dimensional scroll offset while rejecting its
-  text coupling.
+- The anatomy treats a scroll viewport as a translated clipped rectangle around a child
+  that has already laid itself out against the cross-axis proposal. ScrollView decides
+  only that proposal; wrapping stays in the child. That preserves arbitrary composition
+  and matches the Ratatui paragraph source's explicit two-dimensional scroll offset while
+  rejecting its text coupling.
 - Mobile uses the content edge rather than a border because `40x16` has no spare chrome;
   this is the constraint that made ScrollView the first advanced mobile-critical widget.
 - Stable, compact indicators communicate extent in a terminal better than transient

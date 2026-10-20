@@ -118,6 +118,9 @@ Callouts (14x4, 0-based):
           space, one rule cell
 ```
 
+> Wrap exception (rule 1): the docked label stays on one row and tail-truncates. A second
+> row would break the border line it sits in. (owner decision, 2026-10-18)
+
 ## Variants
 
 Orientation is derived from the nearest enclosing stack's `stackAxis` layout context:
@@ -157,6 +160,10 @@ space when `interior >= 3`. Below three cells the label is dropped. A label neve
 the rule's size, and only horizontal rules draw one: a labeled Divider inside an `HStack`
 draws the plain vertical rule, because orientation comes from layout context, not the
 type.
+
+The label Text is chrome, one row: Divider applies `.lineLimit(1)` and
+`.truncationMode(.tail)` directly on it, so an app's inherited `lineLimit` and
+`truncationMode` never reach it.
 
 ## Sizing
 
@@ -201,6 +208,8 @@ contexts where minimal is least surprising.
 - `trailing label ends two rule cells before the edge` (anatomy: 40x4 r2)
 - `overlong label truncates at its tail and keeps one rule cell on each side` (anatomy:
   40x4 r3 and 14x4 r3)
+- `label stays on one row and never wraps, whatever the height proposal` (anatomy: Wrap
+  exception; sizing: 24 x 5)
 - `label spaces collapse before the label is dropped below three cells` (variants: label
   placement)
 - `label never changes divider size` (sizing: 24 x nil)
@@ -287,7 +296,9 @@ measurement. No public orientation argument is added.
 
 Divider carries an optional `Text` label docked leading, centred, or trailing (owner
 decision, omp2 review, 2026-10). The label adds placement and tail truncation only; it
-never changes the rule's size. A label that is any `View` rather than `Text` is post-1.0.
+never changes the rule's size. The docked label is a documented wrap exception, not
+content: it stays on one row and tail-truncates (owner decision, 2026-10-18; see
+[Anatomy](#anatomy)). A label that is any `View` rather than `Text` is post-1.0.
 
 This contract was reviewed against the
 [Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): orientation

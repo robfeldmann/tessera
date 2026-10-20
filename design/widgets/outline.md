@@ -76,22 +76,32 @@ with its status colours; the styled grid follows the callouts.
 
 ```text
 Callouts (40x9, 0-based):
-0. r0 c0        Expander -- `disclosure.expanded` `▾` (ASCII `v`), muted; the root is open
+0. r0 c0        Expander -- `disclosure.expanded` `▾` (ASCII `v`), muted; the root is open;
+                chrome, one row
 1. r0 c2-c3     Lead icon -- open folder 📂 (U+1F4C2), accent; the root's folder icon
-                sits before `/`
-2. r0 c5        Label -- root `/`, bold primary
-3. r2 c4-c5     Status column -- two-cell slot; `??` in `error` (untracked), before the icon
+                sits before `/`; chrome, one row
+2. r0 c5        Label -- root `/`, bold primary; content, one row (wrap exception)
+3. r2 c4-c5     Status column -- two-cell slot; `??` in `error` (untracked), before the
+                icon; chrome, one row
 4. r2 c7-c8     Lead icon -- file 📄 (U+1F4C4), accent; one column right of a folder
-                icon at the same depth
-5. r2 c10-c37   Label -- file name, primary
+                icon at the same depth; chrome, one row
+5. r2 c10-c37   Label -- file name, primary; content, one row (wrap exception), tail
+                truncates
 6. r3 c3        Status column -- `M` in `warning` (modified), right-aligned in its slot
 7. r4 c2        Expander -- `▸` collapsed folder, muted (ASCII `>`)
 8. r4 c4-c5     Lead icon -- closed folder 📁 (U+1F4C1), accent
-9. r4 c7-c26    Label -- folder name, bold primary
+9. r4 c7-c26    Label -- folder name, bold primary; content, one row (wrap exception)
 10. r7 c4-c5    Status column -- `AM` in `success` (added) on the selected row
 11. r7 c0-c38   Selection row -- `selection.fill` (reverse video) across the row, from the owner's grid
 12. r0-r8 c0-c39  Row -- any cell of a row; the mouse region `Row`
 ```
+
+> Wrap exception (rule 1): rows stay single-line and the label tail-truncates. The
+> expander, status, and icon columns and the tree guides need one row per node. (owner
+> decision, 2026-10-18)
+
+Outline pins `lineLimit(1)` on each label, so an app's inherited `lineLimit` never adds
+rows; the label's `truncationMode` still comes from the environment (default tail).
 
 ```text
 ── chars ──
@@ -239,8 +249,9 @@ The owner accepted this floor of 12 columns by 3 rows (owner decision, 2026-10-1
 owner grid exists at this size, so it is derived with the scrolled rule. The content is 12
 rows and the viewport 3: the thumb length is `max(1, floor(3 × 3 / 12)) = 1`, and at
 scroll offset 5 its row is `floor(5 × (3 − 1) / (12 − 3)) = 1`, the position the mock
-draws. Labels truncate with `…` before the indicator column. Below the floor, labels
-truncate at the tail (see [Sizing](#sizing)).
+draws. Labels truncate with `…` before the indicator column, as the wrap exception
+requires. Below the floor, labels truncate at the tail (see [Sizing](#sizing)); rows never
+wrap, so the floor is not re-derived from whole words.
 
 ```wireframe 12x3
 ▌ ▾ vocab  │
@@ -433,11 +444,12 @@ w  fg=warning, selection.fill
 
 Schema: [README](../README.md#state-model-table).
 
-| State         | Owner     | Type               | Reset or clamp rule                                                                             |
-| ------------- | --------- | ------------------ | ----------------------------------------------------------------------------------------------- |
-| selection     | Binding   | `Binding<ID?>`     | app-owned; Outline writes it through the binding on a key or click; single selection, like List |
-| expansion     | Binding   | `Binding<Set<ID>>` | app-owned; Outline writes it through the binding on →, ←, Enter, or an expander click           |
-| scroll offset | NodeState | `Int`              | clamps to content bounds on every update; keeps the selection visible                           |
+| State          | Owner       | Type                            | Reset or clamp rule                                                                                                  |
+| -------------- | ----------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| selection      | Binding     | `Binding<ID?>`                  | app-owned; Outline writes it through the binding on a key or click; single selection, like List                      |
+| expansion      | Binding     | `Binding<Set<ID>>`              | app-owned; Outline writes it through the binding on →, ←, Enter, or an expander click                                |
+| scroll offset  | NodeState   | `Int` (rows above the viewport) | clamps to content bounds on every update; keeps the selection visible; rows are single-line, so one row is one node  |
+| row line limit | Environment | `Int?` pinned to 1              | Outline pins `lineLimit(1)` on each label (Wrap exception); an inherited app `lineLimit` never changes the row count |
 
 Selection and expansion are app-owned bindings (owner decision, 2026-10-10), so they
 appear in the table as `Binding` rows. The scroll offset is Outline's own.
@@ -475,13 +487,16 @@ Anatomy callouts.
 
 Owner decisions, 2026-10-10: a `nil x nil` proposal sizes to the widest row by the row
 count, 39x9 for the Anatomy tree. Under the [declared minimum](#declared-minimum), labels
-truncate at the tail. The tight-fit and over-maximum rows are not decided (see
-[Open questions](#open-questions)).
+truncate at the tail, because rows are single-line (see the wrap exception in
+[Anatomy](#anatomy)). The tight-fit row is that ideal proposed back; the over-maximum row
+fills the proposal as List and Table do, since Outline scrolls itself like them.
 
-| Proposal  | Result | Rule                                                    |
-| --------- | ------ | ------------------------------------------------------- |
-| nil x nil | 39x9   | widest row by the row count                             |
-| 10x2      | 10x2   | under the declared minimum, labels truncate at the tail |
+| Proposal  | Result | Rule                                                                                                                               |
+| --------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| nil x nil | 39x9   | widest row by the row count                                                                                                        |
+| 39 x 9    | 39x9   | tight fit: the proposal equals the ideal, so every row fits and no indicator column is reserved                                    |
+| 10 x 2    | 10x2   | under the declared minimum, labels truncate at the tail                                                                            |
+| 80 x 20   | 80x20  | over the maximum: fills the proposal like List and Table; rows keep their one-row height and the rows below the content stay blank |
 
 ## Environment
 
@@ -508,6 +523,10 @@ Tokens consumed, each defined in [tokens.md](../tokens.md) unless marked.
   the catalog gains `folder-open` (`[O]`), `folder` (`[D]`) and `file` (`[F]`) rows.
 - [Badge](../primitives/badge.md) (`wireframed`): not used for the status column, which is
   a plain two-cell letter slot, not a capsule. Badge stays for capsule counts, as in List.
+- [Text](../primitives/text.md#row-budget) (`ready`): `lineLimit(1)` and
+  [truncation](../primitives/text.md#truncation) on each label; blocks `ready` until the
+  Text wrapping slice lands (`Sources/TesseraCore/Views/Text.swift` is still the
+  non-wrapping Slice 1 leaf).
 
 ## Requirements
 
@@ -538,6 +557,12 @@ Schema: [README](../README.md#requirements-list). Traced to the states and table
 - `scrolls the rows on wheel-up and wheel-down` (Mouse table)
 - `sizes a nil x nil proposal to the widest row by the row count` (Sizing)
 - `truncates labels at the tail below the declared minimum` (Sizing)
+- `keeps rows single-line under an inherited line limit` (Anatomy: wrap exception)
+- `sizes a tight-fit proposal to the ideal with no indicator column` (Sizing: 39 x 9)
+- `fills an over-maximum proposal and leaves rows below the content blank` (Sizing: 80
+  x 20)
+- `draws git status letters as plain text under NO_COLOR with nothing added` (Degradation:
+  NO_COLOR)
 
 ## Degradation
 
@@ -546,16 +571,13 @@ Reference the [degradation ladder](../tokens.md#degradation-ladder).
 - ASCII: the scroll indicator uses `scrollbar.ascii` (`|` track, `#` thumb), expanders
   become `v` and `>`, icons become `[O]`, `[D]` and `[F]`, and the status letters keep
   their text (owner grid).
-- No colour: not decided. The owner grids show colour only; the status letters' distinct
-  colours need a non-colour cue (see Open questions).
+- `NO_COLOR`: the git status letters are the cue. They stay plain text in their two-cell
+  slot and nothing is added: no marker, glyph, or word (owner decision, 2026-10-18).
 - Below the floor: labels truncate at the tail (see [Sizing](#sizing)).
 
 ## Open questions
 
-1. No-colour cue. The status letters' distinct colours need a non-colour cue when colour
-   is off. Unblocks: owner decision on that cue.
-2. Sizing mandatory rows. The tight-fit and over-maximum rows of the [Sizing](#sizing)
-   table are not decided. Unblocks: owner decision on their results.
+None open.
 
 ## Inspiration
 

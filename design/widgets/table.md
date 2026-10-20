@@ -43,6 +43,10 @@ where Data.Element: Identifiable, Data.Element.ID == ID {
 public struct TableColumn<Element, ColumnID: Hashable> {
     public let id: ColumnID   // sort identity; the title is display text only
     public let title: String
+    /// Rows a cell in this column may take. Default 1: one row that tail-truncates.
+    /// `nil` wraps every row the cell needs; `n` caps the cell at `n` rows and marks the
+    /// last visible row. Header cells are always one row.
+    public func lineLimit(_ limit: Int?) -> TableColumn
 }
 
 public struct TableSortOrder<ColumnID: Hashable> {
@@ -105,17 +109,26 @@ The anatomy is the `plain` style, the default. The other styles are under Styles
 ```text
 Callouts (46x9, 0-based):
 1. r0       Header row -- Text per column, `semantic.primary` plus bold by default;
-            `TableStyle` may override; pinned, never scrolls
-2. r0 c1    Header cell -- one per column; click target for sorting
+            `TableStyle` may override; pinned, never scrolls; chrome, one row
+2. r0 c1    Header cell -- one per column; click target for sorting; chrome, one row
 3. r1       Header rule -- Divider, token `divider.light`, full width
 4. r3 c0    Selection bar -- token `selection.bar`; row also gets `selection.fill`
-5. r2-r7    Data row -- one row per visible element; 6 of 12 visible here
+5. r2-r7    Data row -- one row per visible element here (every cell single-line); 6 of
+            12 visible; cells are content, one row (wrap exception)
 6. r6 c14   Truncation -- Text `tail` policy, `truncation.mark` (`…`; ASCII `~`),
             grapheme-safe, cut inside the cell's own column
 7. c45      Scrollbar -- output-only ScrollIndicator; track `scrollbar.track`, thumb
-            `scrollbar.thumb`, thumb = max(1, visible/total x track) = 3 of 6
+            `scrollbar.thumb`, thumb = max(1, floor(6x6/12)) = 3 of 6, counted in rows
 8. r8       Footer -- app-provided slot, NOT Table chrome (owner decision, 2026-10-10)
 ```
+
+> Wrap exception (rule 1): cells are single-line by default, the spreadsheet idiom that
+> keeps columns scannable. A column opts in with `TableColumn(...).lineLimit(nil)`; row
+> height is then its tallest cell. (owner decision, 2026-10-18)
+
+Table pins `lineLimit(1)` on header cells and on the cells of every column that has not
+opted in, so an app's inherited `lineLimit` never changes the rows. The header row is
+always one row and tail-truncates. See [Wrapped columns](#wrapped-columns).
 
 Region names for the mouse table: header row, header cell, data row, selection bar (part
 of data row), mark gutter (part of data row; multi-select only), scrollbar.
@@ -431,6 +444,82 @@ S  fg=primary bg=selection
 Z  fg=primary bg=surface
 ```
 
+## Wrapped columns
+
+A column opts in to wrapping with `TableColumn.lineLimit(_:)` (owner decision,
+2026-10-18); every other column stays single-line. The opt-in is per column, so the
+columns you scan down keep their one-row cells while a prose column such as a description
+shows all of its text.
+
+```swift
+// `selection` is a Binding from the app's model.
+Table(files, selection: selection, columns: [
+    TableColumn(id: .name, title: "Name"),
+    TableColumn(id: .size, title: "Size"),
+    TableColumn(id: .description, title: "Description").lineLimit(nil),
+])
+```
+
+The 40-column fixture below gives Name 13 cells, Size 6, and Description 18 (a `fill`
+column), with the selected row in the middle. Description wraps at its 18 cells; the other
+cells are one row, top-aligned in the first row of their data row.
+
+```wireframe 40x12
+ Name            Size Description
+────────────────────────────────────────
+ Spec.md       372 KB The constitution:
+                      architecture and
+                      the layout
+                      protocol
+▌Package.swift  12 KB Targets, products,
+▌                     and dependencies
+ README.md     2.6 KB Start here
+ CHANGELOG.md  8.8 KB Release notes,
+                      newest first
+ LICENSE       1.1 KB MIT
+```
+
+```text
+Callouts (40x12, 0-based):
+1. r0 c1-c32   Header row -- chrome, one row; the wrapped column's header stays one row
+2. r1          Header rule -- Divider, token `divider.light`
+3. r2-r5       Data row -- four rows tall: its tallest cell is Description
+4. r2 c1-c7    Name cell -- content, one row (wrap exception); top-aligned, rows below blank
+5. r2 c15-c20  Size cell -- content, one row (wrap exception); right-aligned, top-aligned
+6. r2-r5 c22-c39  Description cell -- content, wraps at the column's 18 cells
+7. r6-r7 c0    Selection bar -- `selection.bar` on every row of the selected data row; both
+               rows also get `selection.fill` across c0-c39
+8. r8          Data row -- one row; the short description needs no wrap
+9. r9-r10      Data row -- two rows tall
+10. r11        Data row -- one row
+```
+
+Rules for a wrapped column:
+
+- **Height.** A data row is as tall as its tallest cell, and never shorter than one row.
+  `lineLimit(nil)` gives every row the cell needs; `lineLimit(n)` caps the cell at `n`
+  rows, and the last visible row ends in `…` (ASCII `~`) per
+  [Text's row budget](../primitives/text.md#row-budget). Cells that are shorter than the
+  row leave blank rows below their text.
+- **Width.** The column solver is unchanged: `fixed`, `min`, `fill`. A wrapped column
+  usually takes `fill` so it absorbs the slack. A nil width proposal does not wrap, so
+  such a column keeps its unwrapped ideal width.
+- **Narrow tables.** Dropping columns by priority is unchanged (owner decision,
+  2026-10-18): a wrapped column does not change the drop order. It wraps at whatever width
+  the surviving columns leave it, breaking a word between graphemes only when the word is
+  wider than the column.
+- **Selection.** The bar, the fill, and the multi-select cursor bar cover every row of a
+  data row. The member mark `●` sits on the first row only. A stripe covers every row.
+- **Frames.** In `bordered` and `grid` the column separators and side borders run down
+  every row of a tall data row. `grid`'s row rules sit between data rows, never inside
+  one.
+- **Scrolling.** The offset, the thumb, and paging count rows, per
+  [ScrollView's contract](scroll-view.md#rows-and-variable-height-content): a data row cut
+  by the top or bottom edge draws its visible rows, with no truncation mark, and a
+  selection move reveals the fewest rows that show the whole data row.
+- **Header.** The header row stays one row. Its cells tail-truncate, and a sort mark keeps
+  its place.
+
 ## States
 
 Mobile (40 columns at natural height, 40x14): the Modified column is dropped by column
@@ -457,7 +546,10 @@ addition (see Prior art).
 ```
 
 Min (24x5, the declared floor): only the highest-priority column survives; below this
-width Table renders truncated single-column rows rather than failing.
+width Table renders truncated single-column rows rather than failing. Cells are
+single-line, so the floor is not re-derived from whole words (wrap exception); a surviving
+column that opted in to wrapping wraps inside the width, breaking a word between graphemes
+when it is wider than the column.
 
 ```wireframe 24x5
  Name
@@ -491,23 +583,25 @@ Degraded ascii/no-color (46x6): geometry identical, glyphs swapped per the
 
 ## State model
 
-| State                 | Owner       | Type                                                | Reset or clamp rule                                                                                                                                                                                                                                                                |
-| --------------------- | ----------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| rows                  | derived     | immutable `Data` (RandomAccessCollection)           | recomputed from the data input on every update; never stored or bound                                                                                                                                                                                                              |
-| selection mode        | derived     | single or multi                                     | multi when the `Set<ID>` initializer is used, single when the `ID?` initializer is used; never stored                                                                                                                                                                              |
-| selection             | Binding     | `Element.ID?` (single) or `Set<Element.ID>` (multi) | Table never invents a value; if an ID vanishes from data, selection renders nowhere but the binding is not mutated; a vanished multi-select ID stays in the set                                                                                                                    |
-| cursor                | NodeState   | `Int?` (row index; multi-select only)               | nil until a cursor key or click; clamped to `0..<count` on every update; nil when data is empty; cursor moves never write the selection binding                                                                                                                                    |
-| header mode           | derived     | `Bool`                                              | true while the header cursor is set; never stored                                                                                                                                                                                                                                  |
-| header cursor         | NodeState   | `Int?` (column index)                               | set by Ctrl-↑ to the first column; clamped to the first and last column on every update; cleared by ↑, ↓, Esc, or focus loss                                                                                                                                                       |
-| sort order            | Binding     | `[TableSortOrder<ColumnID>]?`                       | keyed by column identity, not title; Table marks the header of each named column with its direction, and the app re-sorts data itself; an entry naming no column ID is ignored and the binding is not mutated; header Space and header click write the binding on user action only |
-| sort marks            | derived     | `↑`, `↓` (ASCII `^`, `v`)                           | drawn on each header whose column ID has an entry in the sort order binding; never stored                                                                                                                                                                                          |
-| scroll offset         | NodeState   | `Int` (first visible row)                           | clamps to `0...maximum scroll offset` on every update; keeps the cursor or selection visible after cursor- or selection-moving keys                                                                                                                                                |
-| maximum scroll offset | derived     | `Int`                                               | recomputed as `max(0, count - visible)` on every update and layout pass; never stored                                                                                                                                                                                              |
-| column widths         | derived     | `[Int]`                                             | recomputed per layout pass from column policy; never stored                                                                                                                                                                                                                        |
-| table style           | Environment | `TableStyle` (`plain`, `bordered`, `grid`)          | default `plain`; set by `.tableStyle(_:)`; a style never changes rows, selection, or scroll offset                                                                                                                                                                                 |
-| alternating rows      | Environment | `Bool`                                              | set by `.alternatingRowBackgrounds()`; applies to every style; the selected row keeps `selection.fill` over the stripe                                                                                                                                                             |
-| header styling        | Environment | `semantic.primary` plus bold                        | default header style; `TableStyle` may override                                                                                                                                                                                                                                    |
-| selection style       | Environment | `selection.*` tokens                                | active (`selection.bar`, `selection.fill`) when focused and not in header mode; `selection.inactive` for the row in header mode; header cursor cell uses `selection.fill` in header mode                                                                                           |
+| State                 | Owner       | Type                                                | Reset or clamp rule                                                                                                                                                                                                                                                                                                                                                                           |
+| --------------------- | ----------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| rows                  | derived     | immutable `Data` (RandomAccessCollection)           | recomputed from the data input on every update; never stored or bound                                                                                                                                                                                                                                                                                                                         |
+| row heights           | derived     | `[Int]` (rows per data row)                         | a row is as tall as its tallest cell: 1 unless a column opted in to wrapping with `lineLimit(_:)`, then the rows that cell needs, capped by the limit; re-measured whenever column widths change; never stored                                                                                                                                                                                |
+| selection mode        | derived     | single or multi                                     | multi when the `Set<ID>` initializer is used, single when the `ID?` initializer is used; never stored                                                                                                                                                                                                                                                                                         |
+| selection             | Binding     | `Element.ID?` (single) or `Set<Element.ID>` (multi) | Table never invents a value; if an ID vanishes from data, selection renders nowhere but the binding is not mutated; a vanished multi-select ID stays in the set                                                                                                                                                                                                                               |
+| cursor                | NodeState   | `Int?` (row index; multi-select only)               | nil until a cursor key or click; clamped to `0..<count` on every update; nil when data is empty; cursor moves never write the selection binding                                                                                                                                                                                                                                               |
+| header mode           | derived     | `Bool`                                              | true while the header cursor is set; never stored                                                                                                                                                                                                                                                                                                                                             |
+| header cursor         | NodeState   | `Int?` (column index)                               | set by Ctrl-↑ to the first column; clamped to the first and last column on every update; cleared by ↑, ↓, Esc, or focus loss                                                                                                                                                                                                                                                                  |
+| sort order            | Binding     | `[TableSortOrder<ColumnID>]?`                       | keyed by column identity, not title; Table marks the header of each named column with its direction, and the app re-sorts data itself; an entry naming no column ID is ignored and the binding is not mutated; header Space and header click write the binding on user action only                                                                                                            |
+| sort marks            | derived     | `↑`, `↓` (ASCII `^`, `v`)                           | drawn on each header whose column ID has an entry in the sort order binding; never stored                                                                                                                                                                                                                                                                                                     |
+| scroll offset         | NodeState   | `Int` (content rows above the viewport)             | counts rows, not data rows, so a partly visible row at either edge draws its visible rows; clamps to `0...maximum scroll offset` on every update, including after a width change re-wraps cells; keeps the cursor or selection visible after cursor- or selection-moving keys by the fewest rows that show every row of it (a row taller than the viewport aligns its first row with the top) |
+| maximum scroll offset | derived     | `Int`                                               | recomputed as `max(0, C - V)` for C content rows (the sum of row heights) and V viewport rows on every update and layout pass; never stored                                                                                                                                                                                                                                                   |
+| column widths         | derived     | `[Int]`                                             | recomputed per layout pass from column policy; never stored                                                                                                                                                                                                                                                                                                                                   |
+| column line limit     | derived     | `Int?` per column                                   | read from the column declaration on every update: 1 unless the column opted in with `TableColumn.lineLimit(_:)`; nil wraps every row, n caps the cell at n rows; header cells are always 1; never stored                                                                                                                                                                                      |
+| table style           | Environment | `TableStyle` (`plain`, `bordered`, `grid`)          | default `plain`; set by `.tableStyle(_:)`; a style never changes rows, selection, or scroll offset                                                                                                                                                                                                                                                                                            |
+| alternating rows      | Environment | `Bool`                                              | set by `.alternatingRowBackgrounds()`; applies to every style; the selected row keeps `selection.fill` over the stripe                                                                                                                                                                                                                                                                        |
+| header styling        | Environment | `semantic.primary` plus bold                        | default header style; `TableStyle` may override                                                                                                                                                                                                                                                                                                                                               |
+| selection style       | Environment | `selection.*` tokens                                | active (`selection.bar`, `selection.fill`) when focused and not in header mode; `selection.inactive` for the row in header mode; header cursor cell uses `selection.fill` in header mode                                                                                                                                                                                                      |
 
 The "selection ID vanished" rule is this widget's version of Slice 7's mandatory "app
 mutated data under the widget" case: Table must render sanely and must not write to the
@@ -526,16 +620,16 @@ during a graph update.
 | ------ | ------------------------------------------------ | ----------------------------------------------------------------------------------------------- | -------- |
 | ↓      | focused, single-select                           | moves selection to next row via binding                                                         | yes      |
 | ↑      | focused, single-select                           | moves selection to previous row via binding                                                     | yes      |
-| PgDn   | focused, single-select                           | moves selection down by visible-row count via binding                                           | yes      |
-| PgUp   | focused, single-select                           | moves selection up by visible-row count via binding                                             | yes      |
+| PgDn   | focused, single-select                           | moves selection down one viewport of rows via binding                                           | yes      |
+| PgUp   | focused, single-select                           | moves selection up one viewport of rows via binding                                             | yes      |
 | Home   | focused, single-select                           | moves selection to first row via binding                                                        | yes      |
 | End    | focused, single-select                           | moves selection to last row via binding                                                         | yes      |
 | Enter  | focused, single-select, selection is set         | calls `onActivate` with the selected element                                                    | yes      |
 | ↓      | focused, single-select, selection not set        | sets selection to first visible row via binding                                                 | yes      |
 | ↓      | focused, multi-select, cursor is set             | moves cursor to next row; membership unchanged                                                  | yes      |
 | ↑      | focused, multi-select, cursor is set             | moves cursor to previous row; membership unchanged                                              | yes      |
-| PgDn   | focused, multi-select, cursor is set             | moves cursor down by visible-row count; membership unchanged                                    | yes      |
-| PgUp   | focused, multi-select, cursor is set             | moves cursor up by visible-row count; membership unchanged                                      | yes      |
+| PgDn   | focused, multi-select, cursor is set             | moves cursor down one viewport of rows; membership unchanged                                    | yes      |
+| PgUp   | focused, multi-select, cursor is set             | moves cursor up one viewport of rows; membership unchanged                                      | yes      |
 | Home   | focused, multi-select, cursor is set             | moves cursor to first row; membership unchanged                                                 | yes      |
 | End    | focused, multi-select, cursor is set             | moves cursor to last row; membership unchanged                                                  | yes      |
 | ↓      | focused, multi-select, cursor not set            | sets cursor to first visible row; membership unchanged                                          | yes      |
@@ -550,7 +644,9 @@ during a graph update.
 | Esc    | header mode                                      | leaves header mode; header cursor cleared                                                       | yes      |
 
 Every cursor- or selection-moving key also updates the `NodeState` scroll offset per its
-clamp rule so the moved row stays visible.
+clamp rule so the moved row stays visible. Keys move by data row; only the offset is in
+rows, so PgUp and PgDn move to the data row containing the row one viewport (V rows) above
+or below the current row's first row, clamped to the first and last data row.
 
 ## Mouse table
 
@@ -679,14 +775,16 @@ I  fg=primary bg=selection.inactive
 
 Table is greedy on both axes when proposed; its ideal is content-driven.
 
-| Proposal  | Result | Rule                                                                                                                                                                              |
-| --------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| nil x nil | 45x14  | ideal: all 12 rows fit, so there is no ScrollIndicator or scrollbar reservation; content-resolved columns are 45 wide; height = header + rule + all 12 rows (no footer: app slot) |
-| 40 x nil  | 40x14  | mobile state: Modified dropped by column priority; height = header + rule + all 12 rows at natural height, no footer (owner decision, 2026-10-10)                                 |
-| 46 x 9    | 46x9   | fills the proposal exactly; rows beyond the viewport scroll                                                                                                                       |
-| 24 x 5    | 24x5   | fills; column priority drops columns to fit (min state)                                                                                                                           |
-| 10 x 3    | 10x3   | fills; single truncated column, no scrollbar below width 12                                                                                                                       |
-| 200 x 50  | 200x50 | fills; fill-policy columns absorb the slack, rows below content stay blank                                                                                                        |
+| Proposal  | Result | Rule                                                                                                                                                                                                                                                                    |
+| --------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| nil x nil | 45x14  | ideal: all 12 rows fit, so there is no ScrollIndicator or scrollbar reservation; content-resolved columns are 45 wide; height = header + rule + all 12 rows (no footer: app slot); a nil width does not wrap, so a column that opted in keeps its unwrapped ideal width |
+| 40 x nil  | 40x14  | mobile state: Modified dropped by column priority; height = header + rule + all 12 rows at natural height, no footer (owner decision, 2026-10-10)                                                                                                                       |
+| 40 x nil  | 40x12  | wrapped-column fixture: Description wraps at the 18 cells it gets, row heights 4, 2, 1, 2, 1; height = header + rule + 10 rows                                                                                                                                          |
+| 40 x 6    | 40x6   | wrapped-column fixture: the 10 content rows overflow the 4 data rows of the viewport, so the indicator column is reserved and Description re-wraps at 17 cells (11 rows); offset, thumb, and paging count rows, and an edge row draws its visible rows                  |
+| 46 x 9    | 46x9   | fills the proposal exactly; rows beyond the viewport scroll                                                                                                                                                                                                             |
+| 24 x 5    | 24x5   | fills; column priority drops columns to fit (min state)                                                                                                                                                                                                                 |
+| 10 x 3    | 10x3   | fills; single truncated column, no scrollbar below width 12                                                                                                                                                                                                             |
+| 200 x 50  | 200x50 | fills; fill-policy columns absorb the slack, rows below content stay blank                                                                                                                                                                                              |
 
 Numbers in the nil x nil row are for the anatomy example's data set; the rule, not the
 numbers, is normative.
@@ -695,6 +793,10 @@ Horizontal overflow (owner decision, 2026-10-10): a nil-width proposal lays ever
 out at ideal width with no drops, and a narrower proposal drops columns by priority. Table
 adds no horizontal scrolling of its own; an app that needs a wide table in a narrow
 proposal wraps it in `ScrollView(.horizontal)`.
+
+Narrow tables keep dropping columns by priority before anything else; a column that opted
+in to wrapping wraps in the width the surviving columns leave it (owner decision,
+2026-10-18).
 
 Style chrome adds to the content size and is part of the ideal:
 
@@ -730,16 +832,25 @@ priority for narrow viewports (mobile state); drop priority stays in v1 (owner d
   token pending plan 032 step 5.3
 - `scrollbar.track`, `scrollbar.thumb` for the output-only ScrollIndicator
 - `truncation.mark`
+- `lineLimit` / `truncationMode` (environment) -- Table pins `lineLimit(1)` on header
+  cells and on cells of columns that have not opted in; an opted-in column uses its own
+  `TableColumn.lineLimit(_:)`, and `truncationMode` still comes from the environment
 
 ## Primitive dependencies
 
 - [Divider](../primitives/divider.md) -- header rule. Ready.
-- [Text truncation policies](../primitives/text.md#variants) -- `tail`, grapheme-safe;
-  ready. The Slice 3 wrapping/truncation contract (`wrapped`, `.truncation(.clip/.tail)`)
-  is implemented (plan 030 Step 3.2).
+- [Text](../primitives/text.md#truncation) -- `lineLimit` and `truncationMode` (default
+  `.tail`, grapheme-safe), with [wrapping](../primitives/text.md#wrapping) and the
+  [row budget](../primitives/text.md#row-budget) for opted-in columns. The wrapping
+  contract is specified, not implemented: `Sources/TesseraCore/Views/Text.swift` is still
+  the non-wrapping Slice 1 leaf, so this blocks `ready` until the Text wrapping slice
+  lands.
 - [ScrollIndicator](../primitives/scroll-indicator.md) -- shared with ScrollView and List;
   output-only, so Table supplies its viewport state but does not route pointer input to
   it. Ready.
+- [ScrollView](scroll-view.md#rows-and-variable-height-content) -- the row-based offset,
+  partial-row, paging, and reveal contract Table follows when a row is more than one row
+  tall.
 - Column width distribution -- consumes the ready shared [Flex](../primitives/flex.md)
   constraint vocabulary; Slice 6 Grid and Table delegate to its one resolver rather than
   designing a second allocator.
@@ -830,6 +941,24 @@ priority for narrow viewports (mobile state); drop priority stays in v1 (owner d
   degradation)
 - `ascii multi-select and sort marks render as asterisk, greater-than, caret, and v`
   (degradation: ASCII-only)
+- `cells are single-line by default and ignore an inherited line limit` (anatomy: wrap
+  exception; state model: column line limit)
+- `header row stays one row and tail-truncates` (anatomy: callout 1; wrapped columns)
+- `column with line limit nil wraps its cells at the column width` (wrapped columns:
+  callout 6)
+- `data row height is its tallest wrapped cell` (wrapped columns: callouts 3, 8-9; sizing:
+  40 x nil)
+- `line limit of n caps a wrapped cell at n rows and marks the last visible row` (wrapped
+  columns: height rule)
+- `selection bar and fill cover every row of a wrapped data row` (wrapped columns:
+  callout 7)
+- `scroll offset thumb and paging count rows not data rows` (state model: scroll offset;
+  sizing: 40 x 6)
+- `partly visible data row draws its visible rows without a mark` (state model: scroll
+  offset)
+- `narrow table drops columns by priority and wraps the surviving wrapped column` (sizing:
+  24 x 5; wrapped columns: narrow tables)
+- `nil width proposal does not wrap an opted-in column` (sizing: nil x nil)
 
 ## Degradation
 
@@ -847,7 +976,9 @@ priority for narrow viewports (mobile state); drop priority stays in v1 (owner d
 - Stripes have no ASCII glyph and are dropped under `NO_COLOR` (owner decision,
   2026-10-10): the stripe is a background only, and the selection keeps reverse video.
 - Below `min` width (24): single truncated column, scrollbar dropped below width 12, never
-  a layout failure.
+  a layout failure; cells are single-line (wrap exception), and a surviving column that
+  opted in to wrapping wraps, breaking words between graphemes when needed. ASCII marks a
+  capped wrapped cell with `~`.
 
 ## Open questions
 

@@ -109,10 +109,16 @@ Three names from the Unicode catalog, 40 columns:
 Callouts (40x3, 0-based):
 1. r0 c0       Icon -- `error` glyph, error role
 2. r0 c1       Gap -- one column between icon and title (owner decision, 2026-10-10)
-3. r0 c2-6     Title -- the name's title text, primary role
+3. r0 c2-6     Title -- the name's title text, primary role; one row, tail-truncates (exception below)
 4. r1 c0       Icon -- `success` glyph, success role
 5. r2 c0       Icon -- `done` glyph, success role
 ```
+
+> Wrap exception (rule 1): icon and title share one row; the title tail-truncates after
+> the icon. A wrapped title would leave the icon column. (owner decision, 2026-10-18)
+
+The component applies `.lineLimit(1)` and `.truncationMode(.tail)` directly on the title
+Text, so an app's inherited `lineLimit` and `truncationMode` do not reach it.
 
 ```text
 ── chars ──
@@ -422,12 +428,13 @@ B  fg=error
 Schema: [README](../README.md#sizing-table). Mandatory rows: nil x nil, tight,
 under-minimum, over-maximum.
 
-| Proposal      | Result                                     | Rule                                     |
-| ------------- | ------------------------------------------ | ---------------------------------------- |
-| nil x nil     | Icon width, gap, then the title on one row | Height is one row                        |
-| tight         | Title clipped at the row edge; icon kept   | Icon is never clipped; title clips first |
-| under-minimum | Icon only; nothing below one cell          | Title dropped; icon kept                 |
-| over-maximum  | Title takes the remaining width            | No maximum                               |
+| Proposal      | Result                                                  | Rule                                                     |
+| ------------- | ------------------------------------------------------- | -------------------------------------------------------- |
+| nil x nil     | Icon width, gap, then the title on one row              | Height is one row                                        |
+| tight         | Title tail-truncates with `…` after the icon; icon kept | Wrap exception (rule 1): the title never wraps           |
+| under-minimum | Icon only; nothing below one cell                       | Title dropped; icon kept                                 |
+| over-maximum  | Title takes the remaining width                         | No maximum                                               |
+| any x 2+ rows | Height stays one row; the extra rows are unused         | Wrap exception (rule 1): a taller proposal does not wrap |
 
 ## Environment
 
@@ -461,6 +468,8 @@ under-minimum, over-maximum.
 - `label keeps the title in the primary role` (Anatomy, Override colour)
 - `label icon role override replaces the glyph's default role and leaves the title primary`
   (Override colour)
+- `label keeps icon and title on one row and tail-truncates the title at a narrow width`
+  (Anatomy: Wrap exception; Sizing: tight)
 - `label draws icons in running text in the surrounding role` (In running text)
 
 ## Degradation
@@ -471,6 +480,8 @@ under-minimum, over-maximum.
 - `NO_COLOR`: role colours are lost. Glyphs still identify the name in every charset.
 - Under the minimum width: the icon only. Below one cell: nothing (owner decision,
   2026-10-10).
+- Narrow width: the title tail-truncates with `…` (`~` in ASCII) after the icon; it never
+  wraps (Wrap exception, rule 1).
 
 ## Open questions
 

@@ -49,10 +49,23 @@ error    ▐3▌  ▐new▌
 Callouts (40x6, 0-based):
 1. r0-r5 c0-c8   Tone name -- plain row text in `secondary` bold; not part of the badge
 2. r0-r5 c9-c11  Count badge -- half blocks `▐` and `▌` in the tone's fill colour; label
-                 `3` in `contrast` bold on the fill
-3. r0-r5 c14-c18 Word badge -- the same squared shape with a word label
+                 `3` in `contrast` bold on the fill; chrome, one row, atomic
+3. r0-r5 c14-c18 Word badge -- the same squared shape with a word label; chrome, one row
 4. r0-r5 c12-c13 Gap -- two cells between badges, outside every shape
 ```
+
+Both badge kinds are chrome, one row (rule 3): a badge never wraps and is never taller
+than one row. A word label keeps tail truncation with the `truncation.mark` at a narrow
+width (see Sizing). A count is an atomic value: it never wraps or truncates, and the
+neighbouring row content gives way first (owner decision, 2026-10-18). Badge applies
+`.lineLimit(1)` directly on its label Text, so an app's inherited `lineLimit` never
+reaches it.
+
+> Wrap exception (rules 1 and 2): the count is atomic: it never wraps or truncates, and
+> the neighbouring row content gives way first. If the parent still assigns fewer cells
+> than the count's natural width, the parent clips the badge with no mark (owner decision,
+> 2026-10-18). Cutting digits or marking them with `…` would show a number that is not the
+> count.
 
 ```text
 ── chars ──
@@ -227,7 +240,7 @@ Callouts (40x5, 0-based):
 4. r3 c2-c14   Callout title -- bold `warning`
 5. r3 c16-c23  Warning badge -- `1 note` in the `warning` tone, in place of the muted header
                text
-6. r4          Callout body -- rail `│` (centred under the icon) and text in `warning`
+6. r4          Callout body -- rail `│` in column 0 under the icon (owner decision, 2026-10-18) and text in `warning`
 ```
 
 ```text
@@ -298,14 +311,16 @@ Schema: [README](../README.md#sizing-table). Mandatory rows: nil x nil, tight,
 under-minimum, over-maximum. Badge mirrors Button's sizing rows (owner decision,
 2026-10-10). The label is `new` (5 cells) in the rows below.
 
-| Proposal  | Result | Rule                                                                                                                  |
-| --------- | ------ | --------------------------------------------------------------------------------------------------------------------- |
-| nil x nil | 5x1    | `Badge("new")`: label width plus one cap on each side; the badge is never taller than one row.                        |
-| 5x1       | 5x1    | tight: the natural size fits exactly.                                                                                 |
-| 4x1       | 4x1    | under-minimum: the label slot is two cells, so tail truncation gives `▐n…▌` and both caps stay.                       |
-| 3x1       | 3x1    | under-minimum: the label slot is one cell, so only the truncation mark remains: `▐…▌`.                                |
-| 2x1       | 3x1    | under-minimum: nothing is drawn below three cells, so the badge reports its three-cell floor and the parent clips it. |
-| 80x24     | 5x1    | over-maximum: extra space does not make a label-hugging badge grow.                                                   |
+| Proposal          | Result | Rule                                                                                                                            |
+| ----------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| nil x nil         | 5x1    | `Badge("new")`: label width plus one cap on each side; the badge is never taller than one row.                                  |
+| 5x1               | 5x1    | tight: the natural size fits exactly.                                                                                           |
+| 4x1               | 4x1    | under-minimum: the label slot is two cells, so tail truncation gives `▐n…▌` and both caps stay.                                 |
+| 3x1               | 3x1    | under-minimum: the label slot is one cell, so only the truncation mark remains: `▐…▌`.                                          |
+| 2x1               | 3x1    | under-minimum: nothing is drawn below three cells, so the badge reports its three-cell floor and the parent clips it.           |
+| 80x24             | 5x1    | over-maximum: extra space does not make a label-hugging badge grow.                                                             |
+| 4x1 (`Badge(12)`) | 4x1    | count is atomic: `▐12▌` is its natural width; the count never truncates or wraps.                                               |
+| 3x1 (`Badge(12)`) | 4x1    | count is atomic: the badge reports its natural 4 cells instead of cutting digits; the neighbouring row content gives way first. |
 
 ## Environment
 
@@ -336,9 +351,11 @@ under-minimum, over-maximum. Badge mirrors Button's sizing rows (owner decision,
 - `unicode badge ends with half blocks` (anatomy)
 - `ascii badge draws its label in brackets in the tone colour` (variants: ASCII)
 - `badge nil x nil and tight sizes are label plus two caps` (Sizing: nil x nil, tight)
-- `under-minimum badge tail-truncates the label and keeps both caps, nothing below three cells`
-  (Sizing: 4x1, 3x1, 2x1)
+- `under-minimum word badge tail-truncates the label and keeps both caps, nothing below three cells`
+  (Sizing: 4x1, 3x1, 2x1; word labels only)
 - `badge never grows past its natural width` (Sizing: 80x24)
+- `count badge never truncates or wraps and reports its natural width` (Sizing: count
+  rows; anatomy: callout 2; Wrap exception)
 - `row badge trails the row content at the trailing edge` (in context: callout 1)
 - `badge takes no focus and consumes no keys` (primitive: no key table)
 

@@ -36,6 +36,10 @@ An absent `isExpanded` binding means always expanded and renders no disclosure g
 absent header means the section contributes rows only. Inter-section spacing (one blank
 row) is List chrome, not a Section margin, so adjacent sections never double-space.
 
+Grouped rows follow [List](list.md): they are content, so they wrap by default and
+`.lineLimit(1)` restores single-line rows (owner decision, 2026-10-18). The header is the
+one exception, see [Anatomy](#anatomy).
+
 ## Prior art
 
 - SwiftUI `Section` -- copy the header/content vocabulary and the
@@ -70,15 +74,25 @@ not the section has a header; sectionless List rows stay flush.
 ```text
 Callouts (24x6, 0-based):
 1. r0       Header -- Text `semantic.secondary`; noninteractive except collapse; the
-            disclosure glyph `disclosure.expanded` occupies the host List's gutter column
+            disclosure glyph `disclosure.expanded` occupies the host List's gutter column;
+            chrome, one row (wrap exception)
 2. r0 c0    Disclosure -- `disclosure.expanded` / `disclosure.collapsed`; rendered only
-            when an expansion binding is supplied
+            when an expansion binding is supplied; chrome, one row
 3. r1-r3    Grouped rows -- forwarded row content, indented two columns; selection and
-            focus belong to the host List and the rows themselves
+            focus belong to the host List and the rows themselves; content, wraps (as
+            List rows)
 4. r4       Section spacer -- host List chrome between adjacent sections, shown for
             context; not Section geometry
-5. r5       Collapsed header -- rows hidden; header remains the only contribution
+5. r5       Collapsed header -- rows hidden; header remains the only contribution;
+            chrome, one row
 ```
+
+> Wrap exception (rule 1): the header stays on one row and tail-truncates. A wrapped
+> header would break the gutter and row geometry under it. (owner decision, 2026-10-18)
+
+Section pins `lineLimit(1)` on the header Text, so an app's inherited `lineLimit` reaches
+the grouped rows and never the header. The header's `truncationMode` still comes from the
+environment (default tail).
 
 Region names for the mouse table: header, grouped rows.
 
@@ -116,11 +130,14 @@ Callouts (40x16, 0-based):
 5. r4, r9, r12, r14 Section spacers -- host List chrome
 ```
 
-Min (10x2, the declared floor): a truncated header above one row. Below this width the
-header truncates with `truncation.mark` rather than failing.
+Min (8x2, the declared floor): a truncated header above one row. The floor is derived from
+the primary content, the grouped rows: indent 3 plus the widest row word `Inbox` (5) is 8
+cells, so every row word shows whole at 8. The header is chrome and does not set the
+floor; it tail-truncates with `truncation.mark` (`▾ Mailboxes` needs 11). The row is
+content and wraps in the cells after the indent (owner decision, 2026-10-18).
 
-```wireframe 10x2
-▾ Mailbox…
+```wireframe 8x2
+▾ Mailb…
    Inbox
 ```
 
@@ -129,13 +146,14 @@ Degradation is glyph-only: the collapsed/expanded disclosure becomes `+`/`-` in 
 
 ## State model
 
-| State             | Owner       | Type                    | Reset or clamp rule                                                                                                 |
-| ----------------- | ----------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| expansion         | Binding     | `Bool` (optional param) | app-owned; absent binding means always expanded; Section never writes it except for the header-click row below      |
-| collapsibility    | derived     | `Bool`                  | structural: true exactly when an expansion binding was supplied at init; decides whether a disclosure glyph renders |
-| rows              | derived     | forwarded content       | recomputed from the app's content builder on every update; contributes nothing to the flattened list when collapsed |
-| header styling    | Environment | `semantic.secondary`    | header text default                                                                                                 |
-| disclosure glyphs | Environment | `disclosure.*` tokens   | expanded/collapsed pair; ASCII pair below capability                                                                |
+| State             | Owner       | Type                    | Reset or clamp rule                                                                                                                         |
+| ----------------- | ----------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| expansion         | Binding     | `Bool` (optional param) | app-owned; absent binding means always expanded; Section never writes it except for the header-click row below                              |
+| collapsibility    | derived     | `Bool`                  | structural: true exactly when an expansion binding was supplied at init; decides whether a disclosure glyph renders                         |
+| rows              | derived     | forwarded content       | recomputed from the app's content builder on every update; contributes nothing to the flattened list when collapsed                         |
+| header styling    | Environment | `semantic.secondary`    | header text default                                                                                                                         |
+| header line limit | Environment | `Int?` pinned to 1      | Section pins `lineLimit(1)` on the header Text (Wrap exception); an inherited app `lineLimit` reaches the grouped rows and never the header |
+| disclosure glyphs | Environment | `disclosure.*` tokens   | expanded/collapsed pair; ASCII pair below capability                                                                                        |
 
 Collapsing while a grouped row is selected is the host List's "hidden selection" case: the
 List renders no selection and never mutates its binding
@@ -164,13 +182,17 @@ focused, writing this Section's expansion binding ([List key table](list.md#key-
 Section reports the extent of its current contribution to the host List's flattened rows;
 the List, not the Section, is greedy. Numbers use the anatomy's data set.
 
-| Proposal              | Result | Rule                                                                           |
-| --------------------- | ------ | ------------------------------------------------------------------------------ |
-| nil x nil             | 11x4   | ideal: widest of header and rows; height = header + 3 rows while expanded      |
-| 24 x 4                | 24x4   | fills the proposed width; rows truncate, height stays content-driven           |
-| nil x nil (collapsed) | 11x1   | header only; rows contribute nothing                                           |
-| 10 x 2                | 10x2   | under-minimum: header truncates with `truncation.mark`, never a layout failure |
-| 200 x 4               | 200x4  | fills width; height never exceeds header + rows                                |
+| Proposal              | Result | Rule                                                                                                                                                                                   |
+| --------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| nil x nil             | 11x4   | ideal: widest of header and rows, unwrapped (a nil width does not wrap); height = header + 3 rows while expanded                                                                       |
+| 24 x 4                | 24x4   | fills the proposed width; header and rows fit unwrapped here, so height stays content-driven                                                                                           |
+| nil x nil (collapsed) | 11x1   | header only; rows contribute nothing                                                                                                                                                   |
+| 12 x nil              | 12x4   | narrow width, nil height, with one row `Drafts and old mail`: the header stays one row; the row wraps in the 9 cells after the indent (`Drafts`, `and old`, `mail`), so height = 1 + 3 |
+| 8 x 2                 | 8x2    | the declared floor (indent 3 + `Inbox` 5): header tail-truncates (`▾ Mailb…`), the row shows whole                                                                                     |
+| 6 x nil               | 6x3    | under-minimum: header tail-truncates (`▾ Mai…`), the row breaks `Inbox` between graphemes after the indent (`Inb`, `ox`), so height = 1 + 2; never a layout failure                    |
+| 200 x 4               | 200x4  | fills width; height never exceeds header + rows                                                                                                                                        |
+
+The 12 x nil row uses a Mailboxes section holding the single row `Drafts and old mail`.
 
 An empty section is header + 0 rows (height 1); a headerless section is rows only.
 
@@ -180,11 +202,15 @@ An empty section is header + 0 rows (height 1); a headerless section is rows onl
 - `disclosure.expanded`, `disclosure.collapsed`, `disclosure.ascii`
   ([tokens](../tokens.md#disclosure))
 - `truncation.mark`
+- `lineLimit` / `truncationMode` (environment) -- reach the grouped rows; the header pins
+  its own `lineLimit(1)`
 
 ## Primitive dependencies
 
-- [Text](../primitives/text.md) -- header rendering and truncation. Ready (truncation
-  policies block `ready` with Slice 3, shared with List).
+- [Text](../primitives/text.md#row-budget) -- header rendering with `lineLimit(1)` and
+  tail truncation; row wrapping follows [List](list.md). Blocks `ready` until the Text
+  wrapping slice lands, shared with List (`Sources/TesseraCore/Views/Text.swift` is still
+  the non-wrapping Slice 1 leaf).
 - [List](list.md) -- host widget owning traversal, selection, spacing, and scrolling;
   specified in the same pass.
 
@@ -206,6 +232,11 @@ An empty section is header + 0 rows (height 1); a headerless section is rows onl
 - `collapsing never mutates the host lists selection binding` (state model: expansion;
   [List state model](list.md#state-model))
 - `header truncates with the truncation mark at the floor` (states: min)
+- `header stays one row and tail-truncates under an inherited line limit` (anatomy: wrap
+  exception; state model: header line limit)
+- `grouped rows wrap like List rows and take every row they need` (anatomy: callout 3;
+  sizing: 12 x nil)
+- `narrow width wraps the rows and keeps the header on one row` (sizing: 12 x nil)
 - `ascii disclosure glyphs substitute below capability` (states: degradation)
 
 ## Degradation
@@ -213,7 +244,8 @@ An empty section is header + 0 rows (height 1); a headerless section is rows onl
 - `NO_COLOR`: header falls back to dim; disclosure glyphs unchanged.
 - 16-color: unchanged.
 - ASCII-only: `disclosure.ascii` -- `-` expanded, `+` collapsed; `~` truncation mark.
-- Below `min` (10x2): truncated header, never a layout failure.
+- Below `min` (8x2): tail-truncated header, rows breaking between graphemes, never a
+  layout failure.
 
 ## Open questions
 

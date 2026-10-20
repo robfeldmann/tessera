@@ -170,7 +170,7 @@ Callouts (24x6, 0-based):
 ### Mobile density
 
 At the canonical `mobile` viewport, all three application-selected panes remain visible:
-8 + 1 + 24 + 1 + 6 = 40 cells. Labels use each pane's own truncation policy; SplitView
+8 + 1 + 24 + 1 + 6 = 40 cells. Text in each pane wraps or marks its own cut; SplitView
 does not collapse or replace a pane merely because the terminal is narrow.
 
 Wireframed at its natural height: 40 columns by 10 rows (cross-axis ideal 10; see the
@@ -486,8 +486,9 @@ K  fg=success
 ### Content minimum at 40 columns
 
 At 40 columns `files` uses the content minimum: it keeps the 13 cells its rows need.
-`editor` takes the remaining 26 cells and truncates its own rows. The app has collapsed
-`inspector`, which has no rect and no handle.
+`editor` takes the remaining 26 cells. Its code rows are `Text(...).lineLimit(1)`, so each
+row that does not fit marks its own cut with `…`. The app has collapsed `inspector`, which
+has no rect and no handle.
 
 ```wireframe 40x8
  Files       │ main.swift
@@ -504,8 +505,9 @@ At 40 columns `files` uses the content minimum: it keeps the 13 cells its rows n
 Callouts (40x8, 0-based):
 1. r0-r7 c0-c12   Leading pane -- stable ID `files`; `.content` minimum, floor 13 cells
 2. r0-r7 c13      Divider handle -- one-cell boundary between `files` and `editor`, Divider `light`
-3. r0-r7 c14-c39  Trailing pane -- stable ID `editor`, 26-cell remainder; `Text` truncates
-                  row 5 with `…` under its own policy; SplitView adds no ellipsis
+3. r0-r7 c14-c39  Trailing pane -- stable ID `editor`, 26-cell remainder; its rows are
+                  `Text(...).lineLimit(1)`, so row 5 ends in the Text's own `…`;
+                  SplitView adds no ellipsis
 ```
 
 ```text
@@ -653,7 +655,9 @@ All values are whole cells. For `.cells(n)`, construction requires
 `0 <= n <= ideal <= maximum` when maximum is present; `.content` is checked against
 `maximum` only, and `defaultIdeal` is checked like `ideal`. `nil` maximum is unbounded.
 The pane's child may render an intrinsic ideal larger than its assigned segment; explicit
-pane sizing wins and the child clips rather than silently changing application state.
+pane sizing wins. Text children lay out again at the assigned width (they wrap or mark
+their last visible row); non-text geometry clips, rather than silently changing
+application state.
 
 `.content` is a floor measured on every layout from the child's main-axis minimum and
 capped at `maximum`. It is never stored: the resolver raises the initial allocation to the
@@ -685,9 +689,10 @@ the proposal, SplitView reports that floor and the parent clips trailing placeme
 never writes reconciled sizes back to the binding.
 
 A pane that does not fit is clipped at the trailing edge of the parent's clip rect.
-SplitView adds no ellipsis to its rows; any truncation comes from the pane's own content.
-Nothing collapses automatically. An app that prefers collapsing sets `isCollapsed` itself,
-for example from a width check.
+SplitView adds no ellipsis itself: a Text inside a pane wraps to the assigned width or
+marks its own last visible row, per [Text](../primitives/text.md#truncation). Nothing
+collapses automatically. An app that prefers collapsing sets `isCollapsed` itself, for
+example from a width check.
 
 The table is fixture-specific so every result is exact:
 

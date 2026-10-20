@@ -49,7 +49,7 @@ Callouts (12x6, 0-based):
 2. c0, c11  Border -- `rounded` leading and trailing ring
 3. r1, r4   Padding -- one reserved chrome-padding row inside the ring
 4. c1, c10  Padding -- one reserved chrome-padding column inside the ring
-5. r2-r3 c2-c9 Content -- clipped child frame after ring and padding
+5. r2-r3 c2-c9 Content -- child frame after ring and padding; content, wraps
 ```
 
 A title interrupts the top border; it never adds a second row or overlays a live cell.
@@ -65,10 +65,10 @@ A title interrupts the top border; it never adds a second row or overlays a live
 ```text
 Callouts (14x5, 0-based):
 1. r0 c0     Border -- `rounded` top-left corner
-2. r0 c3-c7  Title -- Text drawn on the top border, one space inside each end
+2. r0 c3-c7  Title -- Text drawn on the top border, one space inside each end; chrome, one row
 3. r0 c9-c12 Border -- remaining top `light`/`rounded` horizontal glyphs to the corner
 4. r1, r3    Padding -- chrome-padding rows
-5. r2 c3-c10 Content -- clipped child frame
+5. r2 c3-c10 Content -- child frame; content, wraps
 ```
 
 A title longer than the top border is tail-truncated grapheme-safe with the
@@ -83,10 +83,13 @@ corner.
 
 ```text
 Callouts (16x3, 0-based):
-1. r0 c3-c12 Title -- truncated Text ending in the `truncation.mark`
+1. r0 c3-c12 Title -- truncated Text ending in the `truncation.mark`; chrome, one row
 2. r0 c14    Border -- one trailing horizontal glyph preserved before the corner
-3. r1 c2-c13 Content -- clipped child frame
+3. r1 c2-c13 Content -- child frame; content, wraps
 ```
+
+> Wrap exception (rule 1): the title stays on one row and tail-truncates. A second row
+> would break the top border line it sits in. (owner decision, 2026-10-18)
 
 ### Declared minimum
 
@@ -132,12 +135,13 @@ for its whole subtree (owner decision, 2026-10-10).
 Schema: [README](../README.md#sizing-table). The child measured here has an eight-by-two
 ideal; chrome adds two cells on each edge (one border, one padding).
 
-| Proposal  | Result | Rule                                                                     |
-| --------- | ------ | ------------------------------------------------------------------------ |
-| nil x nil | 12x6   | child ideal (8x2) plus the border ring and one padding cell on each edge |
-| 12x6      | 12x6   | tight fit: interior content proposes 8x2 after chrome is reserved        |
-| 1x1       | 1x1    | under-minimum: chrome collapses through Border; only the corner paints   |
-| 40x20     | 12x6   | over-proposed: child measures its ideal; parent slack is unused          |
+| Proposal  | Result                                | Rule                                                                                          |
+| --------- | ------------------------------------- | --------------------------------------------------------------------------------------------- |
+| nil x nil | 12x6                                  | child ideal (8x2) plus the border ring and one padding cell on each edge                      |
+| 12x6      | 12x6                                  | tight fit: interior content proposes 8x2 after chrome is reserved                             |
+| 1x1       | 1x1                                   | under-minimum: chrome collapses through Border; only the corner paints                        |
+| 40x20     | 12x6                                  | over-proposed: child measures its ideal; parent slack is unused                               |
+| 8x nil    | 8 wide; child's wrapped height plus 4 | interior proposes 4 columns and a nil height; wrapping content gets every row (rules 1 and 2) |
 
 ## State model
 
@@ -339,7 +343,10 @@ p  fg=contrast bg=focus bold
   button keeps the focus fill.
 - The title uses `semantic.primary` through the ambient
   [`defaultStyle`](style-modifiers.md) and the
-  [`truncation.mark`](../tokens.md#truncation) for tail truncation.
+  [`truncation.mark`](../tokens.md#truncation) for tail truncation. Box applies
+  `.lineLimit(1)` and `.truncationMode(.tail)` directly on the title Text (chrome, one
+  row), so an app's inherited `lineLimit` and `truncationMode` reach the child content and
+  never the title.
 - Content padding is one cell from the [Padding](padding.md) contract; the child inherits
   the ambient style across the chrome boundary.
 
@@ -349,9 +356,11 @@ p  fg=contrast bg=focus bold
   sizing: nil x nil, 12x6)
 - `title interrupts the top border without adding a row` (anatomy: titled)
 - `overlong title truncates with the mark before the corner` (anatomy: title truncation)
+- `title stays on one row and never wraps, whatever the height proposal` (anatomy: Wrap
+  exception; title truncation)
 - `box forwards the border style to the border contract` (public API: `border`)
-- `child content is clipped inside the ring and padding` (anatomy: content region; sizing:
-  40x20)
+- `child content stays inside the ring and padding; wrapping content re-lays out at the interior width`
+  (anatomy: content region; sizing: 8x nil, 40x20)
 - `one by one box paints only the corner and drops the title` (anatomy: declared minimum;
   sizing: 1x1)
 - `zero area box paints nothing` (anatomy: declared minimum)
@@ -371,7 +380,9 @@ p  fg=contrast bg=focus bold
 Per the [degradation ladder](../tokens.md#degradation-ladder), Box inherits Border's ring
 degradation and Text's truncation degradation: `NO_COLOR` and 16-color keep the geometry,
 ASCII-only swaps in the `ascii` ring and the `~` truncation mark. ASCII focus shows in
-bold, since ASCII has no heavier ring (focus border rule 6).
+bold, since ASCII has no heavier ring (focus border rule 6). Below the floor the docked
+title is dropped before it could overwrite a corner; child Text wraps at the interior
+width and breaks words between graphemes rather than clipping.
 
 ```wireframe 16x3
 +- Long titl~ -+
@@ -383,16 +394,17 @@ bold, since ASCII has no heavier ring (focus border rule 6).
 Callouts (16x3, 0-based):
 1. r0 c0, r0 c15 Border -- `ascii` corners
 2. r0 c3-c12 Title -- truncated Text ending in the `ascii` `~` mark
-3. r1 c2-c13 Content -- clipped child frame
+3. r1 c2-c13 Content -- child frame; content, wraps
 ```
 
 ## Decisions
 
 Box is Border plus one base cell of content padding plus an optional title, not a new
 layout engine. The title interrupts the top border in place and is grapheme-safe
-tail-truncated, so it can never desynchronize the ring or spill past a corner. Box keeps
-the standalone [Border](border.md) modifier for the no-padding, no-title case; the two are
-not merged.
+tail-truncated, so it can never desynchronize the ring or spill past a corner. The docked
+title is a documented wrap exception, not content (owner decision, 2026-10-18; see
+[Anatomy](#anatomy)). Box keeps the standalone [Border](border.md) modifier for the
+no-padding, no-title case; the two are not merged.
 
 The default content padding is fixed at one cell; applications needing more inset compose
 an ordinary `.padding` on the child rather than a second Box padding parameter. This keeps

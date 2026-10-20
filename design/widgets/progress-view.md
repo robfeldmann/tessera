@@ -5,14 +5,16 @@ status: wireframed
 
 # ProgressView
 
-`ProgressView` shows progress in one row. With a `value` it draws a determinate bar, a
-label, and a current-value label that defaults to the percent. Without a `value` it draws
-an indeterminate spinner glyph and an optional label. The app owns every number and
-string: value, total, label, current-value label, and spinner style come from the
-initializer or modifiers. The view stores none of them. The spinner frame is computed from
-a clock the environment supplies, so the view keeps no timer. The tick requirement is
-declared, as plan 032 step 16.1 specifies. Gauge is post-1.0 (owner decision, 2026-10-10);
-its threshold tones and tick markers are not part of this doc.
+`ProgressView` shows progress, in one row where it fits. With a `value` it draws a
+determinate bar, a label, and a current-value label that defaults to the percent. Without
+a `value` it draws an indeterminate spinner glyph and an optional label. The label is
+content: when label, bar and percent do not fit one row, the label moves above the bar and
+wraps (owner decision, 2026-10-18; see Narrow). The app owns every number and string:
+value, total, label, current-value label, and spinner style come from the initializer or
+modifiers. The view stores none of them. The spinner frame is computed from a clock the
+environment supplies, so the view keeps no timer. The tick requirement is declared, as
+plan 032 step 16.1 specifies. Gauge is post-1.0 (owner decision, 2026-10-10); its
+threshold tones and tick markers are not part of this doc.
 
 The determinate and indeterminate forms share one doc because they share a row, a label,
 and the same width rules. Decisions attributed to "owner decision, omp2 review, 2026-10"
@@ -28,11 +30,12 @@ presentation.
 - omp2 `Progress`
   ([progress.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/progress.rs#L12-L111)):
   copy the one-row label, bar, and trailing percent; the value clamped to `[0, max]`; the
-  integer percent; the accent fill over a muted track. Reject its label-first layout
   without truncation: a long label clips the bar and the percent off the right edge. Owner
-  decision, omp2 review, 2026-10: the bar and percent stay, and the label truncates first
-  at the tail. The owner also rejected the percent-from-total reading of `max=4` (see
-  Current-value labels).
+  decision, omp2 review, 2026-10: the bar and percent stay and the label gives way first.
+  Owner decision, 2026-10-18: the label is content, so it moves to its own wrapping rows
+  above the bar instead of truncating, as SwiftUI's linear ProgressView draws its label
+  above; it tail-truncates only under a fixed one-row height. The owner also rejected the
+  percent-from-total reading of `max=4` (see Current-value labels).
 - omp2 `Spinner`
   ([spinner.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/spinner.rs#L16-L139)):
   copy the glyph-then-label row and the braille default. Reject its markup path:
@@ -87,7 +90,8 @@ Modifier and set names (`.spinner(.braille)`, `.spinner(.orbit)`,
 
 ### Determinate
 
-One row: the label first, then the bar, then the percent.
+One row: the label first, then the bar, then the percent. The bar fills what the label and
+percent leave.
 
 ```wireframe 40x1
 Downloading model weights ██████░░░░ 62%
@@ -95,11 +99,15 @@ Downloading model weights ██████░░░░ 62%
 
 ```text
 Callouts (40x1, 0-based):
-1. r0 c0-c24   Label -- Text, token `semantic.primary`; truncates at the tail first
-2. r0 c26-c31  Fill -- bar glyphs, token `semantic.accent`; the bar keeps at least four cells
-3. r0 c32-c35  Track -- empty bar glyphs, token `muted` (token pending plan 032 step 5.3)
-4. r0 c37-c39  Percent -- `62%`, token `muted`; the default current-value label
+1. r0 c0-c24   Label -- Text, token `semantic.primary`; content, wraps (moves above the bar when the row is too narrow)
+2. r0 c26-c31  Fill -- bar glyphs, token `semantic.accent`; chrome, one row; the bar keeps at least four cells
+3. r0 c32-c35  Track -- empty bar glyphs, token `muted` (token pending plan 032 step 5.3); chrome, one row
+4. r0 c37-c39  Percent -- `62%`, token `muted`; the default current-value label; atomic value
 ```
+
+> Wrap exception (rules 1 and 2): the percent and an app-supplied current-value label are
+> atomic: they never wrap or truncate. The label gives way first, by moving above the bar.
+> (owner decision, 2026-10-18)
 
 ```text
 ── chars ──
@@ -117,7 +125,9 @@ C  fg=muted
 
 One spinner glyph, a space, then the label. Every frame is one cell wide, so the label
 does not shift as the spinner turns. The frame shown is derived from the clock; this grid
-shows the braille default at one instant.
+shows the braille default at one instant. The label is content and wraps beside the
+spinner, its continuation rows hanging under the label text; under a fixed one-row height
+it tail-truncates (owner decision, 2026-10-18; the hanging indent is an inference).
 
 ```wireframe 21x1
 ⠋ Indexing repository
@@ -126,7 +136,20 @@ shows the braille default at one instant.
 ```text
 Callouts (21x1, 0-based):
 1. r0 c0       Spinner glyph -- one cell from the active frame set, token `semantic.accent`
-2. r0 c2-c20   Label -- Text, token `semantic.primary`; supplied by the app
+2. r0 c2-c20   Label -- Text, token `semantic.primary`; supplied by the app; content, wraps
+```
+
+At 12 columns the label wraps:
+
+```wireframe 12x2
+⠋ Indexing
+  repository
+```
+
+```text
+Callouts (12x2, 0-based):
+1. r0 c0       Spinner glyph -- one cell from the active frame set, token `semantic.accent`; chrome, one row
+2. r0-r1 c2-c11  Label -- Text, token `semantic.primary`; content, wraps, continuation hangs at c2
 ```
 
 ### Frame sets
@@ -201,10 +224,78 @@ Callouts (40x1, 0-based):
 
 ### Narrow: 24 and 16 columns
 
-The percent and a four-cell minimum bar stay. The label truncates at the tail with the
-truncation mark (`…` here; `~` in ASCII-only output, see the degradation ladder). Space
-goes to the percent first, then the minimum bar, then the label, then the bar again (owner
-decision, omp2 review, 2026-10).
+When the full label, a minimum four-cell bar and the percent do not fit one row, the label
+moves to its own rows above the bar and wraps. The bar row fills the width: the bar takes
+what the percent and its gap leave (owner decision, 2026-10-18). `ViewThatFits` picks the
+one-row form when it fits the proposal, else the stacked form. The one-row form needs
+`25 + 1 + 4 + 1 + 3 = 34` cells for the fixture, so both widths stack.
+
+```wireframe 24x3
+Downloading model
+weights
+████████████░░░░░░░░ 62%
+```
+
+```text
+Callouts (24x3, 0-based):
+1. r0-r1 c0-c16  Label -- Text, `semantic.primary`; content, wraps
+2. r2 c0-c11     Fill -- 12 of 20 bar cells, `semantic.accent`; chrome, one row
+3. r2 c12-c19    Track -- `muted`; chrome, one row
+4. r2 c21-c23    Percent -- `62%` in `muted`; atomic value
+```
+
+```text
+── chars ──
+Downloading model
+weights
+████████████░░░░░░░░ 62%
+── style ──
+AAAAAAAAAAAAAAAAA
+AAAAAAA
+BBBBBBBBBBBBCCCCCCCCCCCC
+── legend ──
+.  default
+A  fg=primary
+B  fg=accent
+C  fg=muted
+```
+
+```wireframe 16x3
+Downloading
+model weights
+███████░░░░░ 62%
+```
+
+```text
+Callouts (16x3, 0-based):
+1. r0-r1 c0-c12  Label -- Text, `semantic.primary`; content, wraps
+2. r2 c0-c11     Bar -- 12 cells, 7 filled
+3. r2 c13-c15    Percent -- `62%` in `muted`; atomic value
+```
+
+```text
+── chars ──
+Downloading
+model weights
+███████░░░░░ 62%
+── style ──
+AAAAAAAAAAA
+AAAAAAAAAAAAA
+BBBBBBBCCCCCCCCC
+── legend ──
+.  default
+A  fg=primary
+B  fg=accent
+C  fg=muted
+```
+
+### Fixed one-row height: 24 and 16 columns
+
+Under a fixed height of one row the stacked form cannot fit, so the one-row form draws and
+the label tail-truncates with the truncation mark (`…` here; `~` in ASCII-only output, see
+the degradation ladder). The percent and a four-cell minimum bar stay. Space goes to the
+percent first, then the minimum bar, then the label, then the bar again (owner decision,
+omp2 review, 2026-10; kept for the one-row budget by owner decision, 2026-10-18).
 
 ```wireframe 24x1
 Downloading mo… ██░░ 62%
@@ -212,7 +303,7 @@ Downloading mo… ██░░ 62%
 
 ```text
 Callouts (24x1, 0-based):
-1. r0 c0-c14   Label -- Text, truncated at the tail with `truncation.mark`
+1. r0 c0-c14   Label -- Text, truncated at the tail with `truncation.mark`; content, fixed one-row budget
 2. r0 c16-c19  Bar -- four cells, the minimum bar: fill `semantic.accent`, track `muted`
 3. r0 c21-c23  Percent -- `62%` in `muted`; never truncated
 ```
@@ -235,7 +326,7 @@ Downlo… ██░░ 62%
 
 ```text
 Callouts (16x1, 0-based):
-1. r0 c0-c6    Label -- Text, truncated at the tail with `truncation.mark`
+1. r0 c0-c6    Label -- Text, truncated at the tail with `truncation.mark`; content, fixed one-row budget
 2. r0 c8-c11   Bar -- four cells, the minimum bar
 3. r0 c13-c15  Percent -- `62%` in `muted`
 ```
@@ -252,12 +343,55 @@ B  fg=accent
 C  fg=muted
 ```
 
-### Minimum (9x1)
+### Minimum (11x4)
 
-Below about ten columns even the truncated label has no room, so it disappears and the row
-is the bar and the percent. The floor is a four-cell bar, a space, and a four-column
-percent (`100%`). The label-drop threshold is the owner's; the 9-column floor is derived
-from the minimum bar and the widest percent, and is settled (owner decision, 2026-10-10).
+The floor is the widest row of the stacked form (owner decision, 2026-10-18; it replaces
+the 9x1 floor of 2026-10-10 for a labelled bar). The label is primary content, and its
+widest word in the fixture, `Downloading`, is 11 cells; the bar row needs a four-cell bar,
+a space and the widest percent, `100%`, which is 9. The widest row is 11, and at 11 the
+label takes three rows (`Downloading`, `model`, `weights`) above the bar row, so the floor
+is 11x4. Below 11 the label's words break between grapheme clusters; the bar row keeps its
+9-cell floor.
+
+```wireframe 11x4
+Downloading
+model
+weights
+██████ 100%
+```
+
+```text
+Callouts (11x4, 0-based):
+1. r0-r2 c0-c10  Label -- Text, `semantic.primary`; content, wraps
+2. r3 c0-c5      Bar -- six cells, all filled at 100%; token `semantic.accent`
+3. r3 c7-c10     Percent -- `100%` in `muted`; atomic value
+```
+
+```text
+── chars ──
+Downloading
+model
+weights
+██████ 100%
+── style ──
+AAAAAAAAAAA
+AAAAA
+AAAAAAA
+BBBBBBCCCCC
+── legend ──
+.  default
+A  fg=primary
+B  fg=accent
+C  fg=muted
+```
+
+### One-row floor (9x1)
+
+Under a fixed one-row height, below about ten columns even the truncated label has no
+room, so it disappears and the row is the bar and the percent. The floor is a four-cell
+bar, a space, and a four-column percent (`100%`). The label-drop threshold is the owner's;
+the 9-column floor is derived from the minimum bar and the widest percent, and is settled
+for the one-row budget (owner decision, 2026-10-10).
 
 ```wireframe 9x1
 ████ 100%
@@ -328,15 +462,15 @@ C  fg=muted
 
 Schema: [README](../README.md#state-model-table).
 
-| State             | Owner       | Type                                       | Reset or clamp rule                                                       |
-| ----------------- | ----------- | ------------------------------------------ | ------------------------------------------------------------------------- |
-| value             | Binding     | `Double?`                                  | clamped to `0...total` each render; `nil` selects the indeterminate form  |
-| total             | Binding     | `Double`                                   | at least 1; a smaller total is clamped to 1                               |
-| label             | Binding     | `Text` builder                             | app content; truncates at the tail when the row is narrow                 |
-| currentValueLabel | Binding     | `Text` builder?                            | replaces the percent when supplied; absent means percent                  |
-| spinner style     | Environment | `SpinnerSet` or custom frames and interval | a style choice; every frame one cell wide                                 |
-| clock             | Environment | instant                                    | supplied by the environment (plan 032 step 16.1); the view stores none    |
-| frame index       | derived     | `Int`                                      | `(now / interval) mod frames.count`, recomputed each render; never stored |
+| State             | Owner       | Type                                       | Reset or clamp rule                                                                                        |
+| ----------------- | ----------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| value             | Binding     | `Double?`                                  | clamped to `0...total` each render; `nil` selects the indeterminate form                                   |
+| total             | Binding     | `Double`                                   | at least 1; a smaller total is clamped to 1                                                                |
+| label             | Binding     | `Text` builder                             | app content; wraps, above the bar when the row is narrow; tail-truncates only under a fixed one-row height |
+| currentValueLabel | Binding     | `Text` builder?                            | replaces the percent when supplied; absent means percent                                                   |
+| spinner style     | Environment | `SpinnerSet` or custom frames and interval | a style choice; every frame one cell wide                                                                  |
+| clock             | Environment | instant                                    | supplied by the environment (plan 032 step 16.1); the view stores none                                     |
+| frame index       | derived     | `Int`                                      | `(now / interval) mod frames.count`, recomputed each render; never stored                                  |
 
 The view stores no state, so it has no `NodeState` row and no responder.
 
@@ -354,14 +488,22 @@ None. The view has no pointer regions and consumes no pointer input.
 
 ## Sizing
 
-| Proposal | Result | Rule                                                                                              |
-| -------- | ------ | ------------------------------------------------------------------------------------------------- |
-| 8x1      | 9x1    | under the minimum: the view reports the 9x1 floor; the bar keeps four cells and the percent stays |
-| 9x1      | 9x1    | tight fit: the bar and the percent draw, and the label is absent                                  |
-| 40x1     | 40x1   | fills the proposed width: the bar takes the extra width and the label truncates at the tail       |
+Schema: [README](../README.md#sizing-table). The determinate fixture is the
+`Downloading model weights` label at 62%. The height is 1 when the one-row form fits and
+grows by the label's wrapped rows in the stacked form.
 
-The `nil x nil` ideal-width row is not written; the ideal width is open (see Open
-questions). The height is always 1.
+| Proposal                  | Result | Rule                                                                                                                                                          |
+| ------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| nil x nil (determinate)   | 72x1   | The ideal width is the readable width, 72 (owner decision, 2026-10-18): the bar fills what the label and percent leave (42 cells here), so stacked bars align |
+| nil x nil (indeterminate) | 21x1   | No bar to fill: glyph, space and the label at its natural width (inference: capped at 72, wrapping beyond)                                                    |
+| 40 x nil                  | 40x1   | One row fits: the bar takes the extra width (10 cells) and the label stays whole                                                                              |
+| 24 x nil                  | 24x3   | One row needs 34 cells, so `ViewThatFits` stacks: label wraps to two rows above a 20-cell bar row (Narrow)                                                    |
+| 16 x nil                  | 16x3   | Stacked: label wraps to two rows above a 12-cell bar row (Narrow)                                                                                             |
+| 24 x 1 (fixed one row)    | 24x1   | The stacked form cannot fit; the one-row form draws and the label tail-truncates (Fixed one-row height)                                                       |
+| 11 x nil (minimum)        | 11x4   | Floor: label words whole over three rows, then the bar row (Minimum)                                                                                          |
+| 8 x nil (under-minimum)   | 9 x n  | Label words break between grapheme clusters; the bar row keeps its 9-cell floor and the percent never clips                                                   |
+| 9 x 1                     | 9x1    | tight one-row: the bar and the percent draw, and the label is absent                                                                                          |
+| 8 x 1                     | 9x1    | under the one-row minimum: the view reports the 9x1 floor; the bar keeps four cells and the percent stays                                                     |
 
 ## Environment
 
@@ -372,22 +514,36 @@ the token is pending plan 032 step 5.3.
 - `semantic.accent`: bar fill and spinner glyph.
 - `muted` (token pending plan 032 step 5.3): bar track, percent, and current-value label
   default. `muted` is not in [tokens.md](../tokens.md).
-- `truncation.mark`: tail truncation mark, defined in
+- `truncation.mark`: tail truncation mark under a fixed one-row height, defined in
   [tokens.md](../tokens.md#truncation).
+- `readableWidth` (environment): the determinate form's nil-width ideal; see
+  [Readable width](../primitives/readable-width.md).
 
 ## Primitive dependencies
 
 - [Text](../primitives/text.md): label, current-value label, percent, and spinner glyph.
 - Tail truncation follows the `tail` policy, grapheme-safe, in
   [tokens.md](../tokens.md#truncation).
+- `ViewThatFits` (plan 032 step 14.1; see [Grid](../primitives/grid.md)): picks the
+  one-row or the stacked form.
+- [Readable width](../primitives/readable-width.md): the nil-width ideal.
 
 ## Requirements
 
-- `determinate bar keeps a four-cell minimum when the label fills the row` (narrow-24 and
-  narrow-16 states)
-- `label truncates at the tail before the bar or percent is clipped` (anatomy; narrow
+- `determinate bar keeps a four-cell minimum when the label fills the row` (fixed one-row
   states)
-- `label is dropped below about ten columns` (minimum state)
+- `label moves above the bar and wraps when label, bar and percent do not fit one row`
+  (Narrow; owner decision, 2026-10-18)
+- `label tail-truncates before the bar or percent is clipped under a fixed one-row height`
+  (Fixed one-row height; owner decision, 2026-10-18)
+- `label is dropped below about ten columns under a fixed one-row height` (One-row floor)
+- `percent and supplied current-value label never wrap or truncate` (Determinate wrap
+  exception; owner decision, 2026-10-18)
+- `nil x nil determinate ideal width is the readable width and the bar fills the rest`
+  (Sizing; owner decision, 2026-10-18)
+- `stacked minimum is 11x4 for the fixture label` (Minimum; owner decision, 2026-10-18)
+- `indeterminate label wraps beside the spinner` (Indeterminate; owner decision,
+  2026-10-18)
 - `percent is the default current-value label` (current-value labels state)
 - `supplied current-value label replaces the percent` (current-value labels state)
 - `value is clamped to the closed range from zero to total` (state model: value)
@@ -401,25 +557,24 @@ the token is pending plan 032 step 5.3.
   index)
 - `under-minimum proposal reports the 9x1 floor` (sizing table: 8x1)
 - `tight 9x1 proposal draws the bar and percent without the label` (sizing table: 9x1)
-- `determinate bar takes the proposed width and the label truncates` (sizing table: 40x1)
+- `determinate bar takes the proposed width and the label stays whole when one row fits`
+  (sizing table: 40 x nil)
 
 ## Degradation
 
-- ASCII-only: the truncation mark becomes `~`
+- ASCII-only: the truncation mark under a fixed one-row height becomes `~`
   ([degradation ladder](../tokens.md#degradation-ladder)). Every spinner set draws `line`.
   The determinate bar draws `#` for fill and `.` for track in ASCII-only output (owner
   decision, 2026-10-10).
 - `NO_COLOR` and 16-color: roles resolve to their fallbacks per the
   [semantic styles](../tokens.md#semantic-styles) rules. The bar stays legible through its
   glyphs.
-- Below the 9-column minimum the row draws the bar and percent only. The view reports its
-  9x1 minimum rather than hiding the percent.
+- Below the 11x4 minimum the label's words break between grapheme clusters and the bar row
+  keeps its 9-cell floor. Under a fixed one-row height below 9 columns the row draws the
+  bar and percent only; the view reports its 9x1 minimum rather than hiding the percent.
 
 ## Open questions
 
-- Ideal width. The `nil x nil` sizing row is not written. The review answered the floor
-  and the proposal rules only; the ideal width needs a decision before the sizing table is
-  complete.
 - `muted` and `warning` are not in tokens.md. The 1.0 role set does not add them. Token
   pending plan 032 step 5.3.
 

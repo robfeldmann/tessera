@@ -111,7 +111,7 @@ default shape and the default emphasis for a plain `Button`:
 ```text
 Callouts (6x1, 0-based):
 1. r0 c0     Leading end -- half block `▐` in the fill colour, `faint(accent)*`.
-2. r0 c1-c4  Label slot -- label in `accent` on the `faint(accent)*` fill.
+2. r0 c1-c4  Label slot -- label in `accent` on the `faint(accent)*` fill; chrome, one row.
 3. r0 c5     Trailing end -- half block `▌` in the fill colour.
 4. r0 c0-c5  Button hit target -- the whole allocated frame; press and release must both resolve to this node.
 ```
@@ -140,7 +140,7 @@ label stays at the leading end (Sizing: 40x1 row).
 ```text
 Callouts (40x1, 0-based):
 1. r0 c0       Leading end -- half block `▐` in `accent`.
-2. r0 c1-c34   Label slot -- `contrast*` bold on the `accent` fill, at the leading end.
+2. r0 c1-c34   Label slot -- `contrast*` bold on the `accent` fill, at the leading end; chrome, one row.
 3. r0 c35-c38  Slack -- `accent` fill to the trailing end.
 4. r0 c39      Trailing end -- half block `▌` in `accent`.
 5. r0 c0-c39   Button hit target -- the whole forced allocation.
@@ -528,8 +528,12 @@ Q  fg=disabled-label*
   only, not event semantics, and carries no underline: the `semantic.destructive` row in
   tokens.md adds one, and that row is rewritten in plan 032 step 5.3 (owner decision,
   2026-10-10). Focus and pressed apply to it the same way they apply to any intent colour.
-- **Overflow:** default textual labels tail-truncate in the slot assigned by their chosen
-  shape. Custom labels may choose a layout that still fits their assigned rectangle.
+- **Overflow:** the label is chrome and stays on one row (owner decision, 2026-10-18). A
+  default textual label is a `Text` with `.lineLimit(1)` applied by Button itself, so an
+  app's inherited `lineLimit` never reaches it, and it tail-truncates in the slot assigned
+  by the chosen shape. It never wraps, whatever the height proposal, because a second row
+  would change the shape's one-row geometry. Custom labels may choose a layout that still
+  fits their assigned rectangle.
 - **Empty label:** valid. Squared, capsule, rectangle, brackets, and custom measure 2x1
   (ends or brackets only). Plain squared measures 2x1 with blank ends. Box measures 4x3.
 - **Pointer and touch:** a primary contact is valid only if press and release hit the same
@@ -584,7 +588,7 @@ D  underline
 | is focused                | Environment | `Bool`                                                                                                                                             | Injected below the explicit `.focusable` modifier from the FocusManager's live identity; Button reads it during rendering and checks `ResponderContext.isFocused` for events. A focused button switches every cell that carries the intent colour to `focus` as described under States.                                                                                                       |
 | is pressed                | NodeState   | `Bool`                                                                                                                                             | Set for primary down or the down phase of enabled phased keyboard activation. Clear on its matching release, cancellation, focus loss, disablement, node removal, and every update where the node is not focused. A legacy press-only `Enter` or `Space` event invokes the action once and clears `isPressed` before its dispatch returns; it never represents app work or action completion. |
 | is hovered                | NodeState   | `Bool`                                                                                                                                             | Set when a pointer move enters the hit target while enabled. Clear on move out, disablement, and node removal. Requires pointer-move input, requested through the built-in hover style (owner decision, 2026-10-10).                                                                                                                                                                          |
-| label size and truncation | derived     | `TerminalSize` and rendered grapheme range                                                                                                         | Recomputed from the proposed label slot on every layout; clamp to the allocated rectangle and use tail truncation for default text.                                                                                                                                                                                                                                                           |
+| label size and truncation | derived     | `TerminalSize` and rendered grapheme range                                                                                                         | Recomputed from the proposed label slot on every layout; clamp to the allocated rectangle and use tail truncation (`.lineLimit(1)` pinned by Button) for default text.                                                                                                                                                                                                                        |
 
 The role, label closure, and action closure are immutable widget configuration, not
 retained business state. `isPressed` and `isHovered` are supplied to styles solely as
@@ -631,22 +635,23 @@ measurement; the Button node always keeps that final rectangle as its hit target
 and tinted fills span a forced horizontal allocation with their ends at its edges, and the
 label stays at the leading end. Plain keeps blank ends at the allocation edges.
 
-| Proposal  | Result | Rule                                                                                                                                               |
-| --------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| nil x nil | 6x1    | `.squared`, `Text("Save")`: label plus one end cell on each side.                                                                                  |
-| nil x nil | 6x1    | `.plain`, `.squared`, `Text("Save")`: plain keeps the shape footprint with blank ends, so switching emphasis never changes layout.                 |
-| nil x nil | 6x1    | `.brackets`, `Text("Save")`: label plus two bracket cells.                                                                                         |
-| nil x nil | 8x3    | `.box`, `Text("Save")`: label plus one interior cell each side plus the one-cell border ring, three rows.                                          |
-| nil x nil | 8x1    | `.squared`, horizontal padding composed inside the label builder on `Text("Save")`: the padding adds two label-slot cells before the squared ends. |
-| nil x nil | 4x1    | `.squared`, `Text("Go")`: the floor for a two-cell label.                                                                                          |
-| nil x nil | 6x3    | `.box`, `Text("Go")`: the floor for a two-cell label.                                                                                              |
-| nil x nil | 8x2    | `.box`, `Text("Save")` below three rows: falls back to `.squared`; one-row geometry and label kept, so the label-hugging rule gives 6x1.           |
-| 6x1       | 6x1    | `.squared`, `Text("Save")`: tight fit at natural size.                                                                                             |
-| 5x1       | 5x1    | `.squared`, `Text("Save")`: label slot constrained to three cells; tail truncation gives `Sa…` and the one-row geometry is kept.                   |
-| 3x1       | 3x1    | `.squared`, `Text("Save")`: under the natural width; label slot constrained to one cell, so only the truncation mark remains.                      |
-| 80x24     | 6x1    | `.squared`, `Text("Save")`: extra available space does not make a label-hugging button grow.                                                       |
-| 40x1      | 40x1   | `.squared` filled, forced allocation with `Text("Touch target fills available width")`: the ends and fill span the full allocation.                |
-| 13x1      | 13x1   | `.squared`, `Text("Long label continues")`: label slot is eleven cells; tail truncation with `…`.                                                  |
+| Proposal  | Result | Rule                                                                                                                                                                |
+| --------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| nil x nil | 6x1    | `.squared`, `Text("Save")`: label plus one end cell on each side.                                                                                                   |
+| nil x nil | 6x1    | `.plain`, `.squared`, `Text("Save")`: plain keeps the shape footprint with blank ends, so switching emphasis never changes layout.                                  |
+| nil x nil | 6x1    | `.brackets`, `Text("Save")`: label plus two bracket cells.                                                                                                          |
+| nil x nil | 8x3    | `.box`, `Text("Save")`: label plus one interior cell each side plus the one-cell border ring, three rows.                                                           |
+| nil x nil | 8x1    | `.squared`, horizontal padding composed inside the label builder on `Text("Save")`: the padding adds two label-slot cells before the squared ends.                  |
+| nil x nil | 4x1    | `.squared`, `Text("Go")`: the floor for a two-cell label.                                                                                                           |
+| nil x nil | 6x3    | `.box`, `Text("Go")`: the floor for a two-cell label.                                                                                                               |
+| nil x nil | 8x2    | `.box`, `Text("Save")` below three rows: falls back to `.squared`; one-row geometry and label kept, so the label-hugging rule gives 6x1.                            |
+| 6x1       | 6x1    | `.squared`, `Text("Save")`: tight fit at natural size.                                                                                                              |
+| 5x1       | 5x1    | `.squared`, `Text("Save")`: label slot constrained to three cells; tail truncation gives `Sa…` and the one-row geometry is kept.                                    |
+| 3x1       | 3x1    | `.squared`, `Text("Save")`: under the natural width; label slot constrained to one cell, so only the truncation mark remains.                                       |
+| 80x24     | 6x1    | `.squared`, `Text("Save")`: extra available space does not make a label-hugging button grow.                                                                        |
+| 40x1      | 40x1   | `.squared` filled, forced allocation with `Text("Touch target fills available width")`: the ends and fill span the full allocation.                                 |
+| 13x1      | 13x1   | `.squared`, `Text("Long label continues")`: label slot is eleven cells; tail truncation with `…`.                                                                   |
+| 13xnil    | 13x1   | `.squared`, `Text("Long label continues")`: a nil height does not make the label wrap; chrome stays one row, tail truncation with `…` (owner decision, 2026-10-18). |
 
 ## Environment
 
@@ -758,7 +763,7 @@ affordances are explicitly post-1.0 and are not implied by a Button label or act
   (Intents and emphasis, destructive column)
 - `squared minimum is four cells wide for a two-cell label` (Sizing: 4x1 row)
 - `box minimum is six by three for a two-cell label` (Sizing: 6x3 row)
-- `default textual button tail-truncates long label without changing its one-row height`
+- `default textual button tail-truncates long label without changing its one-row height or wrapping`
   (Sizing: 13x1 row; state model: label size and truncation)
 - `filled button uses its full forced width as its touch-wide hit target` (Sizing: 40x1)
 - `button invokes its action exactly once for a phased enabled enter press and matching release`

@@ -7,10 +7,14 @@ status: wireframed
 
 `ContentUnavailableView` tells the user that a region has nothing to show. It draws an
 icon, a bold title, a description, and optional actions, centred in the space it is given.
-It covers three states: empty, search with no results, and error. Loading is not a case: a
-loading region is a centred [ProgressView](progress-view.md), as in SwiftUI (owner
-decision, omp2 review, 2026-10). The app owns every string, icon, and action; the view
-stores nothing and is controlled. See
+It fills its proposal and centres its content column in it as before; the column's width
+is capped by [`.readableWidth()`](../primitives/readable-width.md), 72 cells by default,
+not the old 40-column design width. The modifier is a maximum only: it does not fill or
+centre anything itself (owner decisions, 2026-10-18). It covers three states: empty,
+search with no results, and error. Loading is not a case: a loading region is a centred
+[ProgressView](progress-view.md), as in SwiftUI (owner decision, omp2 review, 2026-10).
+The app owns every string, icon, and action; the view stores nothing and is controlled.
+See
 [Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase).
 
 ## Prior art
@@ -40,8 +44,10 @@ One wireframe at a natural component size, followed by callouts. Callout region 
 the vocabulary for the mouse table. Schemas and conventions:
 [README](../README.md#wireframe-conventions).
 
-The empty state is shown because it uses every region. The 40-column design width is the
-mobile width; the mobile state at natural height is under States.
+The empty state is shown because it uses every region. The 40-column frame is the mobile
+width, where the column is the whole proposal; the mobile state at natural height is under
+States. Title and description are content and wrap; the icon and the action Buttons are
+chrome and stay on one row.
 
 ### Empty
 
@@ -63,11 +69,11 @@ mobile width; the mobile state at natural height is under States.
 ```text
 Callouts (40x12, 0-based):
 1. r0-r11 c0-c39   Viewport -- the 40-column design frame, outside the view; styled `border`
-2. r3-r8 c2-c37    Content stack -- VStack, centred horizontally and vertically in the proposal
-3. r3 c19          Icon -- `Label` icon from the semantic icon catalog (`mail`); styled `muted`
-4. r5 c14-c24      Title -- Text, `semantic.primary` bold
-5. r6 c2-c37       Description -- Text, `semantic.secondary`; wraps, each line centred
-6. r8 c13-c25      Action -- Button ([button.md](button.md)); the first action is `.filled`
+2. r3-r8 c2-c37    Content stack -- VStack in the readable column (the whole 40 columns here), centred horizontally and vertically in the proposal
+3. r3 c19          Icon -- `Label` icon from the semantic icon catalog (`mail`); styled `muted`; chrome, one row
+4. r5 c14-c24      Title -- Text, `semantic.primary` bold; content, wraps
+5. r6 c2-c37       Description -- Text, `semantic.secondary`; content, wraps, each line centred
+6. r8 c13-c25      Action -- Button ([button.md](button.md)); chrome, one row; the first action is `.filled`
                    as the default action (`accent` fill, `contrast` text, bold)
 ```
 
@@ -142,9 +148,9 @@ and description are the framework's wording, as in SwiftUI. There are no actions
 
 ```text
 Callouts (40x12, 0-based):
-1. r3 c19-c20      Icon -- `search` icon, two cells wide (emoji); styled `muted`
-2. r5 c8-c30       Title -- Text, `semantic.primary` bold; framework wording
-3. r6-r7 c6-c32    Description -- Text, `semantic.secondary`; two centred lines
+1. r3 c19-c20      Icon -- `search` icon, two cells wide (emoji); styled `muted`; chrome, one row
+2. r5 c8-c30       Title -- Text, `semantic.primary` bold; framework wording; content, wraps
+3. r6-r7 c6-c32    Description -- Text, `semantic.secondary`; content, wraps; two centred lines
 ```
 
 ```text
@@ -203,11 +209,11 @@ An unavailable state with two actions and a warning-toned icon.
 
 ```text
 Callouts (40x12, 0-based):
-1. r2 c19          Icon -- `warning` icon, `warning` tone
-2. r4 c9-c30       Title -- Text, `semantic.primary` bold
-3. r5-r6 c4-c34    Description -- Text, `semantic.secondary`; two centred lines
-4. r8 c10-c16      Action -- Button, first action, `.filled` as the default action
-5. r8 c19-c28      Action -- Button, second action, `.tinted`
+1. r2 c19          Icon -- `warning` icon, `warning` tone; chrome, one row
+2. r4 c9-c30       Title -- Text, `semantic.primary` bold; content, wraps
+3. r5-r6 c4-c34    Description -- Text, `semantic.secondary`; content, wraps; two centred lines
+4. r8 c10-c16      Action -- Button, first action, `.filled` as the default action; chrome, one row
+5. r8 c19-c28      Action -- Button, second action, `.tinted`; chrome, one row
 ```
 
 ```text
@@ -267,18 +273,46 @@ viewport outline is not drawn.
 
 ```text
 Callouts (40x6, 0-based):
-1. r0 c19           Icon -- `mail` icon, styled `muted`
-2. r2 c14-c24       Title -- Text, `semantic.primary` bold
-3. r3 c2-c37        Description -- Text, `semantic.secondary`
-4. r5 c13-c25       Action -- Button, `.filled` as the default action
+1. r0 c19           Icon -- `mail` icon, styled `muted`; chrome, one row
+2. r2 c14-c24       Title -- Text, `semantic.primary` bold; content, wraps
+3. r3 c2-c37        Description -- Text, `semantic.secondary`; content, wraps
+4. r5 c13-c25       Action -- Button, `.filled` as the default action; chrome, one row
 5. r0-r5 c0-c39     Content stack -- VStack at natural height; no rows added
+```
+
+### Narrow (24 columns)
+
+At 24 columns and a nil height the description wraps to the column width less one-cell
+margins (22 cells) and the stack grows by a row; nothing is truncated (owner decision,
+2026-10-18).
+
+```wireframe 24x7
+           ✉
+
+      No messages
+   Messages from your
+   team appear here.
+
+     ▐New Message▌
+```
+
+```text
+Callouts (24x7, 0-based):
+1. r0 c11          Icon -- `mail` icon, styled `muted`; chrome, one row
+2. r2 c6-c16       Title -- Text, `semantic.primary` bold; content, wraps
+3. r3-r4 c3-c20    Description -- Text, `semantic.secondary`; content, wraps; each line centred
+4. r6 c5-c17       Action -- Button, `.filled` as the default action; chrome, one row
 ```
 
 ### Min (13x3)
 
-The floor is 13x3 (owner decision, 2026-10-10). Under it the title truncates first, then
-the description drops, then actions after the first. The viewport frame is omitted here so
-the content gets the full floor, and the icon is not drawn at the floor.
+The floor is 13x3 (owner decision, 2026-10-10), re-derived under the wrap rules (owner
+decision, 2026-10-18): the first action is the widest atomic run, a 13-cell Button (label
+`New Message` plus caps, chrome that never wraps), and the title's widest word,
+`messages`, is 8, so 13 is unchanged. At 3 rows the title and the first action keep their
+rows. Under a fixed row budget the description gives up rows first (its last visible row
+ends in `…`; zero rows means absent), then the icon, then actions after the first. The
+viewport frame is omitted here so the content gets the full floor.
 
 Styling follows the grid below.
 
@@ -290,8 +324,8 @@ Styling follows the grid below.
 
 ```text
 Callouts (13x3, 0-based):
-1. r0 c1-c11       Title -- Text, `semantic.primary` bold; the icon and description are dropped
-2. r2 c0-c12       Action -- Button, `.filled` as the default action; the only action shown
+1. r0 c1-c11       Title -- Text, `semantic.primary` bold; content, wraps; the icon and description are dropped
+2. r2 c0-c12       Action -- Button, `.filled` as the default action; chrome, one row; the only action shown
 ```
 
 ```text
@@ -337,15 +371,18 @@ Schema: [README](../README.md#mouse-table). Regions must be named in Anatomy cal
 ## Sizing
 
 Schema: [README](../README.md#sizing-table). Mandatory rows: nil x nil, tight,
-under-minimum, over-maximum.
+under-minimum, over-maximum. The view fills a finite proposal and centres its content
+column in it; the column is `min(width, readableWidth)` cells wide, since
+`.readableWidth()` is a maximum only (owner decisions, 2026-10-18).
 
-| Proposal                              | Result                         | Rule                                                                                                                                                         |
-| ------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| nil x nil                             | 36 x 6 (empty)                 | Width is the widest unwrapped line (the description). Height is the stacked rows: icon, gap, title, description, gap, actions.                               |
-| 40x12 (tight)                         | empty anatomy, as drawn        | Content centred in the proposal; the description wraps to the width less one-cell margins.                                                                   |
-| 40 x any (mobile)                     | 40 x 6 (empty, natural height) | Content stack at natural height; no blank rows above or below.                                                                                               |
-| under 13x3 (under-minimum)            | 12 x 2 (clipped)               | Owner decision, 2026-10-10. The title truncates first, then the description drops (below 5 rows), then actions after the first; the proposal clips the rest. |
-| larger than the design (over-maximum) | not decided                    | See open question 3.                                                                                                                                         |
+| Proposal                              | Result                         | Rule                                                                                                                                                                                                                                                                                |
+| ------------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| nil x nil                             | 36 x 6 (empty)                 | A nil width proposes the 72-cell readable width to the column; width is the widest row (the description, 36), and height is every row: icon, gap, title, description, gap, actions.                                                                                                 |
+| 40x12 (tight)                         | empty anatomy, as drawn        | Content centred in the proposal; the column is the whole 40 columns and the description wraps to the width less one-cell margins.                                                                                                                                                   |
+| 40 x any (mobile)                     | 40 x 6 (empty, natural height) | Content stack at natural height; no blank rows above or below.                                                                                                                                                                                                                      |
+| 24 x nil                              | 24 x 7 (empty)                 | The description wraps to 22 cells and takes two rows; nothing is truncated (Narrow).                                                                                                                                                                                                |
+| under 13x3 (under-minimum)            | 12 x 2                         | Floor re-derived in Min (owner decisions, 2026-10-10 and 2026-10-18). Nothing clips silently: the title wraps, the Button follows its own one-row truncate rule, and the two rows go to the title and the first action; the description, icon and later actions give up rows first. |
+| larger than the design (over-maximum) | fills the proposal             | A 100x30 proposal returns 100x30: the content column is capped at 72 cells, and the view's own centring places it at c14-c85, content centred in it vertically, and the description wraps to 70 cells (owner decision, 2026-10-18).                                                 |
 
 ## Environment
 
@@ -359,6 +396,8 @@ Tokens consumed, each defined in [tokens.md](../tokens.md).
 - `.tinted` action (the other actions): label in `accent` with a faint fill derived from
   it (owner decision, 2026-10-10; [Button emphasis](button.md#emphasis)).
 - `border` (token pending plan 032 step 5.3): viewport outline and the grid frame.
+- `readableWidth` (environment): caps the content column's width (maximum only), default
+  72; see [Readable width](../primitives/readable-width.md).
 
 ## Primitive dependencies
 
@@ -366,6 +405,8 @@ Tokens consumed, each defined in [tokens.md](../tokens.md).
 - [Button](button.md): actions.
 - [Stacks](../primitives/stacks.md): the centred vertical content stack.
 - [Frame](../primitives/frame.md): centring within the proposal.
+- [Readable width](../primitives/readable-width.md): `.readableWidth()` caps the content
+  column's width; the environment value `readableWidth` (default 72) is read here.
 - [Label](../primitives/label.md): the icon, from its semantic icon catalog. Label owns
   the catalog (owner decision, 2026-10-10).
 
@@ -380,11 +421,15 @@ Schema: [README](../README.md#requirements-list).
   Empty; Error; owner decision, 2026-10-10)
 - `search state shows the framework no-results title and description` (States: Search)
 - `error state draws a warning-toned icon above two actions` (States: Error)
-- `description wraps to the width less one-cell margins and stays centred` (Sizing: tight)
+- `description wraps to the width less one-cell margins and stays centred` (Sizing: tight;
+  Narrow)
+- `content column is capped at the readable width and the view centres it when the proposal is wider`
+  (Sizing: over-maximum; owner decision, 2026-10-18)
+- `view fills a finite proposal` (Sizing: over-maximum; owner decision, 2026-10-18)
 - `mobile state draws the content at 40 columns and natural height, with no blank rows`
   (States: Mobile)
-- `under the 13x3 floor the title truncates first, then the description drops, then actions after the first`
-  (States: Min; Sizing)
+- `under the 13x3 floor the title wraps and the description, icon, then later actions give up rows first`
+  (States: Min; Sizing; owner decision, 2026-10-18)
 - `icons render their ASCII text forms when the icon catalog is ASCII` (Degradation)
 - `loading is not a content-unavailable case; it renders a centred ProgressView` (Prior
   art; owner decision)
@@ -399,8 +444,10 @@ What changes at `NO_COLOR`, 16-color, ascii-only, and below `min`. Reference the
   [Button degradation](button.md#degradation). The border follows the `ascii` border set.
 - `NO_COLOR` and 16-color: the filled action keeps bold and loses the accent fill, and the
   warning icon loses its tone; both follow the ladder's colour rows.
-- Below the 13x3 floor: the title truncates first, then the description drops, then
-  actions after the first (owner decision, 2026-10-10).
+- Below the 13x3 floor: the title wraps (breaking between graphemes under 8 cells), the
+  Button keeps its own one-row truncation, and under a fixed height the description gives
+  up rows first, then the icon, then actions after the first (owner decisions, 2026-10-10
+  and 2026-10-18).
 
 ## Open questions
 
@@ -413,8 +460,6 @@ Decisions deliberately not made yet, each with what unblocks it.
 2. Tokens: `muted`, `contrast`, `warning`, and `border` are not in
    [tokens.md](../tokens.md). Unblocked by plan 032 step 5.3. The doc stays `wireframed`
    until then.
-3. Over-maximum: the owner gave no rule for proposals larger than the design width.
-   Unblocked by the owner.
 
 ## Inspiration
 

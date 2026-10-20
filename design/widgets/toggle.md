@@ -24,6 +24,15 @@ words `true` or `false` (owner decision, 2026-10-10; see [Text style](#text-styl
 label supplies the accessible name. The controlled, focus, keyboard, pointer, and enabled
 contract is shared by every presentation.
 
+The label is content (owner decision, 2026-10-18): where the control may take rows, a Form
+row or a standalone Toggle in a VStack, it word-wraps at the proposed width, and wrapped
+rows indent under the label's first column. See [Label wrapping](#label-wrapping). The
+marker is chrome and stays on the first row, and so does a standalone `.text` value word,
+which takes the marker's place. Inside a host row such as a Form row, the `.text` value
+word is the row's value, and that is content: the host decides its row count, and a host
+that fixes one row gets a marked cut (owner decision, 2026-10-18; see
+[Text style](#text-style)).
+
 ## Prior art
 
 - Ratatui has no direct Toggle widget in
@@ -111,8 +120,8 @@ Callouts (14x1, 0-based):
               release must both resolve to this same node. It is the sole mouse Region.
 2. r0 c0      Checkbox marker -- `☑` for a true binding and `☐` for a false binding; `accent`
               when true, `muted` when false.
-3. r0 c2-c13  Label slot -- required caller-supplied Label in `primary`; default textual
-              labels tail-truncate at grapheme boundaries in their allocation.
+3. r0 c2-c13  Label slot -- required caller-supplied Label in `primary`; content, wraps.
+              Continuation rows indent to c2.
 ```
 
 ```text
@@ -136,7 +145,7 @@ The false binding uses `☐` in `muted`, with the same label geometry:
 Callouts (14x1, 0-based):
 1. r0 c0-c13  Toggle hit target -- complete allocation.
 2. r0 c0      Checkbox marker -- `☐` for a false binding; `muted`.
-3. r0 c2-c13  Label slot -- required caller label in `primary`.
+3. r0 c2-c13  Label slot -- required caller label in `primary`; content, wraps.
 ```
 
 ```text
@@ -182,17 +191,74 @@ Callouts (40x1, 0-based):
 1. r0 c0-c39 Toggle hit target -- the parent-forced allocation spans all 40 columns; the
    trailing cells are visually empty.
 2. r0 c0      Checkbox marker -- `☑` in `accent` for a true binding; it remains at the leading edge.
-3. r0 c2-c22 Label slot -- caller label within the full-width allocation.
+3. r0 c2-c22 Label slot -- caller label within the full-width allocation; content, wraps (it fits one row at 40 columns).
+```
+
+### Label wrapping
+
+The label is content (owner decision, 2026-10-18), not chrome: Toggle does not fix it to
+one row, because a standalone Toggle in a VStack and a Toggle in a Form row may both take
+rows. At a finite width the label word-wraps in the slot to the right of the marker; a
+word wider than the slot breaks between grapheme clusters. Continuation rows indent to the
+label's first column, so the marker column stays clear. The `Toggle hit target` is the
+whole allocation, every row included. A nil width does not wrap, which gives the natural
+14x1. A finite height is a row budget: the label fills it and the last visible row ends in
+`…` (see [Text](../primitives/text.md#row-budget)). The label inherits `lineLimit` and
+`truncationMode` from the environment, so an app can opt back into a single row with
+`.lineLimit(1)`. Inside a Form row in the `.text` style the Form draws the row label and
+applies its own wrap rule.
+
+```wireframe 15x2
+☑ Receive
+  notifications
+```
+
+```text
+Callouts (15x2, 0-based):
+1. r0 c0-c1  Marker and separator -- `☑` in `accent`; first row only; chrome, one row.
+2. r0 c2-c8  Label first row -- `Receive`; content, wraps.
+3. r1 c2-c14 Label continuation -- `notifications`, indented under the label's first column; at a 16-column proposal the slot is 14 cells, so `Receive notifications` wraps after `Receive`.
+4. r0-r1     Toggle hit target -- the whole 15x2 allocation, the widest displayed row.
 ```
 
 ### Minimum
 
-The component-specific `min` floor is charset-derived (owner decision, 2026-10-10): 2x1
-under the Unicode charset, where the one-cell marker and its separator are the whole
-control, and 4x1 under ASCII, where `[ ]` and its separator take four cells. Each floor
-keeps one complete marker: an empty label still preserves the full marker. It is the
-smallest useful control that neither draws a partial marker nor loses the value's visible
-state.
+The component-specific `min` floor is derived from the label (owner decision, 2026-10-18):
+the marker and its separator, plus the label's widest word, at the rows the label needs at
+that width. For `Text("Receive mail")` the widest word is `Receive` (7 cells), so the
+floor is 9x2 under the Unicode charset and 11x2 under ASCII, where `[ ]` and its separator
+take four cells. The 2026-10-10 charset floors, 2x1 Unicode and 4x1 ASCII, are the same
+derivation for an empty label (widest word 0): the control is one complete marker, with no
+partial marker and no lost value state. Below the label floor, the label breaks between
+graphemes and never clips; below the marker floor, Toggle is suppressed.
+
+```wireframe 9x2
+☐ Receive
+  mail
+```
+
+```text
+Callouts (9x2, 0-based):
+1. r0 c0-c1 Marker and separator -- false binding marker `☐` in `muted`.
+2. r0 c2-c8 Label -- `Receive`, the widest word, whole; content, wraps.
+3. r1 c2-c5 Label continuation -- `mail`.
+4. r0-r1    Toggle hit target -- complete Unicode minimum allocation for this label.
+```
+
+```wireframe 11x2
+[ ] Receive
+    mail
+```
+
+```text
+Callouts (11x2, 0-based):
+1. r0 c0-c3  Marker and separator -- `[ ]` and its separator, `muted`.
+2. r0 c4-c10 Label -- `Receive`, whole; content, wraps.
+3. r1 c4-c7  Label continuation -- `mail`.
+4. r0-r1     Toggle hit target -- complete ASCII minimum allocation for this label.
+```
+
+The empty-label floors:
 
 ```wireframe 2x1
 ☐
@@ -283,8 +349,8 @@ row the row focus rule applies instead.
 Callouts (16x1, 0-based):
 1. r0 c0-c15 Toggle hit target -- unchanged ASCII allocation.
 2. r0 c0-c2  Checkbox marker -- literal `[x]` in `accent`; no glyph substitution occurs.
-3. r0 c4-c15 Label slot -- ordinary textual label in `primary`; truncation uses the ASCII
-              fallback only if truncation is required.
+3. r0 c4-c15 Label slot -- ordinary textual label in `primary`; content, wraps; a cut under a
+              row budget uses the ASCII fallback `~`.
 ```
 
 ```text
@@ -315,7 +381,7 @@ Callouts (14x1, 0-based):
 1. r0 c0-c13 Toggle hit target -- complete allocation; interaction matches the checkbox
    style.
 2. r0 c0 Circle marker -- filled `◉` for a true binding, in `accent`.
-3. r0 c2-c13 Label slot -- required caller label in `semantic.primary` when idle.
+3. r0 c2-c13 Label slot -- required caller label in `semantic.primary` when idle; content, wraps.
 ```
 
 The false state uses the hollow marker at the same geometry:
@@ -327,7 +393,7 @@ The false state uses the hollow marker at the same geometry:
 ```text
 Callouts (14x1, 0-based):
 1. r0 c0 Circle marker -- hollow `○` for a false binding.
-2. r0 c2-c13 Label slot -- required caller label.
+2. r0 c2-c13 Label slot -- required caller label; content, wraps.
 ```
 
 Under the ASCII charset the circle markers become the conventional terminal radio glyphs
@@ -349,8 +415,9 @@ the control by two cells to the ASCII checkbox geometry.
 - **Disabled:** Toggle is absent from the focusable list, never activates, and leaves
   keyboard and pointer input unconsumed so an ancestor may handle it. It does not receive
   focus for inspection in 1.0.
-- **Overflow:** default textual labels tail-truncate within their allocated label slot at
-  grapheme boundaries using `truncation.mark`.
+- **Overflow:** the label is content and wraps (see [Label wrapping](#label-wrapping)). It
+  tail-truncates with `truncation.mark` only on the last visible row of a fixed row budget
+  or an app-set `lineLimit`.
 - **Pointer and touch:** a primary contact toggles only when press and release hit the
   same `Toggle hit target` node. Click-to-focus occurs before pointer activation.
 
@@ -370,6 +437,13 @@ space, acts as Enter on that row and inverts the bound value once (owner decisio
 2026-10-10; see the [Form mouse table](form.md#mouse-table)). The Toggle's same-node
 pointer rule above governs standalone use only.
 
+Inside a host row the value word is the row's value, and it is content, like Picker's
+collapsed value (owner decision, 2026-10-18). The host decides how many rows it gets: Form
+stacks its label above the value before the value wraps, a value column narrower than the
+word breaks it between grapheme clusters, and a host that fixes one row gets a marked cut
+with `truncation.mark` (see Sizing). Standalone, the word takes the marker's place and
+stays on the first row.
+
 ```wireframe 17x1
 true Receive mail
 ```
@@ -379,7 +453,7 @@ Callouts (17x1, 0-based):
 1. r0 c0-c16  Toggle hit target -- complete allocated Toggle rectangle.
 2. r0 c0-c3   Value word "true" -- `success`.
 3. r0 c4      Separator -- one default cell.
-4. r0 c5-c16  Label slot -- required caller-supplied label in `primary`.
+4. r0 c5-c16  Label slot -- required caller-supplied label in `primary`; content, wraps, continuation rows indent to c5.
 ```
 
 ```text
@@ -404,7 +478,7 @@ Callouts (18x1, 0-based):
 1. r0 c0-c17  Toggle hit target -- complete allocated Toggle rectangle.
 2. r0 c0-c4   Value word "false" -- `muted`.
 3. r0 c5      Separator -- one default cell.
-4. r0 c6-c17  Label slot -- required caller-supplied label in `primary`.
+4. r0 c6-c17  Label slot -- required caller-supplied label in `primary`; content, wraps, continuation rows indent to c6.
 ```
 
 ```text
@@ -420,16 +494,16 @@ E  fg=muted (token pending plan 032 step 5.3)
 
 ## State model
 
-| State                     | Owner       | Type                                                                                                                                                           | Reset or clamp rule                                                                                                                                                           |
-| ------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| bound value               | Binding     | `Bool`                                                                                                                                                         | App-owned; Toggle reads it on every update and writes only the one inverted Boolean on a valid activation.                                                                    |
-| is enabled                | Environment | `Bool`                                                                                                                                                         | Read on every reconciliation. A transition to `false` clears `isPressed`, removes the node from focusability, and prevents activation immediately.                            |
-| semantic Styles           | Environment | `semantic.primary`, `semantic.accent`, `semantic.muted` (token pending plan 032 step 5.3), `semantic.disabled`, and `semantic.destructive` full `Style` values | Read on every render; nearest environment value wins. These roles are complete Styles, not foreground-color aliases.                                                          |
-| is focused                | Environment | `Bool`                                                                                                                                                         | Injected below the explicit `.focusable` modifier from the FocusManager's live identity; Toggle reads it during rendering and checks `ResponderContext.isFocused` for events. |
-| is pressed                | NodeState   | `Bool`                                                                                                                                                         | Set for enabled primary down or phased Enter/Space down. Clear on matching release, cancellation, focus loss, disablement, node removal, and every update when unfocused.     |
-| label size and truncation | derived     | `TerminalSize` and rendered grapheme range                                                                                                                     | Recomputed from the proposed label slot on every layout; clamps to the allocated rectangle and tail-truncates default text.                                                   |
-| text value word           | derived     | `String`, `true` or `false`                                                                                                                                    | Derived from `bound value` on every render; never stored. Read only by the `.text` style.                                                                                     |
-| form-row context          | Environment | `Bool`                                                                                                                                                         | Set by Form on each row; read on every render. Selects the `.text` default and omits the label in `.text`. An explicit `.toggleStyle` overrides the default.                  |
+| State                   | Owner       | Type                                                                                                                                                           | Reset or clamp rule                                                                                                                                                                            |
+| ----------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| bound value             | Binding     | `Bool`                                                                                                                                                         | App-owned; Toggle reads it on every update and writes only the one inverted Boolean on a valid activation.                                                                                     |
+| is enabled              | Environment | `Bool`                                                                                                                                                         | Read on every reconciliation. A transition to `false` clears `isPressed`, removes the node from focusability, and prevents activation immediately.                                             |
+| semantic Styles         | Environment | `semantic.primary`, `semantic.accent`, `semantic.muted` (token pending plan 032 step 5.3), `semantic.disabled`, and `semantic.destructive` full `Style` values | Read on every render; nearest environment value wins. These roles are complete Styles, not foreground-color aliases.                                                                           |
+| is focused              | Environment | `Bool`                                                                                                                                                         | Injected below the explicit `.focusable` modifier from the FocusManager's live identity; Toggle reads it during rendering and checks `ResponderContext.isFocused` for events.                  |
+| is pressed              | NodeState   | `Bool`                                                                                                                                                         | Set for enabled primary down or phased Enter/Space down. Clear on matching release, cancellation, focus loss, disablement, node removal, and every update when unfocused.                      |
+| label size and wrapping | derived     | `TerminalSize` and rendered grapheme range                                                                                                                     | Recomputed from the proposed label slot on every layout; the label wraps at the slot width and tail-truncates only under a row budget; clamps to the allocated rectangle.                      |
+| text value word         | derived     | `String`, `true` or `false`                                                                                                                                    | Derived from `bound value` on every render; never stored. Read only by the `.text` style. In a host row it is content: it wraps, and a host that fixes one row cuts it with `truncation.mark`. |
+| form-row context        | Environment | `Bool`                                                                                                                                                         | Set by Form on each row; read on every render. Selects the `.text` default and omits the label in `.text`. An explicit `.toggleStyle` overrides the default.                                   |
 
 The label closure is immutable widget configuration, not retained business state. A legacy
 press-only Enter or Space event inverts `bound value` once and clears `isPressed` before
@@ -464,19 +538,26 @@ semantics, not a marker-only hit test or drag threshold.
 
 ## Sizing
 
-The default checkbox style is one row high and label-hugging unless a parent forces a
-horizontal allocation. Its complete final allocation is the `Toggle hit target`.
+The default checkbox style is label-hugging unless a parent forces a horizontal
+allocation, and as tall as the wrapped label needs: one row at its natural width. Its
+complete final allocation is the `Toggle hit target`.
 
-| Proposal                                                          | Result | Rule                                                                                                                                 |
-| ----------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| nil x nil with `Text("Receive mail")`                             | 14x1   | Natural default: one marker cell, one separator, and twelve label cells in Unicode and Nerd Font; ASCII renders 16x1.                |
-| 16x1 with `Text("Receive mail")`                                  | 14x1   | Label-hugging: the proposal is not filled; the control keeps its natural width.                                                      |
-| 1x1 with an empty label, Unicode charset                          | 0x1    | Below the 2x1 Unicode floor: suppress the control rather than draw a partial marker or advertise an incomplete hit target.           |
-| 2x1 with an empty label, Unicode charset                          | 2x1    | At the Unicode floor: the one-cell marker and its separator are allocated; the empty label takes no cells.                           |
-| 3x1 with an empty label, ASCII charset                            | 0x1    | Below the 4x1 ASCII floor: suppress the control rather than draw a partial `[ ]` or advertise an incomplete hit target.              |
-| 4x1 with an empty label, ASCII charset                            | 4x1    | At the ASCII floor: the complete `[ ]` marker and its separator are allocated; the empty label takes no cells.                       |
-| 80x24 with `Text("Receive mail")`                                 | 14x1   | Extra available space does not make a label-hugging Toggle grow opportunistically.                                                   |
-| 40x1 forced frame allocation with `Text("Receive notifications")` | 40x1   | Parent-forced width expands the final hit target while preserving leading marker and label geometry, as shown by the mobile fixture. |
+| Proposal                                                          | Result | Rule                                                                                                                                                                                                                   |
+| ----------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| nil x nil with `Text("Receive mail")`                             | 14x1   | Natural default: one marker cell, one separator, and twelve label cells in Unicode and Nerd Font; ASCII renders 16x1.                                                                                                  |
+| 16x1 with `Text("Receive mail")`                                  | 14x1   | Label-hugging: the proposal is not filled; the control keeps its natural width.                                                                                                                                        |
+| 1x1 with an empty label, Unicode charset                          | 0x1    | Below the 2x1 Unicode floor: suppress the control rather than draw a partial marker or advertise an incomplete hit target.                                                                                             |
+| 2x1 with an empty label, Unicode charset                          | 2x1    | At the Unicode floor: the one-cell marker and its separator are allocated; the empty label takes no cells.                                                                                                             |
+| 3x1 with an empty label, ASCII charset                            | 0x1    | Below the 4x1 ASCII floor: suppress the control rather than draw a partial `[ ]` or advertise an incomplete hit target.                                                                                                |
+| 4x1 with an empty label, ASCII charset                            | 4x1    | At the ASCII floor: the complete `[ ]` marker and its separator are allocated; the empty label takes no cells.                                                                                                         |
+| 80x24 with `Text("Receive mail")`                                 | 14x1   | Extra available space does not make a label-hugging Toggle grow opportunistically.                                                                                                                                     |
+| 40x1 forced frame allocation with `Text("Receive notifications")` | 40x1   | Parent-forced width expands the final hit target while preserving leading marker and label geometry, as shown by the mobile fixture.                                                                                   |
+| 9x nil with `Text("Receive mail")`                                | 9x2    | The floor: marker, separator, and `Receive` whole on row 0, `mail` on row 1 (owner decision, 2026-10-18).                                                                                                              |
+| 12x nil with `Text("Receive notifications")`                      | 12x3   | Slot is ten cells: `Receive`, then `notifications` starts its own row and breaks between graphemes into `notificati` and `ons`. <!-- codespell:ignore ons -->                                                          |
+| 8x nil with `Text("Receive mail")`                                | 8x2    | Below the 9-column floor the slot is six cells: `Receiv` and `e mail`; the word breaks between graphemes and is never clipped. <!-- codespell:ignore receiv -->                                                        |
+| 8x1 with `Text("Receive mail")`                                   | 8x1    | A finite height is a one-row budget: the last visible row is `Recei…`, so the control draws `☑ Recei…`.                                                                                                                |
+| 4 x nil, `.text` in a host row, false binding                     | 4x2    | The value word is content in a host row (owner decision, 2026-10-18): `false` is wider than the 4-cell value column, so it breaks between graphemes into `fals` and `e`; nothing clips. <!-- codespell:ignore fals --> |
+| 4x1, `.text` in a host row, false binding                         | 4x1    | A host that fixes one row gets a marked cut: `fal…`.                                                                                                                                                                   |
 
 ## Environment
 
@@ -484,10 +565,11 @@ horizontal allocation. Its complete final allocation is the `Toggle hit target`.
 `semantic.accent` for a checked marker, `semantic.muted` (token pending plan 032 step 5.3)
 for an unchecked marker, and `semantic.disabled` while disabled. Focus is an underline on
 the label, so no focus Style applies to the mark. The marker glyph resolves through the
-charset: Unicode `☑`/`☐`, Nerd Font U+F14A/U+F096, or ASCII `[x]`/`[ ]`. `truncation.mark`
-defines default-label overflow. The `.text` style reads the bound value as `true` or
-`false` and the form-row context to choose its default and omit its label (see Text
-style).
+charset: Unicode `☑`/`☐`, Nerd Font U+F14A/U+F096, or ASCII `[x]`/`[ ]`. `lineLimit` and
+`truncationMode` (environment) reach the label, which is content, and the `.text` value
+word in a host row, which is content too; `truncation.mark` defines overflow under a row
+budget. The `.text` style reads the bound value as `true` or `false` and the form-row
+context to choose its default and omit its label (see Text style).
 
 > Deferred: custom Toggle styles (an app-defined `ToggleStyle`) and their environment
 > inputs land in a later slice. `.toggleStyle(.checkbox)`, `.toggleStyle(.circle)`, and
@@ -510,6 +592,14 @@ style).
 - `toggle displays the bound false value at the minimum floor` (states: minimum fixture).
 - `toggle keeps a parent-forced mobile row as one full-width hit target` (states: mobile
   fixture; sizing: forced frame allocation).
+- `toggle label word-wraps at a finite width and indents continuation rows under the label`
+  (states: label wrapping fixture; sizing: 9x nil, 12x nil).
+- `toggle overlong label word breaks between graphemes instead of clipping` (sizing: 8x
+  nil).
+- `toggle label under a one-row budget ends its last visible row in the truncation mark`
+  (sizing: 8x1).
+- `toggle minimum is the marker plus the label's widest word` (states: minimum fixtures;
+  sizing: 9x nil).
 - `toggle preserves checkbox geometry for focus and press feedback` (states: focused and
   pressed fixture).
 - `disabled toggle is absent from focus and bubbles activation input` (states: disabled;
@@ -551,6 +641,10 @@ style).
   table; mouse table; states).
 - `a click anywhere on a text-style Form row acts as Enter and inverts the value once`
   (Text style; [Form](form.md) mouse table).
+- `text style value word in a host row breaks between graphemes in a narrow value column`
+  (sizing: 4 x nil, `.text` in a host row).
+- `text style value word under a fixed one-row host ends in the truncation mark` (sizing:
+  4x1, `.text` in a host row).
 
 ## Degradation
 
@@ -561,14 +655,16 @@ style).
 - **16-color:** semantic roles use their indexed-color-plus-attribute fallbacks; checkbox
   glyphs remain unchanged.
 - **ASCII charset:** `☑`, `☐`, and the Nerd Font glyphs are not drawn; the ASCII charset
-  draws `[x]` and `[ ]`, each followed by one space. If a label truncates,
+  draws `[x]` and `[ ]`, each followed by one space. If a label is cut under a row budget,
   `truncation.mark` becomes `~`.
 - **Nerd Font:** the Nerd Font charset draws U+F14A and U+F096 in the same one-cell marker
   in place of the Unicode glyphs. It is a charset choice, not a capability.
 - **Circle style:** the `◉`/`○` markers become radio glyphs `(*)`/`( )`; the three-cell
   ASCII marker widens the control by two cells without changing interaction.
-- **Below minimum:** below the charset floor (2x1 Unicode, 4x1 ASCII), Toggle reports 0x1
-  and paints no partial marker or hit target.
+- **Below minimum:** below the label floor (9 columns for `Receive mail` under Unicode, 11
+  under ASCII), the label breaks between graphemes and wraps to more rows; it is never
+  clipped, and a fixed height marks the last visible row. Below the marker floor (2x1
+  Unicode, 4x1 ASCII), Toggle reports 0x1 and paints no partial marker or hit target.
 - **Text style:** the words `true` and `false` draw under every charset. Under NO_COLOR
   the `success` and `muted` difference is lost, so the words are the only signal; they
   remain.

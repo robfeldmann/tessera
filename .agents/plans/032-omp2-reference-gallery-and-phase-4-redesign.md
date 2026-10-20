@@ -412,6 +412,23 @@ classification (Phase 4) no longer gates capture.
   listed in Form's and Picker's open questions (Form's 12-cell narrow floor and default
   `<Label> is required` / `<Label> is invalid` wording; Picker's multi initializer shape,
   digits past 9, and description layout).
+- Committed (2026-10-18) as `e5fe358`, scaffolding excluded.
+- Grill round (2026-10-18), applied: the owner settled the remaining non-token open
+  questions (Q1-Q30). The biggest is a catalog-wide wrap rule: content word-wraps at any
+  finite width, only an exhausted row budget truncates (the last visible row ends in `…`),
+  chrome stays single-line, apps override with `lineLimit`, and deliberate breaks are
+  documented in the component's own doc with a reason (docked titles, atomic values,
+  TextField editing, code, Outline rows, Table). Also: `.readableWidth()` (a 72-cell
+  maximum, prose only); List and Picker menu rows wrap; Picker and the new `MultiPicker`
+  take SwiftUI-style titles and an optional `customOption:` row; a collapsed host-row
+  value is content; Markdown links are OSC 8 only (in-app activation is
+  [Discussion #40](https://github.com/robfeldmann/tessera/discussions/40)); Text ships
+  `.lineLimit(Int?)` and `.truncationMode(_:)` without a character-wrap mode; and smaller
+  answers for Form, KeyLegend, Outline, ContentUnavailableView, Image, Leading rail, and
+  ProgressView. Applied by a `senior` contract (README rules, Text, ScrollView, readable
+  width), six `engineer` slices, and a `critic` review whose findings were fixed and
+  re-verified. Grid and TextSelection keep their open questions for their own design
+  passes.
 
 ### Step 5.3 — Propose token changes implied by the decisions
 
@@ -450,6 +467,10 @@ classification (Phase 4) no longer gates capture.
 - Includes replacing the Phase 4 slice list with the order of Phases 8-17, removing the
   Showcase (Prerequisites and scheduling, Slice 7, and the Phase 4 definition of done),
   and updating the 1.0 surface from `design/omp2-assessment.md`.
+- Also update Spec's Text API (`docs/Spec.md#text-grows-up` still shows `wrapped(_:)` and
+  `truncation(_:)` with `.none` and `.clip` defaults) to the 2026-10-18 wrap rules: word
+  wrapping by default, `.lineLimit(Int?)`, and `.truncationMode(_:)` (see
+  `design/primitives/text.md`).
 
 ### Step 7.3 — Sequence the implementation
 
@@ -623,6 +644,10 @@ Each control lands with its demo, keyboard and pointer paths, and disabled state
 ### Step 14.1 — Flow layout and `ViewThatFits`
 
 - A wrapping row layout and `ViewThatFits` with layout priority (owner decision 2).
+- Needs a catalog doc (`design/primitives/view-that-fits.md`) before it's built: Form's
+  stacked layout, Picker's description layouts, and ProgressView's label placement all
+  choose between arrangements with it (owner decisions, 2026-10-18), so those widgets
+  can't reach `ready` until it exists.
 
 ### Step 14.2 — List and Section
 

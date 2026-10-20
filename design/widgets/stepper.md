@@ -110,9 +110,19 @@ Callouts (6x1, 0-based):
    032 step 5.3).
 3. r0 c2-c3 value slot -- formatted binding value; the default presentation reserves its
    full formatted width rather than silently rewriting it. Rendered in `primary`, the value
-   role on enabled rows (owner decision, 2026-10-10).
+   role on enabled rows (owner decision, 2026-10-10). Atomic value, one row: it never
+   wraps or truncates.
 4. r0 c5    increment arrow -- `▸`; `muted` while the value is in range.
 ```
+
+> Wrap exception (rules 1 and 2): the value is atomic: it never wraps or truncates. The
+> neighbouring label gives way first (owner decision, 2026-10-18). The arrows are chrome
+> and stay on the value's row. Breaking the value across rows, or marking it with `…`,
+> would show the user a number that is not the bound number.
+
+Stepper has no label of its own: the label belongs to the host row
+([LabeledContent](labeled-content.md) or a [Form](form.md) row), where it is content and
+wraps (see [Row label wrapping](#row-label-wrapping)).
 
 ## States
 
@@ -153,9 +163,11 @@ Callouts (40x16, 0-based):
 
 ### Minimum
 
-The declared normal-rendering floor is `5x1`: both arrows and at least one value cell
-remain visible. This fixture uses the minimum value `0`, so the decrement arrow sits in
-the disabled role in place and is inert.
+The declared normal-rendering floor is `4 + formatted value width` by one row (owner
+decision, 2026-10-18): both arrows, both separators, and the whole formatted value. The
+value is atomic, so it counts whole and is never clipped to fit. The fixture value `0` is
+one cell, which gives `5x1`. A two-digit value gives `6x1`. This fixture uses the minimum
+value `0`, so the decrement arrow sits in the disabled role in place and is inert.
 
 ```wireframe 5x1
 ◂ 0 ▸
@@ -239,7 +251,8 @@ Callouts (40x6, 0-based; each row uses the same columns):
 1. c0-c1    focus cursor `❯` -- `focus` on the focused row; blank on other rows. It is
             row chrome drawn by the host row, not by the Stepper.
 2. c2-c13   row label -- `focus` bold when focused; `primary` when unfocused; `disabled`
-            on the disabled row. Host row chrome, not a Stepper part.
+            on the disabled row; content, wraps (see Row label wrapping). Host row chrome,
+            not a Stepper part.
 3. c14      decrement arrow `◂` -- `muted` in range; `disabled` at the minimum and on the
             disabled row. Visible when unfocused.
 4. c16      value slot -- one cell for values 0-9, two cells (c16-c17) for 10-99. Rendered
@@ -273,6 +286,27 @@ L  fg=primary
 F  focus role, bold (`semantic.focus`)
 E  fg=muted
 X  fg=disabled
+```
+
+### Row label wrapping
+
+The row label is content (owner decision, 2026-10-18): where the host row may take rows, a
+label wider than its column word-wraps within the column, and a word wider than the column
+breaks between graphemes. The Stepper's arrows and value stay on the label's first row and
+are never wrapped, truncated, or pushed off the row: the label gives way first. The focus
+cursor `❯` stays on the first row and the continuation row indents under the label.
+
+```wireframe 19x2
+❯ Retry       ◂ 4 ▸
+  attempts
+```
+
+```text
+Callouts (19x2, 0-based):
+1. r0 c0-c1    focus cursor `❯` -- host row chrome, first row only.
+2. r0 c2-c6    row label first row -- `Retry`; content, wraps. `Retry attempts` does not fit the 12-cell label column.
+3. r1 c2-c9    row label continuation -- `attempts`, indented under the label's first column.
+4. r0 c14-c18  Stepper -- `◂ 4 ▸`, atomic value, one row; chrome and value never wrap.
 ```
 
 ### Disabled
@@ -412,15 +446,19 @@ clamped step, as required by [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-
 
 The default Stepper is one row high and label-hugging. Its ideal width is the decrement
 arrow, two separator cells, the full formatted value, and the increment arrow:
-`4 + formatted value width`. It does not grow to fill extra proposal width.
+`4 + formatted value width`. It does not grow to fill extra proposal width. The value is
+atomic (owner decision, 2026-10-18): no proposal wraps or truncates it, so a narrower
+proposal reports the floor instead.
 
-| Proposal                    | Result | Rule                                                                                                         |
-| --------------------------- | ------ | ------------------------------------------------------------------------------------------------------------ |
-| nil x nil with value `7`    | 5x1    | Unconstrained ideal uses the one-cell value width plus both arrows and separators.                           |
-| nil x nil with value `1234` | 8x1    | Unconstrained ideal expands by the full four-cell formatted value width.                                     |
-| 6x1 with value `42`         | 6x1    | Tight proposal exactly fits both arrows, separators, and the two-cell value.                                 |
-| 4x1 with value `7`          | 5x1    | Under-floor proposal reports the declared 5x1 floor rather than clipping either arrow or the one-cell value. |
-| 40x16 with value `42`       | 6x1    | Over-maximum proposal keeps the content-hugging 6x1 result; extra cells remain parent-owned.                 |
+| Proposal                                             | Result | Rule                                                                                                                  |
+| ---------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------- |
+| nil x nil with value `7`                             | 5x1    | Unconstrained ideal uses the one-cell value width plus both arrows and separators.                                    |
+| nil x nil with value `1234`                          | 8x1    | Unconstrained ideal expands by the full four-cell formatted value width.                                              |
+| 6x1 with value `42`                                  | 6x1    | Tight proposal exactly fits both arrows, separators, and the two-cell value.                                          |
+| 4x1 with value `7`                                   | 5x1    | Under-floor proposal reports the declared 5x1 floor rather than clipping either arrow or the one-cell value.          |
+| 4x1 with value `42`                                  | 6x1    | The floor is value-wide: both arrows and the whole two-cell value; the value never truncates.                         |
+| 19x nil, host row, label `Retry attempts`, value `4` | 19x2   | The label wraps to `Retry` and `attempts` in its column; the Stepper stays 5x1 on the first row (Row label wrapping). |
+| 40x16 with value `42`                                | 6x1    | Over-maximum proposal keeps the content-hugging 6x1 result; extra cells remain parent-owned.                          |
 
 ## Environment
 
@@ -429,7 +467,9 @@ arrow in range takes `muted`, and an arrow at its limit or any part of a disable
 takes `disabled`. The enabled value slot takes `primary` (owner decision, 2026-10-10).
 Focus is not painted by Stepper's own Style; the host row shows the `❯` cursor and the
 bold `semantic.focus` label. The default presentation uses `◂` and `▸`, and reports its
-content width instead of silently truncating a numeric value.
+content width instead of truncating or wrapping the value, which is atomic. The host row's
+label is content and inherits `lineLimit` and `truncationMode` from the environment; the
+Stepper pins its own value to one row.
 
 > Token pending plan 032 step 5.3: the role `muted` is absent from `design/tokens.md`; no
 > token name is assigned here.
@@ -482,6 +522,10 @@ content width instead of silently truncating a numeric value.
   sizing: 6x1).
 - `stepper retains both arrows and a value cell at its declared 5x1 floor` (Minimum
   wireframe; sizing: 4x1).
+- `stepper value never wraps or truncates and the label gives way first` (Wrap exception;
+  Row label wrapping wireframe; sizing: 19x nil host row).
+- `stepper floor is four cells plus the whole formatted value width` (Minimum wireframe;
+  sizing: 4x1 with value `42`).
 
 > Deferred: Compact-style rendering and its ASCII degradation land in a later slice with
 > their own decision.
@@ -492,9 +536,10 @@ The default presentation uses `◂` and `▸`. Under ASCII-only capability the a
 to `<` and `>` (owner decision, 2026-10-10), so the 5x1 floor and the formatted value text
 are preserved. `NO_COLOR` keeps the glyphs and positions, and resolves roles to their
 attribute-only fallbacks from the token table; a disabled arrow is dim. 16-color resolves
-roles to indexed semantic Styles. Below the 5x1 floor, default Stepper reports its 5x1
-minimum result rather than hiding an arrow, rewriting the value, or creating a second
-interaction mode.
+roles to indexed semantic Styles. Below the floor (`4 + formatted value width`), default
+Stepper reports its floor result rather than hiding an arrow, truncating or wrapping the
+value, or creating a second interaction mode; a host row's label wraps or marks its last
+visible row first.
 
 > Deferred: The `.compact` style's `−` glyph degradation lands in a later slice.
 

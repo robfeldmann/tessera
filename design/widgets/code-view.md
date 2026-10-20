@@ -6,10 +6,10 @@ status: specified
 # CodeView
 
 `CodeView` shows preformatted source text: spacing and line breaks are kept verbatim, and
-lines are clipped at the panel edge, not wrapped. It can draw a line-number gutter,
-syntax-highlight the text through an app-supplied highlighter, and cap its height with an
-overflow footer that counts the hidden lines. It is display-only. [Markdown](markdown.md)
-draws its fenced code blocks through it.
+lines do not word-wrap: they clip at the panel edge (Wrap exception, below). It can draw a
+line-number gutter, syntax-highlight the text through an app-supplied highlighter, and cap
+its height with an overflow footer that counts the hidden lines. It is display-only.
+[Markdown](markdown.md) draws its fenced code blocks through it.
 
 This widget follows the controlled-widget rule in
 [Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase).
@@ -129,10 +129,17 @@ a very long line that is clipped rather than wrapped when it exceeds the panel w
 
 ```text
 Callouts (80x6, 0-based):
-1. r0-r3 c0-c12   Source box, literal characters -- CodeView, default role
-2. r4 c0-c41      Indented line; leading and inner spaces kept -- CodeView, default role
-3. r5 c0-c79      Long line clipped at the panel edge, not wrapped -- CodeView, default role
+1. r0-r3 c0-c12   Source box, literal characters -- CodeView, default role; preformatted, no wrap
+2. r4 c0-c41      Indented line; leading and inner spaces kept -- CodeView, default role; preformatted, no wrap
+3. r5 c0-c79      Long line clipped at the panel edge, not wrapped -- CodeView, default role; preformatted, no wrap
 ```
+
+> Wrap exception (rule 1): code lines do not word-wrap; they keep clipping at the panel
+> edge. Wrapping would break indentation and alignment (owner decision, 2026-10-18). Each
+> source line is one `Text` row with `.lineLimit(1)` and `.truncationMode(.clip)`, so the
+> cut carries no mark; the `… N more lines` footer is the only cue that rows are hidden,
+> and it counts hidden rows, not hidden columns. A nil width proposal does not wrap
+> either, so the ideal width stays the gutter plus the widest line.
 
 ## States
 
@@ -151,16 +158,18 @@ a very long line that is clipped rather
 
 ```text
 Callouts (40x6, 0-based):
-1. r0-r3 c0-c12   Source box, literal characters -- CodeView, default role
-2. r4 c0-c39      Indented line, clipped at column 40 -- CodeView, default role
-3. r5 c0-c39      Long line, clipped at column 40 -- CodeView, default role
+1. r0-r3 c0-c12   Source box, literal characters -- CodeView, default role; preformatted, no wrap
+2. r4 c0-c39      Indented line, clipped at column 40 -- CodeView, default role; preformatted, no wrap
+3. r5 c0-c39      Long line, clipped at column 40 -- CodeView, default role; preformatted, no wrap
 ```
 
 ### Minimum
 
 Owner decision, 2026-10-10: the minimum is 8 columns by 3 rows, the line-number gutter
 (four columns for a one-digit last line number) plus four source cells. Lines clip at the
-minimum width, as they do at every width.
+minimum width, as they do at every width. Code has no words to keep whole, so the
+wrap-aware floor derivation does not change this number (owner decision, 2026-10-18: code
+exception).
 
 ```wireframe 8x3
 1 │ stru
@@ -230,7 +239,7 @@ is counted in `maxRows`. The footer `… 4 more lines` takes `muted`.
 ```text
 Callouts (80x4, 0-based):
 1. r0-r2 c0-c33   Numbered source rows -- CodeView gutter `muted`, body `primary`
-2. r3 c0-c13      Overflow footer "… 4 more lines" -- CodeView footer, `muted`
+2. r3 c0-c13      Overflow footer "… N more lines" -- CodeView footer, `muted`; chrome, one row
 ```
 
 ```text
@@ -333,13 +342,13 @@ captured.
 
 ## Sizing
 
-Schema: [README](../README.md#sizing-table). Width does not wrap: lines clip at the
-proposed width, as the 40- and 80-column captures show. Owner decision, 2026-10-10: the
-ideal width is the gutter plus the widest source line in display cells, and the ideal
-height is `min(rows, maxRows)`, where `rows` is the source line count. An under-minimum
-proposal clips at the proposed size. An over-maximum proposal fills the proposed width
-with blank cells and keeps the ideal height. The overflow footer uses one of the rows
-under the cap and does not change the ideal size.
+Schema: [README](../README.md#sizing-table). Width does not wrap (Wrap exception): lines
+clip at the proposed width, as the 40- and 80-column captures show. Owner decision,
+2026-10-10: the ideal width is the gutter plus the widest source line in display cells,
+and the ideal height is `min(rows, maxRows)`, where `rows` is the source line count. An
+under-minimum proposal clips at the proposed size. An over-maximum proposal fills the
+proposed width with blank cells and keeps the ideal height. The overflow footer uses one
+of the rows under the cap and does not change the ideal size.
 
 The examples use a three-line source, `fn main() {`, `run();` indented four spaces, and
 `}`, whose widest line is 11 cells.
@@ -373,9 +382,9 @@ Environment values, not tokens: `.syntaxHighlighter(_:)` and `.codeTabWidth(_:)`
 
 ## Primitive dependencies
 
-- [Text](../primitives/text.md): preformatted rows, clipped to width. CodeView expands
-  tabs before rows reach Text, so Text receives no tab characters (see
-  [Tab width](#tab-width)).
+- [Text](../primitives/text.md): preformatted rows, one `Text` per source line with
+  `.lineLimit(1)` and `.truncationMode(.clip)`. CodeView expands tabs before rows reach
+  Text, so Text receives no tab characters (see [Tab width](#tab-width)).
 
 ## Requirements
 
@@ -383,8 +392,8 @@ Schema: [README](../README.md#requirements-list). Each entry traces to a callout
 above.
 
 - `code view keeps spacing and line breaks verbatim` (Anatomy callout 2)
-- `code view clips long lines at the panel edge and never wraps them` (Anatomy callout 3,
-  Mobile)
+- `code view clips long lines at the panel edge and never wraps them, whatever the height proposal`
+  (Wrap exception; Anatomy callout 3, Mobile)
 - `code view draws the line-number gutter in muted` (Numbered gutter callout 1)
 - `code view sizes the gutter to the decimal width of the last line number plus three columns`
   (Numbered gutter)
@@ -413,7 +422,8 @@ above.
 Follows the [degradation ladder](../tokens.md#degradation-ladder). Syntax colours drop at
 `NO_COLOR` and 16-colour terminals; the source text and gutter remain. With no highlighter
 installed, or no `path`, the source draws plain. Below the 8x3 minimum the block clips at
-the proposed size (see [Sizing](#sizing)).
+the proposed size (see [Sizing](#sizing)); lines still never wrap and the cut carries no
+mark.
 
 ## Open questions
 

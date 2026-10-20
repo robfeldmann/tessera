@@ -8,8 +8,11 @@ status: specified
 `KeyLegend` is Tessera's one-row strip of key hints: `⏎ change · ⇥ next tab · esc close`.
 It is built from the focused responders' key bindings and their descriptions, so the
 legend always matches what the keys actually do. It draws only: it takes no focus and
-consumes no keys. When the row is too narrow, it drops whole entries, lowest priority
-first, and never cuts an entry in half.
+consumes no keys. Entries are chrome (owner decision, 2026-10-18): each key and
+description is a `Text` with `.lineLimit(1)` applied by KeyLegend itself, so an app's
+inherited `lineLimit` never reaches it. When the row is too narrow, it drops whole
+entries, lowest priority first, and never cuts an entry in half or wraps it onto a second
+row.
 
 Owner decision, omp2 review, 2026-10: `plain` is the default look, and `keycaps` also
 ships in 1.0 as an option. ASCII spells the keys out.
@@ -60,7 +63,7 @@ captured.
 ## Anatomy
 
 A single row of the `plain` look at its design width of 60 columns. Each entry is a key
-and a description in `Text`; the legend composes the entries in one row.
+and a description in `Text`, chrome, one row; the legend composes the entries in one row.
 
 ```wireframe 60x1
 ↑↓ move · ⏎ change · ⇥ next tab · / search · esc close
@@ -68,7 +71,7 @@ and a description in `Text`; the legend composes the entries in one row.
 
 ```text
 Callouts (60x1, 0-based):
-1. r0 c0-c6    Move entry, priority `low` -- key `↑↓` bold `secondary`; description `muted`
+1. r0 c0-c6    Move entry, priority `low` -- key `↑↓` bold `secondary`; description `muted`; chrome, one row
 2. r0 c10-c17  Change entry, priority `required` -- key `⏎`; description `muted`
 3. r0 c21-c30  Next tab entry, priority `high` -- key `⇥`; description `muted`
 4. r0 c34-c41  Search entry, priority default (0) -- key `/`; description `muted`
@@ -215,17 +218,21 @@ Callouts (40x16, 0-based):
 3. c39         Scroll indicator -- List-owned; the legend leaves column 39 for it
 ```
 
-### Min (24x1)
+### Min (20x1)
 
-The declared floor: only the `required` entries remain, change and close. Both have
-`required` priority, so they drop together or stay together.
+The declared floor is 20 columns: the `required` entries only, change and close.
+Derivation (replaces the earlier inconsistent 20-versus-24 values, one value now): the
+change entry is 8 cells (`⏎ change`), the separator 3 (`·`), and the close entry 9
+(`esc close`), so the two `required` entries take 20 cells. Both have `required` priority,
+so they drop together or stay together; below 20 cells the legend draws nothing (owner
+decision, 2026-10-10).
 
-```wireframe 24x1
+```wireframe 20x1
 ⏎ change · esc close
 ```
 
 ```text
-Callouts (24x1, 0-based):
+Callouts (20x1, 0-based):
 1. r0 c0-c7    Change entry, priority `required` -- key `⏎`; description `muted`
 2. r0 c11-c19  Close entry, priority `required` -- key `esc`; description `muted`
 3. r0 c8-c10   Separator -- `border`; next tab (`high`), move (`low`), and search (default) have dropped
@@ -265,13 +272,13 @@ None. The legend takes no pointer input.
 Schema: [README](../README.md#sizing-table). Mandatory rows: nil x nil, tight,
 under-minimum, over-maximum.
 
-| Proposal    | Result | Rule                                                                                                                     |
-| ----------- | ------ | ------------------------------------------------------------------------------------------------------------------------ |
-| nil x nil   | 54x1   | Plain look at its ideal width; every entry fits (derived). Keycaps are 60x1 and ASCII 65x1 (derived, not captured).      |
-| tight       | 54x1   | The proposal equals the ideal width; all entries fit, and the ideal width is the tight width.                            |
-| 20-23 x nil | 20x1   | Under the 24-column floor: drop whole entries, lowest priority first; change and close (20 cells) fit, leading-aligned.  |
-| W<20 x nil  | 0x0    | Below 20 cells the legend draws nothing (owner decision, 2026-10-10).                                                    |
-| 80x1        | 54x1   | Over-maximum: the legend keeps its ideal width and is leading-aligned; it does not stretch (owner decision, 2026-10-10). |
+| Proposal    | Result | Rule                                                                                                                                                                                      |
+| ----------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| nil x nil   | 54x1   | Plain look at its ideal width; every entry fits (derived). Keycaps are 60x1 and ASCII 65x1 (derived, not captured).                                                                       |
+| tight       | 54x1   | The proposal equals the ideal width; all entries fit, and the ideal width is the tight width.                                                                                             |
+| 20-53 x nil | W' x1  | From the 20-column floor up: drop whole entries, lowest priority first, until the row fits; at 20 the result is `⏎ change · esc close`, 20x1, leading-aligned. Entries never wrap or cut. |
+| W<20 x nil  | 0x0    | Below the 20-cell floor the legend draws nothing (owner decision, 2026-10-10).                                                                                                            |
+| 80x1        | 54x1   | Over-maximum: the legend keeps its ideal width and is leading-aligned; it does not stretch (owner decision, 2026-10-10).                                                                  |
 
 ## Environment
 
@@ -301,11 +308,15 @@ under-minimum, over-maximum.
 - `narrow legend drops move and search at 40 columns` (states: Mobile (40 columns))
 - `narrow legend drops whole entries lowest priority first` (states: Mobile (40 columns);
   sizing: under-minimum)
-- `legend at 24 columns keeps only change and close` (states: min)
+- `legend at 20 columns keeps only change and close` (states: min)
 - `legend never cuts an entry in half` (state model: entries)
 - `legend drops equal-priority entries as a unit` (state model: entries; API:
   legendPriority)
 - `legend draws nothing below 20 cells` (sizing: W<20 x nil)
+- `legend entries are one row and drop whole by priority instead of wrapping or truncating`
+  (anatomy callouts 1-6; state model: entries; sizing: 20-53 x nil)
+- `NO_COLOR legend keys stay bold with no brackets or reverse video` (degradation:
+  NO_COLOR)
 - `over-maximum legend keeps its ideal width and leading alignment` (sizing: 80x1)
 - `ascii legend spells keys out and drops search at 60 columns` (states: ASCII)
 - `ascii legend separates entries with a pipe` (states: ASCII; degradation: ASCII)
@@ -316,18 +327,17 @@ under-minimum, over-maximum.
 ## Degradation
 
 - `NO_COLOR`: colour is lost, and keycaps fall back to the plain look (owner decision,
-  2026-10-10). The bold key's fallback is an open question.
+  2026-10-10). Keys stay bold: attributes survive `NO_COLOR`, so the bold key is the cue
+  and nothing else is added: no brackets, no reverse video (owner decision, 2026-10-18).
 - 16-colour: indexed equivalents of the same roles; `surface` is the ANSI 8 background
   (owner decision, 2026-10-10); geometry unchanged.
 - ASCII: keys are spelled out (`up/down`, `enter`, `tab`), and entries are separated by
   `|` (owner decision, 2026-10-10).
-- Below `min` (24 columns): entries drop whole, lowest priority first. Below 20 cells the
-  legend draws nothing (owner decision, 2026-10-10).
+- Below the floor (20 columns): entries drop whole, lowest priority first. Below 20 cells
+  the legend draws nothing (owner decision, 2026-10-10).
 
 ## Open questions
 
-- Bold key under `NO_COLOR`: the owner's answer covers the keycap fill only. Whether the
-  bold key keeps its emphasis or needs another fallback is undecided.
 - Tokens: `muted`, `border`, and `surface` need roles; they are token pending plan 032
   step 5.3. [tokens.md](../tokens.md#semantic-styles) does not define them.
 

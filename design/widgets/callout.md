@@ -14,9 +14,10 @@ The header is a [Label](../primitives/label.md) followed by a
 Callout is read-only: it has no focus, keys or pointer behaviour.
 
 The rail is the [leading rail](../primitives/leading-rail.md) primitive in the kind's
-role. Owner decision, omp2 review, 2026-10: the rail sits centred under the header icon,
-not on the left edge as a `▎`. Owner decision, 2026-10-10: the heavy `┃` rail ships in
-1.0. ASCII keeps `|` at column 0.
+role. Owner decision, omp2 review, 2026-10: the rail is a light vertical in the header
+icon's place, not the left-edge `▎`. Owner decision, 2026-10-18: the rail is always column
+0: centred under a one-cell icon, under the left edge of a two-cell icon, and column 0 in
+ASCII. Owner decision, 2026-10-10: the heavy `┃` rail ships in 1.0.
 
 ## Prior art
 
@@ -83,12 +84,16 @@ Header with a body, 40 columns:
 
 ```text
 Callouts (40x4, 0-based):
-1. r0 c0       Icon -- Label icon `warning`, warning role
-2. r0 c2-14    Title -- Label title, warning bold; never wraps
-3. r0 c16-23   Badge -- `Badge` in the `warning` tone, one column after the title
-4. r1-r3 c0    Rail -- leading rail, light vertical centred under the icon, warning role
-5. r1-r3 c2-39 Body -- Text wrapping to width minus 2, warning role
+1. r0 c0       Icon -- Label icon `warning`, warning role; chrome, one row
+2. r0 c2-14    Title -- Label title, warning bold; chrome, one row (header exception)
+3. r0 c16-23   Badge -- `Badge` in the `warning` tone, one column after the title; chrome, one row
+4. r1-r3 c0    Rail -- leading rail, light vertical in column 0 (under the one-cell icon), warning role
+5. r1-r3 c2-39 Body -- Text wrapping to width minus 2, warning role; content, wraps
 ```
+
+> Wrap exception (rule 1): the header stays on one row and tail-truncates. A wrapped
+> header would break the rail/row geometry under it. (owner decision, 2026-10-18) The body
+> is content and wraps.
 
 ```text
 ── chars ──
@@ -135,7 +140,7 @@ rail take the kind's role.
 Callouts (40x11, 0-based):
 1. r0, r3, r5, r8 c0     Icon -- Label icon for the kind, kind role
 2. r0, r3, r5, r8 c2     Title -- kind name by default, bold kind role
-3. r1-r2, r4, r6-r7, r9-r10 c0   Rail -- light vertical centred under the icon, kind role
+3. r1-r2, r4, r6-r7, r9-r10 c0   Rail -- light vertical in column 0, kind role
 4. body rows c2-39       Body -- Text wrapping to width minus 2, kind role
 ```
 
@@ -200,7 +205,7 @@ Its colours and layout are the same as the light rail.
 Callouts (40x11, 0-based):
 1. r0, r3, r5, r8 c0     Icon -- Label icon for the kind, kind role
 2. r0, r3, r5, r8 c2     Title -- kind name by default, bold kind role
-3. rail rows c0          Rail -- heavy vertical `┃` centred under the icon, kind role
+3. rail rows c0          Rail -- heavy vertical `┃` in column 0, kind role
 4. body rows c2-39       Body -- Text wrapping to width minus 2, kind role
 ```
 
@@ -245,8 +250,9 @@ I  fg=error bold
 ### ASCII (40 columns)
 
 The ASCII charset replaces each kind icon with a bracketed glyph (`(i)` for info, the
-bracketed words for the others) and the rail with `|`. The rail stays at column 0:
-bracketed icons cannot be centred under it (owner decision, 2026-10-10).
+bracketed words for the others) and the rail with `|`. The rail stays at column 0, as in
+every charset: bracketed icons cannot be centred over it (owner decisions, 2026-10-10 and
+2026-10-18).
 
 ```wireframe 40x11
 (i) Info
@@ -334,62 +340,90 @@ A  fg=info
 B  fg=primary
 ```
 
-### Minimum (14 columns)
+### Minimum (9 columns)
 
-At 14 columns the badge is dropped and the title tail-truncates to the row edge with the
-truncation mark (`…`, [tokens.md](../tokens.md#truncation)). The title never wraps the
-header (owner decision, 2026-10-10). The body wraps at 12 columns.
+The floor is 9 columns (owner decision, 2026-10-18; it replaces the 14-column minimum
+state and the 4-column floor of 2026-10-10). It is derived under the wrap rules: the body
+is the primary content, its widest word in the fixture, `rebuild`, is 7 cells, and the
+rail and gap add 2, so every body word shows whole at 9. The header never wraps (the
+exception above): the badge drops first, then the title tail-truncates with the truncation
+mark (`…`, [tokens.md](../tokens.md#truncation)), so the header does not set the floor. At
+9 columns the body wraps at 7 and takes 19 rows, so the floor is 9x20.
 
-```wireframe 14x12
-⚠ Build warni…
-│ The cache is
-│ stale, so
-│ the next
-│ build will
-│ be slower
-│ than usual.
-│ Run just
+```wireframe 9x20
+⚠ Build …
+│ The
+│ cache
+│ is
+│ stale,
+│ so the
+│ next
+│ build
+│ will be
+│ slower
+│ than
+│ usual.
+│ Run
+│ just
 │ warm to
-│ rebuild it
-│ ahead of
+│ rebuild
+│ it
+│ ahead
+│ of
 │ time.
 ```
 
 ```text
-Callouts (14x12, 0-based):
-1. r0 c0      Icon -- Label icon `warning`, warning role
-2. r0 c2-13   Title -- tail-truncated with `truncation.mark` at the row edge, warning bold
-3. r0 c14     Badge -- dropped at this width
-4. r1-r11 c0  Rail -- leading rail, light vertical under the icon, warning role
-5. r1-r11 c2  Body -- Text wrapping at 12 columns, warning role
+Callouts (9x20, 0-based):
+1. r0 c0      Icon -- Label icon `warning`, warning role; chrome, one row
+2. r0 c2-8    Title -- tail-truncated with `truncation.mark` at the row edge, warning bold; chrome, one row
+3. r0 c9      Badge -- dropped at this width
+4. r1-r19 c0  Rail -- leading rail, light vertical in column 0, warning role
+5. r1-r19 c2-8  Body -- Text wrapping at 7 columns, warning role; content, wraps
 ```
 
 ```text
 ── chars ──
-⚠ Build warni…
-│ The cache is
-│ stale, so
-│ the next
-│ build will
-│ be slower
-│ than usual.
-│ Run just
+⚠ Build …
+│ The
+│ cache
+│ is
+│ stale,
+│ so the
+│ next
+│ build
+│ will be
+│ slower
+│ than
+│ usual.
+│ Run
+│ just
 │ warm to
-│ rebuild it
-│ ahead of
+│ rebuild
+│ it
+│ ahead
+│ of
 │ time.
 ── style ──
-ABCCCCCCCCCCCC
-AAAAAAAAAAAAAA
-AAAAAAAAAAA
-AAAAAAAAAA
-AAAAAAAAAAAA
-AAAAAAAAAAA
-AAAAAAAAAAAAA
-AAAAAAAAAA
+ABCCCCCCC
+AAAAA
+AAAAAAA
+AAAA
+AAAAAAAA
+AAAAAAAA
+AAAAAA
+AAAAAAA
 AAAAAAAAA
-AAAAAAAAAAAA
-AAAAAAAAAA
+AAAAAAAA
+AAAAAA
+AAAAAAAA
+AAAAA
+AAAAAA
+AAAAAAAAA
+AAAAAAAAA
+AAAA
+AAAAAAA
+AAAA
 AAAAAAA
 ── legend ──
 .  default
@@ -398,9 +432,9 @@ B  fg=primary
 C  fg=warning bold
 ```
 
-Below 14 columns the same rules continue: the badge stays dropped, the title keeps
-tail-truncating, and the body wraps at width minus two. The floor is 4 columns: rail,
-space, two cells (see [Sizing](#sizing)).
+Below 9 columns nothing clips silently: the badge stays dropped, the title keeps
+tail-truncating, and body words wider than width minus two break between grapheme
+clusters. Under a fixed height the last visible body row ends in `…`.
 
 ## Variants
 
@@ -433,13 +467,15 @@ Not focusable: no mouse table.
 Schema: [README](../README.md#sizing-table). Mandatory rows: nil x nil, tight,
 under-minimum, over-maximum.
 
-| Proposal     | Result                                                                                    | Rule                                                              |
-| ------------ | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| nil x nil    | Header row when a kind, title or badge is set, then body rows wrapped at width minus 2    | Height is header rows plus wrapped body rows                      |
-| 14 x any     | Minimum state: title tail-truncated with `…`, badge dropped, body wraps at 12             | Floor for the 1.0 layout; see Minimum                             |
-| 4 to 13      | Badge dropped; title tail-truncated with `…` to the row edge; body wraps at width minus 2 | Owner decision, 2026-10-10: the header never wraps                |
-| under 4      | Not a supported floor: the parent clips the rendered rows                                 | Floor is 4 (rail, space, two cells); no layout is specified below |
-| over-maximum | Body wraps at the proposed width; no maximum                                              | Body takes the proposed width                                     |
+| Proposal              | Result                                       | Rule                                                                                                                             |
+| --------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| nil x nil             | 109x2 (Anatomy fixture)                      | A nil width does not wrap: the body is unwrapped, so width is 2 plus the body's 107 cells; height is header plus body rows       |
+| 40 x nil              | 40x4                                         | Body wraps at width minus 2 and gets every row (Anatomy)                                                                         |
+| 40 x 3 (fixed height) | 40x3                                         | Header plus two body rows; the last visible body row is the rest of its source line and ends in `…` (owner decision, 2026-10-18) |
+| 9 x nil (minimum)     | 9x20                                         | Floor re-derived in Minimum: body words whole at width minus 2; badge dropped, title truncated (owner decision, 2026-10-18)      |
+| 4 to 8                | width x n                                    | Badge dropped; title tail-truncated; body words break between grapheme clusters at width minus 2                                 |
+| under 3               | Not a supported layout                       | The rail and gap leave no body cell; no layout is specified below 3                                                              |
+| over-maximum          | Body wraps at the proposed width; no maximum | Body takes the proposed width                                                                                                    |
 
 ## Environment
 
@@ -459,7 +495,7 @@ under-minimum, over-maximum.
 - [Badge](../primitives/badge.md): header badge in the kind's tone. Status `wireframed`.
 - [Markdown](markdown.md): Markdown body content, composed as `Callout { Markdown(src) }`.
   Status `wireframed`.
-- [Text](../primitives/text.md): body wrapping and title clipping. Status `ready`.
+- [Text](../primitives/text.md): body wrapping and header truncation. Status `ready`.
 - [Leading rail](../primitives/leading-rail.md): the rail glyph, role and centring. Status
   `sketch`. Callout cannot reach `ready` until it does.
 
@@ -468,7 +504,8 @@ under-minimum, over-maximum.
 - `callout with a kind draws the kind icon and rail in the kind role` (States: Mobile,
   kinds)
 - `callout title defaults to the kind name when a kind is set` (States: Mobile, kinds)
-- `callout rail is a light vertical centred under the header icon` (Anatomy, Mobile)
+- `callout rail is a light vertical in column 0, centred under a one-cell header icon`
+  (Anatomy, Mobile; owner decision, 2026-10-18)
 - `callout heavy rail uses the heavy vertical in the same position` (States: Heavy rail)
 - `callout body takes the kind role, including the space after the rail` (States: Mobile,
   kinds)
@@ -476,12 +513,15 @@ under-minimum, over-maximum.
 - `callout without a kind draws the rail in info and the body in primary` (States: Plain)
 - `callout ASCII charset uses bracketed kind icons, (i) for info, and a pipe rail at column 0`
   (States: ASCII)
-- `callout at 14 columns drops the badge and tail-truncates the title with the truncation mark`
-  (States: Minimum)
-- `callout title never wraps the header` (Anatomy, Minimum)
+- `callout at 9 columns drops the badge, tail-truncates the title with the truncation mark and wraps the body at 7`
+  (States: Minimum; owner decision, 2026-10-18)
+- `callout header stays on one row and tail-truncates` (Anatomy wrap exception; Minimum;
+  owner decision, 2026-10-18)
 - `callout body wraps at width minus two columns` (States: Minimum, Mobile)
-- `callout below 14 columns keeps the body at width minus two down to a floor of 4`
-  (Sizing)
+- `callout body breaks words wider than width minus two between grapheme clusters below the 9-column floor`
+  (Sizing; Minimum; owner decision, 2026-10-18)
+- `callout body ends its last visible row in an ellipsis under a fixed height` (Sizing 40
+  x 3; owner decision, 2026-10-18)
 - `callout body accepts @ViewBuilder content only, so Markdown composes as a view` (API
   direction)
 
@@ -492,8 +532,8 @@ under-minimum, over-maximum.
 - 16-colour: roles follow their token rows once pending plan 032 step 5.3 defines them.
 - ASCII-only: the ASCII states above. The rail is `|` at column 0, kind icons are
   bracketed (`(i)` for info), and the title truncation mark is `~`.
-- Below 14 columns: the badge drops and the title tail-truncates; the body wraps at width
-  minus two down to a floor of 4 columns (see Sizing).
+- Below 9 columns: the badge drops, the title tail-truncates, and body words break between
+  grapheme clusters at width minus two (see Sizing).
 
 ## Open questions
 

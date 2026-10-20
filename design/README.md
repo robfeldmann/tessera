@@ -64,6 +64,40 @@ use any natural component size. A component is wireframed at its natural height:
 decision, 2026-10-10). Full-height `mobile` and `desktop` mockups are only required when
 the component's whole point is filling a screen.
 
+## Wrap and truncation
+
+Tessera shows as much of the information as it can (owner decision, 2026-10-18). Four
+rules hold catalog-wide:
+
+1. **Width:** content word-wraps at any finite width, whatever the height. A word wider
+   than the space breaks between grapheme clusters; it is never clipped. A nil width
+   proposal does not wrap.
+2. **Rows:** content gets every row it needs when the height is unbounded (a nil height
+   proposal, or ScrollView content). Under a fixed row budget it fills the rows, and only
+   the last visible row ends in `…` (tail is the default truncation mode). `lineLimit(n)`
+   is an app-chosen row budget.
+3. **Chrome** is single-line and keeps its drop and truncate rules: glyphs, key hints,
+   badges, tab chips, segments, status strips, and Button labels. A control label is
+   chrome only where its design fixes it to one row; otherwise it is content.
+4. **Apps can always override** with `lineLimit` and `truncationMode`. Both flow through
+   the environment to content; chrome pins its own values.
+
+[Text](primitives/text.md#wrapping) owns the mechanics,
+[ScrollView](widgets/scroll-view.md#rows-and-variable-height-content) the row-based
+scrolling that List, Picker menus, and Form build on, and
+[Readable width](primitives/readable-width.md) the prose width cap. Anatomy callouts say
+whether each text region is `content, wraps` or `chrome, one row`. A minimum width is the
+smallest width at which the component's primary content still shows every word whole.
+
+A component may break rule 1 or 2 on purpose. Exceptions are not rules: each one is
+written in the component's own doc, beside the behavior it changes, as a blockquote that
+starts `Wrap exception`, names the broken rule, and gives a one-line reason:
+
+```markdown
+> Wrap exception (rule 1): the title stays on one row and tail-truncates. A second row
+> would break the top border it sits in.
+```
+
 ## Wireframe conventions
 
 Every wireframe is a fenced block tagged with its exact size:
@@ -301,46 +335,48 @@ Statuses below are the documents' own. Plan 032 step 5.2 wrote the owner's omp2 
 decisions into these docs; many now wait on token rows from step 5.3 ("tokens") or on open
 questions their docs list.
 
-| Component                                                     | Kind      | Status     | Blocked on                                                   |
-| ------------------------------------------------------------- | --------- | ---------- | ------------------------------------------------------------ |
-| [Background](primitives/background.md)                        | primitive | ready      | —                                                            |
-| [Badge](primitives/badge.md)                                  | primitive | wireframed | tokens (tones); sizing; default shape (owner)                |
-| [Border](primitives/border.md)                                | primitive | specified  | tokens (focus colour)                                        |
-| [Box](primitives/box.md)                                      | primitive | specified  | tokens (focus colour)                                        |
-| [Button](widgets/button.md)                                   | widget    | specified  | pointer-move for hover, focused plus pressed (owner); tokens |
-| [Callout](widgets/callout.md)                                 | widget    | wireframed | schema tables; tokens (kinds)                                |
-| [Code view](widgets/code-view.md)                             | widget    | wireframed | highlighting hook (owner); sizing; tokens                    |
-| [ContentUnavailableView](widgets/content-unavailable-view.md) | widget    | wireframed | tokens                                                       |
-| [Divider](primitives/divider.md)                              | primitive | specified  | tokens (border role)                                         |
-| [Flex](primitives/flex.md)                                    | primitive | ready      | —                                                            |
-| [Form](widgets/form.md)                                       | widget    | specified  | multi-select and other open questions (owner); tokens        |
-| [Frame](primitives/frame.md)                                  | primitive | ready      | —                                                            |
-| [Grid](primitives/grid.md)                                    | primitive | sketch     | Flex + public API and measurement decisions; ViewThatFits    |
-| [Image](widgets/image.md)                                     | widget    | wireframed | placeholder text; tokens                                     |
-| [KeyLegend](widgets/key-legend.md)                            | widget    | specified  | tokens                                                       |
-| [Label](primitives/label.md)                                  | primitive | wireframed | charset default, under-minimum (owner); tokens               |
-| [LabeledContent](widgets/labeled-content.md)                  | widget    | wireframed | tokens                                                       |
-| [Leading rail](primitives/leading-rail.md)                    | primitive | wireframed | rail column beside wide icons; tokens                        |
-| [Linear stacks](primitives/stacks.md)                         | primitive | ready      | —                                                            |
-| [List](widgets/list.md)                                       | widget    | specified  | context menus, bulk expand chords; mouse routing             |
-| [Markdown](widgets/markdown.md)                               | widget    | wireframed | link activation API; tokens                                  |
-| [NavigationSplitView](widgets/navigation-split-view.md)       | widget    | wireframed | post-1.0 (owner decision, 2026-10-09)                        |
-| [Outline](widgets/outline.md)                                 | widget    | wireframed | no-colour cue; sizing rows; tokens                           |
-| [Overlay](primitives/overlay.md)                              | primitive | ready      | —                                                            |
-| [Padding](primitives/padding.md)                              | primitive | ready      | —                                                            |
-| [Picker](widgets/picker.md)                                   | widget    | specified  | segmented ASCII icons; tokens                                |
-| [ProgressView](widgets/progress-view.md)                      | widget    | wireframed | ideal-width sizing row; tokens                               |
-| [ScrollIndicator](primitives/scroll-indicator.md)             | primitive | specified  | thumb on a heavy track (owner); tokens                       |
-| [ScrollView](widgets/scroll-view.md)                          | widget    | specified  | tokens (thumb, track)                                        |
-| [Section](widgets/section.md)                                 | widget    | specified  | List ready gate                                              |
-| [SplitView](widgets/split-view.md)                            | widget    | specified  | Divider ready gate; tokens (junctions)                       |
-| [Stepper](widgets/stepper.md)                                 | widget    | specified  | tokens                                                       |
-| [Style modifiers](primitives/style-modifiers.md)              | primitive | ready      | —                                                            |
-| [TabView](widgets/tab-view.md)                                | widget    | wireframed | under-24 sizing; tokens                                      |
-| [Table](widgets/table.md)                                     | widget    | specified  | Shift-range selection; tokens                                |
-| [Text](primitives/text.md)                                    | primitive | ready      | —                                                            |
-| [Text selection](primitives/text-selection.md)                | primitive | sketch     | hit testing, pointer capture, and copy policy                |
-| [TextField](widgets/text-field.md)                            | widget    | wireframed | initializer and style signatures; tokens                     |
-| [Tokens](tokens.md)                                           | tokens    | ready      | plan 032 step 5.3 token proposals                            |
-| [Toggle](widgets/toggle.md)                                   | widget    | specified  | tokens                                                       |
-| [ZStack](primitives/z-stack.md)                               | primitive | ready      | —                                                            |
+| Component                                                     | Kind      | Status     | Blocked on                                                 |
+| ------------------------------------------------------------- | --------- | ---------- | ---------------------------------------------------------- |
+| [Background](primitives/background.md)                        | primitive | ready      | —                                                          |
+| [Badge](primitives/badge.md)                                  | primitive | wireframed | tokens (tones); capsule shape (Slice 3)                    |
+| [Border](primitives/border.md)                                | primitive | specified  | tokens (focus colour)                                      |
+| [Box](primitives/box.md)                                      | primitive | specified  | tokens (focus colour)                                      |
+| [Button](widgets/button.md)                                   | widget    | specified  | tokens; touch (Phase 5)                                    |
+| [Callout](widgets/callout.md)                                 | widget    | wireframed | promotion check; tokens (kinds)                            |
+| [Code view](widgets/code-view.md)                             | widget    | specified  | tokens (syntax roles)                                      |
+| [ContentUnavailableView](widgets/content-unavailable-view.md) | widget    | wireframed | icon catalog rows; tokens                                  |
+| [Divider](primitives/divider.md)                              | primitive | specified  | tokens (border role)                                       |
+| [Flex](primitives/flex.md)                                    | primitive | ready      | —                                                          |
+| [Form](widgets/form.md)                                       | widget    | specified  | ViewThatFits doc; tokens                                   |
+| [Frame](primitives/frame.md)                                  | primitive | ready      | —                                                          |
+| [Grid](primitives/grid.md)                                    | primitive | sketch     | Flex + public API and measurement decisions; ViewThatFits  |
+| [Image](widgets/image.md)                                     | widget    | wireframed | protocol tiers (Kitty slice); tokens                       |
+| [KeyLegend](widgets/key-legend.md)                            | widget    | specified  | tokens                                                     |
+| [Label](primitives/label.md)                                  | primitive | wireframed | icon catalog rows; tokens                                  |
+| [LabeledContent](widgets/labeled-content.md)                  | widget    | wireframed | promotion check; tokens                                    |
+| [Leading rail](primitives/leading-rail.md)                    | primitive | specified  | Phase 4 theses review                                      |
+| [Linear stacks](primitives/stacks.md)                         | primitive | ready      | —                                                          |
+| [List](widgets/list.md)                                       | widget    | specified  | context menus, bulk expand chords; mouse routing           |
+| [Markdown](widgets/markdown.md)                               | widget    | specified  | tokens (roles, syntax); 16-colour roles                    |
+| [MultiPicker](widgets/multi-picker.md)                        | widget    | specified  | ViewThatFits doc; tokens                                   |
+| [NavigationSplitView](widgets/navigation-split-view.md)       | widget    | wireframed | post-1.0 (owner decision, 2026-10-09)                      |
+| [Outline](widgets/outline.md)                                 | widget    | wireframed | promotion check; tokens                                    |
+| [Overlay](primitives/overlay.md)                              | primitive | ready      | —                                                          |
+| [Padding](primitives/padding.md)                              | primitive | ready      | —                                                          |
+| [Picker](widgets/picker.md)                                   | widget    | specified  | ViewThatFits doc; tokens                                   |
+| [ProgressView](widgets/progress-view.md)                      | widget    | wireframed | ViewThatFits doc; tokens                                   |
+| [Readable width](primitives/readable-width.md)                | primitive | specified  | Phase 4 theses review                                      |
+| [ScrollIndicator](primitives/scroll-indicator.md)             | primitive | specified  | tokens (track, preset rows)                                |
+| [ScrollView](widgets/scroll-view.md)                          | widget    | specified  | tokens (thumb, track)                                      |
+| [Section](widgets/section.md)                                 | widget    | specified  | List ready gate                                            |
+| [SplitView](widgets/split-view.md)                            | widget    | specified  | Divider ready gate; tokens (junctions)                     |
+| [Stepper](widgets/stepper.md)                                 | widget    | specified  | tokens                                                     |
+| [Style modifiers](primitives/style-modifiers.md)              | primitive | ready      | —                                                          |
+| [TabView](widgets/tab-view.md)                                | widget    | wireframed | promotion check; collapse icons (Label icon table); tokens |
+| [Table](widgets/table.md)                                     | widget    | specified  | Shift-range selection; tokens                              |
+| [Text](primitives/text.md)                                    | primitive | ready      | —                                                          |
+| [Text selection](primitives/text-selection.md)                | primitive | sketch     | hit testing, pointer capture, and copy policy              |
+| [TextField](widgets/text-field.md)                            | widget    | wireframed | initializer and style signatures; tokens                   |
+| [Tokens](tokens.md)                                           | tokens    | ready      | plan 032 step 5.3 token proposals                          |
+| [Toggle](widgets/toggle.md)                                   | widget    | specified  | tokens                                                     |
+| [ZStack](primitives/z-stack.md)                               | primitive | ready      | —                                                          |

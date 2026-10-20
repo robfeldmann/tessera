@@ -46,10 +46,12 @@ Callouts (6x1, 0-based):
 | Empty `ZStack`                       | `0x0`                          | Places no subviews and paints no cells.                                                      |
 
 ZStack does not reserve space between layers. Each child is independently positioned in
-the same bounds; it is not a linear stack and ignores `layoutPriority`. A child that
-exceeds its ZStack bounds remains clipped to the ZStack's final parent frame. Later layout
-modifiers may make an overlay's visual area smaller than the common allocation, as in the
-anatomy's fixed-width Text.
+the same bounds; it is not a linear stack and ignores `layoutPriority`. A non-text child
+(a fixed-size frame, for example) that exceeds its ZStack bounds remains clipped to the
+ZStack's final parent frame; a Text child never is: it lays out again at the proposal it
+is given and wraps or marks its last visible row. Later layout modifiers may make an
+overlay's visual area smaller than the common allocation, as in the anatomy's fixed-width
+Text.
 
 ## Allocation and diagnostics
 
@@ -65,16 +67,21 @@ invent a separate z-index value. This durable schema is fixed by
 ## Sizing
 
 For `ZStack { Text("A"); Text("BBBB") }`, the ideal result is `4x1`: the maximum of child
-dimensions, not their sum. A narrow parent does not cause a ZStack to report a negative or
-compressed child size; it assigns its final frame and clips overflow by the
-[Slice 2 placement contract](../../docs/Spec.md#slice-2-the-layout-protocol-and-stack-containers).
+dimensions, not their sum. ZStack proposes its own proposal to every child. A narrow
+proposal does not make ZStack report a negative size: Text children lay out again at the
+narrow width (`Text("BBBB")` at 2x1 is one budget row, `B…`, per
+[Text](text.md#row-budget)), while a non-text child that keeps its fixed extent is clipped
+by the
+[Slice 2 placement contract](../../docs/Spec.md#slice-2-the-layout-protocol-and-stack-containers)
+when its parent assigns a smaller frame.
 
-| Proposal  | Result | Rule                                                                            |
-| --------- | ------ | ------------------------------------------------------------------------------- |
-| nil x nil | 4x1    | Ideal width is the widest child and ideal height is the tallest child.          |
-| 4x1       | 4x1    | Tight proposal equals the combined maximum extent.                              |
-| 2x1       | 4x1    | Child ideal extent is retained; a later assigned 2-cell parent frame clips it.  |
-| 80x24     | 4x1    | Extra proposal does not stretch non-flexible child content or the ZStack ideal. |
+| Proposal                                                  | Result | Rule                                                                                       |
+| --------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------ |
+| nil x nil                                                 | 4x1    | Ideal width is the widest child and ideal height is the tallest child.                     |
+| 4x1                                                       | 4x1    | Tight proposal equals the combined maximum extent.                                         |
+| 2x1                                                       | 2x1    | Text lays out again at two cells: `Text("BBBB")` marks its one budget row `B…`.            |
+| `ZStack { Text("A"); Text("BBBB").frame(width: 4) }`, 2x1 | 4x1    | The fixed frame retains four cells; a parent assigning two cells clips that frame's cells. |
+| 80x24                                                     | 4x1    | Extra proposal does not stretch non-flexible child content or the ZStack ideal.            |
 
 ## Environment
 
@@ -86,7 +93,10 @@ are derived every layout and render pass.
 
 - `zstack reports the maximum child width and height` (sizing: nil x nil).
 - `zstack does not sum child extents` (sizing: nil x nil).
-- `zstack clips an oversized child to its assigned parent frame` (sizing: 2x1).
+- `zstack proposes a narrow width to Text, which wraps or marks its last visible row`
+  (sizing: 2x1).
+- `zstack clips a fixed-size non-text child to its assigned parent frame` (sizing:
+  `ZStack { Text("A"); Text("BBBB").frame(width: 4) }`, 2x1).
 - `later zstack children paint over earlier overlapping cells` (anatomy: Overlay region;
   allocation and diagnostics: `6x1`: `Text("status")`, `Text("OK").frame(width: 2)`).
 - `zstack aligns undersized children within common bounds` (variants:

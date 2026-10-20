@@ -54,14 +54,16 @@ assessment.
 ## API direction
 
 ```swift
-Image(path: "assets/login/anthropic.png")
+Image(path: "assets/login/anthropic.png", label: "Anthropic logo")
     .frame(width: 32, height: 16)
     .maxRows(8)
     .trim()
 ```
 
-`path` names the source. `frame` sets the requested box in cells. `maxRows` caps the drawn
-height and narrows the drawn width to keep the aspect ratio. `trim()` crops fully
+`path` names the source. `label` is optional text the app supplies to describe the image
+(owner decision, 2026-10-18); it mirrors SwiftUI's `Image(_:label:)`, and the `Boxed`
+phase draws it (see Boxed). `frame` sets the requested box in cells. `maxRows` caps the
+drawn height and narrows the drawn width to keep the aspect ratio. `trim()` crops fully
 transparent margins before sampling. The modifier names are a proposal; the final names
 are decided when the component is built.
 
@@ -158,7 +160,7 @@ While the load phase is `Unloaded` or `Loading`, Image draws a box of `░` cell
 `muted`, filling the requested box, with `Loading…` centred on the middle row. The
 wireframe shows the default 32 by 16 box. This is a Tessera drawing, not an omp2 capture,
 so no capture is needed (owner decision, 2026-10-10). The placeholder draws whenever the
-phase is not `Ready`; the text for the `Boxed` phase is an open question below.
+phase is not `Ready`; the `Boxed` phase draws the label instead (see Boxed).
 
 ```wireframe 32x16
 ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
@@ -182,7 +184,7 @@ phase is not `Ready`; the text for the `Boxed` phase is an open question below.
 ```text
 Callouts (32x16, 0-based):
 1. r0-r15 c0-c31   Placeholder box, `░` fill -- Image, `muted`
-2. r8 c12-c19      `Loading…` centred -- Image, `muted`
+2. r8 c12-c19      `Loading…` centred -- Image, `muted`; chrome, one row
 ```
 
 ```text
@@ -206,6 +208,55 @@ AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 ── legend ──
 A  fg=muted
 ```
+
+### Boxed
+
+The `Boxed` phase settles with no pixels: a failed read or decode, or a probe-only format.
+It keeps the same muted `░` box at the same size and replaces `Loading…` with the app's
+`label`, or the file name when the app gave none (owner decision, 2026-10-18). The text is
+`muted` and is content: it wraps within the box, at the box width less two cells so a `░`
+cell always shows at each edge, and is centred as a block on the middle rows. Under a
+fixed box height the last visible row ends in `…` (see
+[Text](../primitives/text.md#row-budget)). The capture shows the label
+`Anthropic logo: an orange spark mark on a transparent background` after the optional icon
+in its Unicode text form.
+
+An optional `image` icon may precede the text (owner decision, 2026-10-18). It is a row
+for the [Label icon catalog](../primitives/label.md#icon-catalog), pending plan 032 step
+5.3:
+
+| Name    | Unicode | ASCII   | Nerd Font | Default role                              |
+| ------- | ------- | ------- | --------- | ----------------------------------------- |
+| `image` | `[img]` | `[img]` | U+F03E    | `muted` (token pending plan 032 step 5.3) |
+
+```wireframe 32x16
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░[img] Anthropic logo: an░░░░
+░░░░░orange spark mark on a░░░░░
+░░░░░transparent background░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+```
+
+```text
+Callouts (32x16, 0-based):
+1. r0-r15 c0-c31   Placeholder box, `░` fill -- Image, `muted`; same box as Loading
+2. r6 c4-c8        Icon `[img]` -- `image` icon, Unicode text form, `muted`; chrome, one row
+3. r6-r8 c4-c27    Label -- Text, `muted`; content, wraps within c1-c30, each row centred
+```
+
+Every cell of the box and the text is `muted`, so the styled grid is the Loading grid
+above.
 
 ### Sized
 
@@ -321,6 +372,7 @@ Schema: [README](../README.md#state-model-table).
 | ----------- | -------------- | ------- | -------------------------------------------------------------------------------- |
 | Source path | App            | String  | Changing it starts a new load; the old bitmap is dropped                         |
 | Load phase  | Image (loader) | Enum    | `Unloaded` (default), `Loading`, `Ready`, `Boxed`; placeholder while not `Ready` |
+| Label       | App            | String? | Optional; drawn by `Boxed`; the file name when nil                               |
 | Bitmap      | Image (loader) | Derived | Decoded from the path; decoded again when the path changes                       |
 
 The load phase has the four variants of omp2's `Load` enum (owner decision, 2026-10-10):
@@ -332,8 +384,8 @@ decision, 2026-10-10).
 ## Key table
 
 Schema: [README](../README.md#key-table). Image is a leaf in 1.0, like
-[ScrollIndicator](../widgets/scroll-indicator.md): it takes no focus and consumes no keys
-(owner decision, 2026-10-10). An app that needs a focus target wraps it in a
+[ScrollIndicator](../primitives/scroll-indicator.md): it takes no focus and consumes no
+keys (owner decision, 2026-10-10). An app that needs a focus target wraps it in a
 [Button](../widgets/button.md).
 
 | Key    | Precondition | Effect | Consumed |
@@ -360,14 +412,15 @@ Layout reserves the requested frame, and the drawn image sits inside it. omp2 me
 Cells-mode Image at the requested width, even when `max-rows` draws it narrower; Tessera
 follows the reservation rule instead (owner decision, 2026-10-10).
 
-| Proposal      | Result                                                    | Rule                                                                                               |
-| ------------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| nil x nil     | pixel width x (pixel height / 2) cells, capped by maxRows | 64 x 64 source: 64 x 32; with `maxRows` 8: 16 x 8, the width narrows to keep the aspect ratio      |
-| tight         | the requested frame                                       | Layout reserves the requested frame; the drawn image fits inside it, aspect ratio kept             |
-| under-minimum | the requested frame                                       | Layout reserves the requested frame; the drawn width floors at one cell, as in Minimum             |
-| over-maximum  | the requested frame                                       | Layout reserves the requested frame; the image draws at its fitted size and spare cells stay blank |
-| 80 x n        | Fits                                                      | Box keeps aspect ratio; sized row fits as captured                                                 |
-| 40 x n        | Fits                                                      | Box keeps aspect ratio; sized row compresses, as captured at 40                                    |
+| Proposal           | Result                                                    | Rule                                                                                                                                                               |
+| ------------------ | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| nil x nil          | pixel width x (pixel height / 2) cells, capped by maxRows | 64 x 64 source: 64 x 32; with `maxRows` 8: 16 x 8, the width narrows to keep the aspect ratio                                                                      |
+| tight              | the requested frame                                       | Layout reserves the requested frame; the drawn image fits inside it, aspect ratio kept                                                                             |
+| under-minimum      | the requested frame                                       | Layout reserves the requested frame; the drawn width floors at one cell, as in Minimum                                                                             |
+| over-maximum       | the requested frame                                       | Layout reserves the requested frame; the image draws at its fitted size and spare cells stay blank                                                                 |
+| 80 x n             | Fits                                                      | Box keeps aspect ratio; sized row fits as captured                                                                                                                 |
+| 40 x n             | Fits                                                      | Box keeps aspect ratio; sized row compresses, as captured at 40                                                                                                    |
+| `Boxed`, any frame | the requested frame                                       | The label wraps within the frame at its width less two cells; rows past the frame height are cut and the last visible row ends in `…` (owner decision, 2026-10-18) |
 
 ## Environment
 
@@ -377,20 +430,22 @@ Tokens consumed, each defined in [tokens.md](../tokens.md).
 
 Roles without a `tokens.md` row, token pending plan 032 step 5.3:
 
-- `muted`: placeholder fill and `Loading…` text while the load phase is not `Ready`.
+- `muted`: placeholder fill, `Loading…` text, and the `Boxed` label and icon while the
+  load phase is not `Ready`.
 
 Pixel colours are the image's own data, not Tessera roles, and take no token. The legend
 for the default capture lists each pixel's foreground and background hex value, so it is
 not reproduced as a styled grid.
 
 The placeholder is a `░` fill drawn by Image, not a border, so it takes no entry in the
-[border](../primitives/border.md) glyph table. The ASCII-only degradation's placeholder
-glyph is an open question.
+[border](../primitives/border.md) glyph table. Under the ASCII charset the fill is `.`
+(owner decision, 2026-10-18).
 
 ## Primitive dependencies
 
 - [Text](../primitives/text.md): half-block and ASCII cells, and the `Loading…`
-  placeholder text.
+  placeholder text and the wrapping `Boxed` label.
+- [Label](../primitives/label.md#icon-catalog): the optional `image` icon.
 - Kitty graphics substrate: [Slice 7](../../docs/Spec.md#slice-7-kitty-graphics-protocol).
   The protocol path sends pixels instead of half-block cells when the terminal supports
   it.
@@ -409,6 +464,14 @@ above.
 - `image draws a ░ placeholder box with muted Loading… text centred until the load phase is Ready`
   (Placeholder)
 - `image draws ink cells as # in the ASCII degradation set` (ASCII fallback)
+- `image boxed phase draws the muted ░ box at the same size as the loading placeholder`
+  (Boxed; owner decision, 2026-10-18)
+- `image boxed phase draws the app's label, wrapped within the box, or the file name when there is no label`
+  (Boxed; State model; owner decision, 2026-10-18)
+- `image boxed phase ends the last visible label row in an ellipsis when the box height cuts it`
+  (Sizing; owner decision, 2026-10-18)
+- `image draws the optional image icon before the boxed label, as [img] in Unicode and ASCII`
+  (Boxed callout 2; owner decision, 2026-10-18)
 - `image draws its minimum state at 8 by 4 cells, with a one-cell floor` (Minimum)
 - `image takes no focus, keys or pointer input in 1.0; apps wrap it in a Button` (Key
   table; Mouse table)
@@ -416,27 +479,37 @@ above.
   (Sizing)
 - `image nil x nil size is pixel width by half pixel height, capped by maxRows` (Sizing)
 - `image draws 16-colour cells as the nearest indexed colour per pixel` (Degradation)
-- `image draws the ASCII density placeholder under NO_COLOR` (Degradation)
+- `image draws density art from the ten-step ramp under NO_COLOR` (Degradation)
+- `image draws the placeholder fill as . under the ASCII charset` (Degradation)
 
 ## Degradation
 
 Follows the [degradation ladder](../tokens.md#degradation-ladder). Without an image
-protocol the logo is drawn as half-block cells. In the ASCII-only set ink cells draw `#`;
-the ASCII glyph for the placeholder fill is an open question.
+protocol the logo is drawn as half-block cells. In the ASCII-only set ink cells draw `#`,
+and the placeholder fill draws `.` in place of `░`, the lightest glyph, so `Loading…` or
+the label stands out (owner decision, 2026-10-18).
 
 - 16-colour: each pixel takes the nearest indexed colour, and each half-block cell keeps
   its top pixel as foreground and bottom pixel as background (owner decision, 2026-10-10).
-- `NO_COLOR`: Image draws the ASCII density placeholder in its box instead of the pixels
-  (owner decision, 2026-10-10). The density glyphs are not fixed here.
+- `NO_COLOR`: Image draws density art in its box instead of the pixels (owner decision,
+  2026-10-10). Each cell takes the glyph from a ten-step ramp, a space followed by
+  `.:-=+*#%@`, whose ink matches the cell's brightness: blank for background or
+  transparent pixels, `@` for full ink, assuming the catalog's dark-background convention
+  (owner decision, 2026-10-18). A bright disc at 14x6 reads as:
+
+  ```text
+     .:-==-:.
+   .=*#%%%%#*=.
+   -#%@@@@@@%#-
+   -#%@@@@@@%#-
+   .=*#%%%%#*=.
+     .:-==-:.
+  ```
 
 Below 8 by 4 the drawn width floors at one cell, per Sizing.
 
 ## Open questions
 
-- Settled no-pixel phase (`Boxed`): omp2 uses it for a failed read or decode and for a
-  probe-only format. The placeholder text for `Boxed` (the `Loading…` box, omp2's
-  `[img: <name>]` label, or a failure text) is not decided. Blocks `ready`. Unblocked by a
-  decision on the failure text.
 - `muted` placeholder role: no `tokens.md` row. Blocks `ready`. Unblocked by plan 032 step
   5.3.
 - Protocol tiers: omp2 has `Cells`, `Sixel`, `KittyDirect`, `KittyPlaceholders` and

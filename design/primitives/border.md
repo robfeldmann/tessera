@@ -6,9 +6,9 @@ status: specified
 # Border
 
 `border` is a stateless unary layout-and-render modifier. It reserves one cell on every
-edge, draws a `BorderStyle` glyph ring in the retained inset, and clips its child to the
-interior frame. It composes with Frame and Padding but is not a Box: Border has no title
-and adds no content padding beyond the one-cell ring.
+edge, draws a `BorderStyle` glyph ring in the retained inset, and proposes the interior
+frame to its child. It composes with Frame and Padding but is not a Box: Border has no
+title and adds no content padding beyond the one-cell ring.
 
 ## Prior art
 
@@ -24,8 +24,8 @@ and adds no content padding beyond the one-cell ring.
 
 ## Anatomy
 
-The `single` style reserves the ring and clips the child to the interior. Here the child
-is an eight-by-two label inside a `12x4` frame.
+The `single` style reserves the ring and proposes the interior to the child. Here the
+child is an eight-by-two label inside a `12x4` frame.
 
 ```wireframe 12x4
 ┌──────────┐
@@ -40,7 +40,7 @@ Callouts (12x4, 0-based):
 2. r0-r3 c0 Leading border -- `light` vertical glyph down the reserved leading column
 3. r0-r3 c11 Trailing border -- `light` vertical glyph down the reserved trailing column
 4. r3       Bottom border -- corners plus `light` horizontal glyph across c1-c10
-5. r1-r2 c1-c10 Interior -- clipped child frame; content is clipped to these cells
+5. r1-r2 c1-c10 Interior -- child frame; Text content wraps at these columns, non-text geometry clips to these cells
 ```
 
 The remaining named styles change only the glyph family; the reserved ring and interior
@@ -56,7 +56,7 @@ are identical.
 ```text
 Callouts (12x4, 0-based):
 1. r0 c0, r0 c11, r3 c0, r3 c11 Corners -- `rounded` corner glyphs
-2. r1-r2 c1-c10 Interior -- unchanged clipped child frame
+2. r1-r2 c1-c10 Interior -- unchanged child frame
 ```
 
 ```wireframe 12x4
@@ -153,16 +153,19 @@ system may pass an explicit `Style`.
 Schema: [README](../README.md#sizing-table). The child measured here has an eight-by-two
 ideal.
 
-| Proposal  | Result | Rule                                                             |
-| --------- | ------ | ---------------------------------------------------------------- |
-| nil x nil | 12x4   | reports the child ideal (10x2) plus one border cell on each edge |
-| 12x4      | 12x4   | tight fit: interior proposes 10x2; the ring fills reserved edges |
-| 1x1       | 1x1    | under-minimum: interior clamps to 0x0; only the corner paints    |
-| 40x20     | 12x4   | over-proposed: child measures its ideal; parent slack is unused  |
+| Proposal  | Result                                | Rule                                                                                |
+| --------- | ------------------------------------- | ----------------------------------------------------------------------------------- |
+| nil x nil | 12x4                                  | reports the child ideal (10x2) plus one border cell on each edge                    |
+| 12x4      | 12x4                                  | tight fit: interior proposes 10x2; the ring fills reserved edges                    |
+| 1x1       | 1x1                                   | under-minimum: interior clamps to 0x0; only the corner paints                       |
+| 40x20     | 12x4                                  | over-proposed: child measures its ideal; parent slack is unused                     |
+| 6x nil    | 6 wide; child's wrapped height plus 2 | interior proposes 4 columns and a nil height; Text content wraps and gets every row |
 
 Border reduces the child proposal by two cells on each axis, flooring the interior at
 zero. It reports the child's measured size plus the ring; it never stretches to fill slack
-a `Frame` should own.
+a `Frame` should own. Border adds no text of its own and truncates nothing: Text inside
+wraps at the interior width or marks its own cut under a row budget (see
+[Text](text.md#row-budget)); the ring clips only non-text geometry.
 
 ## Environment
 
@@ -278,15 +281,15 @@ surface is not specified here.
 
 ## Requirements
 
-- `single border renders the light glyph set around a clipped interior` (anatomy: single;
+- `single border renders the light glyph set around the interior` (anatomy: single;
   environment: border sets)
 - `rounded heavy and double borders render their token corner glyphs` (anatomy: rounded,
   heavy, double)
 - `custom border glyphs render the supplied set at the same geometry` (anatomy: custom;
   public API: `.custom`)
 - `border reports child size plus one cell on every edge` (sizing: nil x nil, 12x4)
-- `child content is clipped to the interior frame` (anatomy: single interior; sizing:
-  40x20)
+- `child text wraps at the interior width, and Border clips only non-text geometry`
+  (anatomy: single interior; sizing: 6x nil, 40x20)
 - `one by one frame paints only the top left corner` (anatomy: declared minimum; sizing:
   1x1)
 - `zero area frame paints nothing` (anatomy: declared minimum; sizing: 1x1 rule)
@@ -320,7 +323,7 @@ ASCII is bold, since ASCII has no heavier line (focus border rule 6).
 Callouts (12x4, 0-based):
 1. r0, r3   Horizontal border -- `ascii` `+` corners and `-` glyph
 2. c0, c11  Vertical border -- `ascii` `|` glyph
-3. r1-r2 c1-c10 Interior -- unchanged clipped child frame
+3. r1-r2 c1-c10 Interior -- unchanged child frame; content, wraps at the interior width
 ```
 
 ## Decisions

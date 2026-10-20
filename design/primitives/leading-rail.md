@@ -1,6 +1,6 @@
 ---
 kind: primitive
-status: wireframed
+status: specified
 ---
 
 # Leading rail
@@ -17,8 +17,9 @@ nesting level.
 - omp2 Callout paints its kind-coloured rail beside the body at
   [#L153-L166](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/callout.rs#L153-L166).
   Copy the one-column rail in the kind's colour and the gap before the body. Reject the
-  left-edge `▎` rail: owner decision, omp2 review, 2026-10, centres the rail under the
-  header icon instead.
+  left-edge `▎` rail (owner decision, omp2 review, 2026-10). The rail is a light `│` in
+  column 0; the earlier centre-under-the-header-icon rule is dropped, and the rail never
+  moves with the icon (owner decision, 2026-10-18).
 - SwiftUI has no leading-rule modifier. The nearest form is an overlay on a leading
   `Rectangle`; the primitive replaces that with a glyph-drawn rail so it works in a
   terminal cell grid.
@@ -55,9 +56,11 @@ A  fg=role (the rail; the caller's role)
 .  default
 ```
 
-The rail column is the centre cell of the header icon it sits under. For a one-cell icon
-that is column 0. Under the ASCII charset the rail is always column 0, because bracketed
-icons cannot be centred over it (owner decision, 2026-10-10).
+The rail is always column 0 (owner decision, 2026-10-18). Under a one-cell header icon it
+shares the icon's column. Under a two-cell icon (a wide emoji or Nerd Font glyph) it sits
+under the icon's left edge. Under the ASCII charset it is column 0 too, because bracketed
+icons cannot be centred over it. There is no centre-cell rule: the rail never moves with
+the icon's width.
 
 ## Variants
 
@@ -73,6 +76,21 @@ The rail glyph comes from the border glyph table in
 `role:` takes the caller's semantic role. Callout passes its kind role (token pending plan
 032 step 5.3). Markdown quotes pass `muted`.
 
+Heavy and ASCII fixtures, each beside the same three lines of content (the rail stays in
+column 0 and the content in column 2):
+
+```wireframe 24x3
+┃ The rail sits here
+┃ in column 0, then a
+┃ gap; text starts at 2.
+```
+
+```wireframe 24x3
+| The rail sits here
+| in column 0, then a
+| gap; text starts at 2.
+```
+
 ## Sizing
 
 Schema: [README](../README.md#sizing-table). Mandatory rows: nil x nil, tight,
@@ -81,7 +99,7 @@ under-minimum, over-maximum.
 | Proposal     | Result                                                    | Rule                                               |
 | ------------ | --------------------------------------------------------- | -------------------------------------------------- |
 | nil x nil    | Width is content width plus 2; height is content height   | The rail takes column 0 and the gap takes column 1 |
-| 2 x any      | Rail and gap only; content gets no columns                | Content clips to zero width                        |
+| 2 x any      | Rail and gap only; content gets no columns                | Content gets zero width and draws nothing          |
 | under 2      | Not a supported floor: the parent clips the rendered rows | No layout is specified below 2 columns             |
 | over-maximum | Content takes the proposed width minus 2                  | The rail does not grow                             |
 
@@ -95,10 +113,10 @@ under-minimum, over-maximum.
 
 - `leading rail light style draws a vertical in column 0 and leaves column 1 blank`
   (Anatomy)
-- `leading rail content starts at column 2` (Anatomy; Callout States: Mobile)
-- `leading rail heavy style draws the heavy vertical in the same column` (Callout States:
-  Heavy rail)
-- `leading rail ASCII charset draws a pipe at column 0` (Callout States: ASCII)
+- `leading rail content starts at column 2` (Anatomy; sizing: nil x nil, over-maximum)
+- `leading rail heavy style draws the heavy vertical in the same column` (Variants: heavy
+  fixture)
+- `leading rail ASCII charset draws a pipe at column 0` (Variants: ASCII fixture)
 - `leading rail draws in the caller's role` (Variants)
 
 ## Degradation
@@ -114,8 +132,7 @@ None. Consumers: [Callout](../widgets/callout.md), [Markdown](../widgets/markdow
 
 ## Open questions
 
-- Rail column when the header icon is wider than one cell (Nerd Font glyphs): column 0 or
-  the centre cell. Unblocks: Label icon width rules and this primitive's `ready` state.
+- None.
 
 ## Inspiration
 
