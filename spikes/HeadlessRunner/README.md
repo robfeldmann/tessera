@@ -125,8 +125,8 @@ Measure: render at 40 columns with a 500-row proposal and read the root node's
 `measuredSize.rows` from `GraphDiagnostics`.
 
 ```text
-$ headless natural stack --width 40      stack     root_rows=6   fills_proposal=false
-$ headless natural workspace --width 40  workspace root_rows=500 fills_proposal=true
+headless natural stack --width 40      stack     root_rows=6   fills_proposal=false
+headless natural workspace --width 40  workspace root_rows=500 fills_proposal=true
 ```
 
 - `stack` (Text, Divider, HStack with Spacer) gives 6 rows, the same at 80 columns because

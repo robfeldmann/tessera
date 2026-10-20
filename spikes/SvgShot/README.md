@@ -68,7 +68,7 @@ character off its cell. Only glyph shapes come from the font.
 
 ## Proves / Does not prove
 
-**Proves**
+### Proves
 
 - Same screen → identical bytes across processes: two `swift run` renders hash to the same
   SHA-256 (`4ceaa0c6…2683`).
@@ -83,7 +83,7 @@ character off its cell. Only glyph shapes come from the font.
 - The SVG is well-formed (`xmllint --noout`) and rasterises in rsvg-convert 2.63.3 (cairo
   1.18.6, pango 1.58.2) with Menlo from `/System/Library/Fonts`.
 
-**Does not prove**
+### Does not prove
 
 - Cross-platform byte stability. The macOS vs Lima Linux check was not run, per the
   assignment. Output uses only integer formatting and no platform APIs, so it is expected

@@ -154,7 +154,7 @@ headlessly (`text returns the screen the terminal received`) against
 
 ## Proves / Does not prove
 
-**Proves**
+### Proves
 
 - A loop written against public API owns the graph, merges real and injected input, and
   serves read-only queries between steps. An injected key and a typed key reach the same
@@ -166,7 +166,7 @@ headlessly (`text returns the screen the terminal received`) against
   a hostile client disconnecting mid-reply, and a 40-connection burst all behave.
 - The server needs no lock and no blocked thread (actor + dispatch read sources).
 
-**Does not prove**
+### Does not prove
 
 - Anything about `grid`, `shot`, `stats`, `type`, `mouse`, `resize`, or `tree [SEL]`
   locators; style fidelity (`.terminalStyledGrid`) through the mirror; kitty graphics.
