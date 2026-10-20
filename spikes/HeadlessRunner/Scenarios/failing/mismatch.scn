@@ -1,0 +1,10 @@
+# Deliberately failing: wrong text, wrong frame, an unmatched locator. The run continues past
+# each failure; the node frame check in the middle passes.
+app stack
+size 40x10
+
+expect text 0 "Stack demos"
+expect text "no such text"
+expect node id=root frame 0,0,40x6
+expect node type=Text nth=0 frame 0,0,10x1
+expect node type=Missing frame 0,0,1x1
