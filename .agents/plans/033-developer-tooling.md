@@ -417,7 +417,14 @@ criteria, and "proves / does not prove". Nothing new goes into `spikes/` after A
    an opt-in loopback endpoint that also injects input (the amendment must cover input,
    not only serialisation); (c) a TCP port like Textual; (d) no transport: trace and
    `lastDrawn` dumps to a directory, input through the pty or tmux, works on Windows.
-   Recommendation: (d) now (it falls out of Phase B), (b) later as optional Phase F.
+   Precedent: Tern ships (b) and (c) together. `tern --control EP` and `tern serve` answer
+   `ctl` on a Unix socket or a 127.0.0.1 TCP port with input (`key`, `click`), `state`,
+   `tree`, `perf`, `trace`, and `quit`; no access control is documented (037 §1, §8;
+   `tern help dev`). The Spec's rule targets the library's diagnostics snapshot (no
+   controlled values or raw input leaving the process); a same-user socket under a `0700`
+   directory adds no authority the user's shell lacks. Recommendation: (b), worded so the
+   prohibition stays on `TesseraCore` and the endpoint stays opt-in, local, and dev-only;
+   (d) arrives with Phase B regardless, and Phase F stays off plan 032's critical path.
 3. **Where devtools live.** Root-package test-support target for the harness (Spike 5
    Finding 4); demos, registry, and `tessera-dev` in `Examples/`; `DevTools/` stays for
    environment wrappers.
@@ -426,12 +433,10 @@ criteria, and "proves / does not prove". Nothing new goes into `spikes/` after A
    fields set by library controls through an internal hook. Recommendation: (a) in Phase
    B, (b) in G.1 before plan 032 step 13.1, deciding then whether an app-facing label
    modifier is 1.0 (036 lesson 5).
-5. **omp2 scaffolding and the kept review pages.** Per the 2026-10-19 amendment to plan
-   032 step 7.4, the review site's Tessera pages and `/tokens` page stay as the gallery
-   seed; only the omp2 captures, capture program, and prior-art inventories go.
-   Recommendation: tag `archive/omp2-gallery` before deleting the uncommitted capture
-   program; C.2 makes the kept pages the regression review view (wireframe, current,
-   previous); decide the pages' location with the owner before 7.4 runs.
+5. **omp2 scaffolding and the kept review pages.** Settled by the owner (2026-10-20): the
+   review site's Tessera pages and `/tokens` page are preserved and committed in some form
+   as the gallery seed (plan 032 step 7.4 amendment). C.2 makes the kept pages the
+   regression review view (wireframe, current, previous) wherever they land.
 6. **Scenario input: events or bytes.** Typed `InputEvent` verbs with a `bytes` escape
    hatch (one grammar, parser coverage on demand).
 7. **Schedulable clock.** The Spike 5 clock seam feeds pass durations only; `wait`,
@@ -441,6 +446,12 @@ criteria, and "proves / does not prove". Nothing new goes into `spikes/` after A
 8. **Windows in CI.** CI already builds libghostty on Windows (039 §11). (a) required job
    from Phase B; (b) non-blocking until first green, then required; (c) macOS and Linux
    only. Recommendation: (b); the live socket is excluded on Windows regardless.
+9. **Shape of the coverage walk.** The idea is Ternbook's (`ternbook coverage`, built on
+   Tern's `ctl key` and `ctl a11y`), not a Tern feature, and the owner has not settled its
+   shape there either. D.2 as written is the narrow form: per focusable, the shortest
+   route at levels `shortcut`, `tab`, `unreachable`, plus why a walk stopped. Decide its
+   output and how much of Ternbook's route data to keep before D.2 starts; until then the
+   D.2 invariants (`tab-cycle-terminates`, `legend-keys-handled`) carry the checking.
 
 ## Review response
 
