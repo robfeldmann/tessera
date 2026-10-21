@@ -418,51 +418,55 @@ gate.
 ## Index
 
 Statuses below are the documents' own. Plan 032 step 5.2 wrote the owner's omp2 review
-decisions into these docs, and the token decisions in [tokens.md](tokens.md) are now
-applied; what remains are the open questions and gates each doc lists.
+decisions into these docs, and the token decisions in [tokens.md](tokens.md) are applied.
+Plan 032 step 7.1 then applied the [translation key](translation-key.md) to every doc.
+Each doc's remaining owner questions are listed in its Open questions; the Blocked on
+column names the gate that still holds it.
 
-| Component                                                     | Kind      | Status     | Blocked on                                                                   |
-| ------------------------------------------------------------- | --------- | ---------- | ---------------------------------------------------------------------------- |
-| [Background](primitives/background.md)                        | primitive | ready      | —                                                                            |
-| [Badge](primitives/badge.md)                                  | primitive | wireframed | capsule shape (Slice 3)                                                      |
-| [Border](primitives/border.md)                                | primitive | ready      | —                                                                            |
-| [Box](primitives/box.md)                                      | primitive | ready      | —                                                                            |
-| [Button](widgets/button.md)                                   | widget    | specified  | touch (Phase 5)                                                              |
-| [Callout](widgets/callout.md)                                 | widget    | wireframed | promotion check                                                              |
-| [Code view](widgets/code-view.md)                             | widget    | specified  | Phase 4 theses review                                                        |
-| [ContentUnavailableView](widgets/content-unavailable-view.md) | widget    | wireframed | promotion check (loading requirement trace); blank Search icon under Unicode |
-| [Divider](primitives/divider.md)                              | primitive | ready      | —                                                                            |
-| [Flex](primitives/flex.md)                                    | primitive | ready      | —                                                                            |
-| [Form](widgets/form.md)                                       | widget    | specified  | ViewThatFits doc                                                             |
-| [Frame](primitives/frame.md)                                  | primitive | ready      | —                                                                            |
-| [Grid](primitives/grid.md)                                    | primitive | sketch     | Flex + public API and measurement decisions; ViewThatFits                    |
-| [Image](widgets/image.md)                                     | widget    | wireframed | protocol tiers (Kitty slice)                                                 |
-| [KeyLegend](widgets/key-legend.md)                            | widget    | specified  | Phase 4 theses review                                                        |
-| [Label](primitives/label.md)                                  | primitive | specified  | Phase 4 theses review                                                        |
-| [LabeledContent](widgets/labeled-content.md)                  | widget    | wireframed | promotion check                                                              |
-| [Leading rail](primitives/leading-rail.md)                    | primitive | specified  | Phase 4 theses review                                                        |
-| [Linear stacks](primitives/stacks.md)                         | primitive | ready      | —                                                                            |
-| [List](widgets/list.md)                                       | widget    | specified  | context menus, bulk expand chords; mouse routing                             |
-| [Markdown](widgets/markdown.md)                               | widget    | specified  | Phase 4 theses review                                                        |
-| [MultiPicker](widgets/multi-picker.md)                        | widget    | specified  | ViewThatFits doc                                                             |
-| [NavigationSplitView](widgets/navigation-split-view.md)       | widget    | wireframed | post-1.0 (owner decision, 2026-10-09)                                        |
-| [Outline](widgets/outline.md)                                 | widget    | wireframed | promotion check                                                              |
-| [Overlay](primitives/overlay.md)                              | primitive | ready      | —                                                                            |
-| [Padding](primitives/padding.md)                              | primitive | ready      | —                                                                            |
-| [Picker](widgets/picker.md)                                   | widget    | specified  | ViewThatFits doc                                                             |
-| [ProgressView](widgets/progress-view.md)                      | widget    | wireframed | ViewThatFits doc                                                             |
-| [Readable width](primitives/readable-width.md)                | primitive | specified  | Phase 4 theses review                                                        |
-| [ScrollIndicator](primitives/scroll-indicator.md)             | primitive | specified  | environment key spelling (`.scrollIndicatorStyle(_:)`)                       |
-| [ScrollView](widgets/scroll-view.md)                          | widget    | specified  | ScrollIndicator ready gate                                                   |
-| [Section](widgets/section.md)                                 | widget    | specified  | List ready gate                                                              |
-| [SplitView](widgets/split-view.md)                            | widget    | ready      | —                                                                            |
-| [Stepper](widgets/stepper.md)                                 | widget    | specified  | Phase 4 theses review                                                        |
-| [Style modifiers](primitives/style-modifiers.md)              | primitive | ready      | —                                                                            |
-| [TabView](widgets/tab-view.md)                                | widget    | wireframed | promotion check                                                              |
-| [Table](widgets/table.md)                                     | widget    | specified  | Shift-range selection                                                        |
-| [Text](primitives/text.md)                                    | primitive | ready      | —                                                                            |
-| [Text selection](primitives/text-selection.md)                | primitive | sketch     | hit testing, pointer capture, and copy policy                                |
-| [TextField](widgets/text-field.md)                            | widget    | wireframed | initializer and style signatures                                             |
-| [Tokens](tokens.md)                                           | tokens    | ready      | —                                                                            |
-| [Toggle](widgets/toggle.md)                                   | widget    | specified  | Phase 4 theses review                                                        |
-| [ZStack](primitives/z-stack.md)                               | primitive | ready      | —                                                                            |
+| Component                                                     | Kind      | Status     | Blocked on                                                      |
+| ------------------------------------------------------------- | --------- | ---------- | --------------------------------------------------------------- |
+| [Background](primitives/background.md)                        | primitive | ready      | —                                                               |
+| [Badge](primitives/badge.md)                                  | primitive | ready      | —                                                               |
+| [Border](primitives/border.md)                                | primitive | ready      | —                                                               |
+| [Box](primitives/box.md)                                      | primitive | ready      | —                                                               |
+| [Button](widgets/button.md)                                   | widget    | ready      | —                                                               |
+| [Callout](widgets/callout.md)                                 | widget    | ready      | —                                                               |
+| [Code view](widgets/code-view.md)                             | widget    | ready      | —                                                               |
+| [ContentUnavailableView](widgets/content-unavailable-view.md) | widget    | ready      | —                                                               |
+| [Divider](primitives/divider.md)                              | primitive | ready      | —                                                               |
+| [Flex](primitives/flex.md)                                    | primitive | ready      | —                                                               |
+| [Flow](primitives/flow.md)                                    | primitive | ready      | —                                                               |
+| [Form](widgets/form.md)                                       | widget    | ready      | —                                                               |
+| [Frame](primitives/frame.md)                                  | primitive | ready      | —                                                               |
+| [Grid](primitives/grid.md)                                    | primitive | specified  | owner answers: extra and bare cells, row spacing, cell priority |
+| [Image](widgets/image.md)                                     | widget    | wireframed | Kitty tier sizing and loader ownership (key M5, D2)             |
+| [KeyLegend](widgets/key-legend.md)                            | widget    | ready      | —                                                               |
+| [Label](primitives/label.md)                                  | primitive | ready      | —                                                               |
+| [LabeledContent](widgets/labeled-content.md)                  | widget    | ready      | —                                                               |
+| [Leading rail](primitives/leading-rail.md)                    | primitive | ready      | —                                                               |
+| [Linear stacks](primitives/stacks.md)                         | primitive | ready      | —                                                               |
+| [List](widgets/list.md)                                       | widget    | ready      | —                                                               |
+| [Markdown](widgets/markdown.md)                               | widget    | specified  | Phase 4 theses review                                           |
+| [MultiPicker](widgets/multi-picker.md)                        | widget    | ready      | —                                                               |
+| [NavigationSplitView](widgets/navigation-split-view.md)       | widget    | wireframed | post-1.0 (owner decision, 2026-10-10)                           |
+| [Outline](widgets/outline.md)                                 | widget    | ready      | —                                                               |
+| [Overlay](primitives/overlay.md)                              | primitive | ready      | —                                                               |
+| [Padding](primitives/padding.md)                              | primitive | ready      | —                                                               |
+| [Picker](widgets/picker.md)                                   | widget    | ready      | —                                                               |
+| [ProgressView](widgets/progress-view.md)                      | widget    | specified  | shimmer question (key L5)                                       |
+| [Readable width](primitives/readable-width.md)                | primitive | ready      | —                                                               |
+| [ScrollIndicator](primitives/scroll-indicator.md)             | primitive | ready      | —                                                               |
+| [ScrollView](widgets/scroll-view.md)                          | widget    | ready      | —                                                               |
+| [Section](widgets/section.md)                                 | widget    | ready      | —                                                               |
+| [SplitView](widgets/split-view.md)                            | widget    | ready      | —                                                               |
+| [Stepper](widgets/stepper.md)                                 | widget    | ready      | —                                                               |
+| [Style modifiers](primitives/style-modifiers.md)              | primitive | ready      | —                                                               |
+| [TabView](widgets/tab-view.md)                                | widget    | ready      | —                                                               |
+| [Table](widgets/table.md)                                     | widget    | ready      | —                                                               |
+| [Text](primitives/text.md)                                    | primitive | ready      | —                                                               |
+| [Text selection](primitives/text-selection.md)                | primitive | sketch     | Slice 5 contract (plan 032 step 11.3)                           |
+| [TextField](widgets/text-field.md)                            | widget    | ready      | —                                                               |
+| [Tokens](tokens.md)                                           | tokens    | ready      | —                                                               |
+| [Toggle](widgets/toggle.md)                                   | widget    | ready      | —                                                               |
+| [ViewThatFits](primitives/view-that-fits.md)                  | primitive | ready      | —                                                               |
+| [ZStack](primitives/z-stack.md)                               | primitive | ready      | —                                                               |

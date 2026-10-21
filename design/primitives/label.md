@@ -1,6 +1,6 @@
 ---
 kind: primitive
-status: specified
+status: ready
 ---
 
 # Label
@@ -22,8 +22,26 @@ text. The icon catalog is [tokens.md](../tokens.md#icon-catalog).
   [#L40-L42](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/icon.rs#L40-L42).
   The default colour by name is at
   [#L79-L86](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/icon.rs#L79-L86).
-  Copy the name-to-glyph lookup, the raw-name fallback, and the default colour by name.
-  Reject the `<icon>` markup tag and the string-only `Str` props.
+  Copy the name-to-glyph lookup, the raw-name fallback, and the default colour by name as
+  `Label(_:icon:)` (key K2). Reject the `<icon>` markup tag and the string-only `Str`
+  props. An `fg` attribute on the icon becomes `.labelIconRole(_:)` (key B6).
+- omp2 State,
+  [state.rs#L75-L80](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/state.rs#L75-L80),
+  draws a lifecycle state as one catalog icon
+  ([#L48-L59](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/state.rs#L48-L59))
+  in a per-state colour
+  ([#L61-L72](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/state.rs#L61-L72)),
+  and animates `running` with the spinner clock
+  ([#L158-L170](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/state.rs#L158-L170)).
+  Copy the lifecycle names, which are catalog rows here. Reject the per-state colours:
+  roles follow Icon's rule with the owner's changes
+  ([icon catalog](../tokens.md#icon-catalog)), and omp2's tone names map onto hue roles
+  (key J5). Reject the animated glyph: a Label reads no clock (keys L1, L3), and an
+  animated running state is [ProgressView](../widgets/progress-view.md)'s spinner.
+- omp2 inline icons, `<ico:name/>`
+  ([markup.rs#L1008-L1013](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/markup.rs#L1008-L1013)),
+  embed a catalog glyph in running text. Tessera's form is an icon run in a `Text` that
+  takes the surrounding role (key I5); see [In running text](#in-running-text-40-columns).
 - SwiftUI's `Label` pairs a title with an image. Tessera's `Label` pairs a title with a
   semantic icon name.
 
@@ -46,11 +64,11 @@ Label("Cache cold", icon: "pending")
 
 ```swift
 extension Label {
-    public func labelIconRole(_ color: Color) -> Label
+    public func labelIconRole(_ role: Style) -> Label
 }
 
 Label("Build passed", icon: "success")
-    .labelIconRole(.info)
+    .labelIconRole(infoRole) // the resolved `info` role
 ```
 
 - The charset is the shared environment value `\.charset`
@@ -65,6 +83,31 @@ Label("Build passed", icon: "success")
   owner decision, 2026-10-19). A name with no glyph in the active charset (a `none` cell
   in the [icon catalog](../tokens.md#icon-catalog)) draws no icon and no gap: the title
   starts at c0.
+- `.labelIconRole(_:)` takes a complete `Style`: a role's resolved Style, or a Style with
+  an explicit foreground colour (keys J1, J4; [overrides](../tokens.md#overrides)). The
+  spelling that names a role is deferred to plan 032 step 9.1
+  ([Style modifiers](style-modifiers.md#open-questions)).
+
+### Label styles
+
+`.labelStyle(_:)` picks how much of a Label draws. A closed set of looks is a style
+modifier read from the environment (key B12), and the spelling is SwiftUI's
+`labelStyle(_:)`. [Picker](../widgets/picker.md)'s icon-only segments use `.iconOnly`.
+
+```swift
+public enum LabelStyle: Sendable {
+    case titleAndIcon, iconOnly
+}
+
+extension View {
+    public func labelStyle(_ style: LabelStyle) -> some View
+}
+```
+
+| Style                     | Draws                                                                                                                                                        | Width                   |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------- |
+| `.titleAndIcon` (default) | Icon, one-column gap, then the title, as in [Anatomy](#anatomy)                                                                                              | icon + gap + title      |
+| `.iconOnly`               | The icon alone, with no gap and no title. A name with no glyph in the active charset draws `truncation.mark` in the title role, so the Label never vanishes. | icon width, or one cell |
 
 ## Icon catalog
 
@@ -330,7 +373,9 @@ E  fg=warning
 
 Icons written inside a line of text stand beside the words. The callout's kind colour
 draws the title and body. Inline icons take the surrounding text role (owner decision,
-2026-10-10): here the body role, not each name's default role.
+2026-10-10): here the body role, not each name's default role. An inline icon is a run in
+a `Text` joined with `Text + Text` ([Styled runs](text.md#styled-runs); key I5); its
+initializer is deferred to plan 032 step 9.1 ([Text](text.md#open-questions)).
 
 ```wireframe 40x4
 ℹ Branch ⎇ main
@@ -412,13 +457,14 @@ B  fg=error
 Schema: [README](../README.md#sizing-table). Mandatory rows: nil x nil, tight,
 under-minimum, over-maximum.
 
-| Proposal      | Result                                                  | Rule                                                     |
-| ------------- | ------------------------------------------------------- | -------------------------------------------------------- |
-| nil x nil     | Icon width, gap, then the title on one row              | Height is one row                                        |
-| tight         | Title tail-truncates with `…` after the icon; icon kept | Wrap exception (rule 1): the title never wraps           |
-| under-minimum | Icon only; nothing below one cell                       | Title dropped; icon kept                                 |
-| over-maximum  | Title takes the remaining width                         | No maximum                                               |
-| any x 2+ rows | Height stays one row; the extra rows are unused         | Wrap exception (rule 1): a taller proposal does not wrap |
+| Proposal               | Result                                                  | Rule                                                     |
+| ---------------------- | ------------------------------------------------------- | -------------------------------------------------------- |
+| nil x nil              | Icon width, gap, then the title on one row              | Height is one row                                        |
+| tight                  | Title tail-truncates with `…` after the icon; icon kept | Wrap exception (rule 1): the title never wraps           |
+| under-minimum          | Icon only; nothing below one cell                       | Title dropped; icon kept                                 |
+| over-maximum           | Title takes the remaining width                         | No maximum                                               |
+| any x 2+ rows          | Height stays one row; the extra rows are unused         | Wrap exception (rule 1): a taller proposal does not wrap |
+| `.iconOnly`, nil x nil | Icon width on one row                                   | No gap or title; a glyphless name is the one-cell mark   |
 
 ## Environment
 
@@ -430,10 +476,15 @@ under-minimum, over-maximum.
 - Roles `error`, `success` and `warning`: [hue roles](../tokens.md#hue-roles); `pending`
   takes `secondary`.
 - Icon catalog: [tokens.md](../tokens.md#icon-catalog).
+- Label style: the environment value `.labelStyle(_:)` writes, `.titleAndIcon` by default
+  ([Label styles](#label-styles)).
+- `truncation.mark` for a glyphless name under `.iconOnly`:
+  [truncation](../tokens.md#truncation).
 
 ## Primitive dependencies
 
-- [Text](../primitives/text.md): title and inline icon composition. Status `ready`.
+- [Text](../primitives/text.md): the title, and the styled runs that carry inline icons.
+  Status `ready`.
 
 ## Requirements
 
@@ -459,6 +510,11 @@ under-minimum, over-maximum.
 - `label draws a Nerd Font icon in two cells with a real space after the glyph` (Nerd Font
   catalog; Nerd Font cells)
 - `unicode icons never draw colour emoji` (icon catalog)
+- `label style defaults to title and icon` (Label styles: `.titleAndIcon`)
+- `label icon-only style draws the icon without a gap or title` (Label styles:
+  `.iconOnly`; Sizing: `.iconOnly`, nil x nil)
+- `label icon-only style draws the truncation mark for a name with no glyph` (Label
+  styles: `.iconOnly`)
 
 ## Degradation
 
@@ -475,7 +531,14 @@ under-minimum, over-maximum.
 
 ## Open questions
 
-- None.
+- Resolved: reviewed against the
+  [Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module). Label is a
+  stateless value composed from Text and catalog tokens, its charset and roles resolve
+  from the environment, and it reads no clock and handles no input.
+- Deferred to plan 032 step 9.1 (key I5): the initializer of an inline icon run and how a
+  Nerd Font icon's blank cell sits in running text ([Text](text.md#open-questions)).
+- Deferred to plan 032 step 9.1: the spelling that names a role for `.labelIconRole(_:)`
+  ([Style modifiers](style-modifiers.md#open-questions)).
 
 ## Inspiration
 

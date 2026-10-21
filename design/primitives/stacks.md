@@ -26,6 +26,22 @@ algorithm.
   composition vocabulary. Reject a platform-dependent default gap; Tessera defaults to 0.
 - Tessera [Slice 2](../../docs/Spec.md#slice-2-the-layout-protocol-and-stack-containers) —
   owns public APIs, priority tiers, flexibility probes, rounding, and overflow policy.
+- omp2 `Col`
+  ([col.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/col.rs#L15-L21)),
+  `Row`
+  ([row.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/row.rs#L13-L23)),
+  and `Spacer`
+  ([hr.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/hr.rs#L300-L304))
+  are the counterparts. Their attributes take the
+  [translation key](../translation-key.md#b-attributes)'s forms: `gap` is `spacing:`,
+  `align` and `valign` are `alignment:`, `justify` is Spacers between children, and `sep`
+  is explicit `Divider()` children (key B4); `grow` is a `Spacer()` in a stack or
+  `.flex(.fill(n))` in [Flex](flex.md) (keys B2 and G5), and `w=40%` is Flex's
+  `.percentage(_:)` (key G8). Copy the gap-between-visible-children rule of omp2's
+  [`stack_place`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/layout.rs#L33-L60).
+  Reject Row's default cross-axis stretch (key G7), its `wrap` mode (key G6), and a row
+  cap on a stack (key B8); see
+  [Decisions and deferred scope](#decisions-and-deferred-scope).
 
 ## Anatomy
 
@@ -95,6 +111,13 @@ each side of it is still ordinary inter-child spacing. Negative spacing and nega
 overlap or negative allocation. See
 [catalog layout decisions](../../docs/Spec.md#catalog-layout-decisions).
 
+Children keep their measured cross-axis extent: a stack places each child at the size it
+reports and positions it with `alignment`; it never stretches a child across the cross
+axis. omp2's Row stretches its children to the tallest by default
+([row.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/row.rs#L239-L274));
+Tessera rejects that as a container default (key G7). A child that fills the cross axis
+does so itself, as [Divider](divider.md) does.
+
 ## Sizing
 
 For `HStack(spacing: 1) { Text("A"); Text("B") }`, both Text children are rigid `1x1`. The
@@ -137,7 +160,7 @@ is the first consumer.
 | `VStack`  | `.vertical`           | Divider renders a horizontal cross-axis rule. |
 
 Child priority, measured ideal/minimum sizes, final frames, and clipping intersections are
-derived for each layout pass.
+derived for each layout pass and never stored (key D10).
 
 ## Requirements
 
@@ -176,14 +199,32 @@ alignment is explicitly excluded from Phase 4 pending the scoped
 must not appear as an undocumented enum case.
 
 Two equal Spacers share the remainder by source order: the earliest Spacer takes the extra
-cell (owner decision, 2026-10-10). omp2's spacer example gives it to the later Spacer
-(gaps of 12 and 13 cells at 40 columns). Tessera keeps the earliest-Spacer rule, as the
-allocation fixtures above state, under the normative
+cell (owner decision, 2026-10-10). omp2's `<spacer>` is a `grow=1` child
+([markup.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/markup.rs#L515-L517)),
+and its track solver gives each surplus cell to the best-scoring grow track, breaking ties
+toward the later one
+([layout.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/layout.rs#L153-L164)),
+so the 40-column anatomy row gets gaps of 12 and 13 cells. Tessera keeps the
+earliest-Spacer rule, as the allocation fixtures above state, under the normative
 [Slice 2 stack algorithm](../../docs/Spec.md#the-stack-algorithm-normative).
 
 Flow layout (a row that wraps children onto new lines when the width runs out) is not an
-HStack mode. `HStack` never wraps and gains no `wrap` argument. A wrapping layout is
-planned as its own step (plan 032 step 14.1) and sits outside the Slice 2 stack contract.
+HStack mode. `HStack` never wraps and gains no `wrap` argument. omp2's `wrap` row (key G6)
+is Tessera's [flow layout](flow.md), specified in
+[Flow layout and ViewThatFits](../../docs/Spec.md#flow-layout-and-viewthatfits) and built
+in plan 032 step 14.1; it sits outside the Slice 2 stack contract.
+
+Stacks take no row cap and no press or focus behaviour. omp2's `max-rows` and its
+`... N more` footer become `.maxRows(_:)` only on views whose doc defines the footer; an
+overflowing stack goes in a ScrollView (key B8). A `col` with `focus` and `id` that emits
+`Pressed` is a `Button` with a custom label, and a container that wants keys is
+`.focusable(_:)` and handles them with `.onKey` (keys B10 and C12). A stack names no hit
+regions of its own (key F1).
+
+Reviewed against the
+[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): stacks are
+value descriptions lowered to layout nodes, allocation is deterministic integer math that
+`dump()` shows, they hold no state, and they touch no terminal capability.
 
 ## Inspiration
 

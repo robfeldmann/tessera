@@ -1,6 +1,6 @@
 ---
 kind: primitive
-status: specified
+status: ready
 ---
 
 # Leading rail
@@ -14,12 +14,30 @@ nesting level.
 
 ## Prior art
 
-- omp2 Callout paints its kind-coloured rail beside the body at
-  [#L153-L166](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/callout.rs#L153-L166).
-  Copy the one-column rail in the kind's colour and the gap before the body. Reject the
-  left-edge `▎` rail (owner decision, omp2 review, 2026-10). The rail is a light `│` in
-  column 0; the earlier centre-under-the-header-icon rule is dropped, and the rail never
-  moves with the icon (owner decision, 2026-10-18).
+- omp2 Callout reserves two columns for its rail at
+  [#L153-L166](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/callout.rs#L153-L166)
+  and paints the kind-coloured rail beside each body row at
+  [#L314-L329](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/callout.rs#L314-L329).
+  Copy the one-column rail in the kind's colour, the gap before the body, and the rail on
+  every wrapped row: a hanging prefix is layout, so the rail holds it (key I2), and the
+  kind names become hue roles (key J5). Reject the left-edge `▎` rail of `Charset::rail`
+  ([context.rs#L235-L240](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/context.rs#L235-L240);
+  owner decision, omp2 review, 2026-10). The rail is a light `│` in column 0; the earlier
+  centre-under-the-header-icon rule is dropped, and the rail never moves with the icon
+  (owner decision, 2026-10-18).
+- omp2 Quote,
+  [quote.rs#L12-L13](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/quote.rs#L12-L13),
+  draws `quote_rail`'s `│` and a blank column
+  ([context.rs#L177-L183](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/context.rs#L177-L183))
+  beside each wrapped row, in `muted`
+  ([#L66-L73](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/quote.rs#L66-L73)).
+  Copy the light vertical, its ASCII `|`, and the one-column gap; rails use the `light`,
+  `heavy`, and `ascii` verticals (key K7). omp2's `muted` is the `secondary` role (key
+  J1), but Markdown's quote rail passes `border` ([Markdown](../widgets/markdown.md)).
+- omp2 Input's focus rail,
+  [input.rs#L442-L454](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/input.rs#L442-L454),
+  is `▎` in `accent` when focused and `▏` in `border` otherwise. Reject it: focus is the
+  `focus` role and the focus border (key E2), and the leading rail holds no focus state.
 - SwiftUI has no leading-rule modifier. The nearest form is an overlay on a leading
   `Rectangle`; the primitive replaces that with a glyph-drawn rail so it works in a
   terminal cell grid.
@@ -75,6 +93,21 @@ The rail glyph comes from the border glyph table in
 
 `role:` takes the caller's role. Callout passes its kind role (`info`, `success`,
 `warning` or `error`; [hue roles](../tokens.md#hue-roles)). Markdown quotes pass `border`.
+
+```swift
+public enum LeadingRailStyle: Sendable {
+    case light, heavy
+}
+
+extension View {
+    public func leadingRail(style: LeadingRailStyle = .light, role: Style) -> some View
+}
+```
+
+The rail's style and role are parameters of the modifier. `role:` takes the caller's role
+as a complete `Style` (key J1); how an app names a role is deferred to plan 032 step 9.1
+([Style modifiers](style-modifiers.md#open-questions)), while Callout and Markdown pass
+resolved roles.
 
 Heavy and ASCII fixtures, each beside the same three lines of content (the rail stays in
 column 0 and the content in column 2):
@@ -134,7 +167,11 @@ None. Consumers: [Callout](../widgets/callout.md), [Markdown](../widgets/markdow
 
 ## Open questions
 
-- None.
+- Resolved: reviewed against the
+  [Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module). The leading
+  rail is a unary layout wrapper plus a render decoration, like Border; its glyph and role
+  come from tokens and the environment, and its geometry is deterministic integer-cell
+  output.
 
 ## Inspiration
 

@@ -17,7 +17,8 @@ The accepted public direction is `Text(_ content: String)`. Text is a leaf
 view configuration; callers replace the value and reconcile the graph. Wrapping needs no
 configuration: Text wraps whenever its width is finite (owner decision, 2026-10-18). The
 row budget (`lineLimit`) and the truncation mode arrive through the environment, as in
-SwiftUI.
+SwiftUI. `Text + Text` joins styled runs into one Text that measures and wraps as one
+([Styled runs](#styled-runs)).
 
 ## Prior art
 
@@ -26,16 +27,36 @@ SwiftUI.
   combining text, alignment, scrolling, a surrounding Block, and widget-local style into
   Tessera's `Text`: they compose separately as layout, ScrollView, decoration, and style
   modifiers.
-- omp2 `TextLeaf` truncation -- `crates/tui/src/components/text.rs` `limited_text` (lines
-  82-88) at the pinned
-  [omp2 source](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/text.rs#L82-L88).
-  Copy the choice of which end keeps text; reject its UTF-16 unit limit, because Tessera
-  measures truncation in display cells.
+- omp2 `TextLeaf`
+  ([text.rs#L19-L37](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/text.rs#L19-L37)),
+  the `<text>` leaf, is the counterpart. It renders through omp2's styled-run sink,
+  [`RichSink`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/rich.rs#L138-L160).
+  The [translation key](../translation-key.md#i-text) settles each concept:
+  - Runs pushed and measured once become `Text + Text` [styled runs](#styled-runs) (key
+    I1). Word wrap and the ellipsis become Text's wrapping and truncation (key I2).
+  - `Truncate`'s `End` and `Start`
+    ([markup.rs#L156-L178](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/markup.rs#L156-L178))
+    become `.truncationMode(.tail)` and `.head`, and the `truncate` attribute becomes
+    `.lineLimit(1)`; both cascade through the environment, as `truncate` cascades in omp2
+    (keys B7, I3). `TextWrap`'s `Char` flow is rejected, and `Pre` is
+    [CodeView](../widgets/code-view.md) (key I3).
+  - The `max-chars` display cap in `limited_text`
+    ([text.rs#L82-L88](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/text.rs#L82-L88))
+    is rejected with its UTF-16 unit count: Tessera shows what fits (key B7).
+  - The paced `reveal`
+    ([text.rs#L94-L103](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/text.rs#L94-L103))
+    is rejected for 1.0 (key L6). Text reads no clock and declares no tick requirement
+    (keys L1, L2). The `shimmer` crest
+    ([text.rs#L237-L245](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/text.rs#L237-L245))
+    is a motion view, not Text (key L5; see [Open questions](#open-questions)).
+  - Content is a plain initializer parameter redeclared on every update, never set by id
+    (keys A8, D2), and widths come from the process's one width table (key I4).
 - Apple SwiftUI [Text](https://developer.apple.com/documentation/swiftui/text) — copy the
-  immutable value-view model, composition with modifiers, wrapping by default, and
-  `lineLimit(_:)` and `truncationMode(_:)` as environment modifiers whose truncation
-  applies to the last visible line. Reject treating Text as an input control; editable
-  text belongs to TextField.
+  immutable value-view model, composition with modifiers, wrapping by default,
+  `Text + Text` with attribute modifiers that return `Text`, and `lineLimit(_:)` and
+  `truncationMode(_:)` as environment modifiers whose truncation applies to the last
+  visible line. Reject treating Text as an input control; editable text belongs to
+  TextField.
 - Tessera
   [Slice 1](../../docs/Spec.md#slice-1-tesseracore--view-viewgraph-reconciliation-text) —
   copy the leaf seam, top-leading `RenderRegion` rendering, and no-wrap initial delivery.
@@ -245,6 +266,91 @@ overlays clipped by a parent's region), for ScrollView's viewport (its indicator
 overflow cue), for the explicit `.clip` opt-out, and for components whose docs record a
 deliberate wrap exception.
 
+### Styled runs
+
+`Text + Text` joins two Texts into one (key I1). Each operand becomes a run that keeps its
+own attributes, and the result is a single `Text` leaf that measures, wraps, and truncates
+the joined string once, as the Spec's
+[text boundary](../../docs/Spec.md#catalog-text-boundary-decisions) requires. Markdown
+builds its inline emphasis, code, and links from runs
+([Markdown](../widgets/markdown.md)).
+
+```swift
+extension Text {
+    public static func + (lhs: Text, rhs: Text) -> Text
+
+    public func foreground(_ color: Color) -> Text
+    public func bold(_ on: Bool = true) -> Text
+    public func italic(_ on: Bool = true) -> Text
+    public func underline(_ on: Bool = true) -> Text
+    public func style(_ style: Style) -> Text
+    public func link(_ url: URL) -> Text
+}
+```
+
+- **Attributes.** On a `Text`, the attribute modifiers of the
+  [style modifiers](style-modifiers.md) return `Text`, as in SwiftUI, so a styled operand
+  can still be joined. Each sets its attribute on every run of its receiver that has not
+  set it: the innermost value wins, which is the Slice 3
+  [merge rule](../../docs/Spec.md#style-chains-and-inheritance) inside one leaf. A run's
+  attributes win over the inherited `defaultStyle`, attribute by attribute. `.link(_:)` is
+  the OSC 8 attribute of the Spec's [Decoration](../../docs/Spec.md#decoration) (key I7).
+- **Backgrounds.** `.background(_:)` has no `Text` overload, so on a Text it stays the
+  region fill of the allocated rectangle. A run's own background is a `Style` attribute
+  set through `.style(_:)`, and it colours only the cells the run writes.
+- **The rest applies to the whole Text.** `lineLimit`, `truncationMode`, layout, and
+  decoration return `some View`: they apply after the last `+` and cannot be joined.
+- **One string.** Runs join in order. Each operand normalized `\r\n` at its own
+  initializer; joining adds no break and normalizes nothing across a seam. Grapheme and
+  word segmentation run over the joined string, never per run: a word that spans a seam
+  stays one word, and a grapheme cluster that spans a seam takes the attributes of the run
+  that holds its first scalar.
+- **Layout.** Wrapping, the row budget, and truncation follow the rules above over the
+  joined string. A run that wraps keeps its attributes on every row it reaches.
+- **Mark.** `truncation.mark` takes the Text's resolved Style: the inherited Style plus
+  the attributes every run shares, never one run's own. For a single run this is the run's
+  resolved Style.
+
+A paragraph of five runs at 14 columns, as Markdown builds one. `inlineCode` is a complete
+`Style`, here `warning` on `surface`:
+
+```swift
+Text("Run ") + Text("just warm").style(inlineCode) + Text(" when the ")
+    + Text("cache is stale").bold() + Text(".")
+```
+
+```wireframe 14x3
+Run just warm
+when the cache
+is stale.
+```
+
+```text
+Callouts (14x3, 0-based):
+1. r0 c0-c3             Plain run -- `Run `, inherited `primary`.
+2. r0 c4-c12            Inline-code run -- `just warm`, `warning` on `surface`; its
+                        background covers the cells it writes, its inner space included.
+3. r1 c9-c13, r2 c0-c7  Bold run -- `cache is stale` wraps from r1 to r2 and stays bold on
+                        both rows; the break consumes the space after `cache`.
+4. r2 c8                Plain run -- `.` joins `stale` across the seam, so `stale.` is one
+                        word.
+```
+
+```text
+── chars ──
+Run just warm
+when the cache
+is stale.
+── style ──
+....CCCCCCCCC
+.........BBBBB
+BBBBBBBB.
+── legend ──
+.  default -- inherited `primary`
+C  fg=warning bg=surface -- the inline-code run's own Style
+B  bold -- the bold run over inherited `primary`
+```
+
 ## Variants
 
 | Configuration              | Earliest slice | Behavior                                                                                                                                                                                                                                                  |
@@ -256,6 +362,7 @@ deliberate wrap exception.
 | `.truncationMode(.head)`   | Slice 3        | Draws the mark in the first cell and keeps the trailing cells of the remainder.                                                                                                                                                                           |
 | `.truncationMode(.middle)` | Slice 3        | Keeps `ceil((width - 1) / 2)` leading cells of the remainder, draws the mark, then keeps the remaining cells.                                                                                                                                             |
 | `.truncationMode(.clip)`   | Slice 3        | Opt-out: the last visible row keeps the leading cells of its remainder and draws no mark.                                                                                                                                                                 |
+| `Text + Text`              | Slice 3        | Styled runs: one leaf that measures, wraps, and truncates the joined string, and each run keeps its own attributes ([Styled runs](#styled-runs)). Plan 032 step 9.1.                                                                                      |
 
 Wrapping decides how many rows Text needs; the row budget decides how many it shows;
 truncation marks the last shown row when anything is hidden. Text never grows past its
@@ -295,17 +402,20 @@ which every word stays whole is the display width of the widest word (five cells
 | `Text("東京")`, 1xnil                            | 1x2    | A grapheme wider than the whole width is drawn as the mark on its own row.                  |
 | `Text("Hello")`, 0xnil                           | 0x1    | A zero width holds no grapheme and no mark; Text paints nothing.                            |
 | `Text("")`, nil x nil                            | 0x1    | Empty content occupies one source row but paints no cells.                                  |
+| `Text("Ship") + Text(" one thing")`, 8xnil       | 8x2    | Runs measure as one string: the rows of `Text("Ship one thing")`, 8xnil.                    |
+| `Text("un") + Text("do").bold()`, 3xnil          | 3x2    | `undo` is one word across the seam; it breaks into `und` and `o`.                           |
+| `Text("e") + Text("\u{301}").bold()`, nil x nil  | 1x1    | The combining mark joins `e` in one grapheme, drawn with the first run's attributes.        |
 
 ## Environment
 
 | Input            | Text behavior                                                                                                                                      |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| inherited Style  | `defaultStyle` arrives with Slice 3; nearest ancestor wins per attribute, then explicit Text attributes win.                                       |
-| shared modifiers | `.foreground`, `.background`, `.bold`, `.italic`, `.underline`, and `.style` are shared Slice 3 modifiers; Text has no private API.                |
+| inherited Style  | `defaultStyle` arrives with Slice 3; nearest ancestor wins per attribute, then explicit Text attributes, including a run's own, win.               |
+| shared modifiers | Shared Slice 3 modifiers; on a `Text`, the attribute ones return `Text` and set run attributes ([Styled runs](#styled-runs)).                      |
 | line limit       | `.lineLimit(_:)` writes `EnvironmentValues.lineLimit` (`Int?`, default `nil`); nearest ancestor wins, so one modifier on a List reaches every row. |
 | truncation mode  | `.truncationMode(_:)` writes `EnvironmentValues.truncationMode` (`TruncationMode`, default `.tail`); nearest ancestor wins.                        |
 | background fill  | `background` fills Text's allocated rectangle while foreground and attributes apply only to written cells.                                         |
-| truncation mark  | `truncation.mark` supplies `…`, drawn in the text's resolved Style; ASCII-only output substitutes `~`.                                             |
+| truncation mark  | `truncation.mark` supplies `…`, drawn in the text's resolved Style: the inherited Style plus attributes every run shares. ASCII substitutes `~`.   |
 
 A component that fixes a text region to one row (chrome) applies `.lineLimit(1)` directly
 to that Text, so an app's inherited `lineLimit` reaches content but not chrome.
@@ -321,8 +431,9 @@ to that Text, so an app's inherited `lineLimit` reaches content but not chrome.
    placement and insets; Text remains a leaf.
 3. **After Slice 3:** Text wraps by default, honors row budgets from height proposals and
    `lineLimit`, and gains tail/head/middle/clip truncation, inherited full Styles,
-   decoration composition, and ASCII marker degradation as fixture-backed behavior.
-   Callers that relied on Slice 1 clipping pin `.lineLimit(1)`.
+   `Text + Text` styled runs (plan 032 step 9.1), decoration composition, and ASCII marker
+   degradation as fixture-backed behavior. Callers that relied on Slice 1 clipping pin
+   `.lineLimit(1)`.
 4. **After Slice 4 and later:** Text remains noninteractive. TextField, List, Button, and
    other widgets compose Text labels/content while owning focus, bindings, and input.
 
@@ -399,6 +510,19 @@ fixture-testable without giving a leaf focus or state.
 - `truncation mark takes the text's resolved style` (environment: truncation mark).
 - `text never consumes keyboard or pointer input` (key table: printable characters, Enter,
   and Up / Down / Left / Right; mouse table: click, drag, wheel-up, and wheel-down).
+- `joined text measures and wraps as one string` (styled runs: anatomy 14x3; sizing:
+  `Text("Ship") + Text(" one thing")`, 8xnil; variants: `Text + Text`).
+- `a word that spans a run seam wraps as one word` (styled runs: callout 4; sizing:
+  `Text("un") + Text("do").bold()`, 3xnil).
+- `a grapheme cluster that spans a run seam takes the first run's attributes` (sizing:
+  `Text("e") + Text("\u{301}").bold()`, nil x nil).
+- `a wrapped run keeps its attributes on every row` (styled runs: callout 3).
+- `a run background colours only the cells the run writes` (styled runs: callout 2;
+  environment: shared modifiers).
+- `run attributes win over inherited ones and the innermost run attribute wins`
+  (environment: inherited Style and shared modifiers).
+- `truncation mark takes only the attributes every run shares` (environment: truncation
+  mark).
 
 ## Degradation
 
@@ -417,9 +541,9 @@ fixture-testable without giving a leaf focus or state.
   removed. `.word` is now simply what Text does. `.none` is spelled `.lineLimit(1)`, which
   marks the cut instead of clipping silently, or comes from a nil width proposal, such as
   a horizontal ScrollView, when unwrapped intrinsic lines are the point. `.character` is
-  dropped: the overlong-word fallback already breaks between graphemes where a word cannot
-  fit, SwiftUI has no character-wrap mode, and no catalog component needs one (code and
-  TextField lay out their own lines under their documented wrap exceptions). A
+  dropped (key I3): the overlong-word fallback already breaks between graphemes where a
+  word cannot fit, SwiftUI has no character-wrap mode, and no catalog component needs one
+  (code and TextField lay out their own lines under their documented wrap exceptions). A
   Tessera-only granularity control can be proposed later if a component needs it.
 - **`lineLimit` and `truncationMode` are environment modifiers (SwiftUI parity).** One
   `.lineLimit(1)` on a List or Picker reaches every row (owner decision, 2026-10-18).
@@ -431,18 +555,45 @@ fixture-testable without giving a leaf focus or state.
   SwiftUI and UIKit truncate the last line. A mark always appears when anything is hidden.
 - **Text owns the cut.** It re-lays out at its final rectangle, so a parent that assigns
   less than Text measured gets a marked cut. Parents clip only non-text geometry.
-- **Spec drift:** the [Text grows up](../../docs/Spec.md#text-grows-up) snippet in
-  `docs/Spec.md` still shows `wrapped(_:)` with a `.none` default and `truncation(_:)`
-  with a `.clip` default. This doc supersedes that snippet under the owner decisions
-  above; the Spec text needs the same update.
+- **Styled runs are `Text + Text` (key I1; plan 032 step 9.1).** They follow SwiftUI's
+  spelling: on a Text, the attribute modifiers return `Text`. `.background(_:)` gets no
+  run overload, so a Text's background means the region fill everywhere, and a run's
+  background is a Style attribute. The mark rule extends "the mark uses the text's
+  resolved Style" to runs without letting one run's look, such as an inline-code fill,
+  leak onto the mark.
+
+Reviewed against the
+[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): Text is a
+value with no state, styled runs compose values inside one leaf instead of adding nodes,
+its style resolves from the environment, and wrapping and truncation are deterministic
+integer-cell output.
 
 ## Deferred scope
 
-Rich text segments, localized interpolation, and formatted values are excluded from Phase
-4 1.0; the exact deferred boundary is
+Localized interpolation and formatted values are excluded from Phase 4 1.0; the exact
+boundary is
 [Catalog text boundary decisions](../../docs/Spec.md#catalog-text-boundary-decisions).
-They require a separate text-composition proposal and must not turn Text into a mutable
-document model.
+They need a separate post-1.0 text-composition proposal and must not turn Text into a
+mutable document model. Styled runs are in 1.0 ([Styled runs](#styled-runs)); a run holds
+text only, never an embedded view.
+
+## Open questions
+
+Each is deferred to the plan step that lands it:
+
+- **`+` or interpolation (plan 032 step 9.1).** SwiftUI deprecated `Text + Text` in
+  [iOS 26](https://developer.apple.com/documentation/ios-ipados-release-notes/ios-ipados-26-release-notes)
+  in favour of interpolating `Text` values, because joined segments localize badly.
+  Tessera 1.0 has no localized text, and key I1, the Spec, and the plan name
+  `Text + Text`; the step confirms the spelling with the owner before it lands.
+- **Inline icon runs (plan 032 step 9.1; key I5).** An icon in running text is an
+  icon-catalog glyph as a run that takes the surrounding role
+  ([Label](label.md#in-running-text-40-columns)). The step names its initializer and
+  decides whether a Nerd Font icon's blank cell
+  ([Nerd Font cells](../tokens.md#nerd-font-cells)) stands in for the space after it.
+- **Shimmer (plan 032 step 16.1; key L5).** The key makes shimmer a motion view over the
+  clock, not a Text feature, and records that no catalog doc owns it yet
+  ([key open questions](../translation-key.md#open-questions)).
 
 ## Inspiration
 

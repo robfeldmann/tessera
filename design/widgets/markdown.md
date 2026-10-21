@@ -26,10 +26,19 @@ In-app link activation (focus, keys, a handler) is post-1.0; see
 
 ## Prior art
 
-- omp2 `Markdown` component:
-  [markdown.rs#L41-L385](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/markdown.rs#L41-L385).
+- omp2 `Markdown` component (key M4):
+  [markdown.rs#L16](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/markdown.rs#L16),
+  implemented at
+  [#L41-L385](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/markdown.rs#L41-L385).
   Copy the element coverage and one blank row between blocks. Reject the `<md>` markup
-  wrapper: Tessera takes a `String`.
+  wrapper and omp2's rule that bare markup text is Markdown: Tessera's `Markdown` is an
+  explicit view that takes a `String`, and `Text` never parses markup (key I6).
+- Key translations: the source is display data, a plain parameter redeclared on every
+  update rather than refreshed with `set_text` (keys D2, A8); inline runs are
+  `Text + Text` styled runs (key I1); links are OSC 8 hyperlinks, as `.link(URL)` writes
+  them (key I7); pipe tables are Table's `grid` style (key K5); fenced code goes through
+  the CodeView highlighter hook (key M3); and omp2's paced `reveal` of streamed text is
+  post-1.0 (key L6).
 - omp2 pipe tables:
   [markdown/mod.rs#L1529-L1541](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/markdown/mod.rs#L1529-L1541),
   delimiter row check at
@@ -97,8 +106,8 @@ Callouts (72x8, 0-based):
 ```
 
 Styled grid for the same block. Colour, weight and underline matter here, so the roles are
-shown. Legend roles are the omp2 captures renamed to Tessera roles (`fg` is `primary`,
-`warn` is `warning`).
+shown. Legend roles are omp2's colours renamed to Tessera roles (`fg` is `primary`, `warn`
+is `warning`).
 
 ```text
 ── chars ──
@@ -229,9 +238,9 @@ Callouts (40x5, 0-based):
 A fenced block with a language tag. The fence rows are literal text in the border role.
 The body is drawn by the [code view](code-view.md) with syntax highlighting from the app's
 installed [syntax highlighter hook](code-view.md#syntax-highlighter-hook)
-(`.syntaxHighlighter(_:)`), indented two columns and not boxed. The capture is drawn at 72
-columns for comparison; the code block itself is not capped by the readable width and may
-extend to the full available width.
+(`.syntaxHighlighter(_:)`), indented two columns and not boxed. The wireframe is drawn at
+72 columns for comparison; the code block itself is not capped by the readable width and
+may extend to the full available width.
 
 > Wrap exception (rule 1): code lines do not word-wrap and clip at the available width's
 > right edge as [CodeView](code-view.md) does. Wrapping would break indentation and
@@ -291,7 +300,7 @@ operators, `syntax.plain` otherwise.
 
 Ordered, nested unordered and task lists. Markers take `info`. Item text takes `primary`.
 Item text is content and wraps; a continuation row hangs under the item's text, after the
-marker (see Wrapped items). The captures below fit the 72-cell prose cap, so no item
+marker (see Wrapped items). The wireframes below fit the 72-cell prose cap, so no item
 wraps.
 
 ```wireframe 72x8
@@ -434,9 +443,9 @@ G  fg=border
 A pipe table with left, centre and right alignment renders through the [Table](table.md)
 `grid` style. The grid is 31 columns wide, so it fits 72 and the 40-column design. Inline
 code in cells takes `warning` on `surface`. Grid lines take the Table renderer's border
-colour, captured here as `primary`. Cells follow Table's single-line default (owner
-decision Q15, 2026-10-18) and Markdown opts no column into wrapping; a column narrower
-than its content tail-truncates, and a column set narrower than the grid follows Table's
+colour, drawn here as `primary`. Cells follow Table's single-line default (owner decision
+Q15, 2026-10-18) and Markdown opts no column into wrapping; a column narrower than its
+content tail-truncates, and a column set narrower than the grid follows Table's
 narrow-width rules ([Table](table.md)), so the table is the one block that can show less
 than its source at a narrow width.
 
@@ -493,34 +502,28 @@ C  fg=warning bg=surface
 
 Schema: [README](../README.md#state-model-table).
 
-| State           | Owner   | Type   | Reset or clamp rule                                  |
-| --------------- | ------- | ------ | ---------------------------------------------------- |
-| Source string   | Binding | String | Re-renders on change; the widget keeps no copy       |
-| Rendered layout | derived | Layout | Recomputed per layout pass from the source and width |
+| State           | Owner       | Type                 | Reset or clamp rule                                                                                                    |
+| --------------- | ----------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Source string   | Binding     | `String`             | app-owned display data, redeclared on every update (key D2); a change re-renders in full, and the widget keeps no copy |
+| Highlighter     | Environment | `SyntaxHighlighter?` | read by fenced code through the [code view hook](code-view.md#syntax-highlighter-hook) (key M3); none draws plain      |
+| Readable width  | Environment | cells                | caps the prose blocks; 72 by default                                                                                   |
+| Rendered layout | derived     | rendered blocks      | recomputed each layout pass from the source and width; never stored (key D10)                                          |
 
 No streaming output in 1.0 (owner decision, 2026-10-10): a changed source string
-re-renders in full. omp2's `reveal` and `partial` props are post-1.0.
+re-renders in full. omp2's `reveal` and `partial` props are post-1.0 (key L6).
 
 ## Key table
 
-Schema: [README](../README.md#key-table). Markdown is display-only and takes no keys:
-links are OSC 8 only in 1.0, so the terminal opens them (owner decision, 2026-10-18).
-In-app activation is post-1.0; see
+Schema: [README](../README.md#key-table). None. Markdown is display-only and takes no
+keys: links are OSC 8 only in 1.0, so the terminal opens them (owner decision,
+2026-10-18). In-app activation is post-1.0; see
 [discussion #40](https://github.com/robfeldmann/tessera/discussions/40).
-
-| Key    | Precondition | Effect | Consumed |
-| ------ | ------------ | ------ | -------- |
-| (none) | --           | --     | --       |
 
 ## Mouse table
 
-Schema: [README](../README.md#mouse-table). Markdown takes no pointer input in 1.0; a
-click on link text is the terminal's OSC 8 handling, not Tessera's (owner decision,
+Schema: [README](../README.md#mouse-table). None. Markdown takes no pointer input in 1.0;
+a click on link text is the terminal's OSC 8 handling, not Tessera's (owner decision,
 2026-10-18).
-
-| Event  | Region | Precondition | Effect | Consumed |
-| ------ | ------ | ------------ | ------ | -------- |
-| (none) | --     | --           | --     | --       |
 
 ## Sizing
 
@@ -569,10 +572,14 @@ Further roles, each defined in tokens.md:
 
 ## Primitive dependencies
 
+- [Text](../primitives/text.md): inline runs, as
+  [styled runs](../primitives/text.md#styled-runs) (`Text + Text`, key I1). Plan 032 step
+  9.1 lands them before Markdown
+  ([landing map](../../docs/Spec.md#phase-4-implementation-order-and-component-landing-map)).
+- [Readable width](../primitives/readable-width.md): the prose blocks' maximum width.
+- [Leading rail](../primitives/leading-rail.md): block quote rails, one per level.
 - [Table](table.md): pipe tables, `grid` style.
 - [CodeView](code-view.md): fenced code bodies.
-- [Text](../primitives/text.md): inline runs. The assessment requires styled runs in Text
-  before Markdown can start.
 
 ## Requirements
 
@@ -624,7 +631,7 @@ above.
 ## Degradation
 
 Follows the [degradation ladder](../tokens.md#degradation-ladder). The pipe table switches
-to the ASCII set (`+`, `-`, `|`), as captured:
+to the ASCII set (`+`, `-`, `|`):
 
 ```wireframe 40x9
 +-----------+---------+-------+
@@ -648,6 +655,13 @@ ANSI 8 on dark terminals and absent on light ones (owner decision, 2026-10-19).
 A terminal without OSC 8 support ignores the hyperlink sequence, and the link text still
 draws in `accent` underline with its destination in parentheses, so no information is
 lost.
+
+This design was reviewed against the
+[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): the source is
+an app-owned value redeclared on every update and re-rendered in full, Markdown stores
+nothing and takes no input, links reach the terminal as OSC 8 style attributes through the
+render pass rather than as raw writes, and blocks lay out in deterministic integer cells
+through Text, Table and CodeView.
 
 ## Open questions
 

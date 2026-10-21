@@ -1,6 +1,6 @@
 ---
 kind: widget
-status: wireframed
+status: specified
 ---
 
 # ProgressView
@@ -11,10 +11,13 @@ a `value` it draws an indeterminate spinner glyph and an optional label. The lab
 content: when label, bar and percent do not fit one row, the label moves above the bar and
 wraps (owner decision, 2026-10-18; see Narrow). The app owns every number and string:
 value, total, label, current-value label, and spinner style come from the initializer or
-modifiers. The view stores none of them. The spinner frame is computed from a clock the
-environment supplies, so the view keeps no timer. The tick requirement is declared, as
-plan 032 step 16.1 specifies. Gauge is post-1.0 (owner decision, 2026-10-10); its
-threshold tones and tick markers are not part of this doc.
+modifiers, redeclared on every update (key D2). The view stores none of them. The
+indeterminate form is a
+[motion view](../../docs/Spec.md#motion-views-and-the-tick-requirement): it derives its
+frame from a clock the environment supplies (key L1), so it keeps no timer, and it
+declares a tick requirement at its frame set's interval (key L2; see State model). Gauge
+is post-1.0 (owner decision, 2026-10-10); its threshold tones and tick markers are not
+part of this doc.
 
 The determinate and indeterminate forms share one doc because they share a row, a label,
 and the same width rules. Decisions attributed to "owner decision, omp2 review, 2026-10"
@@ -29,13 +32,15 @@ presentation.
 
 - omp2 `Progress`
   ([progress.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/progress.rs#L12-L111)):
-  copy the one-row label, bar, and trailing percent; the value clamped to `[0, max]`; the
-  without truncation: a long label clips the bar and the percent off the right edge. Owner
-  decision, omp2 review, 2026-10: the bar and percent stay and the label gives way first.
-  Owner decision, 2026-10-18: the label is content, so it moves to its own wrapping rows
-  above the bar instead of truncating, as SwiftUI's linear ProgressView draws its label
-  above; it tail-truncates only under a fixed one-row height. The owner also rejected the
-  percent-from-total reading of `max=4` (see Current-value labels).
+  copy the one-row label, bar, and trailing percent, and the value clamped to `[0, max]`.
+  Reject its row without truncation: a long label clips the bar and the percent off the
+  right edge. Owner decision, omp2 review, 2026-10: the bar and percent stay and the label
+  gives way first. Owner decision, 2026-10-18: the label is content, so it moves to its
+  own wrapping rows above the bar instead of truncating, as SwiftUI's linear ProgressView
+  draws its label above; it tail-truncates only under a fixed one-row height. The owner
+  also rejected the percent-from-total reading of `max=4` (see Current-value labels).
+  omp2's `value` and `max` attributes, refreshed with `set_prop`, become plain initializer
+  parameters (keys D2, A8).
 - omp2 `Spinner`
   ([spinner.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/spinner.rs#L16-L139)):
   copy the glyph-then-label row and the braille default. Reject its markup path:
@@ -45,8 +50,11 @@ presentation.
 - omp2 frame timing
   ([context.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/context.rs#L288-L306),
   [anim.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/anim.rs#L222-L241)):
-  copy the frame choice from elapsed time: `(now / interval) mod frames.count`. The clock
-  itself is supplied by the environment (plan 032 step 16.1).
+  copy the frame choice from elapsed time: `(now / interval) mod frames.count` (key L3).
+  The clock itself is supplied by the environment (key L1). Reject the per-node wake
+  deadline
+  ([`PaintCtx::wake`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/component.rs#L1453-L1458)):
+  the view declares a tick requirement that the graph aggregates instead (key L2).
 - SwiftUI [`ProgressView`](https://developer.apple.com/documentation/swiftui/progressview)
   and
   [`ProgressViewStyle`](https://developer.apple.com/documentation/swiftui/progressviewstyle)
@@ -237,9 +245,22 @@ Callouts (40x1, 0-based):
 
 When the full label, a minimum four-cell bar and the percent do not fit one row, the label
 moves to its own rows above the bar and wraps. The bar row fills the width: the bar takes
-what the percent and its gap leave (owner decision, 2026-10-18). `ViewThatFits` picks the
-one-row form when it fits the proposal, else the stacked form. The one-row form needs
-`25 + 1 + 4 + 1 + 3 = 34` cells for the fixture, so both widths stack.
+what the percent and its gap leave (owner decision, 2026-10-18). The choice is
+[ViewThatFits](../primitives/view-that-fits.md), nested so that a fixed one-row height
+keeps the one-row form, and proposed the readable width when the width is nil:
+
+```swift
+ViewThatFits(in: .horizontal) {
+    oneRow
+    ViewThatFits(in: .vertical) {
+        stacked
+        oneRow
+    }
+}
+```
+
+The one-row form needs `25 + 1 + 4 + 1 + 3 = 34` cells for the fixture, so both widths
+stack.
 
 ```wireframe 24x3
 Downloading model
@@ -476,19 +497,24 @@ D  fg=secondary
 
 ## State model
 
-Schema: [README](../README.md#state-model-table).
+Schema: [README](../README.md#state-model-table). The `Binding` rows are app-owned display
+data, plain initializer parameters redeclared on every update (key D2); the view writes
+none of them.
 
-| State             | Owner       | Type                                       | Reset or clamp rule                                                                                        |
-| ----------------- | ----------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
-| value             | Binding     | `Double?`                                  | clamped to `0...total` each render; `nil` selects the indeterminate form                                   |
-| total             | Binding     | `Double`                                   | at least 1; a smaller total is clamped to 1                                                                |
-| label             | Binding     | `Text` builder                             | app content; wraps, above the bar when the row is narrow; tail-truncates only under a fixed one-row height |
-| currentValueLabel | Binding     | `Text` builder?                            | replaces the percent when supplied; absent means percent                                                   |
-| spinner style     | Environment | `SpinnerSet` or custom frames and interval | a style choice; the label starts at c2 for every set                                                       |
-| clock             | Environment | instant                                    | supplied by the environment (plan 032 step 16.1); the view stores none                                     |
-| frame index       | derived     | `Int`                                      | `(now / interval) mod frames.count`, recomputed each render; never stored                                  |
+| State             | Owner       | Type                                       | Reset or clamp rule                                                                                                                                                                                            |
+| ----------------- | ----------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| value             | Binding     | `Double?`                                  | clamped to `0...total` each render; `nil` selects the indeterminate form                                                                                                                                       |
+| total             | Binding     | `Double`                                   | at least 1; a smaller total is clamped to 1                                                                                                                                                                    |
+| label             | Binding     | `Text` builder                             | app content; wraps, above the bar when the row is narrow; tail-truncates only under a fixed one-row height                                                                                                     |
+| currentValueLabel | Binding     | `Text` builder?                            | replaces the percent when supplied; absent means percent                                                                                                                                                       |
+| spinner style     | Environment | `SpinnerSet` or custom frames and interval | a style choice; the label starts at c2 for every set                                                                                                                                                           |
+| clock             | Environment | instant                                    | graph-owned (key L1): the app or the Phase 5 runtime supplies it; the view stores none                                                                                                                         |
+| frame index       | derived     | `Int`                                      | `(now / interval) mod frames.count`, recomputed each render; never stored (key L3)                                                                                                                             |
+| tick requirement  | derived     | frame interval, or none                    | while indeterminate, the interval of the set actually drawn (a fallback set declares its own interval); none when determinate; recomputed on every update and aggregated by the graph over live nodes (key L2) |
 
-The view stores no state, so it has no `NodeState` row and no responder.
+The view stores no state, so it has no `NodeState` row and no responder. Plan 032 step
+16.1 settles the Swift spellings of the clock value and the tick requirement
+([motion views](../../docs/Spec.md#motion-views-and-the-tick-requirement)).
 
 ## Key table
 
@@ -508,18 +534,22 @@ Schema: [README](../README.md#sizing-table). The determinate fixture is the
 `Downloading model weights` label at 62%. The height is 1 when the one-row form fits and
 grows by the label's wrapped rows in the stacked form.
 
-| Proposal                  | Result | Rule                                                                                                                                                          |
-| ------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| nil x nil (determinate)   | 72x1   | The ideal width is the readable width, 72 (owner decision, 2026-10-18): the bar fills what the label and percent leave (42 cells here), so stacked bars align |
-| nil x nil (indeterminate) | 21x1   | No bar to fill: glyph, space and the label at its natural width (inference: capped at 72, wrapping beyond)                                                    |
-| 40 x nil                  | 40x1   | One row fits: the bar takes the extra width (10 cells) and the label stays whole                                                                              |
-| 24 x nil                  | 24x3   | One row needs 34 cells, so `ViewThatFits` stacks: label wraps to two rows above a 20-cell bar row (Narrow)                                                    |
-| 16 x nil                  | 16x3   | Stacked: label wraps to two rows above a 12-cell bar row (Narrow)                                                                                             |
-| 24 x 1 (fixed one row)    | 24x1   | The stacked form cannot fit; the one-row form draws and the label tail-truncates (Fixed one-row height)                                                       |
-| 11 x nil (minimum)        | 11x4   | Floor: label words whole over three rows, then the bar row (Minimum)                                                                                          |
-| 8 x nil (under-minimum)   | 9 x n  | Label words break between grapheme clusters; the bar row keeps its 9-cell floor and the percent never clips                                                   |
-| 9 x 1                     | 9x1    | tight one-row: the bar and the percent draw, and the label is absent                                                                                          |
-| 8 x 1                     | 9x1    | under the one-row minimum: the view reports the 9x1 floor; the bar keeps four cells and the percent stays                                                     |
+| Proposal                  | Result | Rule                                                                                                                                                                                    |
+| ------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| nil x nil (determinate)   | 72x1   | The ideal width is the readable width, 72 (owner decision, 2026-10-18): the bar fills what the label and percent leave (42 cells here), so stacked bars align                           |
+| nil x nil (indeterminate) | 21x1   | No bar to fill: glyph, space and the label at its natural width (inference: capped at 72, wrapping beyond)                                                                              |
+| 40 x nil                  | 40x1   | One row fits: the bar takes the extra width (10 cells) and the label stays whole                                                                                                        |
+| 100 x nil (over-maximum)  | 100x1  | A finite width is not capped: the readable width is only the nil-width ideal ([Readable width](../primitives/readable-width.md)), so the bar takes the extra width (70 cells), as at 40 |
+| 24 x nil                  | 24x3   | One row needs 34 cells, so `ViewThatFits` stacks: label wraps to two rows above a 20-cell bar row (Narrow)                                                                              |
+| 16 x nil                  | 16x3   | Stacked: label wraps to two rows above a 12-cell bar row (Narrow)                                                                                                                       |
+| 24 x 1 (fixed one row)    | 24x1   | The stacked form cannot fit; the one-row form draws and the label tail-truncates (Fixed one-row height)                                                                                 |
+| 11 x nil (minimum)        | 11x4   | Floor: label words whole over three rows, then the bar row (Minimum)                                                                                                                    |
+| 9 x 1                     | 9x1    | tight one-row: the bar and the percent draw, and the label is absent                                                                                                                    |
+| 8 x 1 (under-minimum)     | 9x1    | under the one-row minimum: the view reports the 9x1 floor; the bar keeps four cells and the percent stays                                                                               |
+
+Below the 11-column floor with an unbounded height, the label's words break between
+grapheme clusters ([Text](../primitives/text.md#wrapping)), the bar row keeps its 9-cell
+floor, and the percent never clips.
 
 ## Environment
 
@@ -529,6 +559,9 @@ Tokens consumed, each defined in [tokens.md](../tokens.md).
 - `accent`: bar fill and spinner glyph.
 - `border`: bar track. `secondary`: percent and current-value label default
   ([text roles](../tokens.md#text-roles)).
+- `bar.fill` and `bar.track`: the bar glyphs
+  ([bars and ramps](../tokens.md#bars-and-ramps); key K9). The spinner sets and their
+  intervals: [spinners](../tokens.md#spinners) (key K11).
 - `truncation.mark`: tail truncation mark under a fixed one-row height, defined in
   [tokens.md](../tokens.md#truncation).
 - `readableWidth` (environment): the determinate form's nil-width ideal; see
@@ -539,8 +572,8 @@ Tokens consumed, each defined in [tokens.md](../tokens.md).
 - [Text](../primitives/text.md): label, current-value label, percent, and spinner glyph.
 - Tail truncation follows the `tail` policy, grapheme-safe, in
   [tokens.md](../tokens.md#truncation).
-- `ViewThatFits` (plan 032 step 14.1; see [Grid](../primitives/grid.md)): picks the
-  one-row or the stacked form.
+- [ViewThatFits](../primitives/view-that-fits.md) (plan 032 step 14.1): picks the one-row
+  or the stacked form.
 - [Readable width](../primitives/readable-width.md): the nil-width ideal.
 
 ## Requirements
@@ -575,10 +608,17 @@ Tokens consumed, each defined in [tokens.md](../tokens.md).
 - `quarters is not a built-in spinner set` (frame sets)
 - `spinner frame derives from the supplied clock and stores no state` (state model: frame
   index)
+- `indeterminate view declares a tick requirement at its frame set's interval` (state
+  model: tick requirement)
+- `determinate view declares no tick requirement` (state model: tick requirement)
+- `nerd font set drawn as orbit declares orbit's interval` (state model: tick requirement;
+  frame sets)
 - `under-minimum proposal reports the 9x1 floor` (sizing table: 8x1)
 - `tight 9x1 proposal draws the bar and percent without the label` (sizing table: 9x1)
 - `determinate bar takes the proposed width and the label stays whole when one row fits`
   (sizing table: 40 x nil)
+- `determinate bar fills a proposal wider than the readable width` (sizing table: 100 x
+  nil)
 
 ## Degradation
 
@@ -592,9 +632,23 @@ Tokens consumed, each defined in [tokens.md](../tokens.md).
   keeps its 9-cell floor. Under a fixed one-row height below 9 columns the row draws the
   bar and percent only; the view reports its 9x1 minimum rather than hiding the percent.
 
+This design was reviewed against the
+[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): every number
+and string is an app-owned value redeclared on each update, the spinner frame is a pure
+function of the environment's clock, the tick requirement is declared for the graph to
+aggregate rather than scheduled by the view, and the row is deterministic integer-cell
+output with no responder.
+
 ## Open questions
 
-- None.
+- **Shimmer (key L5).** The omp2 review's owner decision 3 (2026-10-08) puts shimmer,
+  omp2's brightness crest sweeping across text
+  ([anim.rs#L252-L262](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/anim.rs#L252-L262)),
+  in 1.0 beside the spinner. But [spinners](../tokens.md#spinners) says the spinner is the
+  only animation in the catalog, which is also why Tessera has no reduced-motion setting
+  in 1.0, and no catalog doc defines shimmer. Does shimmer ship in 1.0, and if so, is it a
+  ProgressView style or its own motion view? Blocks `ready`: a second motion view changes
+  the reduced-motion reasoning this doc cites.
 
 ## Inspiration
 

@@ -1,6 +1,6 @@
 ---
 kind: widget
-status: wireframed
+status: ready
 ---
 
 # TabView
@@ -10,8 +10,9 @@ selection through a `Binding` to a `Hashable` value. The view shows the pane for
 value, draws the bar with a filled pill for the active tab and `secondary` text for the
 rest, and wraps the bar onto more rows rather than truncating it. When the bar runs out of
 width, inactive tabs with an icon collapse to that icon while the active tab keeps its
-label. Tab items accept `.badge(_:)`. The view keeps no selection of its own: losing its
-`NodeState` loses pointer and focus bookkeeping, never the chosen tab.
+label. Tab items accept `.badge(_:)`. The view keeps no state of its own: the chosen tab
+is the app's binding (key D1), and focus belongs to the graph, so TabView has no
+`NodeState`.
 
 Owner decision, omp2 review, 2026-10: adopt as-is. `TabView` is controlled, tab items
 accept `.badge(_:)` as in SwiftUI, and inactive tabs collapse to icons when the bar is
@@ -44,10 +45,21 @@ pointer delivery from [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing
   [`Tab`](https://developer.apple.com/documentation/swiftui/tab) supply the API
   vocabulary: `TabView(selection:)`, tab items identified by `value`, and `.badge(_:)` on
   a tab. Reject SwiftUI's platform-drawn tab bar; the terminal bar is drawn by the view.
+- Translation, per the [translation key](../translation-key.md): each omp2 `tab` record is
+  a `Tab` child view in the builder (key A7), titles and icons are initializer parameters
+  (key B11), and the active index becomes the selection binding (key D1), so there is no
+  value to harvest (key A10). Focus is an explicit `.focusable` identity drawn in the
+  `focus` role (keys E1, E2), Left and Right are the Key table's only rows (key E3), and
+  each chip is a hit region (key F1). Theme colours become roles (key J1). The bar flows
+  its chips onto more rows as Picker's radio chips do (key G6). Icons resolve through
+  Label's catalog (key K2), the cursor is the `cursor` mark (key K3), the rule row is a
+  `light` rule (key K7), and the pill's ends are the `▐` `▌` caps (key K10). omp2 tints
+  the chip under the pointer; TabView draws no hover (key F4; owner decision, 2026-10-10).
+  The icon collapse is a `ViewThatFits` choice (key G10).
 
 ## API direction
 
-Swift in SwiftUI vocabulary. Signatures are a sketch until the widget is specified.
+Swift in SwiftUI vocabulary; a provisional shape (vocabulary, not a commitment).
 
 ```swift
 enum Panel: Hashable { case overview, logs, config }
@@ -67,6 +79,14 @@ TabView(selection: panel) {
 }
 ```
 
+Callers compose focus explicitly, as Picker's callers do (key E1):
+
+```swift
+TabView(selection: panel) { … }
+    .focusable(tabsFocusID)
+    .focused(focused, equals: tabsFocusID)
+```
+
 `icon:` names resolve through the icon catalog that [Label](../primitives/label.md) uses.
 An unknown name draws no icon. A tab without an icon never shrinks. A tab badge draws
 trailing, outside its chip, as list rows draw badges: `▐Inbox▌ ▐3▌` (owner decision,
@@ -74,9 +94,16 @@ trailing, outside its chip, as list rows draw badges: `▐Inbox▌ ▐3▌` (own
 
 Tab chips are chrome (owner decision, 2026-10-18): each chip title is a `Text` with
 `.lineLimit(1)` applied by TabView itself, so an app's inherited `lineLimit` never reaches
-it, and each chip stays one row. The bar wrapping chips onto more rows is the component's
-own layout of chrome items; no chip wraps internally. The pane is app content: it inherits
-`lineLimit` and `truncationMode` and word-wraps at the pane width.
+it, and each chip stays one row. The bar is a 2-cell cursor gutter beside
+`Flow(spacing: 2) { chips }` (key G6), as Picker's radio group is: wrapped lines start
+under the first chip, a chip wider than the line sits alone in a slot of the line's width
+and tail-truncates its label, and no chip wraps internally.
+`ViewThatFits(in: .horizontal)` chooses between the bar with full labels and the bar with
+every inactive icon chip collapsed, so the bar collapses before it wraps (key G10;
+[ViewThatFits](../primitives/view-that-fits.md), which splits omp2's chip layout the same
+way). omp2 collapses inactive chips one at a time from the last; no fixture here tells the
+two apart. The pane is app content: it inherits `lineLimit` and `truncationMode` and
+word-wraps at the pane width.
 
 ## Anatomy
 
@@ -218,7 +245,7 @@ icon alone. Config's icon wraps onto the second bar row because the collapsed ba
 overflow row one (derived, not captured). The pane is content and wraps within 24 columns.
 
 ```wireframe 24x5
-❯ ▐ Overview▌   
+ ▐ Overview▌   
    
 ────────────────────────
 Build passed on main at
@@ -227,7 +254,7 @@ Build passed on main at
 
 ```text
 Callouts (24x5, 0-based):
-1. r0 c0-1    Cursor -- `❯` in `focus`.
+1. r0 c0-1    Cursor -- the `cursor` mark, U+F054 under Nerd Font, in `focus` (key K3).
 2. r0 c2-13   Active chip "Overview" -- home icon U+F015 at c3 (gap c4); caps and fill in
               `focus`; bold title in `contrast` on the `focus` fill; full label kept.
 3. r0 c17-18  Collapsed chip "Logs" -- terminal icon U+F120 at c17 (gap c18), alone, in
@@ -246,7 +273,7 @@ icon-title gap ([Nerd Font cells](../tokens.md#nerd-font-cells)).
 
 ```text
 ── chars ──
-❯ ▐ Overview▌   
+ ▐ Overview▌   
    
 ────────────────────────
 Build passed on main at
@@ -306,13 +333,14 @@ E  fg=border -- rule row
 
 Derived from the settled truncation order, not captured (owner decision, 2026-10-10 for
 the order; the integer result follows from it). At 12 columns the 12-cell active chip does
-not fit beside the 2-cell cursor, so its label tail-truncates (chrome, one row): `Over…`.
-The collapsed icon chips wrap onto the second bar row; the rule spans the proposal; the
-pane is content and wraps at 12 columns.
+not fit beside the 2-cell cursor, so Flow gives it the whole 10-cell line and its label
+tail-truncates (chrome, one row): `Overv…`. The collapsed icon chips wrap onto the second
+bar row, 2 cells apart; the rule spans the proposal; the pane is content and wraps at 12
+columns.
 
 ```wireframe 12x6
-❯ ▐ Over…▌
-       
+ ▐ Overv…▌
+        
 ────────────
 Build passed
 on main at
@@ -321,10 +349,10 @@ on main at
 
 ```text
 Callouts (12x6, 0-based):
-1. r0 c0-1    Cursor -- `❯` in `focus`.
-2. r0 c2-10   Active chip -- home icon U+F015 at c3 (gap c4) and the label cut to `Over…`;
-              chrome, one row.
-3. r1 c3-4 and r1 c8-9  Collapsed chips -- terminal U+F120 and gear U+F013 icons alone, in
+1. r0 c0-1    Cursor -- the `cursor` mark, U+F054 under Nerd Font, in `focus` (key K3).
+2. r0 c2-11   Active chip -- home icon U+F015 at c3 (gap c4) and the label cut to `Overv…`;
+              chrome, one row; Flow's slot is the whole 10-cell line.
+3. r1 c3-4 and r1 c9-10  Collapsed chips -- terminal U+F120 and gear U+F013 icons alone, in
               `secondary`, on the second bar row.
 4. r2 c0-11   Rule -- `─` repeated to the 12-column proposal, `border`.
 5. r3-r5      Pane -- the active tab's content; content, wraps at 12 columns.
@@ -410,12 +438,12 @@ E  fg=border -- rule row
 
 Schema: [README](../README.md#state-model-table).
 
-| State         | Owner           | Type                                  | Reset or clamp rule                                                                                                                          |
-| ------------- | --------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| selection     | app             | `Binding<Value: Hashable>`            | The view writes only through the binding on Left, Right, and chip click. It never invents or clamps a value (states: no matching selection). |
-| bar layout    | derived         | chip widths, collapsed set, row count | Recomputed at the proposed width on every layout. Never stored.                                                                              |
-| focus         | responder graph | `Bool`                                | Owned by the responder graph. The cursor and the active-pill focus fill follow it.                                                           |
-| pill and pane | derived         | active tab                            | Recomputed from the bound selection on every render.                                                                                         |
+| State         | Owner       | Type                                  | Reset or clamp rule                                                                                                                                                                                  |
+| ------------- | ----------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| selection     | Binding     | `Value` (`Hashable`)                  | The view writes only through the binding on Left, Right, and chip click (key D1). It never invents or clamps a value (states: no matching selection).                                                |
+| bar layout    | derived     | chip widths, collapsed set, row count | Recomputed at the proposed width on every layout by `ViewThatFits` and `Flow` (keys D10, G6, G10). Never stored.                                                                                     |
+| is focused    | Environment | `Bool`                                | Injected below the explicit `.focusable` modifier from the FocusManager's live identity (key E1). The cursor and the active-pill focus fill follow it (key E2); it is never mirrored into NodeState. |
+| pill and pane | derived     | active tab                            | Recomputed from the bound selection on every render.                                                                                                                                                 |
 
 ## Key table
 
@@ -425,8 +453,9 @@ Schema: [README](../README.md#key-table).
 | ----- | ------------ | ----------------------------------------------------------------------------------------------- | -------- |
 | Left  | focused      | Selection moves to the previous tab through the binding; from the first tab, wraps to the last. | yes      |
 | Right | focused      | Selection moves to the next tab through the binding; from the last tab, wraps to the first.     | yes      |
-| other | focused      | No effect; the key continues to the ancestors.                                                  | no       |
-| other | unfocused    | Not handled by the tab view.                                                                    | no       |
+
+Every other key bubbles to the ancestors (key E3), and an unfocused tab view handles no
+keys.
 
 ## Mouse table
 
@@ -448,17 +477,19 @@ Schema: [README](../README.md#mouse-table). Regions must be named in the anatomy
 ## Sizing
 
 Schema: [README](../README.md#sizing-table). Results derived from the formula are marked
-as such; the bar width is `2 + Σ(title width + 4)` per tab, with icons ignored. Chips are
-chrome and stay one row; the pane is content and wraps at the proposed width.
+as such. The bar's ideal width is the 2-cell cursor gutter plus one
+[Flow](../primitives/flow.md) line of chips, 2 cells apart; a chip is its title, its icon
+and gap where the charset draws one, and 2 cells of caps or padding. Chips are chrome and
+stay one row; the pane is content and wraps at the proposed width.
 
 | Proposal   | Result                         | Rule                                                                                                                                                                                                                                                                                                                 |
 | ---------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| nil x nil  | 32x3                           | Natural width is the larger of the bar and the widest pane; height is bar rows + 1 + pane rows (derived, not captured).                                                                                                                                                                                              |
+| nil x nil  | 30x3                           | Natural width is the larger of the bar (30: the gutter, chips of 10, 6 and 8 cells, and 2 cells between chips) and the widest pane (30); height is bar rows + 1 + pane rows (derived, not captured).                                                                                                                 |
 | 24x5       | 24x5                           | Tight fit at the minimum: `min(bar, 24)`; inactive icon chips collapse and chips without an icon wrap instead of shrinking (derived, not captured).                                                                                                                                                                  |
 | 40x3       | 40x3                           | Captured default: the bar fits at full labels, and the rule and one pane line fill the height.                                                                                                                                                                                                                       |
 | 40xnil     | 40x5                           | Captured wrap: chips wrap onto extra rows before the pane, and the rule follows the last bar row.                                                                                                                                                                                                                    |
 | 16xnil     | 16x5                           | Under the minimum (derived): the active chip still fits (14 cells), the icon chips wrap to a second bar row, the rule spans 16, and the pane wraps to two rows: 2 + 1 + 2.                                                                                                                                           |
-| 12xnil     | 12x6                           | Under the minimum (derived): the active label tail-truncates to `Over…` first (settled order), the icon chips wrap to a second bar row, the rule spans 12, and the pane wraps to three rows: 2 + 1 + 3. See the 12x6 state.                                                                                          |
+| 12xnil     | 12x6                           | Under the minimum (derived): the active label tail-truncates to `Overv…` first (settled order), the icon chips wrap to a second bar row, the rule spans 12, and the pane wraps to three rows: 2 + 1 + 3. See the 12x6 state.                                                                                         |
 | W<24 x nil | W x (bar rows + 1 + pane rows) | Under the minimum the result width is the proposal (the rule spans it) and the height is the bar rows plus the rule plus the pane rows at W. The order the bar gives way in is settled (owner decision, 2026-10-10): the active label truncates first, then inactive chips show icons only, then the pill caps drop. |
 | 80x3       | 80x3                           | Over-maximum: there is no maximum width; the rule spans the proposal and the pane takes the full content width.                                                                                                                                                                                                      |
 
@@ -473,14 +504,22 @@ Tokens consumed (see [tokens.md](../tokens.md#roles)).
   ([text roles](../tokens.md#text-roles)).
 - `contrast`: title text on the active pill, `on(R)` inside `solid(R)`
   ([composite styles](../tokens.md#composite-styles)).
+- `cursor` mark: `❯`, U+F054 under Nerd Font, `>` under ASCII, drawn in `focus`
+  ([marks](../tokens.md#marks); key K3).
+- Pill ends: the squared [caps](../tokens.md#caps), `▐` and `▌` in the fill colour (key
+  K10); for ASCII see [Open questions](#open-questions).
 
 ## Primitive dependencies
 
-- [Label](../primitives/label.md): chip icons and the icon catalog. Its icon table decides
-  which names exist; the collapse behaviour here is the Tessera chip rule, not a `Label`
+- [Label](../primitives/label.md) (`ready`): chip icons and the icon catalog. Its icon
+  table decides which names exist; the collapse is a `ViewThatFits` choice, not a `Label`
   style.
-- [Badge](../primitives/badge.md): `.badge(_:)` on tab items. A tab badge draws trailing,
-  outside its chip, as list rows draw badges (owner decision, 2026-10-10).
+- [Badge](../primitives/badge.md) (`ready`): `.badge(_:)` on tab items. A tab badge draws
+  trailing, outside its chip, as list rows draw badges (owner decision, 2026-10-10).
+- [Flow](../primitives/flow.md) (`ready`): the bar's chip wrap (key G6), as for Picker's
+  radio group.
+- [ViewThatFits](../primitives/view-that-fits.md) (`ready`): chooses the bar with full
+  labels or the bar with inactive icon chips collapsed (key G10).
 
 ## Requirements
 
@@ -499,6 +538,7 @@ Schema: [README](../README.md#requirements-list).
   (mouse table: move).
 - `move events draw no hover state` (mouse table: move).
 - `focused tab view draws the focus cursor on the bar row only` (anatomy callout 1).
+- `nerd font draws the cursor mark as U+F054` (states: minimum; Environment: cursor mark).
 - `unfocused tab view draws a blank cursor and the accent pill` (states: unfocused).
 - `active tab draws a filled pill and inactive tabs draw secondary titles` (anatomy
   callouts 2-4).
@@ -513,6 +553,10 @@ Schema: [README](../README.md#requirements-list).
 - `rule row sits under the last bar row` (states: mobile).
 - `narrow bar keeps the active tab labeled and collapses inactive icon tabs` (states:
   minimum).
+- `bar keeps full labels while they fit one line and collapses inactive icon chips before it wraps`
+  (sizing: 40x3; states: minimum; API direction: ViewThatFits).
+- `a chip wider than the line sits alone and truncates its label to the line width`
+  (states: under the minimum, 12x6).
 - `under 24 columns truncates the active label, then collapses inactive chips to icons, then drops the pill caps`
   (sizing: under 24; states: under the minimum).
 - `under 24 columns the result width is the proposal and the height is bar rows plus rule plus pane rows`
@@ -535,9 +579,18 @@ Schema: [README](../README.md#requirements-list).
 - Below 24 columns the truncation order in the sizing table applies (owner decision,
   2026-10-10), and the result follows from it (states: under the minimum, 12x6).
 
+Reviewed against the
+[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): the selection
+is the app's binding, the view holds no NodeState, focus stays with the graph, and the
+bar's wrap and collapse are deterministic integer-cell layout.
+
 ## Open questions
 
-None.
+- **ASCII active tab (key K10).** Under ASCII the active tab is a flat bold label with no
+  caps or fill, as omp2's ASCII chips are. The squared caps fall back to `.rectangle` fill
+  cells under ASCII ([caps](../tokens.md#caps)), which Picker's radio group draws. The
+  owner decides which TabView follows; deferred to plan 032 step 16.3, which builds
+  TabView.
 
 ## Inspiration
 

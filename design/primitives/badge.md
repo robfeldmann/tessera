@@ -1,30 +1,42 @@
 ---
 kind: primitive
-status: wireframed
+status: ready
 ---
 
 # Badge
 
 `Badge` is a short label, a count or a word, in a filled squared shape coloured by its
 tone. It is a primitive: it draws its label and its caps and takes no focus, keys, or
-pointer input. Its shape vocabulary is [Button's](../widgets/button.md#shape): `.squared`
-by default, and `.capsule` for round caps, so both share the cap glyphs and the charset
-fallback. Apps use it standalone, through `.badge(_:)` on list rows and tab items, and
-inside a Callout header.
+pointer input. Its shapes are the two capped ends of
+[Button's](../widgets/button.md#shape), chosen with `.badgeShape(_:)`: `.squared` by
+default, and `.capsule` for round caps. Both draw the [caps](../tokens.md#caps) tokens
+with the charset fallback. Apps use it standalone, through `.badge(_:)` on list rows and
+tab items, and inside a Callout header.
 
 ## Prior art
 
-omp2 has no badge component. Its two nearest shapes are:
+omp2 has no badge component; key B11 maps its `badge` attribute to `.badge(_:tone:)`. Its
+nearest counterparts are:
 
 - Button's pill,
   [`paint_pill`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/button.rs#L111-L133).
   It fills a rectangle and paints charset-selected end caps in the fill colour. Copy the
-  cap logic; Badge reuses Button's shapes rather than defining its own.
+  cap logic: Badge draws the same [caps](../tokens.md#caps) tokens as Button's shapes, and
+  omp2's `pill_caps`
+  ([context.rs#L227-L234](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/context.rs#L227-L234))
+  become `caps.squared`, with Powerline caps only under `.nerdFont` (key K10).
 - The Callout header,
   [header row](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/callout.rs#L297-L311).
   It puts a badge after the bold title in muted text. Copy the slot after the title.
   Reject the muted-only colour: owner decision, omp2 review, 2026-10, makes the Callout
   badge a warning-toned badge.
+- DiffStat's counts,
+  [diffstat.rs#L144-L161](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/diffstat.rs#L144-L161).
+  It colours each count by meaning and skips a count that does not fit rather than cutting
+  it. Copy both: the tones are a `BadgeTone` meaning parameter (key B12) whose names
+  follow the hue roles, omp2's `ok`, `err`, and `muted` becoming `success`, `error`, and
+  `neutral`'s `secondary` (key J5), and a count is atomic. Reject the unfilled text: a
+  badge is `solid(R)`.
 - SwiftUI
   [`badge(_:)`](<https://developer.apple.com/documentation/swiftui/view/badge(_:)>) places
   a count or label at the trailing edge of list rows and tab items. Copy the modifier
@@ -115,9 +127,12 @@ confirmed 2026-10-10 for every count in context).
 
 ## Variants
 
-Glyphs follow [Button's shape](../widgets/button.md#shape). The default badge is
-`.squared`: half blocks in Nerd Font and Unicode. `.capsule` gets round caps with a Nerd
-Font, and half blocks without one. ASCII drops the caps (owner decision, 2026-10-10).
+Glyphs follow [Button's shape](../widgets/button.md#shape) and the
+[caps](../tokens.md#caps) tokens. The default badge is `.squared`: half blocks in Nerd
+Font and Unicode. `.capsule` gets round caps with a Nerd Font, and half blocks without
+one. ASCII drops the caps (owner decision, 2026-10-10). The caps row's ASCII column names
+Button's `.rectangle` fallback; Badge has no rectangle shape and draws brackets instead
+([ASCII](#ascii)).
 
 ### Nerd Font
 
@@ -289,6 +304,14 @@ extension View {
     public func badge(_ label: some StringProtocol, tone: BadgeTone = .neutral) -> some View
     public func badge(_ count: Int, tone: BadgeTone = .neutral) -> some View
 }
+
+public enum BadgeShape: Sendable {
+    case squared, capsule
+}
+
+extension View {
+    public func badgeShape(_ shape: BadgeShape) -> some View
+}
 ```
 
 ```swift
@@ -304,6 +327,10 @@ Badge("new", tone: .info)
 A row badge trails the row content at the trailing edge, as on
 [List](../widgets/list.md#row-badges). Tab items accept `.badge(_:)` the same way; tab
 placement is in [TabView](../widgets/tab-view.md).
+
+A badge's shape is a look, so it is a style modifier read from the environment (key B12),
+as Button's `.buttonBorderShape(_:)` is. `.squared` is the default; `.capsule` takes
+effect only with a Nerd Font ([Nerd Font](#nerd-font)).
 
 ## Sizing
 
@@ -328,17 +355,18 @@ under-minimum, over-maximum. Badge mirrors Button's sizing rows (owner decision,
   `error`, each as `solid(R)` ([composite styles](../tokens.md#composite-styles)).
 - Label role `contrast` bold: `on(R)` inside `solid(R)`
   ([composite styles](../tokens.md#composite-styles)).
-- Caps: U+E0B6 and U+E0B4 with a Nerd Font when `.capsule` is chosen; `▐` and `▌` for the
-  default `.squared` shape without a Nerd Font; nothing in ASCII, which uses `[` and `]`.
-  Glyphs as in [Button](../widgets/button.md#shape).
+- Caps: the [caps](../tokens.md#caps) tokens. `caps.capsule` (U+E0B6 and U+E0B4) with a
+  Nerd Font when `.capsule` is chosen; `caps.squared` (`▐` and `▌`) otherwise; nothing in
+  ASCII, which uses `[` and `]`. Glyphs as in [Button](../widgets/button.md#shape).
+- Badge shape: the environment value `.badgeShape(_:)` writes, `.squared` by default.
 
 ## Primitive dependencies
 
-- [Text](text.md) for the label.
-- [Style modifiers](style-modifiers.md) for the tone fill and label style.
-- The capsule background shape (`.background(.capsule, style)`), which lands in
-  [Slice 3](../../docs/Spec.md#slice-3-styling-text-wrapping-and-decoration). Badge is not
-  `ready` until that shape exists.
+- [Text](text.md) for the label. Status `ready`.
+- [Style modifiers](style-modifiers.md) for the tone fill and label style. Status `ready`.
+- Caps: Badge draws its caps itself from the [caps](../tokens.md#caps) tokens, as Button
+  draws its shapes, so it needs no capsule background shape. No Spec slice defines one,
+  and the tokens name the caps as the ends of Button and Badge shapes.
 
 ## Requirements
 
@@ -348,6 +376,8 @@ under-minimum, over-maximum. Badge mirrors Button's sizing rows (owner decision,
 - `badge caps take the fill colour` (anatomy: callouts 2-3)
 - `default badge ends with half blocks, squared as in Button` (anatomy; variants)
 - `capsule badge ends with round caps with a Nerd Font` (variants: Nerd Font)
+- `badge shape is read from the environment and defaults to squared` (API direction: badge
+  shape; variants)
 - `unicode badge ends with half blocks` (anatomy)
 - `ascii badge draws its label in brackets in the tone colour` (variants: ASCII)
 - `badge nil x nil and tight sizes are label plus two caps` (Sizing: nil x nil, tight)
@@ -377,7 +407,18 @@ under-minimum, over-maximum. Badge mirrors Button's sizing rows (owner decision,
 
 ## Open questions
 
-- The capsule background shape lands in Slice 3 (see Primitive dependencies).
+- Resolved: the capsule shape. Badge draws its caps from the [caps](../tokens.md#caps)
+  tokens, as Button does, so it needs no `.background(.capsule, style)`.
+  [Slice 3](../../docs/Spec.md#slice-3-styling-text-wrapping-and-decoration) defines no
+  such shape, and [the 1.0 surface](../../docs/Spec.md#the-10-surface) lists none.
+- Resolved: the shape is chosen with `.badgeShape(_:)`, an environment style modifier,
+  because key B12 makes a closed set of looks one, as Button's `.buttonBorderShape(_:)`
+  is.
+- Resolved: reviewed against the
+  [Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module). Badge is a
+  stateless value composed from Text and style modifiers, its tone and shape resolve from
+  roles, tokens, and the environment, and its geometry is deterministic integer-cell
+  output.
 
 ## Inspiration
 

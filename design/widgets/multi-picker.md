@@ -1,6 +1,6 @@
 ---
 kind: widget
-status: specified
+status: ready
 ---
 
 # MultiPicker
@@ -32,11 +32,16 @@ this doc records only what multi-select changes.
   plain multi-selection binding. Apple's `searchable(tokens:)` is the precedent for the
   ordered custom-option initializer, which binds any random-access, range-replaceable
   collection of the selection type.
-- omp2 select menu,
-  [`select.rs`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/select.rs#L514-L715)
-  -- copy the in-place option list, the cursor glyph separate from the check mark, and the
-  Space toggle (owner decision, 2026-10-11). Reject its Enter-toggles behaviour: in
-  MultiPicker Enter never toggles (owner decision, 2026-10-18).
+- omp2 select menu with `multi`
+  ([`select.rs`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/select.rs#L514-L715))
+  is the counterpart -- copy the in-place option list, the cursor glyph separate from the
+  check mark, and the Space toggle (`activate` L680-692; owner decision, 2026-10-11).
+  Enter never toggles in MultiPicker (owner decision, 2026-10-18). omp2's multi-select
+  Enter does not toggle either: it emits `Submit` (L656-659), and MultiPicker lets Enter
+  bubble so a default button submits (key C3). The chosen set (`chosen` L142) is the app's
+  binding, written per toggle (keys D1, C6), and the cursor, `editing`, `custom_text`, and
+  `scroll` are NodeState, as in [Picker](picker.md#prior-art) (keys D3, D7, D8, D4). Its
+  filter is not in 1.0 (keys C7, M2).
 - [Picker](picker.md) -- the single-select sibling. Its menu, radio group, option
   descriptions, scrolling contract, and custom row are the base this doc builds on.
 
@@ -122,9 +127,9 @@ MultiPicker renders from `EnvironmentValues.isFocused` and handles keys only whe
 `ResponderContext.isFocused` is true. Callers compose focus explicitly with `.focusable`
 and `.focused(_:equals:)`, as Picker's callers do.
 
-> Deferred: custom multi-picker styles and style configuration land in a later slice, with
-> Picker's. They must preserve the implemented selection, keyboard, pointer, enabled, and
-> focus behavior.
+> Deferred: custom multi-picker styles and style configuration wait on the Slice 7 style
+> contract, with Picker's (see [Picker](picker.md#api-direction)). They must preserve the
+> implemented selection, keyboard, pointer, enabled, and focus behavior.
 
 ## Presentations
 
@@ -359,33 +364,33 @@ Callouts (9x4, 0-based):
 
 ### Menu
 
-| State         | Owner       | Type                                      | Reset or clamp rule                                                                                                                                                                                                                                                                                                                               |
-| ------------- | ----------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| selection     | Binding     | `Binding<Set<Selection>>` or `Binding<C>` | App-owned. MultiPicker writes only after a toggle (Space, a digit, or a click) or after a committed custom draft. Elements with no supplied option stay in the binding, unchanged and undrawn, except typed rows under the custom-option initializer.                                                                                             |
-| checked count | derived     | `Int`                                     | Recomputed from `selection` and the option set on every reconciliation; feeds the host summary.                                                                                                                                                                                                                                                   |
-| typed rows    | derived     | `[Selection]`                             | Custom-option initializer only. The elements of `selection` that are not in `options`, in binding order; each draws as a checked row above the Other row. Removed from the binding when unchecked; never duplicated.                                                                                                                              |
-| cursor index  | widget UI   | `Int`                                     | Keyboard position within the rows (options, typed rows, then the Other row). Clamped to `0...(row count - 1)` on every reconciliation, including after a typed row disappears; never written to `selection`. When an accepted draft adds a typed row, the index moves with the Other row, so the cursor stays on it (owner decision, 2026-10-18). |
-| editing       | widget UI   | `Bool`                                    | `true` after Space or a click starts the Other row. Ends on Enter with an accepted value, or on Escape. A rejected draft (`nil`) leaves it `true`. Reset to `false` when the custom row is removed.                                                                                                                                               |
-| draft text    | widget UI   | `String`                                  | Accepts typed text only while editing. Cleared when `customOption` accepts it and on Escape.                                                                                                                                                                                                                                                      |
-| scroll offset | widget UI   | `Int`                                     | Rows above the viewport, as in [Picker's menu](picker.md#menu-scrolling-in-rows); clamped to `0...max(0, content rows - visible rows)` on every reconciliation, then reveal re-applies to the cursor row.                                                                                                                                         |
-| is focused    | Environment | `Bool`                                    | Gates every key; the `❯` cursor and the focus treatment draw only while focused.                                                                                                                                                                                                                                                                  |
+| State         | Owner       | Type                                      | Reset or clamp rule                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------------- | ----------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| selection     | Binding     | `Binding<Set<Selection>>` or `Binding<C>` | App-owned (key D1); each toggle writes it (key C6). MultiPicker writes only after a toggle (Space, a digit, or a click) or after a committed custom draft. Elements with no supplied option stay in the binding, unchanged and undrawn, except typed rows under the custom-option initializer.                                                                                                                                                                                                                                                |
+| checked count | derived     | `Int`                                     | Recomputed from `selection` and the option set on every reconciliation; feeds the host summary.                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| typed rows    | derived     | `[Selection]`                             | Custom-option initializer only. The elements of `selection` that are not in `options`, in binding order; each draws as a checked row above the Other row. Removed from the binding when unchecked; never duplicated.                                                                                                                                                                                                                                                                                                                          |
+| cursor index  | NodeState   | `Int`                                     | Position, not data (key D3). Keyboard position within the rows (options, typed rows, then the Other row). Starts as the open host list's cursor does, on the first chosen option or else the first option, because Picker's menu and host list share one start (key D9). Clamped to `0...(row count - 1)` on every reconciliation, including after a typed row disappears; never written to `selection`. When an accepted draft adds a typed row, the index moves with the Other row, so the cursor stays on it (owner decision, 2026-10-18). |
+| editing       | NodeState   | `Bool`                                    | Interaction in flight (key D7). `true` after Space or a click starts the Other row. Ends on Enter with an accepted value, or on Escape. A rejected draft (`nil`) leaves it `true`. Reset to `false` when the custom row is removed.                                                                                                                                                                                                                                                                                                           |
+| draft text    | NodeState   | `String`                                  | An uncommitted draft (key D8): losing it loses unfinished input, never a committed value. Accepts typed text only while editing. Cleared when `customOption` accepts it and on Escape.                                                                                                                                                                                                                                                                                                                                                        |
+| scroll offset | NodeState   | `Int`                                     | Rows above the viewport that no binding owns (key D4), as in [Picker's menu](picker.md#menu-scrolling-in-rows); clamped to `0...max(0, content rows - visible rows)` on every reconciliation, then reveal re-applies to the cursor row.                                                                                                                                                                                                                                                                                                       |
+| is focused    | Environment | `Bool`                                    | Gates every key; the `❯` cursor and the focus treatment draw only while focused.                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 
 ### Radio group
 
-| State          | Owner       | Type                      | Reset or clamp rule                                                                                                                                 |
-| -------------- | ----------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| selection      | Binding     | `Binding<Set<Selection>>` | App-owned. MultiPicker writes only after a toggle (Space or a chip click). Elements with no supplied option stay in the set, unchanged and undrawn. |
-| checked count  | derived     | `Int`                     | Recomputed from `selection` and the option set on every reconciliation.                                                                             |
-| cursor index   | widget UI   | `Int`                     | Keyboard position of the `❯` prefix while focused. Starts on 0; clamped on every reconciliation; never written to `selection`.                      |
-| wrapped layout | derived     | rows of chip indices      | Recomputed from the final allocated width on every layout, as in [Picker's radio group](picker.md#radio-group). Never clips.                        |
-| is focused     | Environment | `Bool`                    | Controls the `❯` cursor prefix and the checked chips' underline, drawn only while focused. Events are checked through `ResponderContext.isFocused`. |
+| State          | Owner       | Type                      | Reset or clamp rule                                                                                                                                                                          |
+| -------------- | ----------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| selection      | Binding     | `Binding<Set<Selection>>` | App-owned (key D1); each toggle writes it (key C6). MultiPicker writes only after a toggle (Space or a chip click). Elements with no supplied option stay in the set, unchanged and undrawn. |
+| checked count  | derived     | `Int`                     | Recomputed from `selection` and the option set on every reconciliation.                                                                                                                      |
+| cursor index   | NodeState   | `Int`                     | Position, not data (key D3). Keyboard position of the `❯` prefix while focused. Starts on 0, its reset rule (key D9); clamped on every reconciliation; never written to `selection`.         |
+| wrapped layout | derived     | rows of chip indices      | Recomputed from the final allocated width on every layout by [Flow](../primitives/flow.md) (key G6), as in [Picker's radio group](picker.md#radio-group). Never clips.                       |
+| is focused     | Environment | `Bool`                    | Controls the `❯` cursor prefix and the checked chips' underline, drawn only while focused. Events are checked through `ResponderContext.isFocused`.                                          |
 
 ### Host row
 
 | State        | Owner       | Type     | Reset or clamp rule                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | ------------ | ----------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| open         | widget UI   | `Bool`   | Set by Enter, Space, or a click on the closed row. Cleared without committing by Escape, focus loss, or a click outside; cleared by Enter and by a click on the row while open. Toggles already written stay.                                                                                                                                                                                                                                                    |
-| cursor index | widget UI   | `Int`    | Starts on the first chosen option when opened, or on the first option when none is chosen. Clamped on every reconciliation.                                                                                                                                                                                                                                                                                                                                      |
+| open         | NodeState   | `Bool`   | Interaction in flight (key D7). Set by Enter, Space, or a click on the closed row. Cleared without committing by Escape, focus loss, or a click outside; cleared by Enter and by a click on the row while open. Toggles already written stay.                                                                                                                                                                                                                    |
+| cursor index | NodeState   | `Int`    | Position, not data (key D3). Starts on the first chosen option when opened, or on the first option when none is chosen (key D9). Clamped on every reconciliation.                                                                                                                                                                                                                                                                                                |
 | summary      | derived     | `String` | The first two chosen labels joined by a comma and a space, then a space and `+N` for the rest; `none` when empty. Typed values count and are named like options. Content (owner decision, 2026-10-18): the names wrap at word boundaries under the value column rather than truncate, and `▾` follows the last word. The host decides the row count; a host that fixes one row gets a marked cut: names tail-truncate with `…`, and the `+N` count and `▾` stay. |
 | is focused   | Environment | `Bool`   | Focus loss closes an open list. A disabled row is absent from focus and cannot open.                                                                                                                                                                                                                                                                                                                                                                             |
 
@@ -404,8 +409,8 @@ title row under `.labelsHidden()`.
 | Space                                          | focused and is enabled and not editing and cursor is on the custom row             | starts editing; `selection` unchanged                                                                                                                                                                                    | yes      |
 | Enter                                          | focused and is enabled and not editing                                             | no handler; bubbles, so a default button can fire (owner decision, 2026-10-18)                                                                                                                                           | no       |
 | Enter                                          | editing                                                                            | passes the draft to `customOption`: a non-nil value is added to `selection` via binding (no duplicate) and editing ends; `nil` keeps the draft and editing; an empty draft ends editing and leaves `selection` unchanged | yes      |
-| Escape                                         | editing                                                                            | ends editing and clears the draft; `selection` unchanged                                                                                                                                                                 | yes      |
-| Escape                                         | focused and is enabled and not editing                                             | no handler; bubbles                                                                                                                                                                                                      | no       |
+| Esc                                            | editing                                                                            | ends editing and clears the draft; `selection` unchanged                                                                                                                                                                 | yes      |
+| Esc                                            | focused and is enabled and not editing                                             | no handler; bubbles                                                                                                                                                                                                      | no       |
 | Backspace, Ctrl-U, Ctrl-W, printable character | editing                                                                            | edited by the shared text-editing core                                                                                                                                                                                   | yes      |
 | any other key                                  | editing                                                                            | no effect; swallowed so the draft is not disturbed                                                                                                                                                                       | yes      |
 | 1 to 9                                         | focused and is enabled and not editing and row count is at least N                 | toggles the Nth option and moves the cursor to it; the list stays open; if the Nth row is the custom row, starts editing                                                                                                 | yes      |
@@ -416,7 +421,10 @@ title row under `.labelsHidden()`.
 Digits 1 to 9 act on the Nth row in display order. Options past the ninth have no digit
 and are reached with the arrow or page keys. Digit labels are not drawn on rows, and
 [KeyLegend](key-legend.md) shows `1–9 choose` (owner decision, 2026-10-18). A standalone
-menu has nothing to close, so Enter always bubbles.
+menu has nothing to close, so Enter always bubbles to the default button (key C3).
+
+As in [Picker's menu](picker.md#menu-2), moving the cursor writes nothing and calls
+nothing (key C5), and paste reaches the draft only while editing (key E7).
 
 ### Radio group
 
@@ -435,7 +443,9 @@ Space, never by moving. An unfocused or disabled group returns Skip.
 ## Mouse table
 
 `click` means a primary click. Pointer delivery uses Slice 5 hit testing. Every click that
-acts installs this MultiPicker's explicit focus first (owner decision, 2026-10-10).
+acts installs this MultiPicker's explicit focus first (owner decision, 2026-10-10). No
+presentation has a `move` row: MultiPicker draws no hover and requests no pointer motion,
+as in Picker (key F4).
 
 ### Menu
 
@@ -446,20 +456,22 @@ acts installs this MultiPicker's explicit focus first (owner decision, 2026-10-1
 | click                | custom row                   | is enabled, row count is positive, and not editing                            | installs focus, moves cursor to the custom row, then starts editing                                        | yes      |
 | click                | custom row                   | is enabled, row count is positive, and editing                                | installs focus and moves cursor to the custom row; editing and the draft continue                          | yes      |
 | click                | title row, below last option | always                                                                        | no handler; bubbles                                                                                        | no       |
-| wheel up, wheel down | any                          | is enabled and row count is positive                                          | moves cursor one option up or down; consumed even when already at the first or last option                 | yes      |
-| wheel up, wheel down | any                          | row count is zero                                                             | no handler; bubbles                                                                                        | no       |
+| wheel-up, wheel-down | any                          | is enabled and row count is positive                                          | moves cursor one option up or down; consumed even when already at the first or last option                 | yes      |
+| wheel-up, wheel-down | any                          | row count is zero                                                             | no handler; bubbles                                                                                        | no       |
 | click                | any                          | not is enabled                                                                | leaves focus, cursor, and `selection` unchanged                                                            | no       |
 | other mouse          | any                          | always                                                                        | no handler; bubbles                                                                                        | no       |
 
+The wheel moves the cursor, as in Picker's menu (key F7).
+
 ### Radio group
 
-| Event              | Region                 | Precondition                             | Effect                                                                             | Consumed |
-| ------------------ | ---------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------- | -------- |
-| click              | chip `i`               | is enabled and `i` is below option count | installs focus, then toggles option `i` via binding; the other chips are unchanged | yes      |
-| click              | chip `i`               | `i` is at or above option count          | no handler                                                                         | no       |
-| click              | gutter, gaps, row ends | always                                   | no handler; bubbles                                                                | no       |
-| click              | any                    | not is enabled                           | leaves focus and `selection` unchanged                                             | no       |
-| wheel, other mouse | any                    | always                                   | no handler; bubbles                                                                | no       |
+| Event                | Region                 | Precondition                             | Effect                                                                             | Consumed |
+| -------------------- | ---------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------- | -------- |
+| click                | chip `i`               | is enabled and `i` is below option count | installs focus, then toggles option `i` via binding; the other chips are unchanged | yes      |
+| click                | chip `i`               | `i` is at or above option count          | no handler                                                                         | no       |
+| click                | gutter, gaps, row ends | always                                   | no handler; bubbles                                                                | no       |
+| click                | any                    | not is enabled                           | leaves focus and `selection` unchanged                                             | no       |
+| wheel-*, other mouse | any                    | always                                   | no handler; bubbles                                                                | no       |
 
 ## Menu in a host row
 
@@ -477,14 +489,14 @@ gets: Form stacks its label above the value before the value wraps, and a host t
 one row gets a marked cut, the names tail-truncated with `…` while the `+N` count and `▾`
 stay.
 
-Enter or Space opens the option list in place, below the row; it draws no title row, as
-the host row above is its heading. Its option rows are the menu's rows, indented four
-cells; they wrap in the width after the indent and scroll in rows like the standalone
-menu. Esc or focus loss closes the list without committing. Space toggles and keeps the
-list open; Enter closes it (owner decision, 2026-10-18). While the row is closed, its keys
-bubble to the host. The single-select counterpart is
-[Picker's host row](picker.md#menu-collapsed-in-a-host-row). Form links here for its multi
-dropdown rows.
+Enter or Space opens the option list in place, below the row, in flow rather than as a
+layer (key H3); it draws no title row, as the host row above is its heading. Its option
+rows are the menu's rows, indented four cells; they wrap in the width after the indent and
+scroll in rows like the standalone menu. Esc or focus loss closes the list without
+committing. Space toggles and keeps the list open; Enter closes it (owner decision,
+2026-10-18). While the row is closed, its keys bubble to the host. The single-select
+counterpart is [Picker's host row](picker.md#menu-collapsed-in-a-host-row). Form links
+here for its multi dropdown rows.
 
 ### Closed row
 
@@ -552,8 +564,8 @@ Callouts (40x5, 0-based):
 | click                | option row                    | is enabled and open          | installs focus, moves cursor to that row, toggles it via binding; the list stays open | yes      |
 | click                | outside the host row and list | open                         | closes the list, as focus loss does; the click bubbles                                | no       |
 | click                | host row                      | not is enabled               | leaves focus and the list unchanged                                                   | no       |
-| wheel up, wheel down | list                          | is enabled and open          | moves cursor one option up or down, clamped; consumed                                 | yes      |
-| wheel up, wheel down | host row                      | closed, or row count is zero | no handler; bubbles                                                                   | no       |
+| wheel-up, wheel-down | list                          | is enabled and open          | moves cursor one option up or down, clamped; consumed                                 | yes      |
+| wheel-up, wheel-down | host row                      | closed, or row count is zero | no handler; bubbles                                                                   | no       |
 | other mouse          | any                           | always                       | no handler; bubbles                                                                   | no       |
 
 ### Host keys
@@ -568,19 +580,19 @@ Callouts (40x5, 0-based):
 
 #### Open list
 
-| Key                         | Precondition                                      | Effect                                                                                                   | Consumed |
-| --------------------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------- |
-| Up, Down                    | open and is enabled                               | moves cursor to the previous or next option; clamps without wrapping; `selection` unchanged              | yes      |
-| PgUp, PgDn, Home, End       | open and is enabled                               | move cursor as the standalone menu keys do                                                               | yes      |
-| Space                       | open and not editing and cursor on an option row  | toggles the cursor option's membership via binding; the list stays open                                  | yes      |
-| Space                       | open and not editing and cursor on the custom row | starts editing                                                                                           | yes      |
-| Enter                       | open and not editing                              | closes the list; nothing is written, because each toggle is already written (owner decision, 2026-10-18) | yes      |
-| Enter, Escape, editing keys | open and editing                                  | as the standalone menu's editing rows; the list stays open                                               | yes      |
-| 1 to 9                      | open, not editing, row count is at least N        | toggles the Nth option, moves the cursor to it, and keeps the list open                                  | yes      |
-| 1 to 9                      | open, row count is below N                        | no handler; bubbles                                                                                      | no       |
-| Escape                      | open and not editing                              | closes the list; toggles already written stay                                                            | yes      |
-| Left, Right, other keys     | open and not editing                              | no handler; consumed so the row's summary does not change behind the list                                | yes      |
-| Tab, Shift-Tab              | open                                              | no handler; bubbles, and the resulting focus loss closes the list                                        | no       |
+| Key                      | Precondition                                      | Effect                                                                                                   | Consumed |
+| ------------------------ | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------- |
+| Up, Down                 | open and is enabled                               | moves cursor to the previous or next option; clamps without wrapping; `selection` unchanged              | yes      |
+| PgUp, PgDn, Home, End    | open and is enabled                               | move cursor as the standalone menu keys do                                                               | yes      |
+| Space                    | open and not editing and cursor on an option row  | toggles the cursor option's membership via binding; the list stays open                                  | yes      |
+| Space                    | open and not editing and cursor on the custom row | starts editing                                                                                           | yes      |
+| Enter                    | open and not editing                              | closes the list; nothing is written, because each toggle is already written (owner decision, 2026-10-18) | yes      |
+| Enter, Esc, editing keys | open and editing                                  | as the standalone menu's editing rows; the list stays open                                               | yes      |
+| 1 to 9                   | open, not editing, row count is at least N        | toggles the Nth option, moves the cursor to it, and keeps the list open                                  | yes      |
+| 1 to 9                   | open, row count is below N                        | no handler; bubbles                                                                                      | no       |
+| Esc                      | open and not editing                              | closes the list; toggles already written stay                                                            | yes      |
+| Left, Right, other keys  | open and not editing                              | no handler; consumed so the row's summary does not change behind the list                                | yes      |
+| Tab, Shift-Tab           | open                                              | no handler; bubbles, and the resulting focus loss closes the list                                        | no       |
 
 ## Sizing
 
@@ -657,6 +669,9 @@ single-row values (owner decision, 2026-10-18). `labelsHidden` (environment, set
   -- supplies app-installed `FocusID` routing and focusable-list participation.
 - [Mouse hit testing](../../docs/Spec.md#slice-5-mouse-and-hit-testing) -- supplies chip
   and row hit testing and click-to-focus ordering.
+- [`ViewThatFits`](../primitives/view-that-fits.md) -- chooses the radio group's title
+  layout and the menu's description layout, as in Picker (key G10).
+- [Flow](../primitives/flow.md) -- wraps the radio group's chips onto more rows (key G6).
 
 ## Requirements
 
@@ -685,6 +700,8 @@ Menu:
   option row).
 - `multipicker menu wheel moves the cursor and is consumed at list edges` (mouse table:
   menu wheel).
+- `multipicker menu paste reaches the draft only while editing` (key table: menu, paste)
+- `multipicker draws no hover and requests no pointer motion` (mouse table: no move row)
 - `multipicker menu draws bracketed marks under ASCII-only` (state: menu, ASCII;
   degradation).
 - `multipicker menu wraps a long option label and indents continuation rows under the label`
@@ -782,7 +799,16 @@ or writes the binding.
 
 ## Open questions
 
-- **Deferred:** per-option disabled state, as in Picker.
+- **Deferred:** per-option disabled state, as in Picker, to
+  [Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
+
+Reviewed against the
+[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): a MultiPicker
+is a value whose title, options, and row closure are configuration; the chosen set is the
+app's binding, written once per toggle or committed draft; its retained state is the
+cursor, editing, draft, scroll, and open NodeState of its own node, each with a reset
+rule, while its layouts are derived; and its pointer needs reach the session as
+`TerminalRequirements`, never as mode changes.
 
 ## Inspiration
 

@@ -1,6 +1,6 @@
 ---
 kind: widget
-status: specified
+status: ready
 ---
 
 # CodeView
@@ -22,22 +22,24 @@ Tessera supplies the rendering; the app supplies tokens through a highlighter ho
 
 ## Prior art
 
-- omp2 `Pre` component:
+- omp2 `Pre` component, which the key maps to the code view (key I3):
   [text.rs#L443-L555](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/text.rs#L443-L555).
   Copy the verbatim, unwrapped rendering. Copy the numbered gutter rows at
   [#L564-L589](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/text.rs#L564-L589).
 - Gutter width:
   [line_number_prefix](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/text.rs#L417-L440).
   The gutter is the decimal width of the last line number, plus three columns (`│`).
-- Overflow footer:
+- Overflow footer (key B8):
   [paint_overflow_footer](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/mod.rs#L120-L138),
   with the row cap from
   [overflow_plan](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/mod.rs#L104-L117).
   The footer counts toward `maxRows`.
-- Syntax token colours:
+- Syntax token colours (key M3):
   [syntax_token](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/text.rs#L517-L530).
-  Reject the omp2 palette names as Tessera roles. The eight `syntax.*` roles are defined
-  in [tokens](../tokens.md#syntax-roles).
+  Reject omp2's built-in grammars and its palette names as Tessera roles. The eight
+  `syntax.*` roles are defined in [tokens](../tokens.md#syntax-roles).
+- omp2's `set_text` updates have no counterpart (key A8): the app redeclares the source on
+  every update.
 
 ## API direction
 
@@ -47,19 +49,21 @@ CodeView(source, path: "src/render/table.rs")
     .maxRows(4)
 ```
 
+`source` and `path` are plain initializer parameters, redeclared on every update (key D2).
 `path` gives the language: the file extension after the last dot. It is passed to the
 installed highlighter and to the tab-width closure. `lineNumbers(startingAt:)` turns the
-gutter on. `maxRows` caps the height, and the overflow footer counts toward it. The
-modifiers are a proposal; the exact names are decided when the component is built.
+gutter on. `maxRows(_:)` caps the height, and the overflow footer counts toward it; it is
+the catalog's spelling of omp2's `max-rows` (key B8). The modifier names are a proposal,
+and plan 032 step 16.3 settles them.
 
 ### Syntax highlighter hook
 
 Owner decision, 2026-10-10: 1.0 ships no grammar and no parser. Tessera owns rendering,
 the gutter, clipping and the `syntax.*` roles; the app supplies the tokens. A small
 protocol, installed once on an ancestor view, serves every CodeView and Markdown code
-block below it. The protocol shape is the reviewer's example, accepted by the owner; the
-names `SyntaxToken`, `.syntaxHighlighter(_:)` and the `tokens:` parameter are design
-choices, not owner decisions.
+block below it (key M3). The protocol shape is the reviewer's example, accepted by the
+owner; the names `SyntaxToken`, `.syntaxHighlighter(_:)` and the `tokens:` parameter are
+design choices, not owner decisions, and plan 032 step 16.3 settles them.
 
 ```swift
 protocol SyntaxHighlighter {
@@ -97,7 +101,7 @@ that claim is unchecked.
 Owner decision, 2026-10-10: tabs expand to 2 display cells by default. An app can override
 the width through the environment, as a fixed width or as a closure from the language,
 because fish code commonly uses 4 cells. The modifier names are a design choice, not an
-owner decision.
+owner decision, and plan 032 step 16.3 settles them.
 
 ```swift
 ContentView()
@@ -110,8 +114,13 @@ ContentView()
 The closure receives the CodeView's language, or nil when the CodeView has no `path`
 (inferred). A tab advances to the next multiple of the tab width, counted in display cells
 from the start of its line (inferred). CodeView expands tabs before rows reach
-[Text](../primitives/text.md). The decision record cites omp2 at 4 cells. The omp2 range
-cited for `Pre` did not show a tab rule when read, so that figure is unverified here.
+[Text](../primitives/text.md). omp2's `Pre` does not expand tabs
+([text.rs#L443-L555](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/text.rs#L443-L555)
+has no tab rule). Its Markdown renderer replaces each tab with three spaces
+([markdown/mod.rs#L1631-L1650](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/markdown/mod.rs#L1631-L1650)),
+as its diff view does
+([diff.rs#L29-L32](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/diff.rs#L29-L32)),
+so Tessera's 2-cell default does not come from omp2.
 
 ## Anatomy
 
@@ -264,8 +273,8 @@ G  fg=border
 ### Syntax highlighting
 
 A numbered block with `path=src/render/table.rs`, drawn through the installed highlighter
-(language `rs`). Keywords take `syntax.keyword`; the styled grid below uses the syntax
-roles in [migration map](../tokens.md#migration-map).
+(language `rs`). Keywords take `syntax.keyword`; the styled grid below uses the
+[syntax roles](../tokens.md#syntax-roles).
 
 ```wireframe 40x7
 1 │ use std::fmt::Write;
@@ -313,45 +322,40 @@ P  fg=syntax.punctuation
 ```
 
 Roles come from the highlighter's tokens: the eight `syntax.*` roles in
-[tokens](../tokens.md#syntax-roles). The styled grid is recaptured with the roles in
-[migration map](../tokens.md#migration-map).
+[tokens](../tokens.md#syntax-roles). The [migration map](../tokens.md#migration-map)
+records how the grid's earlier letters map to these roles.
 
 ## State model
 
 Schema: [README](../README.md#state-model-table).
 
-| State         | Owner    | Type    | Reset or clamp rule                                                  |
-| ------------- | -------- | ------- | -------------------------------------------------------------------- |
-| Source text   | App      | String  | Re-renders on change; the widget keeps no copy                       |
-| Path          | App      | String  | Selects the highlighter language; changing it re-highlights the text |
-| Rendered rows | CodeView | Derived | Recomputed per layout pass from source, width and cap                |
+| State           | Owner       | Type                                  | Reset or clamp rule                                                                                            |
+| --------------- | ----------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Source text     | Binding     | `String`                              | app-owned display data, redeclared on every update (key D2); a change re-renders, and the widget keeps no copy |
+| Path            | Binding     | `String?`                             | app-owned (key D2); gives the language; a change re-highlights the text                                        |
+| Explicit tokens | Binding     | `[SyntaxToken]?`                      | app-owned (key D2); when present, wins over the installed highlighter                                          |
+| Highlighter     | Environment | `SyntaxHighlighter?`                  | installed on an ancestor with `.syntaxHighlighter(_:)` (key M3); none draws plain                              |
+| Tab width       | Environment | cells, or a closure from the language | 2 cells by default; set with `.codeTabWidth(_:)`                                                               |
+| Rendered rows   | derived     | rows                                  | recomputed each layout pass from the source, tokens, width, tab width and `maxRows`; never stored (key D10)    |
 
 ## Key table
 
-Schema: [README](../README.md#key-table). CodeView is display-only and takes no keys.
-
-| Key    | Precondition | Effect | Consumed |
-| ------ | ------------ | ------ | -------- |
-| (none) | --           | --     | --       |
+Schema: [README](../README.md#key-table). None. CodeView is display-only: it takes no
+focus and consumes no keys.
 
 ## Mouse table
 
-Schema: [README](../README.md#mouse-table). CodeView takes no pointer input in 1.0 as
-captured.
-
-| Event  | Region | Precondition | Effect | Consumed |
-| ------ | ------ | ------------ | ------ | -------- |
-| (none) | --     | --           | --     | --       |
+Schema: [README](../README.md#mouse-table). None. CodeView takes no pointer input in 1.0.
 
 ## Sizing
 
 Schema: [README](../README.md#sizing-table). Width does not wrap (Wrap exception): lines
-clip at the proposed width, as the 40- and 80-column captures show. Owner decision,
-2026-10-10: the ideal width is the gutter plus the widest source line in display cells,
-and the ideal height is `min(rows, maxRows)`, where `rows` is the source line count. An
-under-minimum proposal clips at the proposed size. An over-maximum proposal fills the
-proposed width with blank cells and keeps the ideal height. The overflow footer uses one
-of the rows under the cap and does not change the ideal size.
+clip at the proposed width, as the Anatomy (80 columns) and Mobile (40 columns) states
+show. Owner decision, 2026-10-10: the ideal width is the gutter plus the widest source
+line in display cells, and the ideal height is `min(rows, maxRows)`, where `rows` is the
+source line count. An under-minimum proposal clips at the proposed size. An over-maximum
+proposal fills the proposed width with blank cells and keeps the ideal height. The
+overflow footer uses one of the rows under the cap and does not change the ideal size.
 
 The examples use a three-line source, `fn main() {`, `run();` indented four spaces, and
 `}`, whose widest line is 11 cells.
@@ -434,12 +438,20 @@ remain. With no highlighter installed, or no `path`, the source draws plain. Bel
 minimum the block clips at the proposed size (see [Sizing](#sizing)); lines still never
 wrap and the cut carries no mark.
 
+This design was reviewed against the
+[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): the source,
+path and tokens are app-owned values redeclared on every update; the highlighter is an
+app-installed environment value behind a synchronous protocol, so Tessera ships no grammar
+and owns no business state; rows are recomputed each pass and clipped in integer cells;
+and the view takes no input.
+
 ## Open questions
 
 None open. The grammar question is closed for 1.0: no grammar ships, and apps supply
 tokens through the hook (owner decision, 2026-10-10). The sizing rules are in
-[Sizing](#sizing). The tab rule is in [Tab width](#tab-width), with its omp2 citation
-unverified.
+[Sizing](#sizing), and the tab rule is in [Tab width](#tab-width). The Swift spellings of
+the modifiers, `SyntaxToken` and the `tokens:` parameter are deferred to plan 032 step
+16.3; `.maxRows(_:)` follows the key's spelling (key B8).
 
 ## Inspiration
 

@@ -1,6 +1,6 @@
 ---
 kind: widget
-status: specified
+status: ready
 ---
 
 # List
@@ -57,8 +57,32 @@ omitting it yields a display list (timeline, log) that reserves no gutter and sc
 [ScrollView](scroll-view.md). Selection presence is a structural choice made at init,
 never a runtime mode.
 
+These shapes are the [translation key](../translation-key.md)'s forms. The selection is an
+app-owned binding that arrows move directly, so List keeps no separate cursor (keys D1 and
+D3); a selection change is a binding write (key C6); activation is the optional
+`onActivate:` closure, which receives the element (key C8); rows come from a row closure
+or child views in the builder (key A7), keyed by `ForEach` ids (key A2). List joins the
+focus ring through `.focusable(_:)` with an explicit `FocusID`, as one focus stop (keys
+B10 and E1). The Mouse table names every hit region (key F1), the disclosure glyphs are
+Marks tokens (key K3), and colours are roles (key J1).
+
 ## Prior art
 
+- omp2 has no List. Its counterparts are Select's rows
+  ([`select.rs`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/select.rs#L191-L197))
+  and the settings screen's row list
+  ([`settings.rs`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/chat/src/overlays/settings.rs#L1771-L1796)).
+  Copy Select's row hover, which it reads from the graph at paint rather than storing
+  ([L929-L934](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/select.rs#L929-L934),
+  key F4), drawn as a fill behind the row's own colours
+  ([L1026-L1031](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/select.rs#L1026-L1031)),
+  and the settings list's rows built by a loop over app data (key A7). Reject Select's
+  internal cursor and scroll state: the selection is the app's binding and the offset is
+  NodeState (keys D3 and D4). Reject its wheel moving the cursor
+  ([L1174-L1177](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/select.rs#L1174-L1177)):
+  List's wheel scrolls without moving the selection (key F7). Reject its type-to-filter
+  (keys C7 and M2) and the settings screen's hand-written key-hint footer, which is
+  KeyLegend's job (key E8).
 - Ratatui `List`: `~/Developer/ratatui/ratatui/main/ratatui-widgets/src/list.rs`,
   `list/state.rs`, `list/rendering.rs` -- copy the offset/selected state split and the
   render-owns-offset reveal model. Reject whole-item offset granularity: Tessera counts
@@ -89,14 +113,14 @@ A sectioned mail sidebar with a selection binding present. Section headers come 
 [Section](section.md); the badge is row content, not List chrome.
 
 ```wireframe 26x12
-▾ Mailboxes              ┃
-   Inbox              12 ┃
-▌  Drafts              3 ┃
-   Sent                  ┃
-   Junk                  ┃
-                         ┃
-▸ Projects               ┃
-                         ┃
+▾ Mailboxes              █
+   Inbox              12 █
+▌  Drafts              3 █
+   Sent                  █
+   Junk                  █
+                         █
+▸ Projects               █
+                         █
 ▾ Tags                   │
    urgent                │
    later                 │
@@ -170,12 +194,12 @@ fits one row.
  Maya Chen                       09:41 │
   Fixed the split view divider drag    │
 ▌Build Bot                       09:37 │
-▌ tessera CI: 734 tests passed on main ┃
- Rob                             09:12 ┃
-  Can List sections collapse in v1?    ┃
- Priya Patel                     08:58 ┃
-  Monodraw snippet library feedback    ┃
- Deploy Bot                      08:30 ┃
+▌ tessera CI: 734 tests passed on main █
+ Rob                             09:12 █
+  Can List sections collapse in v1?    █
+ Priya Patel                     08:58 █
+  Monodraw snippet library feedback    █
+ Deploy Bot                      08:30 █
   demo app preview deployed to staging │
  Maya Chen                       07:55 │
   Scroll indicator thumb rounding      │
@@ -193,9 +217,9 @@ item shows only its first row, with no truncation mark. Thumb = max(1, floor(8x8
 starting at floor(2x(8-3)/(20-8)) = 0.
 
 ```wireframe 34x8
- the list                        ┃
-▌Selection highlight covers every┃
-▌row of a wrapped item           ┃
+ the list                        █
+▌Selection highlight covers every█
+▌row of a wrapped item           █
  Single-line rows stay one row   │
  Scrolling counts rows, so a     │
  partly visible item draws its   │
@@ -227,9 +251,9 @@ truncates with `…`; the second item is selected. Thumb = max(1, floor(6x6/10))
 starting at 0.
 
 ```wireframe 34x6
- Wrap long titles instead of cut…┃
-▌Selection highlight covers ever…┃
- Single-line rows stay one row   ┃
+ Wrap long titles instead of cut…█
+▌Selection highlight covers ever…█
+ Single-line rows stay one row   █
  Scrolling counts rows, so a par…│
  Paging moves one viewport of ro…│
  Resize re-wraps every item      │
@@ -256,7 +280,7 @@ start at c1 and wrap inside 10 content cells. Below this width words break betwe
 graphemes and the scrollbar drops below width 8; List never fails or clips without a mark.
 
 ```wireframe 12x3
-▌Inbox     ┃
+▌Inbox     █
  Drafts and│
  old mail  │
 ```
@@ -292,19 +316,20 @@ states, composed beside or instead of the List.
 
 ## State model
 
-| State                 | Owner       | Type                                    | Reset or clamp rule                                                                                                                                                                                                                                                                                                                                                        |
-| --------------------- | ----------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| rows                  | derived     | flattened visible presentation          | recomputed from data, section structure, and expansion bindings on every update; collapsed sections contribute only their header; never stored                                                                                                                                                                                                                             |
-| row heights           | derived     | `[Int]` (rows per flattened item)       | each item is measured at the content width with a nil height, so a wrapping item reports every row it needs; re-measured whenever the width changes; never stored                                                                                                                                                                                                          |
-| selection             | Binding     | `Element.ID?` (optional param)          | List never invents a value; if the ID vanishes from data or its section collapses, selection renders nowhere and the binding is not mutated                                                                                                                                                                                                                                |
-| selection presence    | derived     | `Bool`                                  | structural: binding supplied at init reserves the gutter and enables selection keys; absent binding reserves no gutter and arrows scroll                                                                                                                                                                                                                                   |
-| section expansion     | Binding     | `Bool` per collapsible Section          | forwarded to each [Section](section.md); List reads it to flatten rows and writes it only for the Left/Right and header-click rows below                                                                                                                                                                                                                                   |
-| scroll offset         | NodeState   | `Int` (content rows above the viewport) | counts rows, not items; a partly visible item at either edge draws its visible rows; clamps to `0...maximum scroll offset` on every update, including after a width change re-wraps the items; selection-moving keys reveal the selected item: the fewest rows that show every row of it, aligning its first row with the viewport top when it is taller than the viewport |
-| maximum scroll offset | derived     | `Int`                                   | `max(0, C - V)` for C content rows (the sum of row heights) and V viewport rows; recomputed per layout pass; never stored                                                                                                                                                                                                                                                  |
-| row line limit        | Environment | `Int?` (`lineLimit`)                    | default nil, so rows wrap; `.lineLimit(1)` on a row or on the List restores single-line rows; chrome (headers, badges) pins its own value                                                                                                                                                                                                                                  |
-| header styling        | Environment | `secondary`                             | Section header default; see [Section](section.md)                                                                                                                                                                                                                                                                                                                          |
-| selection style       | Environment | `selection.*` tokens                    | active vs inactive chosen by focus                                                                                                                                                                                                                                                                                                                                         |
-| hovered row           | derived     | `Int?` (row index under the pointer)    | set from motion while the list is on screen; cleared on leave or unmount; never stored in NodeState or a binding; a selected row keeps `selection.fill` under the pointer                                                                                                                                                                                                  |
+| State                 | Owner       | Type                                    | Reset or clamp rule                                                                                                                                                                                                                                                                                                                                                                 |
+| --------------------- | ----------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| rows                  | derived     | flattened visible presentation          | recomputed from data, section structure, and expansion bindings on every update; collapsed sections contribute only their header; never stored                                                                                                                                                                                                                                      |
+| row heights           | derived     | `[Int]` (rows per flattened item)       | each item is measured at the content width with a nil height, so a wrapping item reports every row it needs; re-measured whenever the width changes; never stored (key D10)                                                                                                                                                                                                         |
+| selection             | Binding     | `Element.ID?` (optional param)          | List never invents a value; if the ID vanishes from data or its section collapses, selection renders nowhere and the binding is not mutated; arrows move it directly, with no separate cursor (keys D1 and D3)                                                                                                                                                                      |
+| selection presence    | derived     | `Bool`                                  | structural: binding supplied at init reserves the gutter and enables selection keys; absent binding reserves no gutter and arrows scroll                                                                                                                                                                                                                                            |
+| section expansion     | Binding     | `Bool` per collapsible Section          | forwarded to each [Section](section.md); List reads it to flatten rows and writes it only for the Left/Right and header-click rows below                                                                                                                                                                                                                                            |
+| scroll offset         | NodeState   | `Int` (content rows above the viewport) | counts rows, not items; a partly visible item at either edge draws its visible rows; clamps to `0...maximum scroll offset` on every update, including after a width change re-wraps the items; selection-moving keys reveal the selected item: the fewest rows that show every row of it, aligning its first row with the viewport top when it is taller than the viewport (key D4) |
+| maximum scroll offset | derived     | `Int`                                   | `max(0, C - V)` for C content rows (the sum of row heights) and V viewport rows; recomputed per layout pass; never stored                                                                                                                                                                                                                                                           |
+| row line limit        | Environment | `Int?` (`lineLimit`)                    | default nil, so rows wrap; `.lineLimit(1)` on a row or on the List restores single-line rows; chrome (headers, badges) pins its own value                                                                                                                                                                                                                                           |
+| header styling        | Environment | `secondary`                             | Section header default; see [Section](section.md)                                                                                                                                                                                                                                                                                                                                   |
+| selection style       | Environment | `selection.*` tokens                    | active vs inactive chosen by focus                                                                                                                                                                                                                                                                                                                                                  |
+| hovered row           | derived     | `Int?` (row index under the pointer)    | derived at render from the graph-owned hover point (key F4); the graph clears it on focus loss and when motion tracking stops ([Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing)); never stored in NodeState or a binding; nil while hover enabled is false; a selected row keeps `selection.fill` under the pointer                                                      |
+| hover enabled         | Environment | `Bool`                                  | on by default, and List requests motion tracking while it is live in the graph; `.rowHover(.disabled)` removes the hover fill and the request (owner decision, 2026-10-19); the spelling is a placeholder (see Open questions)                                                                                                                                                      |
 
 The "selection ID vanished" rule is Slice 7's mandatory "app mutated data under the
 widget" case, and collapsing the selected row's section is deliberately the same case:
@@ -356,20 +381,22 @@ item.
 
 ## Mouse table
 
-| Event        | Region         | Precondition                                        | Effect                                                        | Consumed |
-| ------------ | -------------- | --------------------------------------------------- | ------------------------------------------------------------- | -------- |
-| click        | data row       | selection binding present                           | sets selection to that row's ID via binding                   | yes      |
-| double-click | data row       | selection binding present                           | sets selection, then calls `onActivate`                       | yes      |
-| click        | section header | header collapsible                                  | toggles that section's expansion via its binding              | yes      |
-| click        | section header | header not collapsible                              | none -- noninteractive label                                  | no       |
-| wheel-down   | viewport       | scroll offset < maximum scroll offset               | increments NodeState scroll offset                            | yes      |
-| wheel-up     | viewport       | scroll offset > 0                                   | decrements NodeState scroll offset                            | yes      |
-| move         | data row       | pointer on screen; motion requested while on screen | sets the hovered row (`hover`); no selection or scroll change | no       |
+| Event        | Region         | Precondition                          | Effect                                                                                                            | Consumed |
+| ------------ | -------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | -------- |
+| click        | data row       | selection binding present             | sets selection to that row's ID via binding; click-to-focus runs first (key F6)                                   | yes      |
+| double-click | data row       | selection binding present             | sets selection, then calls `onActivate`                                                                           | yes      |
+| click        | section header | header collapsible                    | toggles that section's expansion via its binding                                                                  | yes      |
+| click        | section header | header not collapsible                | none -- noninteractive label                                                                                      | no       |
+| wheel-down   | viewport       | scroll offset < maximum scroll offset | increments NodeState scroll offset                                                                                | yes      |
+| wheel-up     | viewport       | scroll offset > 0                     | decrements NodeState scroll offset                                                                                | yes      |
+| move         | data row       | hover enabled                         | none: the graph moves its hover point and the derived hovered row follows (key F4); no selection or scroll change | no       |
 
 Wheel scrolling moves the viewport without touching selection (the bar and fill simply are
-not rendered until the row returns). Boundary wheel events are not consumed so a
-scrollable ancestor can continue (ScrollView routing parity). The ScrollIndicator is
-output-only and has no drag interaction.
+not rendered until the row returns), as key F7 sets for List. Boundary wheel events are
+not consumed so a scrollable ancestor can continue (ScrollView routing parity). The
+ScrollIndicator is output-only: List routes no click or drag to it (key F2). Right and
+middle clicks have no List use, because context menus are post-1.0 (key F3; see
+[Scope decisions](#scope-decisions)).
 
 ## Sizing
 
@@ -396,11 +423,12 @@ rule, not the numbers, is normative.
 - `disclosure.expanded`, `disclosure.collapsed` (ASCII `-` / `+`) -- collapsible Section
   headers ([Marks](../tokens.md#marks))
 - `secondary` -- Section header default and the preview row-content convention
-- `hover` -- 12% row fill ([fill roles](../tokens.md#fill-roles)); slots and NO_COLOR use
-  an underline on the row label instead; `.rowHover(.disabled)` is the placeholder opt-out
-  spelling (owner decision, 2026-10-19)
+- `hover` -- 12% row fill ([fill roles](../tokens.md#fill-roles)), the row-fill form of
+  hover (key B14); slots and NO_COLOR use an underline on the row label instead;
+  `.rowHover(.disabled)` is the placeholder opt-out spelling (owner decision, 2026-10-19)
 - track `border`, thumb `accent`, and ASCII `scrollIndicator.ascii` for the output-only
-  ScrollIndicator ([scroll indicators](../tokens.md#scroll-indicators);
+  ScrollIndicator in its default `standard` preset, omp2's look (key K8;
+  [scroll indicators](../tokens.md#scroll-indicators);
   [migration map](../tokens.md#migration-map))
 - `truncation.mark`
 - `lineLimit` / `truncationMode` (environment) -- app-set row budget and cut mode reach
@@ -410,22 +438,22 @@ rule, not the numbers, is normative.
 
 ## Primitive dependencies
 
-- [Section](section.md) -- companion widget owning header anatomy and expansion
-  presentation; specified in the same pass.
+- [Section](section.md) (a widget) -- companion owning header anatomy and expansion
+  presentation; List and Section land together in plan 032 step 14.2.
 - [Badge](../primitives/badge.md) -- trailing row badge via `.badge(_:)` (see Row badges).
 - [ScrollIndicator](../primitives/scroll-indicator.md) -- shared with ScrollView and
-  Table; output-only, List supplies viewport state but routes no pointer input to it.
-  Ready.
+  Table; output-only, List supplies viewport state but routes no pointer input to it (key
+  F2).
 - [Text](../primitives/text.md#wrapping) -- row wrapping,
   [row budget](../primitives/text.md#row-budget), and
-  [truncation](../primitives/text.md#truncation) (`lineLimit`, `truncationMode`); blocks
-  `ready` until the Text wrapping slice lands (`Sources/TesseraCore/Views/Text.swift` is
-  still the non-wrapping Slice 1 leaf).
-- [ScrollView](scroll-view.md#rows-and-variable-height-content) -- the row-based offset,
-  partial-item, paging, and reveal contract List follows.
-- Slice 5 mouse routing -- row hit testing (position to row ID) and wheel routing come
-  from the framework hit-testing contract, never a private rect map (the gap Ratatui
-  cannot close; issue #273).
+  [truncation](../primitives/text.md#truncation) (`lineLimit`, `truncationMode`); wrapping
+  lands in plan 032 step 9.2, before List in step 14.2.
+- [ScrollView](scroll-view.md#rows-and-variable-height-content) (a widget) -- the
+  row-based offset, partial-item, paging, and reveal contract List follows.
+- [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing) mouse routing (plan 032
+  Phase 11) -- row hit testing (position to row ID), wheel routing, and the motion request
+  for row hover come from the framework contract, never a private rect map (the gap
+  Ratatui cannot close; issue #273). Row hover lands with List in step 14.2.
 
 ## Requirements
 
@@ -490,12 +518,14 @@ rule, not the numbers, is normative.
   (sizing: 6 x 2)
 - `row under the pointer takes the hover fill; a selected row keeps selection.fill under the pointer`
   (Anatomy callout 9; state model: hovered row)
-- `rows request pointer motion only while the list is on screen` (state model: hovered
-  row; [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing))
-- `.rowHover(.disabled) removes the hover fill and the motion request` (Environment:
-  hover)
-- `move event sets the hovered row without changing selection or scroll offset` (mouse
-  table: move)
+- `rows request pointer motion only while the list is live in the graph` (state model:
+  hover enabled; [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing))
+- `.rowHover(.disabled) removes the hover fill and the motion request` (state model: hover
+  enabled; Environment: hover)
+- `pointer motion moves the derived hovered row without changing selection or scroll offset`
+  (mouse table: move; state model: hovered row)
+- `the hovered row clears on focus loss and when motion tracking stops` (state model:
+  hovered row)
 - `slots, NO_COLOR and 16-colour show hover as an underline on the row label`
   (Degradation: hover)
 
@@ -524,16 +554,30 @@ rule, not the numbers, is normative.
 - Rows wrap by default (owner decision, 2026-10-18): List follows SwiftUI, with
   `.lineLimit(1)` as the opt-out on a row or the whole List. Offsets, thumb, and paging
   count rows per ScrollView's contract; selection covers every row of the item.
+- Context menus are post-1.0, as key F3 records; the
+  [1.0 surface](../../docs/Spec.md#the-10-surface) counts each catalog deferral as
+  post-1.0. They need a secondary-click event in the catalog's
+  [mouse-event vocabulary](../README.md#mouse-table) plus Slice 5 routing; the target API
+  shape is SwiftUI's `contextMenu(forSelectionType:menu:primaryAction:)`, whose menu
+  closure receives the selection so empty-space and on-row menus differ.
+- Bulk expand and collapse chords (Shift-Left/Right) are post-1.0 until a use case
+  appears. A 1.0 app binds its own chord with `.onKey` on the List and writes the
+  expansion bindings (keys C9, E3 and E5).
+- Virtualization: List makes no claim in 1.0 that it builds only its visible rows (key
+  G11).
+
+This design was reviewed against the
+[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): data,
+selection, and expansion are the app's bindings; the scroll offset is NodeState with one
+owner; hover is derived from the graph, never stored; and rows, heights, and the indicator
+are recomputed integer geometry on every pass.
 
 ## Open questions
 
-- Context menus: out of v1. Unblocked by extending the catalog's
-  [mouse-event vocabulary](../README.md#mouse-table) with a secondary-click event plus
-  Slice 5 routing; the target API shape is SwiftUI's
-  `contextMenu(forSelectionType:menu:primaryAction:)`, whose menu closure receives the
-  selection so empty-space and on-row menus differ.
-- Bulk expand/collapse chords (Shift-Left/Right): needs a use case; the expansion bindings
-  already let apps implement it.
+- Row hover opt-out spelling: `.rowHover(.disabled)` is a placeholder name (owner
+  decision, 2026-10-19), and [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing)
+  leaves the final name to Table and List. The owner picks it; deferred to plan 032 step
+  14.2, and Table records the same question for step 14.4.
 
 ## Inspiration
 

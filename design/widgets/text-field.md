@@ -1,6 +1,6 @@
 ---
 kind: widget
-status: wireframed
+status: ready
 ---
 
 # TextField
@@ -14,8 +14,9 @@ the app replaces the string. The public API uses `TextField` with no compatibili
 The public direction is a string-only field with a label, an optional prompt, an optional
 submit closure, the standard/default style, and an environment-applied
 `.characterLimit(_:)` (owner decision, 2026-10-10). Custom `TextFieldStyle` is deferred
-with Toggle and Button (owner decision, 2026-10-10). The concrete initializer signature
-remains open. `TextField` is neither a multiline editor nor secure entry in 1.0.
+with Toggle and Button (owner decision, 2026-10-10). [API direction](#api-direction) gives
+the initializers, derived from the translation key and catalog precedent. `TextField` is
+neither a multiline editor nor secure entry in 1.0.
 
 ## Prior art
 
@@ -34,21 +35,66 @@ remains open. `TextField` is neither a multiline editor nor secure entry in 1.0.
   `onSubmit`, and environment-applied default/custom style direction; reject value/format
   initializers, scrollable-axis text fields, and the platform-specific `Form` presentation
   before 1.0.
+- omp2 `Input`
+  ([`input.rs`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/input.rs#L138-L147))
+  is the counterpart. Copy its grapheme-safe caret motion and deletion
+  ([`edit`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/input.rs#L203-L343)),
+  the horizontal reveal that keeps the caret in view and the real terminal cursor at the
+  insertion point instead of a drawn caret
+  ([L488-L510](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/input.rs#L488-L510)),
+  which is omp2's `beam` (key K3), click-to-caret
+  ([L536-L574](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/input.rs#L536-L574)),
+  and paste with newlines folded to spaces
+  ([L576-L590](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/input.rs#L576-L590)).
+  Reject its internal text, cursor, undo stack, and kill ring
+  ([L43-L55](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/input.rs#L43-L55)):
+  the text is the app's binding (key D1), the caret and reveal are NodeState (key D5), and
+  edit history is rejected for 1.0 (key D6). Reject its `Changed` event and value
+  harvesting
+  ([L393-L402](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/input.rs#L393-L402),
+  [L592-L596](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/input.rs#L592-L596)):
+  an edit is a binding write (keys C6 and A10). Reject the cursor-glyph prefix and the
+  focus rail
+  ([L443-L459](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/input.rs#L443-L459)):
+  the standard style frames the input, and focus is the heavy set in `focus` (keys E2 and
+  K7). Reject the italic placeholder that hides on focus
+  ([L482-L487](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/input.rs#L482-L487)):
+  the prompt shows whenever the text is empty (key B11). Reject the `mask` flag: secure
+  entry is post-1.0 (key M8).
 - omp2's `Input` counter
   ([limit](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/input.rs#L196-L201),
-  [render](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/input.rs#L511-L516))
+  [render](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/input.rs#L511-L518))
   shows the remaining count right-aligned in muted, and a limit counts without capping
-  input. Copy that placement and the non-capping rule; reject its `-N` overage and warn
-  role, which the owner replaced with `+N` in `error` (owner decision, omp2 review,
-  2026-10).
+  input (key M7). Copy that placement and the non-capping rule; reject its `-N` overage
+  and warn role, which the owner replaced with `+N` in `error` (owner decision, omp2
+  review, 2026-10).
 
 ## API direction
 
-The names below are accepted public direction, not settled concrete signatures:
+No owner decision fixes the signatures yet; they follow the
+[translation key](../translation-key.md) and catalog precedent:
 
 ```swift
 public struct TextField<Label: View>: View {
-    // string Binding, optional prompt, label, optional onSubmit
+    public init(
+        text: Binding<String>,
+        prompt: String? = nil,
+        onSubmit: (() -> Void)? = nil,
+        @ViewBuilder label: () -> Label
+    )
+}
+
+extension TextField where Label == Text {
+    public init(
+        _ title: String,
+        text: Binding<String>,
+        prompt: String? = nil,
+        onSubmit: (() -> Void)? = nil
+    )
+}
+
+extension View {
+    public func characterLimit(_ limit: Int?) -> some View
 }
 
 // Deferred with Toggle and Button; outside 1.0 (owner decision, 2026-10-10).
@@ -59,19 +105,48 @@ public protocol TextFieldStyle {
 
 extension View {
     public func textFieldStyle(_ style: some TextFieldStyle) -> some View
-    public func characterLimit(_ limit: Int?) -> some View
 }
 ```
 
-The standard style is selected from the environment, with a default style when no ancestor
-supplies one. A style receives the label, prompt, text display region, focus/enabled
-state, and caret request site; it may change chrome but cannot own text, selection, or
-submit behavior. Roles are complete `Style` values, not hard-coded colors: `primary`,
-`secondary`, `border`, `focus`, `disabled` and `error` ([roles](../tokens.md#roles)).
-Slice 7 supplies the environment keys and the exact style-configuration protocol for the
-standard/default style; custom `TextFieldStyle` is deferred with Toggle and Button (owner
-decision, 2026-10-10). This document uses the roles and focus rules in
-[tokens](../tokens.md).
+- The text is an app-owned `Binding<String>` that every accepted edit writes (keys D1 and
+  C6); the field never takes an initial value.
+- The label is a `@ViewBuilder label:` with a `String` title convenience, as Toggle and
+  Button take theirs (keys A7 and B11).
+- The prompt is a plain `String?` (key B11: omp2's `placeholder` is `prompt:`), as
+  Callout's optional title and badge are.
+- Submit is the optional `onSubmit:` closure, because the control that submits owns it
+  (key C3). It is `() -> Void`, following [Button](button.md)'s action, an owner decision
+  of 2026-10-10 for Button: the app reads the submitted text from its own binding.
+- `.characterLimit(_:)` sets an environment value (key M7).
+- There is no `.textFieldStyle(_:)` in 1.0. The standard style is the one built-in look,
+  and a closed set of one look has nothing to select (key B12). The `TextFieldStyle`
+  protocol and its modifier wait with Toggle's and Button's custom styles.
+
+```swift
+// email is a Binding<String> from the app's model.
+TextField("Email address", text: email, prompt: "you@example.com", onSubmit: signIn)
+    .characterLimit(254)
+    .focusable(emailFocusID)
+```
+
+Focus stays explicit at the call site: the field joins the focus ring through
+`.focusable(_:)` with an app-supplied `FocusID` (keys B10 and E1), reads `isFocused` from
+the environment to draw its focus frame (key E2), and handles keys only while focused.
+
+A style receives the label, prompt, text display region, focus/enabled state, and caret
+request site; it may change chrome but cannot own text, selection, or submit behavior.
+Roles are complete `Style` values, not hard-coded colors: `primary`, `secondary`,
+`border`, `focus`, `disabled` and `error` ([roles](../tokens.md#roles)); the field names
+roles, never colours (key J1). Slice 7 supplies the environment keys and the exact
+style-configuration protocol for the standard/default style; custom `TextFieldStyle` is
+deferred with Toggle and Button (owner decision, 2026-10-10). This document uses the roles
+and focus rules in [tokens](../tokens.md).
+
+Inside a [Form](form.md) row the Form draws the field's title in its label column and the
+row cursor in its gutter, and the field draws its value in the value column, with the
+character counter at the row's trailing edge (see
+[Character counter](#character-counter)). The Form owns that row's editing keys (Form's
+key table); how they relate to the key table below is an [open question](#open-questions).
 
 ## Anatomy
 
@@ -90,7 +165,7 @@ Email address
 Callouts (48x4, 0-based):
 1. r0       Label -- caller-supplied Label, style role `primary`; omitted only
             when the caller supplies an empty label; content, wraps above the frame.
-2. r1-r3    Field frame -- default TextFieldStyle, the heavy set in `focus` when focused
+2. r1-r3    Field frame -- standard style, the heavy set in `focus` when focused
             ([Focus](../tokens.md#focus), rule 1);
             rounded border set is visual chrome, not a hit target.
 3. r2 c1-c46 Input line -- single unwrapped display viewport; the edited text, one row,
@@ -397,8 +472,8 @@ Callouts (48x4, 0-based):
 | grapheme boundaries and display advances | derived     | `[String.Index]` plus cell advances | Recompute from current `text` during layout/render; combining marks advance zero and wide clusters reserve their measured cells.                                                                       |
 | input viewport width                     | derived     | `Int` cells                         | Recompute from final input-line bounds on every layout; zero width yields no cursor request.                                                                                                           |
 | effective enabled                        | derived     | `Bool`                              | Recompute from the inherited enabled configuration on every update; false disables focus/edit behavior without copying text.                                                                           |
-| focused                                  | derived     | `Bool`                              | Recompute from `FocusManager`; if this node disappears, focus clears under Slice 4 and cursor request disappears.                                                                                      |
-| has submit handler                       | derived     | `Bool`                              | Recompute from the optional submit closure on every update; true exactly when the closure is non-nil.                                                                                                  |
+| focused                                  | derived     | `Bool`                              | Read from the `isFocused` environment value that `FocusManager` supplies (keys E1 and E2); if this node disappears, focus clears under Slice 4 and the cursor request disappears.                      |
+| has submit handler                       | derived     | `Bool`                              | Recompute from the optional `onSubmit` closure on every update; true exactly when the closure is non-nil.                                                                                              |
 | caret terminal position                  | derived     | `TerminalPosition?`                 | Recompute from bounds, reveal offset, and cursor boundary; nil unless focused, enabled, and a visible input cell exists.                                                                               |
 | character limit                          | Environment | `Int?`                              | Configuration, not state: read on every render from `.characterLimit(_:)`; nil draws no counter. The limit counts but never caps input (accepted sample: 25 over 12). Owner decision, 2026-10-10.      |
 | character count                          | derived     | `Int` graphemes                     | Recompute as `graphemeCount(text)` on every render; the unit is grapheme clusters (owner decision, 2026-10-10).                                                                                        |
@@ -407,9 +482,11 @@ Callouts (48x4, 0-based):
 ## Key table
 
 `Tab` and `Esc` deliberately bubble: focus traversal and dismissal are app policies under
-[Slice 4](../../docs/Spec.md#slice-4-focus-and-key-routing-the-responder-system).
-Word-wise movement uses Unicode word segmentation at legal grapheme boundaries; no byte or
-Unicode- scalar cursor fallback is permitted.
+[Slice 4](../../docs/Spec.md#slice-4-focus-and-key-routing-the-responder-system) (key E4).
+Each consumed key below is a deliberate row and every unlisted key bubbles (key E3). Rows
+match normalized `Key` and `Modifiers` chords; rebinding belongs to apps (key E5), and
+there is no undo or yank (key D6). Word-wise movement uses Unicode word segmentation at
+legal grapheme boundaries; no byte or Unicode-scalar cursor fallback is permitted.
 
 | Key                 | Precondition                                                                           | Effect                                                                                                                                                               | Consumed                                            |
 | ------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
@@ -425,14 +502,14 @@ Unicode- scalar cursor fallback is permitted.
 | End                 | focused and effective enabled                                                          | Sets `cursor grapheme offset` to `graphemeCount(text)` and adjusts reveal to show it.                                                                                | yes                                                 |
 | Backspace           | focused and effective enabled and cursor grapheme offset greater than 0                | Removes the preceding whole grapheme from `text` through Binding, decrements cursor, and adjusts reveal.                                                             | yes                                                 |
 | Delete              | focused and effective enabled and cursor grapheme offset less than graphemeCount(text) | Removes the following whole grapheme from `text` through Binding and adjusts reveal.                                                                                 | yes                                                 |
-| Enter               | focused and effective enabled and has submit handler is true                           | Invokes the app-owned submit handler with the current `text`; widget state and Binding are otherwise unchanged.                                                      | yes                                                 |
+| Enter               | focused and effective enabled and has submit handler is true                           | Calls the app-owned `onSubmit` closure, which reads `text` from its own binding (key C3); widget state and Binding are otherwise unchanged.                          | yes                                                 |
 | Enter               | focused and effective enabled and has submit handler is false                          | Leaves all state unchanged so an ancestor may handle submit.                                                                                                         | no                                                  |
 | Tab                 | focused                                                                                | Leaves all state unchanged so focus traversal may bubble to an app handler.                                                                                          | no                                                  |
 | Esc                 | focused                                                                                | Leaves all state unchanged so dismissal or focus clearing may bubble to an app handler.                                                                              | no                                                  |
 
 ## Paste-input contract
 
-The existing
+Paste reaches the focused field like a key (key E7). The existing
 [bracketed-paste `InputEvent.paste(String)` event](../../docs/Spec.md#slice-1-bracketed-paste-mode)
 is handled only while `focused and effective enabled`. Slice 7 normalizes each `\r\n`
 pair, standalone `\r`, and standalone `\n` in that payload to one U+0020 space, then
@@ -450,10 +527,12 @@ second mutable text store.
 
 ## Mouse table
 
-Mouse support declares the Slice 5 requirement only while an enabled TextField is live. A
-primary press focuses a focusable node before delivery; click-to-caret then uses the final
+Mouse support declares the Slice 5 requirement only while an enabled TextField is live.
+The input line is the field's one hit region (key F1). A primary press focuses a focusable
+node before delivery, then the click acts (key F6); click-to-caret then uses the final
 input-line bounds. Hit testing must not map a click onto the trailing cell of a wide
-cluster as an interior cursor position.
+cluster as an interior cursor position. Right and middle clicks have no TextField use (key
+F3).
 
 | Event        | Region     | Precondition               | Effect                                                                                                                                                                                                           | Consumed |
 | ------------ | ---------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
@@ -495,7 +574,7 @@ left with zero rows is absent (owner decision, 2026-10-18).
 - The field consumes inherited enabled state and the complete `Style` roles `primary`,
   `secondary`, `border`, `focus`, `disabled` and `error`; custom `TextFieldStyle` and
   `textFieldStyle(_:)` are deferred with Toggle and Button (owner decision, 2026-10-10),
-  outside this P4.5 acceptance requirement.
+  outside 1.0.
 - The character counter consumes `secondary` for the remaining count and `error` for the
   overflow count ([roles](../tokens.md#roles)). The character limit is environment
   configuration set by `.characterLimit(_:)` (owner decision, 2026-10-10), not a style
@@ -503,30 +582,33 @@ left with zero rows is absent (owner decision, 2026-10-18).
 
 ## Primitive dependencies
 
-- `Text` -- label, prompt, and cluster-safe input slice; it must expose Phase 2 Slice 4
-  display-width/cluster measurement rather than TextField reimplementing it.
-- `Border` -- default rounded frame, heavy frame when focused, and ascii frame, using the
-  canonical token sets.
-- Slice 4 focusable-view, `FocusManager`, and key-routing support -- the focus/key
-  dependency only; it does not expose a public TextField before Slice 7.
-- Slice 5 hit testing and mouse dispatch -- the click-to-caret dependency only; it does
-  not expose public TextField pointer behavior before Slice 7.
+- [Text](../primitives/text.md) (`ready`) -- label, prompt, and cluster-safe input slice;
+  it must expose Phase 2 Slice 4 display-width/cluster measurement rather than TextField
+  reimplementing it (key I4).
+- [Border](../primitives/border.md) (`ready`) -- default rounded frame, heavy frame when
+  focused, and ascii frame, using the canonical token sets (key K4).
+- Slice 4 focusable-view, `FocusManager`, and key-routing support (plan 032 Phase 10) --
+  the focus/key dependency only; it exposes no public TextField.
+- Slice 5 hit testing and mouse dispatch (plan 032 step 11.1) -- the click-to-caret
+  dependency only; it exposes no public TextField pointer behavior.
 - `Binding` and `NodeState` -- controlled text and disposable cursor/reveal storage from
   [Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
 
 ## Progressive slice availability
 
-1. Slice 4 supplies the focus/key-routing dependency only; it does not expose TextField or
-   a TextField hardware-cursor contract.
-2. Slice 5 supplies the click-to-caret dependency only; it does not expose TextField
-   pointer behavior.
-3. Slice 7 ships the renamed controlled TextField: hardware cursor, Binding edits,
-   grapheme cursor/selection/reveal, paste/newline normalization, submit, and
-   deterministic buffer/cursor fixtures. Custom `TextFieldStyle` is deferred with Toggle
-   and Button (owner decision, 2026-10-10).
-4. The character counter is the TextField demo step (plan 032 step 13) (owner decision,
+1. Plan 032 Phase 10 (Slice 4) supplies the focus/key-routing dependency only; it does not
+   expose TextField or a TextField hardware-cursor contract.
+2. Plan 032 step 11.1 (Slice 5) supplies the click-to-caret dependency only; it does not
+   expose TextField pointer behavior.
+3. Plan 032 step 13.4 ships the whole controlled TextField on the shared text editing core
+   ([Spec](../../docs/Spec.md#controls-and-focused-viewport-interaction)): hardware
+   cursor, Binding edits, grapheme cursor/selection/reveal, paste/newline normalization,
+   submit, and deterministic buffer/cursor fixtures. Custom `TextFieldStyle` is deferred
+   with Toggle and Button (owner decision, 2026-10-10).
+4. The character counter is the TextField demo step (plan 032 step 13.4) (owner decision,
    2026-10-10).
-5. Only secure entry is deferred until post-1.0.
+5. Secure entry, edit history, and clipboard work are deferred until post-1.0 (see
+   [Deferred post-1.0](#deferred-post-10)).
 
 ## Requirements
 
@@ -602,11 +684,36 @@ text at every capability level; its `secondary` and `error` colours follow the
 
 - **Secure entry:** Defer `SecureField`/masking, reveal-last-character timing, clipboard
   policy, and accessibility implications until post-1.0. A secure option must not silently
-  be added to TextField because it changes rendering and input-policy contracts.
+  be added to TextField because it changes rendering and input-policy contracts. A masked
+  value's display is Form's `secret` icon; editing masked text is this deferral (key M8).
+- **Edit history:** undo and yank are rejected for 1.0, so the key table has neither (key
+  D6). If the shared text editing core adds them, history is NodeState: losing it loses no
+  committed text.
+- **Clipboard:** TextField does no clipboard work in 1.0; text reaches it through paste
+  only (see [Paste-input contract](#paste-input-contract)), and copy policy belongs to
+  [Text selection](../primitives/text-selection.md) (key C11).
+
+This design was reviewed against the
+[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): the text is
+the app's binding and the field keeps no copy; the caret, anchor, and reveal are NodeState
+with one owner, clamped on every update; keys, paste, and clicks change state
+synchronously through documented rows; and the field requests the hardware cursor from the
+session instead of writing it.
 
 ## Open questions
 
-None.
+Each question is deferred to plan 032 step 13.4, which builds the shared text editing
+core; the contract above holds until the owner decides.
+
+- Readline chords (key E5). omp2's Input binds Ctrl-a, Ctrl-e, Ctrl-b, Ctrl-f, Ctrl-d,
+  Ctrl-k, Ctrl-u, and Ctrl-w. Picker's and MultiPicker's draft rows list Ctrl-U and Ctrl-W
+  as the shared core's keys, and Form's text rows bind them too, but this key table has no
+  Ctrl chords except Ctrl-Left and Ctrl-Right, so they bubble. Does TextField take Ctrl-U
+  and Ctrl-W from the shared core, and any other readline chord?
+- Form text rows. Inside a Form row the Form's key table edits the text append-only (no
+  caret, Backspace at the end), as omp2's Form does; this doc's caret editing applies
+  standalone. Whether a Form row hands its editing keys to this key table is
+  [Form's open question](form.md#open-questions).
 
 ## Inspiration
 

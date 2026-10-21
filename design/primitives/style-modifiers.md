@@ -12,6 +12,17 @@ state, focus, bindings, nor input handling. Their contract is the Slice 3
 
 ## Prior art
 
+- omp2 has no style component; its counterpart is the text attributes `fg`, `bg`, `on`,
+  `bold`, `dim`, `italic`, `underline`, `undercurl`, `reverse`, `strike`, and `color`
+  ([vocab/lib.rs#L73-L101](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/vocab/src/lib.rs#L73-L101)),
+  applied over the inherited style. Key B6 maps them onto these modifiers: `fg` and
+  `color` are `.foreground(_:)`, `bg` and `on` are `.background(_:)`, `bold`, `italic`,
+  and `underline` keep their names, and `.style(_:)` carries the rest. A colour token is a
+  role, never a fixed colour: `fg=accent` is the `accent` role, which `.tint(_:)`
+  overrides, and the CSS colour forms
+  ([markup.rs#L35-L38](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/markup.rs#L35-L38))
+  are rejected (key J4). omp2's `Theme` struct of colours becomes the semantic
+  [roles](../tokens.md#roles), each a complete `Style` (key J1).
 - Ratatui `Stylize`: `~/Developer/ratatui/ratatui/main/ratatui-core/src/style/stylize.rs`
   provides fluent foreground, background, and modifier composition on styled values.
   Tessera adopts fluent value composition, not per-widget mutable style state.
@@ -150,6 +161,11 @@ style wrapper has no hit-testing behavior; any later decorative view layer must 
 set `.allowsHitTesting(false)`, with routing deferred to
 [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing).
 
+On a `Text`, the attribute modifiers return `Text` and set the attributes of styled runs;
+`.background(_:)` has no `Text` overload, so it stays the region fill
+([Text styled runs](text.md#styled-runs)). `.link(URL)` is the Spec's OSC 8 attribute
+([Decoration](../../docs/Spec.md#decoration); key I7) and merges like any other attribute.
+
 ## Sizing
 
 Style modifiers are layout-transparent. The examples use a child with a 4x1 ideal and
@@ -172,13 +188,15 @@ is clipped to those bounds and never changes the reported size.
 | `defaultStyle` | `EnvironmentValues`                   | resolved `primary` complete `Style` | supplies inherited attributes to the subtree        |
 | `primary`      | [text roles](../tokens.md#text-roles) | token-defined complete `Style`      | ordinary inherited presentation                     |
 | `secondary`    | [text roles](../tokens.md#text-roles) | token-defined complete `Style`      | supporting presentation when selected by a control  |
-| `accent`       | [text roles](../tokens.md#text-roles) | token-defined complete `Style`      | emphasized presentation when selected by a control  |
+| `accent`       | [hue roles](../tokens.md#hue-roles)   | token-defined complete `Style`      | emphasized presentation when selected by a control  |
 | `disabled`     | [text roles](../tokens.md#text-roles) | token-defined complete `Style`      | disabled presentation when selected by a control    |
 | `destructive`  | [hue roles](../tokens.md#hue-roles)   | token-defined complete `Style`      | destructive presentation when selected by a control |
 
-The five semantic roles are complete `Style` values resolved from
-[roles](../tokens.md#roles). Controls consume the resolved role; they never reconstruct
-its colors or attributes.
+Every [role](../tokens.md#roles) is a complete `Style` value resolved through the
+environment (key J1); the rows above are the ones this doc's examples and controls name.
+An app overrides a role for a subtree, and `.tint(_:)` overrides `accent`
+([overrides](../tokens.md#overrides)). Controls consume the resolved role; they never
+reconstruct its colors or attributes.
 
 ## Requirements
 
@@ -211,6 +229,15 @@ columns of [roles](../tokens.md#roles); no modifier-specific fallback is introdu
   the buffer `Style` value.
 - Resolved: `.background(Color)` is the style wrapper's region fill, preserving the Slice
   3 overload; view-builder [background](background.md) remains the layering primitive.
+- Resolved: reviewed against the
+  [Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module). Style
+  modifiers are value wrappers that lower to ordinary nodes, styles resolve from the
+  environment with a written merge rule, and they add no state, geometry, or terminal
+  authority.
+- Deferred to plan 032 step 9.1, which lands roles and tones: the spelling that names a
+  role for a subtree (`fg=accent`, key J4). Roles are environment values holding complete
+  `Style`s and `.style(_:)` merges one, but no doc spells the environment key path or a
+  shorthand for reading a role.
 
 ## Inspiration
 

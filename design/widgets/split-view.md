@@ -32,6 +32,16 @@ focus-return candidate in `NodeState`.
   side-by-side and top-to-bottom arrangements, and distinguishes collapse from loading.
   Copy adjacent-child and collapse vocabulary; reject controller ownership, lazy loading,
   animation, and navigation/sidebar policy.
+- omp2's settings screen, per the [translation key](../translation-key.md): its body is a
+  `row` holding a section sidebar and the settings list, split by a vertical `hr`
+  ([settings.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/chat/src/overlays/settings.rs#L1783-L1787)).
+  The sidebar's `w` is its longest group label, capped at 22 cells, plus four, and the
+  list takes the rest with a 20-cell floor
+  ([L1730-L1738](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/chat/src/overlays/settings.rs#L1730-L1738)).
+  Copy the content-measured leading pane and the trailing pane that absorbs the slack: `w`
+  and the floor become the panes' `SplitViewPaneSizing`, which SplitView lowers to Flex
+  (keys B2, G5), and the `hr` is the divider's `light` line (key K7). omp2's rule is
+  static; focus, resizing, and collapse are Tessera's.
 
 ## Anatomy
 
@@ -742,8 +752,8 @@ leaving its background transparent. This replaces the accent color the divider u
 - [Divider](../primitives/divider.md) (`ready`) -- supplies the `light` and `heavy` rule
   glyphs, the blended junction rule, and sizing; SplitView owns handle focus, hit testing,
   and drag. The heavy junction column is in [border sets](../tokens.md#border-sets).
-- `Text` (Slice 1) -- pane labels and content in the fixtures; actual child content is
-  application supplied.
+- [Text](../primitives/text.md) (`ready`) -- pane labels and content in the fixtures;
+  actual child content is application supplied.
 - `FocusManager` and `.focusable` (Slice 4) -- divider keyboard focus and safe focus
   reassignment during collapse.
 - `.onMouse` and hit testing (Slice 5) -- pointer drag and click-to-focus on a handle.
@@ -751,8 +761,8 @@ leaving its background transparent. This replaces the accent color the divider u
   SplitView adapts pane ranges to it, measures `.content` floors from its child, and never
   owns a competing allocator.
 
-No `Form` or `Outline` dependency is introduced before 1.0. Source browsing, directory
-mapping, and route-oriented sidebars are post-1.0 application composition concerns, not
+SplitView depends on neither Form nor Outline. Source browsing, directory mapping, and
+route-oriented sidebars are post-1.0 application composition concerns, not
 responsibilities of this low-level adjacency widget.
 
 ## Progressive availability
@@ -764,10 +774,10 @@ responsibilities of this low-level adjacency widget.
    later behavior consumes its immutable resolved pane frames.
 3. **Slice 4** adds focusable divider handles, arrow-key resizing, Shift-arrow five-cell
    steps, `=` reset, and the collapse focus restoration rule. It depends on the graph's
-   explicit FocusID and routing order.
+   explicit FocusID and routing order. These land in plan 032 step 15.1.
 4. **Slice 5**, after mouse support, adds click-to-focus, raw drag dispatch, the wider
-   grab zone, and double-click reset. The visual one-cell handle remains available without
-   mouse capability.
+   grab zone, and double-click reset, also in plan 032 step 15.1. The visual one-cell
+   handle remains available without mouse capability.
 5. **Slice 7 and later** may place controlled application widgets inside panes. SplitView
    remains separate from navigation semantics throughout; it is available progressively as
    layout and input capabilities arrive rather than waiting for a navigation shell.
@@ -894,6 +904,11 @@ responsibilities of this low-level adjacency widget.
   decision, omp2 review, 2026-10.
 - **ASCII focus:** junctions are `+`, and a focused divider is bold. Owner decision, omp2
   review, 2026-10.
+- **Divider focus identity (key E1):** dividers take manager-only focus IDs derived from
+  their stable adjacent pane pair and axis (see
+  [Focus, collapse, and restoration](#focus-collapse-and-restoration)); every other focus
+  stop keeps key E1's explicit, caller-composed ID. Collapse restoration covers a hidden
+  pane only: a removed focused node still clears focus, as key E1 requires.
 
 This design was reviewed against the
 [Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): pane data is

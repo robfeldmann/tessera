@@ -6,8 +6,9 @@ status: wireframed
 # NavigationSplitView
 
 > **Post-1.0.** Owner decision, omp2 review, 2026-10: NavigationSplitView moves out of 1.0
-> to a later phase, possibly after 1.0. Apps compose multi-column layouts from
-> [SplitView](split-view.md) for 1.0.
+> and stays in the catalog until it is scheduled
+> ([Spec](../../docs/Spec.md#navigationsplitview-is-post-10)). Apps compose multi-column
+> layouts from nested [SplitViews](split-view.md) for 1.0.
 
 `NavigationSplitView` is a controlled semantic container for **sidebar**, **content**, and
 optional **inspector** columns. It owns exactly the coordination every multi-pane app
@@ -86,6 +87,15 @@ conventions those apps converged on.
   [`NSSplitViewController`](https://developer.apple.com/documentation/appkit/nssplitviewcontroller)
   -- copy sidebar/inspector terminology. Reject controller child ownership, Auto Layout,
   lazy loading, divider delegation, and animated collapse.
+- omp2's settings screen is the nearest counterpart, per the
+  [translation key](../translation-key.md): a round `box` whose body puts a fixed-width
+  section sidebar and the settings list side by side around a vertical `hr`
+  ([settings.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/chat/src/overlays/settings.rs#L1771-L1796)).
+  While the user searches, it drops the sidebar and shows the list alone. Copy the
+  sidebar-plus-content composition: per-column width bounds forward to SplitView pane
+  sizing (keys B2, G5), and the `hr` is SplitView's `light` divider (key K7). omp2 has no
+  tiers, visibility binding, or inspector, and its search swap is app recomposition, as
+  Desktop replacement is here.
 
 ## Anatomy
 
@@ -356,16 +366,16 @@ selection into `NodeState` or `_ResponderView.ResponderState`.
 
 The container defines and consumes no keys. Column toggles are app keybindings that write
 the visibility or compact-preference binding (an app may bind `s` and `i` and surface them
-in its hint bar). A sidebar `List`'s Up/Down selection writes -- and the content
-recomposition they trigger -- are ordinary child-binding behavior, not container
-delegation. The rows below document delegation, not container behavior.
+in its [KeyLegend](key-legend.md), key E8). A sidebar `List`'s Up/Down selection writes --
+and the content recomposition they trigger -- are ordinary child-binding behavior, not
+container delegation. The rows below document delegation, not container behavior.
 
-| Key       | Precondition           | Effect                                                                         | Consumed |
-| --------- | ---------------------- | ------------------------------------------------------------------------------ | -------- |
-| Tab       | any focused descendant | FocusManager document-order traversal across shown columns and divider handles | no       |
-| Shift-Tab | any focused descendant | FocusManager reverse traversal; the container adds no stops of its own         | no       |
-| Left      | focused divider handle | `SplitView` keyboard resize per its own key table                              | no       |
-| Right     | focused divider handle | `SplitView` keyboard resize per its own key table                              | no       |
+| Key       | Precondition           | Effect                                                                                                                             | Consumed |
+| --------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| Tab       | any focused descendant | left to the app's `.onKey(.tab)` traversal over shown columns and divider handles (key E4); the container adds no stops of its own | no       |
+| Shift-Tab | any focused descendant | left to the app's reverse traversal (key E4); the container adds no stops of its own                                               | no       |
+| Left      | focused divider handle | `SplitView` keyboard resize per its own key table                                                                                  | no       |
+| Right     | focused divider handle | `SplitView` keyboard resize per its own key table                                                                                  | no       |
 
 ## Draft mouse table
 
@@ -421,12 +431,11 @@ semantic styles remain complete `Style` values -- `primary`, `secondary`, `accen
   [Blended junctions](../primitives/divider.md#blended-junctions) -- specified 2026-08-17,
   awaiting the buffer merge seam; the anatomy's `┼` junctions depend on it.
 - [Text](../primitives/text.md) -- labels and safe clipping. Ready.
-- [List](list.md) -- the sidebar child and the inactive-selection dimming story;
-  `specified`, blocks a sidebar-list demo but not the container contract.
+- [List](list.md) -- the sidebar child and the inactive-selection dimming story. Ready.
 - Delegated focus appearance
   ([Slice 4](../../docs/Spec.md#slice-4-focus-and-key-routing-the-responder-system)) --
-  implemented; the app-side mechanism for emphasizing a focused column without container
-  chrome.
+  lands in plan 032 step 10.2; the app-side mechanism for emphasizing a focused column
+  without container chrome.
 - Button -- no longer a container dependency: toggles are app affordances the app composes
   wherever it wants them.
 
@@ -441,8 +450,11 @@ semantic styles remain complete `Style` values -- `primary`, `secondary`, `accen
    for app-hosted column emphasis.
 4. [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing) supplies click-to-focus
    inside columns; divider drag remains `SplitView`.
-5. [Slice 6](../../docs/Spec.md#slice-6-grid-table-and-fitting) composes regular,
-   standard, and compact generic column children through those established contracts.
+5. [Slice 6](../../docs/Spec.md#slice-6-grid-table-and-fitting) records this container as
+   post-1.0
+   ([NavigationSplitView is post-1.0](../../docs/Spec.md#navigationsplitview-is-post-10));
+   once scheduled, it composes regular, standard, and compact generic column children
+   through those established contracts.
 6. [Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets)
    supplies the controlled `List` for a sidebar column.
 

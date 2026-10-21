@@ -21,11 +21,33 @@ title and adds no content padding beyond the one-cell ring.
   [tokens.md](../tokens.md#border-sets) rather than as ad hoc codepoints.
 - Tessera [Slice 3](../../docs/Spec.md#slice-3-styling-text-wrapping-and-decoration) —
   owns `BorderStyle`, the public modifier signature, and the one-cell-inset direction.
+- omp2 has no Border component; the [translation key](../translation-key.md#coverage) maps
+  its `border`, `bc`, `edge`, and `bleed` attributes ([vocab][omp2-border-attrs]), which
+  `Cached` draws as chrome around any component ([paints_border][omp2-chrome],
+  [paint_border][omp2-paint-border]). Copy the glyph families ([Border][omp2-border-enum],
+  [charset][omp2-border-charset]): `Square` is `.single`, `Round` is `.rounded`, `Heavy`
+  and `Double` keep their names, and the ASCII charset is `.ascii` (key K4). Copy an
+  unstyled ring drawing in the theme's `border` colour, Tessera's `border` role (keys B5
+  and J1). Reject `Dash` (key K4: dashes exist only as divider glyphs), border titles and
+  footers (key B5: a title is Box's, a footer is rejected), `bc` gradient ramps (key B13),
+  and the `paints_border` opt-out: Border is a wrapper node, so a view opts out by not
+  applying it (key G3).
+
+[omp2-border-attrs]:
+  https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/vocab/src/lib.rs#L41-L62
+[omp2-chrome]:
+  https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/component.rs#L84-L94
+[omp2-paint-border]:
+  https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/component.rs#L1177-L1293
+[omp2-border-enum]:
+  https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/markup.rs#L96-L108
+[omp2-border-charset]:
+  https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/context.rs#L82-L96
 
 ## Anatomy
 
 The `single` style reserves the ring and proposes the interior to the child. Here the
-child is an eight-by-two label inside a `12x4` frame.
+child is a ten-by-two view inside a `12x4` frame.
 
 ```wireframe 12x4
 ┌──────────┐
@@ -140,17 +162,19 @@ extension View {
 
 `BorderStyle` cases map one-to-one onto the [border sets](../tokens.md#border-sets):
 `.single` renders the `light` set, and `.rounded`, `.double`, `.heavy`, and `.ascii`
-render the identically named sets. The public case stays `single` while the token family
-stays `light`; there is one user-facing default per surface — the modifier defaults to
-`.single` and [Box](box.md) defaults to `.rounded`. `.custom(BorderGlyphs)` supplies four
-corner glyphs plus a horizontal and vertical glyph; each must be a single extended
-grapheme cluster of display width one, and an empty or wide glyph fails a precondition at
-construction. `lineStyle` defaults to the inherited ambient style; a caller or the focus
-system may pass an explicit `Style`.
+render the identically named sets. The cases are omp2's `Border` families under key K4,
+which rejects a dashed case. The public case stays `single` while the token family stays
+`light`; there is one user-facing default per surface — the modifier defaults to `.single`
+and [Box](box.md) defaults to `.rounded`. `.custom(BorderGlyphs)` supplies four corner
+glyphs plus a horizontal and vertical glyph; each must be a single extended grapheme
+cluster of display width one, and an empty or wide glyph fails a precondition at
+construction. With the empty default `lineStyle`, the ring draws in the `border` role. A
+non-empty `lineStyle` is the ring's complete style, omp2's `bc` and `edge` (key B5); this
+is how a caller or the focus system passes `focus`.
 
 ## Sizing
 
-Schema: [README](../README.md#sizing-table). The child measured here has an eight-by-two
+Schema: [README](../README.md#sizing-table). The child measured here has a ten-by-two
 ideal.
 
 | Proposal  | Result                                | Rule                                                                                |
@@ -172,7 +196,9 @@ wraps at the interior width or marks its own cut under a row budget (see
 - Border sets `light`, `rounded`, `heavy`, `double`, and `ascii` come from
   [tokens.md](../tokens.md#border-sets); the `BorderStyle` case selects the row.
 - `lineStyle` is a complete [`Style`](style-modifiers.md); with the empty default the ring
-  inherits `primary` through the ambient `defaultStyle`.
+  draws in the `border` role ([text roles](../tokens.md#text-roles)), the role omp2's
+  theme `border` maps to (key J1). An app restyles every ring in a subtree by overriding
+  that role ([overrides](../tokens.md#overrides)).
 - Focus presentation follows the [Focus border](#focus-border) rules. The owning bordered
   view chooses the set and `lineStyle` through this modifier; the primitive itself has no
   focus state.
@@ -183,7 +209,9 @@ Owner decision, omp2 review, 2026-10. Box, Button, Stepper, SplitView, and Table
 settled their focus look in their own review. This section gathers those looks so they can
 be checked together, and it replaces the `focus.border` direction in
 [tokens.md](../tokens.md#focus). Every look uses the `focus` role: the terminal's default
-foreground in bold, with no hue (owner decision, 2026-10-19; see Focus colour below).
+foreground in bold, with no hue (owner decision, 2026-10-19; see Focus colour below). omp2
+paints focus in `accent`; Tessera's focus is its own role, so it never reads as a tone
+(key E2).
 
 Summary of the accepted focus looks: one specimen per rule, with the rules following the
 grid.
@@ -288,6 +316,9 @@ live widgets exist.
   heavy, double)
 - `custom border glyphs render the supplied set at the same geometry` (anatomy: custom;
   public API: `.custom`)
+- `empty line style draws the ring in the border role` (public API: `lineStyle`;
+  environment: `lineStyle`)
+- `explicit line style is the ring's complete style` (public API: `lineStyle`)
 - `border reports child size plus one cell on every edge` (sizing: nil x nil, 12x4)
 - `child text wraps at the interior width, and Border clips only non-text geometry`
   (anatomy: single interior; sizing: 6x nil, 40x20)
@@ -311,9 +342,10 @@ live widgets exist.
 ## Degradation
 
 Per the [degradation ladder](../tokens.md#degradation-ladder), borders keep their geometry
-at `NO_COLOR` and 16-color; only `lineStyle` color resolves through its semantic role.
-ASCII-only swaps in the `ascii` set (`+` corners, `-` horizontal, `|` vertical). Focus in
-ASCII is bold, since ASCII has no heavier line (focus border rule 6).
+at `NO_COLOR` and 16-color; only the ring's style (the `border` role or an explicit
+`lineStyle`) resolves per tier. ASCII-only swaps in the `ascii` set (`+` corners, `-`
+horizontal, `|` vertical). Focus in ASCII is bold, since ASCII has no heavier line (focus
+border rule 6).
 
 ```wireframe 12x4
 +----------+
@@ -347,6 +379,14 @@ decision, omp2 review, 2026-10). Border holds no focus state: the owning view ch
 set and `lineStyle` through this modifier. Heavy and double rings change colour only,
 since no heavier line exists; ASCII shows focus in bold.
 
+Border is omp2's border chrome as a wrapper node (keys B5, G3, K4). An empty `lineStyle`
+draws in the `border` role, as omp2's unstyled ring draws in the theme's `border`, and as
+the Box, Table, and ScrollView fixtures and focus rule 2 (a ring changes from `border` to
+`focus`) already assume; plan 032 step 7.1 corrected the earlier default, which inherited
+`primary`. omp2's `bleed` is modifier order: `.border().background { … }` paints the
+background under the ring, and `.background { … }.border()` only inside it (key B5; see
+[Background](background.md)).
+
 Reviewed against the
 [Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): Border is a
 unary layout wrapper plus a render decoration, appearance comes from shared tokens, and
@@ -356,12 +396,12 @@ Owner decision, 2026-10-10: an interactive bordered child's decorative-versus-hi
 is deferred to [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing). The border
 ring is decorative; hit testing follows the wrapped child's final frame and clip.
 
-The border edge also serves as an edge-riding scroll-indicator track: a scrollable
-descendant may mount a [ScrollIndicator](scroll-indicator.md) in `.border` placement
-(`.scrollIndicatorPlacement(.border)`) whose thumb overpaints the ring cells at the
-resolved thumb rows, reserving no extra cell. The `.border` placement paints the preset's
-thumb glyph over `lineStyle` ([scroll indicators](../tokens.md#scroll-indicators)); the
-ring geometry is unchanged.
+Box's ring, drawn by this modifier, is also the track for `.border` scroll-indicator
+placement (`.scrollIndicatorPlacement(.border)`): Box paints the preset's thumb glyph in
+`accent` over the ring cells at the resolved thumb rows, reserving no extra cell, and the
+ring geometry is unchanged ([ScrollIndicator](scroll-indicator.md#variants);
+[scroll indicators](../tokens.md#scroll-indicators)). A bare `.border` is not a track:
+without a Box the placement falls back to `reserved` (owner decision, 2026-10-10).
 
 ## Open questions
 

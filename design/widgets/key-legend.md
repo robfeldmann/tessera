@@ -1,6 +1,6 @@
 ---
 kind: widget
-status: specified
+status: ready
 ---
 
 # KeyLegend
@@ -19,17 +19,23 @@ ships in 1.0 as an option. ASCII spells the keys out.
 
 ## Prior art
 
-- omp2 has no shared legend. Each screen writes its own muted footer string by hand; the
-  settings panel's footer constants in
+- omp2 has no legend component (key E8). Each screen writes its own muted footer string by
+  hand; the settings panel's footer constants in
   [`crates/chat/src/overlays/settings.rs`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/chat/src/overlays/settings.rs#L23-L28)
   (`Enter to save · Esc to cancel`) show the layout Tessera keeps: key first, then its
   description, entries separated by `·`. Tessera rejects the hand-written strings. A
   string cannot follow the bindings that actually handle the keys, and it cannot drop
-  entries by priority when the row is narrow.
+  entries by priority when the row is narrow. omp2's chord table (`Keymap`) has no
+  counterpart in the graph either (key E5): a declaration describes a handler and remaps
+  nothing.
 
 ## API
 
-Swift in SwiftUI vocabulary; signatures are a sketch until the widget is specified.
+Swift in SwiftUI vocabulary. The declarations come from
+[declared key bindings](../../docs/Spec.md#focus-appearance-focus-scopes-and-declared-key-bindings):
+responders declare the keys their handlers consume (key E3), each with a short
+description. Plan 032 step 10.3 settles the Swift spellings of the declaration and of
+`legendPriority(_:)`.
 
 Owner decision, 2026-10-10: `KeyLegend` is an explicit view. The app or host places it
 where the legend belongs. It reads the focused responder chain's bindings from the
@@ -39,11 +45,10 @@ environment; there is no magic overlay.
 KeyLegend()
 ```
 
-Each binding declared through
-[Slice 4](../../docs/Spec.md#slice-4-focus-and-key-routing-the-responder-system) may set
-its priority with `legendPriority(_:)`. The modifier is modelled on SwiftUI's
-`layoutPriority`: the larger value is kept longer. A binding that declares none has
-priority 0. Equal priorities drop as a unit (owner decision, 2026-10-10).
+Each declared binding may set its priority with `legendPriority(_:)`. The modifier is
+modelled on SwiftUI's `layoutPriority`: the larger value is kept longer. A binding that
+declares none has priority 0. Equal priorities drop as a unit (owner decision,
+2026-10-10).
 
 ```swift
 extension View {
@@ -57,8 +62,8 @@ enum LegendPriority {
 }
 ```
 
-The named values use UIKit's autolayout scale. The numbers are derived from UIKit, not
-captured.
+The named values use UIKit's autolayout scale. The numbers are derived from UIKit; omp2's
+footers have no priorities.
 
 ## Anatomy
 
@@ -133,9 +138,9 @@ legend is 33 cells wide here, inside its 40-column design width.
 
 ```text
 Callouts (40x1, 0-based):
-1. r0 c0-c7    Change entry, priority 1 -- key `⏎`; description `secondary`
-2. r0 c11-c20  Next tab entry, priority 2 -- key `⇥`; description `secondary`
-3. r0 c24-c32  Close entry, priority 1 -- key `esc`; description `secondary`
+1. r0 c0-c7    Change entry, priority `required` -- key `⏎`; description `secondary`
+2. r0 c11-c20  Next tab entry, priority `high` -- key `⇥`; description `secondary`
+3. r0 c24-c32  Close entry, priority `required` -- key `esc`; description `secondary`
 4. r0 c8-c10, c21-c23  Separators -- `border`
 ```
 
@@ -195,12 +200,12 @@ the List's trailing scroll indicator in column 39.
  Maya Chen                       09:41 │
   Fixed the split view divider drag    │
 ▌Build Bot                       09:37 │
-▌ tessera CI: 734 tests passed on main ┃
- Rob                             09:12 ┃
-  Can List sections collapse in v1?    ┃
- Priya Patel                     08:58 ┃
-  Monodraw snippet library feedback    ┃
- Deploy Bot                      08:30 ┃
+▌ tessera CI: 734 tests passed on main █
+ Rob                             09:12 █
+  Can List sections collapse in v1?    █
+ Priya Patel                     08:58 █
+  Monodraw snippet library feedback    █
+ Deploy Bot                      08:30 █
   demo app preview deployed to staging │
  Maya Chen                       07:55 │
   Scroll indicator thumb rounding      │
@@ -254,7 +259,7 @@ S  fg=border
 
 None. The legend takes no focus and consumes no keys. It reads the bindings the focused
 responders already declare, per
-[Slice 4](../../docs/Spec.md#slice-4-focus-and-key-routing-the-responder-system).
+[declared key bindings](../../docs/Spec.md#focus-appearance-focus-scopes-and-declared-key-bindings).
 
 ## Mouse table
 
@@ -262,23 +267,27 @@ None. The legend takes no pointer input.
 
 ## State model
 
-| State    | Owner   | Type                                                                  | Reset or clamp rule                                                                            |
-| -------- | ------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| bindings | derived | key glyph, description, and priority from the focused responder chain | recomputed on every focus change and render; never stored                                      |
-| entries  | derived | the bindings that fit, in declared order                              | drop whole entries, lowest priority first, until the row fits; equal priorities drop as a unit |
+Schema: [README](../README.md#state-model-table). Focus is graph-owned, so both rows are
+`derived` and nothing is mirrored into `NodeState` (key ownership rule 4; key E8).
+
+| State    | Owner   | Type                                                                 | Reset or clamp rule                                                                            |
+| -------- | ------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| bindings | derived | key, description, and priority from the focused chain's declarations | recomputed on every focus change and render; never stored                                      |
+| entries  | derived | the bindings that fit, in declared order                             | drop whole entries, lowest priority first, until the row fits; equal priorities drop as a unit |
 
 ## Sizing
 
 Schema: [README](../README.md#sizing-table). Mandatory rows: nil x nil, tight,
 under-minimum, over-maximum.
 
-| Proposal    | Result | Rule                                                                                                                                                                                      |
-| ----------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| nil x nil   | 54x1   | Plain look at its ideal width; every entry fits (derived). Keycaps are 60x1 and ASCII 65x1 (derived, not captured).                                                                       |
-| tight       | 54x1   | The proposal equals the ideal width; all entries fit, and the ideal width is the tight width.                                                                                             |
-| 20-53 x nil | W' x1  | From the 20-column floor up: drop whole entries, lowest priority first, until the row fits; at 20 the result is `⏎ change · esc close`, 20x1, leading-aligned. Entries never wrap or cut. |
-| W<20 x nil  | 0x0    | Below the 20-cell floor the legend draws nothing (owner decision, 2026-10-10).                                                                                                            |
-| 80x1        | 54x1   | Over-maximum: the legend keeps its ideal width and is leading-aligned; it does not stretch (owner decision, 2026-10-10).                                                                  |
+| Proposal                 | Result | Rule                                                                                                                                    |
+| ------------------------ | ------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| nil x nil                | 54x1   | Plain look at its ideal width; every entry fits (derived). Keycaps are 60x1 and ASCII 65x1 (derived).                                   |
+| 54 x nil (tight)         | 54x1   | The proposal equals the ideal width; all entries fit, and the ideal width is the tight width.                                           |
+| 40 x nil                 | 33x1   | Drop whole entries, lowest priority first, until the row fits: search (0) and move (`low`) drop; leading-aligned (Mobile (40 columns)). |
+| 20 x nil                 | 20x1   | The floor: only the `required` entries fit, `⏎ change · esc close`, leading-aligned (Min). Entries never wrap or cut.                   |
+| 19 x nil (under-minimum) | 0x0    | Below the 20-cell floor the legend draws nothing (owner decision, 2026-10-10).                                                          |
+| 80x1 (over-maximum)      | 54x1   | The legend keeps its ideal width and is leading-aligned; it does not stretch (owner decision, 2026-10-10).                              |
 
 ## Environment
 
@@ -296,7 +305,8 @@ under-minimum, over-maximum.
 - [Style modifiers](../primitives/style-modifiers.md) for the bold key and the keycap
   fill.
 - The focus and key routing that supplies the bindings, from
-  [Slice 4](../../docs/Spec.md#slice-4-focus-and-key-routing-the-responder-system).
+  [declared key bindings](../../docs/Spec.md#focus-appearance-focus-scopes-and-declared-key-bindings)
+  (Slice 4; plan 032 step 10.3).
 
 ## Requirements
 
@@ -306,14 +316,14 @@ under-minimum, over-maximum.
 - `keycaps legend fills each key on a keycap` (states: keycaps)
 - `narrow legend drops move and search at 40 columns` (states: Mobile (40 columns))
 - `narrow legend drops whole entries lowest priority first` (states: Mobile (40 columns);
-  sizing: under-minimum)
+  sizing: 40 x nil)
 - `legend at 20 columns keeps only change and close` (states: min)
 - `legend never cuts an entry in half` (state model: entries)
 - `legend drops equal-priority entries as a unit` (state model: entries; API:
   legendPriority)
-- `legend draws nothing below 20 cells` (sizing: W<20 x nil)
+- `legend draws nothing below 20 cells` (sizing: 19 x nil)
 - `legend entries are one row and drop whole by priority instead of wrapping or truncating`
-  (anatomy callouts 1-6; state model: entries; sizing: 20-53 x nil)
+  (anatomy callouts 1-6; state model: entries; sizing: 40 x nil, 20 x nil)
 - `NO_COLOR legend keys stay bold with no brackets or reverse video` (degradation:
   NO_COLOR)
 - `over-maximum legend keeps its ideal width and leading alignment` (sizing: 80x1)
@@ -340,9 +350,21 @@ under-minimum, over-maximum.
 - Below the floor (20 columns): entries drop whole, lowest priority first. Below 20 cells
   the legend draws nothing (owner decision, 2026-10-10).
 
+This design was reviewed against the
+[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): the legend is
+a value description that derives its entries from graph-owned focus and the responders'
+declarations at render, stores nothing, and takes no input; a declaration installs no
+behaviour, so the graph still routes without interpreting keys; and the row is
+deterministic integer-cell output.
+
 ## Open questions
 
-None.
+- **Key glyphs (deferred to plan 032 step 10.3).** The legend draws `⏎`, `⇥`, `↑↓`, `/`
+  and `esc`, and ASCII spells `enter`, `tab` and `up/down`. No table yet gives the glyph
+  and the ASCII spelling of the other keys in the README's
+  [key notation](../README.md#key-table) (`Home`, `End`, `PgUp`, `PgDn`, `Backspace`,
+  `Delete`, `Space`, and modifier chords), or says whether `↑↓` is one declaration or two
+  merged entries. Step 10.3 settles them with the declaration's Swift spelling.
 
 ## Inspiration
 

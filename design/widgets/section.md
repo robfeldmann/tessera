@@ -1,6 +1,6 @@
 ---
 kind: widget
-status: specified
+status: ready
 ---
 
 # Section
@@ -15,26 +15,38 @@ with the app owning that bit per the
 controlled-only rule. In 1.0 Section is legal only inside List; Form revisits standalone
 use post-1.0. There is no footer in 1.0.
 
-Provisional API shape (vocabulary, not a commitment):
+The API takes the [translation key](../translation-key.md)'s forms: the header is a
+promoted `@ViewBuilder header:` slot with a `String` convenience (key A7), and expansion
+is an optional app-owned `Binding<Bool>` that Section writes only on the documented
+interaction (keys C9 and D1).
 
 ```swift
 public struct Section<Header: View, Content: View>: View {
-    public init(
-        _ title: String,
-        isExpanded: Binding<Bool>? = nil,
-        @ViewBuilder content: () -> Content
-    )
     public init(
         isExpanded: Binding<Bool>? = nil,
         @ViewBuilder content: () -> Content,
         @ViewBuilder header: () -> Header
     )
 }
+
+extension Section where Header == Text {
+    public init(
+        _ title: String,
+        isExpanded: Binding<Bool>? = nil,
+        @ViewBuilder content: () -> Content
+    )
+}
+
+extension Section where Header == EmptyView {
+    // Headerless: rows only, so there is no header to collapse.
+    public init(@ViewBuilder content: () -> Content)
+}
 ```
 
-An absent `isExpanded` binding means always expanded and renders no disclosure glyph; an
-absent header means the section contributes rows only. Inter-section spacing (one blank
-row) is List chrome, not a Section margin, so adjacent sections never double-space.
+An absent `isExpanded` binding means always expanded and renders no disclosure glyph; a
+headerless section (`Header == EmptyView`) contributes rows only. Inter-section spacing
+(one blank row) is List chrome, not a Section margin, so adjacent sections never
+double-space.
 
 Grouped rows follow [List](list.md): they are content, so they wrap by default and
 `.lineLimit(1)` restores single-line rows (owner decision, 2026-10-18). The header is the
@@ -42,6 +54,23 @@ one exception, see [Anatomy](#anatomy).
 
 ## Prior art
 
+- omp2 has no Section. Its counterparts are Hr's labelled rule
+  ([`hr.rs`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/hr.rs#L63-L69)),
+  Boxed's promoted title child
+  ([`boxed.rs`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/boxed.rs#L14-L27)),
+  and ToolCard's foldable card
+  ([`tool_card.rs`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/tool_card.rs#L28-L44)).
+  Copy ToolCard's disclosure glyph before the title
+  ([L351-L358](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/tool_card.rs#L351-L358)),
+  which is `disclosure.*` (key K3), and its fold that hides the body. Boxed's title child
+  is the model for the `header:` slot (key A7). Reject ToolCard's internal `folded` flag
+  ([L159-L174](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/tool_card.rs#L159-L174)):
+  expansion is the app's binding (keys C9 and D1). Reject its header spinner
+  ([L364-L369](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/tool_card.rs#L364-L369)):
+  a header that needs one holds a ProgressView, which owns the clock and its frames (keys
+  K11, L1 and L2), and Section reads no clock. Reject the rule and the body rail: a
+  labelled rule is Divider's label (key B5), and grouped rows indent two columns instead
+  of hanging off a rail (key K7).
 - SwiftUI `Section` -- copy the header/content vocabulary and the
   `Section(_:isExpanded:content:)` controlled collapse form verbatim; reject footers for
   1.0 and reject the deprecated positional `init(header:content:)` spellings.
@@ -208,12 +237,11 @@ An empty section is header + 0 rows (height 1); a headerless section is rows onl
 
 ## Primitive dependencies
 
-- [Text](../primitives/text.md#row-budget) -- header rendering with `lineLimit(1)` and
-  tail truncation; row wrapping follows [List](list.md). Blocks `ready` until the Text
-  wrapping slice lands, shared with List (`Sources/TesseraCore/Views/Text.swift` is still
-  the non-wrapping Slice 1 leaf).
-- [List](list.md) -- host widget owning traversal, selection, spacing, and scrolling;
-  specified in the same pass.
+- [Text](../primitives/text.md#row-budget) (`ready`) -- header rendering with
+  `lineLimit(1)` and tail truncation; row wrapping follows [List](list.md). Wrapping lands
+  in plan 032 step 9.2, before List and Section in step 14.2.
+- [List](list.md) (`ready`, a widget) -- host widget owning traversal, selection, spacing,
+  hover, and scrolling; Section and List land together in plan 032 step 14.2.
 
 ## Requirements
 
@@ -250,14 +278,22 @@ An empty section is header + 0 rows (height 1); a headerless section is rows onl
 - Below `min` (8x2): tail-truncated header, rows breaking between graphemes, never a
   layout failure.
 
+This design was reviewed against the
+[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): Section is a
+value that describes structure, expansion is the app's binding, it holds no `NodeState`,
+and its contribution to the host List's rows is recomputed on every update.
+
 ## Open questions
 
-- Footer: excluded from 1.0 (decided above); Form's post-1.0 design owns whether a footer
-  slot returns and whether it reserves space when empty.
+None open. Two questions are deferred past 1.0, which the
+[1.0 surface](../../docs/Spec.md#the-10-surface) records for every catalog deferral:
+
+- Footer: Section has no footer in 1.0. Whether a footer slot returns, and whether it
+  reserves space when empty, belongs to standalone Section use with Form after 1.0.
 - Keyboard expansion without a selected row in the section (a fully collapsed List has
-  nothing for Left/Right to anchor on): needs either a header-cursor concept or an app
-  keybinding through the expansion bindings; deferred until a real use case, since the
-  bindings already permit the app path.
+  nothing for Left/Right to anchor on): a 1.0 app binds its own chord with `.onKey` on the
+  List and writes the expansion bindings (keys C9 and E3), so Section adds no keys. A
+  header cursor waits for a real use case.
 
 ## Inspiration
 

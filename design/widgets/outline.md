@@ -1,6 +1,6 @@
 ---
 kind: widget
-status: wireframed
+status: ready
 ---
 
 # Outline
@@ -11,7 +11,9 @@ icon, and a label. It is the 1.0 home for omp2's `Tree` and for the path mode of
 `Files` view. It is controlled in the same sense as [List](list.md): the app supplies the
 nodes and binds selection as `Binding<ID?>`, like List, and expansion as
 `Binding<Set<ID>>`. Outline owns only an ephemeral scroll offset (owner decision,
-2026-10-10).
+2026-10-10). Like List and Table, it takes an optional `onActivate:` closure that Enter
+and a double-click call with the selected node (key C8), and it builds only the rows on
+screen (key G11).
 
 Outline scrolls itself, like [List](list.md) and [Table](table.md). When its rows are
 taller than the space it has, it reserves its last column and mounts the shared
@@ -53,6 +55,17 @@ taller than the space it has, it reserves its last column and mounts the shared
 - Lazygit's working-tree view is the owner's comparison for the file-tree states: a folder
   icon before the root, and a status column shown before the file icon rather than
   replacing it.
+- Translation, per the [translation key](../translation-key.md): nodes are the app's data
+  drawn by Outline, not parent-owned records (key A7), and the selection and open set are
+  bindings (key D1). The selection is the cursor; there is no separate one (key D3).
+  `TreeActivated` is the `onActivate:` closure (key C8), `TreeToggled` a write to the
+  expansion binding (key C9), and the row action chip is post-1.0 (key C10). `scroll_top`
+  is NodeState (key D4), and only visible rows are built (key G11). The `max-rows` footer
+  has no counterpart, because an overflowing Outline scrolls (key B8). Expanders are the
+  `disclosure.*` marks (key K3), guides draw in `border` (key K6), and icons come from
+  Label's catalog (key K2). The `h` `j` `k` `l` `g` `G` aliases are app keybindings (key
+  E5), focus entry on the last row from Shift-Tab is rejected (key D9), and row hover is
+  open (key F4; see [Open questions](#open-questions)).
 
 ## Anatomy
 
@@ -454,12 +467,15 @@ w  fg=warning bg=selection.fill
 
 Schema: [README](../README.md#state-model-table).
 
-| State          | Owner       | Type                            | Reset or clamp rule                                                                                                  |
-| -------------- | ----------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| selection      | Binding     | `Binding<ID?>`                  | app-owned; Outline writes it through the binding on a key or click; single selection, like List                      |
-| expansion      | Binding     | `Binding<Set<ID>>`              | app-owned; Outline writes it through the binding on →, ←, Enter, or an expander click                                |
-| scroll offset  | NodeState   | `Int` (rows above the viewport) | clamps to content bounds on every update; keeps the selection visible; rows are single-line, so one row is one node  |
-| row line limit | Environment | `Int?` pinned to 1              | Outline pins `lineLimit(1)` on each label (Wrap exception); an inherited app `lineLimit` never changes the row count |
+| State          | Owner       | Type                                                       | Reset or clamp rule                                                                                                                                                                                                                                                                            |
+| -------------- | ----------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| selection      | Binding     | `Binding<ID?>`                                             | app-owned; Outline writes it on the keys and clicks below; single selection, like List; a selection that names no node counts as not set; one hidden in a collapsed branch draws no selected row and stays the traversal anchor, as in List; Outline never writes the binding to repair either |
+| expansion      | Binding     | `Binding<Set<ID>>`                                         | app-owned; Outline writes it on →, ←, Space, or an expander click (key C9); an ID that names no branch is ignored and never removed                                                                                                                                                            |
+| visible rows   | derived     | node, depth, and open state per row                        | flattened from the nodes and the expansion binding on every update; only the rows on screen are built (keys D10, G11); never stored                                                                                                                                                            |
+| scroll offset  | NodeState   | `Int` (rows above the viewport)                            | clamps to content bounds on every update; keeps the selection visible after a selection-moving key; wheel input moves it without touching the selection (keys D4, F7); rows are single-line, so one row is one node                                                                            |
+| is focused     | Environment | `Bool`                                                     | injected below the explicit `.focusable` modifier from the FocusManager's live identity (key E1); the selection bar is `accent` while focused and `secondary` otherwise (key E2)                                                                                                               |
+| guides         | Environment | border set (`light`, `rounded`, `heavy`, `double`) or none | read on every render; none by default, which draws plain indentation like omp2's `Tree` without `guides`; path mode draws `light` like omp2's `Files`; guides draw in `border` (key K6); the modifier is unnamed (see Open questions)                                                          |
+| row line limit | Environment | `Int?` pinned to 1                                         | Outline pins `lineLimit(1)` on each label (Wrap exception); an inherited app `lineLimit` never changes the row count                                                                                                                                                                           |
 
 Selection and expansion are app-owned bindings (owner decision, 2026-10-10), so they
 appear in the table as `Binding` rows. The scroll offset is Outline's own.
@@ -471,13 +487,27 @@ The omp2 `Tree` key handling
 is the baseline the owner agreed (owner decision, 2026-10-10). Path mode uses the same
 keys.
 
-| Key   | Precondition              | Effect                                                                                                                 | Consumed                        |
-| ----- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| ↓     | focused                   | moves selection to the next row via the selection binding                                                              | yes                             |
-| ↑     | focused                   | moves selection to the previous row via the selection binding                                                          | yes                             |
-| →     | focused, selection is set | on a collapsed branch, expands it via the expansion binding; on an expanded branch, moves selection to its first child | conditional (not on a leaf)     |
-| ←     | focused, selection is set | on an expanded branch, collapses it via the expansion binding; otherwise moves selection to the parent                 | conditional (not on a root row) |
-| Enter | focused, selection is set | toggles expansion of the selected branch via the expansion binding                                                     | conditional (not on a leaf)     |
+| Key   | Precondition               | Effect                                                                                                                 | Consumed                        |
+| ----- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| ↓     | focused, selection is set  | moves selection to the next visible row via the selection binding                                                      | yes                             |
+| ↑     | focused, selection is set  | moves selection to the previous visible row via the selection binding                                                  | yes                             |
+| ↓     | focused, selection not set | sets selection to the first visible row via the selection binding                                                      | yes                             |
+| PgDn  | focused, selection is set  | moves selection one viewport of rows down via the selection binding                                                    | yes                             |
+| PgUp  | focused, selection is set  | moves selection one viewport of rows up via the selection binding                                                      | yes                             |
+| Home  | focused                    | moves selection to the first visible row via the selection binding                                                     | yes                             |
+| End   | focused                    | moves selection to the last visible row via the selection binding                                                      | yes                             |
+| →     | focused, selection is set  | on a collapsed branch, expands it via the expansion binding; on an expanded branch, moves selection to its first child | conditional (not on a leaf)     |
+| ←     | focused, selection is set  | on an expanded branch, collapses it via the expansion binding; otherwise moves selection to the parent                 | conditional (not on a root row) |
+| Space | focused, selection is set  | toggles expansion of the selected branch via the expansion binding                                                     | conditional (not on a leaf)     |
+| Enter | focused, selection is set  | calls `onActivate` with the selected node                                                                              | yes                             |
+
+↓ and ↑ saturate at the last and first visible row and stay consumed, as in List and
+Table; omp2 lets them bubble. PgUp and PgDn clamp to the first and last row, and every
+selection-moving key reveals the new row through the scroll offset. Enter and Space split
+as they do in omp2's `Tree`: Enter activates (key C8) and Space toggles a branch (key C9).
+omp2's Space on a leaf emits a toggle with no expansion, which has no counterpart, so
+Space on a leaf bubbles. → on a leaf bubbles too, because only Enter and a double-click
+call `onActivate` (key C8).
 
 ## Mouse table
 
@@ -486,12 +516,19 @@ The omp2 `Tree` mouse handling
 is the baseline the owner agreed (owner decision, 2026-10-10). Regions are named in the
 Anatomy callouts.
 
-| Event      | Region   | Precondition     | Effect                                                          | Consumed |
-| ---------- | -------- | ---------------- | --------------------------------------------------------------- | -------- |
-| click      | Row      | always           | sets the selection to the clicked row via the selection binding | yes      |
-| click      | Expander | always           | toggles the row's expansion via the expansion binding           | yes      |
-| wheel-up   | Row      | offset above 0   | decrements the scroll offset in NodeState                       | yes      |
-| wheel-down | Row      | offset below max | increments the scroll offset in NodeState                       | yes      |
+| Event        | Region   | Precondition     | Effect                                                                                   | Consumed |
+| ------------ | -------- | ---------------- | ---------------------------------------------------------------------------------------- | -------- |
+| click        | Row      | always           | sets the selection to the clicked row via the selection binding                          | yes      |
+| double-click | Row      | always           | sets the selection to the clicked row via the selection binding, then calls `onActivate` | yes      |
+| click        | Expander | always           | toggles the row's expansion via the expansion binding                                    | yes      |
+| wheel-up     | Row      | offset above 0   | decrements the scroll offset in NodeState; selection unchanged                           | yes      |
+| wheel-down   | Row      | offset below max | increments the scroll offset in NodeState; selection unchanged                           | yes      |
+
+The expander is part of its row, and its click wins over the row click, as Table's mark
+gutter does. A row click only selects: omp2 toggles a branch or activates a leaf on a
+click, while Outline toggles on the expander and activates on a double-click, as List and
+Table do (keys C8, F6). A wheel row applies only off the boundary, so a wheel event at the
+top or bottom is not consumed and reaches an enclosing viewport (key F7).
 
 ## Sizing
 
@@ -532,18 +569,16 @@ Tokens consumed, each defined in [tokens.md](../tokens.md) unless marked.
 
 ## Primitive dependencies
 
-- [ScrollIndicator](../primitives/scroll-indicator.md) (`specified`): the trailing
-  indicator when rows overflow; the default look is `█` over `│` (owner decision,
-  2026-10-10).
-- [Label](../primitives/label.md) (`wireframed`): icon names. The
+- [ScrollIndicator](../primitives/scroll-indicator.md) (`ready`): the trailing indicator
+  when rows overflow; the default look is `█` over `│` (owner decision, 2026-10-10).
+- [Label](../primitives/label.md) (`ready`): icon names. The
   [icon catalog](../tokens.md#icon-catalog) defines `folder-open` (`[O]`), `folder`
   (`[D]`) and `file` (`[F]`); `folder` and `file` draw no icon under Unicode.
-- [Badge](../primitives/badge.md) (`wireframed`): not used for the status column, which is
-  a plain two-cell letter slot, not a capsule. Badge stays for capsule counts, as in List.
+- [Badge](../primitives/badge.md) (`ready`): not used for the status column, which is a
+  plain two-cell letter slot, not a capsule. Badge stays for capsule counts, as in List.
 - [Text](../primitives/text.md#row-budget) (`ready`): `lineLimit(1)` and
-  [truncation](../primitives/text.md#truncation) on each label; blocks `ready` until the
-  Text wrapping slice lands (`Sources/TesseraCore/Views/Text.swift` is still the
-  non-wrapping Slice 1 leaf).
+  [truncation](../primitives/text.md#truncation) on each label. Wrapping and truncation
+  land in plan 032 step 9.2, before Outline's step 14.3.
 
 ## Requirements
 
@@ -566,19 +601,35 @@ Schema: [README](../README.md#requirements-list). Traced to the states and table
   (Anatomy)
 - `draws no folder or file icon under the Unicode charset` (Anatomy; Icon charsets)
 - `keeps a status letter's tone on the selected row` (Anatomy: callouts 7-8)
-- `draws plain indentation without tree guides` (Mobile)
+- `draws plain indentation without tree guides` (Mobile; state model: guides)
+- `draws guides in border from the chosen border set` (Scrolled; Path mode; state model:
+  guides)
+- `builds only the visible rows` (state model: visible rows)
 - `shows one cell of thumb in a three-row viewport at the declared minimum` (Declared
   minimum)
 - `folds single-child directory chains into one row` (Path mode)
 - `uses the tree keys and mouse in path mode` (Path mode)
 - `renders expanders as - and + and icons as [O], [D] and [F] in ASCII` (ASCII)
+- `draws ASCII guides as +- and |` (Degradation: ASCII)
 - `binds selection as Binding<ID?> and expansion as Binding<Set<ID>>, both app-owned`
   (State model)
 - `moves selection with the up and down arrows` (Key table)
+- `saturates up and down at the last and first row and keeps them consumed` (Key table: ↓,
+  ↑)
+- `selects the first visible row on down when nothing is selected` (Key table: ↓,
+  selection not set)
+- `moves selection with Home, End, PgUp and PgDn` (Key table)
 - `expands, collapses and moves selection with the left and right arrows` (Key table)
-- `toggles a branch on Enter` (Key table)
+- `toggles a branch on Space and lets Space on a leaf bubble` (Key table: Space)
+- `calls onActivate with the selected node on Enter` (Key table: Enter)
 - `selects a row on click and toggles a branch on expander click` (Mouse table)
-- `scrolls the rows on wheel-up and wheel-down` (Mouse table)
+- `selects the row and calls onActivate on double-click` (Mouse table: double-click)
+- `scrolls the rows on wheel-up and wheel-down without moving the selection` (Mouse table)
+- `leaves a wheel event at the scroll boundary unconsumed` (Mouse table: wheel-up,
+  wheel-down)
+- `draws no selected row for a selection hidden in a collapsed branch and leaves the binding unchanged`
+  (state model: selection)
+- `ignores an expansion ID that names no branch` (state model: expansion)
 - `sizes a nil x nil proposal to the widest row by the row count` (Sizing)
 - `truncates labels at the tail below the declared minimum` (Sizing)
 - `keeps rows single-line under an inherited line limit` (Anatomy: wrap exception)
@@ -594,15 +645,34 @@ Reference the [degradation ladder](../tokens.md#degradation-ladder).
 
 - ASCII: the scroll indicator uses `scrollIndicator.ascii` (`|` track, `#` thumb),
   expanders become `-` and `+`, icons become `[O]`, `[D]` and `[F]`, and the status
-  letters keep their text (owner grid).
+  letters keep their text (owner grid). Guides take the `ascii` border set (key K4): `+-`
+  for a branch and for the last child and `|` for a continuation, since every ASCII corner
+  and junction is `+`, as in Table's ASCII grid and SplitView's ASCII junctions.
 - Unicode: folder and file names draw no icon; the lead-icon slot is absent.
 - `NO_COLOR`: the git status letters are the cue. They stay plain text in their two-cell
   slot and nothing is added: no marker, glyph, or word (owner decision, 2026-10-18).
 - Below the floor: labels truncate at the tail (see [Sizing](#sizing)).
 
+Reviewed against the
+[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): nodes,
+selection, and expansion are app data and bindings, the scroll offset is the only
+NodeState, focus stays with the graph, and rows are deterministic integer-cell output
+built only for the viewport.
+
 ## Open questions
 
-None open.
+- **Row hover (key F4).** omp2's `Tree` tints the row under the pointer, and List and
+  Table take a default row hover (owner decision, 2026-10-19;
+  [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing)), but Picker's radio group
+  and TabView draw none (owner decisions, 2026-10-10). Outline draws none and requests no
+  pointer motion. The owner decides whether Outline rows take `hover` as List's do;
+  deferred to plan 032 step 14.3, which builds Outline.
+- **Guides modifier (key K6).** The guides state reads a border set from the environment,
+  set by a modifier the way `.tableStyle(_:)` is set on a Table (key B1), but the modifier
+  has no name yet. omp2 spells it as the `guides` attribute, whose bare flag means the
+  square set. The owner names it; deferred to plan 032 step 14.3.
+- **Path mode spelling.** The doc draws path mode but names no API that turns it on or
+  feeds it paths. The owner names it; deferred to plan 032 step 14.3.
 
 ## Inspiration
 

@@ -16,9 +16,9 @@ This widget follows the controlled-widget rule in
 The application owns the source path. Image owns the decoded bitmap and its load phase.
 
 Owner decision, omp2 review, 2026-10: Image moves to 1.0 and is adopted as omp2 draws it,
-so the wireframes below are omp2's captures with Tessera's role names. Sub-cell rasters
-beyond the half-block path (braille, charts, sparklines, QR) are post-1.0, per the omp2
-assessment.
+so the wireframes below redraw omp2's output with Tessera's role names. Sub-cell rasters
+beyond the half-block path (braille, charts, sparklines, QR) are post-1.0, as plan 032
+step 4.1 classified them.
 
 ## Prior art
 
@@ -26,6 +26,15 @@ assessment.
   [img.rs#L94-L119](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/img.rs#L94-L119).
   Copy the props: `src`, `w` (cells, or a percentage of the available columns), `h`,
   `max-rows` and `trim`. Reject the markup form: Tessera takes a path, not `src=` strings.
+  Key translations: `src` is display data, a plain parameter redeclared on every update
+  rather than refreshed with `set_prop` (keys D2, A8); `w` and `h` are `.frame` (key B2; a
+  percentage width is key G8); `max-rows` is `.maxRows(_:)` (key B8); and `trim` and the
+  graphics tiers are Image's (key M5).
+- Graphics tiers:
+  [context.rs#L735-L749](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/context.rs#L735-L749).
+  omp2 picks `Cells`, `Sixel`, `KittyDirect`, `KittyPlaceholders` or `Iterm2` from its
+  context. Graphics capability is terminal state, never a view attribute (key M5); see
+  Open questions for Tessera's tiers.
 - Fit and aspect ratio:
   [img.rs#L40-L65](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/img.rs#L40-L65).
   Copy the fit rule: `max-rows` caps the derived height and narrows the drawn width to
@@ -64,17 +73,16 @@ Image(path: "assets/login/anthropic.png", label: "Anthropic logo")
 (owner decision, 2026-10-18); it mirrors SwiftUI's `Image(_:label:)`, and the `Boxed`
 phase draws it (see Boxed). `frame` sets the requested box in cells. `maxRows` caps the
 drawn height and narrows the drawn width to keep the aspect ratio. `trim()` crops fully
-transparent margins before sampling. The modifier names are a proposal; the final names
-are decided when the component is built.
+transparent margins before sampling. The modifier names are a proposal, and plan 032 step
+16.3 settles them.
 
 ## Anatomy
 
 Default image at 80 columns: the Anthropic logo, a 64-pixel source drawn in a 32-cell by
 16-row box. Each cell stacks two image pixels as a half block (`▀`, `▄`). Transparent
-margins stay in the box as blank cells. The pixel colours are the image's own data: the
-capture's legend lists a derived foreground and background hex value per style letter.
-Those values are not Tessera roles, so the styled grid is not reproduced here; see
-Environment.
+margins stay in the box as blank cells. The pixel colours are the image's own data, a
+foreground and a background colour per cell. Those values are not Tessera roles, so no
+styled grid is drawn here; see Environment.
 
 ```wireframe 80x16
           ▄▄
@@ -235,7 +243,7 @@ It keeps the same `border` `░` box at the same size and replaces `Loading…` 
 `secondary` and is content: it wraps within the box, at the box width less two cells so a
 `░` cell always shows at each edge, and is centred as a block on the middle rows. Under a
 fixed box height the last visible row ends in `…` (see
-[Text](../primitives/text.md#row-budget)). The capture shows the label
+[Text](../primitives/text.md#row-budget)). The wireframe shows the label
 `Anthropic logo: an orange spark mark on a transparent background` after the optional icon
 in its Unicode text form.
 
@@ -312,7 +320,7 @@ At 40 columns the same two images sit closer together:
 ```text
 Callouts (40x8, 0-based):
 1. r0-r5 c3-c13    Left logo ink, drawn 16 x 8 after max-rows 8 -- Image, pixel colours
-2. r0-r5 c27-c37   Right logo ink, as captured at 40 columns -- Image, pixel colours
+2. r0-r5 c27-c37   Right logo ink, as drawn at 40 columns -- Image, pixel colours
 3. r6-r7           Bottom transparent rows -- blank cells
 ```
 
@@ -352,7 +360,7 @@ Callouts (80x16, 0-based):
 The default image in the ASCII degradation set. Each ink cell draws `#`, so the mark keeps
 its shape without half-block glyphs. Transparent cells stay blank.
 
-ASCII capture of the default image, rows as drawn:
+Rows as drawn:
 
 ```text
           ##
@@ -382,12 +390,13 @@ Callouts (80x16, 0-based):
 
 Schema: [README](../README.md#state-model-table).
 
-| State       | Owner          | Type    | Reset or clamp rule                                                              |
-| ----------- | -------------- | ------- | -------------------------------------------------------------------------------- |
-| Source path | App            | String  | Changing it starts a new load; the old bitmap is dropped                         |
-| Load phase  | Image (loader) | Enum    | `Unloaded` (default), `Loading`, `Ready`, `Boxed`; placeholder while not `Ready` |
-| Label       | App            | String? | Optional; drawn by `Boxed`; the file name when nil                               |
-| Bitmap      | Image (loader) | Derived | Decoded from the path; decoded again when the path changes                       |
+| State       | Owner     | Type                                    | Reset or clamp rule                                                                                                        |
+| ----------- | --------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Source path | Binding   | `String`                                | app-owned display data, redeclared on every update (key D2); a new path starts a new load and drops the old bitmap         |
+| Label       | Binding   | `String?`                               | app-owned (key D2); drawn by `Boxed`; the file name when nil                                                               |
+| Load phase  | NodeState | `Unloaded`, `Loading`, `Ready`, `Boxed` | `Unloaded` by default and on a path change; placeholder while not `Ready`; see Open questions for how the loader writes it |
+| Bitmap      | NodeState | decoded pixels                          | decoded from the path; dropped and decoded again when the path changes; losing it loses no data                            |
+| Drawn cells | derived   | cells                                   | recomputed each render from the bitmap, the frame, `maxRows` and `trim`; never stored (key D10)                            |
 
 The load phase has the four variants of omp2's `Load` enum (owner decision, 2026-10-10):
 `Unloaded` (default), `Loading` (the request is with the loader), `Ready` (the bitmap is
@@ -397,30 +406,22 @@ decision, 2026-10-10).
 
 ## Key table
 
-Schema: [README](../README.md#key-table). Image is a leaf in 1.0, like
+Schema: [README](../README.md#key-table). None. Image is a leaf in 1.0, like
 [ScrollIndicator](../primitives/scroll-indicator.md): it takes no focus and consumes no
 keys (owner decision, 2026-10-10). An app that needs a focus target wraps it in a
 [Button](../widgets/button.md).
 
-| Key    | Precondition | Effect | Consumed |
-| ------ | ------------ | ------ | -------- |
-| (none) | --           | --     | no       |
-
 ## Mouse table
 
-Schema: [README](../README.md#mouse-table). Image is a leaf in 1.0 and takes no pointer
-input (owner decision, 2026-10-10). Wrap it in a [Button](../widgets/button.md) for a
-click target.
-
-| Event  | Region | Precondition | Effect | Consumed |
-| ------ | ------ | ------------ | ------ | -------- |
-| (none) | --     | --           | --     | no       |
+Schema: [README](../README.md#mouse-table). None. Image is a leaf in 1.0 and takes no
+pointer input (owner decision, 2026-10-10). Wrap it in a [Button](../widgets/button.md)
+for a click target.
 
 ## Sizing
 
 Schema: [README](../README.md#sizing-table). The drawn box keeps the image's aspect ratio.
 The requested box comes from `frame` in cells; `maxRows` narrows the drawn width, as the
-sized captures show.
+Sized state shows.
 
 Layout reserves the requested frame, and the drawn image sits inside it. omp2 measures a
 Cells-mode Image at the requested width, even when `max-rows` draws it narrower; Tessera
@@ -432,8 +433,8 @@ follows the reservation rule instead (owner decision, 2026-10-10).
 | tight              | the requested frame                                       | Layout reserves the requested frame; the drawn image fits inside it, aspect ratio kept                                                                             |
 | under-minimum      | the requested frame                                       | Layout reserves the requested frame; the drawn width floors at one cell, as in Minimum                                                                             |
 | over-maximum       | the requested frame                                       | Layout reserves the requested frame; the image draws at its fitted size and spare cells stay blank                                                                 |
-| 80 x n             | Fits                                                      | Box keeps aspect ratio; sized row fits as captured                                                                                                                 |
-| 40 x n             | Fits                                                      | Box keeps aspect ratio; sized row compresses, as captured at 40                                                                                                    |
+| 80 x n             | Fits                                                      | Box keeps aspect ratio; the Sized row fits                                                                                                                         |
+| 40 x n             | Fits                                                      | Box keeps aspect ratio; the Sized row compresses at 40                                                                                                             |
 | `Boxed`, any frame | the requested frame                                       | The label wraps within the frame at its width less two cells; rows past the frame height are cut and the last visible row ends in `…` (owner decision, 2026-10-18) |
 
 ## Environment
@@ -446,9 +447,8 @@ Roles: `border` for the placeholder fill (`image.placeholder`,
 [bars and ramps](../tokens.md#bars-and-ramps)); `secondary` for the `Loading…` text, the
 `Boxed` label and the `image` icon ([text roles](../tokens.md#text-roles)).
 
-Pixel colours are the image's own data, not Tessera roles, and take no token. The legend
-for the default capture lists each pixel's foreground and background hex value, so it is
-not reproduced as a styled grid.
+Pixel colours are the image's own data, not Tessera roles, and take no token, so the pixel
+cells have no styled grid.
 
 The placeholder is a `░` fill drawn by Image, not a border, so it takes no entry in the
 [border](../primitives/border.md) glyph table. Under the ASCII charset the fill is `.`
@@ -526,9 +526,24 @@ Below 8 by 4 the drawn width floors at one cell, per Sizing.
 
 ## Open questions
 
-- Protocol tiers: omp2 has `Cells`, `Sixel`, `KittyDirect`, `KittyPlaceholders` and
-  `Iterm2`. Tessera's tier set is not decided. Blocks `ready`. Unblocked by the Kitty
-  graphics slice in [docs/Spec.md](../../docs/Spec.md#slice-7-kitty-graphics-protocol).
+- **Protocol tiers (key M5).** omp2 has `Cells`, `Sixel`, `KittyDirect`,
+  `KittyPlaceholders` and `Iterm2`. The Spec's
+  [Kitty graphics slice](../../docs/Spec.md#slice-7-kitty-graphics-protocol) now settles
+  which protocols exist: the Kitty graphics protocol with direct transmission is the only
+  first-class one, and Sixel, iTerm2 inline images and Kitty Unicode placeholders are its
+  non-goals. So Tessera's tiers can only be Kitty placement or half-block cells. Still
+  undecided: how the Kitty tier sizes its box from the cell pixel size, how a placement
+  clips inside a ScrollView, how the tier appears in snapshot tests, and what opts into
+  emission (the Spec's risk register makes blind emission an app opt-in). Blocks `ready`.
+- **Loading inside a view.** Image reads and decodes its path off the UI thread and
+  installs the bitmap when the decode returns. That puts file input and a background
+  loader inside a view, and the load phase would change outside event handling, which the
+  README's runtime ownership invariant forbids
+  ([state model table](../README.md#state-model-table)); the Spec puts async work in the
+  app's own machinery
+  ([handler modifiers](../../docs/Spec.md#handler-modifiers-and-respondercontext)). Should
+  Image keep its loader, or should the app supply decoded pixels or encoded image data as
+  a plain parameter (key D2) with the load phase in the app's model? Blocks `ready`.
 
 ## Inspiration
 

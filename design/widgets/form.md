@@ -1,6 +1,6 @@
 ---
 kind: widget
-status: specified
+status: ready
 ---
 
 # Form
@@ -50,37 +50,63 @@ pointer delivery from [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing
   [`height`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/form.rs#L374-L381),
   [`paint`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/form.rs#L382-L575),
   [`key`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/form.rs#L590-L694),
-  [`mouse`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/form.rs#L696-L749),
+  [`mouse`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/form.rs#L696-L731),
   [`validation_error`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/form.rs#L750-L766),
   [`paint_field_value`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/form.rs#L856-L935),
   with the number field at
   [L910-L922](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/form.rs#L910-L922).
-  Reject four things. omp2 keeps field data inside the Form; Tessera binds each field to
-  app state. omp2 draws the number arrows only on the focused row; Tessera follows
-  [Stepper](stepper.md) and shows them on every number row, focused or not (owner
-  decision, 2026-10-10). omp2 never paints the validation message it computes; its
+  Reject four things. omp2 keeps field data inside the Form and harvests it by id
+  ([`value`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/form.rs#L767-L776));
+  Tessera binds each field to app state (keys A10 and D1). omp2 draws the number arrows
+  only on the focused row; Tessera follows [Stepper](stepper.md) and shows them on every
+  number row, focused or not (owner decision, 2026-10-10). omp2 never paints the
+  validation message it computes; its
   [Wizard](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/wizard.rs#L258-L266)
   paints one on the row below its field. Form takes the inline placement instead (see
   [Validation](#validation-inline-message)). omp2's `measure` reports the widest label
   plus 24 cells; Tessera reports its widest side-by-side row instead, as Text reports its
-  widest line and List its widest row (see [Sizing](#sizing)).
+  widest line and List its widest row (see [Sizing](#sizing)). The
+  [translation key](../translation-key.md) settles three more points. Copy omp2's row
+  hover, which it reads from the graph at paint rather than storing
+  ([L415-L425](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/form.rs#L415-L425)),
+  as key F4 sets. Reject its scrollbar jump on click and drag
+  ([L270-L288](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/form.rs#L270-L288),
+  [L709-L714](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/form.rs#L709-L714)):
+  indicators are output-only (key F2). Reject its direction-aware focus entry, which puts
+  the cursor on the first or last row
+  ([`enter`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/form.rs#L581-L588)):
+  the cursor keeps its row (key D9).
 - SwiftUI [`Form`](https://developer.apple.com/documentation/swiftui/form) supplies the
   vocabulary: a column of controls with labels, and `LabeledContent` for label-value rows.
   Reject its platform-drawn cells; the terminal rows are drawn by the view.
 
+Form's other key rows: a control's title is its row label (key B11); a select or multi row
+opens Picker's menu in flow below the row, never in a layer (key H3); the `❯` cursor and
+the `▾` dropdown glyph are Marks tokens (key K3); the focused row draws in the `focus`
+role (key E2); the scrollbar is the `standard` indicator preset (key K8); colours are
+roles (key J1); paste reaches the focused Form like a key (key E7); and the Key and Mouse
+tables list every event it consumes, by hit region (keys E3 and F1).
+
 ## API direction
 
-Swift in SwiftUI vocabulary. Signatures are a sketch until the widget is specified. The
-bindings are app-supplied values named without a dollar-sign prefix; Tessera has no
-property-wrapper state. The bool row is a `Toggle` that draws the `.text` style inside a
-Form, so it paints the captured text `true` or `false` (see
-[Toggle](toggle.md#text-style)). Multi-select has no SwiftUI `Form` or `Picker` control.
-Tessera adds `MultiPicker`, a sibling of Picker that takes a `Binding<Set<Value>>`,
-mirroring Table's `Binding<Set<ID>>` (a Tessera addition, owner decision, 2026-10-10; a
-separate type, owner decision, 2026-10-18). Its default style is
+Swift in SwiftUI vocabulary, in the [translation key](../translation-key.md)'s forms. The
+fields are child controls in a `@ViewBuilder` (keys A4 and A7), and each control's own
+app-owned binding holds its value (key D1). The bindings are app-supplied values named
+without a dollar-sign prefix; Tessera has no property-wrapper state. The bool row is a
+`Toggle` that draws the `.text` style inside a Form, so it paints the captured text `true`
+or `false` (see [Toggle](toggle.md#text-style)). Multi-select has no SwiftUI `Form` or
+`Picker` control. Tessera adds `MultiPicker`, a sibling of Picker that takes a
+`Binding<Set<Value>>`, mirroring Table's `Binding<Set<ID>>` (a Tessera addition, owner
+decision, 2026-10-10; a separate type, owner decision, 2026-10-18). Its default style is
 `.multiPickerStyle(.menu)` (owner decision, 2026-10-18). The multi row is that MultiPicker
 in its `.menu` style, collapsed in its row (see
 [MultiPicker](multi-picker.md#menu-in-a-host-row)); it is not a separate control.
+
+```swift
+public struct Form<Content: View>: View {
+    public init(@ViewBuilder content: () -> Content)
+}
+```
 
 ```swift
 // strict, region, name, slug, theme, replicas, and scopes are bindings from the app's model.
@@ -97,11 +123,15 @@ Form {
 }
 ```
 
-`.required(_:)` and `.pattern(_:message:)` are sketch names for the validation rules. The
-app supplies the wording; when the message is omitted, the Form builds it from the field
-label (see Validation). The Replicas row is a native number field, so the Form lays it out
-in the shared column; a `LabeledContent` does not join that column (see Primitive
-dependencies).
+`.required(_:)` and `.pattern(_:message:)` are sketch names for the validation rules (key
+M1). The app supplies the wording; when the message is omitted, the Form builds it from
+the field label (see Validation). The Replicas row is a native number field, so the Form
+lays it out in the shared column; a `LabeledContent` does not join that column (see
+Primitive dependencies).
+
+The Form is one focus stop: it joins the focus ring through `.focusable(_:)` with an
+explicit `FocusID` (keys B10 and E1), and its cursor, which is NodeState, moves between
+the rows (key D3).
 
 Each control's title is its row label. The Form draws `Strict`, `Region`, `Scopes` and the
 other titles in its label column, and each control draws only its value in the value
@@ -141,7 +171,7 @@ Callouts (40x6, 0-based):
 8. r4 c12-15  Multi value "repo" -- `info`: MultiPicker's summary, the first two checked labels joined by a comma and a space, then ` +N` for the rest. Content, wraps under the value column: the names wrap rather than truncate, the `+N` form is kept, and `▾` in `secondary` follows the last word (owner decision, 2026-10-18). With no values checked, it reads `none` in `info`.
 9. r5 c12-16  Number value "3" -- `primary` at c14, between a decrement arrow `◂` at c12 and an increment arrow `▸` at c16, both `secondary`; chrome, one row. The number is atomic: it never wraps (see Stepper). The arrows show on every number row, focused or not, as Stepper does (owner decision, 2026-10-10).
 10. scrollbar -- the rightmost column, reserved and drawn only when the rows overflow the
-    window's height (see [ScrollView](scroll-view.md#cross-axis-proposal)). Not in this fixture; see Overflow: 40x4.
+    window's height (see [ScrollView](scroll-view.md#cross-axis-proposal)). Not in this fixture; see Overflow: 40x4. Output-only: it takes no clicks or drags (key F2).
 11. row -- each field row, r0-r5 c0-39. A click sets the cursor to the row and activates it as Enter does.
 12. window -- the viewport, r0-r5 c0-39. The wheel scrolls it without moving the cursor.
 ```
@@ -1282,17 +1312,17 @@ H  fg=border
 
 Schema: [README](../README.md#state-model-table).
 
-| State            | Owner     | Type                                                                              | Reset or clamp rule                                                                                                                                                                                                                                                                                                                                                                             |
-| ---------------- | --------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| field values     | app       | `Binding` per field, typed per kind                                               | Written only through the binding. The Form keeps no copy, so discarding its NodeState loses no data.                                                                                                                                                                                                                                                                                            |
-| cursor           | NodeState | field index, `Int`                                                                | Clamped to the field count on every key. Chase keeps the cursor row visible.                                                                                                                                                                                                                                                                                                                    |
-| scroll offset    | NodeState | rows above the viewport, `Int`                                                    | Clamped to content rows minus window rows on every render. Field heights vary: a stacked field is two or more rows, a wrapped value or validation message adds rows, an open dropdown adds its rows. A field partly in view draws its visible rows at the edge, with no mark. Chase changes the offset by the fewest rows that show the whole field; a field taller than the window top-aligns. |
-| open dropdown    | NodeState | field index, `Int?`                                                               | Set when Picker's menu opens in a select or multi row (Enter, Space, or a click on the closed row). Cleared when it closes: Esc, Enter, a click outside, or focus loss. Focus loss closes without committing, as Esc does. The Form stores only the host row; Picker holds the list cursor and selection.                                                                                       |
-| editing          | NodeState | `Bool`                                                                            | Set by Enter, Space, or a click on a text row. Cleared by Enter or Esc.                                                                                                                                                                                                                                                                                                                         |
-| pointer hover    | NodeState | row index, `Int?`                                                                 | Set by pointer movement over a row; the row paints the `hover` role. Never changes a value. The Form requests move input for this hover (owner decision, 2026-10-10).                                                                                                                                                                                                                           |
-| validation rules | app       | `required` `Bool` and `pattern` `Regex?`, each with an optional message `String?` | Set by the app's `.required(_:)` and `.pattern(_:message:)` modifiers and read on every render. The Form never stores them.                                                                                                                                                                                                                                                                     |
-| validation       | derived   | first failing message, `String?`                                                  | Computed on every render; required is checked before pattern. The app's message, or the default built from the label when omitted (Validation; owner decision, 2026-10-18). The message wraps under the value, so a failing field is taller while it shows (owner decision, 2026-10-18).                                                                                                        |
-| layout           | derived   | label width, stacked flag, value width, content rows, window                      | Recomputed at the proposed size on every layout; `ViewThatFits` sets the stacked flag when a value or label does not fit side by side. Each field, with any validation message rows, is measured at its width with a nil height, and re-measured on width change. Never stored.                                                                                                                 |
+| State            | Owner       | Type                                                                              | Reset or clamp rule                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ---------------- | ----------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| field values     | Binding     | `Binding` per field, typed per kind                                               | App-owned: each row's control takes its own binding (key D1). Written only through the binding. The Form keeps no copy and harvests no values (key A10), so discarding its NodeState loses no data.                                                                                                                                                                                                                                       |
+| cursor           | NodeState   | field index, `Int`                                                                | Starts on the first row when the Form node is created and keeps its row across focus changes; direction-aware entry is rejected (key D9). Clamped to the field count on every key. Chase keeps the cursor row visible.                                                                                                                                                                                                                    |
+| scroll offset    | NodeState   | rows above the viewport, `Int`                                                    | Clamped to content rows minus window rows on every render. Field heights vary: a stacked field is two or more rows, a wrapped value or validation message adds rows, an open dropdown adds its rows. A field partly in view draws its visible rows at the edge, with no mark. Chase changes the offset by the fewest rows that show the whole field; a field taller than the window top-aligns. One owner: the Form's NodeState (key D4). |
+| open dropdown    | NodeState   | field index, `Int?`                                                               | Set when Picker's menu opens in a select or multi row (Enter, Space, or a click on the closed row). Cleared when it closes: Esc, Enter, a click outside, or focus loss. Focus loss closes without committing, as Esc does. The Form stores only the host row; Picker holds the list cursor and selection. (key D7)                                                                                                                        |
+| editing          | NodeState   | `Bool`                                                                            | Set by Enter, Space, or a click on a text row. Cleared by Enter or Esc, and by focus loss (key D7).                                                                                                                                                                                                                                                                                                                                       |
+| hovered row      | derived     | row index, `Int?`                                                                 | Derived at render from the graph-owned hover point (key F4); never stored in NodeState or a binding. The graph clears it on focus loss and when motion tracking stops ([Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing)). The row paints the `hover` role and no value changes. The Form requests move input for this hover (owner decision, 2026-10-10).                                                                      |
+| validation rules | Environment | `required` `Bool` and `pattern` `Regex?`, each with an optional message `String?` | Configuration, not state: set by the app's `.required(_:)` and `.pattern(_:message:)` modifiers on a field (key M1), as `.characterLimit(_:)` configures [TextField](text-field.md), and read on every render. The Form never stores them.                                                                                                                                                                                                |
+| validation       | derived     | first failing message, `String?`                                                  | Computed on every render; required is checked before pattern. The app's message, or the default built from the label when omitted (Validation; owner decision, 2026-10-18). The message wraps under the value, so a failing field is taller while it shows (owner decision, 2026-10-18).                                                                                                                                                  |
+| layout           | derived     | label width, stacked flag, value width, content rows, window                      | Recomputed at the proposed size on every layout; `ViewThatFits` sets the stacked flag when a value or label does not fit side by side. Each field, with any validation message rows, is measured at its width with a nil height, and re-measured on width change. Never stored.                                                                                                                                                           |
 
 ## Key table
 
@@ -1343,15 +1373,15 @@ Regions: `row` (anatomy callout 11), `scrollbar` (anatomy callout 10), and `wind
 (anatomy callout 12). An open dropdown's option rows are Picker's regions, not Form's (see
 [Picker](picker.md#menu-collapsed-in-a-host-row)).
 
-| Event      | Region        | Precondition                   | Effect                                                                                                                                                        | Consumed                                                  |
-| ---------- | ------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| click      | row           | row index < field count        | Sets the cursor to that row, closes a dropdown open on a different row without committing (Picker's click-outside rule), and activates the row as Enter does. | yes                                                       |
-| click      | open dropdown | a dropdown is open on any row  | Handled by Picker's menu (see [Picker](picker.md#menu-collapsed-in-a-host-row)); Form takes no action.                                                        | conditional (Picker's mouse rules)                        |
-| click      | scrollbar     | content overflows the window   | Centers the scrollbar thumb on the pointer row, so the scroll offset follows the pointer.                                                                     | yes                                                       |
-| drag       | scrollbar     | content overflows the window   | Moves the thumb to the pointer row while the button is held, as click does.                                                                                   | yes                                                       |
-| wheel-up   | window        | no open list under the pointer | Scrolls the viewport up one row without moving the cursor.                                                                                                    | conditional (yes if the viewport moved; no at the top)    |
-| wheel-down | window        | no open list under the pointer | Scrolls the viewport down one row without moving the cursor.                                                                                                  | conditional (yes if the viewport moved; no at the bottom) |
-| move       | row           | row index < field count        | Sets the hover row, which paints the `hover` role and changes no value. Requested only because the rows paint hover (owner decision, 2026-10-10).             | no                                                        |
+| Event      | Region        | Precondition                   | Effect                                                                                                                                                                                              | Consumed                                                  |
+| ---------- | ------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| click      | row           | row index < field count        | Sets the cursor to that row, closes a dropdown open on a different row without committing (Picker's click-outside rule), and activates the row as Enter does. Click-to-focus runs first (key F6).   | yes                                                       |
+| click      | open dropdown | a dropdown is open on any row  | Handled by Picker's menu (see [Picker](picker.md#menu-collapsed-in-a-host-row)); Form takes no action.                                                                                              | conditional (Picker's mouse rules)                        |
+| click      | scrollbar     | always                         | None: the indicator is output-only (key F2; [ScrollIndicator](../../docs/Spec.md#scrollindicator)); the click returns `.ignored`.                                                                   | no                                                        |
+| drag       | scrollbar     | always                         | None: the indicator is output-only, so a drag on it returns `.ignored` (key F2).                                                                                                                    | no                                                        |
+| wheel-up   | window        | no open list under the pointer | Scrolls the viewport up one row without moving the cursor.                                                                                                                                          | conditional (yes if the viewport moved; no at the top)    |
+| wheel-down | window        | no open list under the pointer | Scrolls the viewport down one row without moving the cursor.                                                                                                                                        | conditional (yes if the viewport moved; no at the bottom) |
+| move       | row           | row index < field count        | None: the graph moves its hover point, and the derived hovered row follows and paints `hover` (key F4); no value changes. Requested only because the rows paint hover (owner decision, 2026-10-10). | no                                                        |
 
 ## Sizing
 
@@ -1360,22 +1390,25 @@ under-minimum, over-maximum.
 
 Width: the ideal width for a nil width proposal is the widest side-by-side row, measured
 unwrapped, as Text reports its widest line and List its widest row: 18 cells for the
-anatomy fixture (Theme and Scopes), including any validation message after its value. Each
-label sits beside its value while every row fits, so `ViewThatFits` keeps the side-by-side
-layout exactly down to that width: 18 columns here. When a value does not fit beside its
-label, `ViewThatFits` stacks each label above its value before any value wraps (owner
-decision, 2026-10-18; see [Narrow](#narrow-17-columns)). The ScrollView measures the rows
-at the full width and reserves its scrollbar column only when they overflow the height
-(see [ScrollView](scroll-view.md#cross-axis-proposal)). Stacked, values indent four cells
-and wrap at the width after the indent; labels never truncate. The floor is the cursor
-gutter (2) plus the widest label (`Replicas`, 8): 10 when the form fits its height, and 11
-when it overflows, for the reserved scrollbar column (owner decision, 2026-10-18; see
-Minimum). Height: every content row, one per field, two or more per field while stacked
-(more when a value or a validation message wraps), plus the rows of an open dropdown. A
-nil height proposal reports every row, with no ideal-height cap, as ScrollView, List,
-Table and Outline do; an app caps the Form with a max-height frame (owner decision,
-2026-10-18). No description row in 1.0 (owner decision, 2026-10-11). The label column is
-the widest label plus two cells, and values start after it.
+anatomy fixture (Theme and Scopes). A validation message does not count toward it: the
+message wraps under the value instead of stacking the form (owner decisions, 2026-10-10
+and 2026-10-18), so the side-by-side arrangement that `ViewThatFits` tests (key G10)
+measures labels and values only. Each label sits beside its value while every row fits, so
+`ViewThatFits` keeps the side-by-side layout exactly down to that width: 18 columns here.
+When a value does not fit beside its label, `ViewThatFits` stacks each label above its
+value before any value wraps (owner decision, 2026-10-18; see
+[Narrow](#narrow-17-columns)). The ScrollView measures the rows at the full width and
+reserves its scrollbar column only when they overflow the height (see
+[ScrollView](scroll-view.md#cross-axis-proposal)). Stacked, values indent four cells and
+wrap at the width after the indent; labels never truncate. The floor is the cursor gutter
+(2) plus the widest label (`Replicas`, 8): 10 when the form fits its height, and 11 when
+it overflows, for the reserved scrollbar column (owner decision, 2026-10-18; see Minimum).
+Height: every content row, one per field, two or more per field while stacked (more when a
+value or a validation message wraps), plus the rows of an open dropdown. A nil height
+proposal reports every row, with no ideal-height cap, as ScrollView, List, Table and
+Outline do; an app caps the Form with a max-height frame (owner decision, 2026-10-18). No
+description row in 1.0 (owner decision, 2026-10-11). The label column is the widest label
+plus two cells, and values start after it.
 
 | Proposal             | Result | Rule                                                                                                                                                                                                                                                                                       |
 | -------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -1415,42 +1448,45 @@ Tokens consumed: [roles](../tokens.md#roles); focus, fill and hue rules are in
 - `info`: enum, select, and multi values. An empty multi value paints `none`, and an
   absent select value paints an em dash (Picker summary).
 - `error`: a failing field's label, its error icon, and its message.
-- `hover`: the background of the row under the pointer: `fill12` where derived, and an
-  underline on the row label where no fill can stand apart
-  ([fill roles](../tokens.md#fill-roles)) (owner decision, 2026-10-19).
+- `hover`: the background of the row under the pointer, the row-fill form of hover (key
+  B14): `fill12` where derived, and an underline on the row label where no fill can stand
+  apart ([fill roles](../tokens.md#fill-roles)) (owner decision, 2026-10-19).
 - `lineLimit`, `truncationMode` (environment): flow to labels and values, which are
   content. The cursor, glyphs and arrows pin their own one-row values.
 
 ## Primitive dependencies
 
-- [Stepper](stepper.md) (specified): the number row's `◂ 4 ▸` presentation and steps. The
-  Form shows the arrows on every number row, as Stepper does (owner decision, 2026-10-10).
-- [Picker](picker.md) (specified): enum rows use its inline cycling. Select rows are
-  Picker's `.menu` collapsed in the row; multi rows are a MultiPicker in its default
-  `.menu` style, collapsed the same way (owner decision, 2026-10-18). Each takes a title,
-  which the Form draws as the row label (owner decision, 2026-10-18). The open list, keys,
-  mouse rules and summary are Picker's
+- [ViewThatFits](../primitives/view-that-fits.md) (`ready`): the side-by-side or stacked
+  choice, as `ViewThatFits(in: .horizontal)` over the side-by-side and stacked
+  arrangements (key G10; [Spec](../../docs/Spec.md#flow-layout-and-viewthatfits)). Plan
+  032 step 14.1 builds it, before Form lands.
+- [Stepper](stepper.md): the number row's `◂ 4 ▸` presentation and steps. The Form shows
+  the arrows on every number row, as Stepper does (owner decision, 2026-10-10).
+- [Picker](picker.md): enum rows use its inline cycling. Select rows are Picker's `.menu`
+  collapsed in the row; multi rows are a MultiPicker in its default `.menu` style,
+  collapsed the same way (owner decision, 2026-10-18). Each takes a title, which the Form
+  draws as the row label (owner decision, 2026-10-18). The open list, keys, mouse rules
+  and summary are Picker's
   ([menu collapsed in a host row](picker.md#menu-collapsed-in-a-host-row)) and, for the
   multi row, [MultiPicker's](multi-picker.md#menu-in-a-host-row). The collapsed value is
   content whose rows the Form decides: it wraps under the value column with `▾` after its
   last word (owner decision, 2026-10-18). Multi-select is in 1.0 (owner decision,
   2026-10-11).
-- [Toggle](toggle.md) (specified): the bool row. Inside a Form row, Toggle's `.text` style
-  is the default and paints `true` or `false`; the standalone default is `.checkbox`. An
-  explicit `.toggleStyle(_:)` on the Toggle or an ancestor wins. The row's focus rule (`❯`
-  cursor and a bold focus-coloured label) applies, not the standalone underline (owner
-  decision, 2026-10-10).
-- [LabeledContent](labeled-content.md) (wireframed): the label-value row. A LabeledContent
-  inside a Form keeps its own label column and does not join the Form's shared column.
-  Space is often limited; alignment may become an option later (owner decision,
+- [Toggle](toggle.md): the bool row. Inside a Form row, Toggle's `.text` style is the
+  default and paints `true` or `false`; the standalone default is `.checkbox`. An explicit
+  `.toggleStyle(_:)` on the Toggle or an ancestor wins. The row's focus rule (`❯` cursor
+  and a bold focus-coloured label) applies, not the standalone underline (owner decision,
   2026-10-10).
-- [TextField](text-field.md) (wireframed): text rows. Their editing keys are listed above;
-  the relation to TextField's own editing model is open.
-- [Label](../primitives/label.md) (wireframed): the `error` icon for a failing field and
-  the `secret` icon for masked fields. Row labels are plain `Text`, not Label, so they
-  wrap and never truncate; Label's one-row title rule does not apply to them.
-- [ScrollIndicator](../primitives/scroll-indicator.md) (specified): the overflow scrollbar
-  column.
+- [LabeledContent](labeled-content.md): the label-value row. A LabeledContent inside a
+  Form keeps its own label column and does not join the Form's shared column. Space is
+  often limited; alignment may become an option later (owner decision, 2026-10-10).
+- [TextField](text-field.md): text rows. Their editing keys are listed above; how they
+  relate to TextField's own key table is an [open question](#open-questions).
+- [Label](../primitives/label.md): the `error` icon for a failing field and the `secret`
+  icon for masked fields. Row labels are plain `Text`, not Label, so they wrap and never
+  truncate; Label's one-row title rule does not apply to them.
+- [ScrollIndicator](../primitives/scroll-indicator.md): the overflow scrollbar column,
+  output-only (key F2).
 
 ## Requirements
 
@@ -1464,8 +1500,8 @@ Schema: [README](../README.md#requirements-list).
 - `form draws the cursor only while focused` (anatomy callout 1)
 - `form draws no cursor and no bold label while unfocused` (Unfocused)
 - `form writes a field value only through its binding` (state model: field values)
-- `form requests move input for its row hover and changes no value on move` (state model:
-  pointer hover; mouse table: move)
+- `form derives its hovered row from graph-owned hover, requests move input for it, and changes no value on move`
+  (state model: hovered row; mouse table: move)
 - `bool row paints success when true and secondary when false as text` (anatomy callout 4)
 - `enum, select, and multi values paint info; select and multi show a secondary dropdown glyph`
   (anatomy callouts 5, 7, 8)
@@ -1556,6 +1592,10 @@ Schema: [README](../README.md#requirements-list).
 - `form height is the content rows plus the rows of an open dropdown` (Sizing: 40x6, 40x9)
 - `wheel scrolls the viewport without moving the cursor` (mouse table: wheel-up,
   wheel-down)
+- `form leaves clicks and drags on its scrollbar unconsumed` (mouse table: scrollbar)
+- `form cursor starts on the first row and keeps its row across focus changes` (state
+  model: cursor)
+- `form ends text editing on focus loss` (state model: editing)
 
 ## Degradation
 
@@ -1580,9 +1620,28 @@ Schema: [README](../README.md#requirements-list).
   indented to the value column (owner decision, 2026-10-18). ASCII keeps the `~` mark
   where a mark is drawn.
 
+This design was reviewed against the
+[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): every field
+value is the app's binding and the Form keeps no copy; the cursor, scroll offset, open
+dropdown, and editing flag are NodeState with one owner; hover is derived from the graph;
+and the side-by-side or stacked choice is deterministic integer layout through
+`ViewThatFits`.
+
 ## Open questions
 
-None.
+- Text rows and TextField's keys. A text row is a `TextField`, but while editing, the
+  Form's key table edits it with no caret, as omp2's Form does: printable characters and
+  Space append, Backspace deletes one character, Ctrl-u clears, and Ctrl-w deletes a word.
+  Standalone, [TextField's key table](text-field.md#key-table) edits at a grapheme caret
+  with Left, Right, Home, and End. Does a Form text row hand its editing keys to
+  TextField's key table, as a select row hands its keys to Picker's menu, or keep the
+  Form's rows? Deferred to plan 032 step 13.4, which builds the shared text editing core;
+  the key table above holds until the owner decides.
+- Masked rows (key M8). The anatomy paints the `secret` icon in place of a masked text
+  value (owner decision, 2026-10-19), but no 1.0 API declares a row masked, and TextField
+  defers secure entry past 1.0 ([TextField](text-field.md#deferred-post-10)). The owner
+  decides whether 1.0 needs a masking modifier for display only; deferred to plan 032 step
+  16.3, where Form lands.
 
 ## Inspiration
 

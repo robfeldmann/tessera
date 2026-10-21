@@ -1,6 +1,6 @@
 ---
 kind: widget
-status: specified
+status: ready
 ---
 
 # Stepper
@@ -32,9 +32,13 @@ pointer delivery from [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing
   and platform-specific presentation variants.
 - omp2's Form number field
   ([number field](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/form.rs#L910-L922))
-  shows `◂ 4 ▸` while focused and the bare number otherwise. Copy its arrow glyphs and
-  in-place arrows; reject hiding the arrows when unfocused, which the owner decided
-  against (owner decision, omp2 review, 2026-10).
+  is the counterpart. It shows `◂ 4 ▸` while focused and the bare number otherwise. Copy
+  its arrow glyphs and in-place arrows (key K3); reject hiding the arrows when unfocused,
+  which the owner decided against (owner decision, omp2 review, 2026-10). Its `min`,
+  `max`, and `step` attributes (L163-165) are Stepper's `in:` and `step:` (key B11). Its
+  value lives inside the Form (L35, L132-134), where Stepper writes the app's binding (key
+  D1). Left and Right step and clamp it (L650-661), which the Key table carries (key E3).
+  It prints the raw integer (L917), where Stepper takes a `FormatStyle` (key M6).
 
 ## API direction
 
@@ -90,8 +94,12 @@ with range `0...1` and step `0.25`. Its ratio summary and Stepper display decima
 then map the selected quarter deterministically to the existing
 `FlexConstraint.ratio(Int, Int)` representation.
 
-> Deferred: `StepperStyle`, custom chrome, and the `.compact` presentation land in a later
-> slice. They must preserve this stepping and focus contract.
+> Deferred: `StepperStyle` and custom chrome wait on the
+> [Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets)
+> style contract, as Button's and Toggle's custom styles do. The `.compact` presentation
+> is post-1.0 (owner decision, 2026-10-10), which the Spec's
+> [1.0 surface](../../docs/Spec.md#the-10-surface) records. Both must preserve this
+> stepping and focus contract.
 
 ## Anatomy
 
@@ -399,7 +407,7 @@ value and `+` are already ASCII-safe.
 
 | State                  | Owner       | Type                  | Reset or clamp rule                                                                                                                                                                                                                                                                                                                                                                                       |
 | ---------------------- | ----------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| value                  | Binding     | `Binding<Value>`      | App-owned source of truth. Reconciliation displays any supplied `Value` through its selected format. An enabled user step alone writes a value clamped to `minimum...maximum` through this binding.                                                                                                                                                                                                       |
+| value                  | Binding     | `Binding<Value>`      | App-owned source of truth (key D1). Reconciliation displays any supplied `Value` through its selected format. An enabled user step alone writes a value clamped to `minimum...maximum` through this binding.                                                                                                                                                                                              |
 | is enabled             | Environment | `Bool`                | Read on every reconciliation. `false` removes the node from focusability, clears `pressed affordance`, prevents activation, and leaves input unconsumed.                                                                                                                                                                                                                                                  |
 | semantic Styles        | Environment | arrow and value roles | Read on every render. An arrow is `secondary` when available in range and `disabled` at its limit or when disabled; the enabled value is `primary` ([Row states](#row-states)). The label and `❯` cursor belong to the host row, not to Stepper.                                                                                                                                                          |
 | is focused             | Environment | `Bool`                | Injected below the explicit `.focusable` modifier from the FocusManager's live identity; Stepper reads it during rendering and checks `ResponderContext.isFocused` for events. Focus is shown by the host row's cursor and bold `focus` label, never by the arrows.                                                                                                                                       |
@@ -407,7 +415,7 @@ value and `+` are already ASCII-safe.
 | stepped value          | derived     | `Value`               | For an in-range value, advance or retreat by positive `Value.Stride` and clamp the write to `minimum...maximum`; a non-divisible final stride lands exactly on its endpoint. Fixed-width integers whose `Stride` is `Int` use reporting-overflow arithmetic and write the requested endpoint directly when that `Int` cannot be represented as `Value`. For an out-of-range value, write its range clamp. |
 | decrement is available | derived     | `Bool`                | Recompute on every update; false only when `value` equals `minimum`, otherwise true so an out-of-range value can be repaired by the next user step.                                                                                                                                                                                                                                                       |
 | increment is available | derived     | `Bool`                | Recompute on every update; false only when `value` equals `maximum`, otherwise true so an out-of-range value can be repaired by the next user step.                                                                                                                                                                                                                                                       |
-| pressed affordance     | NodeState   | `StepperDirection?`   | Set only during a valid primary down or phased key down; clear on matching release, cancellation, focus loss, disablement, node removal, or when its affordance becomes unavailable. It never represents numeric data.                                                                                                                                                                                    |
+| pressed affordance     | NodeState   | `StepperDirection?`   | Interaction in flight (key D7). Set only during a valid primary down or phased key down; clear on matching release, cancellation, focus loss, disablement, node removal, or when its affordance becomes unavailable. It never represents numeric data.                                                                                                                                                    |
 
 `minimum`, `maximum`, and `step` are immutable initializer configuration, not widget
 state. The closed range must have `minimum <= maximum`, and `step` must satisfy
@@ -429,14 +437,14 @@ state. The closed range must have `minimum <= maximum`, and `step` must satisfy
 
 ## Mouse table
 
-| Event | Region               | Precondition                                   | Effect                                                                                                              | Consumed |
-| ----- | -------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | -------- |
-| click | decrement affordance | is enabled and decrement is available          | Sets the Stepper's explicitly composed focus identity, then writes decremented stepped value through value binding. | yes      |
-| click | increment affordance | is enabled and increment is available          | Sets the Stepper's explicitly composed focus identity, then writes incremented stepped value through value binding. | yes      |
-| click | decrement affordance | is enabled and decrement is available is false | Leaves explicitly composed focus identity, value binding, and pressed affordance unchanged at the minimum endpoint. | no       |
-| click | increment affordance | is enabled and increment is available is false | Leaves explicitly composed focus identity, value binding, and pressed affordance unchanged at the maximum endpoint. | no       |
-| click | decrement affordance | is enabled is false                            | Leaves explicitly composed focus identity, value binding, and pressed affordance unchanged; disabled input bubbles. | no       |
-| click | increment affordance | is enabled is false                            | Leaves explicitly composed focus identity, value binding, and pressed affordance unchanged; disabled input bubbles. | no       |
+| Event | Region          | Precondition                                   | Effect                                                                                                              | Consumed |
+| ----- | --------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | -------- |
+| click | decrement arrow | is enabled and decrement is available          | Sets the Stepper's explicitly composed focus identity, then writes decremented stepped value through value binding. | yes      |
+| click | increment arrow | is enabled and increment is available          | Sets the Stepper's explicitly composed focus identity, then writes incremented stepped value through value binding. | yes      |
+| click | decrement arrow | is enabled and decrement is available is false | Leaves explicitly composed focus identity, value binding, and pressed affordance unchanged at the minimum endpoint. | no       |
+| click | increment arrow | is enabled and increment is available is false | Leaves explicitly composed focus identity, value binding, and pressed affordance unchanged at the maximum endpoint. | no       |
+| click | decrement arrow | is enabled is false                            | Leaves explicitly composed focus identity, value binding, and pressed affordance unchanged; disabled input bubbles. | no       |
+| click | increment arrow | is enabled is false                            | Leaves explicitly composed focus identity, value binding, and pressed affordance unchanged; disabled input bubbles. | no       |
 
 A click on the value slot or either separator has no Stepper activation handler and is
 unconsumed. A valid affordance click establishes explicit focus before it writes the one
@@ -471,9 +479,10 @@ its content width instead of truncating or wrapping the value, which is atomic. 
 row's label is content and inherits `lineLimit` and `truncationMode` from the environment;
 the Stepper pins its own value to one row.
 
-> Deferred: endpoint-specific affordance styling is decided above; `StepperStyle`,
-> `truncation.mark` customization, and `.compact` style-specific degradation land in a
-> later slice. Focus follows [tokens.md](../tokens.md#focus).
+> Endpoint-specific affordance styling is decided above. Stepper draws no
+> `truncation.mark`, because its value never truncates. `StepperStyle` and the `.compact`
+> style's degradation are deferred as [API direction](#api-direction) states. Focus
+> follows [tokens.md](../tokens.md#focus).
 
 ## Primitive dependencies
 
@@ -493,7 +502,7 @@ the Stepper pins its own value to one row.
 - `stepper clamps a non-divisible final decrement exactly to minimum` (state model:
   stepped value; key table: Down).
 - `stepper displays an app-supplied out-of-range value verbatim until user activation`
-  (Out-of-range binding value wireframe; state model: out-of-range binding value).
+  (Out-of-range binding value wireframe; state model: formatted value).
 - `stepper clamps an out-of-range value through its binding on user activation` (state
   model: stepped value; key table: Up or Down).
 - `stepper applies a positive non-unit stride through its binding` (state model: stepped
@@ -509,10 +518,10 @@ the Stepper pins its own value to one row.
   Row states: focused in range, unfocused in range).
 - `stepper marks focus with the host row's cursor and focus-role label, not the arrows`
   (Row states: focused rows; state model: is focused).
-- `stepper focuses before increment-affordance activation` (mouse table: click increment
-  affordance).
-- `stepper leaves endpoint-affordance clicks unconsumed` (mouse table: click increment or
-  decrement affordance when unavailable).
+- `stepper focuses before increment-arrow activation` (mouse table: click increment
+  arrow).
+- `stepper leaves endpoint-arrow clicks unconsumed` (mouse table: click increment or
+  decrement arrow when unavailable).
 - `disabled stepper renders every part in the disabled role and leaves keys and clicks unconsumed`
   (Disabled wireframe; Row states: disabled row; key and mouse tables).
 - `stepper reports its 5x1 ideal and tight size` (sizing: nil x nil with value `7`;
@@ -524,8 +533,8 @@ the Stepper pins its own value to one row.
 - `stepper floor is four cells plus the whole formatted value width` (Minimum wireframe;
   sizing: 4x1 with value `42`).
 
-> Deferred: Compact-style rendering and its ASCII degradation land in a later slice with
-> their own decision.
+> Deferred: compact-style rendering and its ASCII degradation are post-1.0 with the
+> `.compact` style (see [API direction](#api-direction)).
 
 ## Degradation
 
@@ -539,7 +548,7 @@ dim. 16-colour resolves roles to their slots columns
 an arrow, truncating or wrapping the value, or creating a second interaction mode; a host
 row's label wraps or marks its last visible row first.
 
-> Deferred: The `.compact` style's `−` glyph degradation lands in a later slice.
+> Deferred: the `.compact` style's `−` glyph degradation is post-1.0 with the style.
 
 ## Open questions
 
@@ -550,6 +559,17 @@ row's label wraps or marks its last visible row first.
   the `❯` cursor and bold `focus` label, drawn by the host row; Stepper paints no focus
   style of its own. A standalone Stepper's label comes from `LabeledContent`. The ASCII
   fallback is `<` and `>`. The `.compact` style is post-1.0.
+
+No question is open.
+
+Reviewed against the
+[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): a Stepper is
+a value whose range, stride, and format are immutable configuration checked before node
+creation; the number is the app's `Binding<Value>`, written only by a user step and never
+normalized on reconciliation; its only retained state is the `pressed affordance`
+NodeState of its own node, with its display and arrow availability derived on every
+update; and its pointer needs reach the session as `TerminalRequirements`, never as mode
+changes.
 
 ## Inspiration
 

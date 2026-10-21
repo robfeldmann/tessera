@@ -1,6 +1,6 @@
 ---
 kind: widget
-status: specified
+status: ready
 ---
 
 # Picker
@@ -45,26 +45,40 @@ keep their drop and truncate rules.
   presentation of the current choice. Reject its transient expanded list and
   widget-retained choice state. The menu style keeps its option list in place (owner
   decision, omp2 review, 2026-10).
-- omp2 radio chip row,
-  [`radio.rs`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/radio.rs#L167-L197)
-  -- copy the chip vocabulary, the pill-capped active chip, the Left and Right wraparound,
-  and the chip click. Adjust: a chip row that does not fit wraps onto more rows instead of
-  clipping, so every option stays visible (owner decision, omp2 review, 2026-10).
-- omp2 segmented control,
-  [`segmented.rs`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/segmented.rs#L183-L220)
-  -- copy the icon-and-label segments, the one-cell padding on both sides of each segment,
-  the active and focused treatment, and the Left and Right wraparound. Adjust: segments
-  are chrome, one row, so labels tail-truncate, and a row too narrow for labels falls back
-  to icons only (owner decision, omp2 review, 2026-10).
-- omp2 select menu,
-  [`select.rs`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/select.rs#L514-L715)
+- omp2 radio chip row, `Radio`
+  ([`radio.rs`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/radio.rs#L22-L209))
+  -- copy the chip vocabulary, the pill-capped active chip (L128-138; key K10), the Left
+  and Right wraparound (L167-180), and the chip click (L190-197). Adjust: a chip row that
+  does not fit wraps onto more rows instead of clipping, so every option stays visible
+  (owner decision, omp2 review, 2026-10).
+- omp2 segmented control, `Segmented`
+  ([`segmented.rs`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/segmented.rs#L26-L222))
+  -- copy the icon-and-label segments, the one-cell padding on both sides of each segment
+  (L151-166), the active and focused treatment (L140-150), and the Left and Right
+  wraparound (L180-193). Adjust: segments are chrome, one row, so labels tail-truncate,
+  and a row too narrow for labels falls back to icons only (owner decision, omp2 review,
+  2026-10).
+- omp2 select menu, `Select`
+  ([`select.rs`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/select.rs#L192-L1238))
   -- copy the in-place option list, the cursor glyph separate from the chosen glyph, the
   custom "Other (type your own)" row with its editing keys, and the Up, Down, Enter, and
-  Space behaviour (owner decision, omp2 review, 2026-10). Its digit quick-select is in
-  Picker 1.0 (owner decision, 2026-10-11); its multi-select is the separate
-  [MultiPicker](multi-picker.md) (owner decision, 2026-10-18); its description layout is
-  the own-row form when descriptions do not fit an aligned column (owner decision,
-  2026-10-18); its fuzzy filter is not in 1.0 (see Out of scope).
+  Space behaviour (`dispatch` L540-678; owner decision, omp2 review, 2026-10). Its digit
+  quick-select (L514-534) is in Picker 1.0 (owner decision, 2026-10-11); its multi-select
+  is the separate [MultiPicker](multi-picker.md) (owner decision, 2026-10-18); its
+  description layout is the own-row form when descriptions do not fit an aligned column
+  (owner decision, 2026-10-18); its fuzzy filter (L161-181) and `Filtered` event
+  (L464-486) are not in 1.0 (keys C7, M2; see Out of scope).
+- All three keep the choice and cursor inside themselves; Picker translates them by the
+  [translation key](../translation-key.md). The choice is the app's `Binding<Selection>`
+  (key D1), written on a commit where omp2 emits `Changed` (select.rs L695-714; key C6),
+  and `value()` harvesting (select.rs L1215-1237) has no counterpart (key A10). Option
+  records are the `options:` collection and the `content` closure (key A7), and the
+  presentation is `.pickerStyle(_:)` (key B12). Select's `cursor`, `editing`,
+  `custom_text`, and `scroll` (L136-154) are NodeState (keys D3, D7, D8, D4), and its
+  direction-aware `enter(forward)` (L1125-1148) becomes a fixed cursor start (key D9). Its
+  `Highlighted` event as the cursor moves (L453-458) has no counterpart (key C5). All
+  three fill or underline the option under the pointer (radio.rs L109-147, segmented.rs
+  L132-143, select.rs L931-935); Picker draws no hover (key F4; see Mouse table).
 
 ## API direction
 
@@ -115,17 +129,17 @@ A `label` view takes the place of the title string:
 Picker(selection: selectedRegion, options: regions) { region in
     Text(region)
 } label: {
-    Label("Region", systemImage: "globe")
+    Label("Region", icon: "home")
 }
 ```
 
-The presentation is chosen with the 1.0 style values. The default is the inline cycling
-row.
+The presentation is chosen with the 1.0 style values of `.pickerStyle(_:)`, a style
+modifier (key B12). The default is the inline cycling row.
 
 ```swift
 // `selectedView` is a Binding from the app's model.
 Picker("View", selection: selectedView, options: views) { view in
-    Label(view.title, systemImage: view.symbol)
+    Label(view.title, icon: view.icon)
 }
 .pickerStyle(.segmented)
 .labelStyle(.iconOnly)
@@ -135,16 +149,16 @@ Picker("View", selection: selectedView, options: views) { view in
   are chrome, one row each.
 - `.pickerStyle(.segmented)` -- a horizontal segment control with tail-truncated labels
   and an icon-only fallback. Segments are chrome, one row. Segment icons are
-  [Label](../primitives/label.md) catalog names; every catalog row has an ASCII form, and
-  an unknown name draws its raw text.
+  [Label](../primitives/label.md) catalog names (key K2); every catalog row has an ASCII
+  form, and an unknown name draws its raw text.
 - `.pickerStyle(.menu)` -- an in-place option list with a cursor and, when the initializer
   supplies `customOption`, a custom row. Option rows are content: they wrap, and the list
   scrolls in rows (owner decision, 2026-10-18).
 
 The inline cycling row is a single-row control: its value slot is chrome, one row, and
 tail-truncates; an inherited `lineLimit` never reaches it. In a host row such as a Form
-row, the inline value follows the host-row content rule (Q27): it is content, wraps under
-the value column, and the host decides its row count (owner decision, 2026-10-18). A
+row, the inline value follows the host-row content rule: it is content, wraps under the
+value column, and the host decides its row count (owner decision, 2026-10-18). A
 standalone inline row stays chrome.
 
 The custom "Other" row is an initializer parameter, not a modifier (owner decision,
@@ -207,9 +221,11 @@ Picker("Deploy region", selection: selectedRegion, options: regions) { region in
 Picker renders from `EnvironmentValues.isFocused` and handles keys only when
 `ResponderContext.isFocused` is true.
 
-> Deferred: custom `PickerStyle` conformance, custom chrome, and style configuration land
-> in a later slice. They must preserve the implemented selection, keyboard, pointer,
-> enabled, and focus behavior.
+> Deferred: custom `PickerStyle` conformance, custom chrome, and style configuration wait
+> on the
+> [Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets)
+> style contract, as Button's and Toggle's custom styles do. They must preserve the
+> implemented selection, keyboard, pointer, enabled, and focus behavior.
 
 ## Presentations
 
@@ -229,10 +245,10 @@ The default inline cycling row is one row, and it is a single-row control: the v
 is chrome (`.lineLimit(1)` applied by the component), so it tail-truncates and never
 wraps, whatever height or `lineLimit` the app offers (owner decision, 2026-10-18). This
 holds for a standalone row; in a host row such as a Form row the inline value is content,
-wraps under the value column, and the host decides its row count (Q27). `Medium` is the
-currently selected option's label. Both chevrons stay visible at an endpoint so the
-control keeps a stable, recognizable shape; unavailable directions are inert rather than
-cycling.
+wraps under the value column, and the host decides its row count (owner decision,
+2026-10-18). `Medium` is the currently selected option's label. Both chevrons stay visible
+at an endpoint so the control keeps a stable, recognizable shape; unavailable directions
+are inert rather than cycling.
 
 ```wireframe 10x1
 ‹ Medium ›
@@ -399,7 +415,7 @@ presentation, the menu's title row included. The title stays the accessible name
 
 ```swift
 Picker("View", selection: selectedView, options: views) { view in
-    Label(view.title, systemImage: view.symbol)
+    Label(view.title, icon: view.icon)
 }
 .pickerStyle(.segmented)
 .labelsHidden()
@@ -722,9 +738,9 @@ omp2 review, 2026-10. In 1.0 the menu also takes digit quick-select and option
 descriptions (owner decision, 2026-10-11; see Menu with descriptions). Multi-select is the
 separate [MultiPicker](multi-picker.md) type.
 
-The captures below are omp2's menu at 40 columns, with legend roles renamed to Tessera
-names, drawn with a `customOption` closure. None of their labels needs a second row at
-this width; Wrapped option label shows one that does.
+The wireframes below draw the menu at 40 columns as omp2's Select draws it, with legend
+roles renamed to Tessera names and a `customOption` closure. None of their labels needs a
+second row at this width; Wrapped option label shows one that does.
 
 #### Cursor on an unchosen option
 
@@ -1084,17 +1100,17 @@ the only widget-retained values are the UI states named below.
 
 ### Inline cycling row
 
-| State                              | Owner       | Type                                                   | Reset or clamp rule                                                                                                                                                                                                                                                                                              |
-| ---------------------------------- | ----------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| selection                          | Binding     | `Binding<Selection>`                                   | App-owned source of truth. Picker writes only a supplied option after an enabled interior cycle or a first cycle from an absent value; an external replacement is authoritative.                                                                                                                                 |
-| is enabled                         | Environment | `Bool`                                                 | Read on every reconciliation. `false` removes Picker from the focusable list and prevents activation without changing `selection`.                                                                                                                                                                               |
-| semantic Styles                    | Environment | `primary`, `focus`, and `disabled` full `Style` values | Read on every render; the resolved row Style is primary when enabled and unfocused, focus when focused, and disabled when disabled.                                                                                                                                                                              |
-| option count                       | derived     | `Int`                                                  | Recomputed from the current app-supplied option set on every reconciliation; clamps to `0...Int.max` and never changes the set.                                                                                                                                                                                  |
-| selected option index              | derived     | `Int?`                                                 | Recompute by searching the current option set on every reconciliation. It is `nil` when the set is empty or `selection` is absent; Picker shows the placeholder and does not write the binding. Otherwise it is in `0...(option count - 1)`.                                                                     |
-| is focused                         | Environment | `Bool`                                                 | Injected below the explicit `.focusable` modifier from the FocusManager's live identity; Picker reads it during rendering and checks `ResponderContext.isFocused` for events.                                                                                                                                    |
-| value slot geometry and truncation | derived     | `TerminalSize` and rendered grapheme range             | Recomputed from the final one-row allocation on every layout; clamp to the value slot, tail-truncate at grapheme boundaries with `truncation.mark`, and never increase height.                                                                                                                                   |
-| title layout                       | derived     | beside or stacked                                      | Recomputed on every layout by `ViewThatFits`: the title sits before the row, in `secondary` with one gap cell, when the row's natural width fits after it; otherwise it stacks above the row. Never stored. The radio group and segmented control lay out their title the same way (owner decision, 2026-10-18). |
-| labels hidden                      | Environment | `Bool`                                                 | Set by `.labelsHidden()` on the Picker or an ancestor; read on every layout. `true` draws no title in any presentation; the title stays the accessible name.                                                                                                                                                     |
+| State                              | Owner       | Type                                                   | Reset or clamp rule                                                                                                                                                                                                                                                                                                                                           |
+| ---------------------------------- | ----------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| selection                          | Binding     | `Binding<Selection>`                                   | App-owned source of truth. Picker writes only a supplied option after an enabled interior cycle or a first cycle from an absent value; an external replacement is authoritative.                                                                                                                                                                              |
+| is enabled                         | Environment | `Bool`                                                 | Read on every reconciliation. `false` removes Picker from the focusable list and prevents activation without changing `selection`.                                                                                                                                                                                                                            |
+| semantic Styles                    | Environment | `primary`, `focus`, and `disabled` full `Style` values | Read on every render; the resolved row Style is primary when enabled and unfocused, focus when focused, and disabled when disabled.                                                                                                                                                                                                                           |
+| option count                       | derived     | `Int`                                                  | Recomputed from the current app-supplied option set on every reconciliation; clamps to `0...Int.max` and never changes the set.                                                                                                                                                                                                                               |
+| selected option index              | derived     | `Int?`                                                 | Recompute by searching the current option set on every reconciliation. It is `nil` when the set is empty or `selection` is absent; Picker shows the placeholder and does not write the binding. Otherwise it is in `0...(option count - 1)`.                                                                                                                  |
+| is focused                         | Environment | `Bool`                                                 | Injected below the explicit `.focusable` modifier from the FocusManager's live identity; Picker reads it during rendering and checks `ResponderContext.isFocused` for events.                                                                                                                                                                                 |
+| value slot geometry and truncation | derived     | `TerminalSize` and rendered grapheme range             | Recomputed from the final one-row allocation on every layout; clamp to the value slot, tail-truncate at grapheme boundaries with `truncation.mark`, and never increase height.                                                                                                                                                                                |
+| title layout                       | derived     | beside or stacked                                      | Recomputed on every layout by [`ViewThatFits`](../primitives/view-that-fits.md) (key G10): the title sits before the row, in `secondary` with one gap cell, when the row's natural width fits after it; otherwise it stacks above the row. Never stored. The radio group and segmented control lay out their title the same way (owner decision, 2026-10-18). |
+| labels hidden                      | Environment | `Bool`                                                 | Set by `.labelsHidden()` on the Picker or an ancestor; read on every layout. `true` draws no title in any presentation; the title stays the accessible name.                                                                                                                                                                                                  |
 
 The title, option set, and label builder are immutable widget configuration, not retained
 business state. The inline cycling row has no expanded presentation, so it needs no open
@@ -1102,27 +1118,27 @@ or reveal `NodeState`.
 
 ### Radio group
 
-| State                 | Owner       | Type                 | Reset or clamp rule                                                                                                                                                                                                                                             |
-| --------------------- | ----------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| selection             | Binding     | `Binding<Selection>` | App-owned. Picker writes only a supplied option after a Left, Right, or chip click. From an absent value, Left or Right selects the first option.                                                                                                               |
-| selected option index | derived     | `Int?`               | Recomputed from `selection` on every reconciliation; `nil` when the value is absent, and the group shows no pill.                                                                                                                                               |
-| cursor index          | widget UI   | `Int`                | Keyboard position of the `❯` prefix while focused. Starts on the chosen option, or on 0 when the value is absent, without choosing it (owner decision, 2026-10-10). Clamped on every reconciliation; not written to `selection`.                                |
-| wrapped layout        | derived     | rows of chip indices | Recomputed from the final allocated width on every layout. A chip starts a new row when it would exceed the width; wrapped rows indent three cells under the first chip. Chips are chrome, one row each; a chip wider than the row tail-truncates. Never clips. |
-| is focused            | Environment | `Bool`               | Controls the `❯` cursor prefix and the active underline, which are drawn only while focused; there is no hover treatment in 1.0. Events are checked through `ResponderContext.isFocused`.                                                                       |
+| State                 | Owner       | Type                 | Reset or clamp rule                                                                                                                                                                                                                                                                                       |
+| --------------------- | ----------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| selection             | Binding     | `Binding<Selection>` | App-owned. Picker writes only a supplied option after a Left, Right, or chip click. From an absent value, Left or Right selects the first option.                                                                                                                                                         |
+| selected option index | derived     | `Int?`               | Recomputed from `selection` on every reconciliation; `nil` when the value is absent, and the group shows no pill.                                                                                                                                                                                         |
+| cursor index          | NodeState   | `Int`                | Position, not data (key D3). Keyboard position of the `❯` prefix while focused. Starts on the chosen option, or on 0 when the value is absent, without choosing it (owner decision, 2026-10-10); that start is its reset rule (key D9). Clamped on every reconciliation; not written to `selection`.      |
+| wrapped layout        | derived     | rows of chip indices | Recomputed from the final allocated width on every layout by [Flow](../primitives/flow.md) (key G6). A chip starts a new row when it would exceed the width; wrapped rows indent three cells under the first chip. Chips are chrome, one row each; a chip wider than the row tail-truncates. Never clips. |
+| is focused            | Environment | `Bool`               | Controls the `❯` cursor prefix and the active underline, which are drawn only while focused; there is no hover treatment in 1.0 (key F4). Events are checked through `ResponderContext.isFocused`.                                                                                                        |
 
 ### Menu
 
-| State              | Owner       | Type                 | Reset or clamp rule                                                                                                                                                                                                                                                                                                                                                                                      |
-| ------------------ | ----------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| selection          | Binding     | `Binding<Selection>` | App-owned. Picker writes only on Enter, Space, a digit, or a click that commits an option, or on Enter that ends custom editing with a value `customOption` accepts.                                                                                                                                                                                                                                     |
-| chosen option      | derived     | `Int?`               | Recomputed from `selection`; the matching row shows `◉` in `accent`. `nil` when the value is absent; no row is marked. With `customOption`, a value that matches no option is a custom value: the custom row is marked and shows it through `content`. A custom value equal to an option marks that option and adds no row.                                                                              |
-| cursor index       | widget UI   | `Int`                | Keyboard position within the list, not business data and not written to `selection`. Clamped to `0...(option count - 1)` on every reconciliation. Starts on the chosen option, or on the first option when the value is absent (owner decision, 2026-10-10).                                                                                                                                             |
-| editing            | widget UI   | `Bool`               | `true` after Enter or Space chooses the custom row. Ends on Enter with an accepted value or on Escape; a draft `customOption` rejects (`nil`) leaves it `true`. Reset to `false` when the custom row is removed. The custom row exists only when the initializer received `customOption`; without it `editing` is always `false` (owner decision, 2026-10-18).                                           |
-| draft text         | widget UI   | `String`             | Accepts typed text only while editing. Enter passes a nonempty draft to `customOption`; an accepted value is written to `selection`, a `nil` result keeps the draft and editing, and an empty draft ends editing and leaves `selection` unchanged. Escape clears the draft; a committed value stays (owner decision, 2026-10-10). The row shows the committed value through `content` when it is chosen. |
-| scroll offset      | widget UI   | `Int`                | Rows above the viewport (owner decision, 2026-10-18). Clamped to `0...max(0, content rows - visible rows)` on every reconciliation and after a width change re-wraps the options; then reveal re-applies to the cursor option, changing the offset by the fewest rows that show every row of it (an option taller than the viewport aligns its first row with the top).                                  |
-| option heights     | derived     | `[Int]`              | Each option is measured at the content width with a nil height and re-measured on every width change; content extent is their sum. The title row is outside the scrolling region.                                                                                                                                                                                                                        |
-| description layout | derived     | aligned or own rows  | Recomputed per menu on every layout by `ViewThatFits`: aligned when every description fits whole in the cells after the column, otherwise own rows for every description (owner decision, 2026-10-18). Never stored.                                                                                                                                                                                     |
-| is focused         | Environment | `Bool`               | Gates every key in the key table; the cursor prefix is drawn while focused.                                                                                                                                                                                                                                                                                                                              |
+| State              | Owner       | Type                 | Reset or clamp rule                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ------------------ | ----------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| selection          | Binding     | `Binding<Selection>` | App-owned (key D1); a commit writes it (key C6). Picker writes only on Enter, Space, a digit, or a click that commits an option, or on Enter that ends custom editing with a value `customOption` accepts.                                                                                                                                                                                                                                                                                         |
+| chosen option      | derived     | `Int?`               | Recomputed from `selection`; the matching row shows `◉` in `accent`. `nil` when the value is absent; no row is marked. With `customOption`, a value that matches no option is a custom value: the custom row is marked and shows it through `content`. A custom value equal to an option marks that option and adds no row.                                                                                                                                                                        |
+| cursor index       | NodeState   | `Int`                | Keyboard position within the list, not business data and not written to `selection` (key D3). Clamped to `0...(option count - 1)` on every reconciliation. Starts on the chosen option, or on the first option when the value is absent (owner decision, 2026-10-10); that start is its reset rule (key D9).                                                                                                                                                                                       |
+| editing            | NodeState   | `Bool`               | Interaction in flight (key D7). `true` after Enter or Space chooses the custom row. Ends on Enter with an accepted value or on Escape; a draft `customOption` rejects (`nil`) leaves it `true`. Reset to `false` when the custom row is removed. The custom row exists only when the initializer received `customOption`; without it `editing` is always `false` (owner decision, 2026-10-18).                                                                                                     |
+| draft text         | NodeState   | `String`             | An uncommitted draft (key D8): losing it loses unfinished input, never a committed value. Accepts typed text only while editing. Enter passes a nonempty draft to `customOption`; an accepted value is written to `selection`, a `nil` result keeps the draft and editing, and an empty draft ends editing and leaves `selection` unchanged. Escape clears the draft; a committed value stays (owner decision, 2026-10-10). The row shows the committed value through `content` when it is chosen. |
+| scroll offset      | NodeState   | `Int`                | Rows above the viewport (owner decision, 2026-10-18); no binding owns it (key D4). Clamped to `0...max(0, content rows - visible rows)` on every reconciliation and after a width change re-wraps the options; then reveal re-applies to the cursor option, changing the offset by the fewest rows that show every row of it (an option taller than the viewport aligns its first row with the top).                                                                                               |
+| option heights     | derived     | `[Int]`              | A layout cache, never stored (key D10). Each option is measured at the content width with a nil height and re-measured on every width change; content extent is their sum. The title row is outside the scrolling region.                                                                                                                                                                                                                                                                          |
+| description layout | derived     | aligned or own rows  | Recomputed per menu on every layout by [`ViewThatFits`](../primitives/view-that-fits.md) (key G10): aligned when every description fits whole in the cells after the column, otherwise own rows for every description (owner decision, 2026-10-18). Never stored.                                                                                                                                                                                                                                  |
+| is focused         | Environment | `Bool`               | Gates every key in the key table; the cursor prefix is drawn while focused.                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
 ### Segmented control
 
@@ -1138,8 +1154,8 @@ or reveal `NodeState`.
 
 | State        | Owner       | Type     | Reset or clamp rule                                                                                                                                                                                                                                            |
 | ------------ | ----------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| open         | widget UI   | `Bool`   | Set by Enter, Space, or a click on the closed row. Cleared without committing by Escape, focus loss, or a click outside; cleared by Enter that commits and by a click on the row while open.                                                                   |
-| cursor index | widget UI   | `Int`    | Starts on the chosen option when opened, or on the first option when none is chosen. Clamped on every reconciliation.                                                                                                                                          |
+| open         | NodeState   | `Bool`   | Interaction in flight (key D7). Set by Enter, Space, or a click on the closed row. Cleared without committing by Escape, focus loss, or a click outside; cleared by Enter that commits and by a click on the row while open.                                   |
+| cursor index | NodeState   | `Int`    | Position, not data (key D3). Starts on the chosen option when opened, or on the first option when none is chosen (key D9). Clamped on every reconciliation.                                                                                                    |
 | summary      | derived     | `String` | The chosen label, or `—` when absent. Content (owner decision, 2026-10-18): it wraps at word boundaries under the value column, and `▾` follows its last word. The host decides the row count; a host that fixes one row gets a marked cut, `…` with `▾` kept. |
 | is focused   | Environment | `Bool`   | Focus loss closes an open list. A disabled row is absent from focus and cannot open.                                                                                                                                                                           |
 
@@ -1201,13 +1217,13 @@ unfocused or disabled group returns Skip.
 | Space                                          | focused and is enabled and not editing and cursor is on an option other than the custom row              | commits the cursor option via binding, as Enter does                                                                                                                                                                                            | yes      |
 | Space                                          | focused and is enabled and not editing and cursor is on the custom row                                   | chooses the custom row and starts editing                                                                                                                                                                                                       | yes      |
 | Enter                                          | editing                                                                                                  | ends editing when `customOption` accepts the nonempty draft: the value is committed via binding. A `nil` result rejects the draft: editing continues and `selection` is unchanged. An empty draft ends editing and leaves `selection` unchanged | yes      |
-| Escape                                         | editing                                                                                                  | ends editing and clears the draft text; `selection` unchanged by this key                                                                                                                                                                       | yes      |
-| Escape                                         | focused and enabled and not editing and custom row is chosen                                             | clears the draft text if any; the committed `selection` stays                                                                                                                                                                                   | yes      |
+| Esc                                            | editing                                                                                                  | ends editing and clears the draft text; `selection` unchanged by this key                                                                                                                                                                       | yes      |
+| Esc                                            | focused and enabled and not editing and custom row is chosen                                             | clears the draft text if any; the committed `selection` stays                                                                                                                                                                                   | yes      |
 | Backspace, Ctrl-U, Ctrl-W, printable character | editing                                                                                                  | edited by the shared text-editing core                                                                                                                                                                                                          | yes      |
 | any other key                                  | editing                                                                                                  | no effect; swallowed so the draft is not disturbed                                                                                                                                                                                              | yes      |
 | any key                                        | not focused, disabled, or option count is zero                                                           | no handler; bubbles                                                                                                                                                                                                                             | no       |
 | Left, Right, other keys                        | focused and enabled and not editing                                                                      | no handler; bubbles                                                                                                                                                                                                                             | no       |
-| Escape                                         | focused and enabled and not editing and custom row is not chosen                                         | no handler; bubbles                                                                                                                                                                                                                             | no       |
+| Esc                                            | focused and enabled and not editing and custom row is not chosen                                         | no handler; bubbles                                                                                                                                                                                                                             | no       |
 | 1 to 9                                         | focused and is enabled and not editing and option count is at least N                                    | commits the Nth option via binding, as Enter does; the custom row, if Nth, starts editing                                                                                                                                                       | yes      |
 | 1 to 9                                         | focused and is enabled and not editing and option count is below N                                       | no handler; bubbles                                                                                                                                                                                                                             | no       |
 
@@ -1216,6 +1232,12 @@ past the ninth have no digit and are reached with the arrow or page keys. Digit 
 not drawn on rows, and [KeyLegend](key-legend.md) shows `1–9 choose` (owner decision,
 2026-10-18). The custom row, when `customOption` is supplied, is the last option and
 counts toward the digits.
+
+Moving the cursor writes nothing and calls nothing: the cursor is position, not data, so
+Picker has no highlight callback (key C5). Paste is routed to the focused Picker like a
+key (key E7): while editing, the shared text-editing core inserts it into `draft text` as
+[TextField's paste-input contract](text-field.md#paste-input-contract) inserts into its
+text, each line break becoming a space, and consumes it; otherwise paste bubbles.
 
 Multi-select keys live in [MultiPicker](multi-picker.md#key-table): there Space toggles,
 Enter never toggles, and a standalone menu or radio group lets Enter bubble (owner
@@ -1227,16 +1249,22 @@ decision, 2026-10-18). Single-select Picker is unchanged: Enter chooses.
 | ----------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | -------- |
 | Right       | focused and is enabled and option count is positive                                     | advances `selection` to the next supplied option; the last option wraps to the first  | yes      |
 | Left        | focused and is enabled and option count is positive                                     | moves `selection` to the previous supplied option; the first option wraps to the last | yes      |
-| Right       | focused and is enabled and option count is positive and selected option index is absent | sets `selection` to the first supplied option via binding (open question)             | yes      |
-| Left        | focused and is enabled and option count is positive and selected option index is absent | sets `selection` to the first supplied option via binding (open question)             | yes      |
+| Right       | focused and is enabled and option count is positive and selected option index is absent | sets `selection` to the first supplied option via binding                             | yes      |
+| Left        | focused and is enabled and option count is positive and selected option index is absent | sets `selection` to the first supplied option via binding                             | yes      |
 | Right, Left | focused and is enabled and option count is zero                                         | no handler                                                                            | no       |
-| Up, Down    | any                                                                                     | no handler; bubbles (open question)                                                   | no       |
+| Up, Down    | any                                                                                     | no handler; bubbles                                                                   | no       |
+
+These rows match the radio group's. From an absent value, Left or Right writes the first
+option, the rule [Open questions](#open-questions) resolves for every presentation.
 
 ## Mouse table
 
 `click` means a primary click. Pointer delivery uses Slice 5 hit testing. Where a click
 selects, it installs this Picker's explicit focus before attempting selection, in every
-presentation, as the inline value-slot click does (owner decision, 2026-10-10).
+presentation, as the inline value-slot click does (owner decision, 2026-10-10). No
+presentation has a `move` row: Picker draws no hover and requests no pointer motion (key
+F4). That is an owner decision for the radio group (2026-10-10); the segmented control and
+the menu define no hover either.
 
 ### Inline cycling row
 
@@ -1257,14 +1285,14 @@ bubble.
 
 ### Radio group
 
-| Event              | Region                 | Precondition                                                               | Effect                                                                        | Consumed |
-| ------------------ | ---------------------- | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | -------- |
-| click              | chip `i`               | is enabled and `i` is below option count and `i` is not the selected index | installs this Picker's focus, then sets `selection` to option `i` via binding | yes      |
-| click              | chip `i`               | is enabled and `i` is the selected index                                   | installs this Picker's focus; leaves `selection` unchanged                    | yes      |
-| click              | chip `i`               | `i` is at or above option count                                            | no handler                                                                    | no       |
-| click              | gutter, gaps, row ends | always                                                                     | no handler; bubbles                                                           | no       |
-| click              | any                    | not is enabled                                                             | leaves focus and `selection` unchanged                                        | no       |
-| wheel, other mouse | any                    | always                                                                     | no handler; bubbles                                                           | no       |
+| Event                | Region                 | Precondition                                                               | Effect                                                                        | Consumed |
+| -------------------- | ---------------------- | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | -------- |
+| click                | chip `i`               | is enabled and `i` is below option count and `i` is not the selected index | installs this Picker's focus, then sets `selection` to option `i` via binding | yes      |
+| click                | chip `i`               | is enabled and `i` is the selected index                                   | installs this Picker's focus; leaves `selection` unchanged                    | yes      |
+| click                | chip `i`               | `i` is at or above option count                                            | no handler                                                                    | no       |
+| click                | gutter, gaps, row ends | always                                                                     | no handler; bubbles                                                           | no       |
+| click                | any                    | not is enabled                                                             | leaves focus and `selection` unchanged                                        | no       |
+| wheel-*, other mouse | any                    | always                                                                     | no handler; bubbles                                                           | no       |
 
 ### Menu
 
@@ -1275,10 +1303,13 @@ bubble.
 | click                | custom row                   | is enabled, option count is positive, and not editing                            | installs focus, moves cursor to the custom row, then chooses it and starts editing (same as Enter)         | yes      |
 | click                | custom row                   | is enabled, option count is positive, and editing                                | installs focus and moves cursor to the custom row; editing and the draft continue                          | yes      |
 | click                | title row, below last option | always                                                                           | no handler; bubbles                                                                                        | no       |
-| wheel up, wheel down | any                          | is enabled and option count is positive                                          | moves cursor one option up or down; consumed even when already at the first or last option                 | yes      |
-| wheel up, wheel down | any                          | option count is zero                                                             | no handler; bubbles                                                                                        | no       |
+| wheel-up, wheel-down | any                          | is enabled and option count is positive                                          | moves cursor one option up or down; consumed even when already at the first or last option                 | yes      |
+| wheel-up, wheel-down | any                          | option count is zero                                                             | no handler; bubbles                                                                                        | no       |
 | click                | any                          | not is enabled                                                                   | leaves focus, cursor, and `selection` unchanged                                                            | no       |
 | other mouse          | any                          | always                                                                           | no handler; bubbles                                                                                        | no       |
+
+The wheel moves the menu's cursor, not a viewport offset, and reveal then scrolls the list
+(key F7).
 
 ### Segmented control
 
@@ -1306,11 +1337,12 @@ gets: Form stacks its label above the value before the value wraps (see
 value tail-truncated with `…` and `▾` kept after it. An inherited `lineLimit` reaches the
 value as it reaches any content.
 
-Enter or Space opens the option list in place, below the row. The open list draws no title
-row: the host row above it is its heading. Its option rows are the menu's rows, indented
-four cells; they wrap in the width after the indent and scroll in rows like the standalone
-menu. Esc or focus loss closes the list without committing. Enter commits a choice and
-closes the list. While the row is closed, its keys bubble to the host.
+Enter or Space opens the option list in place, below the row; the list takes rows in flow
+and is not a layer (key H3). The open list draws no title row: the host row above it is
+its heading. Its option rows are the menu's rows, indented four cells; they wrap in the
+width after the indent and scroll in rows like the standalone menu. Esc or focus loss
+closes the list without committing. Enter commits a choice and closes the list. While the
+row is closed, its keys bubble to the host.
 
 The option rows keep the menu's marks, cursor, and digit rules (see the Menu states).
 Descriptions draw in the open list with the same layout rule, measured from the four-cell
@@ -1385,8 +1417,8 @@ The multi-select open list, with its Space toggles and Enter-closes keys, is
 | click                | option row                    | is enabled and open             | installs focus, moves cursor to that row, commits it via binding, and closes the list | yes      |
 | click                | outside the host row and list | open                            | closes the list without committing, as focus loss does; the click bubbles             | no       |
 | click                | host row                      | not is enabled                  | leaves focus and the list unchanged                                                   | no       |
-| wheel up, wheel down | list                          | is enabled and open             | moves cursor one option up or down, clamped; consumed                                 | yes      |
-| wheel up, wheel down | host row                      | closed, or option count is zero | no handler; bubbles                                                                   | no       |
+| wheel-up, wheel-down | list                          | is enabled and open             | moves cursor one option up or down, clamped; consumed                                 | yes      |
+| wheel-up, wheel-down | host row                      | closed, or option count is zero | no handler; bubbles                                                                   | no       |
 | other mouse          | any                           | always                          | no handler; bubbles                                                                   | no       |
 
 ### Keys
@@ -1411,8 +1443,8 @@ The multi-select open list, with its Space toggles and Enter-closes keys, is
 | Enter                   | open, editing                                 | as the Menu's editing Enter: an accepted draft is committed via binding and closes the list; a rejected or empty draft keeps the list open | yes      |
 | 1 to 9                  | open, not editing, option count is at least N | commits the Nth option and closes the list                                                                                                 | yes      |
 | 1 to 9                  | open, option count is below N                 | no handler; bubbles                                                                                                                        | no       |
-| Escape                  | open, editing                                 | ends editing and clears the draft; the list stays open                                                                                     | yes      |
-| Escape                  | open, not editing                             | closes the list without committing                                                                                                         | yes      |
+| Esc                     | open, editing                                 | ends editing and clears the draft; the list stays open                                                                                     | yes      |
+| Esc                     | open, not editing                             | closes the list without committing                                                                                                         | yes      |
 | Left, Right, other keys | open, not editing                             | no handler; consumed so the row's value does not change behind the list                                                                    | yes      |
 | Tab, Shift-Tab          | open                                          | no handler; bubbles, and the resulting focus loss closes the list without committing                                                       | no       |
 
@@ -1519,19 +1551,18 @@ Roles: `secondary` (was `muted`), `info`, `contrast` (`on(R)` inside `solid(R)`)
 and `disabled` are too.
 
 > Deferred: endpoint-specific affordance styling, custom `PickerStyle`, and custom-style
-> environment inputs land in a later slice. Focus follows [tokens.md](../tokens.md#focus).
+> environment inputs wait on the Slice 7 style contract (see
+> [API direction](#api-direction)). Focus follows [tokens.md](../tokens.md#focus).
 
 ## Primitive dependencies
 
 - [`Text`](../primitives/text.md) -- ready; renders selected labels and the absent-value
   placeholder, measures display cells, and provides grapheme-safe tail truncation.
 - [`Label`](../primitives/label.md) -- supplies the icon-and-title pair for segments and
-  menu rows, and the `.iconOnly` label style.
+  menu rows, and the `.iconOnly` [label style](../primitives/label.md#label-styles).
 - [`Button`](button.md) -- the active chip uses the filled emphasis and the capped ends of
   the button's [shapes](button.md#shape).
 - [`List`](list.md) -- supplies the row chrome for the menu's option list.
-- [`LabeledContent`](labeled-content.md) -- the title-before-control layout, with its
-  stacking rule, that the inline row, radio group, and segmented control copy.
 - [`Style modifiers`](../primitives/style-modifiers.md) -- ready; resolve and apply the
   inherited complete semantic Styles without giving Picker its own mutable visual state.
 - [Focus manager and responder context](../../docs/Spec.md#slice-4-focus-and-key-routing-the-responder-system)
@@ -1540,8 +1571,14 @@ and `disabled` are too.
   segment, and value-slot hit testing and click-to-focus ordering.
 - [`ScrollView`](scroll-view.md) -- supplies the row-based scrolling contract the menu's
   option list follows (cross-axis proposal, partial items, paging, reveal).
-- `ViewThatFits` -- chooses the description layout per menu (candidate primitive; see
-  [inbox](../inbox.md)).
+- [`ViewThatFits`](../primitives/view-that-fits.md) -- chooses the title layout and the
+  menu's description layout (key G10).
+- [Flow](../primitives/flow.md) -- wraps the radio group's chips onto more rows (key G6).
+
+Picker composes no [LabeledContent](labeled-content.md). It copies LabeledContent's title
+look, `secondary` and one gap cell (owner decision, 2026-10-18), while its stacking test
+is its own `title layout` rule ([state model](#inline-cycling-row)), a `ViewThatFits`
+choice that LabeledContent's open inline rule does not change.
 
 ## Requirements
 
@@ -1572,13 +1609,15 @@ Inline cycling row:
 - `picker tail-truncates a constrained selected label at a grapheme boundary and keeps one row`
   (state model: value slot geometry and truncation; sizing table: 5x1 floor).
 - `picker standalone inline row pins one row against an inherited lineLimit` (anatomy:
-  value slot, chrome, one row; a host row treats the inline value as content, Q27).
+  value slot, chrome, one row; a host row treats the inline value as content).
 - `picker substitutes ASCII chevrons and placeholder when capability requires it` (state
   wireframe: ASCII degraded; degradation: ASCII-only).
 - `picker radio group draws the active chip's caps as rectangle cells under ASCII-only`
   (degradation: radio group; chip width unchanged).
 - `picker menu draws (*) and ( ) markers and > cursor under ASCII-only` (degradation:
   menu).
+- `picker draws no hover and requests no pointer motion in any presentation` (mouse table:
+  no move row)
 
 Title:
 
@@ -1625,6 +1664,8 @@ Menu:
 - `picker menu shows no chosen marker when the binding is absent` (state: no selection).
 - `picker menu wheel moves the cursor and is consumed at list edges` (mouse table: menu
   wheel).
+- `picker menu paste while editing inserts into the draft with line breaks as spaces` (key
+  table: menu, paste)
 - `picker menu click on an option row moves the cursor then commits it` (mouse table: menu
   option row).
 - `picker menu wraps a long option label and indents continuation rows under the label`
@@ -1775,10 +1816,12 @@ only the last visible row with `truncation.mark` (`~` at the ASCII-only rung).
 
 ## Open questions
 
-- **Deferred:** an overlay or popover presentation of the menu. The menu and its collapsed
-  host row draw their option list in place, so an overlay would need a transient open bit,
-  placement, dismissal, and option-hit semantics without changing the `Binding<Selection>`
-  ownership rule.
+- **Deferred beyond 1.0:** an overlay or popover presentation of the menu. Overlay layers
+  are rejected for 1.0 (key H1), and the Spec's
+  [1.0 surface](../../docs/Spec.md#the-10-surface) records catalog deferrals. The menu and
+  its collapsed host row draw their option list in place, so an overlay would need a
+  transient open bit, placement, dismissal, and option-hit semantics without changing the
+  `Binding<Selection>` ownership rule.
 - **Deferred:** per-option disabled state. 1.0 treats every supplied option as selectable;
   disabled-option visibility, traversal, and placeholder policy are deferred to
   [Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
@@ -1786,12 +1829,21 @@ only the last visible row with `truncation.mark` (`~` at the ASCII-only rung).
   ([composite styles](../tokens.md#composite-styles)), not a free-standing role. The
   active segment and chip are `solid(accent)` (owner decision, 2026-10-19).
 - **Resolved:** an absent bound value displays `—` and does not write the binding. The
-  first enabled cycle with a nonempty option set writes the first option.
+  first enabled cycle with a nonempty option set writes the first option, in every
+  presentation, the segmented control's Left and Right included.
+
+Reviewed against the
+[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): a Picker is a
+value whose title, options, and row closure are configuration; the choice is the app's
+`Binding<Selection>`, written only on a commit; its retained state is the cursor, editing,
+draft, scroll, and open NodeState of its own node, each with a reset rule, while its
+layouts are derived; and its pointer needs reach the session as `TerminalRequirements`,
+never as mode changes.
 
 ## Out of scope
 
-- Fuzzy filtering of menu options is outside Picker 1.0 (owner decision, 2026-10-11). It
-  is recorded as a feature idea in [design/inbox.md](../inbox.md).
+- Fuzzy filtering of menu options is outside Picker 1.0 (owner decision, 2026-10-11; keys
+  C7, M2). It is recorded as a feature idea in [design/inbox.md](../inbox.md).
 
 ## Inspiration
 

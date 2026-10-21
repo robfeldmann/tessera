@@ -24,13 +24,26 @@ _renders_ a Divider but owns the behavior itself.
   the coupling of separation to a surrounding block.
 - Bubbles -- no divider primitive; apps hand-render `strings.Repeat("─", w)`. That gap is
   the argument for having one: every app reinvents it slightly differently.
-- omp2 `Hr` -- copy the docked label (start, center, or end), its spacing (two rule cells
-  before a leading label and after a trailing one, a space on each side of the label), its
-  rule that the outermost rule cell on each side is never covered, its tail truncation
-  with `…`, and its `border` colour for the rule. Reject its `title`/`label` dual spelling
-  and its join to an adjacent border column (Tessera's blended junctions below cover
-  that):
-  <https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/hr.rs#L129-L252>
+- omp2 `Hr`, Divider's counterpart in the
+  [translation key](../translation-key.md#coverage) ([hr.rs][hr]) -- copy the docked label
+  (start, center, or end), its spacing (two rule cells before a leading label and after a
+  trailing one, a space on each side of the label), its rule that the outermost rule cell
+  on each side is never covered, its tail truncation with `…` (the `truncation.mark`, key
+  I2), and its `border` colour for the rule (key J1). Its rule glyphs are the
+  [divider glyphs](../tokens.md#divider-glyphs) (key K7; [rule][omp2-rule]), and it fills
+  its stack's cross axis itself rather than through a row stretch
+  ([stretch_in_row][hr-stretch], key G7). Reject its `title`/`label` dual spelling and its
+  join to an adjacent border column ([join][hr-join]; Tessera's blended junctions below
+  cover that).
+
+[hr]:
+  https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/hr.rs#L129-L252
+[hr-stretch]:
+  https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/hr.rs#L113-L115
+[hr-join]:
+  https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/hr.rs#L159-L177
+[omp2-rule]:
+  https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/context.rs#L158-L175
 
 ## Anatomy
 
@@ -136,7 +149,7 @@ measurement and rendering.
 
 Glyph per style and axis comes from the
 [divider glyph table](../tokens.md#divider-glyphs): `light` (default), `heavy`, `double`,
-`dashed`, `ascii`.
+`dashed`, `dotted`, `ascii`.
 
 A label is a `Text` docked with a `HorizontalAlignment`:
 
@@ -187,9 +200,10 @@ contexts where minimal is least surprising.
 
 - `divider.style` -- selects the glyph row from [tokens.md](../tokens.md#divider-glyphs);
   defaults to `light`.
-- The rule draws in the `border` role ([text roles](../tokens.md#text-roles)), an alias of
-  the dim default foreground (owner decision, 2026-10-10). A label keeps the ambient text
-  style, and styling on its `Text` (for example `.bold()`) applies to the label only.
+- The rule draws in the `border` role ([text roles](../tokens.md#text-roles); owner
+  decision, 2026-10-10). A label keeps the ambient text style, and styling on its `Text`
+  (for example `.bold()`) applies to the label only, as omp2's `fg` and `bold` attributes
+  become style modifiers (key B6).
 - `stackAxis` -- layout context established by an enclosing linear stack; absent context
   uses the horizontal fallback.
 
@@ -257,8 +271,8 @@ in `focus` where a focused line meets them.
   recognized line glyph, or the union has no glyph in the active family, the incoming
   glyph replaces.
 - **Scope:** v1 covers the `light` and `ascii` families only. Every `ascii` union is `+`.
-  `heavy`, `double`, and `dashed` replace rather than blend (dashed has no junction forms;
-  mixed-weight unions are not worth their glyph table yet).
+  `heavy`, `double`, `dashed`, and `dotted` replace rather than blend (dashed and dotted
+  have no junction forms; mixed-weight unions are not worth their glyph table yet).
 - **Seam:** `FrameRegion` is a write-only surface with no public cell read. The
   read-modify-write lives inside `TesseraTerminalBuffer.Buffer`, mirroring the existing
   `FrameRegion._mergeStyle` -> `Buffer.mergeStyle` precedent: a merge-line operation on
@@ -303,6 +317,12 @@ decision, omp2 review, 2026-10). The label adds placement and tail truncation on
 never changes the rule's size. The docked label is a documented wrap exception, not
 content: it stays on one row and tail-truncates (owner decision, 2026-10-18; see
 [Anatomy](#anatomy)). A label that is any `View` rather than `Text` is post-1.0.
+
+Key B5 makes omp2's labelled rule a Divider and leaves the label and its alignment to
+Divider, so the label stays a `String` or `Text` rather than key B11's
+`@ViewBuilder label:` (the owner decision above). Divider fills its stack's cross axis
+itself (key G7), and its glyphs are omp2's rules (key K7); dashes exist only as divider
+glyphs, never as a box (key K4).
 
 This contract was reviewed against the
 [Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): orientation

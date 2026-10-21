@@ -1,6 +1,6 @@
 ---
 kind: primitive
-status: specified
+status: ready
 ---
 
 # Readable width
@@ -47,6 +47,11 @@ width.
 - Tessera [Frame](frame.md) — copy its max-only rule: a finite capped proposal is
   forwarded (even when the incoming proposal is nil), a smaller child is not stretched,
   and the frame reports the child's width.
+- omp2 has no readable-width modifier. The nearest is the `max` width attribute
+  ([vocab/lib.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/vocab/src/lib.rs#L37-L38)),
+  a per-component cap that the [translation key](../translation-key.md#b-attributes) maps
+  to `.frame(maxWidth:)` (key B2). Readable width is that frame with its cap read from the
+  environment, the key's form for presentation that cascades to descendants (key B1).
 
 ## Anatomy
 
@@ -174,6 +179,13 @@ than the readable width it has no effect.
 - **Its own primitive, not a Frame overload:** the modifier reads the environment, which
   Frame does not. Its layout is Frame's max-only rule, so Frame's `ready` contract is
   unchanged.
+
+Reviewed against the
+[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): the modifier
+is a value description that reads `readableWidth` through the
+[environment](../../docs/Spec.md#environment) and lowers to Frame's max-only wrapper node,
+so `dump()` shows its capped proposal and size; the cap is an app-set environment value,
+not state; and it touches no terminal capability.
 
 ## Inspiration
 

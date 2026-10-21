@@ -1,6 +1,6 @@
 ---
 kind: widget
-status: wireframed
+status: ready
 ---
 
 # ContentUnavailableView
@@ -30,13 +30,45 @@ Cite concrete sources with paths or links, and say what to copy and what to reje
 - omp2 `Loader`
   ([loader.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/loader.rs#L20-L134))
   -- reject as a reference for this widget. Its bordered wait panel is a centred
-  `ProgressView` instead (owner decision, omp2 review, 2026-10). Apps that want an
-  omp2-style wait panel compose their own view.
+  `ProgressView` instead (owner decision, omp2 review, 2026-10), so its spinner frames,
+  clock and wake scheduling (keys K11, L1, L2, L3) belong to
+  [ProgressView](progress-view.md). Apps that want an omp2-style wait panel compose their
+  own view.
 - omp2 `Select` filter flow
   ([select.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/select.rs#L464-L486))
   -- the empty filter result is one of the empty states this view covers. Copy the single
   view for empty states rather than a per-widget line of text (owner decision, omp2
-  review, 2026-10).
+  review, 2026-10). The filtering itself is not 1.0 (keys C7, M2): an app that filters its
+  own data shows `ContentUnavailableView.search(text:)` when nothing matches.
+
+## API direction
+
+SwiftUI's shape, with the icon named from the [icon catalog](../tokens.md#icon-catalog)
+instead of an SF Symbol (key K2). The title is a `String` and the description and actions
+are named `@ViewBuilder` slots (keys B11, A7); the actions are Buttons with their own
+closures (key C2). Every value is app-owned and redeclared on every update (key D2). Plan
+032 step 16.2 settles the Swift spellings.
+
+```swift
+ContentUnavailableView("No messages", icon: "mail") {
+    Text("Messages from your team appear here.")
+} actions: {
+    Button("New Message") { compose() }
+}
+
+// The built-in no-results view: the framework's title and description, no icon under
+// .unicode, and no actions.
+ContentUnavailableView.search(text: "deploy")
+```
+
+SwiftUI takes the title and icon as a `Label` builder and stacks them with a label style.
+Tessera's [Label](../primitives/label.md) is a one-row icon and title pair with no label
+styles, so the view takes the title and the icon name and stacks them itself. The first
+action is `.filled` as the default action and the others are `.tinted` (owner decision,
+2026-10-10). The icon takes `secondary`, except that a tone icon (`warning`, `error`,
+`success`, `info`) keeps its catalog role (inferred from the Empty and Error states).
+There is no loading case (owner decision, omp2 review, 2026-10): a loading region is a
+centred [ProgressView](progress-view.md).
 
 ## Anatomy
 
@@ -131,15 +163,22 @@ states below are the ones that replaced it (owner decision, omp2 review, 2026-10
 `ContentUnavailableView.search(text: "deploy")`, the built-in no-results view. The title
 and description are the framework's wording, as in SwiftUI. There are no actions.
 
+Under `.unicode` the `search` icon has no glyph
+([icon catalog](../tokens.md#icon-catalog); owner decision, 2026-10-19). The icon row and
+the gap row under it collapse, and the shorter stack recentres, as
+[Label](../primitives/label.md) draws a glyphless icon as no icon and no gap (owner
+decision, 2026-10-19). Under `.nerdFont` and `.ascii` (`[/]`) the icon row draws, as in
+the Empty state.
+
 ```wireframe 40x12
 ┌──────────────────────────────────────┐
-│                                      │
 │                                      │
 │                                      │
 │                                      │
 │       No results for "deploy"        │
 │     Check the spelling or try a      │
 │             new search.              │
+│                                      │
 │                                      │
 │                                      │
 │                                      │
@@ -148,9 +187,9 @@ and description are the framework's wording, as in SwiftUI. There are no actions
 
 ```text
 Callouts (40x12, 0-based):
-1. r3 Icon row -- no icon under `.unicode`: `search` has no Unicode glyph ([icon catalog](../tokens.md#icon-catalog)); the row stays blank; ASCII draws `[/]`
-2. r5 c8-c30       Title -- Text, `primary` bold; framework wording; content, wraps
-3. r6-r7 c6-c32    Description -- Text, `secondary`; content, wraps; two centred lines
+1. r4-r6 c6-c32    Content stack -- title and description only; the glyphless icon row and its gap collapse, and the stack recentres
+2. r4 c8-c30       Title -- Text, `primary` bold; framework wording; content, wraps
+3. r5-r6 c6-c32    Description -- Text, `secondary`; content, wraps; two centred lines
 ```
 
 ```text
@@ -159,10 +198,10 @@ Callouts (40x12, 0-based):
 │                                      │
 │                                      │
 │                                      │
-│                                      │
 │       No results for "deploy"        │
 │     Check the spelling or try a      │
 │             new search.              │
+│                                      │
 │                                      │
 │                                      │
 │                                      │
@@ -172,10 +211,10 @@ RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
 R......................................R
 R......................................R
 R......................................R
-R......................................R
 R.......TTTTTTTTTTTTTTTTTTTTTTT........R
 R.....DDDDDDDDDDDDDDDDDDDDDDDDDDD......R
 R.............DDDDDDDDDDD..............R
+R......................................R
 R......................................R
 R......................................R
 R......................................R
@@ -345,27 +384,27 @@ P  fg=accent
 
 ## State model
 
-Schema: [README](../README.md#state-model-table).
+Schema: [README](../README.md#state-model-table). Every `Binding` row is app-owned display
+data, a plain initializer parameter redeclared on every update (key D2). The view stores
+nothing: it has no `NodeState` row and no responder of its own.
 
-| State                                       | Owner | Type                                   | Reset or clamp rule                                  |
-| ------------------------------------------- | ----- | -------------------------------------- | ---------------------------------------------------- |
-| Content (title, icon, description, actions) | app   | `ContentUnavailableView` configuration | stateless; recomputed on each layout, nothing stored |
+| State          | Owner       | Type                   | Reset or clamp rule                                                                                            |
+| -------------- | ----------- | ---------------------- | -------------------------------------------------------------------------------------------------------------- |
+| title          | Binding     | `String`               | app-owned display data, redeclared on every update (key D2); `.search(text:)` supplies the framework's wording |
+| icon           | Binding     | `IconName?`            | app-owned (key D2); nil, or a name with no glyph in the active charset, collapses the icon row and its gap     |
+| description    | Binding     | `@ViewBuilder` content | app content, redeclared on every update; wraps, each line centred                                              |
+| actions        | Binding     | `@ViewBuilder` Buttons | app content; each Button owns its own action and focus (key C2)                                                |
+| readable width | Environment | cells                  | caps the content column; 72 by default                                                                         |
 
 ## Key table
 
-Schema: [README](../README.md#key-table).
-
-| Key    | Precondition | Effect                                                              | Consumed |
-| ------ | ------------ | ------------------------------------------------------------------- | -------- |
-| (none) | --           | The view owns no keys; actions are Buttons ([button.md](button.md)) | --       |
+Schema: [README](../README.md#key-table). None. The view owns no keys; its actions are
+Buttons with their own key tables ([Button](button.md#key-table)).
 
 ## Mouse table
 
-Schema: [README](../README.md#mouse-table). Regions must be named in Anatomy callouts.
-
-| Event  | Region | Precondition | Effect                                                                 | Consumed |
-| ------ | ------ | ------------ | ---------------------------------------------------------------------- | -------- |
-| (none) | --     | --           | The view owns no pointer regions; the action Buttons handle activation | --       |
+Schema: [README](../README.md#mouse-table). None. The view owns no pointer regions; the
+action Buttons handle activation ([Button](button.md#mouse-table)).
 
 ## Sizing
 
@@ -374,14 +413,14 @@ under-minimum, over-maximum. The view fills a finite proposal and centres its co
 column in it; the column is `min(width, readableWidth)` cells wide, since
 `.readableWidth()` is a maximum only (owner decisions, 2026-10-18).
 
-| Proposal                              | Result                         | Rule                                                                                                                                                                                                                                                                                |
-| ------------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| nil x nil                             | 36 x 6 (empty)                 | A nil width proposes the 72-cell readable width to the column; width is the widest row (the description, 36), and height is every row: icon, gap, title, description, gap, actions.                                                                                                 |
-| 40x12 (tight)                         | empty anatomy, as drawn        | Content centred in the proposal; the column is the whole 40 columns and the description wraps to the width less one-cell margins.                                                                                                                                                   |
-| 40 x any (mobile)                     | 40 x 6 (empty, natural height) | Content stack at natural height; no blank rows above or below.                                                                                                                                                                                                                      |
-| 24 x nil                              | 24 x 7 (empty)                 | The description wraps to 22 cells and takes two rows; nothing is truncated (Narrow).                                                                                                                                                                                                |
-| under 13x3 (under-minimum)            | 12 x 2                         | Floor re-derived in Min (owner decisions, 2026-10-10 and 2026-10-18). Nothing clips silently: the title wraps, the Button follows its own one-row truncate rule, and the two rows go to the title and the first action; the description, icon and later actions give up rows first. |
-| larger than the design (over-maximum) | fills the proposal             | A 100x30 proposal returns 100x30: the content column is capped at 72 cells, and the view's own centring places it at c14-c85, content centred in it vertically, and the description wraps to 70 cells (owner decision, 2026-10-18).                                                 |
+| Proposal              | Result | Rule                                                                                                                                                                                                                                                                                |
+| --------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| nil x nil             | 36x6   | Empty state. A nil width proposes the 72-cell readable width to the column; width is the widest row (the description, 36), and height is every row: icon, gap, title, description, gap, actions.                                                                                    |
+| 40x12 (tight)         | 40x12  | Empty anatomy, as drawn: content centred in the proposal; the column is the whole 40 columns and the description wraps to the width less one-cell margins.                                                                                                                          |
+| 40 x nil (mobile)     | 40x6   | Empty state: the content stack at natural height; no blank rows above or below.                                                                                                                                                                                                     |
+| 24 x nil              | 24x7   | Empty state: the description wraps to 22 cells and takes two rows; nothing is truncated (Narrow).                                                                                                                                                                                   |
+| 12x2 (under-minimum)  | 12x2   | Floor re-derived in Min (owner decisions, 2026-10-10 and 2026-10-18). Nothing clips silently: the title wraps, the Button follows its own one-row truncate rule, and the two rows go to the title and the first action; the description, icon and later actions give up rows first. |
+| 100x30 (over-maximum) | 100x30 | The view fills the proposal: the content column is capped at 72 cells, the view's own centring places it at c14-c85 with the content centred vertically, and the description wraps to 70 cells (owner decision, 2026-10-18).                                                        |
 
 ## Environment
 
@@ -391,8 +430,10 @@ Tokens consumed, each defined in [tokens.md](../tokens.md).
 - `secondary`: description.
 - `accent` fill with `contrast` text (`solid(accent)`,
   [composite styles](../tokens.md#composite-styles)): the `.filled` default action.
-- `secondary`: the icon.
-- `warning`: warning-toned icon in the error state.
+- `secondary`: the icon, except that a tone icon keeps its catalog role (see API
+  direction).
+- `warning`: the warning icon in the error state, its catalog role
+  ([icon catalog](../tokens.md#icon-catalog)).
 - `.tinted` action (the other actions): label in `accent` with a faint fill derived from
   it (owner decision, 2026-10-10; [Button emphasis](button.md#emphasis)).
 - `border`: viewport outline and the grid frame.
@@ -431,17 +472,19 @@ Schema: [README](../README.md#requirements-list).
 - `under the 13x3 floor the title wraps and the description, icon, then later actions give up rows first`
   (States: Min; Sizing; owner decision, 2026-10-18)
 - `icons render their ASCII text forms when the icon catalog is ASCII` (Degradation)
-- `search state draws no icon under the unicode charset` (States: Search; icon catalog)
-- `loading is not a content-unavailable case; it renders a centred ProgressView` (Prior
-  art; owner decision)
+- `search state collapses the glyphless icon row and its gap under the unicode charset`
+  (States: Search; state model: icon; Label precedent, owner decision, 2026-10-19)
+- `search state draws the search icon row under the ascii and nerd font charsets` (States:
+  Search; Degradation)
 
 ## Degradation
 
 What changes at `NO_COLOR`, 16-color, ascii-only, and below `min`. Reference the
 [degradation ladder](../tokens.md#degradation-ladder).
 
-- ASCII: icons render their text forms on the icon row, centred: `mail`, `[/]`, and `[!]`
-  (owner decision, omp2 review, 2026-10). Button caps follow
+- ASCII: icons render their text forms on the icon row, centred: `[@]` for `mail`, `[/]`
+  for `search` and `[!]` for `warning` ([icon catalog](../tokens.md#icon-catalog); owner
+  decision, omp2 review, 2026-10). Button caps follow
   [Button degradation](button.md#degradation). The border follows the `ascii` border set.
 - `NO_COLOR` and 16-color: the filled action keeps bold and loses the accent fill, and the
   warning icon loses its tone; both follow the ladder's colour rows.
@@ -450,11 +493,18 @@ What changes at `NO_COLOR`, 16-color, ascii-only, and below `min`. Reference the
   up rows first, then the icon, then actions after the first (owner decisions, 2026-10-10
   and 2026-10-18).
 
+This design was reviewed against the
+[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): every string,
+icon and action is an app-owned value redeclared on every update; the view stores nothing,
+owns no keys or pointer regions, and leaves activation to its Buttons; and the centred
+column is deterministic integer-cell layout through stacks, Frame and the readable-width
+cap.
+
 ## Open questions
 
-- **Icon row without a glyph.** Under `.unicode` the `search` icon draws nothing
-  ([icon catalog](../tokens.md#icon-catalog)). Whether the blank icon row stays, as the
-  Search state draws it, or collapses so the stack recentres is undecided.
+- **Swift spellings (deferred to plan 032 step 16.2).** The initializer in API direction
+  is a sketch: its parameter names and the `.search(text:)` spelling are settled when the
+  view is built.
 
 ## Inspiration
 

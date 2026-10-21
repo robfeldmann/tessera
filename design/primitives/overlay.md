@@ -20,6 +20,17 @@ a free [ZStack](z-stack.md), an overlay's size is owned solely by the primary ch
   ZStack's maximum-child sizing.
 - Tessera [Slice 3](../../docs/Spec.md#slice-3-styling-text-wrapping-and-decoration) owns
   this public API and primary-child-sized wrapper rule.
+- omp2 has no in-flow overlay. Its layers are viewport-anchored
+  ([overlay.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/overlay.rs#L1-L6)),
+  placed by `OverlayOptions` with an anchor, margins, a `z` height, and modality
+  ([overlay.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/overlay.rs#L57-L99)),
+  and a nested paint pass draws into a scratch or overlay frame
+  ([component.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/component.rs#L1434-L1437)).
+  The [translation key](../translation-key.md#h-layering) rejects viewport-anchored layers
+  for 1.0 and layers in flow with `.overlay`, `.background`, and `ZStack` (key H1); the
+  layer renders once into the primary's translated, clipped region, with no scratch copy
+  (key H2). Reject anchors, margins, `z`, and modality: alignment inside the primary
+  bounds is the only placement.
 
 ## Anatomy
 
@@ -86,13 +97,13 @@ nothing too.
 
 ## Public API
 
-Candidate spelling:
+[Decoration](../../docs/Spec.md#decoration) fixes the spelling:
 
 ```swift
 extension View {
-  public func overlay<Layer: View>(
+  public func overlay<O: View>(
     alignment: Alignment = .topLeading,
-    @ViewBuilder _ layer: () -> Layer
+    @ViewBuilder _ overlay: () -> O
   ) -> some View
 }
 ```
@@ -160,9 +171,18 @@ and glyph output.
   rectangle.
 - Resolved: a decorative layer must declare `.allowsHitTesting(false)` explicitly. There
   is no implicit decorative or visual-only hit-testing default.
-- Deferred: topmost-first routing, bubbling, and click-to-focus ordering inside the
-  primary bounds belong to [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing).
-  This primitive preserves the paint order that Slice 5 will route against.
+- Resolved by [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing): hit testing
+  respects ZStack order, topmost first, and Overlay is a ZStack-equivalent wrapper
+  ([Decoration](../../docs/Spec.md#decoration)), so a point inside the primary bounds
+  reaches the overlay layer before the primary. `.allowsHitTesting(false)` subtrees are
+  skipped, and bubbling and click-to-focus follow Slice 5's routing. This primitive
+  supplies only the paint order that routing reads.
+
+Reviewed against the
+[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): Overlay is a
+value-type modifier lowered to one wrapper node, its sizing, alignment, clipping, and
+paint order are deterministic and shown by `dump()`, it holds no state, and it touches no
+terminal capability.
 
 ## Inspiration
 

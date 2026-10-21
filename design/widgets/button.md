@@ -1,17 +1,18 @@
 ---
 kind: widget
-status: specified
+status: ready
 ---
 
 # Button
 
 `Button` is a focusable, controlled action control with an arbitrary `Label: View`, an
 app-supplied action, and an optional role. It retains no business state: the app owns the
-action's effects, while the button may keep only its transient press and hover bits in
-`NodeState` so a style can draw pressed and hovered feedback. Focus identity and app-owned
-tracking are attached by composition, not stored by Button.
+action's effects, while the button keeps only its transient press bit in `NodeState` and
+reads hover from the graph at render, so a style can draw pressed and hovered feedback.
+Focus identity and app-owned tracking are attached by composition, not stored by Button.
 
-Every design decision in this doc is an owner decision, 2026-10-10. The API is identical
+Every design decision in this doc is an owner decision, 2026-10-10, unless it carries a
+later date or cites a [translation key](../translation-key.md) row. The API is identical
 in every mode (Nerd Font, Unicode, ASCII, NO_COLOR). Modes change only how a shape and
 emphasis are drawn, never which values exist.
 
@@ -82,11 +83,20 @@ Button("Save") { save() }
   emphases. Tessera names them `.filled` and `.tinted`, because "bordered" reads as a
   drawn box in a terminal.
 - omp2 `Button`
-  ([`button.rs`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/button.rs#L115-L157))
-  -- copy the capsule caps and charset fallback (`paint_pill` L115-133) and the soft
-  tinted colouring (`soft_colors` L136-157). omp2 calls its unadorned variant Ghost;
-  Tessera names that emphasis `.plain`. Reject its `Confirm` arming: activation stays this
-  widget's contract, and an emphasis or shape changes appearance only.
+  ([`button.rs`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/button.rs#L13-L345))
+  is the counterpart. Copy the capsule caps and charset fallback (`paint_pill` L115-133;
+  key K10) and the soft tinted colouring (`soft_colors` L136-157). Its variants (L16-25)
+  become emphases, a style modifier (key B12): Pill is `.filled`, Tint is `.tinted`, and
+  Ghost is `.plain`; Soft, omp2's toggle chip, has no Button emphasis. Its `cancel` and
+  `submit` flags (L92-95) become `role: .cancel` with `.keyboardShortcut(.cancelAction)`
+  and `.keyboardShortcut(.defaultAction)` (keys C4, C3), and its `Pressed(id)` event
+  (L96-97) is the action closure (key C2). Enter and Space press it (L314-322), as does a
+  click on its `Press` hit region (L215-216, L332-333); the Key and Mouse tables below
+  carry both (keys E3, F1, F3, F6). It reads focus and hover at paint (L217-218); Tessera
+  reads focus from the environment and hover from the graph (keys E2, F4). Reject its
+  `Confirm` arming (`armed` L27-30, `press` L86-90): two-step confirmation is rejected
+  (key C13), activation stays this widget's contract, and an emphasis or shape changes
+  appearance only.
 
 ## Anatomy
 
@@ -99,7 +109,7 @@ emphasis follows the same state rule.
 | Intent    | colour                                       | `role:` (`nil`, `.cancel`, `.destructive`) and `.keyboardShortcut(.defaultAction)`       |
 | Emphasis  | how the colour is applied                    | `.buttonStyle(.filled / .tinted / .plain)`                                               |
 | Shape     | the ends                                     | `.buttonBorderShape(.squared / .capsule / .rectangle / .brackets / .box / .custom(...))` |
-| State     | changes on top, same rule for every emphasis | focused, pressed, hovered, disabled (environment / NodeState)                            |
+| State     | changes on top, same rule for every emphasis | focused, pressed, hovered, disabled (environment / NodeState / graph)                    |
 
 The anatomy fixture is a tinted, squared Button with no default action, which is the
 default shape and the default emphasis for a plain `Button`:
@@ -581,21 +591,24 @@ D  underline
 
 ## State model
 
-| State                     | Owner       | Type                                                                                            | Reset or clamp rule                                                                                                                                                                                                                                                                                                                                                                           |
-| ------------------------- | ----------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| is enabled                | Environment | `Bool`                                                                                          | Read on every reconciliation. A transition to `false` clears `isPressed` and `isHovered`, removes the node from focusability, and prevents activation immediately.                                                                                                                                                                                                                            |
-| current button style      | Environment | `ButtonStyle` (built-in `.filled`, `.tinted`, `.plain`)                                         | Read on every reconciliation; changing it recomposes from the same label, role, enabled, focus, and press inputs without retaining a previous style.                                                                                                                                                                                                                                          |
-| current button shape      | Environment | `ButtonBorderShape` (`.squared`, `.capsule`, `.rectangle`, `.brackets`, `.box`, `.custom(...)`) | Read on every reconciliation; changing it recomposes from the same label and style inputs.                                                                                                                                                                                                                                                                                                    |
-| semantic roles            | Environment | `primary`, `secondary`, `accent`, `focus`, `disabled`, and `destructive` full `Style` values    | Read on every render; nearest environment value wins under Slice 3 style inheritance. These canonical semantic roles are planned environment values, with concrete key grouping left open.                                                                                                                                                                                                    |
-| is focused                | Environment | `Bool`                                                                                          | Injected below the explicit `.focusable` modifier from the FocusManager's live identity; Button reads it during rendering and checks `ResponderContext.isFocused` for events. A focused button switches every cell that carries the intent colour to `focus` as described under States.                                                                                                       |
-| is pressed                | NodeState   | `Bool`                                                                                          | Set for primary down or the down phase of enabled phased keyboard activation. Clear on its matching release, cancellation, focus loss, disablement, node removal, and every update where the node is not focused. A legacy press-only `Enter` or `Space` event invokes the action once and clears `isPressed` before its dispatch returns; it never represents app work or action completion. |
-| is hovered                | NodeState   | `Bool`                                                                                          | Set when a pointer move enters the hit target while enabled. Clear on move out, disablement, and node removal. Requires pointer-move input, requested through the built-in hover style (owner decision, 2026-10-10).                                                                                                                                                                          |
-| label size and truncation | derived     | `TerminalSize` and rendered grapheme range                                                      | Recomputed from the proposed label slot on every layout; clamp to the allocated rectangle and use tail truncation (`.lineLimit(1)` pinned by Button) for default text.                                                                                                                                                                                                                        |
+| State                     | Owner       | Type                                                                                            | Reset or clamp rule                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------------------------- | ----------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| is enabled                | Environment | `Bool`                                                                                          | Read on every reconciliation. A transition to `false` clears `isPressed`, removes the node from focusability, and prevents activation immediately; a disabled button renders as not hovered.                                                                                                                                                                                                                                  |
+| current button style      | Environment | `ButtonStyle` (built-in `.filled`, `.tinted`, `.plain`)                                         | Read on every reconciliation; changing it recomposes from the same label, role, enabled, focus, and press inputs without retaining a previous style.                                                                                                                                                                                                                                                                          |
+| current button shape      | Environment | `ButtonBorderShape` (`.squared`, `.capsule`, `.rectangle`, `.brackets`, `.box`, `.custom(...)`) | Read on every reconciliation; changing it recomposes from the same label and style inputs.                                                                                                                                                                                                                                                                                                                                    |
+| semantic roles            | Environment | `primary`, `secondary`, `accent`, `focus`, `disabled`, and `destructive` full `Style` values    | Read on every render; nearest environment value wins under Slice 3 style inheritance. Key spellings land with the style environment in plan 032 step 9.1, where [tokens.md](../tokens.md) maps each token family onto one environment key.                                                                                                                                                                                    |
+| is focused                | Environment | `Bool`                                                                                          | Injected below the explicit `.focusable` modifier from the FocusManager's live identity; Button reads it during rendering and checks `ResponderContext.isFocused` for events. Focus at paint is key E2: a focused button switches every cell that carries the intent colour to `focus` as described under States.                                                                                                             |
+| is pressed                | NodeState   | `Bool`                                                                                          | Interaction in flight (key D7). Set for primary down or the down phase of enabled phased keyboard activation. Clear on its matching release, cancellation, focus loss, disablement, node removal, and every update where the node is not focused. A legacy press-only `Enter` or `Space` event invokes the action once and clears `isPressed` before its dispatch returns; it never represents app work or action completion. |
+| is hovered                | derived     | `Bool`                                                                                          | Read at render from the graph-owned hover target (key F4): true while the last pointer move hit this node and the button is enabled. Never stored in NodeState or a binding. The graph clears it on focus loss, motion-tracking disable, and node removal. Requires pointer-move input, requested through the built-in hover style (owner decision, 2026-10-10).                                                              |
+| label size and truncation | derived     | `TerminalSize` and rendered grapheme range                                                      | Recomputed from the proposed label slot on every layout; clamp to the allocated rectangle and use tail truncation (`.lineLimit(1)` pinned by Button) for default text.                                                                                                                                                                                                                                                        |
 
 The role, label closure, and action closure are immutable widget configuration, not
 retained business state. `isPressed` and `isHovered` are supplied to styles solely as
 visual interaction feedback; custom styles cannot turn them into an alternate activation
-mechanism.
+mechanism. Hover is graph-owned, as focus is (key F4): Button derives `isHovered` at
+render, as [List](list.md#state-model) derives its hovered row, and mirrors nothing into
+`NodeState`. How rendering reads the hover target lands in plan 032 step 11.2 (see Open
+questions).
 
 ## Key table
 
@@ -618,13 +631,13 @@ ephemeral press state and cannot invoke the action.
 
 ## Mouse table
 
-| Event        | Region            | Precondition        | Effect                                                                                                                                                                                                             | Consumed |
-| ------------ | ----------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- |
-| click        | Button hit target | is enabled          | Slice 5 first focuses the node when it is focusable; an internal primary down sets `isPressed`, and primary release invokes the app action once only when both points hit this same node, then clears `isPressed`. | yes      |
-| click        | Button hit target | is enabled is false | Does not focus, press, or invoke; bubbles to an ancestor.                                                                                                                                                          | no       |
-| double-click | Button hit target | is enabled          | Has no distinct Button gesture; each constituent valid primary same-node click follows the `click` row and therefore invokes once.                                                                                 | yes      |
-| drag         | Button hit target | is pressed is true  | Clears visual `isPressed` when release is outside this node; never invokes the action for that release.                                                                                                            | no       |
-| move         | Button hit target | is enabled          | Sets `isHovered` on entry and clears it on exit. Requires pointer-move input, requested through the built-in hover style (owner decision, 2026-10-10).                                                             | no       |
+| Event        | Region            | Precondition        | Effect                                                                                                                                                                                                                                                              | Consumed |
+| ------------ | ----------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| click        | Button hit target | is enabled          | Slice 5 first focuses the node when it is focusable; an internal primary down sets `isPressed`, and primary release invokes the app action once only when both points hit this same node, then clears `isPressed`.                                                  | yes      |
+| click        | Button hit target | is enabled is false | Does not focus, press, or invoke; bubbles to an ancestor.                                                                                                                                                                                                           | no       |
+| double-click | Button hit target | is enabled          | Has no distinct Button gesture; each constituent valid primary same-node click follows the `click` row and therefore invokes once.                                                                                                                                  | yes      |
+| drag         | Button hit target | is pressed is true  | Clears visual `isPressed` when release is outside this node; never invokes the action for that release.                                                                                                                                                             | no       |
+| move         | Button hit target | is enabled          | The graph makes this node its hover target on entry and clears it on exit; Button derives `isHovered` from that target at render and stores nothing (key F4). Requires pointer-move input, requested through the built-in hover style (owner decision, 2026-10-10). | no       |
 
 The raw primary stream is internal so the built-in and custom style paths share the same
 press feedback. The public pointer contract is Slice 5's same-node tap semantics, not a
@@ -665,7 +678,8 @@ inside `solid(R)`, `faint(R)` is the tinted fill, and `disabled.fill` and `disab
 are the disabled fills ([composite styles](../tokens.md#composite-styles),
 [fill roles](../tokens.md#fill-roles)). The visual glyph vocabulary comes from
 [tokens](../tokens.md): `light`, `heavy`, `ascii`, and `truncation.mark`. Exact
-environment-key and type-erasure signatures remain open.
+environment-key and type-erasure signatures are deferred to plan 032 steps 9.1 and 13.1
+(see Open questions).
 
 There is no Button-specific padding property. To produce `[ Save ]`, compose the shared
 layout `padding` modifier inside the label builder; to add space around a Button in a row
@@ -793,6 +807,8 @@ affordances are explicitly post-1.0 and are not implied by a Button label or act
   is pressed, is hovered)
 - `button requests pointer-move input only through a hover consumer in its subtree` (Mouse
   table: move)
+- `button hover underline clears when the graph clears its hover target on focus loss`
+  (state model: is hovered; Mouse table: move)
 - `default action fires on Return when the focused responder does not consume it` (Key
   table: Return)
 - `cancel action fires on Esc when no press is pending and the focused responder does not consume it`
@@ -816,13 +832,33 @@ affordances are explicitly post-1.0 and are not implied by a Button label or act
 ## Open questions
 
 No decision from the 2026-10-10 review lab remains open; those are recorded inline as
-owner decisions. The items below are what the spec still leaves open.
+owner decisions. The items below are what the spec still leaves open, each deferred to an
+exact place.
 
-- **Touch normalization (deferred to Phase 5, owner decision, 2026-10-10):** the final
-  platform input adapter may expose touch as a primary click or as a distinct contact
-  event. The Button invariant is already fixed: the whole allocated frame is hit-tested
-  and activation requires press and release on this node. The adapter decision is
-  unblocked by the Phase 5 runtime's first touch-capable backend.
+- **Touch normalization (deferred to
+  [Phase 5](../../docs/Spec.md#phase-5--runtime--polish), owner decision, 2026-10-10):**
+  the final platform input adapter may expose touch as a primary click or as a distinct
+  contact event. The Button invariant is already fixed: the whole allocated frame is
+  hit-tested and activation requires press and release on this node. The adapter decision
+  is unblocked by the Phase 5 runtime's first touch-capable backend.
+- **Reading hover at render (key F4, deferred to plan 032 step 11.2):** the graph owns the
+  hover target and Button derives `isHovered` from it.
+  [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing) gives `onHover` handlers
+  enter and exit, but does not yet expose the hover target to rendering the way the
+  environment exposes `isFocused`. Step 11.2, which lands hover state, chooses that read.
+  Button's hover look and its motion request do not depend on the choice.
+- **Environment key signatures (deferred to plan 032 steps 9.1 and 13.1):** the role keys
+  land with the style environment in step 9.1, where [tokens.md](../tokens.md) maps each
+  token family onto one key; the key and type-erasure signatures behind `.buttonStyle(_:)`
+  and `.buttonBorderShape(_:)` land with Button in step 13.1. The public spellings above
+  are fixed.
+
+Reviewed against the
+[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): a Button is a
+value whose label, role, and action closure are immutable configuration; its only retained
+state is the `isPressed` NodeState of its own node, and it reads focus and hover from the
+graph; the app owns every effect of the action; and its pointer and motion needs reach the
+session as `TerminalRequirements`, never as mode changes.
 
 ## Inspiration
 

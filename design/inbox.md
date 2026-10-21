@@ -99,7 +99,8 @@ Format: `- YYYY-MM-DD -- thought`
   `flex-wrap`/SwiftUI-community `FlowLayout`; expressible on the public `Layout` protocol
   first). They compose: ViewThatFits selects between arrangements, Flow wraps within one.
   Precedent that engines redistribute while arrangement changes are declared: Textual's
-  width breakpoints swap CSS classes rather than reflowing.
+  width breakpoints swap CSS classes rather than reflowing. Triaged to
+  [ViewThatFits](primitives/view-that-fits.md) and [Flow](primitives/flow.md).
 - 2026-08-26 -- Scroll-to-focus: moving focus to a focusable inside a scrolled-out region
   (or to a viewport wholly below the fold, as in the gallery scaffold) leaves its focus
   treatment invisible; the enclosing ScrollView should translate to reveal the focused
@@ -114,7 +115,8 @@ Format: `- YYYY-MM-DD -- thought`
   proposal, gutter, trailing remainder slack). When [Grid](primitives/grid.md) lands (plan
   030 phase 6), decide whether equal-track sizing belongs in its contract so apps do not
   each rewrite this layout; the gallery chips should migrate to it. SwiftUI precedent:
-  `Grid`/`GridRow` column behavior.
+  `Grid`/`GridRow` column behavior. Triaged to [Grid](primitives/grid.md#decisions):
+  `.ratio(1, n)` columns give equal tracks, with no Grid-specific API.
 - 2026-10-11 -- Picker fuzzy filter: type-to-filter the menu's options with fuzzy matching
   (omp2's select has it). Deferred out of 1.0 by the owner; worth a "Feature Requests,
   Ideas" GitHub Discussion if it isn't picked up later. Multi-select, digit quick-select,

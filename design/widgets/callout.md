@@ -1,6 +1,6 @@
 ---
 kind: widget
-status: wireframed
+status: ready
 ---
 
 # Callout
@@ -21,17 +21,27 @@ ASCII. Owner decision, 2026-10-10: the heavy `┃` rail ships in 1.0.
 
 ## Prior art
 
-- omp2 Callout,
-  [callout.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/callout.rs#L15-L20),
-  defines the four kinds, their default icons and colours
-  ([#L22-L50](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/callout.rs#L22-L50)).
-  It paints the header and railed body at
+- omp2 `Callout`
+  ([callout.rs#L52-L53](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/callout.rs#L52-L53))
+  defines the four kinds at
+  [#L15-L20](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/callout.rs#L15-L20)
+  and their default icons and colours at
+  [#L22-L50](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/callout.rs#L22-L50).
+  It renders its text as Markdown at
   [#L153-L166](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/callout.rs#L153-L166)
-  and
+  and paints the header and railed body at
   [#L292-L330](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/callout.rs#L292-L330).
   Copy the kind set, the kind name as default title, the header/body split, and the
   kind-coloured rail. Reject the left-edge `▎` rail, the `<callout>` markup tag, and
-  Markdown rendering inside the widget: the body is a View.
+  Markdown rendering inside the widget: the body is a View (keys I6, M4).
+- Key translations: `kind` is a meaning, so it is the `CalloutKind` parameter (key B12);
+  omp2's tones `info`, `ok`, `warn` and `err` are the hue roles `info`, `success`,
+  `warning` and `error` (key J5); the header icon is a catalog name drawn by `Label` (key
+  K2); the rail is the leading rail (key K7); and omp2's `set_text` updates have no
+  counterpart, because the app redeclares the callout on every update (key A8). omp2 draws
+  its `badge` attribute as muted text
+  ([#L306-L309](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/callout.rs#L306-L309));
+  Tessera draws a `Badge` (see API direction).
 - SwiftUI has no callout. The header reuses `Label`, which follows SwiftUI's `Label`
   pairing of title and icon (see [Label](../primitives/label.md)).
 
@@ -62,6 +72,12 @@ Callout("Build warning", kind: .warning, badge: "1 note") {
   `Error`) and the header icon is the kind's catalog name, resolved by `Label`.
 - With `kind`, the badge is a `Badge` in the kind's tone (owner decision, 2026-10-10).
   Without `kind`, the badge is a `Badge` in the `neutral` tone.
+- The badge is an initializer parameter, not the `.badge(_:tone:)` modifier that key B11
+  names for omp2's `badge` attribute. The owner chose `.badge(_:)` for list rows and tab
+  items, plus a standalone `Badge` view (owner decision, omp2 review, 2026-10, in
+  [Badge](../primitives/badge.md#api-direction)). The header badge is neither, and it
+  takes its tone from `kind`, so Callout draws a standalone `Badge`. Key B11 needs this
+  exception.
 - Without `kind`, there is no icon, the title shows only when given, and the rail is
   `info`.
 - The heavy rail is selected through the `.leadingRail(style:role:)` primitive's heavy
@@ -452,7 +468,16 @@ decision, 2026-10-10).
 
 ## State model
 
-Not focusable: no state model.
+Schema: [README](../README.md#state-model-table). Every row is app-owned display data, a
+plain initializer parameter redeclared on every update (key D2). Callout stores no state:
+it has no `NodeState` row and no responder.
+
+| State   | Owner   | Type                | Reset or clamp rule                                                                                |
+| ------- | ------- | ------------------- | -------------------------------------------------------------------------------------------------- |
+| title   | Binding | `String?`           | app-owned display data, redeclared on every update (key D2); nil with a kind shows the kind's name |
+| kind    | Binding | `CalloutKind?`      | app-owned (key D2); nil draws no icon, an `info` rail and a `primary` body                         |
+| badge   | Binding | `String?`           | app-owned (key D2); nil draws no badge                                                             |
+| content | Binding | `@ViewBuilder` body | app content, redeclared on every update; wraps at width minus 2                                    |
 
 ## Key table
 
@@ -467,15 +492,19 @@ Not focusable: no mouse table.
 Schema: [README](../README.md#sizing-table). Mandatory rows: nil x nil, tight,
 under-minimum, over-maximum.
 
-| Proposal              | Result                                       | Rule                                                                                                                             |
-| --------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| nil x nil             | 109x2 (Anatomy fixture)                      | A nil width does not wrap: the body is unwrapped, so width is 2 plus the body's 107 cells; height is header plus body rows       |
-| 40 x nil              | 40x4                                         | Body wraps at width minus 2 and gets every row (Anatomy)                                                                         |
-| 40 x 3 (fixed height) | 40x3                                         | Header plus two body rows; the last visible body row is the rest of its source line and ends in `…` (owner decision, 2026-10-18) |
-| 9 x nil (minimum)     | 9x20                                         | Floor re-derived in Minimum: body words whole at width minus 2; badge dropped, title truncated (owner decision, 2026-10-18)      |
-| 4 to 8                | width x n                                    | Badge dropped; title tail-truncated; body words break between grapheme clusters at width minus 2                                 |
-| under 3               | Not a supported layout                       | The rail and gap leave no body cell; no layout is specified below 3                                                              |
-| over-maximum          | Body wraps at the proposed width; no maximum | Body takes the proposed width                                                                                                    |
+| Proposal                 | Result                  | Rule                                                                                                                             |
+| ------------------------ | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| nil x nil                | 109x2 (Anatomy fixture) | A nil width does not wrap: the body is unwrapped, so width is 2 plus the body's 107 cells; height is header plus body rows       |
+| 109 x 2 (tight)          | 109x2                   | The proposal equals the ideal: the body's one source line fits one row beside the rail                                           |
+| 40 x nil                 | 40x4                    | Body wraps at width minus 2 and gets every row (Anatomy)                                                                         |
+| 40 x 3 (fixed height)    | 40x3                    | Header plus two body rows; the last visible body row is the rest of its source line and ends in `…` (owner decision, 2026-10-18) |
+| 9 x nil (minimum)        | 9x20                    | Floor re-derived in Minimum: body words whole at width minus 2; badge dropped, title truncated (owner decision, 2026-10-18)      |
+| 8 x 2 (under-minimum)    | 8x2                     | Badge dropped; the title tail-truncates to `Build…`; the one body row is its source line cut to five cells plus `…` (`The c…`)   |
+| 120 x nil (over-maximum) | 120x2                   | The body takes the proposed width, so its one source line fits one row; Callout has no maximum                                   |
+
+From 3 to 8 columns the badge drops, the title tail-truncates, and body words wider than
+width minus 2 break between grapheme clusters. Below 3 columns the rail and its gap leave
+no body cell; see Open questions.
 
 ## Environment
 
@@ -492,13 +521,11 @@ under-minimum, over-maximum.
 ## Primitive dependencies
 
 - [Label](../primitives/label.md): header icon and title (anatomy and minimum states).
-  Status `wireframed`.
-- [Badge](../primitives/badge.md): header badge in the kind's tone. Status `wireframed`.
-- [Markdown](markdown.md): Markdown body content, composed as `Callout { Markdown(src) }`.
-  Status `wireframed`.
-- [Text](../primitives/text.md): body wrapping and header truncation. Status `ready`.
-- [Leading rail](../primitives/leading-rail.md): the rail glyph, role and centring. Status
-  `sketch`. Callout cannot reach `ready` until it does.
+- [Badge](../primitives/badge.md): header badge in the kind's tone.
+- [Text](../primitives/text.md): body wrapping and header truncation.
+- [Leading rail](../primitives/leading-rail.md): the rail glyph, role and column.
+- [Markdown](markdown.md) is not a dependency: an app composes `Callout { Markdown(src) }`
+  (keys I6, M4).
 
 ## Requirements
 
@@ -525,6 +552,9 @@ under-minimum, over-maximum.
   x 3; owner decision, 2026-10-18)
 - `callout body accepts @ViewBuilder content only, so Markdown composes as a view` (API
   direction)
+- `callout under its floor drops the badge and cuts the one body row with the truncation mark`
+  (Sizing 8 x 2)
+- `callout body takes a proposal wider than its ideal width` (Sizing 120 x nil)
 
 ## Degradation
 
@@ -538,9 +568,23 @@ under-minimum, over-maximum.
 - Below 9 columns: the badge drops, the title tail-truncates, and body words break between
   grapheme clusters at width minus two (see Sizing).
 
+This design was reviewed against the
+[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): Callout is a
+composite of Label, Badge, the leading rail and app content, not a painter (key A1); its
+title, kind, badge and body are app-owned values redeclared on every update; it stores no
+state and takes no input; colour comes from the hue roles; and its layout is deterministic
+integer-cell output.
+
 ## Open questions
 
-- None.
+- **Below 3 columns (deferred to plan 032 step 16.2).** The rail and its gap leave no body
+  cell, and no layout is specified. Catalog precedents differ: Badge and Button report
+  their floor and let the parent clip, while Text at zero width reports zero width and
+  paints nothing.
+- **Heavy rail selection (deferred to plan 032 step 16.2).** The heavy rail ships in 1.0,
+  and Callout passes its kind role to `.leadingRail(style:role:)`, but neither Callout's
+  initializer nor an environment value lets an app choose the heavy style for a callout.
+  Step 16.2 settles the spelling.
 
 ## Inspiration
 

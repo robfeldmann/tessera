@@ -19,6 +19,15 @@ style nor input routing.
   overlay composition and explicit alignment. Reject implicit modal/input behavior.
 - Tessera [Slice 2](../../docs/Spec.md#slice-2-the-layout-protocol-and-stack-containers) —
   owns the public initializer, `.topLeading` default, and frame clipping contract.
+- omp2 has no in-flow ZStack. Its layers are viewport-anchored overlays
+  ([overlay.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/overlay.rs#L1-L6))
+  that `Ui::show_overlay` stacks above the document by an explicit `z`, later overlays on
+  top among equal `z`
+  ([ui.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/ui.rs#L1129-L1145)).
+  The [translation key](../translation-key.md#h-layering) rejects those layers for 1.0:
+  Tessera layers in flow with `ZStack`, `.overlay`, and `.background`, and defers
+  viewport-anchored modal presentation (key H1). Copy the later-on-top rule; reject the
+  explicit `z`, so source order is the only order.
 
 ## Anatomy
 
@@ -113,12 +122,21 @@ preserve its integer bounds, source-order overwriting, alignment, and clipping.
 
 ## Decisions
 
-Source order is the only overlay ordering: `dump()` records lexical `paintOrder`, and
-ZStack has no distinct z-index. The exact diagnostics schema is
+Source order is the only overlay ordering: `dump()` records lexical `paintOrder`, ZStack
+has no distinct z-index (key H1), and
+[Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing) hit testing visits its
+children topmost first. The exact diagnostics schema is
 [catalog layout decisions](../../docs/Spec.md#catalog-layout-decisions); no ZStack
 decision remains open.
 
+Reviewed against the
+[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): ZStack is a
+value description lowered to one layout node, its common bounds and paint order are
+deterministic and shown by `dump()`, it holds no state, and it touches no terminal
+capability.
+
 ## Inspiration
 
-ZStack is geometry and deterministic paint order. Modal presentation, pointer capture,
-background fill, and decoration belong to later components rather than this primitive.
+ZStack is geometry and deterministic paint order. Viewport-anchored modal presentation is
+deferred (key H1); pointer capture, background fill, and decoration belong to other
+components rather than this primitive.

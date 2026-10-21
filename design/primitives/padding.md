@@ -21,6 +21,18 @@ never creates Button-specific content insets; a padded Button label therefore co
   copy a composable modifier that changes layout rather than its child's content model.
 - Tessera [Slice 2](../../docs/Spec.md#slice-2-the-layout-protocol-and-stack-containers) —
   `padding` is one public layout modifier; parent-frame clipping remains normative there.
+- omp2 has no padding component. Its counterparts are the `pad`, `pad-x`, and `pad-y`
+  attributes
+  ([vocab/lib.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/vocab/src/lib.rs#L25-L30));
+  `pad="y x"` sets both axes
+  ([props.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/props.rs#L701-L724)),
+  and `Cached` adds the insets around the content together with the border
+  ([component.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/component.rs#L947-L955)).
+  The [translation key](../translation-key.md#b-attributes) makes them `.padding(_:)`, a
+  wrapper node with edge insets rather than a chrome inset (keys B3 and G3): `pad="y x"`
+  is `.padding(EdgeInsets(top: y, leading: x, bottom: y, trailing: x))`. Reject the shared
+  chrome inset: Padding knows nothing of borders, and modifier order puts it inside or
+  outside one.
 
 ## Anatomy
 
@@ -101,6 +113,11 @@ reduced-color terminals preserve the same integer geometry and clipping.
 `EdgeInsets` rejects a negative edge with `precondition` before layout, as fixed by
 [catalog layout decisions](../../docs/Spec.md#catalog-layout-decisions). Padding never
 clamps an invalid inset, so no negative proposal or inverted frame can arise.
+
+Reviewed against the
+[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): Padding is a
+value-type modifier lowered to one wrapper node, its insets are deterministic integer
+geometry that `dump()` shows, it holds no state, and it touches no terminal capability.
 
 ## Inspiration
 

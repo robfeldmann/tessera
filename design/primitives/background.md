@@ -24,6 +24,22 @@ This view-builder API is distinct from the style-fill
   while keeping the primary child as the sole size owner.
 - Tessera [Slice 3](../../docs/Spec.md#slice-3-styling-text-wrapping-and-decoration)
   establishes the view-builder API and its relationship to style modifiers.
+- omp2 has no background component; the [translation key](../translation-key.md#coverage)
+  maps its `bg`, `on`, and `bleed` attributes ([vocab][omp2-bg-attrs],
+  [bleed][omp2-bleed]), which `Cached` paints as chrome across a component's rectangle,
+  inside its border unless `bleed` is set ([background fill][omp2-bg-fill]). A colour fill
+  is the [style modifiers](style-modifiers.md) `.background(Color)` (key B6), and `bleed`
+  is modifier order (key B5): `.border().background { … }` lays the background under the
+  ring, and `.background { … }.border()` only inside it. Copy chrome as a wrapper node
+  around the content (key G3). Reject `bg` gradient ramps (key B13) and the
+  `paints_background` opt-out: a view without a background simply has no wrapper.
+
+[omp2-bg-attrs]:
+  https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/vocab/src/lib.rs#L75-L78
+[omp2-bleed]:
+  https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/vocab/src/lib.rs#L47-L48
+[omp2-bg-fill]:
+  https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/component.rs#L1078-L1103
 
 ## Anatomy
 
@@ -188,15 +204,25 @@ alignment, clipping, and paint order are unchanged at every tier of the
 [degradation ladder](../tokens.md#degradation-ladder); each descendant degrades its own
 content and `Style`.
 
-## Open questions
+## Decisions
 
 - Decorative view-builder backgrounds must opt out explicitly with
   `.allowsHitTesting(false)` when they are not meant to participate in hit testing. There
-  is no implicit decorative hit-testing default. Exact hit-routing and dispatch precedence
-  are deferred to [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing).
+  is no implicit decorative hit-testing default.
 - A sparse background's untouched cells are not auto-filled by this wrapper. Use
   `.background(Color)` from [style modifiers](style-modifiers.md) to fill every cell;
-  view- builder background paint order remains background-view-first in all cases.
+  view-builder background paint order remains background-view-first in all cases.
+- omp2's `bleed` has no flag: modifier order decides whether a background reaches under a
+  border ring (key B5; see [Prior art](#prior-art)).
+- Reviewed against the
+  [Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): Background
+  is a wrapper node that lowers into the runtime tree, keeps the primary child as its only
+  measurement owner, holds no state, and paints into the region it is given.
+
+## Open questions
+
+None. Exact hit-routing and dispatch precedence are deferred to
+[Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing).
 
 ## Inspiration
 

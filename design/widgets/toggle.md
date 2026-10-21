@@ -1,6 +1,6 @@
 ---
 kind: widget
-status: specified
+status: ready
 ---
 
 # Toggle
@@ -51,9 +51,21 @@ that fixes one row gets a marked cut (owner decision, 2026-10-18; see
   activation semantics.
 - omp2 `Checkbox`
   ([`checkbox.rs`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/checkbox.rs#L12-L158))
-  -- adopt its glyph set, one-cell marker plus separator geometry, and label underline
-  focus mark (glyph resolution L99-119; paint L91-124). Reject its internal `checked` flag
-  seeded by `Prop::Checked` (L27-29): the bound Boolean stays the source of truth.
+  is the counterpart -- adopt its glyph set, one-cell marker plus separator geometry, and
+  label underline focus mark (glyph resolution L99-119; paint L91-124). Reject its
+  internal `checked` flag seeded by `Prop::Checked` (L27-29): the bound Boolean stays the
+  source of truth (key D1), and its `value()` harvest (L160-164) has no counterpart (key
+  A10). Enter and Space toggle it (L130-135), as does a click on its `Press` hit region
+  (L95-96, L145-146); the Key and Mouse tables below carry both (keys E3, F1, F3). It
+  reads focus at paint (L97), where Toggle reads `isFocused` (key E2). It also fills the
+  mark and label with `hover` (L98, L110-113); the omp2 review adopted the glyphs,
+  geometry, and focus mark only, so Toggle draws no hover and requests no pointer motion
+  (key F4).
+- omp2 `Choice`
+  ([`choice.rs`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/choice.rs#L13-L106))
+  -- its read-only radio and checkbox marks (L60-66) are the `.circle` and `.checkbox`
+  markers (key K3), and its label wraps under the label column (L72-105), as Toggle's
+  does. Toggle's ASCII radio mark is `(*)`, not Choice's `(o)` (test L230-233).
 
 ## API direction
 
@@ -493,16 +505,16 @@ E  fg=secondary
 
 ## State model
 
-| State                   | Owner       | Type                                                                                | Reset or clamp rule                                                                                                                                                                            |
-| ----------------------- | ----------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| bound value             | Binding     | `Bool`                                                                              | App-owned; Toggle reads it on every update and writes only the one inverted Boolean on a valid activation.                                                                                     |
-| is enabled              | Environment | `Bool`                                                                              | Read on every reconciliation. A transition to `false` clears `isPressed`, removes the node from focusability, and prevents activation immediately.                                             |
-| semantic Styles         | Environment | `primary`, `accent`, `secondary`, `disabled`, and `destructive` full `Style` values | Read on every render; nearest environment value wins. These roles are complete Styles, not foreground-color aliases.                                                                           |
-| is focused              | Environment | `Bool`                                                                              | Injected below the explicit `.focusable` modifier from the FocusManager's live identity; Toggle reads it during rendering and checks `ResponderContext.isFocused` for events.                  |
-| is pressed              | NodeState   | `Bool`                                                                              | Set for enabled primary down or phased Enter/Space down. Clear on matching release, cancellation, focus loss, disablement, node removal, and every update when unfocused.                      |
-| label size and wrapping | derived     | `TerminalSize` and rendered grapheme range                                          | Recomputed from the proposed label slot on every layout; the label wraps at the slot width and tail-truncates only under a row budget; clamps to the allocated rectangle.                      |
-| text value word         | derived     | `String`, `true` or `false`                                                         | Derived from `bound value` on every render; never stored. Read only by the `.text` style. In a host row it is content: it wraps, and a host that fixes one row cuts it with `truncation.mark`. |
-| form-row context        | Environment | `Bool`                                                                              | Set by Form on each row; read on every render. Selects the `.text` default and omits the label in `.text`. An explicit `.toggleStyle` overrides the default.                                   |
+| State                   | Owner       | Type                                                                                | Reset or clamp rule                                                                                                                                                                                       |
+| ----------------------- | ----------- | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| bound value             | Binding     | `Bool`                                                                              | App-owned (key D1); Toggle reads it on every update and writes only the one inverted Boolean on a valid activation.                                                                                       |
+| is enabled              | Environment | `Bool`                                                                              | Read on every reconciliation. A transition to `false` clears `isPressed`, removes the node from focusability, and prevents activation immediately.                                                        |
+| semantic Styles         | Environment | `primary`, `accent`, `secondary`, `disabled`, and `destructive` full `Style` values | Read on every render; nearest environment value wins. These roles are complete Styles, not foreground-color aliases.                                                                                      |
+| is focused              | Environment | `Bool`                                                                              | Injected below the explicit `.focusable` modifier from the FocusManager's live identity; Toggle reads it during rendering and checks `ResponderContext.isFocused` for events. Focus at paint is key E2.   |
+| is pressed              | NodeState   | `Bool`                                                                              | Interaction in flight (key D7). Set for enabled primary down or phased Enter/Space down. Clear on matching release, cancellation, focus loss, disablement, node removal, and every update when unfocused. |
+| label size and wrapping | derived     | `TerminalSize` and rendered grapheme range                                          | Recomputed from the proposed label slot on every layout; the label wraps at the slot width and tail-truncates only under a row budget; clamps to the allocated rectangle.                                 |
+| text value word         | derived     | `String`, `true` or `false`                                                         | Derived from `bound value` on every render; never stored. Read only by the `.text` style. In a host row it is content: it wraps, and a host that fixes one row cuts it with `truncation.mark`.            |
+| form-row context        | Environment | `Bool`                                                                              | Set by Form on each row; read on every render. Selects the `.text` default and omits the label in `.text`. An explicit `.toggleStyle` overrides the default.                                              |
 
 The label closure is immutable widget configuration, not retained business state. A legacy
 press-only Enter or Space event inverts `bound value` once and clears `isPressed` before
@@ -533,7 +545,8 @@ cannot invert `bound value`.
 
 The raw primary stream is internal so Toggle uses the same pressed feedback throughout its
 implemented checkbox presentation. The public pointer contract is Slice 5 same-node tap
-semantics, not a marker-only hit test or drag threshold.
+semantics, not a marker-only hit test or drag threshold. There is no `move` row: Toggle
+draws no hover and requests no pointer motion (key F4; see Prior art).
 
 ## Sizing
 
@@ -571,8 +584,9 @@ defines overflow under a row budget. The `.text` style reads the bound value as 
 style).
 
 > Deferred: custom Toggle styles (an app-defined `ToggleStyle`) and their environment
-> inputs land in a later slice. `.toggleStyle(.checkbox)`, `.toggleStyle(.circle)`, and
-> `.toggleStyle(.text)` land with Toggle, with the circle's ASCII radio glyphs.
+> inputs wait on the Slice 7 style contract (see Deferred beyond 1.0).
+> `.toggleStyle(.checkbox)`, `.toggleStyle(.circle)`, and `.toggleStyle(.text)` land with
+> Toggle, with the circle's ASCII radio glyphs.
 
 ## Primitive dependencies
 
@@ -670,17 +684,32 @@ style).
 
 ## Deferred beyond 1.0
 
-- **Label-less Toggle:** deferred beyond 1.0. Unblock only when the public accessibility
-  policy defines a non-label accessible-name source and an exact initializer contract.
-- **Switch-style presentation:** deferred beyond 1.0. Unblock only when a proposed
-  `ToggleStyle` proves a switch can preserve the checkbox keyboard, pointer, focus, and
-  disabled contract through fixtures and interaction tables.
+- **Label-less Toggle:** deferred beyond 1.0, which the Spec's
+  [1.0 surface](../../docs/Spec.md#the-10-surface) records. Unblock only when the public
+  accessibility policy defines a non-label accessible-name source and an exact initializer
+  contract.
+- **Switch-style presentation:** deferred beyond 1.0, as above. Unblock only when a
+  proposed `ToggleStyle` proves a switch can preserve the checkbox keyboard, pointer,
+  focus, and disabled contract through fixtures and interaction tables.
 - **Custom `ToggleStyle` representation:** concrete configuration, type-erasure, and
   environment key signatures for app-defined styles are deferred to the
   [Slice 7 catalog integration contract](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
   Unblock only when that contract names the custom style representation without weakening
   Toggle's required `Binding<Bool>` initializer. The built-in `.checkbox`, `.circle`, and
   `.text` styles do not wait for it.
+
+## Open questions
+
+None. Each item under Deferred beyond 1.0 names its exact target: the Spec's 1.0 surface
+or the Slice 7 style contract.
+
+Reviewed against the
+[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): a Toggle is a
+value whose label and style are configuration; the on/off value is the app's
+`Binding<Bool>`, written once per valid activation; its only retained state is the
+`isPressed` NodeState of its own node, and it reads focus and the Form row context from
+the environment; and its pointer needs reach the session as `TerminalRequirements`, never
+as mode changes.
 
 ## Inspiration
 

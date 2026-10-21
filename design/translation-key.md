@@ -122,7 +122,7 @@ counterpart; "Rejected for 1.0" means a catalog doc or owner decision defers it.
 | E6  | `EventCtx`                       | [component.rs:1477][e6]                               | `ResponderContext` ([handlers][s-handlers])                                    |
 | E7  | Paste                            | [component.rs:150][e7]                                | Paste routed like a key ([routing][s-route], [contract][paste])                |
 | E8  | Key hints                        | [settings.rs:23][e8]                                  | [KeyLegend][key-legend]                                                        |
-| E9  | Layer keyboard capture           | [ui.rs:720][e9]                                       | A focus scope (plan 032 step 10.2)                                             |
+| E9  | Layer keyboard capture           | [ui.rs:720][e9]                                       | A focus scope ([focus scopes][s-focus-scope])                                  |
 | F1  | `HitTag` regions                 | [component.rs:1668][f1], [component.rs:138][f1-2]     | Hit testing ([Slice 5][s-s5], [Mouse table][readme-mouse])                     |
 | F2  | `HitTag::Scrollbar`              | [component.rs:1685][f2]                               | Rejected                                                                       |
 | F3  | `Mouse` gestures                 | [input.rs:1803][f3]                                   | `.onTap`, `.onMouse` ([Slice 5][s-s5])                                         |
@@ -144,7 +144,7 @@ counterpart; "Rejected for 1.0" means a catalog doc or owner decision defers it.
 | H1  | Overlay layers                   | [overlay.rs:1][h1], [overlay.rs:57][h1-2]             | Rejected for 1.0                                                               |
 | H2  | Nested scratch paint             | [component.rs:1434][h2]                               | A translated `RenderRegion` ([ScrollView][s-scrollview])                       |
 | H3  | Inline dropdowns                 | [form.rs:170][h3]                                     | Picker menu in a host row ([Picker][picker-host])                              |
-| I1  | `RichText` runs                  | [rich.rs:138][i1], [rich.rs:359][i1-2]                | `Text + Text` ([Text][text])                                                   |
+| I1  | `RichText` runs                  | [rich.rs:138][i1], [rich.rs:359][i1-2]                | `Text + Text` ([styled runs][text-runs])                                       |
 | I2  | Rich-text pipeline               | [rich.rs:686][i2]                                     | Text wrapping ([wrapping][text-wrapping], [wrap rules][wrap])                  |
 | I3  | `Truncate`, `TextWrap`           | [markup.rs:156][i3]                                   | `.truncationMode(_:)`, word wrap ([code view][code-view])                      |
 | I4  | Width policy                     | [rich.rs:106][i4], [context.rs:763][i4-2]             | Phase 2 grapheme widths ([Buffer][s-width])                                    |
@@ -303,7 +303,13 @@ form.
   `max`, and `step`. `label` is a title `String` or a `@ViewBuilder label:`; `desc` is
   Picker's `.optionDescription(_:)`; `icon` is `Label(_:icon:)` (K2); `badge` is
   `.badge(_:tone:)` ([Badge](primitives/badge.md)); `placeholder` is TextField's
-  `prompt:`; a number field's range and step are Stepper's `in:` and `step:`.
+  `prompt:`; a number field's range and step are Stepper's `in:` and `step:`. Two docs
+  record exceptions. Callout's header badge is an initializer parameter drawn as a
+  standalone `Badge` ([Callout](widgets/callout.md#api-direction)), because the owner
+  limits `.badge(_:)` to list rows and tab items
+  ([Badge](primitives/badge.md#api-direction)). Divider keeps its label a `String` or
+  `Text` rather than a `@ViewBuilder label:` (owner decision,
+  [Divider](primitives/divider.md#decisions)), since B5 leaves the label to Divider.
 - **B12.** `variant` (Pill, Soft, Tint, Ghost), `kind`, `status`, `submit`, `cancel`. A
   style modifier expresses a look, and an initializer parameter a meaning. A closed set of
   looks is a style modifier read from the environment: `.buttonStyle(_:)`,
@@ -458,9 +464,11 @@ form.
 - **D6.** Input's undo stack (100 entries) and kill ring (60). TextField's key table has
   no undo or yank ([TextField](widgets/text-field.md#key-table)). If the shared text
   editing core adds them, history is NodeState: losing it loses no committed text.
-- **D7.** Button `armed`, Form's open dropdown and `editing`, Select's `editing`, a
-  scrollbar drag. Pressed, open, editing, and dragging flags are NodeState, with reset
-  rules (focus loss closes, Esc cancels) in the doc's State model table.
+- **D7.** Button `armed`, Form's open dropdown and `editing`, Select's `editing`. Pressed,
+  open, editing, and dragging flags are NodeState, with reset rules (focus loss closes,
+  Esc cancels) in the doc's State model table; SplitView's divider drag is one
+  ([SplitView](widgets/split-view.md#state-model)). omp2's scrollbar drag has no
+  counterpart, because indicators are output-only (F2).
 - **D8.** Select's custom-row text. A draft the widget discards on Esc is scratch;
   committing writes the binding ([Picker](widgets/picker.md#menu)). See Open questions.
 - **D9.** Positions internal selection for the direction focus came from. Tessera states
@@ -523,8 +531,10 @@ form.
 - **E8.** Hand-written muted strings in each panel's footer. The legend lists the focused
   responder chain's declared keys; no view writes hint text by hand.
 - **E9.** A modal overlay takes the keys, and Esc dismisses it. Tessera plans a focus
-  scope that traps traversal inside an overlay. No catalog doc owns the focus scope yet;
-  see Open questions. Viewport-anchored modal layers are H1.
+  scope that traps traversal inside an overlay and restores focus on dismissal
+  ([focus scopes](../docs/Spec.md#focus-appearance-focus-scopes-and-declared-key-bindings)).
+  No catalog doc owns the focus scope yet; see Open questions. Viewport-anchored modal
+  layers are H1.
 
 [e1]:
   https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/component.rs#L114-L132
@@ -603,7 +613,11 @@ form.
   out of chrome by not applying it.
 - **G4.** `paint(pc, rect)` writes the frame through `PaintCtx` and its clip; Tessera uses
   `render(in:state:environment:)`. The region is clipped and translated; a leaf cannot
-  write outside it.
+  write outside it. One recorded departure: a scroll indicator placed on a Box's border
+  has its thumb on the ring, outside the scrolling view's region, so Box paints those
+  cells after its descendants. The channel that carries the resolved thumb geometry up to
+  Box is deferred to plan 032 step 9.4
+  ([ScrollIndicator](primitives/scroll-indicator.md#open-questions)).
 - **G5.** `stack_place` and `distribute`. Stacks give leftover space only to flexible
   children; weighted shares are `FlexConstraint.fill(_:)`.
 - **G6.** A row flows children onto as many lines as fit. Not an HStack mode
@@ -616,7 +630,10 @@ form.
 - **G8.** Tessera's form is `FlexConstraint.percentage(_:)`. Resolved against a finite
   proposal only.
 - **G9.** `grid_measure` and `solve_columns`, shared by tables and grids. One allocator;
-  Table resolves its column widths once across all rows.
+  Table resolves its column widths once across all rows. Column constraints live on the
+  container, not on cells: Grid's `columns:` ([Grid](primitives/grid.md#public-api)) and
+  `TableColumn`'s `width:` ([Table](widgets/table.md)), where omp2 reads `w`, `min`,
+  `max`, and `grow` from each cell.
 - **G10.** Fact's inline or stacked geometry. Tessera's form is `ViewThatFits` with layout
   priority. No per-component fitting rules: Form, Picker, ProgressView, and LabeledContent
   choose arrangements through it.
@@ -681,7 +698,9 @@ form.
 
 - **I1.** `RichText` and `RichSink`: styled runs pushed and measured once. Tessera's form
   is `Text + Text` styled runs (plan 032 step 9.1), owned by Text. The runs form one
-  `Text` that wraps and measures as one. text.md does not define them yet.
+  `Text` that wraps and measures as one ([styled runs](primitives/text.md#styled-runs)).
+  Whether the spelling stays `+` or becomes interpolation is a Text open question for that
+  step.
 - **I2.** Word and character wrap, clip with an ellipsis, row caps, hanging prefixes.
   Tessera uses Text's wrapping and truncation. A hanging prefix is layout, not text: a
   leading rail or a Label's icon column holds it. The ellipsis is `truncation.mark`
@@ -694,8 +713,9 @@ form.
   a per-UI Jamo policy is rejected.
 - **I5.** Inline icons in text and titles. Tessera's form is an icon-catalog glyph as a
   run in running text. The glyph takes the surrounding text role
-  ([icon catalog](tokens.md#icon-catalog)). label.md shows it as a wireframe only; the run
-  spelling arrives with I1.
+  ([icon catalog](tokens.md#icon-catalog)). label.md shows it as a wireframe only; the
+  run's spelling is deferred to plan 032 step 9.1
+  ([Text open questions](primitives/text.md#open-questions)).
 - **I6.** In markup, bare text is Markdown; Tessera makes it an explicit view. `Text`
   never parses markup.
 - **I7.** `href` (an OSC 8 target) and Markdown links styled accent and underlined.
@@ -957,6 +977,8 @@ uses.
   K7.
 - [Flex](primitives/flex.md): None named; the layout helpers ([layout.rs:146][cov-7]) and
   Row's track solver ([row.rs:180][cov-8]). Rows: B2, G5, G8.
+- [Flow](primitives/flow.md): Row in `wrap` mode ([row.rs:13][cov-57]) and Tabs' chip wrap
+  ([tabs.rs:183][cov-58]). Rows: G6, G7.
 - [Frame](primitives/frame.md): None named; the `w`, `h`, `min`, and `max` attributes.
   Rows: B2.
 - [Grid](primitives/grid.md): None named; the shared column solver
@@ -983,6 +1005,8 @@ uses.
   I2, I3, I4, L1, L2, L5, L6.
 - [Text selection](primitives/text-selection.md): None named; the `noselect` attribute and
   the host-owned clipboard. Rows: B15, C11.
+- [ViewThatFits](primitives/view-that-fits.md): Fact ([fact.rs:74][g10]), Tabs' collapse
+  ([tabs.rs:153][cov-59]), and Status ([status.rs:48][cov-60]). Rows: G10.
 - [ZStack](primitives/z-stack.md): None in flow; omp2's layers are viewport-anchored
   ([overlay.rs:1][cov-21]). Rows: H1.
 
@@ -1153,6 +1177,14 @@ uses.
   https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/checkbox.rs#L12-L158
 [cov-56]:
   https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/choice.rs#L13
+[cov-57]:
+  https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/row.rs#L13-L17
+[cov-58]:
+  https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/tabs.rs#L183-L199
+[cov-59]:
+  https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/tabs.rs#L153-L200
+[cov-60]:
+  https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/status.rs#L48-L70
 
 Concepts used only by omp2 components without a catalog doc are not keyed: the diff views
 (`UiEvent::DiffAction`), the editor composer and its completion popup, the status band,
@@ -1163,30 +1195,42 @@ Shader, and Scene. A doc for one of them extends the key first.
 
 Design choices in this key that need the owner's confirmation:
 
-- **Hover ownership (F4).** The key follows omp2 and [List](widgets/list.md#state-model):
-  hover is graph-owned and derived at render. [Button](widgets/button.md#state-model) and
-  [Form](widgets/form.md#state-model) keep hover in NodeState instead, and
+- **Hover ownership (F4).** The key follows omp2: hover is graph-owned and derived at
+  render. [Button](widgets/button.md#state-model), [Form](widgets/form.md#state-model),
+  and [List](widgets/list.md#state-model) now derive it from the graph.
   [Slice 5](../docs/Spec.md#slice-5-mouse-and-hit-testing) does not yet expose the hovered
-  point to rendering the way the environment exposes `isFocused`.
+  point to rendering the way the environment exposes `isFocused`; that is deferred to plan
+  032 step 11.2. Awaiting owner confirmation.
 - **Uncommitted drafts (D8).** Picker's and MultiPicker's custom-row draft is NodeState.
-  That reads the README's "never data" rule as "never committed data".
+  That reads the README's "never data" rule as "never committed data". Catalog status:
+  [Picker](widgets/picker.md) and [MultiPicker](widgets/multi-picker.md) keep the draft in
+  NodeState (key D8). Awaiting owner confirmation.
 - **Highlight events (C5).** No `onHighlight` closure: an app that previews the option
-  under a menu cursor has no hook.
+  under a menu cursor has no hook. Catalog status: neither [Picker](widgets/picker.md) nor
+  [MultiPicker](widgets/multi-picker.md) defines a highlight callback. Awaiting owner
+  confirmation.
 - **Outline activation (C8).** [Outline](widgets/outline.md#key-table) toggles expansion
   on Enter and has no `onActivate:`, unlike List and Table, so omp2's `TreeActivated` has
-  no Outline counterpart.
+  no Outline counterpart. Catalog status: Outline now has `onActivate:`, which Enter calls
+  with the selected node, and Space toggles expansion (key C9); `TreeActivated` maps to
+  it. Awaiting owner confirmation.
 - **Shimmer (L5).** The omp2 review's owner decision 3 (2026-10-08) puts shimmer in 1.0,
   but no catalog doc defines it and [spinners](tokens.md#spinners) says the spinner is the
-  only animation.
+  only animation. The answer blocks
+  [ProgressView](widgets/progress-view.md#open-questions)'s `ready`.
 - **Box title slot (A7).** The key makes a promoted title child a `@ViewBuilder` slot with
-  a `String` convenience; [Box](primitives/box.md) offers only `title: String?`, while
-  plan 032 step 9.3 calls for a Box whose title is a View.
+  a `String` convenience, as plan 032 step 9.3 asked for Box. [Box](primitives/box.md) now
+  follows the key. Awaiting owner confirmation.
 - **Row caps (B8).** The catalog spells the overflow-summary modifier `.maxRows(_:)`; the
   omp2 review called it `.rowLimit`.
 - **Two-step confirmation (C13).** [Button](widgets/button.md) rejects arming, but the
   omp2 review listed two-step confirmation among the 1.0 modifiers.
-- **Focus scope (E9).** Plan 032 step 10.2 plans a focus scope for overlays, but no
-  catalog doc owns it.
+- **Focus scope (E9).** The Spec describes the focus scope
+  ([focus scopes](../docs/Spec.md#focus-appearance-focus-scopes-and-declared-key-bindings))
+  and plan 032 step 10.2 builds it, but no catalog doc owns it.
+- **Title argument label (B5).** Box's `String` form keeps the labelled `title:` that B5
+  names, while Section, Picker, and Toggle take an unlabelled `_ title:`. Should Box match
+  them? A taste question raised while applying the key.
 - **Rejected omp2 conveniences.** Border footers (B5), direction-aware focus entry (D9),
   character-flow wrapping (I3), cross-axis stretch as a row default (G7), and dashed boxes
   (K4).
@@ -1205,6 +1249,7 @@ Design choices in this key that need the owner's confirmation:
 [s-focus]: ../docs/Spec.md#focus-model
 [s-route]: ../docs/Spec.md#event-routing-normative
 [s-handlers]: ../docs/Spec.md#handler-modifiers-and-respondercontext
+[s-focus-scope]: ../docs/Spec.md#focus-appearance-focus-scopes-and-declared-key-bindings
 [s-flags4]: ../docs/Spec.md#things-to-flag-3
 [s-s5]: ../docs/Spec.md#slice-5-mouse-and-hit-testing
 [s-cutover]: ../docs/Spec.md#pointer-cutover-for-controls-fields-panes-and-viewports
@@ -1245,6 +1290,7 @@ Design choices in this key that need the owner's confirmation:
 [style-mods]: primitives/style-modifiers.md
 [text]: primitives/text.md
 [text-wrapping]: primitives/text.md#wrapping
+[text-runs]: primitives/text.md#styled-runs
 [text-selection]: primitives/text-selection.md
 [focus-border]: primitives/border.md#focus-border
 [label]: primitives/label.md

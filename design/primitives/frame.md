@@ -8,10 +8,10 @@ status: ready
 `frame` is a stateless layout modifier that proposes an explicit or bounded rectangle to
 one child, reports its own resolved layout size, and places the child inside that
 rectangle using `Alignment`. It neither draws a border nor changes the child's content.
-Its final allocated frame is the clipping boundary for non-text geometry in rendering and,
-when input arrives in later slices, hit testing. Text is never clipped by it: Text lays
-out again at the width it is given and wraps or marks its last visible row, per
-[Text](text.md#row-budget) (owner decision, 2026-10-18).
+Its final allocated frame is the clipping boundary for non-text geometry in rendering and
+in [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing) hit testing. Text is never
+clipped by it: Text lays out again at the width it is given and wraps or marks its last
+visible row, per [Text](text.md#row-budget) (owner decision, 2026-10-18).
 
 ## Prior art
 
@@ -23,6 +23,18 @@ out again at the width it is given and wraps or marks its last visible row, per
   — copy fixed and min/max frame vocabulary with child alignment.
 - Tessera [Slice 2](../../docs/Spec.md#slice-2-the-layout-protocol-and-stack-containers) —
   owns the public overloads, top-leading default, and parent-frame clipping contract.
+- omp2 has no frame component. Its counterparts are the `w`, `h`, `min`, and `max`
+  attributes
+  ([vocab/lib.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/vocab/src/lib.rs#L33-L40)).
+  The [translation key](../translation-key.md#b-attributes) maps `w` and `h` to
+  `.frame(width:height:)` and `min` and `max` to `.frame(minWidth:maxWidth:)` (key B2); a
+  percent `w` is Flex's `.percentage(_:)`, not a frame (key G8). Copy the clamp of a width
+  request into `min...max`
+  ([row.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/row.rs#L91-L104))
+  and the fixed `h` that replaces the measured height
+  ([component.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/component.rs#L268-L274)).
+  Reject the attribute bag: Frame is one wrapper modifier (key B1), and it adds height
+  bounds and alignment from SwiftUI.
 
 ## Anatomy
 
@@ -133,6 +145,12 @@ Frame validation and bounded-axis proposal rules are fixed in
 [catalog layout decisions](../../docs/Spec.md#catalog-layout-decisions): invalid bounds
 trap before layout, and a max-only axis sends a finite capped proposal to its child. No
 Frame-specific decision remains open.
+
+Reviewed against the
+[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): Frame is a
+value-type modifier lowered to one wrapper node, its sizing and alignment are
+deterministic integer math that `dump()` shows, it holds no state, and it touches no
+terminal capability.
 
 ## Inspiration
 

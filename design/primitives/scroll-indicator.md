@@ -1,6 +1,6 @@
 ---
 kind: primitive
-status: specified
+status: ready
 ---
 
 # ScrollIndicator
@@ -34,12 +34,14 @@ meet.
   receives immutable render inputs, has a parent-chosen placement, uses catalog glyph
   tokens, and floors the documented proportional equation so all three parents share the
   same result.
-- omp2 `Scroll`
-  ([scroll.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/scroll.rs#L181-L185),
-  thumb formula at
-  [L172](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/scroll.rs#L172))
-  -- the default look, the `standard` preset: an accent `█` thumb on a `border` `│` track,
-  unchanged by the review.
+- omp2 `Scroll`'s scrollbar, ScrollIndicator's counterpart in the
+  [translation key](../translation-key.md#coverage) ([scroll.rs][scroll-bar], thumb
+  formula at [L172][scroll-thumb], glyphs in [`Charset::scrollbar`][scroll-charset]) --
+  copy the default look, which is the `standard` preset (key K8): an accent `█` thumb on a
+  `│` track, unchanged by the review, with omp2's `muted` track drawn in Tessera's
+  `border` role ([scroll indicators](../tokens.md#scroll-indicators)). Copy its floored
+  thumb position. Reject its click and drag on the bar, which jump the thumb
+  ([scroll.rs][scroll-drag]): indicators are output-only (key F2).
 - [ScrollView](../widgets/scroll-view.md) -- copy its final-viewport inputs and its
   `floor`-based equation (`thumb = max(1, floor(track * viewport / content))`). Reject
   embedding that equation in a viewport widget: ScrollView determines stable overflow and
@@ -49,6 +51,15 @@ meet.
   draft scrollbar-drag behavior for this primitive. First-delivery indicators are
   output-only; Table keeps wheel/key scrolling in its own widget and must not add input
   behavior to this shared render node.
+
+[scroll-bar]:
+  https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/scroll.rs#L168-L193
+[scroll-thumb]:
+  https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/scroll.rs#L172
+[scroll-charset]:
+  https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/context.rs#L211-L217
+[scroll-drag]:
+  https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/scroll.rs#L230-L256
 
 ## Inputs and geometry
 
@@ -63,7 +74,23 @@ public struct ScrollIndicator: View {
         effectiveOffset: Int
     )
 }
+
+extension EnvironmentValues {
+    public var scrollIndicatorStyle: ScrollIndicatorStyle { get set }          // default .standard
+    public var scrollIndicatorPlacement: ScrollIndicatorPlacement { get set }  // default .reserved
+}
+
+extension View {
+    public func scrollIndicatorStyle(_ style: ScrollIndicatorStyle) -> some View
+    public func scrollIndicatorPlacement(_ placement: ScrollIndicatorPlacement) -> some View
+}
 ```
+
+`ScrollIndicatorStyle` is the closed list of eight presets in [Variants](#variants), and
+`ScrollIndicatorPlacement` is `.reserved` or `.border`. Each modifier writes its
+environment value for the subtree, and the nearest ancestor wins, as [Text](text.md)'s
+`lineLimit` and `truncationMode` do. Parents read the placement to decide what to reserve,
+and the indicator reads the preset to pick its glyphs.
 
 `axis` is exactly one axis, never `Axis.Set`: `.vertical` makes a one-column strip and
 `.horizontal` makes a one-row strip. `contentExtent` and `viewportExtent` are cell counts
@@ -404,18 +431,21 @@ A parent follows this order for each enabled axis:
    content there unless its own component design explicitly assigns it a role.
 
 The numbered order above is the `reserved` placement. In `.border` placement the parent
-instead rides an adjacent [Border](border.md) or [Box](box.md) edge: it reserves no extra
-cell, treats the border line as the track, and paints only the thumb onto the border's
-edge cells at the resolved thumb rows or columns. This is the deliberate exception to
-"reserve exactly one trailing column or bottom row"; the thumb math is unchanged, and
-because the border owns the track glyph, the preset's track does not apply and only its
-thumb paints. The parent still omits the indicator when the axis has no overflow.
+instead rides the nearest [Box](box.md)'s ring: it reserves no extra cell, the ring line
+is the track, and only the thumb paints, on the ring's edge cells at the resolved thumb
+rows or columns. Box paints those cells after its descendants, because the ring lies
+outside the parent's region and key G4 lets no view write outside its own (see
+[Open questions](#open-questions)). This is the deliberate exception to "reserve exactly
+one trailing column or bottom row"; the thumb math is unchanged, and because the ring owns
+the track glyph, the preset's track does not apply. The parent still omits the indicator
+when the axis has no overflow.
 
 This primitive does not own idle, loading, error, or empty business states. Those are
 parent/app content states: a loading or error viewport may still show an indicator when
 its actual measured content overflows; empty or no-overflow content causes the parent
 omission above. No click, wheel, key, drag, or hit-test region is installed by the
-primitive.
+primitive: a click or drag on an indicator falls through to the parent, which returns it
+`.ignored` (key F2; [ScrollView](../widgets/scroll-view.md#mouse-table)).
 
 ## Sizing
 
@@ -437,8 +467,9 @@ produces no cells.
 | horizontal, `16x4`      | `16x1` | Over-maximum cross axis is ignored while the finite primary track fills. |
 
 In `.border` placement the primitive reports a zero-area contribution: it reserves no cell
-of its own and composites the thumb onto the border edge the parent already allocated. The
-thumb length and position come from the same equation applied to the border edge extent.
+of its own, and Box composites the thumb onto the ring edge it already allocated. The
+thumb length and position come from the same equation, with the ring's edge between its
+corners as the track.
 
 ## Environment
 
@@ -446,12 +477,13 @@ The system/default rendering consumes only catalog tokens and complete semantic 
 values from the environment:
 
 - Preset (`standard`, the default; `thin`; `inner`; `outer`; `dashed`; `dotted`; `heavy`;
-  or `thumbOnly`), set by `.scrollIndicatorStyle(_:)`, selects the thumb and track glyphs
-  for the strip's axis without changing the normalized geometry. `thumbOnly` paints no
-  track cell.
-- Placement, set by `.scrollIndicatorPlacement(_:)`, selects `reserved` (the default) or
-  `.border`. Under `.border` the border line is the track, so the preset's track glyph is
-  ignored and only its thumb paints.
+  or `thumbOnly`), read from `scrollIndicatorStyle` and set by
+  `.scrollIndicatorStyle(_:)`, selects the thumb and track glyphs for the strip's axis
+  without changing the normalized geometry. `thumbOnly` paints no track cell.
+- Placement, read from `scrollIndicatorPlacement` and set by
+  `.scrollIndicatorPlacement(_:)`, selects `.reserved` (the default) or `.border`. Under
+  `.border` the ring line is the track, so the preset's track glyph is ignored and only
+  its thumb paints.
 - `scrollIndicator.ascii` supplies the ASCII `|`/`-` track and `#` thumb.
 - `border` is the complete `Style` applied to the track, including any attributes and
   background as well as foreground ([scroll indicators](../tokens.md#scroll-indicators)).
@@ -463,8 +495,8 @@ The standard style never synthesizes a color, ANSI sequence, or partial foregrou
 as defined in [tokens.md](../tokens.md#roles). A future custom component style must
 receive the resolved axis and geometry plus complete track/thumb semantic styles; it may
 change presentation but may not change the normalized geometry, input-free nature, or
-parent-owned overflow policy. The environment key and protocol spelling for that custom
-style remain open rather than adding an unregistered token here.
+parent-owned overflow policy. Its environment key and protocol are deferred to Slice 3
+(see [Decisions](#decisions)).
 
 ## Dependencies and readiness cutover
 
@@ -473,16 +505,17 @@ style remain open rather than adding an unregistered token here.
 - Slice 3 environment style resolution -- supplies the full `border` (track;
   [scroll indicators](../tokens.md#scroll-indicators)) and `accent` (thumb) `Style` values
   and the degradation capability selection.
+- [Box](box.md) -- `.border` placement rides its ring, and Box paints the thumb there.
 - [ScrollView](../widgets/scroll-view.md), List, and [Table](../widgets/table.md) depend
   on this primitive's geometry and output contract. They own their own measurement,
   effective offset, visibility, and reservation; they do not carry a duplicate thumb
   calculation or an indicator state/protocol.
 
 This primitive is the single resolution of the shared ScrollView/List/Table indicator
-question. Once its API spelling is settled and it is implemented, ScrollView and Table can
-remove their respective shared-indicator readiness blocker without waiting for a separate
-renderer or an independently rounded formula. It creates no dependency on Form, Outline,
-source browsing, or source mapping.
+question. Its API spelling is settled; once plan 032 step 9.4 implements it, ScrollView
+and Table can remove their respective shared-indicator readiness blocker without waiting
+for a separate renderer or an independently rounded formula. It creates no dependency on
+Form, Outline, source browsing, or source mapping.
 
 ## Requirements
 
@@ -522,6 +555,12 @@ source browsing, or source mapping.
   Computing; scroll indicators: `heavy`)
 - `on-border placement rides the edge and reserves no cell` (Variants: placement and
   on-border box wireframe; Parent contract and absence states)
+- `border placement without a box ancestor falls back to reserved placement` (Variants:
+  placement)
+- `box paints the border placement thumb on its ring` (Parent contract and absence states;
+  Sizing: `.border` placement)
+- `style and placement modifiers set their subtree's environment value` (Inputs and
+  geometry: environment values)
 
 ## Degradation
 
@@ -596,11 +635,18 @@ distinguishable without colour, and no preset uses a full block on a horizontal 
 which is too tall there (owner decision, 2026-10-10). `thick` and `smooth` thumbs were
 dropped in review.
 
-Placement adds `.border` beside the default `reserved` mode, set by its own modifier,
+Placement adds `.border` beside the default `.reserved` mode, set by its own modifier,
 `.scrollIndicatorPlacement(_:)`, separate from the preset. `.border` is the deliberate
-exception to reserving a trailing cell: it rides an existing Border or Box edge, uses that
-line as the track, and paints only the thumb. It changes reservation and track ownership,
-never the thumb equation or the input-free contract.
+exception to reserving a trailing cell: it rides the nearest Box's ring, uses that line as
+the track, and paints only the thumb. It changes reservation and track ownership, never
+the thumb equation or the input-free contract.
+
+Both modifiers write environment values, `scrollIndicatorStyle` and
+`scrollIndicatorPlacement`, read by the parent and the indicator. Key B12 makes a closed
+set of looks a style modifier read from the environment, as `.buttonStyle(_:)` and
+`.toggleStyle(_:)` are, and key A11 gives each concern its own environment key; the
+spelling follows Text's `lineLimit` and `truncationMode` keys. This settles the
+environment spelling that was the doc's last open question.
 
 Owner decision, 2026-10-10: a custom presentation surface beyond the curated presets (an
 environment protocol with a resolved configuration, or a closure-style environment value)
@@ -608,15 +654,21 @@ stays deferred to
 [Slice 3](../../docs/Spec.md#slice-3-styling-text-wrapping-and-decoration). Any such
 surface must receive complete semantic `Style` roles and resolved geometry, never raw
 colors or control state, and must not change the normalized geometry or input-free nature.
-Whether an interactive parent layers a separate hit target over this output primitive also
-stays deferred, to [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing). Any such
-work must retain this primitive's input-free API and reuse its resolved geometry rather
-than reimplementing thumb math.
+Indicators stay output-only in 1.0: Slice 5's
+[pointer cutover](../../docs/Spec.md#pointer-cutover-for-controls-fields-panes-and-viewports)
+has clicks and drags on them return `.ignored`, and omp2's click-to-jump is rejected (key
+F2). Any later hit target layered over an indicator must retain this primitive's
+input-free API and reuse its resolved geometry rather than reimplementing thumb math.
 
 ## Open questions
 
-- The environment spelling of the style modifier is `.scrollIndicatorStyle(_:)`, not yet
-  registered as an environment key.
+- Deferred to plan 032 step 9.4: how a parent's resolved `.border` indicator geometry
+  reaches the Box that paints the thumb. The ring lies outside the parent's region, and
+  key G4 lets no view write outside its own, so Box paints the thumb cells after its
+  descendants, as it paints delegated focus. The graph has no channel yet that carries
+  child metrics up to an ancestor; step 9.4 adds one to the
+  [`ScrollIndicator`](../../docs/Spec.md#scrollindicator) contract without giving the
+  indicator any input.
 
 ## Inspiration
 
