@@ -8,7 +8,7 @@ description:
   Replaces plan 030.
 status: in-progress
 created: 2026-10-08
-updated: 2026-10-10
+updated: 2026-10-20
 ---
 
 <!-- Allowed status values: planning, in-review, pending, in-progress, complete, superseded. -->
@@ -31,10 +31,10 @@ updated: 2026-10-10
 - [x] **Phase 4 — Classify components by Phase 4 relevance**
   - [x] 4.1 Classify every omp2 component and confirm with the owner
   - [x] 4.2 File post-1.0 ideas as GitHub Discussions
-- [ ] **Phase 5 — Owner taste review**
+- [x] **Phase 5 — Owner taste review**
   - [x] 5.1 Review the gallery and record decisions
-  - [ ] 5.2 Move adjusted designs into the design catalog as wireframes
-  - [ ] 5.3 Propose token changes implied by the decisions
+  - [x] 5.2 Move adjusted designs into the design catalog as wireframes
+  - [x] 5.3 Propose token changes implied by the decisions
 - [ ] **Phase 6 — Write the Rust-to-Swift translation key**
   - [ ] 6.1 Map omp2 concepts to Tessera's API vocabulary
 - [ ] **Phase 7 — Revise the Phase 4 catalog and plan**
