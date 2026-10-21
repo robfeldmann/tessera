@@ -19,6 +19,7 @@ Everything below exists to keep wireframes fixture-grade and behavior tables tes
 design/
   README.md         this file: process, conventions, table schemas, index
   tokens.md         shared visual vocabulary: viewports, borders, selection, ...
+  translation-key.md  how each omp2 concept maps onto Tessera's API forms
   inbox.md          append-only inspiration capture
   templates/        starting points for new docs
     primitive.md
