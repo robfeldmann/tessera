@@ -315,9 +315,15 @@ lines; an agent runs and reads a scenario without prose; CI gates all of it.
   1); SVG as designed; the `theme=probe` role palette and `fg=ROLE`/`bg=ROLE` cell
   assertions. Determinism proved by SHA-256 across macOS and Lima Linux; a dense 80x24
   worst case stays under 100 KB.
-- C.2 `expect wireframe … at SEL`, `shot NAME SEL`, `conform`, and the gallery review view
-  on the kept pages (wireframe, current, previous). First pinned fences: Border and Box
-  (plan 032 step 9.3).
+- C.2 `expect wireframe … at SEL`, `shot NAME SEL`, `conform`, and the gallery's Current
+  and Previous slots (main `c8ab409`: `scripts/gallery-serve.py`, `DevTools/gallery/`,
+  reading fences straight from the catalog). The harness emits a role-styled grid in the
+  catalog's dialect (`── chars ──`, `── style ──`, `── legend ──` with token role specs,
+  recovered through `theme=probe`), so `expect wireframe` compares characters and roles,
+  and the gallery draws Current and Previous with its own renderer on any of its themes;
+  SVG stays a review artefact. Before the first pin: stable fence ids in the info string
+  (`wireframe WxH id=NAME`), and `check-wireframes.py` lints styled grids (legend grammar,
+  chars equal to the fence). First pinned fences: Border and Box (plan 032 step 9.3).
 - Acceptance: `conform design/primitives` reports pinned and unpinned fences in JSON;
   heavy and mixed boxes rasterise correctly in the review PNG; a Phase 9 focus-border demo
   asserts `fg=focus` under `theme=probe` and reads identically in SVG and `.txt`.
