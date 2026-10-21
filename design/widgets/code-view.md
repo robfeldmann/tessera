@@ -12,7 +12,7 @@ its height with an overflow footer that counts the hidden lines. It is display-o
 [Markdown](markdown.md) draws its fenced code blocks through it.
 
 This widget follows the controlled-widget rule in
-[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase).
+[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
 The application owns the source text. CodeView owns only the rendered rows.
 
 Owner decision, omp2 review, 2026-10: the code view (omp2 `Pre`) is adopted for 1.0 as

@@ -441,10 +441,9 @@ semantic styles remain complete `Style` values -- `primary`, `secondary`, `accen
    for app-hosted column emphasis.
 4. [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing) supplies click-to-focus
    inside columns; divider drag remains `SplitView`.
-5. [Slice 6](../../docs/Spec.md#slice-6-grid-table-and-navigationsplitview-composition)
-   composes regular, standard, and compact generic column children through those
-   established contracts.
-6. [Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase)
+5. [Slice 6](../../docs/Spec.md#slice-6-grid-table-and-fitting) composes regular,
+   standard, and compact generic column children through those established contracts.
+6. [Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets)
    supplies the controlled `List` for a sidebar column.
 
 Before these land, app-supplied columns may be static content only. They must not

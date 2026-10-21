@@ -6,7 +6,7 @@ Phase 4 of [the spec](../docs/Spec.md) builds. The spec stays the constitution â
 architecture, the controlled-widget rule, `NodeState` discipline, the layout protocol â€”
 while this catalog owns per-component detail: appearance, interaction tables, state
 models, and requirements. Never restate a spec rule here; link to it, for example
-[Slice 7](../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase).
+[Slice 7](../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
 
 The catalog's core trick: a terminal UI's medium is a character grid, so a wireframe drawn
 at exact dimensions is simultaneously the full-fidelity design and a candidate golden
@@ -290,7 +290,7 @@ Columns: `State | Owner | Type | Reset or clamp rule`
 - `Reset or clamp rule`: what happens when the app mutates the binding underneath the
   widget. Every `NodeState` and `derived` row must answer this; "clamps on every update"
   is the
-  [Slice 7 baseline](../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase).
+  [Slice 7 baseline](../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
 
 Runtime ownership invariant: every `NodeState` row has exactly one live storage owner. A
 stateful `LeafView` handles events through `LeafView.handleEvent`, so measurement,

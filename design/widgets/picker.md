@@ -10,7 +10,7 @@ The application owns both that set and the selected value through `Binding<Selec
 Picker only derives which supplied option is selected and renders it. It retains no
 business data and never invents a selection. This is a widget-layer design following the
 controlled-widget rule in
-[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase),
+[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets),
 with explicit focus supplied by
 [Slice 4](../../docs/Spec.md#slice-4-focus-and-key-routing-the-responder-system) and
 pointer delivery supplied by [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing).
@@ -1781,7 +1781,7 @@ only the last visible row with `truncation.mark` (`~` at the ASCII-only rung).
   ownership rule.
 - **Deferred:** per-option disabled state. 1.0 treats every supplied option as selectable;
   disabled-option visibility, traversal, and placeholder policy are deferred to
-  [Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase).
+  [Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
 - **Resolved:** `contrast` is `on(R)`, the label colour inside `solid(R)`
   ([composite styles](../tokens.md#composite-styles)), not a free-standing role. The
   active segment and chip are `solid(accent)` (owner decision, 2026-10-19).

@@ -9,7 +9,7 @@ status: specified
 through `Binding<Bool>`; Toggle retains only ephemeral press presentation in `NodeState`.
 It presents the current value without owning or inventing application state. This is a
 widget-layer design following the controlled-widget rule in
-[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase).
+[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
 Explicit focus and keyboard delivery come from
 [Slice 4](../../docs/Spec.md#slice-4-focus-and-key-routing-the-responder-system), and
 pointer delivery comes from the
@@ -677,7 +677,7 @@ style).
   disabled contract through fixtures and interaction tables.
 - **Custom `ToggleStyle` representation:** concrete configuration, type-erasure, and
   environment key signatures for app-defined styles are deferred to the
-  [Slice 7 catalog integration contract](../../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase).
+  [Slice 7 catalog integration contract](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
   Unblock only when that contract names the custom style representation without weakening
   Toggle's required `Binding<Bool>` initializer. The built-in `.checkbox`, `.circle`, and
   `.text` styles do not wait for it.

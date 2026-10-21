@@ -7,7 +7,7 @@ status: specified
 
 A columnar, selectable, scrollable data view: List's structured sibling. Controlled
 throughout, per
-[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase):
+[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets):
 the app supplies immutable data, selection, and sort order; selection and sort order use
 bindings, while Table derives rows from its data input on every update. Table owns only
 view state in `NodeState`: a scroll offset, a cursor row (multi-select), and a header
@@ -833,12 +833,11 @@ Style chrome adds to the content size and is part of the ideal:
   rows + header + header rule + rows + (rows - 1). The 40-column example is 11 rows tall.
 
 Column width policy (baseline; the shared solver stays with Grid, deferred to
-[Slice 6](../../docs/Spec.md#slice-6-grid-table-and-navigationsplitview-composition),
-owner decision, 2026-10-10): each `TableColumn` declares `fixed(n)`, `min(n)`, or
-`fill(weight:)`; fixed first, then min at their minimums, then remaining slack distributed
-to fill columns by weight, integer remainders leading-first. Columns also carry a drop
-priority for narrow viewports (mobile state); drop priority stays in v1 (owner decision,
-2026-10-10).
+[Slice 6](../../docs/Spec.md#slice-6-grid-table-and-fitting), owner decision, 2026-10-10):
+each `TableColumn` declares `fixed(n)`, `min(n)`, or `fill(weight:)`; fixed first, then
+min at their minimums, then remaining slack distributed to fill columns by weight, integer
+remainders leading-first. Columns also carry a drop priority for narrow viewports (mobile
+state); drop priority stays in v1 (owner decision, 2026-10-10).
 
 ## Environment
 

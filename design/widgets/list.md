@@ -11,7 +11,7 @@ and shared overflow geometry. The app owns the data (`RandomAccessCollection` of
 `Identifiable` elements), the selection (`Binding<Data.Element.ID?>`), and every section's
 expansion (`Binding<Bool>` on the Section); List owns only an ephemeral scroll offset in
 `NodeState`, per
-[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase).
+[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
 List renders chrome (selection gutter, section spacing, scrollbar) but never invents data,
 selection, or expansion.
 

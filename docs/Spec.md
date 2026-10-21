@@ -69,8 +69,8 @@ Use it selectively:
   - [Slice 3: Styling, text wrapping, and decoration](#slice-3-styling-text-wrapping-and-decoration)
   - [Slice 4: Focus and key routing](#slice-4-focus-and-key-routing-the-responder-system)
   - [Slice 5: Mouse and hit testing](#slice-5-mouse-and-hit-testing)
-  - [Slice 6: Grid, Table, and NavigationSplitView composition](#slice-6-grid-table-and-navigationsplitview-composition)
-  - [Slice 7: Catalog integration — List, Section, widgets, and the Showcase](#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase)
+  - [Slice 6: Grid, Table, and fitting](#slice-6-grid-table-and-fitting)
+  - [Slice 7: Catalog integration — List, Section, and controlled widgets](#slice-7-catalog-integration--list-section-and-controlled-widgets)
 - [Phase 5 — Runtime + polish](#phase-5--runtime--polish)
 - [Risk register](#risk-register)
 - [Proposed module and file layout](#proposed-module-and-file-layout)
@@ -5213,10 +5213,12 @@ public struct TerminalCapabilities: Equatable, Sendable {
     public var kittyKeyboard: CapabilityStatus
     public var osc8Hyperlinks: CapabilityStatus
     public var osc52Clipboard: CapabilityStatus
+    public var nerdFontCoverage: CapabilityStatus
     public var synchronizedOutput: CapabilityStatus
     public var underlineDeclarations: TerminfoUnderlineDeclarations
     public var privateModeStates: [Int: PrivateModeState]
     public var color: ColorCapability
+    public var colorReport: TerminalColorReport
     public var identity: TerminalIdentity
     public var isNested: Bool
 }
@@ -5234,12 +5236,18 @@ public enum CapabilityStatus: Equatable, Sendable {
 what Tessera successfully enabled. `.supported` and `.unsupported` require conclusive
 protocol-native evidence; `.unknown` means there is no reliable answer; `.probing` is
 transient while the single active generation is running; and `.notDetectable` means the
-protocol has no standard active query. OSC 8 and OSC 52 are `.notDetectable`.
+protocol has no standard active query. OSC 8 and OSC 52 are `.notDetectable`, and so is
+Nerd Font coverage (`nerdFontCoverage`) until a protocol-native coverage query is adopted.
 
 `TerminalIdentity` and `isNested` are passive diagnostic hints. They may help a status
 panel explain the surrounding environment, but they never prove protocol support or choose
 production protocol policy. Color is likewise detected environmental evidence, distinct
 from the application's `ColorCapabilityOverride` and the renderer's effective color depth.
+
+`colorReport` holds the terminal's own colors as the
+[color round](#terminal-color-reports) reports them: the default foreground (OSC 10), the
+default background (OSC 11), and the 16 ANSI slots (OSC 4), each an 8-bit RGB value or
+unknown. It is evidence like `color`; the view layer derives its role shades from it.
 
 `underlineDeclarations` is a third kind of evidence, separate from both `CapabilityStatus`
 and identity: a bounded terminfo reader can report `.declared`, `.notDeclared`, or
@@ -5254,13 +5262,15 @@ advisory and inspectable, not hidden global switches that make behavior mysterio
 Use information sources according to how trustworthy they are:
 
 1. Generic environment conventions: `NO_COLOR`, `COLORTERM`, color-depth hints in `TERM`,
-   nested-session hints such as `TMUX`/`STY`, and Windows VT availability. These may
-   inform color and safety policy because they are not terminal-name protocol allowlists.
+   `COLORFGBG`, the locale codeset (`LC_ALL`, `LC_CTYPE`, `LANG`), the generic `NERDFONT`
+   variable, nested-session hints such as `TMUX`/`STY`, and Windows VT availability. These
+   may inform color, glyph, and safety policy because they are not terminal-name protocol
+   allowlists.
 2. Passive observation: if Tessera receives a Kitty keyboard report, SGR mouse event,
    focus event, bracketed paste markers, KGP response, or other protocol-specific
    response, it knows that path is working.
-3. Protocol-native active queries: DA1 sentinels, KGP `a=q`, Kitty keyboard queries, and
-   DECRQM for DEC private modes.
+3. Protocol-native active queries: DA1 sentinels, KGP `a=q`, Kitty keyboard queries,
+   DECRQM for DEC private modes, and the OSC 10/11/4 color queries.
 
 Do not use `TERM_PROGRAM`, `TERM`, `WT_SESSION`, `VTE_VERSION`, `KONSOLE_VERSION`, or
 similar terminal identity hints to decide that a modern protocol is supported or
@@ -5303,7 +5313,8 @@ Implemented active queries include KGP `a=q` + DA1, Kitty keyboard query + DA1, 
 (`CSI ? Ps $ p`) for the DEC private modes Tessera uses (`2004`, `1004`, `1000`, `1002`,
 `1003`, `1006`, and `2026`). Primary/secondary device attributes and terminfo-style
 queries such as XTGETTCAP remain possible future inputs, but they must not become
-terminal-name allowlists.
+terminal-name allowlists. The OSC 10/11/4 color round is specified in
+[Terminal color reports](#terminal-color-reports) and is not yet implemented.
 
 #### Startup behavior
 
@@ -5319,12 +5330,62 @@ Rules:
   indefinitely.
 - Detection should not block raw-mode restoration or cleanup.
 - The app should be able to opt out of active queries entirely.
+- The color round is the one probe the first frame waits for, so that frame paints in its
+  final color tier. It stays bounded: its DA1 reply or `activeProbeTimeout` ends it.
 
 An active run exposes `.probing` while probes are in flight, `.supported` only after a
 protocol-native response, `.unsupported` only after a conclusive sentinel, and `.unknown`
 when there is no reliable answer. The test for this slice is not “does Tessera know every
 terminal?” The test is “does Tessera expose useful capability state without terminal-name
 hard-coding or fragile startup behavior?”
+
+#### Terminal color reports
+
+Amendment (owner decisions, 2026-10-19), not yet implemented: the active generation also
+asks the terminal for its own colors, so the view layer can derive shades from the user's
+palette instead of fixed values. [design/tokens.md](../design/tokens.md#probe) owns the
+full probe contract and the color arithmetic that consumes it; this section is the
+terminal-substrate half.
+
+- **Round.** OSC 10/11/4 color queries join the generation as one DA1-terminated round:
+  one write of `OSC 10 ; ? ST`, `OSC 11 ; ? ST`, and `OSC 4 ; n ; ? ST` for each slot `n`
+  from 0 to 15, then the round's single DA1. The round ends at the DA1 reply or at
+  `activeProbeTimeout`, whichever comes first; an input with no reply by then is unknown,
+  not a failure. The timeout default rises from 250 ms to 1 s because SSH links need it;
+  the DA1 reply still ends the round after one round trip on any terminal that answers
+  DA1. `.passive` and `.disabled` detection send no color queries, so every color input
+  stays unknown.
+- **`NO_COLOR`.** The round asks only for the background (OSC 11), because the color
+  scheme, which Image's density ramp follows, still needs it.
+- **First frame.** The first frame waits for the round, so it paints in its final color
+  tier.
+- **Late replies.** A color reply that arrives after its round ended is still consumed and
+  applied as an update: the reported colors change, the view layer re-resolves its roles,
+  and the screen repaints.
+- **Theme changes.** Startup enables color-scheme notifications (DEC private mode 2031,
+  `CSI ? 2031 h`) and registers `CSI ? 2031 l` with cleanup. Each notification
+  (`CSI ? 997 ; 1 n` for dark, `CSI ? 997 ; 2 n` for light) re-runs the color round. A
+  terminal that does not know mode 2031 ignores it.
+- **Resume.** The session re-runs the color round on resume after a suspend.
+- **Evidence.** Replies fill `TerminalCapabilities.colorReport`. Nerd Font coverage has no
+  adopted protocol-native query, so `nerdFontCoverage` reports `.notDetectable`.
+- **Parser.** The input parser, which has no OSC reply path today, gains one. It accepts
+  `rgb:` and `rgba:` bodies (alpha ignored) with 1 to 4 hex digits per channel, terminated
+  by BEL or ST; scales each channel to 8 bits as `round(v * 255 / (16^d - 1))` for `d`
+  digits; and takes OSC 4 replies in any order. Replies are consumed as probe evidence and
+  never reach the app as key events.
+- **Multiplexers.** A multiplexer may answer for the outer terminal, leave slots
+  unanswered, or answer DA1 before a forwarded reply, which reads as unsupported. That
+  failure is safe, and the late reply upgrades it. Tessera never wraps queries in DCS
+  passthrough and never decides by terminal identity.
+- **Fixtures.** The application configuration may supply fixed colors, which skip the
+  round; snapshot tests use them.
+
+The color round is the one exception to [Slice 12](#slice-12-runtime-protocol-control)'s
+single cached generation: notifications and resume re-run it, while DECRQM, Kitty
+keyboard, and Kitty graphics evidence stays cached. Until it is implemented, every color
+input is unknown and the view layer's roles resolve in the `slots` tier of
+[design/tokens.md](../design/tokens.md#tiers).
 
 #### Protocol enablement policy
 
@@ -5335,6 +5396,20 @@ Suggested policy:
 - Colors: start from user policy first (`NO_COLOR` wins), then environment/detection.
   Downsample app-requested colors at the renderer/style-resolution layer before calling
   the encoder: truecolor → 256 → 16 → monochrome as needed.
+- Color scheme: `\.colorScheme` is `.dark` or `.light`, decided from the reported
+  background's luminance ([rule](../design/tokens.md#colour-scheme)). An unknown
+  background counts as dark unless `COLORFGBG` says light (a numeric background slot of 7
+  or 15); terminals that stay silent are overwhelmingly dark. The capability still records
+  the background as unknown, so a later reply replaces the assumption.
+- Glyph charset: `\.charset` defaults to `.unicode`, drops to `.ascii` when the locale
+  codeset is not UTF-8, honours the generic `NERDFONT` variable (`0` caps at `.unicode`
+  over app policy; `1` selects `.nerdFont` for automatic mode), may be set explicitly by
+  the application, and reports Nerd Font coverage as `.notDetectable` until a
+  protocol-native coverage query is adopted; terminal identity never selects it. The Glyph
+  Protocol is deferred as that query: Ghostty's `q` coverage query reports registered
+  glyphs only, so it answers no for the symbols Ghostty bundles; kitty and WezTerm do not
+  implement it; and the specification is still moving. The full `NERDFONT` grammar and
+  resolution order are in [design/tokens.md](../design/tokens.md#charset).
 - Synchronized output: `TerminalApplicationConfiguration.synchronizedOutput` already
   exists as `SynchronizedOutputPolicy` (`.disabled`/`.enabled`, default `.enabled`, and
   `TerminalSession.draw` already wraps frames in DEC 2026). If detection warrants it, add
@@ -5369,11 +5444,12 @@ The exact defaults can change, but they must be documented. Users should be able
 fields include `capabilityDetection`, `activeProbeTimeout`, bracketed paste, focus, mouse,
 keyboard, OSC 8, synchronized output, color, underline rendering and underline
 compatibility, clipboard writing, and cursor styling. The intent initializer defaults to
-passive detection, a 250 ms active-probe round timeout, enabled bracketed paste/focus/OSC
-8/synchronized output, disabled mouse and clipboard writing, `.kittyIfAvailable`,
-`.detect` color, `.extended` underline rendering, disabled underline compatibility, and
-disabled cursor styling. The low-level `modes` initializer remains for exact test and
-protocol-demo mode sets; normal applications should use the intent fields.
+passive detection, a 1 s active-probe round timeout (raised from 250 ms by the
+[color round](#terminal-color-reports)), enabled bracketed paste/focus/OSC 8/synchronized
+output, disabled mouse and clipboard writing, `.kittyIfAvailable`, `.detect` color,
+`.extended` underline rendering, disabled underline compatibility, and disabled cursor
+styling. The low-level `modes` initializer remains for exact test and protocol-demo mode
+sets; normal applications should use the intent fields.
 
 The configuration is a request, not a claim that bytes reached the terminal. During a
 session, inspect these distinct facts rather than collapsing them into one “capability”
@@ -5427,6 +5503,8 @@ Requirements:
 - Do not break bracketed paste, focus, mouse, or keyboard parsing.
 - Do not consume a user's real keypress because it happened while a capability query was
   pending.
+- Parse OSC 10, 11, and 4 color replies, terminated by BEL or ST, into probe evidence; the
+  parser has no OSC reply path today ([Terminal color reports](#terminal-color-reports)).
 
 This may require an internal event channel distinct from public `InputEvent`, or a parser
 result type that can carry both public input events and private protocol responses. Do not
@@ -5451,6 +5529,9 @@ If active queries are implemented, add tests for:
 - query timeout produces `.unknown`
 - user input interleaved with query handling is not lost
 - cleanup still runs if detection times out
+- the color round sends one write, parses `rgb:` and `rgba:` replies with 1 to 4 hex
+  digits per channel and either terminator, ends on DA1 or timeout, applies late replies
+  as updates, and sends only OSC 11 under `NO_COLOR`
 
 Add configuration tests for:
 
@@ -6111,8 +6192,11 @@ Tests for this slice should cover:
   is disabled, raw payloads are not rewritten, synchronized output wrappers are unchanged,
   and final SGR reset remains.
 
-Sixel, iTerm2 image escape sequences, palette querying, dithering, theme detection,
-contrast correction, and active color probes are explicitly out of scope for this slice.
+Sixel, iTerm2 image escape sequences, and dithering are explicitly out of scope for this
+slice. Palette querying, theme detection, and active color probes belong to Slice 6's
+[terminal color reports](#terminal-color-reports), and contrast correction to the view
+layer's role resolution ([design/tokens.md](../design/tokens.md#hue-guard)); this slice's
+downsampler stays the emission-boundary policy.
 
 #### End of Slice 8
 
@@ -6647,6 +6731,11 @@ user input. Each round ends on its protocol-native evidence, a DA1 sentinel wher
 or the configured deadline. A timed-out untagged DA1 round retires later untagged DA1
 rounds so a late response cannot satisfy a newer generation.
 
+The [color round](#terminal-color-reports) amendment adds one DA1-terminated round and is
+the one exception to permanent caching: color-scheme notifications and resume re-run it,
+and its late replies still apply, while DECRQM, Kitty keyboard, and Kitty graphics
+evidence stays cached.
+
 Public active-query entry points return the cached result once resolved, or an explicit
 in-progress result while the one generation runs; they do not emit indistinguishable
 repeated queries. This is why `.kittyIfAvailable` consults cached active keyboard evidence
@@ -6734,9 +6823,11 @@ Everything above this is the view library.
 ## Phase 4 — View layer (the `Tessera` module)
 
 Phase 4 builds the declarative view layer on top of the Phase 2–3 terminal substrate. It
-is the largest phase: seven slices. The API should read like SwiftUI to a Swift developer
-— `body`, result builders, modifier chains, environment — while the machinery underneath
-stays a plain, inspectable system you can dump, step, and unit test.
+is the largest phase: seven slices of technical contract plus Phase 2.5, built in the
+order that [Prerequisites and scheduling](#prerequisites-and-scheduling) sets. The API
+should read like SwiftUI to a Swift developer — `body`, result builders, modifier chains,
+environment — while the machinery underneath stays a plain, inspectable system you can
+dump, step, and unit test.
 
 The design thesis is **declarative at the edge, explicit in the core**:
 
@@ -6781,8 +6872,9 @@ a frame during its draw transaction. The `TesseraTerminal` and `Tessera` facade 
 files contain re-exports only; implementation code imports its narrow dependency directly.
 
 `TesseraWidgets` starts with the Slice 2 static `ScrollView` viewport and `SplitView`
-geometry, receives controlled responders in Slice 4, and completes its standard widget set
-in Slice 7. There is no temporary widget target.
+geometry, receives controlled responders once focus routing lands (plan 032 Phase 10), and
+completes its standard widget set with the remaining 1.0 views (plan 032 Phase 16). There
+is no temporary widget target.
 
 ### What Tessera keeps from SwiftUI, and what it deliberately rejects
 
@@ -6816,25 +6908,75 @@ Phase 4 deliberately starts only after the substrate it renders into exists:
 - **Slice 4** requires Phase 2 Slice 5 (`Key`, `KeyCode`, `Modifiers`, semantic key
   events). Kitty keyboard (Phase 3 Slice 4) improves it but is not a prerequisite.
 - **Slice 5** requires Phase 3 Slice 3 (SGR mouse events).
-- **Slice 7** exercises everything above it.
-- A future `Image` view — not yet a numbered Phase 4 slice — will require Phase 3 Slice 7
-  (the Kitty graphics protocol substrate: transmission, placement, and pixel geometry).
-  This is a forward pointer, not new Phase 4 scope.
+- **`Image`** requires Phase 3 Slice 7 (the Kitty graphics protocol substrate:
+  transmission, placement, and pixel geometry).
+- **Derived color roles** read Phase 3 Slice 6's
+  [terminal color reports](#terminal-color-reports). Without them every role resolves in
+  the `slots` tier of [design/tokens.md](../design/tokens.md#tiers), so the reports
+  improve Phase 4 styling but do not gate it.
 
-Phase 4 may interleave with Phase 3: slices 1–3 can land while Phase 3 protocol slices are
-still in flight, as long as Phase 2 is complete. Phase 2.5 is a deliberate geometry
-stabilization between Phase 4 slices 2 and 3, not a new terminal-substrate dependency.
+Slices 1 and 2 and Phase 2.5 are implemented. The rest of Phase 4 does not land slice by
+slice: it follows Phases 8–17 of
+[plan 032](../.agents/plans/032-omp2-reference-gallery-and-phase-4-redesign.md), which put
+layout, styling, focus, mouse, and ScrollView before the controls, then collections and
+SplitView, then the remaining 1.0 views and the intro app. The slice sections below stay
+the technical contracts; each names the plan phases that deliver it, and the
+[landing map](#phase-4-implementation-order-and-component-landing-map) lists them in
+order.
 
-Phase 4 components are exercised by small per-component demos that double as snapshot
-fixtures, assembled at the end into an intro app (the Showcase app was abandoned on
-2026-10-10; see `.agents/plans/032-omp2-reference-gallery-and-phase-4-redesign.md`). Each
-slice may use the smallest temporary scaffold needed to demonstrate its foundation, but
-deletes that scaffold at the later cutover that replaces it. The 1.0 public surface is
-`Button`, `Toggle`, `Picker`, `Stepper`, `TextField`, `List`, `ScrollView`, `Section`,
-`Table`, `SplitView`, and `NavigationSplitView`. `Form`, `Outline`, and source
-browsing/mapping are post-1.0. The Slice 2 static SplitView allocator is one such
-scaffold: Phase 2.5 deletes it before style, keyboard, and pointer behavior attach to pane
-geometry.
+Each component lands with its tests and a small standalone demo that runs live and renders
+headlessly at the `desktop` (80x24) and `mobile` (40x16) sizes of
+[design/tokens.md](../design/tokens.md#viewports); demo renders are snapshot fixtures.
+Plan 032 Phase 17 composes the demos into an intro app that adds navigation, not component
+behavior. A step may use the smallest temporary scaffold needed to demonstrate its
+foundation, but deletes that scaffold at the later cutover that replaces it: Phase 2.5
+deleted the Slice 2 static SplitView allocator before style, keyboard, and pointer
+behavior attached to pane geometry.
+
+#### The 1.0 surface
+
+Each catalog doc owns its component's contract and records what is in 1.0; this list
+gathers those decisions.
+
+- **Layout and decoration:** [`Text`](../design/primitives/text.md), the
+  [stacks](../design/primitives/stacks.md) and `Spacer`,
+  [`frame`](../design/primitives/frame.md), [`padding`](../design/primitives/padding.md),
+  [`ZStack`](../design/primitives/z-stack.md), [`Flex`](../design/primitives/flex.md),
+  [`Grid`](../design/primitives/grid.md), a flow layout, `ViewThatFits`,
+  [`Divider`](../design/primitives/divider.md), [borders](../design/primitives/border.md),
+  [`Box`](../design/primitives/box.md),
+  [`background`](../design/primitives/background.md),
+  [`overlay`](../design/primitives/overlay.md), the
+  [style modifiers](../design/primitives/style-modifiers.md),
+  [`ScrollIndicator`](../design/primitives/scroll-indicator.md), the
+  [leading rail](../design/primitives/leading-rail.md), and
+  [readable width](../design/primitives/readable-width.md).
+- **Controls:** [`Button`](../design/widgets/button.md),
+  [`Toggle`](../design/widgets/toggle.md), [`Picker`](../design/widgets/picker.md),
+  [`MultiPicker`](../design/widgets/multi-picker.md),
+  [`Stepper`](../design/widgets/stepper.md), and
+  [`TextField`](../design/widgets/text-field.md).
+- **Containers and collections:** [`ScrollView`](../design/widgets/scroll-view.md),
+  [`SplitView`](../design/widgets/split-view.md), [`List`](../design/widgets/list.md),
+  [`Section`](../design/widgets/section.md), [`Outline`](../design/widgets/outline.md)
+  (including path mode), [`Table`](../design/widgets/table.md),
+  [`TabView`](../design/widgets/tab-view.md), and [`Form`](../design/widgets/form.md).
+- **Status and content:** [`ProgressView`](../design/widgets/progress-view.md)
+  (determinate and indeterminate), [`Callout`](../design/widgets/callout.md),
+  [`LabeledContent`](../design/widgets/labeled-content.md),
+  [`Label`](../design/primitives/label.md) with the icon catalog,
+  [`Badge`](../design/primitives/badge.md),
+  [`KeyLegend`](../design/widgets/key-legend.md),
+  [`ContentUnavailableView`](../design/widgets/content-unavailable-view.md),
+  [`Markdown`](../design/widgets/markdown.md),
+  [`CodeView`](../design/widgets/code-view.md), and [`Image`](../design/widgets/image.md).
+
+[`NavigationSplitView`](../design/widgets/navigation-split-view.md) is post-1.0 (owner
+decision, 2026-10-09): 1.0 apps compose multi-column layouts from nested `SplitView`s.
+Source browsing and mapping are post-1.0 too, as is each deferral a catalog doc records
+(for example secure text entry and Stepper's `.compact` style). Application-owned text
+selection is decided in plan 032 step 11.3: Slice 5 either adopts its
+[catalog contract](../design/primitives/text-selection.md) or records its deferral.
 
 ### Architecture: three layers, four passes
 
@@ -6881,57 +7023,36 @@ Each pass is synchronous and pure-ish over the tree:
 This split is the transparency story: correctness lives in simple full passes plus the
 buffer diff; cleverness is opt-in later and always observable via diagnostics.
 
-#### Phase 4 slice sequencing and component landing map
+#### Phase 4 implementation order and component landing map
 
-The catalog owns component contracts; this map records only when their integration
-foundation lands and which deliberately narrow scaffold disappears at cutover.
+The catalog owns component contracts; this map records the order in which their
+integration lands. Rows 8–17 are the phases of
+[plan 032](../.agents/plans/032-omp2-reference-gallery-and-phase-4-redesign.md), run in
+sequence with an owner review after each; a step starts from a `ready` catalog doc, or
+finishes the doc first.
 
-| Slice/phase | Components landing                                                                                                                                                                                               | Temporary scaffold deleted at cutover                         |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| 1           | `View`, `ViewGraph`, reconciliation, `Text`, immutable local diagnostics snapshot                                                                                                                                | No-layout multi-child vertical stacking                       |
-| 2           | `Layout`, stacks, [`Divider`](../design/primitives/divider.md), static controlled [`SplitView`](../design/widgets/split-view.md) pane geometry, static [`ScrollView`](../design/widgets/scroll-view.md) viewport | Slice 1 vertical stacking                                     |
-| 2.5         | [`Flex`](../design/primitives/flex.md), final min/ideal/max SplitView negotiation, Showcase `23x10` minimum and negotiated columns                                                                               | Slice 2 static SplitView geometry                             |
-| 3           | Style plumbing, wrapping/truncation, border decoration, [`ScrollIndicator`](../design/primitives/scroll-indicator.md)                                                                                            | Ad hoc overflow decoration                                    |
-| 4           | [`Button`](../design/widgets/button.md), [`TextField`](../design/widgets/text-field.md) focus, `Toggle`, `Picker`, `Stepper`, ScrollView keyboard movement, SplitView keyboard resize                            | Static controls and non-interactive viewport/divider behavior |
-| 5           | Control clicks, TextField click-to-caret, SplitView pointer drag, ScrollView pointer input and boundary bubbling                                                                                                 | Keyboard-only control, viewport, and divider interaction      |
-| 6           | `Grid`, [`Table`](../design/widgets/table.md), [`NavigationSplitView`](../design/widgets/navigation-split-view.md)                                                                                               | Interim collection and responsive-role composition            |
-| 7           | [`List` and `Section`](../design/widgets/list.md), controlled TextField cutover, finalized control styles, Showcase and inspector integration                                                                    | Interim catalog/example composition                           |
+| Step      | Lands                                                                                                                                                                          | Contract                   |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------- |
+| Slice 1   | `View`, `ViewGraph`, reconciliation, `Text`, immutable local diagnostics snapshot (implemented)                                                                                | Slice 1                    |
+| Slice 2   | `Layout`, stacks, `Divider`, static controlled SplitView pane geometry, static ScrollView viewport (implemented)                                                               | Slice 2                    |
+| Phase 2.5 | `Flex`, final min/ideal/max SplitView negotiation (implemented)                                                                                                                | Phase 2.5                  |
+| 8         | Demo runner and headless driver; demos for the landed primitives                                                                                                               | Testing posture            |
+| 9         | Style environment, roles, and tones; `Text + Text` styled runs; wrapping and truncation; borders, `Box`, `background`, `overlay`, and the focus border; `ScrollIndicator`      | Slice 3                    |
+| 10        | Focus identity, traversal, and routing; focus appearance and focus scopes; `KeyLegend`                                                                                         | Slice 4                    |
+| 11        | Hit testing, click-to-focus, and pointer capture; hover and motion requirements; text selection or its deferral                                                                | Slice 5                    |
+| 12        | Interactive `ScrollView`: keyboard, wheel, boundary bubbling, and reveal on focus change                                                                                       | Slices 4 and 5             |
+| 13        | `Button`, `Toggle`, `Picker`, `MultiPicker`, `Stepper`, and `TextField` on a shared text editing core                                                                          | Slices 4, 5, and 7         |
+| 14        | Flow layout and `ViewThatFits`; `List` and `Section`; `Outline`; `Grid` and `Table`                                                                                            | Slices 6 and 7             |
+| 15        | Interactive `SplitView`: divider keyboard and pointer resizing, focus style                                                                                                    | Slices 4 and 5             |
+| 16        | Motion clock and tick requirement; `ProgressView`, `Callout`, `LabeledContent`, `Label`, `Badge`, `ContentUnavailableView`; `TabView`, `Form`, `Markdown`, `CodeView`, `Image` | Motion views               |
+| 17        | Intro app; catalog graduation to DocC; performance, platform, and quality checks                                                                                               | Phase 4 definition of done |
 
-```mermaid
-graph LR
-    S1["S1 ViewGraph + Text"] --> L["S2 Layout + stacks"]
-    L --> D["Divider"]
-    L --> SV0["static SplitView"]
-    D --> SV0
-    L --> SC0["static ScrollView viewport"]
-    L --> F25["Phase 2.5 Flex"]
-    SV0 --> SVN["final SplitView negotiation"]
-    F25 --> SVN
-    F25 --> S["S3 Style + text"]
-    S --> SI["ScrollIndicator"]
-    L --> SI
-    S --> FK["S4 focus/key routing"]
-    FK --> C["Button + Toggle + Picker + Stepper + TextField focus"]
-    S --> C
-    SVN --> SVK["SplitView keyboard resize"]
-    FK --> SVK
-    FK --> M["S5 mouse/hit testing"]
-    M --> I["control click + caret + divider drag + viewport wheel"]
-    FK --> I
-    SVN --> I
-    F25 --> G6["S6 Grid"]
-    G6 --> T["Table solver + indicator parity"]
-    SI --> T
-    SVN --> NSV["NavigationSplitView"]
-    G6 --> NSV
-    R["responsive role policy"] --> NSV
-    V["controlled visibility"] --> NSV
-    S7["S7 List + Section + Showcase"] -. "catalog composition only" .-> SH["Showcase"]
-```
-
-`NavigationSplitView` additionally requires Phase 2.5 final SplitView negotiation, the
-responsive role policy, generic role children, and controlled visibility; `List` and
-`Section` are Showcase-catalog composition, not strict NavigationSplitView dependencies.
+Three dependencies cut across the order. Form, the description layouts of Picker and
+MultiPicker, and ProgressView's label placement choose between arrangements with
+`ViewThatFits`, so they cannot reach `ready` before step 14.1 writes its catalog doc;
+Picker itself is scheduled earlier, in step 13.2. Markdown needs the `Text + Text` styled
+runs of step 9.1. List and Table reuse the ScrollIndicator geometry of step 9.4 and the
+interactive ScrollView of Phase 12.
 
 ### Testing posture: Tessera-native oracles
 
@@ -6946,6 +7067,9 @@ graded against this spec and Tessera's terminal substrate:
   input unless a user-installed handler says so.
 - Reconciliation tests count work that would otherwise be invisible: body evaluations,
   equatable skips, node creates/destroys, and `NodeState` lifetime.
+- Demo tests drive each component's standalone demo headlessly from a scripted list of
+  input events into `VirtualTerminal` and snapshot it at `desktop` (80x24) and `mobile`
+  (40x16); plan 032 Phase 8 builds that driver, so a demo's snapshot test is a few lines.
 - Absence is tested explicitly: no out-of-bounds writes, no hidden key handling, no stale
   focus, no terminal mode ownership in views, and no forbidden imports.
 
@@ -7268,7 +7392,7 @@ public enum ViewBuilder {
 }
 ```
 
-`TupleView` uses parameter packs — this is one of the Swift 6 showcase points. The Phase 0
+`TupleView` uses parameter packs — this is one of the Swift 6 highlights. The Phase 0
 Swift 6.3 probe compiled pack iteration, `~Copyable`/`~Escapable` borrowed-region lending
 (with the `Lifetimes` experimental feature), and generic opening of a `View` existential.
 The parameter-pack implementation remains selected; fixed-arity overloads up to 10 remain
@@ -7434,11 +7558,11 @@ diagnostics snapshot** from the most recently completed graph pass. Its schema i
 
 No other data enters this schema: it excludes controlled values, raw view values, raw
 input, raw terminal bytes, `NodeState`, closures, and borrowed regions. It is local-only
-and has no serialization, persistence, logging, telemetry, or remote transport. The
-Showcase inspector reads the immutable snapshot only; it cannot mutate the graph, retain a
-borrowed `RenderRegion`, change focus or state, or trigger a pass. The graph reports
-requested requirements; the session is the sole authority that decides and reports
-effective requirements in the snapshot.
+and has no serialization, persistence, logging, telemetry, or remote transport. A
+diagnostics inspector, wherever a demo or the intro app shows one, reads the immutable
+snapshot only; it cannot mutate the graph, retain a borrowed `RenderRegion`, change focus
+or state, or trigger a pass. The graph reports requested requirements; the session is the
+sole authority that decides and reports effective requirements in the snapshot.
 
 #### The reconciliation algorithm
 
@@ -7718,8 +7842,9 @@ The first [`ScrollView`](../design/widgets/scroll-view.md) measures content at i
 on each scrollable axis by proposing `nil` there, renders through a translated and clipped
 `RenderRegion`, and clamps a programmatic offset to content bounds on every layout. It
 shows static overflow only: it reserves no trailing or bottom edge unless that axis
-actually overflows. Keyboard input arrives in Slice 4 and pointer input plus boundary
-bubbling in Slice 5; this slice supplies their static controlled foundation.
+actually overflows. Keyboard, wheel, and pointer input with boundary bubbling arrive in
+plan 032 Phase 12 under the Slice 4 and Slice 5 contracts; this slice supplies their
+static controlled foundation.
 
 #### Invalidation semantics (graph-wide, defined here)
 
@@ -7856,25 +7981,17 @@ and pointer resizing in later slices update only the adjacent pair's controlled 
 preserve their pair total whenever both ranges permit, and use the immutable resolved
 frames from this single geometry path.
 
-#### Showcase responsive geometry
-
-The Showcase minimum is `23x10`; width below 23 **or** height below 10 renders the guard.
-At widths 73 and above, Catalog and Inspector use symmetric `23/24/24`
-minimum/ideal/maximum ranges with priority 1 while Playground uses `23/70/nil` at
-priority 0. Side panes therefore remain 24 cells and Playground absorbs shrink and
-surplus. Widths 48–72 use Catalog plus Playground; widths 23–47 show one full-screen role.
-`40x16` remains the canonical mobile fixture, not the minimum.
-
 #### Definition of done for Phase 2.5
 
 1. Flex's catalog document is `ready`; table tests cover every constraint, default,
    priority, remainder, over-constraint, validation, and overflow branch.
 2. Final SplitView negotiation deletes the static allocator and has exact min/ideal/max,
    collapse, clipping, resize, and controlled-state tests.
-3. Showcase fixtures bracket 23, 48, and 73 columns plus the independent 10-row guard,
-   while retaining canonical 40x16, 80x24, and 120x24 evidence.
-4. Grid, Table, and NavigationSplitView remain Slice 6 consumers of this established
-   geometry rather than pulling their unrelated scope forward.
+3. Pane-set breakpoints (which panes show at which width) are application policy, not
+   SplitView contract; the SplitView demo of plan 032 Phase 15 carries SplitView's
+   fixtures at the canonical 40x16 and 80x24 sizes.
+4. Grid and Table remain Slice 6 consumers of this established geometry rather than
+   pulling their unrelated scope forward.
 
 ---
 
@@ -7882,17 +7999,23 @@ surplus. Widths 48–72 use Catalog plus Playground; widths 23–47 show one ful
 
 #### What this slice proves
 
+The Lip Gloss-flavored ergonomics: styled text, borders, backgrounds, overlays — as
+modifier chains that lower to ordinary wrapper nodes with zero new machinery. Plan 032
+Phase 9 delivers this slice: the style environment, roles, tones, and styled runs (step
+9.1), wrapping and truncation (9.2), borders, `Box`, `background`, `overlay`, and the
+focus border (9.3), and `ScrollIndicator` (9.4).
+
 #### Catalog text boundary decisions
 
 `Text` normalizes each `\r\n` sequence to one source newline at its public initializer; a
-lone `\r` remains literal source text. Slice 3 exposes `TruncationMode.clip`, `.tail`,
-`.head`, and `.middle`; every marker replaces only whole extended grapheme clusters. Rich
-text spans, localized interpolation, and formatted values are out of Phase 4 1.0 and
-require a separate post-1.0 text-composition proposal; `Text` remains one immutable
-`String` leaf.
-
-The Lip Gloss-flavored ergonomics: styled text, borders, backgrounds, overlays — as
-modifier chains that lower to ordinary wrapper nodes with zero new machinery.
+lone `\r` remains literal source text. Slice 3 exposes `TruncationMode.tail` (the
+default), `.head`, `.middle`, and `.clip`; every marker replaces only whole extended
+grapheme clusters. Plan 032 step 9.1 schedules styled runs (`Text + Text`, measured once
+as one leaf), which Markdown needs; [Text](../design/primitives/text.md) still lists rich
+text segments as deferred, so that step settles their catalog contract first. Localized
+interpolation and formatted values are out of Phase 4 1.0 and require a separate post-1.0
+text-composition proposal; `Text` stays an immutable value and never becomes a mutable
+document model.
 
 #### Style chains and inheritance
 
@@ -7926,25 +8049,56 @@ sets the attribute off, which is sufficient and simpler.
 
 System styles and custom styles are both public. The environment selects a complete
 `Style` value through the same merge path; it does not introduce a parallel widget-style
-type. The five semantic roles — primary, secondary, accent, disabled, and destructive —
-are each complete `Style` values, never color aliases. Their token semantics belong to the
-[catalog tokens](../design/tokens.md); controls consume those resolved values rather than
-reconstructing colors or attributes.
+type. Every role in the [catalog tokens](../design/tokens.md#roles) — the text roles
+(`primary`, `secondary`, `border`, `disabled`, `focus`), the hue roles (`accent`, `info`,
+`success`, `warning`, `error`, `destructive`), and the fill and syntax roles — is a
+complete `Style` value, never a color alias. Their token semantics, color tiers, and
+derivation from the terminal's reported colors belong to the catalog tokens; controls
+consume those resolved values rather than reconstructing colors or attributes. Apps
+override any role for a subtree through the environment, and `.tint(_:)` overrides
+`accent`. Two more environment values select presentation, `\.colorScheme` and
+`\.charset`; both resolve under the Phase 3
+[protocol enablement policy](#protocol-enablement-policy).
 
 #### Text grows up
 
 ```swift
 public struct Text: View /* LeafView */ {
     public init(_ content: String)
-    public func wrapped(_ mode: TextWrapping) -> Text   // .none (default) | .word | .character
-    public func truncation(_ mode: TextTruncation) -> Text // .clip (default) | .tail("…")
+}
+
+public enum TruncationMode: Sendable, Equatable {
+    case tail     // default
+    case head
+    case middle
+    case clip     // Tessera-only: no mark
+}
+
+extension View {
+    /// Row budget; writes `EnvironmentValues.lineLimit` (default `nil`).
+    public func lineLimit(_ limit: Int?) -> some View
+    /// Last-row cut; writes `EnvironmentValues.truncationMode` (default `.tail`).
+    public func truncationMode(_ mode: TruncationMode) -> some View
 }
 ```
 
-Wrapping operates on grapheme clusters with Phase 2 width tables; word wrap breaks on
-Unicode word boundaries with a documented fallback to character wrap for words wider than
-the region. `sizeThatFits` and `render` must agree exactly — property-test this (measure,
-then render into exactly that size, assert no clipping occurred).
+Text wraps whenever its width is finite (owner decision, 2026-10-18): each source line
+breaks at Unicode word boundaries, measured in grapheme clusters with the Phase 2 width
+tables, and a word wider than the width breaks between grapheme clusters instead of being
+clipped. A nil width keeps each source line as one row. A finite height proposal and
+`lineLimit(n)` are row budgets, and the smaller wins; when the wrapped rows exceed the
+budget, Text fills it and only the last visible row, which carries the rest of its source
+line, ends in `truncation.mark` according to the truncation mode. `n` below 1 traps before
+layout. Both modifiers flow through the environment to content; chrome pins its own
+`.lineLimit(1)`. There is no wrapping-mode API: `.lineLimit(1)` replaces the old no-wrap
+mode, and character wrapping is dropped. Text owns the cut: given a rectangle smaller than
+it measured, it lays out again at that size, so overflow ends in the mark instead of a
+silent clip. [Text](../design/primitives/text.md#wrapping) owns the full rules, and the
+catalog's [wrap and truncation rules](../design/README.md#wrap-and-truncation) apply them
+to every component.
+
+`sizeThatFits` and `render` must agree exactly — property-test this (measure, then render
+into exactly that size, assert no clipping occurred).
 
 #### Decoration
 
@@ -7977,6 +8131,12 @@ decoration plumbing without changing its stack-derived geometry.
 `.link(URL)` (OSC 8, Phase 3 Slice 5) joins the chain here if that slice has landed — it
 is an environment-merged `Style` attribute like any other.
 
+The focus border is a border style, not a new mechanism: the rules of
+[Border](../design/primitives/border.md#focus-border) switch a focused view's ring to the
+heavy set in the `focus` role, and the nearest bordered ancestor of the focused view tints
+its ring at normal weight. Plan 032 step 9.3 lands the style; focus-appearance hosts apply
+it once focus exists (step 10.2).
+
 #### `ScrollIndicator`
 
 [`ScrollIndicator`](../design/primitives/scroll-indicator.md) is shared output-only
@@ -7997,7 +8157,8 @@ trailing or bottom edge only for an overflowing axis.
 #### Definition of done for slice 3
 
 1. `Style` fluent API lives on the buffer's `Style` type; environment inheritance,
-   system/custom plumbing, and the five complete semantic role `Style` values ship.
+   system/custom plumbing, and the complete role `Style` values of the catalog tokens
+   ship, with `\.colorScheme` and `\.charset` in the environment.
 2. Wrapping/truncation measurement and rendering agree, property-tested with wide and
    combining graphemes.
 3. Borders, `Box`, [`Divider`](../design/primitives/divider.md), `overlay`, and
@@ -8021,6 +8182,12 @@ trailing or bottom edge only for an overflowing axis.
 
 Input routing is explicit and inspectable: there is a focus list you can print, a
 documented routing order, and nothing else.
+
+Plan 032 Phase 10 delivers this slice: focus identity, traversal, and responder routing
+(step 10.1), focus appearance and focus scopes (10.2), and `KeyLegend` from declared key
+bindings (10.3). The keyboard paths of components are this slice's contract too, but land
+with the components: ScrollView in Phase 12, the controls in Phase 13, and SplitView in
+Phase 15.
 
 #### Focus model
 
@@ -8097,12 +8264,28 @@ cannot see app state — it is UI-scoped capability lending, per the ownership t
 Handlers run synchronously inside `dispatch`; async work belongs in the app's own
 machinery after `dispatch` returns.
 
+#### Focus appearance, focus scopes, and declared key bindings
+
+Focus appearance is delegated: a focus-appearance host, such as a bordered container or a
+control that paints its own focus cue, applies the Slice 3 focus border while focus is on
+it or within it. A focus scope traps traversal inside an overlay: `focusAdvance` cycles
+within the scope while it is presented, and dismissing the overlay restores focus to where
+it was ([design/inbox.md](../design/inbox.md)).
+
+Responders declare the keys they handle, each with a short description. A declaration
+describes a handler that exists; it installs no behavior and remaps no key, so the graph
+still routes without interpreting. [`KeyLegend`](../design/widgets/key-legend.md) renders
+the focused responder chain's declared bindings, `plain` by default with `keycaps` as an
+option, and drops whole entries by priority when narrow. Plan 032 step 10.3 settles the
+Swift spellings.
+
 #### Terminal requirements aggregation
 
 ```swift
 public struct TerminalRequirements: Sendable, Equatable {
     public var wantsKeyboardEnhancement: Bool   // Kitty protocol, if available
     public var wantsMouse: Bool                 // set by slice 5 handlers
+    public var wantsMouseMotion: Bool           // slice 5 hover handlers and row hover
     public var wantsBracketedPaste: Bool
     public var wantsFocusReporting: Bool
     public static func union(_ a: Self, _ b: Self) -> Self
@@ -8117,23 +8300,25 @@ concrete.
 
 #### Controls and focused viewport interaction
 
-[`Button`](../design/widgets/button.md), `Toggle`, `Picker`, and `Stepper` land as
-controlled responders: their catalog-owned contracts receive current values through
-`Binding` and report a user action by writing that binding or invoking their documented
-action. The graph supplies focus and routing only; it never manufactures a model value or
-interprets an unhandled key.
+[`Button`](../design/widgets/button.md), `Toggle`, `Picker`, `MultiPicker`, and `Stepper`
+are controlled responders (plan 032 Phase 13): their catalog-owned contracts receive
+current values through `Binding` and report a user action by writing that binding or
+invoking their documented action. The graph supplies focus and routing only; it never
+manufactures a model value or interprets an unhandled key.
 
-[`TextField`](../design/widgets/text-field.md) lands its focus behavior here. It
-participates in document-order focus, receives focused key and paste routing, and requests
-redraw through `ResponderContext`; the complete controlled editing cutover remains
-Slice 7. This preserves the rule that `NodeState` contains only ephemeral UI state.
+[`TextField`](../design/widgets/text-field.md) lands whole in plan 032 step 13.4, on a
+shared text editing core (grapheme-safe cursor, selection, and reveal). It participates in
+document-order focus, receives focused key and paste routing, and requests redraw through
+`ResponderContext`; its controlled editing contract is in Slice 7. This preserves the rule
+that `NodeState` contains only ephemeral UI state.
 
 The Slice 2 [`ScrollView`](../design/widgets/scroll-view.md) viewport gains keyboard
-movement. Focused movement changes its controlled offset (or its ephemeral offset where
-the catalog permits one) and clamps it to content bounds. The static
-[`SplitView`](../design/widgets/split-view.md) divider gains focused keyboard resize,
-writing its controlled pane state; pointer drag waits for Slice 5 and multi-pane
-negotiation waits for Slice 6.
+movement in plan 032 Phase 12. Focused movement changes its controlled offset (or its
+ephemeral offset where the catalog permits one) and clamps it to content bounds; the
+viewport takes focus only while it can scroll, and moving focus into hidden content
+scrolls that content into view. The [`SplitView`](../design/widgets/split-view.md) divider
+gains focused keyboard resize in plan 032 Phase 15, writing its controlled pane state
+through Phase 2.5's final negotiation.
 
 #### Tests
 
@@ -8151,11 +8336,13 @@ negotiation waits for Slice 6.
 1. `FocusManager`, `focusable`, `focused`, `onKey`, `ResponderContext`, `EventDisposition`
    ship with the normative routing order tested.
 2. No key is consumed by the graph without a user-installed handler.
-3. Button, Toggle, Picker, Stepper, TextField focus, ScrollView keyboard movement, and
-   focused-divider SplitView keyboard resize obey their controlled binding and routing
+3. Button, Toggle, Picker, MultiPicker, Stepper, TextField, ScrollView keyboard movement,
+   and focused-divider SplitView keyboard resize obey their controlled binding and routing
    rules.
 4. `TerminalRequirements` aggregation works end-to-end against a real `TerminalSession` in
-   an example app (focus two widgets, Tab between them).
+   the focus demo (focus two widgets, Tab between them).
+5. A focus scope traps traversal and restores focus on dismissal, and `KeyLegend` renders
+   the focused chain's declared bindings.
 
 #### Things to flag
 
@@ -8169,7 +8356,11 @@ negotiation waits for Slice 6.
 
 ### Slice 5: Mouse and hit testing
 
-Requires Phase 3 Slice 3 (SGR mouse events).
+Requires Phase 3 Slice 3 (SGR mouse events). Plan 032 Phase 11 delivers this slice: hit
+testing, click-to-focus, and pointer capture (step 11.1), hover and motion requirements
+(11.2), and the text selection decision (11.3). Each component's pointer path lands with
+the component: ScrollView in Phase 12, the controls in Phase 13, Table and List row hover
+in Phase 14, and SplitView in Phase 15.
 
 - Layout already records absolute frames; hit testing is deepest-first search of nodes
   containing the point, respecting clip rects and ZStack order (topmost first), skipping
@@ -8204,55 +8395,65 @@ Requires Phase 3 Slice 3 (SGR mouse events).
   keys. A primary-button press on a `.focusable` node focuses it before tap delivery
   (click-to-focus); this is the one built-in behavior, and it is documented and
   disableable (`.focusOnTap(false)` if real demand appears — do not pre-build it).
+- Pointer capture: the node that receives a primary-button press keeps receiving the drag
+  that follows until release or cancellation, even outside its frame or clip.
 - Presence of any mouse handler (`.onTap` or `.onMouse`) sets
   `terminalRequirements.wantsMouse`; presence of any `onHover` handler (or a widget that
-  requests motion directly) sets `terminalRequirements.wantsMouseMotion`. The session maps
-  these onto Phase 3's `MouseTracking`: `wantsMouseMotion` → `.mouseTracking(.anyEvent)`;
-  `wantsMouse` alone → `.mouseTracking(.buttonEvents)`; neither → mouse tracking disabled.
-  This extends the existing dynamic-disable behavior below to two escalating tiers instead
-  of one on/off switch.
+  requests motion directly) sets `terminalRequirements.wantsMouseMotion`. Table and List
+  request motion tracking for their default row hover while they are on screen;
+  `.rowHover(.disabled)`, a placeholder spelling that [Table](../design/widgets/table.md)
+  and [List](../design/widgets/list.md) settle, removes both the hover fill and the
+  request. The session maps these onto Phase 3's `MouseTracking`: `wantsMouseMotion` →
+  `.mouseTracking(.anyEvent)`; `wantsMouse` alone → `.mouseTracking(.buttonEvents)`;
+  neither → mouse tracking disabled. This extends the existing dynamic-disable behavior
+  below to two escalating tiers instead of one on/off switch.
 - Hover state clears on `focusLost` and whenever motion tracking disables — terminals give
   no mouse-leave signal, so a stuck "hovered" view is otherwise unavoidable once the
   pointer or focus moves away without a trailing event to notice.
+- Text selection: plan 032 step 11.3 records here either the application-owned selection
+  and copy contract ([Text selection](../design/primitives/text-selection.md)) or its
+  explicit deferral.
 - Tests: hit-test tables over constructed layouts (overlapping ZStack children, clipped
-  overflow, disabled subtrees); scroll-event routing; click-to-focus; hover enter/exit
-  tables over constructed `.move` position sequences; `wantsMouse`/`wantsMouseMotion`
-  escalation and de-escalation as handlers are added and removed.
+  overflow, disabled subtrees); scroll-event routing; click-to-focus; pointer capture
+  through release and cancellation; hover enter/exit tables over constructed `.move`
+  position sequences; `wantsMouse`/`wantsMouseMotion` escalation and de-escalation as
+  handlers and row-hovering collections are added and removed.
 
 #### Pointer cutover for controls, fields, panes, and viewports
 
 Control clicks activate the focused responder through the same controlled binding/action
-path as keyboard activation. [`TextField`](../design/widgets/text-field.md) gains the
-click-to-caret substrate: hit testing maps the visible grapheme-cell position to its
-ephemeral caret state without capturing the bound text. The static
-[`SplitView`](../design/widgets/split-view.md) divider gains pointer drag, which writes
-the controlled pane state and remains subject to the Slice 2 geometry until Slice 6
-replaces it.
+path as keyboard activation (plan 032 Phase 13).
+[`TextField`](../design/widgets/text-field.md) gains the click-to-caret substrate: hit
+testing maps the visible grapheme-cell position to its ephemeral caret state without
+capturing the bound text. The [`SplitView`](../design/widgets/split-view.md) divider gains
+pointer drag in plan 032 Phase 15; the drag holds pointer capture and writes the
+controlled pane state through Phase 2.5's final negotiation.
 
-[`ScrollView`](../design/widgets/scroll-view.md) gains complete pointer input. Wheel,
-track, and pointer sequences first attempt to change the clamped local offset; when the
-requested movement reaches a boundary, the viewport returns `.ignored` so the event
-bubbles to an eligible ancestor. This makes nested viewport boundaries explicit rather
-than silently swallowing motion.
+[`ScrollView`](../design/widgets/scroll-view.md) gains pointer input in plan 032 Phase 12.
+Wheel events first attempt to change the clamped local offset; when the requested movement
+reaches a boundary, the viewport returns `.ignored` so the event bubbles to an eligible
+ancestor. This makes nested viewport boundaries explicit rather than silently swallowing
+motion. Its indicators stay output-only in 1.0: clicks and drags on them return
+`.ignored`.
 
 #### Definition of done for slice 5
 
-Hit testing matches the table tests; an example app mixes keyboard and mouse focus;
-removing all mouse handlers drops `wantsMouse` and the session disables mouse mode
-mid-run; adding and removing `onHover` handlers escalates and de-escalates
+Hit testing matches the table tests; a pointer demo mixes keyboard and mouse focus; a
+press keeps its drag captured until release or cancellation; removing all mouse handlers
+drops `wantsMouse` and the session disables mouse mode mid-run; adding and removing
+`onHover` handlers, or Table and List rows with default hover, escalates and de-escalates
 `wantsMouseMotion` independently of `wantsMouse`; hover state clears correctly on focus
 loss and on motion-tracking disable. Control clicks, TextField click-to-caret, SplitView
-divider drag, and ScrollView pointer input with boundary bubbling have deterministic
-routing tests.
+divider drag, and ScrollView wheel input with boundary bubbling have deterministic routing
+tests. Text selection has a contract or a recorded deferral.
 
 ---
 
-<a id="slice-6-flex-grid-and-composition"></a>
-
-### Slice 6: `Grid`, `Table`, and `NavigationSplitView` composition
+### Slice 6: `Grid`, `Table`, and fitting
 
 Slice 6 consumes the Phase 2.5 Flex solver and final SplitView geometry; it does not
-reopen either allocator.
+reopen either allocator. Plan 032 Phase 14 delivers it: the flow layout and `ViewThatFits`
+in step 14.1, and `Grid` and `Table` in step 14.4.
 
 ```swift
 public struct Grid<Content: View>: View {
@@ -8271,18 +8472,33 @@ Lip Gloss's `Join`/`Place`/`Compose` vocabulary maps onto existing primitives:
 and `Compose` is `ZStack`. Document that mapping in DocC rather than shipping duplicate
 APIs.
 
-#### Table and NavigationSplitView
+#### Flow layout and `ViewThatFits`
+
+A flow layout places children along a row and starts a new row when the next child would
+pass the width; Picker's radio chips wrap this way and never clip. `ViewThatFits` chooses
+between candidate arrangements by whether each fits the proposal, honoring layout
+priority, so priority fitting is one shared mechanism rather than per-component rules.
+Form's stacked layout, the description layouts of Picker and MultiPicker, LabeledContent's
+stacked form, and ProgressView's label placement all choose through it. Step 14.1 writes
+its catalog doc (`design/primitives/view-that-fits.md`) before building it; the stack
+contract stays unchanged, because `HStack` never wraps.
+
+#### Table
 
 [`Table`](../design/widgets/table.md) resolves its columns through the Phase 2.5
 `FlexConstraint` representation rather than creating a competing solver. It consumes
 [`ScrollIndicator`](../design/primitives/scroll-indicator.md) output with the same
-overflow geometry as ScrollView, establishing indicator parity.
+overflow geometry as ScrollView, establishing indicator parity. Its styles (`.plain` by
+default, `.bordered`, and `.grid`), `.alternatingRowBackgrounds()`, sorting by column
+identity rather than title, and default row hover are catalog contract.
 
-[`NavigationSplitView`](../design/widgets/navigation-split-view.md) composes the final
-SplitView in regular layouts and the catalog-defined compact replacement when space
-contracts. Its composition accepts generic role children, uses controlled visibility, and
-depends on the responsive role policy plus final SplitView negotiation; `List` and
-`Section` remain Showcase composition rather than mandatory navigation dependencies.
+#### NavigationSplitView is post-1.0
+
+[`NavigationSplitView`](../design/widgets/navigation-split-view.md) moved out of 1.0
+(owner decision, 2026-10-09); 1.0 apps compose multi-column layouts from nested
+`SplitView`s. Its composition contract (generic role children, controlled visibility, and
+a responsive role policy over final SplitView negotiation) stays in the catalog until it
+is scheduled.
 
 #### Definition of done for slice 6
 
@@ -8290,21 +8506,24 @@ depends on the responsive role policy plus final SplitView negotiation; `List` a
    order while proving the shared Flex solver is the only allocator.
 2. [`Table`](../design/widgets/table.md) reuses the Flex representation for its column
    solver and has ScrollIndicator parity with ScrollView.
-3. [`NavigationSplitView`](../design/widgets/navigation-split-view.md) composes regular
-   and compact layouts from generic role children with controlled visibility.
+3. The flow layout and `ViewThatFits` meet their catalog contracts, and the components
+   that choose between arrangements do so only through `ViewThatFits`.
 
 ---
 
-### Slice 7: Catalog integration — List, Section, controlled widgets, and the Showcase
+### Slice 7: Catalog integration — List, Section, and controlled widgets
 
 This slice completes catalog integration rather than introducing another widget subsystem.
+Plan 032 delivers it with the components: the controls and TextField in Phase 13, and
+List, Section, and Outline in steps 14.2 and 14.3.
 [`List` and `Section`](../design/widgets/list.md) compose their catalog-owned selection,
-section, and overflow contracts into the graph;
-[`ScrollView`](../design/widgets/scroll-view.md) uses the same completed viewport and
-indicator behavior. Final system and custom control styles apply the Slice 3 complete
-semantic `Style` roles consistently across the public controls.
+section, and overflow contracts into the graph, and
+[`Outline`](../design/widgets/outline.md), including its path mode, does the same with
+controlled selection and expansion; [`ScrollView`](../design/widgets/scroll-view.md) uses
+the same completed viewport and indicator behavior. Final system and custom control styles
+apply the Slice 3 complete semantic `Style` roles consistently across the public controls.
 
-[`TextField`](../design/widgets/text-field.md) completes its public controlled cutover.
+[`TextField`](../design/widgets/text-field.md) completes its public controlled contract.
 Edits write through `Binding`; `NodeState` holds only the grapheme-safe cursor and reveal
 offset, clamps both on every bound-value update, and never retains the controlled text.
 Focused paste and dictation commits write through the binding, and submit routes through
@@ -8312,11 +8531,12 @@ the documented action. Rendering requests the hardware cursor at the resolved ca
 `RenderRegion.requestCursor(at:)`; the graph forwards the last focused request to the
 session draw and the session positions or hides the terminal cursor.
 
-The Phase 4 intro app composes the per-component demos for every 1.0 component. The graph
-requests `TerminalRequirements`; the session remains the authority that decides and
-reports effective requirements, including in the diagnostics snapshot.
+The intro app (plan 032 step 17.1) composes the per-component demos; it adds navigation,
+not component behavior. The graph requests `TerminalRequirements`; the session remains the
+authority that decides and reports effective requirements, including in the diagnostics
+snapshot.
 
-Widget tests remain deterministic state-machine tests with no terminal and no clocks:
+Widget tests remain deterministic state-machine tests with no terminal and no wall clock:
 build a graph, dispatch key/paste/pointer scripts, and assert bindings, ephemeral
 `NodeState` through test hooks, diagnostics snapshots, and chosen buffer snapshots.
 Grapheme cursor movement, bound-value replacement, paste/dictation commit, submit,
@@ -8324,12 +8544,13 @@ selection out of range, and session-effective requirements are mandatory cases.
 
 #### Definition of done for slice 7
 
-1. List and Section integrate their catalog contracts; all 1.0 controls have final
-   system/custom styles and remain controlled.
+1. List, Section, and Outline integrate their catalog contracts; all 1.0 controls have
+   final system/custom styles and remain controlled.
 2. TextField binding edits, grapheme-safe cursor/reveal state, paste/dictation commits,
    submit, and hardware-cursor requests have deterministic tests.
-3. The complete Tessera Showcase composes every 1.0 component, and its inspector reads the
-   immutable Slice 1 diagnostics snapshot without graph mutation or pass triggering.
+3. Every 1.0 component has a demo with snapshot coverage at `desktop` and `mobile` sizes,
+   and any diagnostics inspector reads the immutable Slice 1 snapshot without graph
+   mutation or pass triggering.
 4. Graph-requested and session-effective `TerminalRequirements` are demonstrably distinct
    values with session authority preserved.
 
@@ -8344,6 +8565,19 @@ selection out of range, and session-effective requirements are mandatory cases.
 
 ---
 
+### Motion views and the tick requirement
+
+Phase 4 has one motion path, delivered by plan 032 step 16.1. A motion view derives its
+frame from a clock environment value, an instant that the app or the Phase 5 runtime
+supplies, and stores no timer and no state: the indeterminate
+[`ProgressView`](../design/widgets/progress-view.md) spinner draws frame
+`(now / interval) mod frames.count`. Each motion view declares a tick requirement with its
+frame interval, and the graph aggregates it over live nodes like `TerminalRequirements`,
+so whoever drives the graph knows whether, and how often, to redraw. Tests set the clock
+and sample frames; nothing sleeps. Step 16.1 settles the Swift spellings of the clock
+value and the tick requirement. Tessera has no reduced-motion setting in 1.0
+([spinners](../design/tokens.md#spinners)).
+
 ### Phase 4 performance posture
 
 - Budgets (same spirit as Phase 2 Slice 4): full update+layout+render of a 200-node tree
@@ -8355,14 +8589,17 @@ selection out of range, and session-effective requirements are mandatory cases.
   audit). None of them may be taken early without a benchmark showing the simple pass
   missing budget, and any optimization must preserve the same `dump()`/`statistics`
   observability.
-- Animation is not Phase 4. If it lands later, app/model state jumps to the destination,
-  presentation state is derived from an explicit animation record and deterministic clock,
-  and tests sample the presentation values. A terminal runtime has no Core Animation
-  render server, so it must not promise off-main-thread animation smoothness.
+- General animation (transitions and interpolated presentation values) is not Phase 4;
+  only the clock-driven motion views above are. If it lands later, app/model state jumps
+  to the destination, presentation state is derived from an explicit animation record and
+  deterministic clock, and tests sample the presentation values. A terminal runtime has no
+  Core Animation render server, so it must not promise off-main-thread animation
+  smoothness.
 
 ### Definition of done for Phase 4
 
-1. All seven slices' definitions of done hold.
+1. All seven slices' definitions of done hold, and so does the acceptance of each step in
+   plan 032 Phases 8–17.
 2. The Phase 4 intro app, assembled from the per-component demos, is the integration
    proof: it composes the 1.0 surface with stacks, flex, borders, focus, mouse, and
    controlled widgets, driven by a plain model object — and by an `@Observable` variant —
@@ -8375,6 +8612,8 @@ selection out of range, and session-effective requirements are mandatory cases.
 5. The view layer never imports `TesseraTerminalIO`; everything reaches the terminal
    through `Frame`/`TerminalSession` and declared `TerminalRequirements`.
 6. View-layer targets do not import SwiftUI, AppKit, UIKit, or platform IO shims.
+7. Each implemented catalog doc has moved its durable content into DocC and is marked
+   `implemented`, and the performance budgets above hold.
 
 **End of Phase 4:** the library does what it says on the tin. You can build real TUI apps.
 

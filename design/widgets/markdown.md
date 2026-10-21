@@ -13,7 +13,7 @@ drawn by the [code view](code-view.md). Pipe tables are drawn by the [Table](tab
 renderer in its `grid` style, so the catalog has one table renderer.
 
 This widget follows the controlled-widget rule in
-[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase).
+[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
 The application owns the source string. Markdown owns only the rendered layout.
 
 Owner decision, omp2 review, 2026-10: Markdown is adopted for 1.0 as omp2 draws it, except

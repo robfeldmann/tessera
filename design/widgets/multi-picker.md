@@ -12,7 +12,7 @@ initializer or a style protocol. The application owns the options and the select
 through a binding; MultiPicker only derives which supplied options are checked and renders
 them. It retains no business data and never invents a selection. This is a widget-layer
 design following the controlled-widget rule in
-[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase),
+[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets),
 with explicit focus supplied by
 [Slice 4](../../docs/Spec.md#slice-4-focus-and-key-routing-the-responder-system) and
 pointer delivery supplied by [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing).

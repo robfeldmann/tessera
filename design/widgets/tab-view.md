@@ -19,7 +19,7 @@ narrow.
 
 The wireframes below are the accepted Tessera states, drawn from omp2's rendering with its
 theme roles renamed to Tessera roles. This widget follows the controlled-widget rule in
-[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase),
+[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets),
 takes its focus and key delivery from
 [Slice 4](../../docs/Spec.md#slice-4-focus-and-key-routing-the-responder-system), and its
 pointer delivery from [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing).

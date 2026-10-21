@@ -11,7 +11,7 @@ structure and forwards everything else -- its rows keep their own bindings, focu
 input untouched, and Section itself owns no data, selection, or expansion state. A header
 is a noninteractive label; supplying `isExpanded: Binding<Bool>` makes it collapsible,
 with the app owning that bit per the
-[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase)
+[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets)
 controlled-only rule. In 1.0 Section is legal only inside List; Form revisits standalone
 use post-1.0. There is no footer in 1.0.
 

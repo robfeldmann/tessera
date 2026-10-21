@@ -512,7 +512,7 @@ left with zero rows is absent (owner decision, 2026-10-18).
 - Slice 5 hit testing and mouse dispatch -- the click-to-caret dependency only; it does
   not expose public TextField pointer behavior before Slice 7.
 - `Binding` and `NodeState` -- controlled text and disposable cursor/reveal storage from
-  [Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase).
+  [Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
 
 ## Progressive slice availability
 

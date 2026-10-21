@@ -21,7 +21,7 @@ and the same width rules. Decisions attributed to "owner decision, omp2 review, 
 are the owner's answers on the reviewed omp2 components.
 
 Standard
-[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase)
+[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets)
 controlled-widget rule applies: the app owns the binding; the view derives its
 presentation.
 

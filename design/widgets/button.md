@@ -182,7 +182,7 @@ C  bg=accent
   ancestor wins. There is no public `.automatic`.
 - Closed set: `.filled`, `.tinted`, and `.plain` are the only emphasis styles in 1.0. An
   app-supplied `ButtonStyle` protocol is deferred with Toggle's `ToggleStyle` to the
-  [Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase)
+  [Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets)
   style contract (owner decision, 2026-10-10).
 
 Colour roles: the roles `primary`, `secondary`, `accent`, `focus`, `disabled`, and

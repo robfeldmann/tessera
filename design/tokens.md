@@ -112,8 +112,9 @@ identity never selects a charset. `TerminalCapabilities` reports Nerd Font cover
 
 The Glyph Protocol is deferred: Ghostty's `q` coverage query reports registered glyphs
 only, so it answers no for the symbols Ghostty bundles; kitty and WezTerm do not implement
-it; and the specification is still moving. Plan 032 step 7.1 carries the matching Spec
-sentence.
+it; and the specification is still moving. The Spec's
+[protocol enablement policy](../docs/Spec.md#protocol-enablement-policy) carries the
+matching sentence.
 
 Each glyph row falls back from Nerd Font to Unicode to ASCII (owner decision, 2026-10-10):
 a row with no glyph for the active charset uses the next charset's glyph. A cell that
@@ -149,10 +150,10 @@ What adapts to the scheme:
 
 ### Probe
 
-A design contract, not code, distilled from the step 5.3 OSC colour-query research and
-Spec.md L5314-5317: prefer a sentinel to wall-clock timeouts, a DA1 reply first means
-unsupported, a timeout means `.unknown`, not failure. Every rule below is an owner
-decision of 2026-10-19.
+A design contract, not code, distilled from the step 5.3 OSC colour-query research and the
+Spec's [startup rules](../docs/Spec.md#startup-behavior): prefer a sentinel to wall-clock
+timeouts, a DA1 reply first means unsupported, a timeout means `.unknown`, not failure.
+Every rule below is an owner decision of 2026-10-19.
 
 1. **When.** Once at startup in `.active` capability detection, inside the existing
    active-probe flush (`ActiveCapabilityProbeCoordinator`), again on each colour-scheme
@@ -179,8 +180,8 @@ decision of 2026-10-19.
    screen are unverified; screen is not expected to answer. A multiplexer can answer DA1
    before a forwarded OSC reply, which reads as unsupported. That failure is safe (the
    role falls to `slots`), and rule 5 upgrades it when the reply lands. Tessera never
-   wraps queries in DCS passthrough and never decides by terminal identity (Spec.md
-   L5265-5268).
+   wraps queries in DCS passthrough and never decides by terminal identity
+   ([Information sources](../docs/Spec.md#information-sources)).
 7. **Live updates.** Startup enables colour-scheme notifications with `CSI ? 2031 h` and
    registers `CSI ? 2031 l` with cleanup. Each `CSI ? 997 ; 1 n` (dark) or
    `CSI ? 997 ; 2 n` (light) re-runs the colour round of rule 2, re-resolves every role
@@ -194,8 +195,9 @@ Integration touchpoints (non-normative): the OSC bytes join
 colour-report event (no OSC parsing exists today); `TerminalCapabilities` gains the
 optional `fg`, `bg` and 16 slots; `TerminalApplicationConfiguration.activeProbeTimeout`
 changes default. Adopting this doc also moves "palette querying, theme detection, contrast
-correction" out of Slice 8's out-of-scope list (Spec.md L6114) and extends the semantic
-role list at Spec.md L7927-7932.
+correction" out of [Slice 8](../docs/Spec.md#slice-8-color-degradation-baseline)'s
+out-of-scope list and extends the semantic role list in
+[System and custom style plumbing](../docs/Spec.md#system-and-custom-style-plumbing).
 
 ### Overrides
 
@@ -369,10 +371,11 @@ Sources: the owner's Ghostty themes, Ghostty's bundled Catppuccin themes, and xt
 ## Roles
 
 Roles resolve to complete `Style` values through the environment, not to bare colours
-(Spec.md L7927-7932). System component styles consume them; apps may replace any role for
-a subtree. Roles are named bare in every doc and legend (`primary`, not
-`semantic.primary`) (owner decision, 2026-10-19). Whether a control is enabled, selected,
-focused or destructive stays semantic component state; roles only describe presentation.
+([System and custom style plumbing](../docs/Spec.md#system-and-custom-style-plumbing)).
+System component styles consume them; apps may replace any role for a subtree. Roles are
+named bare in every doc and legend (`primary`, not `semantic.primary`) (owner decision,
+2026-10-19). Whether a control is enabled, selected, focused or destructive stays semantic
+component state; roles only describe presentation.
 
 Columns: **Derived** uses the [neutral ladder](#neutral-ladder) and the
 [hue guard](#hue-guard). **Slots dark** also serves a terminal whose background is

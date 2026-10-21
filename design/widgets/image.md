@@ -12,7 +12,7 @@ supports the graphics protocol, the image is sent as pixels instead; that path b
 the [Kitty graphics substrate](../../docs/Spec.md#slice-7-kitty-graphics-protocol).
 
 This widget follows the controlled-widget rule in
-[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase).
+[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
 The application owns the source path. Image owns the decoded bitmap and its load phase.
 
 Owner decision, omp2 review, 2026-10: Image moves to 1.0 and is adopted as omp2 draws it,

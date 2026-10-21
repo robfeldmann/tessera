@@ -8,7 +8,7 @@ Format: `- YYYY-MM-DD -- thought`
 ## Entries
 
 - 2026-07-06 -- Table's column-width distribution is the same constraint problem as Grid's
-  ([Slice 6](../docs/Spec.md#slice-6-flex-grid-and-composition)). Design the solver once;
+  ([Slice 6](../docs/Spec.md#slice-6-grid-table-and-fitting)). Design the solver once;
   Table should be at least `wireframed` before Grid's API freezes.
 - 2026-07-06 -- SplitView is the right second widget exemplar: it uniquely exercises
   divider drag, min-size negotiation, and collapse (Slice 5 hit testing), none of which

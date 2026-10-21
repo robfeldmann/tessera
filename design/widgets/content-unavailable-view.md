@@ -15,7 +15,7 @@ search with no results, and error. Loading is not a case: a loading region is a 
 [ProgressView](progress-view.md), as in SwiftUI (owner decision, omp2 review, 2026-10).
 The app owns every string, icon, and action; the view stores nothing and is controlled.
 See
-[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase).
+[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
 
 ## Prior art
 

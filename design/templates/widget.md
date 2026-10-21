@@ -7,7 +7,7 @@ status: sketch
 
 One-paragraph overview: what it is, what it is for, and the one-sentence version of its
 state story (what the app owns vs what is ephemeral). Widgets are controlled; see
-[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase).
+[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
 
 ## Prior art
 
