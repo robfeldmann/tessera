@@ -1,0 +1,117 @@
+{
+  "Miniwinter Dark": {
+    "source": "The owner's Ghostty theme `Miniwinter Dark`",
+    "foreground": "#d8d4cd",
+    "background": "#11262d",
+    "palette": [
+      "#000f15",
+      "#f1b1b4",
+      "#a0d3ac",
+      "#c9c88f",
+      "#99cbf1",
+      "#dfb3dd",
+      "#88d4d5",
+      "#98948e",
+      "#485f67",
+      "#fac5c7",
+      "#b8e1c1",
+      "#d9d8aa",
+      "#b3daf9",
+      "#edc7e7",
+      "#a6e1e2",
+      "#f4f0e9"
+    ]
+  },
+  "Miniwinter Light": {
+    "source": "The owner's Ghostty theme `Miniwinter Light`",
+    "foreground": "#312e29",
+    "background": "#dce4e8",
+    "palette": [
+      "#0f0d09",
+      "#7d2934",
+      "#007439",
+      "#686400",
+      "#00669c",
+      "#603476",
+      "#006f71",
+      "#312e29",
+      "#4c4944",
+      "#5c1b24",
+      "#005a2b",
+      "#504d00",
+      "#004f7a",
+      "#442459",
+      "#005657",
+      "#211e1a"
+    ]
+  },
+  "Catppuccin Mocha": {
+    "source": "Ghostty's bundled theme `Catppuccin Mocha`",
+    "foreground": "#cdd6f4",
+    "background": "#1e1e2e",
+    "palette": [
+      "#45475a",
+      "#f38ba8",
+      "#a6e3a1",
+      "#f9e2af",
+      "#89b4fa",
+      "#f5c2e7",
+      "#94e2d5",
+      "#bac2de",
+      "#585b70",
+      "#f7aec2",
+      "#c2ecbf",
+      "#fcd682",
+      "#aeccfc",
+      "#f398da",
+      "#b1eae1",
+      "#a6adc8"
+    ]
+  },
+  "Catppuccin Latte": {
+    "source": "Ghostty's bundled theme `Catppuccin Latte`",
+    "foreground": "#4c4f69",
+    "background": "#eff1f5",
+    "palette": [
+      "#bcc0cc",
+      "#d20f39",
+      "#40a02b",
+      "#df8e1d",
+      "#1e66f5",
+      "#ea76cb",
+      "#179299",
+      "#5c5f77",
+      "#acb0be",
+      "#e7103f",
+      "#46b02f",
+      "#e49931",
+      "#3878f6",
+      "#ef95d7",
+      "#19a1a8",
+      "#6c6f85"
+    ]
+  },
+  "xterm (default)": {
+    "source": "xterm `XTerm-col.ad` color0-15 (https://github.com/ThomasDickey/xterm-snapshots/blob/master/XTerm-col.ad) with the VT100 default black on white",
+    "foreground": "#000000",
+    "background": "#ffffff",
+    "palette": [
+      "#000000",
+      "#cd0000",
+      "#00cd00",
+      "#cdcd00",
+      "#0000ee",
+      "#cd00cd",
+      "#00cdcd",
+      "#e5e5e5",
+      "#7f7f7f",
+      "#ff0000",
+      "#00ff00",
+      "#ffff00",
+      "#5c5cff",
+      "#ff00ff",
+      "#00ffff",
+      "#ffffff"
+    ]
+  }
+}

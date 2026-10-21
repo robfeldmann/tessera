@@ -508,10 +508,21 @@ classification (Phase 4) no longer gates capture.
 > anything below, decide with the owner where the kept pages live and how they are
 > separated from the third-party omp2 captures and prior-art inventories, which still get
 > removed.
+>
+> Done for the review site (2026-10-20): the Tessera pages became the component gallery,
+> `scripts/gallery-serve.py` plus `DevTools/gallery/`. It reads wireframe fences straight
+> from the catalog docs, renders colours with the final `design/tokens.md` rules, keeps
+> the Tokens page, and leaves empty Current and Previous slots for plan 033's
+> `.build/tessera-dev/` renders. The review site, its captures, labs and feedback
+> machinery, and the capture program are deleted. A local backup branch,
+> `backup/review-site-2026-10-20`, keeps all of it, including the gitignored `.build/`
+> decision logs. Still to remove here: `design/prior-art/` and
+> `design/omp2-assessment.md`, plus the `.codespellrc` `*/omp2-gallery/captures` skip and
+> `ans` word, which exist only for `design/prior-art/omp2-gallery/`, and the four
+> prior-art lines in `design/README.md`.
 
-- After 7.1-7.3 are committed, delete `design/prior-art/`, `design/omp2-review/`,
-  `DevTools/omp2-gallery/`, `scripts/omp2-gallery.sh`, `scripts/omp2-gallery-serve.py`,
-  and the cached checkout under `~/.cache/tessera/omp2/`.
+- After 7.1-7.3 are committed, delete `design/prior-art/` and the cached checkout under
+  `~/.cache/tessera/omp2/`.
 - Revert the edits made only for them: the `.codespellrc` skips for gallery captures,
   feedback, and wireframe text; the `.prettierignore` feedback entry; and the `prior-art/`
   lines in `design/README.md`.

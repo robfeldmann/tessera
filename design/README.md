@@ -329,6 +329,28 @@ npm run check:markup
 These repository-local commands run the pinned wireframe and Markdown-formatting gates; do
 not substitute globally installed `pnpx`, `prettier`, or markdownlint commands.
 
+## Component gallery
+
+```fish
+python3 scripts/gallery-serve.py   # http://127.0.0.1:8790/
+```
+
+The gallery lists every catalog doc by slug, grouped by folder, with its status, and shows
+each doc's wireframes. It reads the `wireframe` fences of `primitives/*.md` and
+`widgets/*.md` directly, so there is no second copy to keep in step, and a banner offers a
+reload when a doc changes. Each fence is one entry, labelled with the nearest heading, its
+`WxH` and its [viewport](tokens.md#viewports) name. A styled grid that follows the fence
+colours it for the theme chosen with `?theme=` (the five review themes in
+`DevTools/gallery/themes.json`), and its callouts show under it. `/tokens` draws the role
+swatches of [tokens.md](tokens.md) in its three tiers beside catalog samples on every
+theme. The script needs only the standard library; `--port` and `--host` change where it
+listens.
+
+Each entry also has empty **Current** and **Previous** slots for the renders of the real
+widgets. Later they read `.build/tessera-dev/<slug>/<index>-current.svg` and
+`<index>-previous.svg` as `tessera-dev` writes them (plan 033, Phase C), and say "not
+built yet" until then. The gallery only displays files; it never decides pass or fail.
+
 ## Index
 
 Statuses below are the documents' own. Plan 032 step 5.2 wrote the owner's omp2 review
