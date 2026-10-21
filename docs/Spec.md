@@ -7337,7 +7337,7 @@ The rules, exhaustively:
   public init(
       text: Binding<String>,
       prompt: Text? = nil,
-      onSubmit: @escaping (String) -> Void = { _ in },
+      onSubmit: (() -> Void)? = nil,
       @ViewBuilder label: @escaping () -> Label
   )
   ```

@@ -116,7 +116,8 @@ extension View {
   Callout's optional title and badge are.
 - Submit is the optional `onSubmit:` closure, because the control that submits owns it
   (key C3). It is `() -> Void`, following [Button](button.md)'s action, an owner decision
-  of 2026-10-10 for Button: the app reads the submitted text from its own binding.
+  of 2026-10-10 for Button: the app reads the submitted text from its own binding (owner
+  decision, 2026-10-21).
 - `.characterLimit(_:)` sets an environment value (key M7).
 - There is no `.textFieldStyle(_:)` in 1.0. The standard style is the one built-in look,
   and a closed set of one look has nothing to select (key B12). The `TextFieldStyle`
