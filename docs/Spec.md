@@ -7331,14 +7331,14 @@ The rules, exhaustively:
   public init(
       role: ButtonRole? = nil,
       action: @escaping () -> Void,
-      @ViewBuilder label: @escaping () -> Label
+      @ViewBuilder label: () -> Label
   )
 
   public init(
       text: Binding<String>,
-      prompt: Text? = nil,
+      prompt: String? = nil,
       onSubmit: (() -> Void)? = nil,
-      @ViewBuilder label: @escaping () -> Label
+      @ViewBuilder label: () -> Label
   )
   ```
 

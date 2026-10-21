@@ -71,8 +71,8 @@ neither a multiline editor nor secure entry in 1.0.
 
 ## API direction
 
-No owner decision fixes the signatures yet; they follow the
-[translation key](../translation-key.md) and catalog precedent:
+These signatures follow the [translation key](../translation-key.md) and catalog
+precedent; the owner adopted them for the Spec (owner decision, 2026-10-21):
 
 ```swift
 public struct TextField<Label: View>: View {
