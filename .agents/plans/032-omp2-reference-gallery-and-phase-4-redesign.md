@@ -484,13 +484,12 @@ classification (Phase 4) no longer gates capture.
   far as its gates allow. Two new primitives serve step 14.1: `design/primitives/flow.md`
   (a greedy wrapping row) and `design/primitives/view-that-fits.md` (the first candidate
   whose ideal size fits, else the last). Form, Picker, MultiPicker, LabeledContent,
-  ProgressView, and TabView build their arrangement choices on them. 38 of the 44
+  ProgressView, and TabView build their arrangement choices on them. 39 of the 44
   component docs are `ready` (the `design/README.md` index). Below `ready`: Grid
   (`specified`, owner questions on extra and bare cells, row spacing, and cell priority),
-  ProgressView (`specified`, the shimmer question, key L5), Markdown (`specified`, its
-  Phase 4 theses review), Image (`wireframed`, Kitty tier sizing and loader ownership),
-  Text selection (`sketch`, decided in step 11.3), and NavigationSplitView (`wireframed`,
-  post-1.0).
+  ProgressView (`specified`, the shimmer and elapsed-time question, key L5), Image
+  (`specified`, Kitty tier sizing and loader ownership), Text selection (`sketch`, decided
+  in step 11.3), and NavigationSplitView (`wireframed`, post-1.0).
 
 ### Step 7.2 — Amend `docs/Spec.md` Phase 4 and `design/tokens.md`
 

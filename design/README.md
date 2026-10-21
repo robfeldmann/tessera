@@ -439,14 +439,14 @@ column names the gate that still holds it.
 | [Form](widgets/form.md)                                       | widget    | ready      | —                                                               |
 | [Frame](primitives/frame.md)                                  | primitive | ready      | —                                                               |
 | [Grid](primitives/grid.md)                                    | primitive | specified  | owner answers: extra and bare cells, row spacing, cell priority |
-| [Image](widgets/image.md)                                     | widget    | wireframed | Kitty tier sizing and loader ownership (key M5, D2)             |
+| [Image](widgets/image.md)                                     | widget    | specified  | Kitty tier sizing and loader ownership (key M5, D2)             |
 | [KeyLegend](widgets/key-legend.md)                            | widget    | ready      | —                                                               |
 | [Label](primitives/label.md)                                  | primitive | ready      | —                                                               |
 | [LabeledContent](widgets/labeled-content.md)                  | widget    | ready      | —                                                               |
 | [Leading rail](primitives/leading-rail.md)                    | primitive | ready      | —                                                               |
 | [Linear stacks](primitives/stacks.md)                         | primitive | ready      | —                                                               |
 | [List](widgets/list.md)                                       | widget    | ready      | —                                                               |
-| [Markdown](widgets/markdown.md)                               | widget    | specified  | Phase 4 theses review                                           |
+| [Markdown](widgets/markdown.md)                               | widget    | ready      | —                                                               |
 | [MultiPicker](widgets/multi-picker.md)                        | widget    | ready      | —                                                               |
 | [NavigationSplitView](widgets/navigation-split-view.md)       | widget    | wireframed | post-1.0 (owner decision, 2026-10-10)                           |
 | [Outline](widgets/outline.md)                                 | widget    | ready      | —                                                               |

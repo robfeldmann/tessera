@@ -1,6 +1,6 @@
 ---
 kind: widget
-status: specified
+status: ready
 ---
 
 # Markdown
@@ -536,21 +536,27 @@ with a nil or unbounded height every row shows. A finite height is a row budget
 ([Text](../primitives/text.md#row-budget)): rows past it are not drawn, and when a text
 row is the last visible one it is re-laid as the rest of its source line and ends in `…`.
 A code or table row at the cut clips with no mark (non-text geometry). There is no minimum
-width (owner decision, 2026-10-10); see Minimum. Rows use the Anatomy block as the
-fixture.
+width (owner decision, 2026-10-10); see Minimum. Rows use the Anatomy block as the fixture
+unless the proposal names another state's block. Broken words follow
+[Text](../primitives/text.md#wrapping): a word wider than the width, such as a URL, breaks
+between grapheme clusters and is never clipped.
 
-| Proposal                      | Result | Rule                                                                                                                                                       |
-| ----------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| nil x nil                     | 69x8   | A nil width proposes the 72-cell readable width to prose and reports the widest row (69); height is every row (owner decision, 2026-10-18)                 |
-| 72 x nil (tight)              | 72x8   | Tight: prose wraps at 72 and the height is every row                                                                                                       |
-| 80 x nil                      | 72x8   | Prose capped at 72, leading-aligned; same wrapped rows as Anatomy                                                                                          |
-| 100 x nil (over-maximum)      | 72x8   | Prose capped at 72; it does not fill the proposal and the wrapped rows are the same as at 72                                                               |
-| 100 x nil, code line 90 cells | 100x n | Prose wraps at 72 and the code line is not capped, so it shows all 90 cells; both start at c0 (width is the widest block)                                  |
-| 100 x nil, pipe table         | 72 x n | The 31-column table fits under the cap and the prose sets the width; a table wider than 72 would extend to its natural width up to 100                     |
-| 40 x nil                      | 40x11  | Under the cap the column is the proposal; paragraphs re-wrap to 11 rows (Mobile)                                                                           |
-| 12 x nil (under-minimum)      | 12 x n | Width = proposal; height = wrapped rows. A word wider than 12 breaks between grapheme clusters, never clipped (owner decisions, 2026-10-10 and 2026-10-18) |
-| 72 x 3 (fixed height)         | 72x3   | Three-row budget: heading, spacer, and the first paragraph row re-laid as its whole source line cut at 71 cells plus `…`                                   |
-| 24 x nil                      | 24 x n | Items and quotes wrap with hanging indents and repeated rails (Wrapped items); a pipe table follows Table's narrow-width rules                             |
+| Proposal                 | Result | Rule                                                                                                                                                                                                                                                                           |
+| ------------------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| nil x nil                | 69x8   | A nil width proposes the 72-cell readable width to prose and reports the widest row (69); height is every row (owner decision, 2026-10-18)                                                                                                                                     |
+| 72 x nil (tight)         | 72x8   | Tight: prose wraps at 72 and the height is every row                                                                                                                                                                                                                           |
+| 80 x nil                 | 72x8   | Prose capped at 72, leading-aligned; same wrapped rows as Anatomy                                                                                                                                                                                                              |
+| 100 x nil (over-maximum) | 72x8   | Prose capped at 72; it does not fill the proposal and the wrapped rows are the same as at 72                                                                                                                                                                                   |
+| 100 x nil (Fenced code)  | 100x7  | Fenced code fixture. The paragraph is capped at 72; the code block is not capped and fills the proposal, as CodeView fills an over-maximum proposal, so a code line up to 98 cells after its two-column indent shows whole; both start at c0 and the width is the widest block |
+| 100 x nil (Pipe table)   | 31x9   | Pipe table fixture. The table is not capped by the readable width and draws at its natural 31 columns, as in the Pipe table state; a table wider than 72 extends to its natural width, up to 100                                                                               |
+| 40 x nil                 | 40x11  | Under the cap the column is the proposal; paragraphs re-wrap to 11 rows (Mobile)                                                                                                                                                                                               |
+| 12 x nil (under-minimum) | 12x24  | Width = proposal. Rows: heading 2, spacer, paragraph 12 (the 31-cell URL breaks between grapheme clusters, never clipped), spacer, heading 1, spacer, paragraph 6 (owner decisions, 2026-10-10 and 2026-10-18)                                                                 |
+| 72 x 3 (fixed height)    | 72x3   | Three-row budget: heading, spacer, and the first paragraph row re-laid as its whole source line cut at 71 cells plus `…`                                                                                                                                                       |
+| 24 x nil (Wrapped items) | 24x7   | Wrapped items fixture: items and quotes wrap with hanging indents and repeated rails at the 24-cell proposal; height is every row                                                                                                                                              |
+
+The `12 x nil` count holds whichever row the URL starts on and whether its last fragment
+shares a row with the next word: text.md does not say either, and at 12 columns both
+readings give the paragraph 12 rows.
 
 ## Environment
 
@@ -594,8 +600,8 @@ above.
 - `markdown re-wraps paragraphs at the proposed width and keeps run roles` (Mobile)
 - `markdown caps prose width at the readable width, 72 by default, and does not fill a wider proposal`
   (Sizing 80 x nil, 100 x nil; owner decision, 2026-10-18)
-- `markdown does not cap fenced code or pipe tables at the readable width` (Sizing, 100 x
-  nil with a code line; owner decision, 2026-10-18)
+- `markdown does not cap fenced code or pipe tables at the readable width` (Sizing 100 x
+  nil (Fenced code), 100 x nil (Pipe table); owner decision, 2026-10-18)
 - `markdown reports the widest row at the readable width for a nil x nil proposal` (Sizing
   nil x nil; owner decision, 2026-10-18)
 - `markdown ends the last visible text row in an ellipsis under a fixed height` (Sizing 72
@@ -620,13 +626,17 @@ above.
 - `markdown renders a pipe table through the table grid style` (Pipe table callout 1)
 - `markdown aligns pipe table columns left, centre and right as written` (Pipe table
   callouts 4, 5)
-- `markdown does not typeset math` (owner decision, omp2 review, 2026-10)
 - `markdown renders the full layout again when the source string changes` (State model;
   owner decision, 2026-10-10)
 - `markdown does not reveal streamed source in 1.0` (State model; owner decision,
   2026-10-10)
-- `markdown breaks a word wider than the width between grapheme clusters` (Minimum; owner
-  decisions, 2026-10-10 and 2026-10-18)
+- `markdown breaks a word wider than the width between grapheme clusters` (Minimum; Sizing
+  12 x nil; owner decisions, 2026-10-10 and 2026-10-18)
+- `markdown wraps the anatomy block to 24 rows at 12 columns` (Sizing 12 x nil)
+- `markdown code block fills a proposal wider than the readable width` (Sizing 100 x nil
+  (Fenced code))
+- `markdown draws a pipe table at its natural width` (Sizing 100 x nil (Pipe table); Pipe
+  table)
 
 ## Degradation
 

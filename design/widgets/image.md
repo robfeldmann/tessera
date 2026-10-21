@@ -1,6 +1,6 @@
 ---
 kind: widget
-status: wireframed
+status: specified
 ---
 
 # Image
@@ -425,17 +425,20 @@ Sized state shows.
 
 Layout reserves the requested frame, and the drawn image sits inside it. omp2 measures a
 Cells-mode Image at the requested width, even when `max-rows` draws it narrower; Tessera
-follows the reservation rule instead (owner decision, 2026-10-10).
+follows the reservation rule instead (owner decision, 2026-10-10). Rows use the 64 by 64
+pixel logo of the Anatomy.
 
-| Proposal           | Result                                                    | Rule                                                                                                                                                               |
-| ------------------ | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| nil x nil          | pixel width x (pixel height / 2) cells, capped by maxRows | 64 x 64 source: 64 x 32; with `maxRows` 8: 16 x 8, the width narrows to keep the aspect ratio                                                                      |
-| tight              | the requested frame                                       | Layout reserves the requested frame; the drawn image fits inside it, aspect ratio kept                                                                             |
-| under-minimum      | the requested frame                                       | Layout reserves the requested frame; the drawn width floors at one cell, as in Minimum                                                                             |
-| over-maximum       | the requested frame                                       | Layout reserves the requested frame; the image draws at its fitted size and spare cells stay blank                                                                 |
-| 80 x n             | Fits                                                      | Box keeps aspect ratio; the Sized row fits                                                                                                                         |
-| 40 x n             | Fits                                                      | Box keeps aspect ratio; the Sized row compresses at 40                                                                                                             |
-| `Boxed`, any frame | the requested frame                                       | The label wraps within the frame at its width less two cells; rows past the frame height are cut and the last visible row ends in `…` (owner decision, 2026-10-18) |
+| Proposal               | Result | Rule                                                                                                                                                                        |
+| ---------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| nil x nil              | 64x32  | Natural size: one cell per pixel column and two pixel rows per cell                                                                                                         |
+| nil x nil, `maxRows` 8 | 16x8   | `maxRows` caps the height at 8 rows (16 pixel rows), and the width narrows to 16 to keep the aspect ratio                                                                   |
+| 32x16 (tight)          | 32x16  | The Anatomy box: the source scales to 32 by 32 pixels and fills the box exactly                                                                                             |
+| 0x0 (under-minimum)    | 0x0    | Layout reserves the proposed box; the drawn width floors at one cell, as in Minimum, and the empty region clips it                                                          |
+| 80x16 (over-maximum)   | 80x16  | Layout reserves the proposed box; the image fits by height to 32x16, and the spare 48 columns stay blank                                                                    |
+| 32 x nil, `maxRows` 8  | 32x8   | Sized, left image at 80 columns: the 32-cell width is reserved, and the drawn image narrows to 16x8 (owner decision, 2026-10-10)                                            |
+| 21 x nil, `maxRows` 8  | 21x8   | Sized, left image at 40 columns, where the row leaves it 21 cells: the drawn image stays 16x8                                                                               |
+| 16x8                   | 16x8   | Sized, right image: the source scales to 16 by 16 pixels and fills the box                                                                                                  |
+| 32x16 (`Boxed`)        | 32x16  | The same box as the placeholder; the label wraps within it at 30 cells, rows past the box height are cut, and the last visible row ends in `…` (owner decision, 2026-10-18) |
 
 ## Environment
 
@@ -471,7 +474,8 @@ above.
 - `image draws two pixel rows per cell with half-block glyphs` (Anatomy callout 3)
 - `image leaves transparent margins as blank cells inside its box` (Anatomy callouts 2
   and 4)
-- `image keeps the aspect ratio when it fits the requested box` (Sized)
+- `image keeps the aspect ratio when it fits the requested box` (Sized; Sizing 32x16,
+  80x16, 16x8)
 - `image narrows its drawn width to fit max-rows` (Sized callout 1)
 - `image trim crops fully transparent margins before sampling` (Trim)
 - `image draws a ░ placeholder box in border with secondary Loading… text centred until the load phase is Ready`
@@ -488,9 +492,12 @@ above.
 - `image draws its minimum state at 8 by 4 cells, with a one-cell floor` (Minimum)
 - `image takes no focus, keys or pointer input in 1.0; apps wrap it in a Button` (Key
   table; Mouse table)
-- `image reserves the requested frame for nil, tight, under-minimum and over-maximum proposals`
-  (Sizing)
-- `image nil x nil size is pixel width by half pixel height, capped by maxRows` (Sizing)
+- `image reserves the proposed box for tight, under-minimum and over-maximum proposals`
+  (Sizing 32x16, 0x0, 80x16)
+- `image nil x nil size is pixel width by half pixel height, capped by maxRows` (Sizing
+  nil x nil, nil x nil with `maxRows` 8)
+- `image keeps its reserved width when maxRows narrows the drawn image` (Sizing 32 x nil
+  and 21 x nil with `maxRows` 8; owner decision, 2026-10-10)
 - `image draws 16-colour cells as the nearest indexed colour per pixel` (Degradation)
 - `image draws density art from the ten-step ramp under NO_COLOR` (Degradation)
 - `image draws the placeholder fill as . under the ASCII charset` (Degradation)
