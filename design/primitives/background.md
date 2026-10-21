@@ -155,10 +155,9 @@ opaque, or sparse; none of those properties changes the primary child's reported
 ## Environment
 
 Background consumes no token and introduces no state. It forwards the same environment to
-both layers, including any descendant use of `semantic.primary`, `semantic.secondary`,
-`semantic.accent`, `semantic.disabled`, or `semantic.destructive`. The wrapper itself owns
-no glyph, color, or style; descendants resolve styles through the single buffer `Style`
-type.
+both layers, including any descendant use of `primary`, `secondary`, `accent`, `disabled`,
+or `destructive`. The wrapper itself owns no glyph, color, or style; descendants resolve
+styles through the single buffer `Style` type.
 
 ## Requirements
 

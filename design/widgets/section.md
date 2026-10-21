@@ -73,11 +73,12 @@ not the section has a header; sectionless List rows stay flush.
 
 ```text
 Callouts (24x6, 0-based):
-1. r0       Header -- Text `semantic.secondary`; noninteractive except collapse; the
+1. r0       Header -- Text `secondary`; noninteractive except collapse; the
             disclosure glyph `disclosure.expanded` occupies the host List's gutter column;
             chrome, one row (wrap exception)
 2. r0 c0    Disclosure -- `disclosure.expanded` / `disclosure.collapsed`; rendered only
-            when an expansion binding is supplied; chrome, one row
+            when an expansion binding is supplied, drawn in `secondary`
+            ([marks](../tokens.md#marks)); chrome, one row
 3. r1-r3    Grouped rows -- forwarded row content, indented two columns; selection and
             focus belong to the host List and the rows themselves; content, wraps (as
             List rows)
@@ -151,7 +152,7 @@ Degradation is glyph-only: the collapsed/expanded disclosure becomes `+`/`-` in 
 | expansion         | Binding     | `Bool` (optional param) | app-owned; absent binding means always expanded; Section never writes it except for the header-click row below                              |
 | collapsibility    | derived     | `Bool`                  | structural: true exactly when an expansion binding was supplied at init; decides whether a disclosure glyph renders                         |
 | rows              | derived     | forwarded content       | recomputed from the app's content builder on every update; contributes nothing to the flattened list when collapsed                         |
-| header styling    | Environment | `semantic.secondary`    | header text default                                                                                                                         |
+| header styling    | Environment | `secondary`             | header text default                                                                                                                         |
 | header line limit | Environment | `Int?` pinned to 1      | Section pins `lineLimit(1)` on the header Text (Wrap exception); an inherited app `lineLimit` reaches the grouped rows and never the header |
 | disclosure glyphs | Environment | `disclosure.*` tokens   | expanded/collapsed pair; ASCII pair below capability                                                                                        |
 
@@ -198,9 +199,9 @@ An empty section is header + 0 rows (height 1); a headerless section is rows onl
 
 ## Environment
 
-- `semantic.secondary` -- header text default
-- `disclosure.expanded`, `disclosure.collapsed`, `disclosure.ascii`
-  ([tokens](../tokens.md#disclosure))
+- `secondary` -- header text default
+- `disclosure.expanded`, `disclosure.collapsed` (ASCII `-` / `+`)
+  ([Marks](../tokens.md#marks))
 - `truncation.mark`
 - `lineLimit` / `truncationMode` (environment) -- reach the grouped rows; the header pins
   its own `lineLimit(1)`
@@ -238,12 +239,14 @@ An empty section is header + 0 rows (height 1); a headerless section is rows onl
   sizing: 12 x nil)
 - `narrow width wraps the rows and keeps the header on one row` (sizing: 12 x nil)
 - `ascii disclosure glyphs substitute below capability` (states: degradation)
+- `disclosure glyph draws in secondary` (anatomy: callout 2; [marks](../tokens.md#marks))
 
 ## Degradation
 
 - `NO_COLOR`: header falls back to dim; disclosure glyphs unchanged.
 - 16-color: unchanged.
-- ASCII-only: `disclosure.ascii` -- `-` expanded, `+` collapsed; `~` truncation mark.
+- ASCII-only: `disclosure.*` draws `-` expanded, `+` collapsed
+  ([Marks](../tokens.md#marks)); `~` truncation mark.
 - Below `min` (8x2): tail-truncated header, rows breaking between graphemes, never a
   layout failure.
 

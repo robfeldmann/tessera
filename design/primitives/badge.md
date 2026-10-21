@@ -85,8 +85,8 @@ HHHHHHHHHklk..klllk
 ── legend ──
 .  default
 H  fg=secondary bold
-a  fg=muted
-b  fg=contrast bg=muted bold
+a  fg=secondary
+b  fg=contrast bg=secondary bold
 c  fg=accent
 d  fg=contrast bg=accent bold
 e  fg=info
@@ -101,14 +101,14 @@ l  fg=contrast bg=error bold
 
 ### Tones
 
-| Tone      | Caps and fill role | Label           | Token                            |
-| --------- | ------------------ | --------------- | -------------------------------- |
-| `neutral` | `muted`            | `contrast` bold | token pending plan 032 step 5.3  |
-| `accent`  | `accent`           | `contrast` bold | `semantic.accent` (in tokens.md) |
-| `info`    | `info`             | `contrast` bold | token pending plan 032 step 5.3  |
-| `success` | `success`          | `contrast` bold | token pending plan 032 step 5.3  |
-| `warning` | `warning`          | `contrast` bold | token pending plan 032 step 5.3  |
-| `error`   | `error`            | `contrast` bold | token pending plan 032 step 5.3  |
+| Tone      | Caps and fill role | Label           | Token              |
+| --------- | ------------------ | --------------- | ------------------ |
+| `neutral` | `secondary`        | `contrast` bold | `solid(secondary)` |
+| `accent`  | `accent`           | `contrast` bold | `solid(accent)`    |
+| `info`    | `info`             | `contrast` bold | `solid(info)`      |
+| `success` | `success`          | `contrast` bold | `solid(success)`   |
+| `warning` | `warning`          | `contrast` bold | `solid(warning)`   |
+| `error`   | `error`            | `contrast` bold | `solid(error)`     |
 
 `neutral` is the default tone, and counts use it (owner decision, omp2 review, 2026-10;
 confirmed 2026-10-10 for every count in context).
@@ -158,8 +158,8 @@ HHHHHHHHHklk..klllk
 ── legend ──
 .  default
 H  fg=secondary bold
-a  fg=muted
-b  fg=contrast bg=muted bold
+a  fg=secondary
+b  fg=contrast bg=secondary bold
 c  fg=accent
 d  fg=contrast bg=accent bold
 e  fg=info
@@ -210,7 +210,7 @@ HHHHHHHHHkkk..kkkkk
 ── legend ──
 .  default
 H  fg=secondary bold
-a  fg=muted
+a  fg=secondary
 c  fg=accent
 e  fg=info
 g  fg=success
@@ -234,11 +234,11 @@ Drafts                               ▐3▌
 ```text
 Callouts (40x5, 0-based):
 1. r0 c36-c39  Count badge, neutral -- trailing row content from `.badge(_:)`; the default
-               tone for a count; `muted` fill
+               tone for a count; `secondary` fill
 2. r1 c37-c39  Count badge, neutral -- the same tone at one digit
 3. r3 c0       Callout icon -- warning icon in `warning`
 4. r3 c2-c14   Callout title -- bold `warning`
-5. r3 c16-c23  Warning badge -- `1 note` in the `warning` tone, in place of the muted header
+5. r3 c16-c23  Warning badge -- `1 note` in the `warning` tone, in place of the secondary header
                text
 6. r4          Callout body -- rail `│` in column 0 under the icon (owner decision, 2026-10-18) and text in `warning`
 ```
@@ -261,8 +261,8 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 P  fg=primary
 W  fg=warning
 w  fg=warning bold
-a  fg=muted
-b  fg=contrast bg=muted bold
+a  fg=secondary
+b  fg=contrast bg=secondary bold
 i  fg=warning
 j  fg=contrast bg=warning bold
 ```
@@ -324,10 +324,10 @@ under-minimum, over-maximum. Badge mirrors Button's sizing rows (owner decision,
 
 ## Environment
 
-- Tone fill and cap roles: `muted`, `accent`, `info`, `success`, `warning`, `error`. Only
-  `semantic.accent` is in [tokens.md](../tokens.md); the rest are token pending plan 032
-  step 5.3.
-- Label role `contrast` bold: token pending plan 032 step 5.3.
+- Tone fill and cap roles: `secondary` (neutral), `accent`, `info`, `success`, `warning`,
+  `error`, each as `solid(R)` ([composite styles](../tokens.md#composite-styles)).
+- Label role `contrast` bold: `on(R)` inside `solid(R)`
+  ([composite styles](../tokens.md#composite-styles)).
 - Caps: U+E0B6 and U+E0B4 with a Nerd Font when `.capsule` is chosen; `▐` and `▌` for the
   default `.squared` shape without a Nerd Font; nothing in ASCII, which uses `[` and `]`.
   Glyphs as in [Button](../widgets/button.md#shape).
@@ -358,6 +358,8 @@ under-minimum, over-maximum. Badge mirrors Button's sizing rows (owner decision,
   rows; anatomy: callout 2; Wrap exception)
 - `row badge trails the row content at the trailing edge` (in context: callout 1)
 - `badge takes no focus and consumes no keys` (primitive: no key table)
+- `neutral tone draws solid(secondary) and each hue tone draws solid(R) for its same-named role`
+  (Tones table; [composite styles](../tokens.md#composite-styles))
 
 ## Degradation
 
@@ -367,16 +369,14 @@ under-minimum, over-maximum. Badge mirrors Button's sizing rows (owner decision,
 - `NO_COLOR`: the label is reverse video and the caps stay in the default foreground, as
   Button's `NO_COLOR` rule (owner decision, 2026-10-10). Tones look alike under
   `NO_COLOR`; this is the accepted cost of the mode.
-- 16-colour: the label is reverse video, the caps take the indexed tone, and the tone
-  roles are token pending plan 032 step 5.3 (owner decision, 2026-10-10). See the
+- 16-colour: `solid(R)` per [composite styles](../tokens.md#composite-styles): the label
+  is reverse video and the caps take the indexed tone (accent ansi 14 dark / 6 light; info
+  12 / 4; success 10 / 2; warning 11 / 3; error 9 / 1). Neutral is an ANSI 8 fill on dark
+  and reverse video on light (owner decision, 2026-10-19). See the
   [degradation ladder](../tokens.md#degradation-ladder).
 
 ## Open questions
 
-- Tokens: `info`, `success`, `warning`, `error`, `muted`, and the `contrast` label need
-  roles. [tokens.md](../tokens.md#semantic-styles) gives no `success`, `warning`, or
-  `information` role for 1.0, which conflicts with the six-tone decision. Plan 032 step
-  5.3 decides.
 - The capsule background shape lands in Slice 3 (see Primitive dependencies).
 
 ## Inspiration

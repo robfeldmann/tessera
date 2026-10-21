@@ -1,6 +1,6 @@
 ---
 kind: primitive
-status: specified
+status: ready
 ---
 
 # Divider
@@ -187,8 +187,8 @@ contexts where minimal is least surprising.
 
 - `divider.style` -- selects the glyph row from [tokens.md](../tokens.md#divider-glyphs);
   defaults to `light`.
-- The rule draws in the `border` role, an alias of the dim default foreground (owner
-  decision, 2026-10-10); token pending plan 032 step 5.3. A label keeps the ambient text
+- The rule draws in the `border` role ([text roles](../tokens.md#text-roles)), an alias of
+  the dim default foreground (owner decision, 2026-10-10). A label keeps the ambient text
   style, and styling on its `Text` (for example `.bold()`) applies to the label only.
 - `stackAxis` -- layout context established by an enclosing linear stack; absent context
   uses the horizontal fallback.
@@ -242,6 +242,10 @@ Specified 2026-08-17 (prompted by NavigationSplitView's header rule crossing Spl
 divider columns); not yet implemented. Blending lets two crossing rules render a junction
 glyph (`┼`, `├`, `┤`, `┬`, `┴`) instead of the later rule overwriting the earlier one --
 Monodraw's "blended" line setting is the visual model.
+
+Junction glyphs come from the `light` junction column of
+[border sets](../tokens.md#border-sets) (`├ ┤ ┬ ┴ ┼`; ASCII `+`) and draw in `border`, or
+in `focus` where a focused line meets them.
 
 - **Opt-in:** a `divider.blending` environment value, default `.replace`. `.blended`
   requests arm-union rendering for the Divider (and for widget-rendered dividers such as
@@ -304,6 +308,11 @@ This contract was reviewed against the
 [Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): orientation
 is declarative layout context, appearance comes from shared tokens, and geometry remains
 deterministic integer-cell output.
+
+## Open questions
+
+None. Blended junctions wait on the buffer merge seam specified above, an implementation
+step, not a design question.
 
 ## Inspiration
 

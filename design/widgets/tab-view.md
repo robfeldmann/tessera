@@ -7,8 +7,8 @@ status: wireframed
 
 `TabView` is Tessera's controlled tab bar with switchable panes. The application owns the
 selection through a `Binding` to a `Hashable` value. The view shows the pane for that
-value, draws the bar with a filled pill for the active tab and muted text for the rest,
-and wraps the bar onto more rows rather than truncating it. When the bar runs out of
+value, draws the bar with a filled pill for the active tab and `secondary` text for the
+rest, and wraps the bar onto more rows rather than truncating it. When the bar runs out of
 width, inactive tabs with an icon collapse to that icon while the active tab keeps its
 label. Tab items accept `.badge(_:)`. The view keeps no selection of its own: losing its
 `NodeState` loses pointer and focus bookkeeping, never the chosen tab.
@@ -96,17 +96,17 @@ Callouts (80x3, 0-based):
               Drawn on the bar row only.
 2. r0 c2-11   Active chip "Overview" -- caps `▐` and `▌` and the fill in `focus` while
               focused; bold title in `contrast` on the `focus` fill; chrome, one row.
-3. r0 c15-18  Inactive chip "Logs" -- title in `muted`; no caps, no fill; chrome, one row.
+3. r0 c15-18  Inactive chip "Logs" -- title in `secondary`; no caps, no fill; chrome, one row.
 4. r0 c23-28  Inactive chip "Config" -- same as callout 3.
-5. r1 c0-79   Rule -- `─` repeated to the content width, `muted`.
+5. r1 c0-79   Rule -- `─` repeated to the content width, `border`.
 6. r2 c0-29   Pane -- the active tab's content, placed on the row below the rule with the
               full content width; content, wraps.
 7. frame      Whole view -- not a drawn element. Receives pointer events that hit no chip,
               rule, or pane, including the gaps between chips.
 ```
 
-Styled grid (roles are Tessera roles; `muted` and `contrast` are pending plan 032 step
-5.3; focus roles per owner decision, 2026-10-10):
+Styled grid (roles are Tessera roles, see [tokens.md](../tokens.md#roles); focus per owner
+decision, 2026-10-19):
 
 ```text
 ── chars ──
@@ -115,15 +115,16 @@ Styled grid (roles are Tessera roles; `muted` and `contrast` are pending plan 03
 Build passed on main at 14:02.
 ── style ──
 A.ABBBBBBBBA...CCCC....CCCCCC
-CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
 DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
 
 ── legend ──
 .  default
-A  fg=focus (`semantic.focus`): cursor and active-chip caps
-B  fg=contrast bg=focus, bold: active-chip title (token pending plan 032 step 5.3)
-C  fg=muted (token pending plan 032 step 5.3): inactive titles and rule
+A  fg=focus: cursor and active-chip caps
+B  fg=contrast bg=focus, bold: active-chip title
+C  fg=secondary: inactive titles
 D  fg=primary: pane content
+E  fg=border: rule row
 ```
 
 ## States
@@ -162,15 +163,16 @@ Build passed on main.
 A.ABBBBBBBBA...CCCC....CCCCCC
 ...CCCCCCC....CCCCCC....CCCCCC
 ...CCCCCCC....CCCCCCC
-CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
 DDDDDDDDDDDDDDDDDDDDD
 
 ── legend ──
 .  default
-A  fg=focus (`semantic.focus`): cursor and active-chip caps
-B  fg=contrast bg=focus, bold: active-chip title (token pending plan 032 step 5.3)
-C  fg=muted (token pending plan 032 step 5.3): inactive titles and rule
+A  fg=focus: cursor and active-chip caps
+B  fg=contrast bg=focus, bold: active-chip title
+C  fg=secondary: inactive titles
 D  fg=primary: pane content
+E  fg=border: rule row
 ```
 
 ### Switched: Left on the first tab wraps to Config
@@ -189,7 +191,7 @@ Callouts (40x3, 0-based):
 1. r0 c0-1    Cursor -- `❯` in `focus`; the tab view is focused.
 2. r0 c22-29  Active chip "Config" -- caps and fill in `focus`, bold title in `contrast`;
               the pill moved with the bound value.
-3. r0 c3-18   Inactive chips "Overview", "Logs" -- muted titles; they keep their labels
+3. r0 c3-18   Inactive chips "Overview", "Logs" -- `secondary` titles; they keep their labels
               because the bar fits.
 ```
 
@@ -200,15 +202,16 @@ Callouts (40x3, 0-based):
 strict = true
 ── style ──
 A..CCCCCCCC....CCCC...ABBBBBBA
-CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
 DDDDDDDDDDDDD
 
 ── legend ──
 .  default
-A  fg=focus (`semantic.focus`): cursor and active-chip caps
-B  fg=contrast bg=focus, bold: active-chip title (token pending plan 032 step 5.3)
-C  fg=muted (token pending plan 032 step 5.3): inactive titles and rule
+A  fg=focus: cursor and active-chip caps
+B  fg=contrast bg=focus, bold: active-chip title
+C  fg=secondary: inactive titles
 D  fg=primary: pane content
+E  fg=border: rule row
 ```
 
 ### Minimum: icon collapse (24x5)
@@ -218,8 +221,8 @@ icon alone. Config's icon wraps onto the second bar row because the collapsed ba
 overflow row one (derived, not captured). The pane is content and wraps within 24 columns.
 
 ```wireframe 24x5
-❯ ▐🏠 Overview▌   💻
-   ⚙
+❯ ▐ Overview▌   
+   
 ────────────────────────
 Build passed on main at
 14:02.
@@ -228,35 +231,43 @@ Build passed on main at
 ```text
 Callouts (24x5, 0-based):
 1. r0 c0-1    Cursor -- `❯` in `focus`.
-2. r0 c2-14   Active chip "Overview" with its `home` icon -- caps and fill in `focus`, bold
-              title in `contrast`; full label kept.
-3. r0 c18-19  Collapsed chip "Logs" -- `terminal` icon alone, in `muted`.
-4. r1 c3      Collapsed chip "Config" -- `gear` icon, in `muted`, wrapped to the second bar
-              row.
-5. r2 c0-23   Rule -- `─` repeated to the content width, `muted`.
+2. r0 c2-13   Active chip "Overview" -- home icon U+F015 at c3 (gap c4); caps and fill in
+              `focus`; bold title in `contrast` on the `focus` fill; full label kept.
+3. r0 c17-18  Collapsed chip "Logs" -- terminal icon U+F120 at c17 (gap c18), alone, in
+              `secondary`.
+4. r1 c3-4    Collapsed chip "Config" -- gear icon U+F013 at c3 (gap c4), in `secondary`,
+              wrapped to the second bar row.
+5. r2 c0-23   Rule -- `─` to the content width, `border`.
 6. r3-r4      Pane -- wraps to the 24-column width.
 ```
 
+The collapse grids use the Nerd Font charset. Under `.unicode` only `gear` has a glyph
+(`⚙`); `home` and `terminal` draw no icon, so those tabs keep their labels, since a tab
+without an icon never shrinks ([icon catalog](../tokens.md#icon-catalog); owner decision,
+2026-10-19). A Nerd Font icon takes two cells, the glyph and a real space that is also the
+icon-title gap ([Nerd Font cells](../tokens.md#nerd-font-cells)).
+
 ```text
 ── chars ──
-❯ ▐🏠 Overview▌   💻
-   ⚙
+❯ ▐ Overview▌   
+   
 ────────────────────────
 Build passed on main at
 14:02.
 ── style ──
-A.ABBBBBBBBBBBA...CC
-...C
-CCCCCCCCCCCCCCCCCCCCCCCC
+A.ABBBBBBBBBBA...CC
+...CC
+EEEEEEEEEEEEEEEEEEEEEEEE
 DDDDDDDDDDDDDDDDDDDDDDD
 DDDDDD
 
 ── legend ──
 .  default
-A  fg=focus (`semantic.focus`): cursor and active-chip caps
-B  fg=contrast bg=focus, bold: active-chip title (token pending plan 032 step 5.3)
-C  fg=muted (token pending plan 032 step 5.3): inactive titles and rule
+A  fg=focus: cursor and active-chip caps
+B  fg=contrast bg=focus, bold: active-chip title
+C  fg=secondary: inactive icons and titles
 D  fg=primary: pane content
+E  fg=border: rule row
 ```
 
 ### Minimum, ASCII (24x5)
@@ -283,29 +294,30 @@ Build passed on main at
 ── style ──
 A.BBBBBBBBBBBBB
 ...CCCC....CCCC
-CCCCCCCCCCCCCCCCCCCCCCCC
+EEEEEEEEEEEEEEEEEEEEEEEE
 DDDDDDDDDDDDDDDDDDDDDDD
 DDDDDD
 
 ── legend ──
 .  default
-A  fg=focus (`semantic.focus`): cursor
+A  fg=focus: cursor
 B  fg=focus, bold: active label
-C  fg=muted (token pending plan 032 step 5.3): icon names and rule
+C  fg=secondary: inactive titles and icon names
 D  fg=primary: pane content
+E  fg=border: rule row
 ```
 
 ### Under the minimum: truncated active label (12x6)
 
 Derived from the settled truncation order, not captured (owner decision, 2026-10-10 for
-the order; the integer result follows from it). At 12 columns the 13-cell active chip does
+the order; the integer result follows from it). At 12 columns the 12-cell active chip does
 not fit beside the 2-cell cursor, so its label tail-truncates (chrome, one row): `Over…`.
 The collapsed icon chips wrap onto the second bar row; the rule spans the proposal; the
 pane is content and wraps at 12 columns.
 
 ```wireframe 12x6
-❯ ▐🏠 Over…▌
-   💻   ⚙
+❯ ▐ Over…▌
+       
 ────────────
 Build passed
 on main at
@@ -315,9 +327,11 @@ on main at
 ```text
 Callouts (12x6, 0-based):
 1. r0 c0-1    Cursor -- `❯` in `focus`.
-2. r0 c2-11   Active chip -- `🏠` icon and the label cut to `Over…`; chrome, one row.
-3. r1 c3-8    Collapsed chips -- `terminal` and `gear` icons alone, in `muted`, on the second bar row.
-4. r2 c0-11   Rule -- `─` repeated to the 12-column proposal, `muted`.
+2. r0 c2-10   Active chip -- home icon U+F015 at c3 (gap c4) and the label cut to `Over…`;
+              chrome, one row.
+3. r1 c3-4 and r1 c8-9  Collapsed chips -- terminal U+F120 and gear U+F013 icons alone, in
+              `secondary`, on the second bar row.
+4. r2 c0-11   Rule -- `─` repeated to the 12-column proposal, `border`.
 5. r3-r5      Pane -- the active tab's content; content, wraps at 12 columns.
 ```
 
@@ -338,9 +352,9 @@ Callouts (80x3, 0-based):
 1. r0 c0-1    Cursor -- two spaces; the cursor is drawn only while the tab view is focused.
 2. r0 c2-11   Active chip "Overview" -- caps and fill in `accent`; bold title in `contrast`
               on the `accent` fill.
-3. r0 c15-18  Inactive chip "Logs" -- title in `muted`; no caps, no fill.
+3. r0 c15-18  Inactive chip "Logs" -- title in `secondary`; no caps, no fill.
 4. r0 c23-28  Inactive chip "Config" -- same as callout 3.
-5. r1 c0-79   Rule -- `─` repeated to the content width, `muted`.
+5. r1 c0-79   Rule -- `─` repeated to the content width, `border`.
 6. r2 c0-29   Pane -- the active tab's content.
 ```
 
@@ -351,15 +365,16 @@ Callouts (80x3, 0-based):
 Build passed on main at 14:02.
 ── style ──
 ..ABBBBBBBBA...CCCC....CCCCCC
-CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
 DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
 
 ── legend ──
 .  default
-A  fg=accent (`semantic.accent`): active-chip caps
-B  fg=contrast bg=accent, bold: active-chip title (token pending plan 032 step 5.3)
-C  fg=muted (token pending plan 032 step 5.3): inactive titles and rule
+A  fg=accent: active-chip caps
+B  fg=contrast bg=accent, bold: active-chip title
+C  fg=secondary: inactive titles
 D  fg=primary: pane content
+E  fg=border: rule row
 ```
 
 ### No matching selection
@@ -377,8 +392,8 @@ focused.
 ```text
 Callouts (40x3, 0-based):
 1. r0 c0-1    Cursor -- `❯` in `focus`; the tab view is focused.
-2. r0 c3-28   Inactive titles "Overview", "Logs", "Config" -- `muted`; no pill is drawn.
-3. r1 c0-39   Rule -- `─` repeated to the content width, `muted`.
+2. r0 c3-28   Inactive titles "Overview", "Logs", "Config" -- `secondary`; no pill is drawn.
+3. r1 c0-39   Rule -- `─` repeated to the content width, `border`.
 4. r2         Pane -- empty.
 ```
 
@@ -389,13 +404,14 @@ Callouts (40x3, 0-based):
 
 ── style ──
 A..CCCCCCCC....CCCC....CCCCCC
-CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
 
 
 ── legend ──
 .  default
-A  fg=focus (`semantic.focus`): cursor
-C  fg=muted (token pending plan 032 step 5.3): inactive titles and rule
+A  fg=focus: cursor
+C  fg=secondary: inactive titles
+E  fg=border: rule row
 ```
 
 ## State model
@@ -449,24 +465,22 @@ chrome and stay one row; the pane is content and wraps at the proposed width.
 | 24x5       | 24x5                           | Tight fit at the minimum: `min(bar, 24)`; inactive icon chips collapse and chips without an icon wrap instead of shrinking (derived, not captured).                                                                                                                                                                  |
 | 40x3       | 40x3                           | Captured default: the bar fits at full labels, and the rule and one pane line fill the height.                                                                                                                                                                                                                       |
 | 40xnil     | 40x5                           | Captured wrap: chips wrap onto extra rows before the pane, and the rule follows the last bar row.                                                                                                                                                                                                                    |
-| 16xnil     | 16x5                           | Under the minimum (derived): the active chip still fits (15 cells), the icon chips wrap to a second bar row, the rule spans 16, and the pane wraps to two rows: 2 + 1 + 2.                                                                                                                                           |
+| 16xnil     | 16x5                           | Under the minimum (derived): the active chip still fits (14 cells), the icon chips wrap to a second bar row, the rule spans 16, and the pane wraps to two rows: 2 + 1 + 2.                                                                                                                                           |
 | 12xnil     | 12x6                           | Under the minimum (derived): the active label tail-truncates to `Over…` first (settled order), the icon chips wrap to a second bar row, the rule spans 12, and the pane wraps to three rows: 2 + 1 + 3. See the 12x6 state.                                                                                          |
 | W<24 x nil | W x (bar rows + 1 + pane rows) | Under the minimum the result width is the proposal (the rule spans it) and the height is the bar rows plus the rule plus the pane rows at W. The order the bar gives way in is settled (owner decision, 2026-10-10): the active label truncates first, then inactive chips show icons only, then the pill caps drop. |
 | 80x3       | 80x3                           | Over-maximum: there is no maximum width; the rule spans the proposal and the pane takes the full content width.                                                                                                                                                                                                      |
 
 ## Environment
 
-Tokens consumed. Roles marked pending are not yet in [tokens.md](../tokens.md) (plan 032
-step 5.3).
+Tokens consumed (see [tokens.md](../tokens.md#roles)).
 
-- `semantic.accent`: the unfocused active tab's caps and fill.
-- `semantic.focus`: the cursor, and the active tab's caps and fill while the tab view is
-  focused.
-- `semantic.primary`: pane content and padding cells.
-- `muted`: inactive titles and the rule row. Not in `tokens.md`; token pending plan 032
-  step 5.3.
-- `contrast`: title text on the active pill. Not in `tokens.md`; token pending plan 032
-  step 5.3.
+- `accent`: the unfocused active tab's caps and fill.
+- `focus`: the cursor, and the active tab's caps and fill while the tab view is focused.
+- `primary`: pane content and padding cells.
+- `secondary`: inactive titles. `border`: the rule row
+  ([text roles](../tokens.md#text-roles)).
+- `contrast`: title text on the active pill, `on(R)` inside `solid(R)`
+  ([composite styles](../tokens.md#composite-styles)).
 
 ## Primitive dependencies
 
@@ -494,8 +508,12 @@ Schema: [README](../README.md#requirements-list).
 - `move events draw no hover state` (mouse table: move).
 - `focused tab view draws the focus cursor on the bar row only` (anatomy callout 1).
 - `unfocused tab view draws a blank cursor and the accent pill` (states: unfocused).
-- `active tab draws a filled pill and inactive tabs draw muted titles` (anatomy callouts
-  2-4).
+- `active tab draws a filled pill and inactive tabs draw secondary titles` (anatomy
+  callouts 2-4).
+- `rule row draws in border, not secondary` (anatomy callout 5; states: mobile).
+- `active pill is solid(focus) while the tab view is focused and solid(accent) when it is not`
+  (anatomy callout 2; states: unfocused;
+  [composite styles](../tokens.md#composite-styles)).
 - `selection matching no tab draws no pill and an empty pane and leaves the binding unchanged`
   (states: no matching selection).
 - `chips without an icon never shrink` (states: mobile).
@@ -516,8 +534,8 @@ Schema: [README](../README.md#requirements-list).
 ## Degradation
 
 - Colour degradation follows the [degradation ladder](../tokens.md#degradation-ladder).
-  This widget adds no rule of its own. The focused fill uses `semantic.focus`, so no
-  brightened variant is derived.
+  This widget adds no rule of its own. The focused fill uses `focus`, so no brightened
+  variant is derived.
 - ASCII-only: the cursor is `>` followed by a space; pill caps are empty, so the active
   tab is a flat bold label, in `focus` while focused and in `accent` otherwise; the rule
   is `-`; icons paint their ASCII names (`home`, `term`, `gear`) instead of glyphs.
@@ -527,14 +545,7 @@ Schema: [README](../README.md#requirements-list).
 
 ## Open questions
 
-Decisions deliberately not made yet, each with what unblocks it.
-
-- **Collapse dependency.** Collapse is specified here as the Tessera chip rule. Until the
-  [Label](../primitives/label.md) icon table is settled, the set of collapsible icons is a
-  design reference, not a settled API.
-- **Token roles.** `muted` and `contrast` have no rows in `tokens.md`; both are token
-  pending plan 032 step 5.3. The brightened accent is gone (owner decision, 2026-10-10),
-  so it needs no token. Unblocks: plan 032 step 5.3.
+None.
 
 ## Inspiration
 

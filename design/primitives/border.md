@@ -1,6 +1,6 @@
 ---
 kind: primitive
-status: specified
+status: ready
 ---
 
 # Border
@@ -172,7 +172,7 @@ wraps at the interior width or marks its own cut under a row budget (see
 - Border sets `light`, `rounded`, `heavy`, `double`, and `ascii` come from
   [tokens.md](../tokens.md#border-sets); the `BorderStyle` case selects the row.
 - `lineStyle` is a complete [`Style`](style-modifiers.md); with the empty default the ring
-  inherits `semantic.primary` through the ambient `defaultStyle`.
+  inherits `primary` through the ambient `defaultStyle`.
 - Focus presentation follows the [Focus border](#focus-border) rules. The owning bordered
   view chooses the set and `lineStyle` through this modifier; the primitive itself has no
   focus state.
@@ -182,8 +182,8 @@ wraps at the interior width or marks its own cut under a row budget (see
 Owner decision, omp2 review, 2026-10. Box, Button, Stepper, SplitView, and Table each
 settled their focus look in their own review. This section gathers those looks so they can
 be checked together, and it replaces the `focus.border` direction in
-[tokens.md](../tokens.md#focus). Every look uses one colour, the `focus` role, whose
-provisional default is violet (see Focus colour below).
+[tokens.md](../tokens.md#focus). Every look uses the `focus` role: the terminal's default
+foreground in bold, with no hue (owner decision, 2026-10-19; see Focus colour below).
 
 Summary of the accepted focus looks: one specimen per rule, with the rules following the
 grid.
@@ -207,12 +207,12 @@ grid.
 Callouts (40x12, 0-based):
 1. r0-r2 c0-c23  Self-focused box -- rule 1: `heavy` set in the `focus` role
 2. r4-r6 c0-c23  Focus-within box -- rule 2: nearest bordered ring at normal weight
-3. r5 c11-c18    Deploy button -- the control's own focus: `focus` fill, bold (rule 2)
+3. r5 c11-c18    Deploy button -- the control's own focus: `solid(focus)` chip, bold (rule 2)
 4. r8 c0, c2-c9  Focused cursor row -- rule 3: `❯` cursor and bold `focus` label
 5. r9 c14-c19    Unfocused stepper -- rule 3: arrows kept
 6. r11 c7        Divider -- rule 4: `focus` heavy vertical line; joints turn heavy
 7. r5 c2-c9     Cancel button -- unfocused secondary action: `.tinted`, `secondary` label on a
-   faint `secondary` fill (`faint(secondary)`, token pending plan 032 step 5.3)
+   faint `secondary` fill (`faint(secondary)`)
 ```
 
 ```text
@@ -247,10 +247,10 @@ TTTTTTTPTTTTTTTTTTT
 P  fg=focus
 F  fg=focus bold
 T  fg=primary
-M  fg=muted
+M  fg=secondary
 p  fg=contrast bg=focus bold
-B  fg=faint(secondary)*
-b  fg=secondary bg=faint(secondary)*
+B  fg=faint(secondary)
+b  fg=secondary bg=faint(secondary)
 G  fg=warning
 ```
 
@@ -272,12 +272,13 @@ Rules, owner decision, omp2 review, 2026-10:
 6. **Heavy, double, ASCII.** Heavy and double rings keep their weight and change colour
    only. ASCII has no heavier line, so focus shows in bold.
 
-**Focus colour.** Owner decision, 2026-10-10: `focus` is violet (16-colour magenta 5/13),
-foreground-only, bold, with no background. Keeping the role foreground-only leaves rule 6
-possible on heavy rings, since a colour-only change can carry focus there. Violet is a
-provisional default; the owner is not yet settled that it is the official colour. Ideally
-Tessera picks a good default, and developers can set their own focus colour; the override
-surface is not specified here.
+**Focus colour.** Owner decision, 2026-10-19: `focus` is the terminal's default foreground
+in bold, foreground-only, with no hue and no background, identical in derived, slots and
+NO_COLOR tiers. It replaces the 2026-10-10 violet default, which was the hue closest to
+`error` on dark themes. Keeping the role foreground-only leaves rule 6 possible on heavy
+rings, since a colour-only change can carry focus there. Apps may override `focus` with an
+explicit colour ([overrides](../tokens.md#overrides)). The owner revisits the choice once
+live widgets exist.
 
 ## Requirements
 
@@ -304,6 +305,8 @@ surface is not specified here.
 - `heavy and double rings change colour only on focus` (focus border: rule 6)
 - `ascii focus renders bold on the ascii ring` (focus border: rule 6; degradation:
   ASCII-only)
+- `focus ring takes the focus role in every colour tier, with no hue` (focus border: rules
+  1, 2 and 6; [tokens.md#focus](../tokens.md#focus); owner decision, 2026-10-19)
 
 ## Degradation
 
@@ -338,11 +341,11 @@ same reserved ring, so a malformed set cannot desynchronize the corners from the
 Degenerate frames clamp rather than crash: below two cells on an axis the interior is
 zero, `1x1` paints the top-left corner, and a zero-area frame paints nothing.
 
-The focus look uses one colour, the `focus` role, and the weight rules in the
-[Focus border](#focus-border) section (owner decision, omp2 review, 2026-10). Border holds
-no focus state: the owning view chooses the set and `lineStyle` through this modifier.
-Heavy and double rings change colour only, since no heavier line exists; ASCII shows focus
-in bold.
+The focus look uses the `focus` role (the default foreground in bold, owner decision,
+2026-10-19) and the weight rules in the [Focus border](#focus-border) section (owner
+decision, omp2 review, 2026-10). Border holds no focus state: the owning view chooses the
+set and `lineStyle` through this modifier. Heavy and double rings change colour only,
+since no heavier line exists; ASCII shows focus in bold.
 
 Reviewed against the
 [Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): Border is a
@@ -356,17 +359,13 @@ ring is decorative; hit testing follows the wrapped child's final frame and clip
 The border edge also serves as an edge-riding scroll-indicator track: a scrollable
 descendant may mount a [ScrollIndicator](scroll-indicator.md) in `.border` placement
 (`.scrollIndicatorPlacement(.border)`) whose thumb overpaints the ring cells at the
-resolved thumb rows, reserving no extra cell. The `.border` thumb weight paints over
-`lineStyle`; the ring geometry is unchanged.
+resolved thumb rows, reserving no extra cell. The `.border` placement paints the preset's
+thumb glyph over `lineStyle` ([scroll indicators](../tokens.md#scroll-indicators)); the
+ring geometry is unchanged.
 
 ## Open questions
 
-- The `focus` colour token is pending plan 032 step 5.3.
-  [tokens.md](../tokens.md#semantic-styles) still records `semantic.focus` as ANSI black
-  on dark yellow, which conflicts with the violet default in
-  [Focus border](#focus-border). Until plan 032 settles the token, the violet default
-  stays provisional and this doc stays `specified`. The `focus.border` row in
-  [tokens.md](../tokens.md#focus) is superseded by the Focus border section.
+None.
 
 ## Inspiration
 

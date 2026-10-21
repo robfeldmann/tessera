@@ -71,11 +71,11 @@ and a description in `Text`, chrome, one row; the legend composes the entries in
 
 ```text
 Callouts (60x1, 0-based):
-1. r0 c0-c6    Move entry, priority `low` -- key `↑↓` bold `secondary`; description `muted`; chrome, one row
-2. r0 c10-c17  Change entry, priority `required` -- key `⏎`; description `muted`
-3. r0 c21-c30  Next tab entry, priority `high` -- key `⇥`; description `muted`
-4. r0 c34-c41  Search entry, priority default (0) -- key `/`; description `muted`
-5. r0 c45-c53  Close entry, priority `required` -- key `esc`; description `muted`
+1. r0 c0-c6    Move entry, priority `low` -- key `↑↓` bold `secondary`; description `secondary`; chrome, one row
+2. r0 c10-c17  Change entry, priority `required` -- key `⏎`; description `secondary`
+3. r0 c21-c30  Next tab entry, priority `high` -- key `⇥`; description `secondary`
+4. r0 c34-c41  Search entry, priority default (0) -- key `/`; description `secondary`
+5. r0 c45-c53  Close entry, priority `required` -- key `esc`; description `secondary`
 6. r0 c7-c9, c18-c20, c31-c33, c42-c44  Separators ` · ` -- `border`
 ```
 
@@ -87,7 +87,7 @@ KKDDDDDSSSKDDDDDDDSSSKDDDDDDDDDSSSKDDDDDDDSSSKKKDDDDDD
 ── legend ──
 .  default
 K  fg=secondary bold
-D  fg=muted
+D  fg=secondary
 S  fg=border
 ```
 
@@ -106,7 +106,7 @@ the same 60-column design width. It ships in 1.0 as an option.
 Callouts (60x1, 0-based):
 1. r0 c0-c3, c11-c13, c23-c25, c37-c39, c49-c53  Keycaps -- one per key, padded one cell
    each side; `primary` text on the `surface` fill
-2. r0 c4-c8, c14-c20, c26-c34, c40-c46, c54-c59  Descriptions -- `muted`, outside the keycaps
+2. r0 c4-c8, c14-c20, c26-c34, c40-c46, c54-c59  Descriptions -- `secondary`, outside the keycaps
 ```
 
 ```text
@@ -116,7 +116,7 @@ Callouts (60x1, 0-based):
 CCCCDDDDD..CCCDDDDDDD..CCCDDDDDDDDD..CCCDDDDDDD..CCCCCDDDDDD
 ── legend ──
 .  default
-D  fg=muted
+D  fg=secondary
 C  fg=primary bg=surface
 ```
 
@@ -133,9 +133,9 @@ legend is 33 cells wide here, inside its 40-column design width.
 
 ```text
 Callouts (40x1, 0-based):
-1. r0 c0-c7    Change entry, priority 1 -- key `⏎`; description `muted`
-2. r0 c11-c20  Next tab entry, priority 2 -- key `⇥`; description `muted`
-3. r0 c24-c32  Close entry, priority 1 -- key `esc`; description `muted`
+1. r0 c0-c7    Change entry, priority 1 -- key `⏎`; description `secondary`
+2. r0 c11-c20  Next tab entry, priority 2 -- key `⇥`; description `secondary`
+3. r0 c24-c32  Close entry, priority 1 -- key `esc`; description `secondary`
 4. r0 c8-c10, c21-c23  Separators -- `border`
 ```
 
@@ -147,7 +147,7 @@ KDDDDDDDSSSKDDDDDDDDDSSSKKKDDDDDD
 ── legend ──
 .  default
 K  fg=secondary bold
-D  fg=muted
+D  fg=secondary
 S  fg=border
 ```
 
@@ -163,7 +163,7 @@ up/down move | enter change | tab next tab | esc close
 
 ```text
 Callouts (60x1, 0-based):
-1. r0 c0-c11   Move entry, priority `low` -- key `up/down`; description `muted`
+1. r0 c0-c11   Move entry, priority `low` -- key `up/down`; description `secondary`
 2. r0 c15-c26  Change entry, priority `required` -- key `enter`
 3. r0 c30-c41  Next tab entry, priority `high` -- key `tab`
 4. r0 c45-c53  Close entry, priority `required` -- key `esc`
@@ -178,7 +178,7 @@ KKKKKKKDDDDDSSSKKKKKDDDDDDDSSSKKKDDDDDDDDDSSSKKKDDDDDD
 ── legend ──
 .  default
 K  fg=secondary bold
-D  fg=muted
+D  fg=secondary
 S  fg=border
 ```
 
@@ -233,8 +233,8 @@ decision, 2026-10-10).
 
 ```text
 Callouts (20x1, 0-based):
-1. r0 c0-c7    Change entry, priority `required` -- key `⏎`; description `muted`
-2. r0 c11-c19  Close entry, priority `required` -- key `esc`; description `muted`
+1. r0 c0-c7    Change entry, priority `required` -- key `⏎`; description `secondary`
+2. r0 c11-c19  Close entry, priority `required` -- key `esc`; description `secondary`
 3. r0 c8-c10   Separator -- `border`; next tab (`high`), move (`low`), and search (default) have dropped
 ```
 
@@ -246,7 +246,7 @@ KDDDDDDDSSSKKKDDDDDD
 ── legend ──
 .  default
 K  fg=secondary bold
-D  fg=muted
+D  fg=secondary
 S  fg=border
 ```
 
@@ -282,14 +282,13 @@ under-minimum, over-maximum.
 
 ## Environment
 
-- Key glyphs and keys in `semantic.secondary`, bold: `semantic.secondary` is in
-  [tokens.md](../tokens.md#semantic-styles); bold is its style.
-- Descriptions: `muted`, token pending plan 032 step 5.3.
-- Separators and the `plain` key-to-description rule: `border`, token pending plan 032
-  step 5.3.
-- `keycaps` glyphs: `semantic.primary`, which is in
-  [tokens.md](../tokens.md#semantic-styles).
-- `keycaps` fill: `surface`, token pending plan 032 step 5.3.
+- Key glyphs and keys in `secondary`, bold: `secondary` is in
+  [tokens.md](../tokens.md#text-roles); bold is its style.
+- Descriptions: `secondary` ([text roles](../tokens.md#text-roles)).
+- Separators and the `plain` key-to-description rule: `border`
+  ([text roles](../tokens.md#text-roles)).
+- `keycaps` glyphs: `primary`, which is in [tokens.md](../tokens.md#text-roles).
+- `keycaps` fill: `surface` ([fill roles](../tokens.md#fill-roles)).
 
 ## Primitive dependencies
 
@@ -302,7 +301,7 @@ under-minimum, over-maximum.
 ## Requirements
 
 - `legend shows all five entries at 60 columns` (anatomy)
-- `plain legend keys are bold secondary and descriptions are muted` (anatomy: callouts
+- `plain legend keys are bold secondary and descriptions are secondary` (anatomy: callouts
   1-5)
 - `keycaps legend fills each key on a keycap` (states: keycaps)
 - `narrow legend drops move and search at 40 columns` (states: Mobile (40 columns))
@@ -323,14 +322,19 @@ under-minimum, over-maximum.
 - `NO_COLOR legend falls back to the plain look for keycaps` (degradation: NO_COLOR)
 - `legend entries come from the focused responder's bindings` (state model: bindings)
 - `legend takes no focus and consumes no keys` (key table: none)
+- `light sixteen colour legend falls back to the plain look for keycaps` (degradation:
+  16-colour)
 
 ## Degradation
 
 - `NO_COLOR`: colour is lost, and keycaps fall back to the plain look (owner decision,
   2026-10-10). Keys stay bold: attributes survive `NO_COLOR`, so the bold key is the cue
   and nothing else is added: no brackets, no reverse video (owner decision, 2026-10-18).
-- 16-colour: indexed equivalents of the same roles; `surface` is the ANSI 8 background
-  (owner decision, 2026-10-10); geometry unchanged.
+- 16-colour: roles take their slots columns ([roles](../tokens.md#roles)). On a dark
+  scheme `surface` is the ANSI 8 background (owner decision, 2026-10-10); on a light
+  scheme `surface` has no fill, so keycaps fall back to the plain look, as under
+  `NO_COLOR` (owner decision, 2026-10-19;
+  [composite styles](../tokens.md#composite-styles)). Geometry is unchanged.
 - ASCII: keys are spelled out (`up/down`, `enter`, `tab`), and entries are separated by
   `|` (owner decision, 2026-10-10).
 - Below the floor (20 columns): entries drop whole, lowest priority first. Below 20 cells
@@ -338,8 +342,7 @@ under-minimum, over-maximum.
 
 ## Open questions
 
-- Tokens: `muted`, `border`, and `surface` need roles; they are token pending plan 032
-  step 5.3. [tokens.md](../tokens.md#semantic-styles) does not define them.
+None.
 
 ## Inspiration
 

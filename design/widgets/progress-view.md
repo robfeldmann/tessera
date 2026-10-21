@@ -79,6 +79,8 @@ ProgressView {
 ProgressView()
     .progressViewStyle(.spinner(.orbit))
 
+// ◢ ◣ ◤ ◥ are app-supplied and depend on the font's Geometric Shapes coverage
+// (tokens.md#spinners).
 ProgressView()
     .progressViewStyle(.spinner(frames: ["◢", "◣", "◤", "◥"], interval: .milliseconds(100)))
 ```
@@ -99,10 +101,10 @@ Downloading model weights ██████░░░░ 62%
 
 ```text
 Callouts (40x1, 0-based):
-1. r0 c0-c24   Label -- Text, token `semantic.primary`; content, wraps (moves above the bar when the row is too narrow)
-2. r0 c26-c31  Fill -- bar glyphs, token `semantic.accent`; chrome, one row; the bar keeps at least four cells
-3. r0 c32-c35  Track -- empty bar glyphs, token `muted` (token pending plan 032 step 5.3); chrome, one row
-4. r0 c37-c39  Percent -- `62%`, token `muted`; the default current-value label; atomic value
+1. r0 c0-c24   Label -- Text, token `primary`; content, wraps (moves above the bar when the row is too narrow)
+2. r0 c26-c31  Fill -- bar glyphs, token `accent`; chrome, one row; the bar keeps at least four cells
+3. r0 c32-c35  Track -- empty bar glyphs, token `border`; chrome, one row
+4. r0 c37-c39  Percent -- `62%`, token `secondary`; the default current-value label; atomic value
 ```
 
 > Wrap exception (rules 1 and 2): the percent and an app-supplied current-value label are
@@ -113,21 +115,25 @@ Callouts (40x1, 0-based):
 ── chars ──
 Downloading model weights ██████░░░░ 62%
 ── style ──
-AAAAAAAAAAAAAAAAAAAAAAAAAABBBBBBCCCCCCCC
+AAAAAAAAAAAAAAAAAAAAAAAAAABBBBBBCCCC.DDD
 ── legend ──
 .  default
 A  fg=primary
 B  fg=accent
-C  fg=muted
+C  fg=border
+D  fg=secondary
 ```
 
 ### Indeterminate
 
-One spinner glyph, a space, then the label. Every frame is one cell wide, so the label
-does not shift as the spinner turns. The frame shown is derived from the clock; this grid
-shows the braille default at one instant. The label is content and wraps beside the
-spinner, its continuation rows hanging under the label text; under a fixed one-row height
-it tail-truncates (owner decision, 2026-10-18; the hanging indent is an inference).
+One spinner frame, a space, then the label. A Nerd Font frame takes two cells, the glyph
+and a real space that is also the gap; every other frame takes one cell followed by the
+gap. The label starts at c2 for every set, so it does not shift as the spinner turns
+([spinners](../tokens.md#spinners); owner decision, 2026-10-19). The frame shown is
+derived from the clock; this grid shows the braille default at one instant. The label is
+content and wraps beside the spinner, its continuation rows hanging under the label text;
+under a fixed one-row height it tail-truncates (owner decision, 2026-10-18; the hanging
+indent is an inference).
 
 ```wireframe 21x1
 ⠋ Indexing repository
@@ -135,8 +141,8 @@ it tail-truncates (owner decision, 2026-10-18; the hanging indent is an inferenc
 
 ```text
 Callouts (21x1, 0-based):
-1. r0 c0       Spinner glyph -- one cell from the active frame set, token `semantic.accent`
-2. r0 c2-c20   Label -- Text, token `semantic.primary`; supplied by the app; content, wraps
+1. r0 c0       Spinner frame -- the active frame: one cell, or under `.nerdFont` the glyph plus its blank cell at c1, token `accent`
+2. r0 c2-c20   Label -- Text, token `primary`; supplied by the app; content, wraps
 ```
 
 At 12 columns the label wraps:
@@ -148,8 +154,8 @@ At 12 columns the label wraps:
 
 ```text
 Callouts (12x2, 0-based):
-1. r0 c0       Spinner glyph -- one cell from the active frame set, token `semantic.accent`; chrome, one row
-2. r0-r1 c2-c11  Label -- Text, token `semantic.primary`; content, wraps, continuation hangs at c2
+1. r0 c0-c1    Spinner frame -- the active frame: one cell, or under `.nerdFont` the glyph plus its blank cell at c1, token `accent`; chrome, one row
+2. r0-r1 c2-c11  Label -- Text, token `primary`; content, wraps, continuation hangs at c2
 ```
 
 ### Frame sets
@@ -164,7 +170,6 @@ orbit    ⣾ ⣽ ⣻ ⢿ ⡿ ⣟ ⣯ ⣷
 clock    󱑖 󱑋 󱑌 󱑍 󱑎 󱑏 󱑐 󱑑 󱑒 󱑓 󱑔 󱑕
 arc           
 slices   󰪞 󰪟 󰪠 󰪡 󰪢 󰪣 󰪤 󰪥
-quarters ◴ ◷ ◶ ◵
 halves   ◐ ◓ ◑ ◒
 line     | / - \
 custom   ◢ ◣ ◤ ◥   frames: ["◢","◣","◤","◥"]
@@ -176,13 +181,12 @@ HHHHHHHHHFFFFFFFFFFF
 HHHHHHHHHFFFFFFFFFFFFFFF
 HHHHHHHHHFFFFFFF
 HHHHHHHHHFFFFFFF
-HHHHHHHHHFFFFFFF
 HHHHHHHHHFFFFFFFMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 ── legend ──
 .  default
 H  fg=secondary bold
 F  fg=accent
-M  fg=muted
+M  fg=secondary
 ```
 
 Set rules:
@@ -191,20 +195,27 @@ Set rules:
   uses it (owner decision, omp2 review, 2026-10).
 - `orbit` (8 frames, 80 ms) is omp2's status spinner: the dot runs clockwise around a full
   braille cell. `.progressViewStyle(.spinner(.orbit))` selects it.
-- `clock` (12 frames) is a Nerd Font clock face whose hand steps clockwise. It falls back
-  to `orbit` without a Nerd Font.
-- `arc` (Nerd Font `progress-spinner-1` to `-6`, U+EE06 to U+EE0B) is an arc of a circle's
-  outline that turns clockwise. `slices` (Nerd Font `circle-slice-1` to `-8`, U+F0A9E to
-  U+F0AA5) fills one eighth at a time, up to a full disc, then restarts. Both were added
-  to the built-in options at the owner's request, and both fall back to `orbit` without a
-  Nerd Font (owner decision, omp2 review, 2026-10).
-- `quarters` (`◴◷◶◵`) and `halves` (`◐◓◑◒`) are plain Unicode sets.
+- `clock` (12 frames, 80 ms) is a Nerd Font clock face whose hand steps clockwise. It
+  falls back to `orbit` without a Nerd Font.
+- `arc` (Nerd Font `progress-spinner-1` to `-6`, U+EE06 to U+EE0B, 100 ms) is an arc of a
+  circle's outline that turns clockwise. `slices` (Nerd Font `circle-slice-1` to `-8`,
+  U+F0A9E to U+F0AA5, 125 ms) fills one eighth at a time, up to a full disc, then
+  restarts. Both were added to the built-in options at the owner's request, and both fall
+  back to `orbit` without a Nerd Font (owner decision, omp2 review, 2026-10).
+- `halves` (`◐◓◑◒`, 120 ms) is a plain Unicode set; its Geometric Shapes glyphs can render
+  from a fallback font ([tokens.md#spinners](../tokens.md#spinners)). `quarters` is
+  dropped: Maple Mono NF carries only `◶`, so the frames jump between fonts (owner
+  decision, 2026-10-19).
 - `line` (`|`, `/`, `-`, `\`) is the ASCII set, at 120 ms. In ASCII-only output every set
   draws `line` at 120 ms; each set carries its own interval (owner decision, 2026-10-10).
+  A Nerd Font set that falls back to `orbit` runs at `orbit`'s 80 ms. Tessera has no
+  reduced-motion setting in 1.0 (owner decision, 2026-10-19).
 - A custom set is given as frames and an interval. The owner asked that the API accept an
   array of characters; a custom set may carry an ASCII fallback, and without one it falls
   back to `line`.
-- Every frame, in every set, is one cell wide, so the label never shifts.
+- Nerd Font frames (`clock`, `arc`, `slices`) take two cells, the glyph and the real space
+  after it ([Nerd Font cells](../tokens.md#nerd-font-cells)); every other frame takes one
+  cell plus the gap, so the label never shifts.
 
 ## States
 
@@ -238,10 +249,10 @@ weights
 
 ```text
 Callouts (24x3, 0-based):
-1. r0-r1 c0-c16  Label -- Text, `semantic.primary`; content, wraps
-2. r2 c0-c11     Fill -- 12 of 20 bar cells, `semantic.accent`; chrome, one row
-3. r2 c12-c19    Track -- `muted`; chrome, one row
-4. r2 c21-c23    Percent -- `62%` in `muted`; atomic value
+1. r0-r1 c0-c16  Label -- Text, `primary`; content, wraps
+2. r2 c0-c11     Fill -- 12 of 20 bar cells, `accent`; chrome, one row
+3. r2 c12-c19    Track -- `border`; chrome, one row
+4. r2 c21-c23    Percent -- `62%` in `secondary`; atomic value
 ```
 
 ```text
@@ -252,12 +263,13 @@ weights
 ── style ──
 AAAAAAAAAAAAAAAAA
 AAAAAAA
-BBBBBBBBBBBBCCCCCCCCCCCC
+BBBBBBBBBBBBCCCCCCCC.DDD
 ── legend ──
 .  default
 A  fg=primary
 B  fg=accent
-C  fg=muted
+C  fg=border
+D  fg=secondary
 ```
 
 ```wireframe 16x3
@@ -268,9 +280,9 @@ model weights
 
 ```text
 Callouts (16x3, 0-based):
-1. r0-r1 c0-c12  Label -- Text, `semantic.primary`; content, wraps
+1. r0-r1 c0-c12  Label -- Text, `primary`; content, wraps
 2. r2 c0-c11     Bar -- 12 cells, 7 filled
-3. r2 c13-c15    Percent -- `62%` in `muted`; atomic value
+3. r2 c13-c15    Percent -- `62%` in `secondary`; atomic value
 ```
 
 ```text
@@ -281,12 +293,13 @@ model weights
 ── style ──
 AAAAAAAAAAA
 AAAAAAAAAAAAA
-BBBBBBBCCCCCCCCC
+BBBBBBBCCCCC.DDD
 ── legend ──
 .  default
 A  fg=primary
 B  fg=accent
-C  fg=muted
+C  fg=border
+D  fg=secondary
 ```
 
 ### Fixed one-row height: 24 and 16 columns
@@ -304,20 +317,21 @@ Downloading mo… ██░░ 62%
 ```text
 Callouts (24x1, 0-based):
 1. r0 c0-c14   Label -- Text, truncated at the tail with `truncation.mark`; content, fixed one-row budget
-2. r0 c16-c19  Bar -- four cells, the minimum bar: fill `semantic.accent`, track `muted`
-3. r0 c21-c23  Percent -- `62%` in `muted`; never truncated
+2. r0 c16-c19  Bar -- four cells, the minimum bar: fill `accent`, track `border`
+3. r0 c21-c23  Percent -- `62%` in `secondary`; never truncated
 ```
 
 ```text
 ── chars ──
 Downloading mo… ██░░ 62%
 ── style ──
-AAAAAAAAAAAAAAAABBCCCCCC
+AAAAAAAAAAAAAAAABBCC.DDD
 ── legend ──
 .  default
 A  fg=primary
 B  fg=accent
-C  fg=muted
+C  fg=border
+D  fg=secondary
 ```
 
 ```wireframe 16x1
@@ -328,19 +342,20 @@ Downlo… ██░░ 62%
 Callouts (16x1, 0-based):
 1. r0 c0-c6    Label -- Text, truncated at the tail with `truncation.mark`; content, fixed one-row budget
 2. r0 c8-c11   Bar -- four cells, the minimum bar
-3. r0 c13-c15  Percent -- `62%` in `muted`
+3. r0 c13-c15  Percent -- `62%` in `secondary`
 ```
 
 ```text
 ── chars ──
 Downlo… ██░░ 62%
 ── style ──
-AAAAAAAABBCCCCCC
+AAAAAAAABBCC.DDD
 ── legend ──
 .  default
 A  fg=primary
 B  fg=accent
-C  fg=muted
+C  fg=border
+D  fg=secondary
 ```
 
 ### Minimum (11x4)
@@ -362,9 +377,9 @@ weights
 
 ```text
 Callouts (11x4, 0-based):
-1. r0-r2 c0-c10  Label -- Text, `semantic.primary`; content, wraps
-2. r3 c0-c5      Bar -- six cells, all filled at 100%; token `semantic.accent`
-3. r3 c7-c10     Percent -- `100%` in `muted`; atomic value
+1. r0-r2 c0-c10  Label -- Text, `primary`; content, wraps
+2. r3 c0-c5      Bar -- six cells, all filled at 100%; token `accent`
+3. r3 c7-c10     Percent -- `100%` in `secondary`; atomic value
 ```
 
 ```text
@@ -377,12 +392,12 @@ weights
 AAAAAAAAAAA
 AAAAA
 AAAAAAA
-BBBBBBCCCCC
+BBBBBB.DDDD
 ── legend ──
 .  default
 A  fg=primary
 B  fg=accent
-C  fg=muted
+D  fg=secondary
 ```
 
 ### One-row floor (9x1)
@@ -399,19 +414,19 @@ for the one-row budget (owner decision, 2026-10-10).
 
 ```text
 Callouts (9x1, 0-based):
-1. r0 c0-c3    Bar -- four cells, all filled at 100%; token `semantic.accent`
-2. r0 c5-c8    Percent -- `100%` in `muted`; the label is absent at this width
+1. r0 c0-c3    Bar -- four cells, all filled at 100%; token `accent`
+2. r0 c5-c8    Percent -- `100%` in `secondary`; the label is absent at this width
 ```
 
 ```text
 ── chars ──
 ████ 100%
 ── style ──
-BBBB.CCCC
+BBBB.DDDD
 ── legend ──
 .  default
 B  fg=accent
-C  fg=muted
+D  fg=secondary
 ```
 
 ### Current-value labels
@@ -445,17 +460,18 @@ Linking █████████████████████░░░
 Done ██████████████████████████████ 100%
 Steps ██████████████████████░░░░░░░░ 3/4
 ── style ──
-AAAAAAACCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-AAAAAAAAABBBBBBCCCCCCCCCCCCCCCCCCCCCCCCC
-AAAAAAAAAABBBBBBBBBBBBBCCCCCCCCCCCCCCCCC
-AAAAAAAABBBBBBBBBBBBBBBBBBBBBCCCCCCCCCCC
-AAAAABBBBBBBBBBBBBBBBBBBBBBBBBBBBBBCCCCC
-AAAAAABBBBBBBBBBBBBBBBBBBBBBCCCCCCCCCCCC
+AAAAAAACCCCCCCCCCCCCCCCCCCCCCCCCCCCCC.DD
+AAAAAAAAABBBBBBCCCCCCCCCCCCCCCCCCCCC.DDD
+AAAAAAAAAABBBBBBBBBBBBBCCCCCCCCCCCCC.DDD
+AAAAAAAABBBBBBBBBBBBBBBBBBBBBCCCCCCC.DDD
+AAAAABBBBBBBBBBBBBBBBBBBBBBBBBBBBBB.DDDD
+AAAAAABBBBBBBBBBBBBBBBBBBBBBCCCCCCCC.DDD
 ── legend ──
 .  default
 A  fg=primary
 B  fg=accent
-C  fg=muted
+C  fg=border
+D  fg=secondary
 ```
 
 ## State model
@@ -468,7 +484,7 @@ Schema: [README](../README.md#state-model-table).
 | total             | Binding     | `Double`                                   | at least 1; a smaller total is clamped to 1                                                                |
 | label             | Binding     | `Text` builder                             | app content; wraps, above the bar when the row is narrow; tail-truncates only under a fixed one-row height |
 | currentValueLabel | Binding     | `Text` builder?                            | replaces the percent when supplied; absent means percent                                                   |
-| spinner style     | Environment | `SpinnerSet` or custom frames and interval | a style choice; every frame one cell wide                                                                  |
+| spinner style     | Environment | `SpinnerSet` or custom frames and interval | a style choice; the label starts at c2 for every set                                                       |
 | clock             | Environment | instant                                    | supplied by the environment (plan 032 step 16.1); the view stores none                                     |
 | frame index       | derived     | `Int`                                      | `(now / interval) mod frames.count`, recomputed each render; never stored                                  |
 
@@ -507,13 +523,12 @@ grows by the label's wrapped rows in the stacked form.
 
 ## Environment
 
-Tokens consumed, each defined in [tokens.md](../tokens.md) when the row exists; otherwise
-the token is pending plan 032 step 5.3.
+Tokens consumed, each defined in [tokens.md](../tokens.md).
 
-- `semantic.primary`: label and indeterminate label.
-- `semantic.accent`: bar fill and spinner glyph.
-- `muted` (token pending plan 032 step 5.3): bar track, percent, and current-value label
-  default. `muted` is not in [tokens.md](../tokens.md).
+- `primary`: label and indeterminate label.
+- `accent`: bar fill and spinner glyph.
+- `border`: bar track. `secondary`: percent and current-value label default
+  ([text roles](../tokens.md#text-roles)).
 - `truncation.mark`: tail truncation mark under a fixed one-row height, defined in
   [tokens.md](../tokens.md#truncation).
 - `readableWidth` (environment): the determinate form's nil-width ideal; see
@@ -547,12 +562,17 @@ the token is pending plan 032 step 5.3.
 - `percent is the default current-value label` (current-value labels state)
 - `supplied current-value label replaces the percent` (current-value labels state)
 - `value is clamped to the closed range from zero to total` (state model: value)
-- `indeterminate glyph is one cell wide in every frame` (indeterminate anatomy; frame
-  sets)
+- `indeterminate label starts two cells in for every frame set` (indeterminate anatomy;
+  frame sets)
 - `braille is the default spinner frame set` (frame sets)
 - `nerd font spinner sets fall back to orbit without a nerd font` (frame sets)
 - `ascii-only output draws every spinner set with line` (frame sets; degradation)
 - `custom frames without an ascii fallback draw line in ascii-only output` (frame sets)
+- `nerd font spinner frame is followed by a real space` (frame sets;
+  [Nerd Font cells](../tokens.md#nerd-font-cells))
+- `built-in spinner sets run at their own intervals` (frame sets: braille, orbit and clock
+  80 ms, arc 100 ms, slices 125 ms, halves and line 120 ms)
+- `quarters is not a built-in spinner set` (frame sets)
 - `spinner frame derives from the supplied clock and stores no state` (state model: frame
   index)
 - `under-minimum proposal reports the 9x1 floor` (sizing table: 8x1)
@@ -567,16 +587,14 @@ the token is pending plan 032 step 5.3.
   The determinate bar draws `#` for fill and `.` for track in ASCII-only output (owner
   decision, 2026-10-10).
 - `NO_COLOR` and 16-color: roles resolve to their fallbacks per the
-  [semantic styles](../tokens.md#semantic-styles) rules. The bar stays legible through its
-  glyphs.
+  [roles](../tokens.md#roles) rules. The bar stays legible through its glyphs.
 - Below the 11x4 minimum the label's words break between grapheme clusters and the bar row
   keeps its 9-cell floor. Under a fixed one-row height below 9 columns the row draws the
   bar and percent only; the view reports its 9x1 minimum rather than hiding the percent.
 
 ## Open questions
 
-- `muted` and `warning` are not in tokens.md. The 1.0 role set does not add them. Token
-  pending plan 032 step 5.3.
+- None.
 
 ## Inspiration
 

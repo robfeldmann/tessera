@@ -1,6 +1,6 @@
 ---
 kind: primitive
-status: specified
+status: ready
 ---
 
 # Box
@@ -161,9 +161,10 @@ Owner decision, omp2 review, 2026-10. The look follows the
 [Focus border](border.md#focus-border) rules: one `focus` role colour, with weight set by
 rule. The three states below are the accepted wireframes.
 
-Owner decision, 2026-10-10: the focus colour is violet (16-colour magenta 5/13) for now,
-foreground-only, bold, with no background. Tessera picks the default; developers can set
-their own colour. The `focus` token row stays pending plan 032 step 5.3.
+Focus colour: `focus` is the terminal's default foreground in bold, foreground-only, with
+no hue and no background (owner decision, 2026-10-19;
+[tokens.md#focus](../tokens.md#focus)). Apps may set an explicit colour
+([overrides](../tokens.md#overrides)).
 
 ### Self focus
 
@@ -212,7 +213,8 @@ P  fg=focus
 
 A bordered container with a focused descendant tints its nearest bordered ring in the
 `focus` role at normal weight (rule 2). The focused control shows its own focus: the
-Deploy button fills with the focus colour. The sibling box stays plain.
+Deploy button fills with `solid(focus)`, a default-foreground chip. The sibling box stays
+plain.
 
 ```wireframe 40x8
 ┌─ Build ──────────────────────────────┐
@@ -230,8 +232,8 @@ Callouts (40x8, 0-based):
 1. r0-r3 c0-c39  Sibling box (Build) -- `single` set in `border`; not an ancestor of the focus
 2. r4-r7 c0-c39  Focus-within box (Deploy) -- `single` set in `focus` at normal weight (rule 2)
 3. r4 c2-c9      Title -- bold `focus` label
-4. r6 c12-c19    Deploy button -- the focused control: `contrast` on `focus` fill, bold
-5. r6 c2-c9      Cancel button -- unfocused secondary action: tinted, `faint(secondary)*` fill
+4. r6 c12-c19    Deploy button -- the focused control: `contrast` bold on the `focus` fill (`solid(focus)`)
+5. r6 c2-c9      Cancel button -- unfocused secondary action: tinted, `faint(secondary)` fill
 ```
 
 ```text
@@ -258,9 +260,9 @@ PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
 A  fg=border
 F  fg=focus bold
 T  fg=primary bold
-M  fg=muted
-B  fg=faint(secondary)*
-b  fg=secondary bg=faint(secondary)*
+M  fg=secondary
+B  fg=faint(secondary)
+b  fg=secondary bg=faint(secondary)
 P  fg=focus
 p  fg=contrast bg=focus bold
 ```
@@ -287,8 +289,8 @@ Callouts (40x8, 0-based):
 2. r2-r6 c2-c19  Sibling box (api) -- plain; not an ancestor of the focus
 3. r2-r6 c20-c37 Nearest bordered ancestor (worker) -- `single` set in `focus`, normal weight
 4. r2 c22-c29    Worker title -- bold `focus` label
-5. r4 c22-c26    Pin button (worker) -- the focused control: `contrast` on `focus` fill, bold
-6. r4 c4-c8      Pin button (api) -- unfocused secondary action: tinted, `faint(secondary)*` fill
+5. r4 c22-c26    Pin button (worker) -- the focused control: `contrast` bold on the `focus` fill (`solid(focus)`)
+6. r4 c4-c8      Pin button (api) -- unfocused secondary action: tinted, `faint(secondary)` fill
 ```
 
 ```text
@@ -315,9 +317,9 @@ AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 A  fg=border
 F  fg=focus bold
 T  fg=primary bold
-M  fg=muted
-B  fg=faint(secondary)*
-b  fg=secondary bg=faint(secondary)*
+M  fg=secondary
+B  fg=faint(secondary)
+b  fg=secondary bg=faint(secondary)
 P  fg=focus
 p  fg=contrast bg=focus bold
 ```
@@ -326,9 +328,9 @@ p  fg=contrast bg=focus bold
 
 - Border sets resolve exactly as in the [Border](border.md) contract; Box adds no border
   token of its own.
-- The focus colour is the `focus` role; its value is token pending plan 032 step 5.3. Box
-  adds no focus token; the rules are in the [Focus border](border.md#focus-border)
-  section.
+- The focus colour is the `focus` role; its value is the terminal's default foreground in
+  bold ([tokens.md#focus](../tokens.md#focus)). Box adds no focus token; the rules are in
+  the [Focus border](border.md#focus-border) section.
 - Focus paints only the foreground of border glyphs and the title text, leaves backgrounds
   transparent, and keeps the declared `BorderStyle` and title position.
 - Delegated focus appearance paints after descendants. A descendant ScrollView therefore
@@ -339,11 +341,11 @@ p  fg=contrast bg=focus bold
   `.focusSection()` sets it to `false` for its whole subtree (owner decision, 2026-10-10).
   See the [state model](#state-model).
 - Unfocused secondary actions in the wireframes are tinted buttons (Button's default
-  emphasis) with a `faint(secondary)` fill: token pending plan 032 step 5.3. The focused
-  button keeps the focus fill.
-- The title uses `semantic.primary` through the ambient
-  [`defaultStyle`](style-modifiers.md) and the
-  [`truncation.mark`](../tokens.md#truncation) for tail truncation. Box applies
+  emphasis) with a `faint(secondary)` fill
+  ([composite styles](../tokens.md#composite-styles)). The focused button keeps the focus
+  fill (`solid(focus)`).
+- The title uses `primary` through the ambient [`defaultStyle`](style-modifiers.md) and
+  the [`truncation.mark`](../tokens.md#truncation) for tail truncation. Box applies
   `.lineLimit(1)` and `.truncationMode(.tail)` directly on the title Text (chrome, one
   row), so an app's inherited `lineLimit` and `truncationMode` reach the child content and
   never the title.

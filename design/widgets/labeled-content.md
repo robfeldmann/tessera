@@ -374,11 +374,11 @@ under-minimum, over-maximum.
 
 ## Environment
 
-- Label role `secondary`: [tokens.md](../tokens.md#semantic-styles) `semantic.secondary`.
-- Value role `primary`: `semantic.primary`.
-- Foreground roles `success`, `warning`, `error`: token pending plan 032 step 5.3.
-  [tokens.md](../tokens.md#semantic-styles) defines no such roles.
-- `accent`: `semantic.accent`.
+- Label role `secondary`: [text roles](../tokens.md#text-roles).
+- Value role `primary`: [text roles](../tokens.md#text-roles).
+- Tones `success`, `warning`, `error`: [hue roles](../tokens.md#hue-roles). Defined in 1.0
+  (owner decision, 2026-10-19).
+- `accent`: [hue roles](../tokens.md#hue-roles).
 
 ## Primitive dependencies
 
@@ -416,16 +416,16 @@ under-minimum, over-maximum.
 ## Degradation
 
 - `NO_COLOR`: the label and value text still separate the two parts. The secondary label
-  loses its dim per the [degradation ladder](../tokens.md#degradation-ladder). Foreground
+  stays dim per the [degradation ladder](../tokens.md#degradation-ladder). Foreground
   tones lose their colour; the text is unchanged.
-- 16-colour: roles follow their token rows once plan 032 step 5.3 defines them.
+- 16-colour: roles follow their slots columns in [roles](../tokens.md#roles) and the
+  [degradation ladder](../tokens.md#degradation-ladder).
 - Below 8 columns: words break between grapheme clusters; nothing is truncated or dropped
   (owner decision, 2026-10-18).
 
 ## Open questions
 
-- Foreground roles `success`, `warning`, `error`: no token rows. Unblocks: plan 032 step
-  5.3.
+None.
 
 ## Inspiration
 

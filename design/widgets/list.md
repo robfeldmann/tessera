@@ -106,13 +106,17 @@ A sectioned mail sidebar with a selection binding present. Section headers come 
 ```text
 Callouts (26x12, 0-based):
 1. r0       Section header -- Section chrome; disclosure `disclosure.expanded` in the
-            gutter column, title `semantic.secondary`; not selectable, not focusable;
+            gutter column, title `secondary`; not selectable, not focusable;
             chrome, one row (Section's wrap exception)
 2. r1-r4    Data row -- one row per item in this data set; text from the app row builder
             at c3 (Section's two-column row indent; sectionless rows start at c1);
             content, wraps, so a longer label takes more rows (see Wrapped)
-3. r2 c0    Selection bar -- token `selection.bar`; every row of the selected item also
-            gets `selection.fill`
+3. r2 c0    Selection bar -- `selection.bar` in `accent` (focused) / `secondary`
+            (unfocused); every row of the selected item also gets `selection.fill`; the
+            bar cell takes the fill when derived; where `selection.fill` is reverse video
+            (slots, indexed256, NO_COLOR) the bar draws on the terminal background and the
+            fill starts at the next cell ([selection](../tokens.md#selection); owner
+            decision, 2026-10-19)
 4. r1 c22   Badge -- trailing count from plain text or `.badge(_:)`; neutral tone by
             default (see Row badges); right-aligned by the app's row builder; chrome,
             one row
@@ -123,6 +127,10 @@ Callouts (26x12, 0-based):
             (every item here is one row; six more Tags rows below); thumb =
             max(1, floor(12x12/18)) = 8
 8. r0-r11   Viewport -- wheel target; every flattened row scrolls, headers included
+9. r3       Hover (not drawn in this fixture) -- on by default; the row under the pointer
+            takes `hover` (12%, [fill roles](../tokens.md#fill-roles)); its row label (the
+            row's first text line) is underlined where no fill is drawn (slots, NO_COLOR,
+            16-colour); a selected row keeps `selection.fill` under the pointer
 ```
 
 Region names for the mouse table: data row, section header, viewport.
@@ -152,11 +160,11 @@ Callouts (40x2, 0-based):
 ## States
 
 Mobile (40x16): a message list -- the second canonical use case. Two-line rows from the
-row builder (sender plus time, then a `semantic.secondary` preview line); the selection
-bar paints on every line of the selected row. Mid-scroll: items 4-11 of 20 visible, which
-is rows 8-23 of 40, so thumb = max(1, floor(16x16/40)) = 6 starting at
-floor(8x(16-6)/(40-16)) = 3. The preview line is `semantic.secondary` content, so it
-wraps; at this width every preview fits one row.
+row builder (sender plus time, then a `secondary` preview line); the selection bar paints
+on every line of the selected row. Mid-scroll: items 4-11 of 20 visible, which is rows
+8-23 of 40, so thumb = max(1, floor(16x16/40)) = 6 starting at floor(8x(16-6)/(40-16))
+= 3. The preview line is `secondary` content, so it wraps; at this width every preview
+fits one row.
 
 ```wireframe 40x16
  Maya Chen                       09:41 │
@@ -200,7 +208,10 @@ Callouts (34x8, 0-based):
 1. r0 c1-c8      Data row, partial at the top -- last row of a three-row item (content
                  row 2); its first two rows sit above the viewport; content, wraps
 2. r1-r2 c0      Selection bar -- `selection.bar` on every row of the selected item; both
-                 rows also get `selection.fill`
+                 rows also get `selection.fill`; the bar cell takes the fill when derived;
+                 where `selection.fill` is reverse video the bar draws on the terminal
+                 background and the fill starts at the next cell
+                 ([selection](../tokens.md#selection))
 3. r1-r2 c1-c32  Data row, selected -- two-row item at the 32-cell content width;
                  content, wraps
 4. r3 c1-c29     Data row -- one-row item; content, wraps (it fits)
@@ -228,8 +239,12 @@ starting at 0.
 Callouts (34x6, 0-based):
 1. r0, r1, r3, r4 c32  Truncation mark -- `truncation.mark` (`…`; ASCII `~`) ends the
                        row; Text marks its own cut
-2. r1 c0               Selection bar -- `selection.bar`; the single row also gets
-                       `selection.fill`
+2. r1 c0               Selection bar -- `selection.bar` in `accent` (focused) /
+                       `secondary` (unfocused); the single row also gets
+                       `selection.fill`; the bar cell takes the fill when derived; where
+                       `selection.fill` is reverse video the bar draws on the terminal
+                       background and the fill starts at the next cell
+                       ([selection](../tokens.md#selection))
 3. r0-r5 c33           Scrollbar -- three-row thumb at r0-r2
 ```
 
@@ -248,7 +263,11 @@ graphemes and the scrollbar drops below width 8; List never fails or clips witho
 
 ```text
 Callouts (12x3, 0-based):
-1. r0 c0     Selection bar -- `selection.bar` on the selected one-row item
+1. r0 c0     Selection bar -- `selection.bar` on the selected one-row item in `accent`
+             (focused) / `secondary` (unfocused); the bar cell takes the fill when
+             derived; where `selection.fill` is reverse video the bar draws on the
+             terminal background and the fill starts at the next cell
+             ([selection](../tokens.md#selection))
 2. r1-r2 c1  Data row -- `Drafts and old mail` wrapped at 10 cells over two rows;
              content, wraps
 3. r0-r2 c11 Scrollbar -- one-row thumb at r0; 5 content rows in a 3-row viewport
@@ -283,8 +302,9 @@ states, composed beside or instead of the List.
 | scroll offset         | NodeState   | `Int` (content rows above the viewport) | counts rows, not items; a partly visible item at either edge draws its visible rows; clamps to `0...maximum scroll offset` on every update, including after a width change re-wraps the items; selection-moving keys reveal the selected item: the fewest rows that show every row of it, aligning its first row with the viewport top when it is taller than the viewport |
 | maximum scroll offset | derived     | `Int`                                   | `max(0, C - V)` for C content rows (the sum of row heights) and V viewport rows; recomputed per layout pass; never stored                                                                                                                                                                                                                                                  |
 | row line limit        | Environment | `Int?` (`lineLimit`)                    | default nil, so rows wrap; `.lineLimit(1)` on a row or on the List restores single-line rows; chrome (headers, badges) pins its own value                                                                                                                                                                                                                                  |
-| header styling        | Environment | `semantic.secondary`                    | Section header default; see [Section](section.md)                                                                                                                                                                                                                                                                                                                          |
+| header styling        | Environment | `secondary`                             | Section header default; see [Section](section.md)                                                                                                                                                                                                                                                                                                                          |
 | selection style       | Environment | `selection.*` tokens                    | active vs inactive chosen by focus                                                                                                                                                                                                                                                                                                                                         |
+| hovered row           | derived     | `Int?` (row index under the pointer)    | set from motion while the list is on screen; cleared on leave or unmount; never stored in NodeState or a binding; a selected row keeps `selection.fill` under the pointer                                                                                                                                                                                                  |
 
 The "selection ID vanished" rule is Slice 7's mandatory "app mutated data under the
 widget" case, and collapsing the selected row's section is deliberately the same case:
@@ -297,9 +317,9 @@ rendering, and never mirrors the offset into `_ResponderView.ResponderState`.
 
 List is one focus stop: rows are not individually focusable, and Tab moves past the whole
 widget. Focus presentation rides the selection tint swap; when hosted in a
-focus-appearance host (for example [Box](../primitives/box.md)) the host paints
-`focus.border`. A selection-less List follows [ScrollView's](scroll-view.md) delegated
-focus appearance.
+focus-appearance host (for example [Box](../primitives/box.md)) the host paints its
+[focus rule](../tokens.md#focus). A selection-less List follows
+[ScrollView's](scroll-view.md) delegated focus appearance.
 
 ## Key table
 
@@ -336,14 +356,15 @@ item.
 
 ## Mouse table
 
-| Event        | Region         | Precondition                          | Effect                                           | Consumed |
-| ------------ | -------------- | ------------------------------------- | ------------------------------------------------ | -------- |
-| click        | data row       | selection binding present             | sets selection to that row's ID via binding      | yes      |
-| double-click | data row       | selection binding present             | sets selection, then calls `onActivate`          | yes      |
-| click        | section header | header collapsible                    | toggles that section's expansion via its binding | yes      |
-| click        | section header | header not collapsible                | none -- noninteractive label                     | no       |
-| wheel-down   | viewport       | scroll offset < maximum scroll offset | increments NodeState scroll offset               | yes      |
-| wheel-up     | viewport       | scroll offset > 0                     | decrements NodeState scroll offset               | yes      |
+| Event        | Region         | Precondition                                        | Effect                                                        | Consumed |
+| ------------ | -------------- | --------------------------------------------------- | ------------------------------------------------------------- | -------- |
+| click        | data row       | selection binding present                           | sets selection to that row's ID via binding                   | yes      |
+| double-click | data row       | selection binding present                           | sets selection, then calls `onActivate`                       | yes      |
+| click        | section header | header collapsible                                  | toggles that section's expansion via its binding              | yes      |
+| click        | section header | header not collapsible                              | none -- noninteractive label                                  | no       |
+| wheel-down   | viewport       | scroll offset < maximum scroll offset               | increments NodeState scroll offset                            | yes      |
+| wheel-up     | viewport       | scroll offset > 0                                   | decrements NodeState scroll offset                            | yes      |
+| move         | data row       | pointer on screen; motion requested while on screen | sets the hovered row (`hover`); no selection or scroll change | no       |
 
 Wheel scrolling moves the viewport without touching selection (the bar and fill simply are
 not rendered until the row returns). Boundary wheel events are not consumed so a
@@ -368,16 +389,23 @@ rule, not the numbers, is normative.
 
 ## Environment
 
-- `selection.bar`, `selection.fill`, `selection.inactive`, `selection.ascii`
-- `disclosure.expanded`, `disclosure.collapsed`, `disclosure.ascii` -- collapsible Section
-  headers ([tokens](../tokens.md#disclosure))
-- `semantic.secondary` -- Section header default and the preview row-content convention
-- `scrollbar.track`, `scrollbar.thumb`, `scrollbar.ascii` for the output-only
-  ScrollIndicator
+- `selection.bar` (ASCII `>`), `selection.fill`, `selection.inactive`; bar colour `accent`
+  when focused, `secondary` when unfocused; the bar cell takes the fill when derived, and
+  where `selection.fill` is reverse video it draws on the terminal background
+  ([selection](../tokens.md#selection))
+- `disclosure.expanded`, `disclosure.collapsed` (ASCII `-` / `+`) -- collapsible Section
+  headers ([Marks](../tokens.md#marks))
+- `secondary` -- Section header default and the preview row-content convention
+- `hover` -- 12% row fill ([fill roles](../tokens.md#fill-roles)); slots and NO_COLOR use
+  an underline on the row label instead; `.rowHover(.disabled)` is the placeholder opt-out
+  spelling (owner decision, 2026-10-19)
+- track `border`, thumb `accent`, and ASCII `scrollIndicator.ascii` for the output-only
+  ScrollIndicator ([scroll indicators](../tokens.md#scroll-indicators);
+  [migration map](../tokens.md#migration-map))
 - `truncation.mark`
 - `lineLimit` / `truncationMode` (environment) -- app-set row budget and cut mode reach
   row content; Section headers and badges pin their own values
-- `focus.border` / `focus.content` -- only via a delegating focus-appearance host; List
+- [Focus rules](../tokens.md#focus) -- only via a delegating focus-appearance host; List
   adds no focus ring of its own
 
 ## Primitive dependencies
@@ -440,6 +468,9 @@ rule, not the numbers, is normative.
 - `rows wrap at the content width and take every row they need` (states: wrapped)
 - `selection highlight covers every row of a wrapped item` (states: wrapped; anatomy:
   callout 3)
+- `selection bar is accent when focused and secondary when unfocused` (anatomy: callout 3)
+- `selection bar cell draws on the terminal background where selection fill is reverse video`
+  (anatomy: callout 3)
 - `partly visible items draw their visible rows at the top and bottom edges without a mark`
   (states: wrapped)
 - `scroll offset thumb and paging count rows not items` (state model: scroll offset;
@@ -457,11 +488,23 @@ rule, not the numbers, is normative.
   nil)
 - `narrow width breaks words between graphemes, scrolls the viewport and draws no mark`
   (sizing: 6 x 2)
+- `row under the pointer takes the hover fill; a selected row keeps selection.fill under the pointer`
+  (Anatomy callout 9; state model: hovered row)
+- `rows request pointer motion only while the list is on screen` (state model: hovered
+  row; [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing))
+- `.rowHover(.disabled) removes the hover fill and the motion request` (Environment:
+  hover)
+- `move event sets the hovered row without changing selection or scroll offset` (mouse
+  table: move)
+- `slots, NO_COLOR and 16-colour show hover as an underline on the row label`
+  (Degradation: hover)
 
 ## Degradation
 
 - `NO_COLOR`: selection falls back to reverse video; headers to dim.
 - 16-color: indexed equivalents; geometry unchanged.
+- Hover: slots, NO_COLOR and 16-colour draw no hover fill; the row label is underlined
+  (owner decision, 2026-10-19).
 - ASCII-only: degraded wireframe above -- `>` selection, `-`/`+` disclosure, `|`/`#`
   scrollbar, `~` truncation mark.
 - Below `min` (12x3): words break between graphemes and the viewport scrolls, with no mark

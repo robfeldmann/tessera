@@ -66,12 +66,11 @@ extension View {
 The standard style is selected from the environment, with a default style when no ancestor
 supplies one. A style receives the label, prompt, text display region, focus/enabled
 state, and caret request site; it may change chrome but cannot own text, selection, or
-submit behavior. Planned semantic roles are complete `Style` values, not hard-coded
-colors: `semantic.primary`, `semantic.secondary`, `semantic.accent`, `semantic.disabled`,
-and `semantic.destructive`. Slice 7 supplies the environment keys and the exact
-style-configuration protocol for the standard/default style; custom `TextFieldStyle` is
-deferred with Toggle and Button (owner decision, 2026-10-10). Until then, this document
-uses only the canonical focus, border, truncation, and degradation tokens in
+submit behavior. Roles are complete `Style` values, not hard-coded colors: `primary`,
+`secondary`, `border`, `focus`, `disabled` and `error` ([roles](../tokens.md#roles)).
+Slice 7 supplies the environment keys and the exact style-configuration protocol for the
+standard/default style; custom `TextFieldStyle` is deferred with Toggle and Button (owner
+decision, 2026-10-10). This document uses the roles and focus rules in
 [tokens](../tokens.md).
 
 ## Anatomy
@@ -89,15 +88,16 @@ Email address
 
 ```text
 Callouts (48x4, 0-based):
-1. r0       Label -- caller-supplied Label, style role `semantic.primary`; omitted only
+1. r0       Label -- caller-supplied Label, style role `primary`; omitted only
             when the caller supplies an empty label; content, wraps above the frame.
-2. r1-r3    Field frame -- default TextFieldStyle, token `focus.border` when focused;
+2. r1-r3    Field frame -- default TextFieldStyle, the heavy set in `focus` when focused
+            ([Focus](../tokens.md#focus), rule 1);
             rounded border set is visual chrome, not a hit target.
 3. r2 c1-c46 Input line -- single unwrapped display viewport; the edited text, one row,
             scrolls horizontally around the caret, no wrap, no tail mark (Wrap exception
             below); primary click-to-caret region and the only mouse region in this document.
-4. r2 c1-c46 Prompt slot -- the same input line when text is empty; prompt uses planned
-            `semantic.secondary` Style and never becomes bound text; content, one-row budget
+4. r2 c1-c46 Prompt slot -- the same input line when text is empty; prompt uses its
+            `secondary` role and never becomes bound text; content, one-row budget
             (the input line), so a long prompt ends in `…`.
 5. r2       Caret site -- derived terminal position; a focused enabled field requests the
             hardware cursor here instead of rendering a virtual cursor glyph.
@@ -181,9 +181,9 @@ Email address
 
 ```text
 Callouts (48x4, 0-based):
-1. r0       Label -- caller-supplied field name in the `semantic.primary` role; content, wraps.
+1. r0       Label -- caller-supplied field name in the `primary` role; content, wraps.
 2. r1-r3    Field frame -- unfocused default-style border.
-3. r2 c1-c46 Prompt slot -- muted `semantic.secondary` text in the input line; content, one-row
+3. r2 c1-c46 Prompt slot -- `secondary` text in the input line; content, one-row
             budget; its displayed characters are not part of the bound string.
 ```
 
@@ -191,20 +191,20 @@ Callouts (48x4, 0-based):
 
 The fixture's `▏` is a diagrammatic proxy for the terminal's hardware cursor. It replaces
 the underlying `l` cell in the fixture; it is not a glyph inserted into the buffer or
-binding. Focus changes the frame through `focus.border`; no animated cursor or software
-caret is introduced.
+binding. Focus changes the frame to the heavy set in `focus` ([Focus](../tokens.md#focus),
+rule 1); no animated cursor or software caret is introduced.
 
 ```wireframe 48x4
 Email address
-╭──────────────────────────────────────────────╮
-│alice@examp▏e.com                             │
-╰──────────────────────────────────────────────╯
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃alice@examp▏e.com                             ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 ```
 
 ```text
 Callouts (48x4, 0-based):
 1. r0       Label -- unchanged by focus; emphasis stays on the editing region; content, wraps.
-2. r1-r3    Field frame -- rounded border in the token `focus.border` accent treatment.
+2. r1-r3    Field frame -- heavy border in `focus` ([Focus](../tokens.md#focus), rule 1).
 3. r2 c1-c46 Input line -- bound text rendered without wrapping; editing line.
 4. r2 c12   Caret site -- hardware cursor overlays the `l` cell at the grapheme boundary
             before it; `▏` replaces that cell in this fixture only.
@@ -249,7 +249,7 @@ Display name
 
 ```text
 Callouts (48x4, 0-based):
-1. r0       Label -- ordinary `semantic.primary` text, independent of input-cluster
+1. r0       Label -- ordinary `primary` text, independent of input-cluster
             measurement; content, wraps.
 2. r1-r3    Field frame -- unchanged for wide or combining input.
 3. r2 c1-c46 Input line -- display-cell viewport: `東京` is four cells, `👩🏽‍💻` is two,
@@ -260,9 +260,9 @@ Callouts (48x4, 0-based):
 
 ### Disabled
 
-A disabled field renders its label, value, and chrome in the planned `semantic.disabled`
-Style. It never requests a hardware cursor, never changes its binding, and does not
-intercept keys or mouse events, so an ancestor can handle them.
+A disabled field renders its label, value, and chrome in the `disabled` role. Style. It
+never requests a hardware cursor, never changes its binding, and does not intercept keys
+or mouse events, so an ancestor can handle them.
 
 ```wireframe 48x4
 Email address
@@ -273,7 +273,7 @@ Email address
 
 ```text
 Callouts (48x4, 0-based):
-1. r0       Label -- `semantic.disabled` Style rather than a second color palette; content, wraps.
+1. r0       Label -- `disabled` role rather than a second color palette; content, wraps.
 2. r1-r3    Field frame -- disabled chrome; it has no focus accent.
 3. r2 c1-c46 Input line -- read-only visual value and noninteractive hit region.
 ```
@@ -318,15 +318,15 @@ Callouts (20x4, 0-based):
 ### Character counter
 
 Owner decision, omp2 review, 2026-10. A field with an app-supplied character limit shows a
-right-aligned counter. At or under the limit it shows the remaining count in `muted`; over
-it it shows `+N`, the number of grapheme clusters past the limit, in `error`. The counter
-never caps input: an over-limit value stays bound and editable through `text`. The two
-sample rows show both states: row 1 has 21 grapheme clusters under a limit of 40, and row
-2 has 25 grapheme clusters over a limit of 12.
+right-aligned counter. At or under the limit it shows the remaining count in `secondary`;
+over it it shows `+N`, the number of grapheme clusters past the limit, in `error`. The
+counter never caps input: an over-limit value stays bound and editable through `text`. The
+two sample rows show both states: row 1 has 21 grapheme clusters under a limit of 40, and
+row 2 has 25 grapheme clusters over a limit of 12.
 
 Owner decision, 2026-10-10: the counter unit is grapheme clusters, matching the cursor and
-edits. An exact limit shows `0` in `muted`. The limit is set by `.characterLimit(_:)` in
-the environment, so it is configuration rather than state.
+edits. An exact limit shows `0` in `secondary`. The limit is set by `.characterLimit(_:)`
+in the environment, so it is configuration rather than state.
 
 ```wireframe 40x2
 ❯ Release notes for 2.4               19
@@ -335,10 +335,10 @@ the environment, so it is configuration rather than state.
 
 ```text
 Callouts (40x2, 0-based):
-1. c0-c1    row cursor `❯` -- `accent` on the focused row and `muted` on the other. It is
+1. c0-c1    row cursor `❯` -- `accent` on the focused row and `secondary` on the other. It is
             host-row chrome (Focus border rule 3), not TextField output.
 2. c2-c26   input text -- bound value in `primary`; row 1 is 21 grapheme clusters, row 2 is 25.
-3. r0 c38-c39 remaining count `19` -- `muted`: the limit of 40 minus 21 grapheme clusters; chrome, one row.
+3. r0 c38-c39 remaining count `19` -- `secondary`: the limit of 40 minus 21 grapheme clusters; chrome, one row.
 4. r1 c37-c39 overflow count `+13` -- `error`: 25 grapheme clusters minus the limit of 12; chrome, one row.
 ```
 
@@ -355,7 +355,7 @@ CCBBBBBBBBBBBBBBBBBBBBBBBBB..........RRR
 .  default
 A  fg=accent
 B  fg=primary
-C  fg=muted
+C  fg=secondary
 R  fg=error
 ```
 
@@ -363,9 +363,10 @@ R  fg=error
 
 This is the ASCII-only focused fixture. `+`, `-`, and `|` come from the `ascii` border
 set; `|` at the caret site is a hardware-cursor diagram proxy that replaces the underlying
-`l` cell in the fixture. In `NO_COLOR`, the normal rounded frame remains but focus uses
-bold; in 16-color, the focus role maps to an indexed accent; in ASCII-only, the frame
-changes as shown and text still measures by display cell.
+`l` cell in the fixture. In `NO_COLOR`, the focused frame switches to the heavy set in
+bold; in 16-colour, `focus` is the default foreground in bold
+([focus](../tokens.md#focus)); in ASCII-only, the frame changes as shown and text still
+measures by display cell.
 
 ```wireframe 48x4
 Email address
@@ -386,22 +387,22 @@ Callouts (48x4, 0-based):
 
 ## State model
 
-| State                                    | Owner       | Type                                | Reset or clamp rule                                                                                                                                                                                |
-| ---------------------------------------- | ----------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| text                                     | Binding     | `Binding<String>`                   | App-owned source of truth; every accepted edit replaces its value immediately, and external replacement is authoritative.                                                                          |
-| cursor grapheme offset                   | NodeState   | `Int`                               | Clamp to `0...graphemeCount(text)` on every reconciliation; if the app changes text, keep the nearest surviving grapheme boundary.                                                                 |
-| selection anchor grapheme offset         | NodeState   | `Int`                               | Clamp to `0...graphemeCount(text)` on every reconciliation; equal to the cursor when no range is selected, and never points inside a grapheme.                                                     |
-| selected grapheme range                  | derived     | `Range<Int>`                        | The half-open range between anchor and cursor; replacement and deletion operate on whole graphemes only.                                                                                           |
-| horizontal reveal offset                 | NodeState   | `Int` display-cell offset           | Clamp on every layout/update to a legal grapheme boundary between `0` and the maximum reveal; adjust minimally to keep the caret within the input line. The editing line never wraps.              |
-| grapheme boundaries and display advances | derived     | `[String.Index]` plus cell advances | Recompute from current `text` during layout/render; combining marks advance zero and wide clusters reserve their measured cells.                                                                   |
-| input viewport width                     | derived     | `Int` cells                         | Recompute from final input-line bounds on every layout; zero width yields no cursor request.                                                                                                       |
-| effective enabled                        | derived     | `Bool`                              | Recompute from the inherited enabled configuration on every update; false disables focus/edit behavior without copying text.                                                                       |
-| focused                                  | derived     | `Bool`                              | Recompute from `FocusManager`; if this node disappears, focus clears under Slice 4 and cursor request disappears.                                                                                  |
-| has submit handler                       | derived     | `Bool`                              | Recompute from the optional submit closure on every update; true exactly when the closure is non-nil.                                                                                              |
-| caret terminal position                  | derived     | `TerminalPosition?`                 | Recompute from bounds, reveal offset, and cursor boundary; nil unless focused, enabled, and a visible input cell exists.                                                                           |
-| character limit                          | Environment | `Int?`                              | Configuration, not state: read on every render from `.characterLimit(_:)`; nil draws no counter. The limit counts but never caps input (accepted sample: 25 over 12). Owner decision, 2026-10-10.  |
-| character count                          | derived     | `Int` graphemes                     | Recompute as `graphemeCount(text)` on every render; the unit is grapheme clusters (owner decision, 2026-10-10).                                                                                    |
-| counter display                          | derived     | `Int?` plus role                    | At or under the limit, including exactly `0` remaining: `limit - count` in `muted` (owner decision, 2026-10-10). Over it: `count - limit` as `+N` in `error`. Nil without a limit; never negative. |
+| State                                    | Owner       | Type                                | Reset or clamp rule                                                                                                                                                                                    |
+| ---------------------------------------- | ----------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| text                                     | Binding     | `Binding<String>`                   | App-owned source of truth; every accepted edit replaces its value immediately, and external replacement is authoritative.                                                                              |
+| cursor grapheme offset                   | NodeState   | `Int`                               | Clamp to `0...graphemeCount(text)` on every reconciliation; if the app changes text, keep the nearest surviving grapheme boundary.                                                                     |
+| selection anchor grapheme offset         | NodeState   | `Int`                               | Clamp to `0...graphemeCount(text)` on every reconciliation; equal to the cursor when no range is selected, and never points inside a grapheme.                                                         |
+| selected grapheme range                  | derived     | `Range<Int>`                        | The half-open range between anchor and cursor; replacement and deletion operate on whole graphemes only.                                                                                               |
+| horizontal reveal offset                 | NodeState   | `Int` display-cell offset           | Clamp on every layout/update to a legal grapheme boundary between `0` and the maximum reveal; adjust minimally to keep the caret within the input line. The editing line never wraps.                  |
+| grapheme boundaries and display advances | derived     | `[String.Index]` plus cell advances | Recompute from current `text` during layout/render; combining marks advance zero and wide clusters reserve their measured cells.                                                                       |
+| input viewport width                     | derived     | `Int` cells                         | Recompute from final input-line bounds on every layout; zero width yields no cursor request.                                                                                                           |
+| effective enabled                        | derived     | `Bool`                              | Recompute from the inherited enabled configuration on every update; false disables focus/edit behavior without copying text.                                                                           |
+| focused                                  | derived     | `Bool`                              | Recompute from `FocusManager`; if this node disappears, focus clears under Slice 4 and cursor request disappears.                                                                                      |
+| has submit handler                       | derived     | `Bool`                              | Recompute from the optional submit closure on every update; true exactly when the closure is non-nil.                                                                                                  |
+| caret terminal position                  | derived     | `TerminalPosition?`                 | Recompute from bounds, reveal offset, and cursor boundary; nil unless focused, enabled, and a visible input cell exists.                                                                               |
+| character limit                          | Environment | `Int?`                              | Configuration, not state: read on every render from `.characterLimit(_:)`; nil draws no counter. The limit counts but never caps input (accepted sample: 25 over 12). Owner decision, 2026-10-10.      |
+| character count                          | derived     | `Int` graphemes                     | Recompute as `graphemeCount(text)` on every render; the unit is grapheme clusters (owner decision, 2026-10-10).                                                                                        |
+| counter display                          | derived     | `Int?` plus role                    | At or under the limit, including exactly `0` remaining: `limit - count` in `secondary` (owner decision, 2026-10-10). Over it: `count - limit` as `+N` in `error`. Nil without a limit; never negative. |
 
 ## Key table
 
@@ -485,26 +486,27 @@ left with zero rows is absent (owner decision, 2026-10-18).
 
 ## Environment
 
-- `focus.border` and `focus.content` from [tokens](../tokens.md#focus) select focused
-  default-style emphasis; the field never names a color.
-- `rounded` and `ascii` from [border sets](../tokens.md#border-sets) supply default and
-  degraded frame glyphs.
+- The focused frame takes the heavy set in `focus` ([Focus](../tokens.md#focus), rule 1);
+  the field never names a colour.
+- `rounded`, `heavy` and `ascii` from [border sets](../tokens.md#border-sets) supply the
+  default, focused and degraded frame glyphs.
 - The [degradation ladder](../tokens.md#degradation-ladder) governs `NO_COLOR`, 16-color,
   and ASCII-only fallbacks.
-- The field consumes inherited enabled state and the complete semantic `Style` values
-  `semantic.primary`, `semantic.secondary`, `semantic.accent`, and `semantic.disabled`;
-  custom `TextFieldStyle` and `textFieldStyle(_:)` are deferred with Toggle and Button
-  (owner decision, 2026-10-10), outside this P4.5 acceptance requirement.
-- The character counter consumes `muted` for the remaining count and `error` for the
-  overflow count; both roles are token pending plan 032 step 5.3. The character limit is
-  environment configuration set by `.characterLimit(_:)` (owner decision, 2026-10-10), not
-  a style role.
+- The field consumes inherited enabled state and the complete `Style` roles `primary`,
+  `secondary`, `border`, `focus`, `disabled` and `error`; custom `TextFieldStyle` and
+  `textFieldStyle(_:)` are deferred with Toggle and Button (owner decision, 2026-10-10),
+  outside this P4.5 acceptance requirement.
+- The character counter consumes `secondary` for the remaining count and `error` for the
+  overflow count ([roles](../tokens.md#roles)). The character limit is environment
+  configuration set by `.characterLimit(_:)` (owner decision, 2026-10-10), not a style
+  role.
 
 ## Primitive dependencies
 
 - `Text` -- label, prompt, and cluster-safe input slice; it must expose Phase 2 Slice 4
   display-width/cluster measurement rather than TextField reimplementing it.
-- `Border` -- default rounded/ascii frame using the canonical token sets.
+- `Border` -- default rounded frame, heavy frame when focused, and ascii frame, using the
+  canonical token sets.
 - Slice 4 focusable-view, `FocusManager`, and key-routing support -- the focus/key
   dependency only; it does not expose a public TextField before Slice 7.
 - Slice 5 hit testing and mouse dispatch -- the click-to-caret dependency only; it does
@@ -572,9 +574,9 @@ left with zero rows is absent (owner decision, 2026-10-18).
   Minimum wireframe; sizing: 11x2)
 - `text field applies ascii degradation without creating a software cursor` (Degraded
   wireframe)
-- `text field shows the remaining count in muted under its limit` (Character counter
+- `text field shows the remaining count in secondary under its limit` (Character counter
   wireframe; state model: counter display)
-- `text field shows a zero remaining count in muted when the count equals its limit`
+- `text field shows a zero remaining count in secondary when the count equals its limit`
   (state model: counter display; owner decision, 2026-10-10)
 - `text field shows an overflow count in error without capping its binding` (Character
   counter wireframe; state model: counter display and character limit)
@@ -583,17 +585,18 @@ left with zero rows is absent (owner decision, 2026-10-18).
 
 ## Degradation
 
-At normal capability, the default style uses the rounded frame and `focus.border` accent.
-At `NO_COLOR`, it retains glyphs but substitutes bold focus, per the ladder. At 16-color
-it uses the indexed accent mapping, never a hard-coded RGB approximation. At ASCII-only it
-uses the degraded fixture's `+`/`-`/`|` frame and `|` cursor diagram convention; editable
-text remains grapheme/display-width-safe. Below `12x4`, it reports the offered size. Under
-a fixed height the input line keeps its row, then the frame drops, then the label loses
-rows (its last visible row ends in `…`); in width the label wraps and breaks between
-graphemes, and the editing line scrolls and never wraps. At zero input cells it makes no
-cursor request. No degradation changes the Binding or turns prompt text into data. The
-counter keeps its text at every capability level; its `muted` and `error` colours follow
-the ladder once those roles have tokens (token pending plan 032 step 5.3).
+At normal capability, the default style uses the rounded frame, and the heavy set in
+`focus` when focused. At `NO_COLOR`, the focused frame takes the heavy set in bold, per
+the ladder. At 16-colour it uses each role's slots column ([roles](../tokens.md#roles)),
+never a hard-coded RGB approximation. At ASCII-only it uses the degraded fixture's
+`+`/`-`/`|` frame and `|` cursor diagram convention; editable text remains
+grapheme/display-width-safe. Below `12x4`, it reports the offered size. Under a fixed
+height the input line keeps its row, then the frame drops, then the label loses rows (its
+last visible row ends in `…`); in width the label wraps and breaks between graphemes, and
+the editing line scrolls and never wraps. At zero input cells it makes no cursor request.
+No degradation changes the Binding or turns prompt text into data. The counter keeps its
+text at every capability level; its `secondary` and `error` colours follow the
+[degradation ladder](../tokens.md#degradation-ladder).
 
 ## Deferred post-1.0
 
@@ -603,9 +606,7 @@ the ladder once those roles have tokens (token pending plan 032 step 5.3).
 
 ## Open questions
 
-- **Counter roles (blocks `ready`).** The roles `muted` and `error` are absent from
-  `design/tokens.md`; token pending plan 032 step 5.3. Their degradation under `NO_COLOR`
-  and 16-color follows once those tokens land.
+None.
 
 ## Inspiration
 

@@ -108,18 +108,28 @@ The anatomy is the `plain` style, the default. The other styles are under Styles
 
 ```text
 Callouts (46x9, 0-based):
-1. r0       Header row -- Text per column, `semantic.primary` plus bold by default;
+1. r0       Header row -- Text per column, `primary` plus bold by default;
             `TableStyle` may override; pinned, never scrolls; chrome, one row
 2. r0 c1    Header cell -- one per column; click target for sorting; chrome, one row
 3. r1       Header rule -- Divider, token `divider.light`, full width
-4. r3 c0    Selection bar -- token `selection.bar`; row also gets `selection.fill`
+4. r3 c0    Selection bar -- `selection.bar` in `accent` when focused, `secondary` when
+            unfocused; row also gets `selection.fill`; the bar cell takes the fill when
+            derived; where `selection.fill` is reverse video (slots, indexed256, NO_COLOR)
+            the bar draws on the terminal background and the fill starts at the next cell
+            ([selection](../tokens.md#selection); owner decision, 2026-10-19)
 5. r2-r7    Data row -- one row per visible element here (every cell single-line); 6 of
             12 visible; cells are content, one row (wrap exception)
 6. r6 c14   Truncation -- Text `tail` policy, `truncation.mark` (`…`; ASCII `~`),
             grapheme-safe, cut inside the cell's own column
-7. c45      Scrollbar -- output-only ScrollIndicator; track `scrollbar.track`, thumb
-            `scrollbar.thumb`, thumb = max(1, floor(6x6/12)) = 3 of 6, counted in rows
+7. c45      Scrollbar -- output-only ScrollIndicator; track `border`, thumb `accent`
+            (ScrollIndicator presets;
+            [scroll indicators](../tokens.md#scroll-indicators)),
+            thumb = max(1, floor(6x6/12)) = 3 of 6, counted in rows
 8. r8       Footer -- app-provided slot, NOT Table chrome (owner decision, 2026-10-10)
+9. r4       Hover (not drawn in this fixture) -- on by default; the row under the pointer
+            takes `hover` (12%, [fill roles](../tokens.md#fill-roles)); its row label (the
+            leading Name cell) is underlined where no fill is drawn (slots, NO_COLOR,
+            16-colour); a selected row keeps `selection.fill` under the pointer
 ```
 
 > Wrap exception (rule 1): cells are single-line by default, the spreadsheet idiom that
@@ -180,10 +190,14 @@ Data rows with a header rule and no frame. Four rows fit, so no scrollbar is dra
 
 ```text
 Callouts (40x6, 0-based):
-1. r0       Header row -- Text per column, `semantic.primary` plus bold; no rule
+1. r0       Header row -- Text per column, `primary` plus bold; no rule
             above it; pinned, never scrolls
 2. r1       Header rule -- Divider, token `divider.light`; the only rule in plain
-3. r3 c0    Selection bar -- token `selection.bar`; row also gets `selection.fill`
+3. r3 c0    Selection bar -- `selection.bar` in `accent` when focused, `secondary` when
+            unfocused; row also gets `selection.fill`; the bar cell takes the fill when
+            derived; where `selection.fill` is reverse video (slots, indexed256, NO_COLOR)
+            the bar draws on the terminal background and the fill starts at the next cell
+            ([selection](../tokens.md#selection); owner decision, 2026-10-19)
 4. r2-r5    Data rows -- all four rows fit, so no ScrollIndicator is drawn
 ```
 
@@ -207,8 +221,8 @@ BSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 H  fg=primary bold
 D  fg=border
 P  fg=primary
-S  fg=primary bg=selection
-B  fg=accent bg=selection
+S  fg=primary bg=selection.fill
+B  fg=accent bg=selection.fill
 ```
 
 ### Bordered
@@ -232,11 +246,11 @@ takes the bar's column.
 Callouts (40x8, 0-based):
 1. r0, r7   Border -- shared `light` set (`┌┐└┘`, `─`, `│`), unfocused; focus rules
             apply to this ring (see Styles)
-2. r1       Header row -- as plain: bold `semantic.primary`, pinned
+2. r1       Header row -- as plain: bold `primary`, pinned
 3. r2       Header rule -- `├ ┼ ┤` on the border set, joined into the frame; junction
-            glyphs use the `border` role, token pending plan 032 step 5.3
+            glyphs use the `border` role (see [border sets](../tokens.md#border-sets))
 4. r0 c16, r0 c26, r7 c16, r7 c26 -- `┬` and `┴` where the column separators meet
-            the top and bottom edges; same junction token pending plan 032 step 5.3
+            the top and bottom edges; same junction, `border` role
 5. r4 c1-c15 Selection fill -- `selection.fill` on the cell interiors; no bar, because
             the left border occupies the bar's column
 6. r3-r6    Data rows -- all four rows fit, so no ScrollIndicator is drawn
@@ -267,7 +281,7 @@ DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
 H  fg=primary bold
 D  fg=border
 P  fg=primary
-S  fg=primary bg=selection
+S  fg=primary bg=selection.fill
 ```
 
 ### Grid
@@ -293,10 +307,9 @@ scrolling lists.
 ```text
 Callouts (40x11, 0-based):
 1. r0, r10  Border -- shared `light` set, unfocused; focus rules apply to this ring
-2. r1       Header row -- bold `semantic.primary`, pinned
+2. r1       Header row -- bold `primary`, pinned
 3. r2       Header rule -- `├ ┼ ┤`, joined into the frame
 4. r4, r6, r8 Row rules -- one between every pair of rows; junctions on the border set
-            (token pending plan 032 step 5.3)
 5. r5 c1-c15 Selection fill -- `selection.fill` on the cell interiors; no bar
 6. r3-r9    Data rows -- all four rows fit, so no ScrollIndicator is drawn
 7. c16, c26 Column separators -- `│` between cells; `┼` where they meet a row rule
@@ -332,16 +345,16 @@ DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
 H  fg=primary bold
 D  fg=border
 P  fg=primary
-S  fg=primary bg=selection
+S  fg=primary bg=selection.fill
 ```
 
 ### Striped (alternating rows, plain)
 
 `.alternatingRowBackgrounds()` on the default style. Owner decision, 2026-10-10: the
-stripe is the `surface` role on every second data row, token pending plan 032 step 5.3,
-never `hover`, so a hovered row and a stripe stay distinct. The selected row keeps
-`selection.fill`, so the stripe is hidden under it. Under NO_COLOR the stripe is dropped
-(see Degradation).
+stripe is the `surface` role (8%) on every second data row. Hover and stripes coexist: a
+hovered striped row shows `hover` (12%) over its stripe (owner decision, 2026-10-19). The
+selected row keeps `selection.fill` over both, so the stripe is hidden under it. Under
+NO_COLOR the stripe is dropped (see Degradation).
 
 ```wireframe 40x6
  Name                    Size   Modified
@@ -356,11 +369,14 @@ never `hover`, so a hovered row and a stripe stay distinct. The selected row kee
 Callouts (40x6, 0-based):
 1. r0       Header row -- as plain
 2. r1       Header rule -- Divider, token `divider.light`
-3. r3 c0    Selection bar -- token `selection.bar`; the row gets `selection.fill`, which
-            replaces the stripe on this row
+3. r3 c0    Selection bar -- `selection.bar` in `accent` (focused) / `secondary`
+            (unfocused); the row gets `selection.fill`, which replaces the stripe on this
+            row; the bar cell takes the fill when derived; where `selection.fill` is
+            reverse video the bar draws on the terminal background and the fill starts at
+            the next cell ([selection](../tokens.md#selection))
 4. r2, r4   Data rows -- no stripe (first and third data rows)
-5. r3, r5   Stripe -- `surface` background on the second and fourth data rows; token
-            pending plan 032 step 5.3; dropped under NO_COLOR
+5. r3, r5   Stripe -- `surface` (8%) background on the second and fourth data rows; a
+            hovered stripe row shows `hover` instead; dropped under NO_COLOR
 ```
 
 ```text
@@ -383,8 +399,8 @@ ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ
 H  fg=primary bold
 D  fg=border
 P  fg=primary
-S  fg=primary bg=selection
-B  fg=accent bg=selection
+S  fg=primary bg=selection.fill
+B  fg=accent bg=selection.fill
 Z  fg=primary bg=surface
 ```
 
@@ -407,12 +423,12 @@ Bordered; the stripe covers the whole interior of the striped row, not the separ
 ```text
 Callouts (40x8, 0-based):
 1. r0, r7   Border -- shared `light` set, unfocused; focus rules apply to this ring
-2. r1       Header row -- as plain: bold `semantic.primary`, pinned
+2. r1       Header row -- as plain: bold `primary`, pinned
 3. r2       Header rule -- `├ ┼ ┤`, joined into the frame
 4. r4 c1-c15 Selection fill -- `selection.fill` on the second data row, which is also
             a stripe row; selection wins over the stripe
 5. r6 c1-c15 Stripe -- `surface` background on the fourth data row; the column separators
-            keep the border role; token pending plan 032 step 5.3; dropped under NO_COLOR
+            keep the border role; dropped under NO_COLOR
 6. r3-r6    Data rows -- all four rows fit, so no ScrollIndicator is drawn
 ```
 
@@ -440,7 +456,7 @@ DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
 H  fg=primary bold
 D  fg=border
 P  fg=primary
-S  fg=primary bg=selection
+S  fg=primary bg=selection.fill
 Z  fg=primary bg=surface
 ```
 
@@ -488,7 +504,10 @@ Callouts (40x12, 0-based):
 5. r2 c15-c20  Size cell -- content, one row (wrap exception); right-aligned, top-aligned
 6. r2-r5 c22-c39  Description cell -- content, wraps at the column's 18 cells
 7. r6-r7 c0    Selection bar -- `selection.bar` on every row of the selected data row; both
-               rows also get `selection.fill` across c0-c39
+               rows also get `selection.fill` across c0-c39; the bar cell takes the fill
+               when derived; where `selection.fill` is reverse video the bar draws on the
+               terminal background and the fill starts at the next cell
+               ([selection](../tokens.md#selection))
 8. r8          Data row -- one row; the short description needs no wrap
 9. r9-r10      Data row -- two rows tall
 10. r11        Data row -- one row
@@ -600,8 +619,10 @@ Degraded ascii/no-color (46x6): geometry identical, glyphs swapped per the
 | column line limit     | derived     | `Int?` per column                                   | read from the column declaration on every update: 1 unless the column opted in with `TableColumn.lineLimit(_:)`; nil wraps every row, n caps the cell at n rows; header cells are always 1; never stored                                                                                                                                                                                      |
 | table style           | Environment | `TableStyle` (`plain`, `bordered`, `grid`)          | default `plain`; set by `.tableStyle(_:)`; a style never changes rows, selection, or scroll offset                                                                                                                                                                                                                                                                                            |
 | alternating rows      | Environment | `Bool`                                              | set by `.alternatingRowBackgrounds()`; applies to every style; the selected row keeps `selection.fill` over the stripe                                                                                                                                                                                                                                                                        |
-| header styling        | Environment | `semantic.primary` plus bold                        | default header style; `TableStyle` may override                                                                                                                                                                                                                                                                                                                                               |
+| header styling        | Environment | `primary` plus bold                                 | default header style; `TableStyle` may override                                                                                                                                                                                                                                                                                                                                               |
 | selection style       | Environment | `selection.*` tokens                                | active (`selection.bar`, `selection.fill`) when focused and not in header mode; `selection.inactive` for the row in header mode; header cursor cell uses `selection.fill` in header mode                                                                                                                                                                                                      |
+| hovered row           | derived     | `Int?` (row index under the pointer)                | set from motion while the table is on screen; cleared on leave or unmount; never stored in NodeState or a binding; a selected row keeps `selection.fill` under the pointer                                                                                                                                                                                                                    |
+| hover enabled         | Environment | `Bool`                                              | on by default; `.rowHover(.disabled)` placeholder opts out (owner decision, 2026-10-19)                                                                                                                                                                                                                                                                                                       |
 
 The "selection ID vanished" rule is this widget's version of Slice 7's mandatory "app
 mutated data under the widget" case: Table must render sanely and must not write to the
@@ -650,15 +671,16 @@ or below the current row's first row, clamped to the first and last data row.
 
 ## Mouse table
 
-| Event        | Region      | Precondition                          | Effect                                                                             | Consumed |
-| ------------ | ----------- | ------------------------------------- | ---------------------------------------------------------------------------------- | -------- |
-| click        | data row    | single-select                         | sets selection to that row's ID via binding                                        | yes      |
-| click        | data row    | multi-select                          | replaces the selection set with that row's ID via binding; cursor moves to the row | yes      |
-| click        | mark gutter | multi-select                          | toggles that row's ID in the selection set via binding; cursor moves to the row    | yes      |
-| double-click | data row    | always                                | runs the click effect for that row, then calls `onActivate`                        | yes      |
-| click        | header cell | sort order binding set                | cycles that column's entry (by column ID) through the Space sequence via binding   | yes      |
-| wheel-down   | data row    | scroll offset < maximum scroll offset | increments NodeState scroll offset                                                 | yes      |
-| wheel-up     | data row    | scroll offset > 0                     | decrements NodeState scroll offset                                                 | yes      |
+| Event        | Region      | Precondition                                                                | Effect                                                                                     | Consumed |
+| ------------ | ----------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | -------- |
+| click        | data row    | single-select                                                               | sets selection to that row's ID via binding                                                | yes      |
+| click        | data row    | multi-select                                                                | replaces the selection set with that row's ID via binding; cursor moves to the row         | yes      |
+| click        | mark gutter | multi-select                                                                | toggles that row's ID in the selection set via binding; cursor moves to the row            | yes      |
+| double-click | data row    | always                                                                      | runs the click effect for that row, then calls `onActivate`                                | yes      |
+| click        | header cell | sort order binding set                                                      | cycles that column's entry (by column ID) through the Space sequence via binding           | yes      |
+| wheel-down   | data row    | scroll offset < maximum scroll offset                                       | increments NodeState scroll offset                                                         | yes      |
+| wheel-up     | data row    | scroll offset > 0                                                           | decrements NodeState scroll offset                                                         | yes      |
+| move         | data row    | pointer on screen; rows request pointer motion while the table is on screen | sets the hovered row to the row under the pointer (`hover`); no selection or scroll change | no       |
 
 Wheel scrolling moves the viewport without touching selection (selection may scroll out of
 view; the bar and fill simply are not rendered until it returns). The ScrollIndicator is
@@ -714,8 +736,8 @@ SBSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 H  fg=primary bold
 D  fg=border
 P  fg=primary
-S  fg=primary bg=selection
-B  fg=accent bg=selection
+S  fg=primary bg=selection.fill
+B  fg=accent bg=selection.fill
 A  fg=accent
 ```
 
@@ -739,12 +761,14 @@ never reorders data; the app sorts it from the sort-order binding.
 
 ```text
 Callouts (40x6, 0-based); header mode is on the Size column and Name is sorted ascending:
-1. r0 c6     Sort mark -- `↑` on the sorted column's title; `↓` when descending; token
-             pending plan 032 step 5.3
+1. r0 c6     Sort mark -- `↑` on the sorted column's title; `↓` when descending; glyphs
+             per [Marks](../tokens.md#marks)
 2. r0 c22-28 Header cursor cell -- `selection.fill` on the cell under the header cursor,
              drawn only in header mode
 3. r3 c0-c39 Inactive row -- `selection.inactive` for the bar and fill of the row selection
-             while in header mode
+             while in header mode; the fill covers c0-c39 when derived, and where
+             `selection.fill` is reverse video the fill starts at the next cell; the bar
+             takes `secondary` (unfocused) ([selection](../tokens.md#selection))
 ```
 
 ```text
@@ -759,7 +783,7 @@ Callouts (40x6, 0-based); header mode is on the Size column and Name is sorted a
 .HHHH.H...............SSSSSSS...HHHHHHHH
 DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
 .PPPPPPPPPPPP..........PPP.PP.PPPPPPPPPP
-IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
+JIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
 .PPPPPPPPP.............PPP.PP.PPPPPPPPPP
 .PPPPPPP...............PPP.PP.PPPPPPPPPP
 ── legend ──
@@ -767,8 +791,9 @@ IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
 H  fg=primary bold
 D  fg=border
 P  fg=primary
-S  fg=primary bg=selection
+S  fg=primary bg=selection.fill
 I  fg=primary bg=selection.inactive
+J  fg=secondary bg=selection.inactive
 ```
 
 ## Sizing
@@ -817,20 +842,27 @@ priority for narrow viewports (mobile state); drop priority stays in v1 (owner d
 
 ## Environment
 
-- `semantic.primary` plus bold -- default header text style; `TableStyle` may override it
-- `selection.bar`, `selection.fill`, `selection.inactive`, `selection.ascii`
+- `primary` plus bold -- default header text style; `TableStyle` may override it
+- `selection.bar` (ASCII `>`), `selection.fill`, `selection.inactive`
 - `divider.light` for the plain header rule
-- `border` role -- frame, separators, junction glyphs (`├ ┼ ┤`), frame corners, and row
-  rules of `bordered` and `grid`; token pending plan 032 step 5.3
+- `border` role ([roles](../tokens.md#roles)) -- frame, separators, junction glyphs
+  (`├ ┼ ┤`), frame corners, and row rules of `bordered` and `grid`
 - shared border sets (`light`, `heavy`, `ascii`) -- see
   [border sets](../tokens.md#border-sets)
-- `focus` role -- outer ring of a bordered table when it or its content has focus; token
-  pending plan 032 step 5.3; ASCII uses bold
-- `surface` role -- alternating row background (`.alternatingRowBackgrounds()`), never
-  `hover`; token pending plan 032 step 5.3
+- `focus` role -- outer ring of a bordered table when it or its content has focus, drawn
+  as the terminal's default foreground in bold with no hue ([focus](../tokens.md#focus));
+  ASCII uses bold (owner decision, 2026-10-19)
+- `surface` role -- alternating row background (`.alternatingRowBackgrounds()`), 8%
+  ([fill roles](../tokens.md#fill-roles)); `hover` (12%) is a separate role that wins over
+  a stripe on a hovered row
+- `hover` -- 12% row fill ([fill roles](../tokens.md#fill-roles)); slots and NO_COLOR draw
+  an underline on the row label instead; `.rowHover(.disabled)` is the placeholder opt-out
+  spelling (owner decision, 2026-10-19). Pointer motion requests cite Spec Slice 5
+  ([Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing)).
 - member mark glyph `●` (ASCII `*`) and sort mark glyphs `↑`, `↓` (ASCII `^`, `v`) --
-  token pending plan 032 step 5.3
-- `scrollbar.track`, `scrollbar.thumb` for the output-only ScrollIndicator
+  glyphs per [Marks](../tokens.md#marks)
+- track `border`, thumb `accent` for the output-only ScrollIndicator
+  ([scroll indicators](../tokens.md#scroll-indicators))
 - `truncation.mark`
 - `lineLimit` / `truncationMode` (environment) -- Table pins `lineLimit(1)` on header
   cells and on cells of columns that have not opted in; an opted-in column uses its own
@@ -871,8 +903,8 @@ priority for narrow viewports (mobile state); drop priority stays in v1 (owner d
   model: selection)
 - `scroll offset clamps when app shrinks data` (state model: scroll offset; maximum scroll
   offset)
-- `default header uses bold semantic.primary and TableStyle can override it` (state model:
-  header styling)
+- `default header uses bold primary and TableStyle can override it` (state model: header
+  styling)
 - `header click cycles the sort entry for that column id through binding` (mouse table:
   header cell)
 - `sort order is keyed by column id so retitling a column keeps its sort` (state model:
@@ -950,8 +982,22 @@ priority for narrow viewports (mobile state); drop priority stays in v1 (owner d
   40 x nil)
 - `line limit of n caps a wrapped cell at n rows and marks the last visible row` (wrapped
   columns: height rule)
-- `selection bar and fill cover every row of a wrapped data row` (wrapped columns:
-  callout 7)
+- `selection bar and fill cover every row of a wrapped data row; the bar cell takes the fill when derived and draws on the terminal background where selection.fill is reverse video`
+  (wrapped columns: callout 7)
+- `bar cell takes accent or secondary and the selection fill when derived; under reverse-video selection fill it draws on the terminal background`
+  (Anatomy callout 4)
+- `row under the pointer takes the hover fill; a selected row keeps selection.fill under the pointer`
+  (Anatomy callout 9; state model: hovered row)
+- `hover and stripes coexist: a hovered striped row shows hover over its stripe` (Styles:
+  Striped)
+- `rows request pointer motion only while the table is on screen` (state model: hovered
+  row; [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing))
+- `.rowHover(.disabled) removes the hover fill and the motion request` (state model: hover
+  enabled)
+- `move event sets the hovered row without changing selection or scroll offset` (mouse
+  table: move)
+- `slots, NO_COLOR and 16-colour show hover as an underline on the row label`
+  (Degradation: hover)
 - `scroll offset thumb and paging count rows not data rows` (state model: scroll offset;
   sizing: 40 x 6)
 - `partly visible data row draws its visible rows without a mark` (state model: scroll
@@ -979,6 +1025,8 @@ priority for narrow viewports (mobile state); drop priority stays in v1 (owner d
   a layout failure; cells are single-line (wrap exception), and a surviving column that
   opted in to wrapping wraps, breaking words between graphemes when needed. ASCII marks a
   capped wrapped cell with `~`.
+- Hover: slots, NO_COLOR and 16-colour draw no hover fill; the row label is underlined
+  (owner decision, 2026-10-19).
 
 ## Open questions
 

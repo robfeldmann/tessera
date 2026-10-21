@@ -36,8 +36,8 @@ Tessera supplies the rendering; the app supplies tokens through a highlighter ho
   The footer counts toward `maxRows`.
 - Syntax token colours:
   [syntax_token](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/text.rs#L517-L530).
-  Reject the omp2 palette names as Tessera roles. The `syntax.*` roles are token pending
-  plan 032 step 5.3.
+  Reject the omp2 palette names as Tessera roles. The eight `syntax.*` roles are defined
+  in [tokens](../tokens.md#syntax-roles).
 
 ## API direction
 
@@ -68,7 +68,7 @@ protocol SyntaxHighlighter {
 
 struct SyntaxToken {
     var range: Range<Int>  // UTF-8 byte offsets into the source (inferred)
-    var role: SyntaxRole   // a syntax.* role; token pending plan 032 step 5.3
+    var role: SyntaxRole   // one of the eight syntax.* roles (../tokens.md#syntax-roles)
 }
 
 ContentView()
@@ -179,7 +179,7 @@ exception).
 
 ```text
 Callouts (8x3, 0-based):
-1. r0-r2 c0-c3   Line-number gutter -- CodeView, muted
+1. r0-r2 c0-c3   Line-number gutter -- CodeView, `secondary`; its `│` separator `border`
 2. r0-r2 c4-c7   Source cells, clipped at column 8 -- CodeView, default role
 ```
 
@@ -187,7 +187,8 @@ Callouts (8x3, 0-based):
 
 A numbered block whose gutter starts at line 40. The gutter is the decimal width of the
 last line number plus three columns (`│`), so two-digit numbers give a five-column gutter.
-The gutter takes `muted`. The code body takes `primary`.
+The gutter takes `secondary`, and its `│` separator takes `border`. The code body takes
+`primary`.
 
 ```wireframe 40x6
 40 │ fn main() {
@@ -200,7 +201,7 @@ The gutter takes `muted`. The code body takes `primary`.
 
 ```text
 Callouts (40x6, 0-based):
-1. r0-r5 c0-c4   Line-number gutter "40 │ " through "45 │ " -- CodeView gutter, `muted`
+1. r0-r5 c0-c4   Line-number gutter "40 │ " through "45 │ " -- CodeView gutter, `secondary` (the `│` at c3 `border`)
 2. r0-r5 c5-c39  Code body, verbatim, clipped at column 40 -- CodeView, `primary`
 ```
 
@@ -213,21 +214,22 @@ Callouts (40x6, 0-based):
 44 │     }
 45 │ }
 ── style ──
-AAAAA
-AAAAA
-AAAAA
-AAAAA
-AAAAA
-AAAAA
+AAAGA
+AAAGA
+AAAGA
+AAAGA
+AAAGA
+AAAGA
 ── legend ──
 .  default
-A  fg=muted
+A  fg=secondary
+G  fg=border
 ```
 
 ### Overflow footer
 
 A block capped at four rows. Three source rows and the footer share the cap, so the footer
-is counted in `maxRows`. The footer `… 4 more lines` takes `muted`.
+is counted in `maxRows`. The footer `… 4 more lines` takes `secondary`.
 
 ```wireframe 80x4
 1 │ line one of the captured log
@@ -238,8 +240,8 @@ is counted in `maxRows`. The footer `… 4 more lines` takes `muted`.
 
 ```text
 Callouts (80x4, 0-based):
-1. r0-r2 c0-c33   Numbered source rows -- CodeView gutter `muted`, body `primary`
-2. r3 c0-c13      Overflow footer "… N more lines" -- CodeView footer, `muted`; chrome, one row
+1. r0-r2 c0-c33   Numbered source rows -- CodeView gutter `secondary` (`│` `border`), body `primary`
+2. r3 c0-c13      Overflow footer "… N more lines" -- CodeView footer, `secondary`; chrome, one row
 ```
 
 ```text
@@ -249,20 +251,21 @@ Callouts (80x4, 0-based):
 3 │ line three of the captured log
 … 4 more lines
 ── style ──
-AAAA
-AAAA
-AAAA
+AAGA
+AAGA
+AAGA
 AAAAAAAAAAAAAA
 ── legend ──
 .  default
-A  fg=muted
+A  fg=secondary
+G  fg=border
 ```
 
 ### Syntax highlighting
 
 A numbered block with `path=src/render/table.rs`, drawn through the installed highlighter
-(language `rs`). Keywords take `accent`, and the omp2 palette names are kept as captured
-in the styled grid below.
+(language `rs`). Keywords take `syntax.keyword`; the styled grid below uses the syntax
+roles in [migration map](../tokens.md#migration-map).
 
 ```wireframe 40x7
 1 │ use std::fmt::Write;
@@ -276,9 +279,9 @@ in the styled grid below.
 
 ```text
 Callouts (40x7, 0-based):
-1. r0-r6 c0-c3   Line-number gutter "1 │" through "7 │" -- CodeView gutter, `muted`
-2. r0 c4-c6      Keyword "use" -- `accent`
-3. r0-r6         Other tokens: identifiers, punctuation, strings -- palette roles, see the styled grid
+1. r0-r6 c0-c3   Line-number gutter "1 │" through "7 │" -- CodeView gutter, `secondary`; the `│` at c2 `border`
+2. r0 c4-c6      Keyword "use" -- `syntax.keyword`
+3. r0-r6         Other tokens: identifiers, punctuation, strings -- syntax roles, see the styled grid
 ```
 
 ```text
@@ -291,27 +294,27 @@ Callouts (40x7, 0-based):
 6 │     out
 7 │ }
 ── style ──
-AAAABBB.CCCBBCCCBB.....D
-AAAA
-AAAABBB.BB.EEEEEEDCCCCCD.BBBBD.DD
-AAAA....BBB.BBB.....B.FFFFFFBB...DDD
-AAAA....BBB.B.B.......D.....DGGGFFFFFFFG
-AAAA
-AAAAD
+AAGAKKK....PP...PPTTTTTP
+AAG
+AAGAKKK.KK.FFFFFFP.....P.PTTTP.PP.TTTTTT
+AAGA....KKK.KKK.....P.TTTTTTPPFFFPPP
+AAGA....KKK...P.FFFFFPP...P.SSSSSSSSSSS
+AAGA.......
+AAGAP
 ── legend ──
-.  default
-A  fg=muted
-B  fg=accent
-C  fg=primary
-D  fg=output
-E  fg=success
-F  fg=warning
+.  syntax.plain (default)
+A  fg=secondary
 G  fg=border
+K  fg=syntax.keyword
+F  fg=syntax.function
+T  fg=syntax.type
+S  fg=syntax.string
+P  fg=syntax.punctuation
 ```
 
-Roles come from the highlighter's tokens. The `syntax.*` roles are token pending plan 032
-step 5.3. The styled grid is the omp2 capture with its palette names renamed to Tessera
-roles where they exist.
+Roles come from the highlighter's tokens: the eight `syntax.*` roles in
+[tokens](../tokens.md#syntax-roles). The styled grid is recaptured with the roles in
+[migration map](../tokens.md#migration-map).
 
 ## State model
 
@@ -367,15 +370,15 @@ The examples use a three-line source, `fn main() {`, `run();` indented four spac
 
 Tokens consumed, each defined in [tokens.md](../tokens.md).
 
-- `semantic.primary`: source text.
-- `semantic.accent`: keywords.
-- `semantic.disabled`: not used.
+- `primary`: source text.
+- `syntax.keyword`: keywords.
+- `disabled`: not used.
 
-Roles without a `tokens.md` row yet, token pending plan 032 step 5.3:
+Roles, each defined in tokens.md:
 
-- `muted`: line-number gutter, overflow footer.
-- `success`, `warning`, `border`, `output`: syntax palette, and the `syntax.*` roles a
-  highlighter returns. Token pending plan 032 step 5.3.
+- `secondary`: line-number gutter and overflow footer; `border`: the `│` gutter separator.
+- `syntax.*`: the roles a highlighter returns; see
+  [syntax roles](../tokens.md#syntax-roles).
 
 Environment values, not tokens: `.syntaxHighlighter(_:)` and `.codeTabWidth(_:)`; see
 [API direction](#api-direction).
@@ -394,11 +397,12 @@ above.
 - `code view keeps spacing and line breaks verbatim` (Anatomy callout 2)
 - `code view clips long lines at the panel edge and never wraps them, whatever the height proposal`
   (Wrap exception; Anatomy callout 3, Mobile)
-- `code view draws the line-number gutter in muted` (Numbered gutter callout 1)
+- `code view draws the line-number gutter in secondary` (Numbered gutter callout 1)
+- `code view draws the gutter separator in border` (Numbered gutter callout 1)
 - `code view sizes the gutter to the decimal width of the last line number plus three columns`
   (Numbered gutter)
 - `code view counts the overflow footer toward maxRows` (Overflow footer)
-- `code view draws the overflow footer as "… N more lines" in muted` (Overflow footer
+- `code view draws the overflow footer as "… N more lines" in secondary` (Overflow footer
   callout 2)
 - `code view draws plain text when no highlighter is installed` (Syntax highlighting;
   Degradation)
@@ -416,14 +420,19 @@ above.
 - `code view fills proposals wider than its ideal width` (Sizing, over-maximum)
 - `code view draws its minimum at 8x3: a four-column gutter and four source cells`
   (Minimum; owner decision, 2026-10-10)
+- `code view keeps syntax hues on at 16 colours and resolves a hue below 3:1 to syntax.plain`
+  (Degradation)
 
 ## Degradation
 
-Follows the [degradation ladder](../tokens.md#degradation-ladder). Syntax colours drop at
-`NO_COLOR` and 16-colour terminals; the source text and gutter remain. With no highlighter
-installed, or no `path`, the source draws plain. Below the 8x3 minimum the block clips at
-the proposed size (see [Sizing](#sizing)); lines still never wrap and the cut carries no
-mark.
+Follows the [degradation ladder](../tokens.md#degradation-ladder). Under `NO_COLOR`,
+syntax roles keep only their attributes: comments italic and dim, punctuation dim, every
+other role plain. At 16 colours the syntax hues stay on in the slot palette, except that a
+hue whose slot is below 3:1 against a known background resolves as `syntax.plain`
+(readability floor; [syntax roles](../tokens.md#syntax-roles)). The source text and gutter
+remain. With no highlighter installed, or no `path`, the source draws plain. Below the 8x3
+minimum the block clips at the proposed size (see [Sizing](#sizing)); lines still never
+wrap and the cut carries no mark.
 
 ## Open questions
 

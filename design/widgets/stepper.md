@@ -96,7 +96,7 @@ then map the selected quarter deterministically to the existing
 ## Anatomy
 
 Natural fixture: an enabled, unfocused Stepper with an interior value of `42`, inside the
-range, so both arrows use `muted`.
+range, so both arrows use `secondary`.
 
 ```wireframe 6x1
 ◂ 42 ▸
@@ -106,13 +106,12 @@ range, so both arrows use `muted`.
 Callouts (6x1, 0-based):
 1. r0 c0-c5 Stepper hit target -- the one allocated, focusable node; it contains both
    arrows and the value slot.
-2. r0 c0    decrement arrow -- `◂`; `muted` while the value is in range (token pending plan
-   032 step 5.3).
+2. r0 c0    decrement arrow -- `◂`; `secondary` while the value is in range.
 3. r0 c2-c3 value slot -- formatted binding value; the default presentation reserves its
    full formatted width rather than silently rewriting it. Rendered in `primary`, the value
    role on enabled rows (owner decision, 2026-10-10). Atomic value, one row: it never
    wraps or truncates.
-4. r0 c5    increment arrow -- `▸`; `muted` while the value is in range.
+4. r0 c5    increment arrow -- `▸`; `secondary` while the value is in range.
 ```
 
 > Wrap exception (rules 1 and 2): the value is atomic: it never wraps or truncates. The
@@ -179,13 +178,13 @@ Callouts (5x1, 0-based):
 2. r0 c0    decrement arrow -- `disabled` because the binding equals its configured
    minimum; it stays in place and does not activate.
 3. r0 c2    value slot -- one-cell formatted minimum value.
-4. r0 c4    increment arrow -- available increment action in `muted`.
+4. r0 c4    increment arrow -- available increment action in `secondary`.
 ```
 
 ### Interior value
 
-An interior value leaves both arrows available, both in `muted`. The control remains one
-focusable node, not three separately focusable buttons.
+An interior value leaves both arrows available, both in `secondary`. The control remains
+one focusable node, not three separately focusable buttons.
 
 ```wireframe 6x1
 ◂ 42 ▸
@@ -194,15 +193,15 @@ focusable node, not three separately focusable buttons.
 ```text
 Callouts (6x1, 0-based):
 1. r0 c0-c5 Stepper hit target -- one focusable node for keyboard and pointer routing.
-2. r0 c0    decrement arrow -- available decrement action in `muted`.
+2. r0 c0    decrement arrow -- available decrement action in `secondary`.
 3. r0 c2-c3 value slot -- formatted binding value `42`.
-4. r0 c5    increment arrow -- available increment action in `muted`.
+4. r0 c5    increment arrow -- available increment action in `secondary`.
 ```
 
 ### Maximum
 
 At the configured maximum, the increment arrow stays in place and renders in `disabled`.
-The decrement arrow remains available in `muted`.
+The decrement arrow remains available in `secondary`.
 
 ```wireframe 6x1
 ◂ 99 ▸
@@ -211,7 +210,7 @@ The decrement arrow remains available in `muted`.
 ```text
 Callouts (6x1, 0-based):
 1. r0 c0-c5 Stepper hit target -- one focusable node despite an inert arrow.
-2. r0 c0    decrement arrow -- available decrement action in `muted`.
+2. r0 c0    decrement arrow -- available decrement action in `secondary`.
 3. r0 c2-c3 value slot -- formatted maximum binding value `99`.
 4. r0 c5    increment arrow -- `disabled` because the binding equals its configured
    maximum; it stays visible in place and does not activate.
@@ -227,7 +226,7 @@ disabled. The decisions they encode:
 - Arrows stay visible when unfocused, so the row still reads as a stepper that can be
   changed.
 - An arrow at its limit switches to the `disabled` role and keeps its place, so the value
-  never shifts sideways; in range both arrows are `muted`.
+  never shifts sideways; in range both arrows are `secondary`.
 - Focus is marked by the `❯` cursor and the bold `focus` label, not by the arrows. The
   host row draws both; Stepper paints no focus style of its own (owner decision,
   2026-10-10).
@@ -253,13 +252,13 @@ Callouts (40x6, 0-based; each row uses the same columns):
 2. c2-c13   row label -- `focus` bold when focused; `primary` when unfocused; `disabled`
             on the disabled row; content, wraps (see Row label wrapping). Host row chrome,
             not a Stepper part.
-3. c14      decrement arrow `◂` -- `muted` in range; `disabled` at the minimum and on the
+3. c14      decrement arrow `◂` -- `secondary` in range; `disabled` at the minimum and on the
             disabled row. Visible when unfocused.
 4. c16      value slot -- one cell for values 0-9, two cells (c16-c17) for 10-99. Rendered
             in `primary` on enabled rows and `disabled` on the disabled row (owner decision,
             2026-10-10).
 5. c18      increment arrow `▸` -- one cell after a one-digit value, c19 after a two-digit
-            value; `muted` in range; `disabled` at the maximum and on the disabled row.
+            value; `secondary` in range; `disabled` at the maximum and on the disabled row.
 ```
 
 Styled grid (owner review, verbatim):
@@ -281,10 +280,10 @@ AAFFFFFFFFFFFFEELLEX
 ..XXXXXXXXXXXXXEXEX
 ── legend ──
 .  default
-A  focus role (`semantic.focus`)
+A  fg=focus
 L  fg=primary
-F  focus role, bold (`semantic.focus`)
-E  fg=muted
+F  fg=focus, bold
+E  fg=secondary
 X  fg=disabled
 ```
 
@@ -343,11 +342,11 @@ writes `99` rather than preserving `101`.
 ```text
 Callouts (7x1, 0-based):
 1. r0 c0-c6 Stepper hit target -- natural width expands for the three-cell value slot.
-2. r0 c0    decrement arrow -- `muted`; available because the value is not exactly the
+2. r0 c0    decrement arrow -- `secondary`; available because the value is not exactly the
    configured minimum.
 3. r0 c2-c4 value slot -- verbatim formatted rendering of the app-owned out-of-range
    value `101`; no display clamp occurs.
-4. r0 c6    increment arrow -- `muted`; available because the value is not exactly the
+4. r0 c6    increment arrow -- `secondary`; available because the value is not exactly the
    configured maximum; its next step writes a clamped value.
 ```
 
@@ -356,7 +355,8 @@ Callouts (7x1, 0-based):
 Under ASCII-only capability the arrows degrade to `<` and `>`, the glyphs omp2's Form
 number field uses in ASCII. The owner confirmed this pair for Stepper (owner decision,
 2026-10-10). `NO_COLOR` keeps the glyphs and positions and resolves roles to their
-attribute-only fallbacks; 16-color resolves them to indexed semantic roles.
+attribute-only fallbacks; 16-colour resolves them to their slots columns in
+[roles](../tokens.md#roles).
 
 ```wireframe 6x1
 < 42 >
@@ -401,7 +401,7 @@ value and `+` are already ASCII-safe.
 | ---------------------- | ----------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | value                  | Binding     | `Binding<Value>`      | App-owned source of truth. Reconciliation displays any supplied `Value` through its selected format. An enabled user step alone writes a value clamped to `minimum...maximum` through this binding.                                                                                                                                                                                                       |
 | is enabled             | Environment | `Bool`                | Read on every reconciliation. `false` removes the node from focusability, clears `pressed affordance`, prevents activation, and leaves input unconsumed.                                                                                                                                                                                                                                                  |
-| semantic Styles        | Environment | arrow and value roles | Read on every render. An arrow is `muted` when available in range and `disabled` at its limit or when disabled; the enabled value is `primary` ([Row states](#row-states)). The label and `❯` cursor belong to the host row, not to Stepper.                                                                                                                                                              |
+| semantic Styles        | Environment | arrow and value roles | Read on every render. An arrow is `secondary` when available in range and `disabled` at its limit or when disabled; the enabled value is `primary` ([Row states](#row-states)). The label and `❯` cursor belong to the host row, not to Stepper.                                                                                                                                                          |
 | is focused             | Environment | `Bool`                | Injected below the explicit `.focusable` modifier from the FocusManager's live identity; Stepper reads it during rendering and checks `ResponderContext.isFocused` for events. Focus is shown by the host row's cursor and bold `focus` label, never by the arrows.                                                                                                                                       |
 | formatted value        | derived     | `String`              | Recompute on every update with either `String(describing: value)` or the supplied `FormatStyle`. It preserves the app-supplied value in display and never mutates the binding.                                                                                                                                                                                                                            |
 | stepped value          | derived     | `Value`               | For an in-range value, advance or retreat by positive `Value.Stride` and clamp the write to `minimum...maximum`; a non-divisible final stride lands exactly on its endpoint. Fixed-width integers whose `Stride` is `Int` use reporting-overflow arithmetic and write the requested endpoint directly when that `Int` cannot be represented as `Value`. For an out-of-range value, write its range clamp. |
@@ -463,20 +463,17 @@ proposal reports the floor instead.
 ## Environment
 
 Stepper consumes `isEnabled` and resolves its arrows from semantic roles: an available
-arrow in range takes `muted`, and an arrow at its limit or any part of a disabled Stepper
-takes `disabled`. The enabled value slot takes `primary` (owner decision, 2026-10-10).
-Focus is not painted by Stepper's own Style; the host row shows the `❯` cursor and the
-bold `semantic.focus` label. The default presentation uses `◂` and `▸`, and reports its
-content width instead of truncating or wrapping the value, which is atomic. The host row's
-label is content and inherits `lineLimit` and `truncationMode` from the environment; the
-Stepper pins its own value to one row.
-
-> Token pending plan 032 step 5.3: the role `muted` is absent from `design/tokens.md`; no
-> token name is assigned here.
+arrow in range takes `secondary`, and an arrow at its limit or any part of a disabled
+Stepper takes `disabled`. The enabled value slot takes `primary` (owner decision,
+2026-10-10). Focus is not painted by Stepper's own Style; the host row shows the `❯`
+cursor and the bold `focus` label. The default presentation uses `◂` and `▸`, and reports
+its content width instead of truncating or wrapping the value, which is atomic. The host
+row's label is content and inherits `lineLimit` and `truncationMode` from the environment;
+the Stepper pins its own value to one row.
 
 > Deferred: endpoint-specific affordance styling is decided above; `StepperStyle`,
-> `focus.border`, `truncation.mark` customization, and `.compact` style-specific
-> degradation land in a later slice.
+> `truncation.mark` customization, and `.compact` style-specific degradation land in a
+> later slice. Focus follows [tokens.md](../tokens.md#focus).
 
 ## Primitive dependencies
 
@@ -508,8 +505,8 @@ Stepper pins its own value to one row.
 - `stepper draws an arrow at its limit in the disabled role and keeps its place` (Minimum
   wireframe; Maximum wireframe; Row states: focused at minimum, focused at maximum,
   unfocused at minimum).
-- `stepper draws both in-range arrows in the muted role` (Interior value wireframe; Row
-  states: focused in range, unfocused in range).
+- `stepper draws both in-range arrows in the secondary role` (Interior value wireframe;
+  Row states: focused in range, unfocused in range).
 - `stepper marks focus with the host row's cursor and focus-role label, not the arrows`
   (Row states: focused rows; state model: is focused).
 - `stepper focuses before increment-affordance activation` (mouse table: click increment
@@ -535,11 +532,12 @@ Stepper pins its own value to one row.
 The default presentation uses `◂` and `▸`. Under ASCII-only capability the arrows degrade
 to `<` and `>` (owner decision, 2026-10-10), so the 5x1 floor and the formatted value text
 are preserved. `NO_COLOR` keeps the glyphs and positions, and resolves roles to their
-attribute-only fallbacks from the token table; a disabled arrow is dim. 16-color resolves
-roles to indexed semantic Styles. Below the floor (`4 + formatted value width`), default
-Stepper reports its floor result rather than hiding an arrow, truncating or wrapping the
-value, or creating a second interaction mode; a host row's label wraps or marks its last
-visible row first.
+attribute-only fallbacks from the [roles](../tokens.md#roles) table; a disabled arrow is
+dim. 16-colour resolves roles to their slots columns
+([degradation ladder](../tokens.md#degradation-ladder)). Below the floor
+(`4 + formatted value width`), default Stepper reports its floor result rather than hiding
+an arrow, truncating or wrapping the value, or creating a second interaction mode; a host
+row's label wraps or marks its last visible row first.
 
 > Deferred: The `.compact` style's `−` glyph degradation lands in a later slice.
 
@@ -552,8 +550,6 @@ visible row first.
   the `❯` cursor and bold `focus` label, drawn by the host row; Stepper paints no focus
   style of its own. A standalone Stepper's label comes from `LabeledContent`. The ASCII
   fallback is `<` and `>`. The `.compact` style is post-1.0.
-- **Tokens (blocks `ready`).** The role `muted` is absent from `design/tokens.md`; token
-  pending plan 032 step 5.3.
 
 ## Inspiration
 

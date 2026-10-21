@@ -1,6 +1,6 @@
 ---
 kind: widget
-status: specified
+status: ready
 ---
 
 # SplitView
@@ -315,9 +315,9 @@ Callouts (80x14, 0-based):
 D  fg=border
 H  fg=secondary bold
 P  fg=primary
-M  fg=muted
+M  fg=secondary
 A  fg=accent
-S  fg=primary bg=selection
+S  fg=primary bg=selection.fill
 K  fg=success
 ```
 
@@ -327,7 +327,8 @@ The handle between `editor` and `terminal` has keyboard focus. It draws the `hea
 `━` in the focus role, foreground-only bold, with no background. This replaces the accent
 colour the catalog used before (owner decision, omp2 review, 2026-10). Its junctions on
 the focused side use the heavy set's junction glyphs, `┣` and `┫` (owner decision,
-2026-10-10), so the joint is heavy rather than mixed-weight.
+2026-10-10), so the joint is heavy rather than mixed-weight (focus border rule 4;
+[Focus](../tokens.md#focus)).
 
 ```wireframe 80x14
  Files       │ main.swift                                   │ Inspector
@@ -397,9 +398,9 @@ D  fg=border
 F  fg=focus bold
 H  fg=secondary bold
 P  fg=primary
-M  fg=muted
+M  fg=secondary
 A  fg=accent
-S  fg=primary bg=selection
+S  fg=primary bg=selection.fill
 K  fg=success
 ```
 
@@ -477,9 +478,9 @@ D  fg=border
 F  fg=focus bold
 H  fg=secondary bold
 P  fg=primary
-M  fg=muted
+M  fg=secondary
 A  fg=accent
-S  fg=primary bg=selection
+S  fg=primary bg=selection.fill
 K  fg=success
 ```
 
@@ -535,7 +536,7 @@ D  fg=border
 H  fg=secondary bold
 P  fg=primary
 A  fg=accent
-S  fg=primary bg=selection
+S  fg=primary bg=selection.fill
 ```
 
 ## States
@@ -546,8 +547,8 @@ state at natural height (40x10), the declared 17x4 `min` viewport, both axes, ne
 junctions, focused handles in both axes, and a 40x8 content-minimum pane. Idle is any
 stable fixture without an active pointer drag; loading, empty, and error remain
 pane-content states and are rendered by the application-provided child, not by SplitView.
-A disabled handle is visually secondary and has no resize interaction when its adjacent
-visible panes cannot change their controlled sizes.
+A disabled handle draws in the `disabled` role and has no resize interaction when its
+adjacent visible panes cannot change their controlled sizes.
 
 ## State model
 
@@ -563,7 +564,7 @@ visible panes cannot change their controlled sizes.
 | focus return candidate    | NodeState    | `[Pane.ID: FocusID]`                                                                                     | When a focused descendant is hidden by `pane configuration`, remember it only if it belongs to that pane; discard it when that focus ID is no longer live.                                                                                  |
 | keyboard resizing enabled | Binding      | `Bool`                                                                                                   | App is authoritative. When false, omit divider focusability and clear `focused divider handle` on reconciliation.                                                                                                                           |
 | collapse focus target     | derived      | `FocusID?`                                                                                               | When a focused descendant is hidden, choose the first focusable descendant in the next visible pane, then the previous visible pane, otherwise nil; recompute whenever visibility or focusability changes.                                  |
-| split view styles         | Environment  | semantic `Style` roles                                                                                   | Resolve `semantic.primary`, `semantic.secondary`, `semantic.focus`, and `semantic.disabled` each render; never retain style in widget state.                                                                                                |
+| split view styles         | Environment  | role `Style` values                                                                                      | Resolve `primary`, `border`, `focus`, and `disabled` each render; never retain style in widget state.                                                                                                                                       |
 
 A pane's ID is stable across a sizing or visibility mutation. Reordering the binding is an
 explicit application operation; SplitView must not interpret a changed index as the old
@@ -708,24 +709,24 @@ The table is fixture-specific so every result is exact:
 
 ## Environment
 
-- `semantic.primary` -- inherited by ordinary pane content.
-- `semantic.secondary` -- applied to an unfocused divider handle.
-- `semantic.focus` -- applied as a bold focus-color foreground overlay to a focused
-  divider. The focus role is foreground-only bold, with no background and no rounded
-  corner glyphs (owner decision, 2026-10-10). A focused handle draws the `heavy` line of
-  Divider's glyph table, and its junctions are the heavy set's `┣ ┫ ┳ ┻ ╋` (owner
-  decision, 2026-10-10). The heavy junction column is not yet in `tokens.md`: token
-  pending plan 032 step 5.3.
-- `semantic.disabled` -- applied to a nonresizable divider handle.
+- `primary` -- inherited by ordinary pane content.
+- `border` -- applied to an unfocused divider handle.
+- `focus` -- applied as a bold foreground-only overlay to a focused divider (owner
+  decision, 2026-10-19: the terminal's default foreground, no hue). The focus role has no
+  background and no rounded corner glyphs (owner decision, 2026-10-10). A focused handle
+  draws the `heavy` line of Divider's glyph table, and its junctions are the heavy set's
+  `┣ ┫ ┳ ┻ ╋` (owner decision, 2026-10-10). The heavy junction column is in
+  [border sets](../tokens.md#border-sets).
+- `disabled` -- applied to a nonresizable divider handle.
 - `divider.style` -- [Divider](../primitives/divider.md) glyph selection. SplitView draws
   `light` by default, switches a focused handle to `heavy`, and receives identical
   geometry for every glyph style.
 - `divider.blending` -- `.blended` on SplitView's divider cells, so crossing light handles
   join as `├`, `┤`, `┬`, `┴`, or `┼`; ASCII junctions are `+`.
-- `focus.border` and the focus degradation rules in [tokens.md](../tokens.md#focus) --
-  provide the foreground-only focus presentation for the one-cell handle without inventing
-  a component-specific focus color, and without the background or rounded corner glyphs of
-  the focus border (owner decision, 2026-10-10).
+- The [Focus](../tokens.md#focus) rules (rule 4 for split dividers and rule 6 for ASCII)
+  -- provide the foreground-only focus presentation for the one-cell handle without
+  inventing a component-specific focus color, and without the background or rounded corner
+  glyphs of the focus border (owner decision, 2026-10-10).
 - `truncation.mark` and the degradation ladder in [tokens.md](../tokens.md) -- consumed by
   pane content and the split's ASCII fallback; SplitView never cuts a grapheme itself.
 
@@ -738,10 +739,9 @@ leaving its background transparent. This replaces the accent color the divider u
 
 ## Primitive dependencies
 
-- [Divider](../primitives/divider.md) (`specified`) -- supplies the `light` and `heavy`
-  rule glyphs, the blended junction rule, and sizing; SplitView owns handle focus, hit
-  testing, and drag. The heavy junction column of the border sets is token pending plan
-  032 step 5.3.
+- [Divider](../primitives/divider.md) (`ready`) -- supplies the `light` and `heavy` rule
+  glyphs, the blended junction rule, and sizing; SplitView owns handle focus, hit testing,
+  and drag. The heavy junction column is in [border sets](../tokens.md#border-sets).
 - `Text` (Slice 1) -- pane labels and content in the fixtures; actual child content is
   application supplied.
 - `FocusManager` and `.focusable` (Slice 4) -- divider keyboard focus and safe focus
@@ -815,7 +815,7 @@ responsibilities of this low-level adjacency widget.
 - `split view transposes divider hit geometry for vertical axis` (horizontal divider
   anatomy)
 - `focused divider styling overlays only a bold focus foreground with no background`
-  (environment: `semantic.focus`)
+  (environment: `focus`)
 - `split view moves a focused divider five cells with shift arrow keys` (key table:
   Shift-Left, Shift-Right, Shift-Up, Shift-Down)
 - `split view resets a focused divider pair to defaultIdeal with equals` (key table: `=`)
@@ -835,7 +835,7 @@ responsibilities of this low-level adjacency widget.
   below the declared minimum; collapsed wireframe)
 - `nested split handles join at blended junctions` (nested layout anatomy)
 - `focused divider draws the heavy line in the focus style` (nested-focused and
-  divider-focused anatomy; environment: `semantic.focus`)
+  divider-focused anatomy; environment: `focus`)
 - `focused divider junctions render heavy junction glyphs` (nested-focused anatomy; owner
   decision, 2026-10-10)
 - `ascii fallback draws plus at junctions and bolds a focused divider` (degradation:

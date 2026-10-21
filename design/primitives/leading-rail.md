@@ -73,8 +73,8 @@ The rail glyph comes from the border glyph table in
 | `heavy` | `┃`   | ships in 1.0 (owner decision, 2026-10-10); same column         |
 | `ascii` | `\|`  | degradation target; the ASCII charset selects it automatically |
 
-`role:` takes the caller's semantic role. Callout passes its kind role (token pending plan
-032 step 5.3). Markdown quotes pass `muted`.
+`role:` takes the caller's role. Callout passes its kind role (`info`, `success`,
+`warning` or `error`; [hue roles](../tokens.md#hue-roles)). Markdown quotes pass `border`.
 
 Heavy and ASCII fixtures, each beside the same three lines of content (the rail stays in
 column 0 and the content in column 2):
@@ -106,8 +106,9 @@ under-minimum, over-maximum.
 ## Environment
 
 - Rail glyphs `│`, `┃`, `|`: [tokens.md](../tokens.md#divider-glyphs).
-- Rail role: the caller's semantic role. Kind roles are token pending plan 032 step 5.3.
-  The Markdown quote role is `muted`, as [Markdown](../widgets/markdown.md) defines it.
+- Rail role: the caller's role. Kind roles are the [hue roles](../tokens.md#hue-roles).
+  The Markdown quote rail is `border`, as [Markdown](../widgets/markdown.md) defines it
+  ([border role](../tokens.md#text-roles)).
 
 ## Requirements
 
@@ -124,7 +125,8 @@ under-minimum, over-maximum.
 - ASCII-only: the rail is `|` at column 0; the glyph is selected from the
   [degradation ladder](../tokens.md#degradation-ladder).
 - `NO_COLOR`: the rail glyph stays and its role colour is lost.
-- 16-colour: roles follow their token rows once plan 032 step 5.3 defines them.
+- 16-colour: the rail takes its role's `slots` column ([roles](../tokens.md#roles);
+  [degradation ladder](../tokens.md#degradation-ladder)).
 
 ## Primitive dependencies
 

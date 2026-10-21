@@ -38,7 +38,7 @@ meet.
   ([scroll.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/scroll.rs#L181-L185),
   thumb formula at
   [L172](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/scroll.rs#L172))
-  -- the default look, the `standard` preset: an accent `█` thumb on a muted `│` track,
+  -- the default look, the `standard` preset: an accent `█` thumb on a `border` `│` track,
   unchanged by the review.
 - [ScrollView](../widgets/scroll-view.md) -- copy its final-viewport inputs and its
   `floor`-based equation (`thumb = max(1, floor(track * viewport / content))`). Reject
@@ -115,9 +115,9 @@ The geometry is `L = floor(10 * 10 / 40) = 2` and
 
 ```text
 Callouts (1x10, 0-based):
-0. r0-r3  Leading track -- four track cells (`muted`) before the vertical thumb
-1. r4-r5  Thumb -- two `standard` `█` thumb cells, styled with `semantic.accent`
-2. r6-r9  Trailing track -- four track cells (`muted`) after the thumb
+0. r0-r3  Leading track -- four track cells (`border`) before the vertical thumb
+1. r4-r5  Thumb -- two `standard` `█` thumb cells, styled with `accent`
+2. r6-r9  Trailing track -- four track cells (`border`) after the thumb
 ```
 
 ### Horizontal start middle and end
@@ -139,11 +139,11 @@ as tall as it is wide, so horizontal strips use a centred one-third bar instead 
 ```text
 Callouts (12x3, 0-based):
 0. r0 c0-c2   Start thumb -- `O = 0`; thumb touches the leading edge
-1. r0 c3-c11  Start trailing track -- nine track cells (`muted`)
-2. r1 c0-c3   Middle leading track -- four track cells (`muted`)
+1. r0 c3-c11  Start trailing track -- nine track cells (`border`)
+2. r1 c0-c3   Middle leading track -- four track cells (`border`)
 3. r1 c4-c6   Middle thumb -- `O = 18`; three thumb cells (`accent`)
-4. r1 c7-c11  Middle trailing track -- five track cells (`muted`)
-5. r2 c0-c8   End leading track -- nine track cells (`muted`)
+4. r1 c7-c11  Middle trailing track -- five track cells (`border`)
+5. r2 c0-c8   End leading track -- nine track cells (`border`)
 6. r2 c9-c11  End thumb -- `O = 36 = M`; thumb touches the bottom/trailing end
 ```
 
@@ -282,7 +282,7 @@ Callouts (25x8, 0-based):
 1. r0-r7 c0-c9             Preset names -- one preset per row; its thumb and track pair is fixed
 2. r0-r7 c14-c16           Thumb -- three cells at the same offset in every row; only the glyph
                            changes
-3. r0-r6 c10-c13, c17-c24  Track -- the preset's horizontal track (`muted`); r7 (`thumbOnly`)
+3. r0-r6 c10-c13, c17-c24  Track -- the preset's horizontal track (`border`); r7 (`thumbOnly`)
                            paints no track
 ```
 
@@ -313,7 +313,7 @@ Callouts (75x10, 0-based):
 6. r4-r6 c50       `dotted` -- `█` thumb on the `┊` track
 7. r4-r6 c59       `heavy` -- `█` thumb covering the `┃` track
 8. r4-r6 c68       `thumbOnly` -- `█` thumb with no track; r2-r3 and r7-r8 at c68 paint nothing
-9. r2-r3, r7-r8    Track -- each preset's vertical track (`muted`)
+9. r2-r3, r7-r8    Track -- each preset's vertical track (`border`)
 ```
 
 ```text
@@ -341,7 +341,7 @@ R....A........A........A........A........A........A........A..............R
 RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
 ── legend ──
 .  default
-A  fg=muted
+A  fg=border
 B  fg=accent
 H  fg=secondary bold
 R  fg=border
@@ -452,15 +452,15 @@ values from the environment:
 - Placement, set by `.scrollIndicatorPlacement(_:)`, selects `reserved` (the default) or
   `.border`. Under `.border` the border line is the track, so the preset's track glyph is
   ignored and only its thumb paints.
-- `scrollbar.ascii` supplies the ASCII `|`/`-` track and `#` thumb.
-- `muted` is the complete `Style` applied to the track, including any attributes and
-  background as well as foreground. Token pending plan 032 step 5.3.
-- `semantic.accent` is the complete `Style` applied to the thumb, including any attributes
-  and background as well as foreground.
+- `scrollIndicator.ascii` supplies the ASCII `|`/`-` track and `#` thumb.
+- `border` is the complete `Style` applied to the track, including any attributes and
+  background as well as foreground ([scroll indicators](../tokens.md#scroll-indicators)).
+- `accent` is the complete `Style` applied to the thumb, including any attributes and
+  background as well as foreground.
 
 The standard style never synthesizes a color, ANSI sequence, or partial foreground value.
-`NO_COLOR` and 16-color resolution happen when the two semantic roles resolve, exactly as
-defined in [tokens.md](../tokens.md#semantic-styles). A future custom component style must
+`NO_COLOR` and 16-color resolution happen when the track and thumb roles resolve, exactly
+as defined in [tokens.md](../tokens.md#roles). A future custom component style must
 receive the resolved axis and geometry plus complete track/thumb semantic styles; it may
 change presentation but may not change the normalized geometry, input-free nature, or
 parent-owned overflow policy. The environment key and protocol spelling for that custom
@@ -470,9 +470,9 @@ style remain open rather than adding an unregistered token here.
 
 - Slice 2 layout/render substrate -- `Axis`, finite and nil `ProposedSize`, placement, and
   buffer painting are needed to allocate the one-cell strip.
-- Slice 3 environment style resolution -- supplies the full `muted` (track, token pending
-  plan 032 step 5.3) and `semantic.accent` (thumb) `Style` values and the degradation
-  capability selection.
+- Slice 3 environment style resolution -- supplies the full `border` (track;
+  [scroll indicators](../tokens.md#scroll-indicators)) and `accent` (thumb) `Style` values
+  and the degradation capability selection.
 - [ScrollView](../widgets/scroll-view.md), List, and [Table](../widgets/table.md) depend
   on this primitive's geometry and output contract. They own their own measurement,
   effective offset, visibility, and reservation; they do not carry a duplicate thumb
@@ -518,14 +518,15 @@ source browsing, or source mapping.
   preset strips)
 - `unicode charset draws ━ and ▔ where the nerd font charset draws 🬋 and 🮂` (Degradation:
   Symbols for Legacy Computing)
+- `heavy preset draws a light horizontal track under unicode` (Symbols for Legacy
+  Computing; scroll indicators: `heavy`)
 - `on-border placement rides the edge and reserves no cell` (Variants: placement and
   on-border box wireframe; Parent contract and absence states)
 
 ## Degradation
 
-- `NO_COLOR`: retain the canonical Unicode geometry and glyphs; resolved `muted` (track)
-  and `accent` (thumb) fall back to their token-defined attributes. Token pending plan 032
-  step 5.3 for `muted`.
+- `NO_COLOR`: retain the canonical Unicode geometry and glyphs; resolved `border` (track)
+  and `accent` (thumb) fall back to their token-defined attributes.
 - 16-color: retain geometry; resolve those full semantic styles to indexed terminal
   styles.
 - Symbols for Legacy Computing: `🬋` and `🮂` are drawn only in the Nerd Font charset. The
@@ -533,6 +534,9 @@ source browsing, or source mapping.
   and box drawing (owner decision, 2026-10-11). Ghostty, kitty and WezTerm draw the Legacy
   Computing glyphs themselves; Terminal.app and Windows Terminal are checked in
   implementation QA.
+- Unicode `heavy` preset: horizontal track `─` under its `━` thumb, because a `━` track
+  would break the rule that no thumb shares its track's glyph (owner decision, 2026-10-19,
+  [scroll indicators](../tokens.md#scroll-indicators)). The Nerd Font track stays `━`.
 - ASCII-only: collapse every preset's thumb to `#`; replace every track with `|`
   (vertical) or `-` (horizontal), except `thumbOnly`, whose track stays blank. The `40x1`
   mobile allocation below is the exact degraded horizontal fixture for `C = 120`,
@@ -544,9 +548,9 @@ source browsing, or source mapping.
 
 ```text
 Callouts (40x1, 0-based):
-0. r0 c0-c12   ASCII leading track -- thirteen `scrollbar.ascii` `-` cells
-1. r0 c13-c25  ASCII thumb -- thirteen `scrollbar.ascii` `#` cells
-2. r0 c26-c39  ASCII trailing track -- fourteen `scrollbar.ascii` `-` cells
+0. r0 c0-c12   ASCII leading track -- thirteen `scrollIndicator.ascii` `-` cells
+1. r0 c13-c25  ASCII thumb -- thirteen `scrollIndicator.ascii` `#` cells
+2. r0 c26-c39  ASCII trailing track -- fourteen `scrollIndicator.ascii` `-` cells
 ```
 
 - Below the one-cell cross-axis minimum or at a zero primary-axis proposal, honor the
@@ -611,12 +615,8 @@ than reimplementing thumb math.
 
 ## Open questions
 
-- Track role: the accepted grids paint tracks in the `muted` role, which tokens.md does
-  not define. Token pending plan 032 step 5.3.
-- Token rows (plan 032 step 5.3): tokens.md still has `scrollbar.weight` rows (`line`,
-  `mid`, `block`) and horizontal values for the old weights, which the curated preset
-  glyphs supersede; `scrollbar.thumb` is absent. The environment spelling of the style
-  modifier is `.scrollIndicatorStyle(_:)`, not yet registered as an environment key.
+- The environment spelling of the style modifier is `.scrollIndicatorStyle(_:)`, not yet
+  registered as an environment key.
 
 ## Inspiration
 

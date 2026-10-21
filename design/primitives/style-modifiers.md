@@ -43,7 +43,7 @@ AB
 ── attributes ──
 BA
 Legend: B = bold from the ancestor `.bold()`; A = foreground from
-`semantic.accent` added by the child. Both cells retain their source glyphs.
+`accent` added by the child. Both cells retain their source glyphs.
 ```
 
 ### Sibling isolation
@@ -53,8 +53,8 @@ Legend: B = bold from the ancestor `.bold()`; A = foreground from
 LR
 ── attributes ──
 A.
-Legend: A = foreground from `semantic.accent` on the left sibling; . = inherited
-`semantic.primary` on the right sibling. A sibling wrapper never alters its peer.
+Legend: A = foreground from `accent` on the left sibling; . = inherited
+`primary` on the right sibling. A sibling wrapper never alters its peer.
 ```
 
 ### Explicit attribute override
@@ -65,7 +65,7 @@ NO
 ── attributes ──
 B-
 Legend: B = bold from the ancestor `.bold()`; - = bold explicitly off from the child
-`.bold(false)`. Both cells otherwise inherit `semantic.primary`.
+`.bold(false)`. Both cells otherwise inherit `primary`.
 ```
 
 ### Whole-style merge
@@ -75,8 +75,8 @@ Legend: B = bold from the ancestor `.bold()`; - = bold explicitly off from the c
 MN
 ── attributes ──
 SD
-Legend: S = inherited complete `semantic.secondary` Style; D = child complete
-`semantic.destructive` Style merged by `.style(_)`, replacing every attribute it supplies.
+Legend: S = inherited complete `secondary` Style; D = child complete
+`destructive` Style merged by `.style(_)`, replacing every attribute it supplies.
 ```
 
 ### Foreground and region fill
@@ -86,7 +86,7 @@ Legend: S = inherited complete `semantic.secondary` Style; D = child complete
 INK·
 ── attributes ──
 AABB
-Legend: A = foreground from `semantic.accent` on descendant glyphs; B = background
+Legend: A = foreground from `accent` on descendant glyphs; B = background
 from `.background(Color)` across the final allocated child region; · = an otherwise
 empty cell represented visibly so the aligned grid can show the fill.
 ```
@@ -145,18 +145,18 @@ is clipped to those bounds and never changes the reported size.
 
 ## Environment
 
-| Value                  | Source                                          | Default                                      | Effect                                              |
-| ---------------------- | ----------------------------------------------- | -------------------------------------------- | --------------------------------------------------- |
-| `defaultStyle`         | `EnvironmentValues`                             | resolved `semantic.primary` complete `Style` | supplies inherited attributes to the subtree        |
-| `semantic.primary`     | [semantic styles](../tokens.md#semantic-styles) | token-defined complete `Style`               | ordinary inherited presentation                     |
-| `semantic.secondary`   | [semantic styles](../tokens.md#semantic-styles) | token-defined complete `Style`               | supporting presentation when selected by a control  |
-| `semantic.accent`      | [semantic styles](../tokens.md#semantic-styles) | token-defined complete `Style`               | emphasized presentation when selected by a control  |
-| `semantic.disabled`    | [semantic styles](../tokens.md#semantic-styles) | token-defined complete `Style`               | disabled presentation when selected by a control    |
-| `semantic.destructive` | [semantic styles](../tokens.md#semantic-styles) | token-defined complete `Style`               | destructive presentation when selected by a control |
+| Value          | Source                                | Default                             | Effect                                              |
+| -------------- | ------------------------------------- | ----------------------------------- | --------------------------------------------------- |
+| `defaultStyle` | `EnvironmentValues`                   | resolved `primary` complete `Style` | supplies inherited attributes to the subtree        |
+| `primary`      | [text roles](../tokens.md#text-roles) | token-defined complete `Style`      | ordinary inherited presentation                     |
+| `secondary`    | [text roles](../tokens.md#text-roles) | token-defined complete `Style`      | supporting presentation when selected by a control  |
+| `accent`       | [text roles](../tokens.md#text-roles) | token-defined complete `Style`      | emphasized presentation when selected by a control  |
+| `disabled`     | [text roles](../tokens.md#text-roles) | token-defined complete `Style`      | disabled presentation when selected by a control    |
+| `destructive`  | [hue roles](../tokens.md#hue-roles)   | token-defined complete `Style`      | destructive presentation when selected by a control |
 
 The five semantic roles are complete `Style` values resolved from
-[semantic styles](../tokens.md#semantic-styles). Controls consume the resolved role; they
-never reconstruct its colors or attributes.
+[roles](../tokens.md#roles). Controls consume the resolved role; they never reconstruct
+its colors or attributes.
 
 ## Requirements
 
@@ -173,16 +173,15 @@ never reconstruct its colors or attributes.
 - `style modifiers preserve the child ideal under an unconstrained proposal` (sizing: nil
   x nil)
 - `style modifiers stay layout transparent at every proposal` (sizing: 4x1, 2x1, and 8x1)
-- `controls consume resolved complete semantic role Styles` (environment:
-  `semantic.primary`, `semantic.secondary`, `semantic.accent`, `semantic.disabled`, and
-  `semantic.destructive` rows)
+- `controls consume resolved complete semantic role Styles` (environment: `primary`,
+  `secondary`, `accent`, `disabled`, and `destructive` rows)
 
 ## Degradation
 
 Style wrappers preserve their merge and paint order at every capability tier. Color and
 attribute reduction follows the shared
-[degradation ladder](../tokens.md#degradation-ladder), including its semantic-style row;
-no modifier-specific fallback is introduced.
+[degradation ladder](../tokens.md#degradation-ladder), including the 16-colour slots
+columns of [roles](../tokens.md#roles); no modifier-specific fallback is introduced.
 
 ## Open questions
 

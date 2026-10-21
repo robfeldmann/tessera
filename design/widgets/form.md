@@ -23,7 +23,8 @@ cursor, the dropdown glyph and the number arrows are chrome and stay on one row.
 that does not fit beside its label triggers the stacked layout before it wraps; stacked, a
 value wraps at the width after its four-cell indent, and a label never truncates (owner
 decision, 2026-10-18). A collapsed select or multi value is content too: it wraps under
-the value column with `▾` one space after its last word (owner decision, 2026-10-18).
+the value column with `▾` ([Marks](../tokens.md#marks), `dropdown`) one space after its
+last word (owner decision, 2026-10-18).
 
 Owner decision, omp2 review, 2026-10: adopt as-is. The aligned label column and inline
 dropdowns are accepted. The number field is the reference for [Stepper](stepper.md). The
@@ -132,13 +133,13 @@ Callouts (40x6, 0-based):
 2. r0 c2-7    Label "Strict" -- `primary`; `focus` bold on the cursor row only; content, wraps, never truncates.
 3. r0-r5 c2-11  Label column -- each label is padded to the widest label plus two cells, so
               every value starts at column 12 for this fixture.
-4. r0 c12-15  Bool value "true" -- `success` when true, `muted` when false; content, wraps. The Toggle
+4. r0 c12-15  Bool value "true" -- `success` when true, `secondary` when false; content, wraps. The Toggle
               `.text` style draws it.
 5. r1 c12-13  Enum value "eu" -- `info`; content, wraps. Arrows appear only on the focused row (see Focused); arrows are chrome, one row.
-6. r2 c12-14  Text value "omp" -- `primary`; content, wraps. A masked field paints the `secret` icon instead.
-7. r3 c12-15  Select value "dark" -- `info`; content, wraps under the value column, with `▾` in `muted` one space after its last word (owner decision, 2026-10-18); the glyph is chrome, one cell. Opens a dropdown below the row.
-8. r4 c12-15  Multi value "repo" -- `info`: MultiPicker's summary, the first two checked labels joined by a comma and a space, then ` +N` for the rest. Content, wraps under the value column: the names wrap rather than truncate, the `+N` form is kept, and `▾` in `muted` follows the last word (owner decision, 2026-10-18). With no values checked, it reads `none` in `info`.
-9. r5 c12-16  Number value "3" -- `primary` at c14, between a decrement arrow `◂` at c12 and an increment arrow `▸` at c16, both `muted`; chrome, one row. The number is atomic: it never wraps (see Stepper). The arrows show on every number row, focused or not, as Stepper does (owner decision, 2026-10-10).
+6. r2 c12-14  Text value "omp" -- `primary`; content, wraps. A masked field paints the `secret` icon instead, in `secondary` (owner decision, 2026-10-19; [icon catalog](../tokens.md#icon-catalog)): Nerd Font U+F023, no icon under `.unicode`, `[**]` in ASCII.
+7. r3 c12-15  Select value "dark" -- `info`; content, wraps under the value column, with `▾` (`dropdown`, [Marks](../tokens.md#marks)) in `secondary` one space after its last word (owner decision, 2026-10-18); the glyph is chrome, one cell. Opens a dropdown below the row.
+8. r4 c12-15  Multi value "repo" -- `info`: MultiPicker's summary, the first two checked labels joined by a comma and a space, then ` +N` for the rest. Content, wraps under the value column: the names wrap rather than truncate, the `+N` form is kept, and `▾` in `secondary` follows the last word (owner decision, 2026-10-18). With no values checked, it reads `none` in `info`.
+9. r5 c12-16  Number value "3" -- `primary` at c14, between a decrement arrow `◂` at c12 and an increment arrow `▸` at c16, both `secondary`; chrome, one row. The number is atomic: it never wraps (see Stepper). The arrows show on every number row, focused or not, as Stepper does (owner decision, 2026-10-10).
 10. scrollbar -- the rightmost column, reserved and drawn only when the rows overflow the
     window's height (see [ScrollView](scroll-view.md#cross-axis-proposal)). Not in this fixture; see Overflow: 40x4.
 11. row -- each field row, r0-r5 c0-39. A click sets the cursor to the row and activates it as Enter does.
@@ -165,9 +166,9 @@ AABBBBBB....DDDD
 A  fg=focus
 B  fg=focus, bold
 C  fg=primary
-D  fg=success (token pending plan 032 step 5.3)
-E  fg=info (token pending plan 032 step 5.3)
-F  fg=muted (token pending plan 032 step 5.3)
+D  fg=success
+E  fg=info
+F  fg=secondary
 ```
 
 ## States
@@ -176,7 +177,7 @@ F  fg=muted (token pending plan 032 step 5.3)
 
 Unfocused, the Form draws no cursor and no bold label. Labels are `primary`, and every
 value keeps its presentation: the bool in `success`, text, enum, select and multi values
-in `info`, and the number in `primary` with muted arrows.
+in `info`, and the number in `primary` with secondary arrows.
 
 ```wireframe 40x6
   Strict    true
@@ -192,8 +193,8 @@ Callouts (40x6, 0-based):
 1. r0-r5 c0-1  No cursor -- two spaces in the gutter; no `focus` glyph.
 2. r0-r5 c2-11 Labels -- `primary`, not bold.
 3. r0 c12-15   Value "true" -- `success`.
-4. r1 c12-13, r3 c12-15, r4 c12-15 Values "eu", "dark", "repo" -- `info`; `▾` in `muted`.
-5. r5 c12-16   Number "3" -- `primary`, between `muted` arrows.
+4. r1 c12-13, r3 c12-15, r4 c12-15 Values "eu", "dark", "repo" -- `info`; `▾` in `secondary`.
+5. r5 c12-16   Number "3" -- `primary`, between `secondary` arrows.
 ```
 
 ```text
@@ -214,18 +215,18 @@ Callouts (40x6, 0-based):
 ── legend ──
 .  default
 C  fg=primary
-D  fg=success (token pending plan 032 step 5.3)
-E  fg=info (token pending plan 032 step 5.3)
-F  fg=muted (token pending plan 032 step 5.3)
+D  fg=success
+E  fg=info
+F  fg=secondary
 ```
 
 ### Focused: the enum field
 
-Region is focused and its value is `eu`. The value sits between muted arrows, `◂` and `▸`,
-so the row shows that it cycles: Left and Right step to the previous and next choice, and
-Enter or Space cycle forward (see the Key table). The arrows show on the focused enum row
-only (inferred; the number-row rule covers numbers, owner decision, 2026-10-10). The label
-is `focus` bold, and the cursor takes the gutter.
+Region is focused and its value is `eu`. The value sits between secondary arrows, `◂` and
+`▸`, so the row shows that it cycles: Left and Right step to the previous and next choice,
+and Enter or Space cycle forward (see the Key table). The arrows show on the focused enum
+row only (inferred; the number-row rule covers numbers, owner decision, 2026-10-10). The
+label is `focus` bold, and the cursor takes the gutter.
 
 ```wireframe 40x6
   Strict    true
@@ -240,9 +241,9 @@ is `focus` bold, and the cursor takes the gutter.
 Callouts (40x6, 0-based):
 1. r1 c0      Cursor -- `❯` in `focus` on the focused row.
 2. r1 c2-7    Label "Region" -- `focus` bold.
-3. r1 c12     Decrement arrow `◂` -- `muted`.
+3. r1 c12     Decrement arrow `◂` -- `secondary`.
 4. r1 c14-15  Value "eu" -- `info`.
-5. r1 c17     Increment arrow `▸` -- `muted`.
+5. r1 c17     Increment arrow `▸` -- `secondary`.
 ```
 
 ```text
@@ -265,20 +266,20 @@ A.BBBBBB....F.EE.F
 A  fg=focus
 B  fg=focus, bold
 C  fg=primary
-D  fg=success (token pending plan 032 step 5.3)
-E  fg=info (token pending plan 032 step 5.3)
-F  fg=muted (token pending plan 032 step 5.3)
+D  fg=success
+E  fg=info
+F  fg=secondary
 ```
 
 ### Focused: the number field
 
 The fixture's keys moved the cursor to Region and cycled it from `eu` to `ap`, then moved
 it to Replicas and stepped the number from 3 to 4. Replicas is now focused. Its label
-turns bold focus, and the number shows `◂ 4 ▸`, as it does unfocused: a muted decrement
-arrow, one separator space, the value in `primary`, one separator space, and a muted
-increment arrow. The arrows are the [Stepper](stepper.md) presentation and show on every
-number row, focused or not (owner decision, 2026-10-10). The other rows show their
-unfocused presentation.
+turns bold focus, and the number shows `◂ 4 ▸`, as it does unfocused: a secondary
+decrement arrow, one separator space, the value in `primary`, one separator space, and a
+secondary increment arrow. The arrows are the [Stepper](stepper.md) presentation and show
+on every number row, focused or not (owner decision, 2026-10-10). The other rows show
+their unfocused presentation.
 
 ```wireframe 40x6
   Strict    true
@@ -293,9 +294,9 @@ unfocused presentation.
 Callouts (40x6, 0-based):
 1. r5 c0-1    Cursor -- `focus`, the focused row.
 2. r5 c2-9    Label "Replicas" -- `focus` bold.
-3. r5 c12     Decrement arrow `◂` -- `muted`.
+3. r5 c12     Decrement arrow `◂` -- `secondary`.
 4. r5 c14     Value "4" -- `primary`.
-5. r5 c16     Increment arrow `▸` -- `muted`.
+5. r5 c16     Increment arrow `▸` -- `secondary`.
 ```
 
 ```text
@@ -317,9 +318,9 @@ AAFFFFFFFFBBEEBEE
 .  default
 A  fg=focus
 B  fg=primary
-C  fg=success (token pending plan 032 step 5.3)
-D  fg=info (token pending plan 032 step 5.3)
-E  fg=muted (token pending plan 032 step 5.3)
+C  fg=success
+D  fg=info
+E  fg=secondary
 F  fg=focus, bold
 ```
 
@@ -340,9 +341,9 @@ and the dropdown glyph is `v`. The layout and the label column are unchanged.
 ```text
 Callouts (40x6, 0-based):
 1. r5 c0      Cursor -- `>` in `focus`.
-2. r5 c12     Decrement arrow `<` -- `muted`.
-3. r5 c16     Increment arrow `>` -- `muted`.
-4. r3 c17, r4 c17  Dropdown glyph -- `v` in `muted`.
+2. r5 c12     Decrement arrow `<` -- `secondary`.
+3. r5 c16     Increment arrow `>` -- `secondary`.
+4. r3 c17, r4 c17  Dropdown glyph -- `v` in `secondary`.
 ```
 
 ```text
@@ -364,9 +365,9 @@ AAFFFFFFFFBBEEBEE
 .  default
 A  fg=focus
 B  fg=primary
-C  fg=success (token pending plan 032 step 5.3)
-D  fg=info (token pending plan 032 step 5.3)
-E  fg=muted (token pending plan 032 step 5.3)
+C  fg=success
+D  fg=info
+E  fg=secondary
 F  fg=focus, bold
 ```
 
@@ -376,8 +377,8 @@ Enter on the Theme row opens Picker's menu below the row (see
 [Picker](picker.md#menu-collapsed-in-a-host-row)); Picker owns the keys and mouse rules
 while it is open. The sub-cursor starts on the current choice (`dark`), drawn as a `focus`
 `❯` on a radio mark. The picked choice shows `◉` in `accent`; the others show `○` in
-`muted`. The sub-rows are indented four cells, and the rows below the dropdown move down
-by one row per choice.
+`secondary`. The sub-rows are indented four cells, and the rows below the dropdown move
+down by one row per choice.
 
 ```wireframe 40x9
   Strict    true
@@ -395,10 +396,10 @@ by one row per choice.
 Callouts (40x9, 0-based):
 1. r3 c0-1    Cursor -- the Theme row is focused.
 2. r3 c2-7    Label "Theme" -- `focus` bold.
-3. r3 c12-15  Select value "dark" -- `info`, then `▾` in `muted`, while the dropdown is open.
+3. r3 c12-15  Select value "dark" -- `info`, then `▾` in `secondary`, while the dropdown is open.
 4. r4-r6 c4-5 Sub-cursor `❯` -- `focus` on the highlighted choice only.
 5. r4 c6      Picked radio `◉` -- `accent`.
-6. r5-r6 c6   Unpicked radio `○` -- `muted`.
+6. r5-r6 c6   Unpicked radio `○` -- `secondary`.
 7. r4 c8-11   Highlighted choice "dark" -- `focus` bold. The other choices are `primary`.
 8. r7-r8      Rows below the dropdown -- unchanged; the Form grows by three sub-rows.
 ```
@@ -428,10 +429,10 @@ AAEEEEE.....DDDD.F
 .  default
 A  fg=focus
 B  fg=primary
-C  fg=success (token pending plan 032 step 5.3)
-D  fg=info (token pending plan 032 step 5.3)
+C  fg=success
+D  fg=info
 E  fg=focus, bold
-F  fg=muted (token pending plan 032 step 5.3)
+F  fg=secondary
 G  fg=accent
 ```
 
@@ -456,10 +457,10 @@ ASCII marks the choices `(*)` and `( )`, the sub-cursor `>`, and the dropdown gl
 Callouts (40x9, 0-based):
 1. r3 c0      Cursor -- `>` in `focus`, on the Theme row.
 2. r3 c2-6    Label "Theme" -- `focus` bold.
-3. r3 c12-15  Select value "dark" -- `info`; `v` in `muted` at c17 while open.
+3. r3 c12-15  Select value "dark" -- `info`; `v` in `secondary` at c17 while open.
 4. r4-r6 c4   Sub-cursor `>` -- `focus` on the highlighted choice only.
 5. r4 c6-8    Picked choice `(*)` -- `accent`.
-6. r5-r6 c6-8 Unpicked choices `( )` -- `muted`.
+6. r5-r6 c6-8 Unpicked choices `( )` -- `secondary`.
 7. r4 c10-13  Highlighted choice "dark" -- `focus` bold.
 ```
 
@@ -489,9 +490,9 @@ A.BBBBB.....EEEE.F
 A  fg=focus
 B  fg=focus, bold
 C  fg=primary
-D  fg=success (token pending plan 032 step 5.3)
-E  fg=info (token pending plan 032 step 5.3)
-F  fg=muted (token pending plan 032 step 5.3)
+D  fg=success
+E  fg=info
+F  fg=secondary
 G  fg=accent
 ```
 
@@ -499,8 +500,8 @@ G  fg=accent
 
 Enter on the Scopes row opens MultiPicker's menu below the row (see
 [MultiPicker](multi-picker.md#menu-in-a-host-row)). Checked choices show `☑` in `accent`;
-unchecked show `☐` in `muted`. The sub-cursor is on Issues, which is checked, so its label
-is `focus` bold. Space toggles the highlighted choice and the list stays open; Enter
+unchecked show `☐` in `secondary`. The sub-cursor is on Issues, which is checked, so its
+label is `focus` bold. Space toggles the highlighted choice and the list stays open; Enter
 closes it. Clicking a choice toggles it and keeps the list open. The row summary is
 MultiPicker's: the first two checked names joined by a comma and a space, then a space and
 `+N` for the names past the first two. Here all three are checked, so the summary reads
@@ -522,7 +523,7 @@ MultiPicker's: the first two checked names joined by a comma and a space, then a
 Callouts (40x9, 0-based):
 1. r4 c0      Cursor -- the Scopes row is focused.
 2. r4 c2-7    Label "Scopes" -- `focus` bold.
-3. r4 c12-26  Multi summary "repo, issues +1" -- `info`; `▾` in `muted` at c28.
+3. r4 c12-26  Multi summary "repo, issues +1" -- `info`; `▾` in `secondary` at c28.
 4. r5-r7 c6   Checked boxes `☑` -- `accent`.
 5. r5 c8-11, r7 c8-14 Unhighlighted choices "repo", "actions" -- `primary`.
 6. r6 c4      Sub-cursor `❯` -- `focus` on the highlighted choice only.
@@ -555,9 +556,9 @@ A.BBBBBB....EEEEEEEEEEEEEEE.F
 A  fg=focus
 B  fg=focus, bold
 C  fg=primary
-D  fg=success (token pending plan 032 step 5.3)
-E  fg=info (token pending plan 032 step 5.3)
-F  fg=muted (token pending plan 032 step 5.3)
+D  fg=success
+E  fg=info
+F  fg=secondary
 G  fg=accent
 ```
 
@@ -584,8 +585,8 @@ checked names it has no `+N`, because `+N` counts only the names past the first 
 Callouts (40x9, 0-based):
 1. r4 c0      Cursor -- `>` in `focus` on the Scopes row, the focused row.
 2. r4 c2-7    Label "Scopes" -- `focus` bold.
-3. r4 c12-23  Multi summary "repo, issues" -- `info`; `v` in `muted` at c25.
-4. r5 c6-8    Checked box `[x]` -- `accent`; r7 c6-8 `[ ]` -- `muted`.
+3. r4 c12-23  Multi summary "repo, issues" -- `info`; `v` in `secondary` at c25.
+4. r5 c6-8    Checked box `[x]` -- `accent`; r7 c6-8 `[ ]` -- `secondary`.
 5. r6 c4      Sub-cursor `>` -- `focus` on the highlighted choice only.
 6. r6 c10-15  Highlighted choice "issues" -- `focus` bold.
 7. r5, r7 c10+ Unhighlighted choices -- `primary`.
@@ -617,9 +618,9 @@ A.BBBBBB....EEEEEEEEEEEE.F
 A  fg=focus
 B  fg=focus, bold
 C  fg=primary
-D  fg=success (token pending plan 032 step 5.3)
-E  fg=info (token pending plan 032 step 5.3)
-F  fg=muted (token pending plan 032 step 5.3)
+D  fg=success
+E  fg=info
+F  fg=secondary
 G  fg=accent
 ```
 
@@ -678,8 +679,8 @@ H.HHHH..CCCCCCCC..HHHHHHHHHHHHHHHHHHH
 .  default
 A  fg=focus
 C  fg=primary
-H  fg=error (token pending plan 032 step 5.3)
-I  fg=error, bold (token pending plan 032 step 5.3)
+H  fg=error
+I  fg=error, bold
 ```
 
 ### Validation: inline message, 24 columns
@@ -718,8 +719,8 @@ H.HHHH..CCCCCCCC..HHH
 .  default
 A  fg=focus
 C  fg=primary
-H  fg=error (token pending plan 032 step 5.3)
-I  fg=error, bold (token pending plan 032 step 5.3)
+H  fg=error
+I  fg=error, bold
 ```
 
 ### Validation: inline message, ASCII
@@ -755,8 +756,8 @@ H.HHHH..CCCCCCCC..HHHHHHHHHHHHHHHHHHH
 .  default
 A  fg=focus
 C  fg=primary
-H  fg=error (token pending plan 032 step 5.3)
-I  fg=error, bold (token pending plan 032 step 5.3)
+H  fg=error
+I  fg=error, bold
 ```
 
 ### Validation: below-row message (rejected)
@@ -801,8 +802,8 @@ H.HHHH..CCCCCCCC
 .  default
 A  fg=focus
 C  fg=primary
-H  fg=error (token pending plan 032 step 5.3)
-I  fg=error, bold (token pending plan 032 step 5.3)
+H  fg=error
+I  fg=error, bold
 ```
 
 ```wireframe 24x5
@@ -839,8 +840,8 @@ H.HHHH..CCCCCCCC
 .  default
 A  fg=focus
 C  fg=primary
-H  fg=error (token pending plan 032 step 5.3)
-I  fg=error, bold (token pending plan 032 step 5.3)
+H  fg=error
+I  fg=error, bold
 ```
 
 ### Mobile: the anatomy at 40 columns
@@ -917,9 +918,9 @@ A.BBBBBB
 A  fg=focus
 B  fg=focus, bold
 C  fg=primary
-D  fg=success (token pending plan 032 step 5.3)
-E  fg=info (token pending plan 032 step 5.3)
-F  fg=muted (token pending plan 032 step 5.3)
+D  fg=success
+E  fg=info
+F  fg=secondary
 ```
 
 ### Minimum, overflowing: 11x6
@@ -943,7 +944,7 @@ down.
 Callouts (11x6, 0-based):
 1. r4 c0      Cursor -- `❯` in `focus` on the Replicas label; chrome, one row.
 2. r4 c2-9    Label "Replicas" -- `focus` bold; content, whole at the 10-cell label row.
-3. r0-r2 c10  Track `│` -- `muted`.
+3. r0-r2 c10  Track `│` -- `border` (structural; [scroll indicators](../tokens.md#scroll-indicators)).
 4. r3-r5 c10  Thumb `█` -- `accent`.
 5. r0-r5 c10  Reserved scrollbar column -- the extra cell of the floor.
 ```
@@ -957,9 +958,9 @@ Callouts (11x6, 0-based):
 ❯ Replicas█
     ◂ 3 ▸ █
 ── style ──
-..CCCCC...F
-....EEEE.FF
-..CCCCCC..F
+..CCCCC...H
+....EEEE.FH
+..CCCCCC..H
 ....EEEE.FG
 A.BBBBBBBBG
 ....F.C.F.G
@@ -968,9 +969,10 @@ A.BBBBBBBBG
 A  fg=focus
 B  fg=focus, bold
 C  fg=primary
-E  fg=info (token pending plan 032 step 5.3)
-F  fg=muted (token pending plan 032 step 5.3)
+E  fg=info
+F  fg=secondary
 G  fg=accent
+H  fg=border
 ```
 
 ### Side by side at 24 columns
@@ -1017,7 +1019,7 @@ because the offset is at its maximum.
 Callouts (40x4, 0-based):
 1. r1 c0      Cursor -- `❯` in `focus` on the Theme row, the focused row, kept in view.
 2. r1 c2-6    Label "Theme" -- `focus` bold.
-3. r0-r1 c39  Track `│` -- `muted`.
+3. r0-r1 c39  Track `│` -- `border`.
 4. r2-r3 c39  Thumb `█` -- `accent`.
 ```
 
@@ -1028,8 +1030,8 @@ Callouts (40x4, 0-based):
   Scopes    repo ▾                     █
   Replicas  ◂ 3 ▸                      █
 ── style ──
-..CCCC......CCC........................F
-A.BBBBB.....EEEE.F.....................F
+..CCCC......CCC........................H
+A.BBBBB.....EEEE.F.....................H
 ..CCCCCC....EEEE.F.....................G
 ..CCCCCCCC..F.C.F......................G
 ── legend ──
@@ -1037,9 +1039,10 @@ A.BBBBB.....EEEE.F.....................F
 A  fg=focus
 B  fg=focus, bold
 C  fg=primary
-E  fg=info (token pending plan 032 step 5.3)
-F  fg=muted (token pending plan 032 step 5.3)
+E  fg=info
+F  fg=secondary
 G  fg=accent
+H  fg=border
 ```
 
 ### Narrow: 17 columns
@@ -1064,7 +1067,7 @@ side by side.
 ```text
 Callouts (18x6, 0-based):
 1. r3-r4 c2-17 Theme and Scopes rows -- the widest rows, 18 cells; they fill the width, so the form stays side by side.
-2. r3-r4 c17  Dropdown glyph `▾` -- `muted`, in the last column: the six rows fit the window, so no scrollbar column is reserved.
+2. r3-r4 c17  Dropdown glyph `▾` -- `secondary`, in the last column: the six rows fit the window, so no scrollbar column is reserved.
 ```
 
 ```text
@@ -1087,9 +1090,9 @@ AABBBBBB....DDDD
 A  fg=focus
 B  fg=focus, bold
 C  fg=primary
-D  fg=success (token pending plan 032 step 5.3)
-E  fg=info (token pending plan 032 step 5.3)
-F  fg=muted (token pending plan 032 step 5.3)
+D  fg=success
+E  fg=info
+F  fg=secondary
 ```
 
 At 17 columns the Theme and Scopes rows no longer fit, so the whole form stacks: each
@@ -1120,8 +1123,8 @@ Callouts (17x12, 0-based):
 2. r0 c2-7    Label "Strict" -- `focus` bold; content, wraps, never truncates.
 3. r1 c4-7    Value "true" -- `success`, indented four cells; content, wraps.
 4. r2, r4, r6, r8, r10 c2+ Labels -- `primary`; content, wraps, never truncates.
-5. r3, r5, r7, r9 c4+ Values -- `info`; content, wraps at 13 cells under the value column, with `▾` in `muted` one space after the last word, at c9 on r7 and r9.
-6. r11 c4, c6, c8 Arrows `◂`, `3`, `▸` -- `muted`, `primary`, `muted`; arrows chrome, one row, number atomic.
+5. r3, r5, r7, r9 c4+ Values -- `info`; content, wraps at 13 cells under the value column, with `▾` in `secondary` one space after the last word, at c9 on r7 and r9.
+6. r11 c4, c6, c8 Arrows `◂`, `3`, `▸` -- `secondary`, `primary`, `secondary`; arrows chrome, one row, number atomic.
 7. r0-r11 c16 No scrollbar column -- the 12 rows fit the window, so none is reserved.
 ```
 
@@ -1157,9 +1160,9 @@ A.BBBBBB
 A  fg=focus
 B  fg=focus, bold
 C  fg=primary
-D  fg=success (token pending plan 032 step 5.3)
-E  fg=info (token pending plan 032 step 5.3)
-F  fg=muted (token pending plan 032 step 5.3)
+D  fg=success
+E  fg=info
+F  fg=secondary
 ```
 
 ### Narrow: long values wrap
@@ -1193,7 +1196,7 @@ Callouts (18x6, 0-based):
 5. r3 c2-7    Label "Scopes" -- `primary`.
 6. r4 c4-15   Summary row 1 "repo, issues" -- `info`; content, wraps: ` +1` would need 15 cells.
 7. r5 c4-5    Summary row 2 "+1" -- `info`: the `+N` count after the first two names.
-8. r5 c7      Dropdown glyph `▾` -- `muted`, one space after the last word; chrome, one cell.
+8. r5 c7      Dropdown glyph `▾` -- `secondary`, one space after the last word; chrome, one cell.
 ```
 
 ```text
@@ -1216,8 +1219,8 @@ A.BBBB
 A  fg=focus
 B  fg=focus, bold
 C  fg=primary
-E  fg=info (token pending plan 032 step 5.3)
-F  fg=muted (token pending plan 032 step 5.3)
+E  fg=info
+F  fg=secondary
 ```
 
 ### Overflow, stacked: 17x6
@@ -1244,7 +1247,7 @@ Callouts (17x6, 0-based):
 1. r0 c4-5    Value "eu" -- `info`: Region's value row, the second row of a field whose label row is above the viewport. Drawn without a mark.
 2. r3 c0      Cursor -- `❯` in `focus` on the Theme label.
 3. r3 c2-6    Label "Theme" -- `focus` bold.
-4. r0, r4-r5 c16 Track `│` -- `muted`.
+4. r0, r4-r5 c16 Track `│` -- `border`.
 5. r1-r3 c16  Thumb `█` -- `accent`.
 6. r0-r5 c16  Reserved scrollbar column -- reserved because the 12 stacked rows overflow the six-row window.
 ```
@@ -1258,20 +1261,21 @@ Callouts (17x6, 0-based):
     dark ▾      │
   Scopes        │
 ── style ──
-....EE..........F
+....EE..........H
 ..CCCC..........G
 ....CCC.........G
 A.BBBBB.........G
-....EEEE.F......F
-..CCCCCC........F
+....EEEE.F......H
+..CCCCCC........H
 ── legend ──
 .  default
 A  fg=focus
 B  fg=focus, bold
 C  fg=primary
-E  fg=info (token pending plan 032 step 5.3)
-F  fg=muted (token pending plan 032 step 5.3)
+E  fg=info
+F  fg=secondary
 G  fg=accent
+H  fg=border
 ```
 
 ## State model
@@ -1393,26 +1397,27 @@ the widest label plus two cells, and values start after it.
 
 ## Environment
 
-Tokens consumed. Roles marked pending are not yet in [tokens.md](../tokens.md) (plan 032
-step 5.3).
+Tokens consumed: [roles](../tokens.md#roles); focus, fill and hue rules are in
+[focus](../tokens.md#focus), [fill roles](../tokens.md#fill-roles) and
+[hue roles](../tokens.md#hue-roles).
 
 - `primary`: labels, text and number values, unhighlighted choices, and the rest of the
   row.
-- `focus` (`semantic.focus`): the cursor glyph, the focused label, and the highlighted
-  choice in Picker's open list. The bold attribute follows the Focus border rule 3 (ASCII
-  bold per rule 6).
-- `muted`: unchecked and unpicked marks, the `▾` dropdown glyph, number arrows, `false`,
-  and the scrollbar track. Not in `tokens.md`; token pending plan 032 step 5.3.
-- `success`: `true`. Not in `tokens.md`; token pending plan 032 step 5.3.
-- `accent`: checked and picked marks, `☑` and `◉`, and the scrollbar thumb.
-  `semantic.accent` in `tokens.md` (owner decision, 2026-10-10).
+- `focus`: the cursor glyph, the focused label, and the highlighted choice in Picker's
+  open list. The terminal's default foreground in bold ([focus](../tokens.md#focus)). The
+  bold attribute follows the Focus border rule 3 (ASCII bold per rule 6).
+- `secondary`: unchecked and unpicked marks, the `▾` dropdown glyph, number arrows,
+  `false`, and the masked-field `secret` icon ([text roles](../tokens.md#text-roles)).
+- `border`: the scrollbar track `│` ([scroll indicators](../tokens.md#scroll-indicators)).
+- `success`: `true` ([hue roles](../tokens.md#hue-roles)).
+- `accent`: checked and picked marks, `☑` and `◉`, and the scrollbar thumb
+  ([hue roles](../tokens.md#hue-roles)).
 - `info`: enum, select, and multi values. An empty multi value paints `none`, and an
-  absent select value paints an em dash (Picker summary). Not in `tokens.md`; token
-  pending plan 032 step 5.3.
-- `error`: a failing field's label, its error icon, and its message. Not in `tokens.md`;
-  token pending plan 032 step 5.3.
-- `hover`: the background of the row under the pointer. Not in `tokens.md`; token pending
-  plan 032 step 5.3.
+  absent select value paints an em dash (Picker summary).
+- `error`: a failing field's label, its error icon, and its message.
+- `hover`: the background of the row under the pointer: `fill12` where derived, and an
+  underline on the row label where no fill can stand apart
+  ([fill roles](../tokens.md#fill-roles)) (owner decision, 2026-10-19).
 - `lineLimit`, `truncationMode` (environment): flow to labels and values, which are
   content. The cursor, glyphs and arrows pin their own one-row values.
 
@@ -1461,12 +1466,12 @@ Schema: [README](../README.md#requirements-list).
 - `form writes a field value only through its binding` (state model: field values)
 - `form requests move input for its row hover and changes no value on move` (state model:
   pointer hover; mouse table: move)
-- `bool row paints success when true and muted when false as text` (anatomy callout 4)
-- `enum, select, and multi values paint info; select and multi show a muted dropdown glyph`
+- `bool row paints success when true and secondary when false as text` (anatomy callout 4)
+- `enum, select, and multi values paint info; select and multi show a secondary dropdown glyph`
   (anatomy callouts 5, 7, 8)
 - `select and multi values wrap under the value column with the dropdown glyph after the last word`
   (anatomy callouts 7-8; Narrow: long values wrap, callouts 6-8)
-- `focused enum row paints its value between muted arrows, as the number row does`
+- `focused enum row paints its value between secondary arrows, as the number row does`
   (Focused: the enum field)
 - `empty multi value paints none in info` (anatomy callout 8; MultiPicker summary)
 - `multi value joins the first two checked labels with a comma and adds +N for the rest`
@@ -1476,13 +1481,13 @@ Schema: [README](../README.md#requirements-list).
 - `absent select value paints an em dash in info` (Picker summary)
 - `number value paints primary and shows its arrows on every number row, focused or not`
   (anatomy callout 9)
-- `number arrows paint muted and stay in place around the value` (Focused: the number
+- `number arrows paint secondary and stay in place around the value` (Focused: the number
   field)
 - `select row opens Picker's menu below its row, with the cursor on the chosen option`
   (Select dropdown open; Picker closed keys)
 - `multi row opens MultiPicker's menu below its row, with a checkbox per choice` (Multi
   dropdown open; Picker closed keys)
-- `picked radio and checked box paint accent; unpicked radio paints muted` (Select
+- `picked radio and checked box paint accent; unpicked radio paints secondary` (Select
   dropdown open, callouts 5-6; Multi dropdown open, callout 4)
 - `dropdown choices indent four cells under their field` (Select dropdown open; Picker
   menu collapsed in a host row)
@@ -1577,7 +1582,7 @@ Schema: [README](../README.md#requirements-list).
 
 ## Open questions
 
-None. The token roles pending plan 032 step 5.3 are listed under Environment.
+None.
 
 ## Inspiration
 

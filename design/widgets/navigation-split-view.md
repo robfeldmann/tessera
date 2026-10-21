@@ -31,8 +31,8 @@ catalog's sidebar lists components, not source navigation.
 Which column has focus is communicated by the column's own content, not by container
 chrome: a child `List` dims its selection from `selection.fill` to `selection.inactive`
 when unfocused, and an app that wants a hunk/omp-style emphasized column wraps a column in
-a `Box` hosting delegated focus appearance so its border tints with `semantic.focus` while
-any descendant is focused. The container paints no emphasis of its own.
+a `Box` hosting delegated focus appearance so its border tints with `focus` while any
+descendant is focused. The container paints no emphasis of its own.
 
 Provisional public direction accepts two- and three-column initializers with optional
 `columnVisibility` and `preferredCompactColumn` bindings, app-configurable tier
@@ -334,16 +334,16 @@ Callouts (23x10, 0-based):
 
 ## Draft state model
 
-| State                    | Owner       | Type                                                  | Reset or clamp rule                                                                                                                                                                                                      |
-| ------------------------ | ----------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| column visibility        | Binding     | `NavigationSplitViewVisibility`                       | app-owned; recomputes rendered columns on every update; standard tier enforces side mutual exclusivity when resolving, without writing back                                                                              |
-| preferred compact column | Binding     | `NavigationSplitViewColumn`                           | app-owned; an unavailable preference falls back by semantic order without mutating the binding                                                                                                                           |
-| available columns        | derived     | `Set<NavigationSplitViewColumn>`                      | recomputes from supplied closures; inspector is absent for two-column construction                                                                                                                                       |
-| presentation tier        | derived     | `regular`, `standard`, `compact`, or `guard`          | recomputes from proposal against app-configurable breakpoints; defaults: guard when `W < 23` or `H < 10`, otherwise regular `W >= 73`, standard `48...72`, or compact `23...47`                                          |
-| rendered columns         | derived     | `[NavigationSplitViewColumn]`                         | recomputes from availability, visibility, tier, and compact preference                                                                                                                                                   |
-| tier focus continuity    | derived     | `FocusID?`                                            | when a tier or visibility change hides the column containing the focused descendant, choose the first focusable descendant of the next rendered column, then the previous, otherwise nil; business bindings never mutate |
-| divider styling          | Environment | `divider.light`, `divider.ascii`                      | `SplitView` resolves every regular or standard render                                                                                                                                                                    |
-| column focus emphasis    | Environment | `focus.border`, `focus.content`, `selection.inactive` | children and app-hosted delegated focus appearance resolve per render; the container paints no emphasis of its own                                                                                                       |
+| State                    | Owner       | Type                                                        | Reset or clamp rule                                                                                                                                                                                                      |
+| ------------------------ | ----------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| column visibility        | Binding     | `NavigationSplitViewVisibility`                             | app-owned; recomputes rendered columns on every update; standard tier enforces side mutual exclusivity when resolving, without writing back                                                                              |
+| preferred compact column | Binding     | `NavigationSplitViewColumn`                                 | app-owned; an unavailable preference falls back by semantic order without mutating the binding                                                                                                                           |
+| available columns        | derived     | `Set<NavigationSplitViewColumn>`                            | recomputes from supplied closures; inspector is absent for two-column construction                                                                                                                                       |
+| presentation tier        | derived     | `regular`, `standard`, `compact`, or `guard`                | recomputes from proposal against app-configurable breakpoints; defaults: guard when `W < 23` or `H < 10`, otherwise regular `W >= 73`, standard `48...72`, or compact `23...47`                                          |
+| rendered columns         | derived     | `[NavigationSplitViewColumn]`                               | recomputes from availability, visibility, tier, and compact preference                                                                                                                                                   |
+| tier focus continuity    | derived     | `FocusID?`                                                  | when a tier or visibility change hides the column containing the focused descendant, choose the first focusable descendant of the next rendered column, then the previous, otherwise nil; business bindings never mutate |
+| divider styling          | Environment | `divider.light`, `divider.ascii`                            | `SplitView` resolves every regular or standard render                                                                                                                                                                    |
+| column focus emphasis    | Environment | the [Focus](../tokens.md#focus) rules, `selection.inactive` | children and app-hosted delegated focus appearance resolve per render; the container paints no emphasis of its own                                                                                                       |
 
 The container exposes no control focus initializer arguments and installs no focusable
 chrome; its focus stops are entirely the supplied children plus `SplitView`'s divider
@@ -407,11 +407,11 @@ derive from the column child's minimum intrinsic width is an open question below
 
 The container itself consumes only the divider tokens through `SplitView`: `divider.light`
 and `divider.ascii` from [tokens](../tokens.md). Everything else is resolved by children
-or app-hosted chrome: `selection.bar`, `selection.fill`, `selection.inactive`, and
-`selection.ascii` by a sidebar `List`; `focus.border` and `focus.content` by app-hosted
-delegated focus appearance when a column wants hunk/omp-style emphasis. Planned semantic
-styles remain complete `Style` values -- `primary`, `secondary`, `accent`, `disabled`,
-`destructive` -- with no new token names introduced by this widget.
+or app-hosted chrome: `selection.bar` (ASCII `>`), `selection.fill`, and
+`selection.inactive` by a sidebar `List`; the [Focus](../tokens.md#focus) rules by
+app-hosted delegated focus appearance when a column wants hunk/omp-style emphasis. Planned
+semantic styles remain complete `Style` values -- `primary`, `secondary`, `accent`,
+`disabled`, `destructive` -- with no new token names introduced by this widget.
 
 ## Primitive dependencies
 
@@ -482,8 +482,8 @@ substitute a private navigator, animation shim, source browser, or layout solver
 
 - **No color:** child selection and focus emphasis fall back per their own contracts; the
   container has no chrome of its own to degrade.
-- **16-color:** full semantic Styles resolve to indexed equivalents; behavior is
-  unchanged.
+- **16-color:** roles resolve to their slots columns in [roles](../tokens.md#roles);
+  behavior is unchanged.
 - **ASCII-only:** `│`, `┼`, and `─` become `|`, `+`, and `-` per canonical tokens; all
   affordances are already app text.
 - **Below `23x10`:** present the resize guard, mutate no business binding, and never

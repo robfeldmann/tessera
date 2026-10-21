@@ -439,6 +439,12 @@ classification (Phase 4) no longer gates capture.
   decision, 2026-10-10). Inputs: every "token pending plan 032 step 5.3" marker in the
   catalog, the remaining `focus.border` consumers, and the critic's role-grouped token
   suggestions (posted to the owner's hunk review on `design/tokens.md`).
+- Done (owner decisions, 2026-10-19): the policy is "terminal-native by default, derived
+  shades, themes optional". Hues come from the terminal's 16 slots, shades are blended
+  from the queried foreground, background and palette, light or dark is detected, and
+  attributes are the fallback. `design/tokens.md` was rewritten and every marker replaced.
+  The review site's Tokens page (`/tokens`, one page per question at `/tokens/qN`) renders
+  the roles under Miniwinter Dark/Light, Catppuccin Mocha/Latte and the xterm defaults.
 
 ## Phase 6 — Write the Rust-to-Swift translation key
 
@@ -471,6 +477,21 @@ classification (Phase 4) no longer gates capture.
   `truncation(_:)` with `.none` and `.clip` defaults) to the 2026-10-18 wrap rules: word
   wrapping by default, `.lineLimit(Int?)`, and `.truncationMode(_:)` (see
   `design/primitives/text.md`).
+- Also add the step 5.3 terminal contracts to the Spec (owner decisions, 2026-10-19):
+  - Phase 3 capability probe: OSC 10/11/4 colour queries join the DA1-terminated round
+    with a 1 s timeout; the first frame waits; late replies repaint; mode 2031
+    theme-change notifications; a re-query on resume; `NO_COLOR` queries only the
+    background; new `TerminalCapabilities` fields for the reported colours and for Nerd
+    Font coverage (`.notDetectable`); and an OSC reply path in the input parser, which has
+    none today.
+  - `\.colorScheme`: an unknown background counts as dark unless `COLORFGBG` says light.
+  - Glyph charset, under the protocol enablement policy: "Glyph charset: `\.charset`
+    defaults to `.unicode`, drops to `.ascii` when the locale codeset is not UTF-8,
+    honours the generic `NERDFONT` variable (`0` caps at `.unicode` over app policy; `1`
+    selects `.nerdFont` for automatic mode), may be set explicitly by the application, and
+    reports Nerd Font coverage as `.notDetectable` until a protocol-native coverage query
+    is adopted; terminal identity never selects it."
+  - Phase 4 Slice 5: Table and List request motion tracking for their default row hover.
 
 ### Step 7.3 — Sequence the implementation
 
@@ -479,6 +500,14 @@ classification (Phase 4) no longer gates capture.
   phase before it starts, once 7.1 and 7.2 settle the catalog and spec.
 
 ### Step 7.4 — Remove the omp2 scaffolding from the working tree
+
+> Amended (owner decision, 2026-10-19): keep the review site's Tessera pages, the Tokens
+> page (`/tokens`) and the per-component review pages, in the repository. They become the
+> seed of the live demo gallery (Phase 8, as in Textual's demo app): each wireframe is
+> later replaced by the real, interactive, snapshot-tested widget. Before deleting
+> anything below, decide with the owner where the kept pages live and how they are
+> separated from the third-party omp2 captures and prior-art inventories, which still get
+> removed.
 
 - After 7.1-7.3 are committed, delete `design/prior-art/`, `design/omp2-review/`,
   `DevTools/omp2-gallery/`, `scripts/omp2-gallery.sh`, `scripts/omp2-gallery-serve.py`,

@@ -110,8 +110,8 @@ default shape and the default emphasis for a plain `Button`:
 
 ```text
 Callouts (6x1, 0-based):
-1. r0 c0     Leading end -- half block `▐` in the fill colour, `faint(accent)*`.
-2. r0 c1-c4  Label slot -- label in `accent` on the `faint(accent)*` fill; chrome, one row.
+1. r0 c0     Leading end -- half block `▐` in the fill colour, `faint(accent)`.
+2. r0 c1-c4  Label slot -- label in `accent` on the `faint(accent)` fill; chrome, one row.
 3. r0 c5     Trailing end -- half block `▌` in the fill colour.
 4. r0 c0-c5  Button hit target -- the whole allocated frame; press and release must both resolve to this node.
 ```
@@ -123,8 +123,8 @@ Callouts (6x1, 0-based):
 ABBBBA
 ── legend ──
 .  default
-A  fg=faint(accent)*
-B  fg=accent bg=faint(accent)*
+A  fg=faint(accent)
+B  fg=accent bg=faint(accent)
 ```
 
 ### Mobile
@@ -140,7 +140,7 @@ label stays at the leading end (Sizing: 40x1 row).
 ```text
 Callouts (40x1, 0-based):
 1. r0 c0       Leading end -- half block `▐` in `accent`.
-2. r0 c1-c34   Label slot -- `contrast*` bold on the `accent` fill, at the leading end; chrome, one row.
+2. r0 c1-c34   Label slot -- `contrast` bold on the `accent` fill, at the leading end; chrome, one row.
 3. r0 c35-c38  Slack -- `accent` fill to the trailing end.
 4. r0 c39      Trailing end -- half block `▌` in `accent`.
 5. r0 c0-c39   Button hit target -- the whole forced allocation.
@@ -154,7 +154,7 @@ ABBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBCCCCA
 ── legend ──
 .  default
 A  fg=accent
-B  fg=contrast* bg=accent bold
+B  fg=contrast bg=accent bold
 C  bg=accent
 ```
 
@@ -186,10 +186,10 @@ C  bg=accent
   style contract (owner decision, 2026-10-10).
 
 Colour roles: the roles `primary`, `secondary`, `accent`, `focus`, `disabled`, and
-`destructive` exist in [tokens.md](../tokens.md#semantic-styles). Roles marked `*` are
-absent from tokens.md and are token pending plan 032 step 5.3: `contrast*`,
-`faint(accent)*`, `faint(secondary)*`, `faint(destructive)*`, `faint-focus*`,
-`disabled-fill*`, and `disabled-label*`. No other token names are used.
+`destructive` are defined in [tokens.md](../tokens.md#roles). `contrast` is `on(R)` inside
+`solid(R)`, `faint(R)` is the tinted fill, and `disabled.fill` and `disabled.label` are
+the disabled fill roles ([composite styles](../tokens.md#composite-styles),
+[fill roles](../tokens.md#fill-roles)). No other token names are used.
 
 Intent colour runs across each row of the intents fixture below; emphasis runs down it.
 
@@ -203,9 +203,9 @@ Intent colour runs across each row of the intents fixture below; emphasis runs d
 
 ```text
 Callouts (24x3, 0-based):
-1. r0 c0-c5    Filled, normal -- `accent` caps and fill; `contrast*` bold label.
-2. r0 c7-c14   Filled, cancel -- `secondary` caps and fill; `contrast*` bold label.
-3. r0 c16-c23  Filled, destructive -- `destructive` caps and fill; `contrast*` bold label.
+1. r0 c0-c5    Filled, normal -- `accent` caps and fill; `contrast` bold label.
+2. r0 c7-c14   Filled, cancel -- `secondary` caps and fill; `contrast` bold label.
+3. r0 c16-c23  Filled, destructive -- `destructive` caps and fill; `contrast` bold label.
 4. r1          Tinted, each intent -- faint fill of the intent colour; label in the intent colour.
 5. r2          Plain, each intent -- label only, blank ends; normal `primary`, cancel `secondary`, destructive `destructive`.
 ```
@@ -222,17 +222,17 @@ GHHHHG.IJJJJJJI.KLLLLLLK
 ── legend ──
 .  default
 A  fg=accent
-B  fg=contrast* bold bg=accent
+B  fg=contrast bold bg=accent
 C  fg=secondary
-D  fg=contrast* bold bg=secondary
+D  fg=contrast bold bg=secondary
 E  fg=destructive
-F  fg=contrast* bold bg=destructive
-G  fg=faint(accent)*
-H  fg=accent bg=faint(accent)*
-I  fg=faint(secondary)*
-J  fg=secondary bg=faint(secondary)*
-K  fg=faint(destructive)*
-L  fg=destructive bg=faint(destructive)*
+F  fg=contrast bold bg=destructive
+G  fg=faint(accent)
+H  fg=accent bg=faint(accent)
+I  fg=faint(secondary)
+J  fg=secondary bg=faint(secondary)
+K  fg=faint(destructive)
+L  fg=destructive bg=faint(destructive)
 M  fg=primary
 ```
 
@@ -291,7 +291,7 @@ ABBBBA..ABBBBA..DBBBBD..ABBBBA
 ── legend ──
 .  default
 A  fg=accent
-B  fg=contrast* bold bg=accent
+B  fg=contrast bold bg=accent
 D  bg=accent
 ```
 
@@ -299,10 +299,11 @@ D  bg=accent
 
 The box is three rows. Its border is light in C at rest and heavy in `focus` when focused
 ([focus border rule 1](../primitives/border.md#focus-border)). The heavy focus border wins
-over the `rounded` that tokens.md `focus.border` names; that row is rewritten in plan 032
-step 5.3 (owner decision, 2026-10-10). Its interior follows the emphasis: filled takes a
-solid fill, tinted takes a faint fill, and plain has none. Below three rows the box falls
-back to `.squared`, keeping one-row geometry and the label (owner decision, 2026-10-10).
+over the `rounded` that tokens.md's retired `focus.border` row named; the focus rules are
+in [Focus](../tokens.md#focus), rule 1 (owner decision, 2026-10-10). Its interior follows
+the emphasis: filled takes a solid fill, tinted takes a faint fill, and plain has none.
+Below three rows the box falls back to `.squared`, keeping one-row geometry and the label
+(owner decision, 2026-10-10).
 
 ```wireframe 17x3
 ┌──────┐ ┏━━━━━━┓
@@ -312,8 +313,8 @@ back to `.squared`, keeping one-row geometry and the label (owner decision, 2026
 
 ```text
 Callouts (17x3, 0-based):
-1. r0-r2 c0-c7   Box, tinted, rest -- light border in `accent`; interior `faint(accent)*` fill at c1 and c6; label `accent` at c2-c5.
-2. r0-r2 c9-c16  Box, tinted, focused -- heavy border in `focus`; interior `faint-focus*` fill; label `focus` bold.
+1. r0-r2 c0-c7   Box, tinted, rest -- light border in `accent`; interior `faint(accent)` fill at c1 and c6; label `accent` at c2-c5.
+2. r0-r2 c9-c16  Box, tinted, focused -- heavy border in `focus`; interior `faint(focus)` fill; label `focus` bold.
 ```
 
 ```text
@@ -328,11 +329,11 @@ AAAAAAAA.GGGGGGGG
 ── legend ──
 .  default
 A  fg=accent
-C  fg=accent bg=faint(accent)*
-D  bg=faint(accent)*
+C  fg=accent bg=faint(accent)
+D  bg=faint(accent)
 G  fg=focus
-H  bg=faint-focus*
-I  fg=focus bold bg=faint-focus*
+H  bg=faint(focus)
+I  fg=focus bold bg=faint(focus)
 ```
 
 #### Brackets
@@ -347,10 +348,10 @@ the intent colour.
 
 ```text
 Callouts (13x2, 0-based):
-1. r0 c0-c5   Brackets, filled, rest -- `[` and `]` in `accent`; label `contrast*` bold on the `accent` fill.
-2. r0 c7-c12  Brackets, filled, focused -- brackets in `focus`; label `contrast*` bold on the `focus` fill.
+1. r0 c0-c5   Brackets, filled, rest -- `[` and `]` in `accent`; label `contrast` bold on the `accent` fill.
+2. r0 c7-c12  Brackets, filled, focused -- brackets in `focus`; label `contrast` bold on the `focus` fill (`solid(focus)`, a default-foreground chip).
 3. r1 c0-c5   Brackets, tinted, rest -- brackets in `accent`; label `accent` on the faint fill.
-4. r1 c7-c12  Brackets, tinted, focused -- brackets in `focus`; label `focus` bold on the faint focus fill.
+4. r1 c7-c12  Brackets, tinted, focused -- brackets in `focus`; label `focus` bold on `faint(focus)`.
 ```
 
 ```text
@@ -363,11 +364,11 @@ ACCCCA.GIIIIG
 ── legend ──
 .  default
 A  fg=accent
-B  fg=contrast* bold bg=accent
-C  fg=accent bg=faint(accent)*
+B  fg=contrast bold bg=accent
+C  fg=accent bg=faint(accent)
 G  fg=focus
-H  fg=contrast* bold bg=focus
-I  fg=focus bold bg=faint-focus*
+H  fg=contrast bold bg=focus
+I  fg=focus bold bg=faint(focus)
 ```
 
 #### Custom
@@ -393,7 +394,7 @@ ABBBBA
 ── legend ──
 .  default
 A  fg=accent
-B  fg=contrast* bold bg=accent
+B  fg=contrast bold bg=accent
 ```
 
 #### ASCII
@@ -407,9 +408,9 @@ and `|`. Focus adds bold (focus rule 6); a focused plain label is bold without u
 
 ```text
 Callouts (30x1, 0-based):
-1. r0 c0-c5    Filled, rest -- squared falls back to `.rectangle`: one full `accent` fill cell each side; `contrast*` bold label.
+1. r0 c0-c5    Filled, rest -- squared falls back to `.rectangle`: one full `accent` fill cell each side; `contrast` bold label.
 2. r0 c8-c13   Tinted, rest -- rectangle on a faint `accent` fill; `accent` label.
-3. r0 c16-c21  Filled, focused -- `focus` fill; `contrast*` bold label. Bold is the ASCII focus signal (focus rule 6).
+3. r0 c16-c21  Filled, focused -- `solid(focus)` chip (default foreground); `contrast` bold label. Bold is the ASCII focus signal (focus rule 6).
 4. r0 c24-c29  Plain, focused -- no fill; label in `focus`, bold, no underline.
 ```
 
@@ -420,12 +421,12 @@ Callouts (30x1, 0-based):
 DBBBBD..EFFFFE..GHHHHG...IIII.
 ── legend ──
 .  default
-B  fg=contrast* bold bg=accent
+B  fg=contrast bold bg=accent
 D  bg=accent
-E  bg=faint(accent)*
-F  fg=accent bg=faint(accent)*
+E  bg=faint(accent)
+F  fg=accent bg=faint(accent)
 G  bg=focus
-H  fg=contrast* bold bg=focus
+H  fg=contrast bold bg=focus
 I  fg=focus bold
 ```
 
@@ -459,11 +460,11 @@ look (owner decision, 2026-10-10).
 
 ```text
 Callouts (20x5, 0-based):
-1. r0  Idle, enabled -- filled c0-c5 (`accent` caps and fill, `contrast*` bold label); tinted c7-c12 (`faint(accent)*` caps and fill, `accent` label); plain c14-c19 (`primary` label, blank ends).
-2. r1  Focused -- filled takes `focus` caps and fill with a `contrast*` bold label; tinted takes a `faint-focus*` fill with a bold `focus` label; plain underlines its label in `focus`.
+1. r0  Idle, enabled -- filled c0-c5 (`accent` caps and fill, `contrast` bold label); tinted c7-c12 (`faint(accent)` caps and fill, `accent` label); plain c14-c19 (`primary` label, blank ends).
+2. r1  Focused -- filled takes `solid(focus)`, a default-foreground chip, with a `contrast` bold label; tinted takes `faint(focus)` with a bold `focus` label; plain underlines its label in `focus`.
 3. r2  Pressed -- filled takes the tinted look and tinted takes the filled look; plain turns its label bold.
 4. r3  Hovered -- every label is underlined; fills and caps do not change.
-5. r4  Disabled -- caps and fill in `disabled-fill*`; labels in `disabled-label*`; unfilled glyphs in `semantic.disabled`.
+5. r4  Disabled -- caps and fill in `disabled.fill`; labels in `disabled.label`; unfilled glyphs in `disabled`.
 ```
 
 ```text
@@ -482,52 +483,53 @@ OPPPPO.OPPPPO..QQQQ.
 ── legend ──
 .  default
 A  fg=accent
-B  fg=contrast* bold bg=accent
-C  fg=faint(accent)*
-D  fg=accent bg=faint(accent)*
+B  fg=contrast bold bg=accent
+C  fg=faint(accent)
+D  fg=accent bg=faint(accent)
 E  fg=primary
 F  fg=focus
-G  fg=contrast* bold bg=focus
-H  fg=faint-focus*
-I  fg=focus bold bg=faint-focus*
+G  fg=contrast bold bg=focus
+H  fg=faint(focus)
+I  fg=focus bold bg=faint(focus)
 J  fg=focus underline
 K  fg=primary bold
-L  fg=contrast* bold underline bg=accent
-M  fg=accent underline bg=faint(accent)*
+L  fg=contrast bold underline bg=accent
+M  fg=accent underline bg=faint(accent)
 N  fg=primary underline
-O  fg=disabled-fill*
-P  fg=disabled-label* bg=disabled-fill*
-Q  fg=disabled-label*
+O  fg=disabled.fill
+P  fg=disabled.label bg=disabled.fill
+Q  fg=disabled.label
 ```
 
 - **Focused:** explicit `.focusable(id).focused(binding, equals: id)` injects
   `EnvironmentValues.isFocused` below the modifier. Every cell that carries the intent
-  colour switches to `focus`. Filled takes a solid `focus` fill and a `contrast*` bold
-  label. Tinted takes a faint focus fill (`faint-focus*`) and a bold `focus` label (owner
-  decision, 2026-10-10). Plain underlines its label in `focus` (owner decision,
-  2026-10-10). Brackets and box borders switch to `focus` too; a focused box draws a heavy
-  border. NO_COLOR focus is an underline; ASCII focus adds bold (focus rule 6).
+  colour switches to `focus`. Filled takes `solid(focus)`, a default-foreground chip, with
+  a `contrast` bold label. Tinted takes `faint(focus)` and a bold `focus` label (owner
+  decision, 2026-10-10; focus colour owner decision, 2026-10-19). Plain underlines its
+  label in `focus` (owner decision, 2026-10-10). Brackets and box borders switch to
+  `focus` too; a focused box draws a heavy border. NO_COLOR focus is an underline; ASCII
+  focus adds bold (focus rule 6).
 - **Pressed:** for phased activation input, `isPressed` is set from down until the
   matching release, cancellation, focus loss, disablement, or node removal. Filled and
   tinted trade looks while pressed: a pressed filled button takes the tinted look, and a
   pressed tinted button takes the filled look. Plain turns its label bold (owner decision,
   2026-10-10). A focused and pressed button applies the trade to its focused look:
-  filled-focused shows the faint focus fill, and tinted-focused shows the solid focus fill
-  (owner decision, 2026-10-10). A legacy press-only `Enter` or `Space` invokes and clears
-  it during that same dispatch, so it cannot remain pressed.
+  filled-focused shows the `faint(focus)` fill, and tinted-focused shows the
+  `solid(focus)` chip (owner decision, 2026-10-10). A legacy press-only `Enter` or `Space`
+  invokes and clears it during that same dispatch, so it cannot remain pressed.
 - **Hovered:** the label is underlined; fills, caps, and borders do not change (owner
   decision, 2026-10-10). Hover needs pointer-move input. Button requests it through its
   built-in hover style; a view with no hover consumer in its subtree does not request it.
 - **Disabled:** every visible cell takes a disabled role. Fill cells and caps use
-  `disabled-fill*`; labels use `disabled-label*`; unfilled glyphs (brackets, box border)
-  use `semantic.disabled`. The fill is darker and the label lighter than the first lab
-  draft, for readable contrast (owner decision, 2026-10-10). A disabled button is absent
-  from the focusable list and never presses; see the Key and Mouse tables.
+  `disabled.fill`; labels use `disabled.label`; unfilled glyphs (brackets, box border) use
+  `disabled`. The fill is darker and the label lighter than the first lab draft, for
+  readable contrast (owner decision, 2026-10-10). A disabled button is absent from the
+  focusable list and never presses; see the Key and Mouse tables.
 - **Destructive:** the `.destructive` role draws the `error` tone in every emphasis. It is
-  one colour with `semantic.destructive`, the environment role name. It changes styling
-  only, not event semantics, and carries no underline: the `semantic.destructive` row in
-  tokens.md adds one, and that row is rewritten in plan 032 step 5.3 (owner decision,
-  2026-10-10). Focus and pressed apply to it the same way they apply to any intent colour.
+  one colour with `destructive`, the environment role name. It changes styling only, not
+  event semantics, and carries no underline: `destructive` is the `error` Style with no
+  underline (owner decision, 2026-10-19; [hue roles](../tokens.md#hue-roles)). Focus and
+  pressed apply to it the same way they apply to any intent colour.
 - **Overflow:** the label is chrome and stays on one row (owner decision, 2026-10-18). A
   default textual label is a `Text` with `.lineLimit(1)` applied by Button itself, so an
   app's inherited `lineLimit` never reaches it, and it tail-truncates in the slot assigned
@@ -579,16 +581,16 @@ D  underline
 
 ## State model
 
-| State                     | Owner       | Type                                                                                                                                               | Reset or clamp rule                                                                                                                                                                                                                                                                                                                                                                           |
-| ------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| is enabled                | Environment | `Bool`                                                                                                                                             | Read on every reconciliation. A transition to `false` clears `isPressed` and `isHovered`, removes the node from focusability, and prevents activation immediately.                                                                                                                                                                                                                            |
-| current button style      | Environment | `ButtonStyle` (built-in `.filled`, `.tinted`, `.plain`)                                                                                            | Read on every reconciliation; changing it recomposes from the same label, role, enabled, focus, and press inputs without retaining a previous style.                                                                                                                                                                                                                                          |
-| current button shape      | Environment | `ButtonBorderShape` (`.squared`, `.capsule`, `.rectangle`, `.brackets`, `.box`, `.custom(...)`)                                                    | Read on every reconciliation; changing it recomposes from the same label and style inputs.                                                                                                                                                                                                                                                                                                    |
-| semantic roles            | Environment | `semantic.primary`, `semantic.secondary`, `semantic.accent`, `semantic.focus`, `semantic.disabled`, and `semantic.destructive` full `Style` values | Read on every render; nearest environment value wins under Slice 3 style inheritance. These canonical semantic roles are planned environment values, with concrete key grouping left open.                                                                                                                                                                                                    |
-| is focused                | Environment | `Bool`                                                                                                                                             | Injected below the explicit `.focusable` modifier from the FocusManager's live identity; Button reads it during rendering and checks `ResponderContext.isFocused` for events. A focused button switches every cell that carries the intent colour to `focus` as described under States.                                                                                                       |
-| is pressed                | NodeState   | `Bool`                                                                                                                                             | Set for primary down or the down phase of enabled phased keyboard activation. Clear on its matching release, cancellation, focus loss, disablement, node removal, and every update where the node is not focused. A legacy press-only `Enter` or `Space` event invokes the action once and clears `isPressed` before its dispatch returns; it never represents app work or action completion. |
-| is hovered                | NodeState   | `Bool`                                                                                                                                             | Set when a pointer move enters the hit target while enabled. Clear on move out, disablement, and node removal. Requires pointer-move input, requested through the built-in hover style (owner decision, 2026-10-10).                                                                                                                                                                          |
-| label size and truncation | derived     | `TerminalSize` and rendered grapheme range                                                                                                         | Recomputed from the proposed label slot on every layout; clamp to the allocated rectangle and use tail truncation (`.lineLimit(1)` pinned by Button) for default text.                                                                                                                                                                                                                        |
+| State                     | Owner       | Type                                                                                            | Reset or clamp rule                                                                                                                                                                                                                                                                                                                                                                           |
+| ------------------------- | ----------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| is enabled                | Environment | `Bool`                                                                                          | Read on every reconciliation. A transition to `false` clears `isPressed` and `isHovered`, removes the node from focusability, and prevents activation immediately.                                                                                                                                                                                                                            |
+| current button style      | Environment | `ButtonStyle` (built-in `.filled`, `.tinted`, `.plain`)                                         | Read on every reconciliation; changing it recomposes from the same label, role, enabled, focus, and press inputs without retaining a previous style.                                                                                                                                                                                                                                          |
+| current button shape      | Environment | `ButtonBorderShape` (`.squared`, `.capsule`, `.rectangle`, `.brackets`, `.box`, `.custom(...)`) | Read on every reconciliation; changing it recomposes from the same label and style inputs.                                                                                                                                                                                                                                                                                                    |
+| semantic roles            | Environment | `primary`, `secondary`, `accent`, `focus`, `disabled`, and `destructive` full `Style` values    | Read on every render; nearest environment value wins under Slice 3 style inheritance. These canonical semantic roles are planned environment values, with concrete key grouping left open.                                                                                                                                                                                                    |
+| is focused                | Environment | `Bool`                                                                                          | Injected below the explicit `.focusable` modifier from the FocusManager's live identity; Button reads it during rendering and checks `ResponderContext.isFocused` for events. A focused button switches every cell that carries the intent colour to `focus` as described under States.                                                                                                       |
+| is pressed                | NodeState   | `Bool`                                                                                          | Set for primary down or the down phase of enabled phased keyboard activation. Clear on its matching release, cancellation, focus loss, disablement, node removal, and every update where the node is not focused. A legacy press-only `Enter` or `Space` event invokes the action once and clears `isPressed` before its dispatch returns; it never represents app work or action completion. |
+| is hovered                | NodeState   | `Bool`                                                                                          | Set when a pointer move enters the hit target while enabled. Clear on move out, disablement, and node removal. Requires pointer-move input, requested through the built-in hover style (owner decision, 2026-10-10).                                                                                                                                                                          |
+| label size and truncation | derived     | `TerminalSize` and rendered grapheme range                                                      | Recomputed from the proposed label slot on every layout; clamp to the allocated rectangle and use tail truncation (`.lineLimit(1)` pinned by Button) for default text.                                                                                                                                                                                                                        |
 
 The role, label closure, and action closure are immutable widget configuration, not
 retained business state. `isPressed` and `isHovered` are supplied to styles solely as
@@ -655,13 +657,14 @@ label stays at the leading end. Plain keeps blank ends at the allocation edges.
 
 ## Environment
 
-`Button` consumes the planned `isEnabled`, `buttonStyle`, `buttonBorderShape`, and
-semantic-role environment values. The role values are exactly `semantic.primary`,
-`semantic.secondary`, `semantic.accent`, `semantic.focus`, `semantic.disabled`, and
-`semantic.destructive`. Each is a complete `Style`, not a foreground-colour alias, so it
-can carry foreground, background, and emphasis coherently. The `contrast*`, faint fill,
-and disabled fill roles are token pending plan 032 step 5.3. The visual glyph vocabulary
-comes from [tokens](../tokens.md): `light`, `heavy`, `ascii`, and `truncation.mark`. Exact
+`Button` consumes the planned `isEnabled`, `buttonStyle`, `buttonBorderShape`, and role
+environment values. The role values are exactly `primary`, `secondary`, `accent`, `focus`,
+`disabled`, and `destructive`. Each is a complete `Style`, not a foreground-colour alias,
+so it can carry foreground, background, and emphasis coherently. `contrast` is `on(R)`
+inside `solid(R)`, `faint(R)` is the tinted fill, and `disabled.fill` and `disabled.label`
+are the disabled fills ([composite styles](../tokens.md#composite-styles),
+[fill roles](../tokens.md#fill-roles)). The visual glyph vocabulary comes from
+[tokens](../tokens.md): `light`, `heavy`, `ascii`, and `truncation.mark`. Exact
 environment-key and type-erasure signatures remain open.
 
 There is no Button-specific padding property. To produce `[ Save ]`, compose the shared
@@ -746,6 +749,8 @@ affordances are explicitly post-1.0 and are not implied by a Button label or act
   fixture; Shape table)
 - `focused filled button takes the focus fill with a bold contrast label` (States fixture,
   focused row)
+- `focused filled button draws a default-foreground chip` (States fixture, focused row;
+  [tokens.md#composite-styles](../tokens.md#composite-styles); owner decision, 2026-10-19)
 - `focused tinted button takes a faint focus fill with a bold focus label` (States
   fixture, focused row)
 - `focused plain button underlines its label in focus` (States fixture, focused row)
@@ -759,8 +764,8 @@ affordances are explicitly post-1.0 and are not implied by a Button label or act
 - `NO_COLOR filled and tinted buttons use reverse video` (NO_COLOR fixture)
 - `NO_COLOR focus underlines the label` (NO_COLOR fixture)
 - `ASCII focus adds bold to the label` (ASCII fixture, focused cells)
-- `button applies semantic.destructive styling without changing activation behavior`
-  (Intents and emphasis, destructive column)
+- `button applies destructive styling without changing activation behavior` (Intents and
+  emphasis, destructive column)
 - `squared minimum is four cells wide for a two-cell label` (Sizing: 4x1 row)
 - `box minimum is six by three for a two-cell label` (Sizing: 6x3 row)
 - `default textual button tail-truncates long label without changing its one-row height or wrapping`
@@ -799,25 +804,20 @@ affordances are explicitly post-1.0 and are not implied by a Button label or act
 
 ## Degradation
 
-| Capability or space            | Button behavior                                                                                                                                                                                                                                                                   |
-| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Full capability (Nerd Font)    | Squared ends are half blocks; capsule ends are Powerline caps U+E0B6 and U+E0B4, both in the fill colour; box is light in the intent colour and heavy in `focus`; brackets and custom glyphs draw; filled, tinted, and plain use semantic roles; truncation is `…`.               |
-| Unicode without a Nerd Font    | Capsule falls back to squared half blocks; `.custom` uses its `unicode:` pair when given, else `.rectangle`; box and brackets are unchanged; roles are unchanged.                                                                                                                 |
-| `NO_COLOR`                     | Filled and tinted both use reverse video; plain is plain text; focus adds an underline; pressed plain is bold; hovered adds an underline; disabled is dim; ends and brackets stay in the default foreground. Intents look alike; this is the accepted cost of the mode.           |
-| 16-colour                      | All roles resolve to the indexed palette; focus keeps indexed `semantic.focus`; destructive keeps its distinct indexed Style; faint and disabled fills follow token pending plan 032 step 5.3.                                                                                    |
-| ASCII-only                     | Squared and capsule fall back to `.rectangle`; brackets are unchanged; box uses `+`, `-`, and `\|`; `.custom` uses its `ascii:` pair when given, else `.rectangle`; truncation changes from `…` to `~`; focus adds bold, and a focused plain label is bold without underline.     |
-| Below a selected shape's floor | Squared, capsule, rectangle, brackets, and custom keep their one-row geometry and constrain the label slot. Box below three rows falls back to `.squared`, keeping one-row geometry and the label (owner decision, 2026-10-10). Interaction and enabled semantics do not degrade. |
+| Capability or space            | Button behavior                                                                                                                                                                                                                                                                                                                                                    |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Full capability (Nerd Font)    | Squared ends are half blocks; capsule ends are Powerline caps U+E0B6 and U+E0B4, both in the fill colour; box is light in the intent colour and heavy in `focus`; brackets and custom glyphs draw; filled, tinted, and plain use semantic roles; truncation is `…`.                                                                                                |
+| Unicode without a Nerd Font    | Capsule falls back to squared half blocks; `.custom` uses its `unicode:` pair when given, else `.rectangle`; box and brackets are unchanged; roles are unchanged.                                                                                                                                                                                                  |
+| `NO_COLOR`                     | Filled and tinted both use reverse video; plain is plain text; focus adds an underline; pressed plain is bold; hovered adds an underline; disabled is dim; ends and brackets stay in the default foreground. Intents look alike; this is the accepted cost of the mode.                                                                                            |
+| 16-colour                      | All roles resolve to their slots columns in [roles](../tokens.md#roles): solid fills are reverse video; tinted fills take an ANSI 8 background on dark and none on light; focus is the default foreground in bold; destructive keeps the indexed `error` Style with no underline; disabled fill is ANSI 8 on dark and none on light (owner decisions, 2026-10-19). |
+| ASCII-only                     | Squared and capsule fall back to `.rectangle`; brackets are unchanged; box uses `+`, `-`, and `\|`; `.custom` uses its `ascii:` pair when given, else `.rectangle`; truncation changes from `…` to `~`; focus adds bold, and a focused plain label is bold without underline.                                                                                      |
+| Below a selected shape's floor | Squared, capsule, rectangle, brackets, and custom keep their one-row geometry and constrain the label slot. Box below three rows falls back to `.squared`, keeping one-row geometry and the label (owner decision, 2026-10-10). Interaction and enabled semantics do not degrade.                                                                                  |
 
 ## Open questions
 
 No decision from the 2026-10-10 review lab remains open; those are recorded inline as
 owner decisions. The items below are what the spec still leaves open.
 
-- **Faint and disabled fill tokens:** `contrast*`, `faint(accent)*`, `faint(secondary)*`,
-  `faint(destructive)*`, `faint-focus*`, `disabled-fill*`, and `disabled-label*` have no
-  token rows (token pending plan 032 step 5.3).
-- **Nerd Font capability:** the capability that selects Powerline caps has no token row
-  (token pending plan 032 step 5.3).
 - **Touch normalization (deferred to Phase 5, owner decision, 2026-10-10):** the final
   platform input adapter may expose touch as a primary click or as a distinct contact
   event. The Button invariant is already fixed: the whole allocated frame is hit-tested

@@ -438,13 +438,13 @@ clusters. Under a fixed height the last visible body row ends in `…`.
 
 ## Variants
 
-| Kind      | Icon (Unicode / ASCII) | Default title | Role                        | Token                           |
-| --------- | ---------------------- | ------------- | --------------------------- | ------------------------------- |
-| `info`    | ℹ / `(i)`              | Info          | `info`                      | token pending plan 032 step 5.3 |
-| `success` | ✔ / `[ok]`             | Success       | `success`                   | token pending plan 032 step 5.3 |
-| `warning` | ⚠ / `[!]`              | Warning       | `warning`                   | token pending plan 032 step 5.3 |
-| `error`   | ✘ / `[!!]`             | Error         | `error`                     | token pending plan 032 step 5.3 |
-| none      | none                   | none          | rail `info`, body `primary` | `semantic.primary`              |
+| Kind      | Icon (Unicode / ASCII) | Default title | Role                        | Token                               |
+| --------- | ---------------------- | ------------- | --------------------------- | ----------------------------------- |
+| `info`    | ℹ / `(i)`              | Info          | `info`                      | [hue roles](../tokens.md#hue-roles) |
+| `success` | ✔ / `[ok]`             | Success       | `success`                   | [hue roles](../tokens.md#hue-roles) |
+| `warning` | ⚠ / `[!]`              | Warning       | `warning`                   | [hue roles](../tokens.md#hue-roles) |
+| `error`   | ✘ / `[!!]`             | Error         | `error`                     | [hue roles](../tokens.md#hue-roles) |
+| none      | none                   | none          | rail `info`, body `primary` | `primary`                           |
 
 Kind icons are catalog names resolved by [Label](../primitives/label.md). The Unicode and
 ASCII glyphs match that catalog's columns. The info ASCII glyph is `(i)`, not `[i]` (owner
@@ -479,11 +479,12 @@ under-minimum, over-maximum.
 
 ## Environment
 
-- Kind roles `info`, `success`, `warning`, `error`: token pending plan 032 step 5.3.
-  [tokens.md](../tokens.md#semantic-styles) defines no such roles.
-- Header badge: a [Badge](../primitives/badge.md) in the kind's tone; its tone roles are
-  token pending plan 032 step 5.3. The no-kind badge is `neutral`.
-- No-kind body `semantic.primary` and no-kind rail `info` (pending as above).
+- Kind roles `info`, `success`, `warning`, `error`: the
+  [hue roles](../tokens.md#hue-roles), defined in 1.0 (owner decision, 2026-10-19).
+- Header badge: a [Badge](../primitives/badge.md) in the kind's tone, drawn as `solid(R)`
+  of the kind's role ([composite styles](../tokens.md#composite-styles)); its tone roles
+  are the hue roles above. The no-kind badge is `neutral`.
+- No-kind body `primary` and no-kind rail `info`.
 - Rail glyphs and centring: see [Leading rail](../primitives/leading-rail.md) and
   [Divider glyphs](../tokens.md#divider-glyphs).
 - Truncation: `truncation.mark` from [tokens.md](../tokens.md#truncation).
@@ -529,7 +530,9 @@ under-minimum, over-maximum.
 
 - `NO_COLOR`: kind colour is lost. The icon and title text still identify the kind, and
   bold stays per the [degradation ladder](../tokens.md#degradation-ladder).
-- 16-colour: roles follow their token rows once pending plan 032 step 5.3 defines them.
+- 16-colour: each role takes its `slots` column ([roles](../tokens.md#roles)): the tones
+  take ansi 12, 10, 11 and 9 on a dark scheme, and ansi 4, 2, 3 and 1 on a light one
+  ([degradation ladder](../tokens.md#degradation-ladder)).
 - ASCII-only: the ASCII states above. The rail is `|` at column 0, kind icons are
   bracketed (`(i)` for info), and the title truncation mark is `~`.
 - Below 9 columns: the badge drops, the title tail-truncates, and body words break between
@@ -537,8 +540,7 @@ under-minimum, over-maximum.
 
 ## Open questions
 
-- Kind roles `info`, `success`, `warning`, `error`: no token rows exist yet. Unblocks:
-  plan 032 step 5.3.
+- None.
 
 ## Inspiration
 

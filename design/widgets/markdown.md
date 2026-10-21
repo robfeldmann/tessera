@@ -87,12 +87,12 @@ Callouts (72x8, 0-based):
 1. r0 c0-c12    Heading level 1 -- Text, `accent` bold underline; content, wraps
 2. r2 c8-c10    Strong run "2.4" -- Text, `primary` bold; content, wraps
 3. r2 c17-c25   Emphasis run "streaming" -- Text, `primary` italic; content, wraps
-4. r2 c47-c52   Inline code "render" -- Text, `warning` on `hover`; content, wraps
+4. r2 c47-c52   Inline code "render" -- Text, `warning` on `surface`; content, wraps
 5. r3 c0-c8     Link text "changelog" -- Text, `accent` underline, written as an OSC 8 hyperlink; content, wraps
 6. r3 c10-c40   Link destination in parentheses -- Text, `primary` dim; content, wraps
 7. r5 c0-c11    Heading level 2 -- Text, `accent` bold; content, wraps
-8. r7 c31-c38   Inline code "git pull" -- Text, `warning` on `hover`; content, wraps
-9. r7 c45-c53   Inline code "just warm" -- Text, `warning` on `hover`; content, wraps
+8. r7 c31-c38   Inline code "git pull" -- Text, `warning` on `surface`; content, wraps
+9. r7 c45-c53   Inline code "just warm" -- Text, `warning` on `surface`; content, wraps
 10. r1, r4, r6  Block spacing -- one blank row between blocks
 
 Styled grid for the same block. Colour, weight and underline matter here, so the roles are
@@ -124,7 +124,7 @@ A  fg=accent bold underline
 B  fg=primary
 C  fg=primary bold
 D  fg=primary italic
-E  fg=warning bg=hover
+E  fg=warning bg=surface
 F  fg=accent underline
 G  fg=primary dim
 H  fg=accent bold
@@ -156,12 +156,12 @@ Callouts (40x11, 0-based):
 1. r0 c0-c12    Heading level 1 -- Text, `accent` bold underline
 2. r2 c8-c10    Strong run "2.4" -- Text, `primary` bold
 3. r2 c17-c25   Emphasis run "streaming" -- Text, `primary` italic
-4. r3 c7-c12    Inline code "render" -- Text, `warning` on `hover`
+4. r3 c7-c12    Inline code "render" -- Text, `warning` on `surface`
 5. r3 c28-c36   Link text "changelog" -- Text, `accent` underline
 6. r4 c0-c30    Link destination in parentheses -- Text, `primary` dim
 7. r7 c0-c11    Heading level 2 -- Text, `accent` bold
-8. r9 c31-c38   Inline code "git pull" -- Text, `warning` on `hover`
-9. r10 c4-c12   Inline code "just warm" -- Text, `warning` on `hover`
+8. r9 c31-c38   Inline code "git pull" -- Text, `warning` on `surface`
+9. r10 c4-c12   Inline code "just warm" -- Text, `warning` on `surface`
 ```
 
 ```text
@@ -195,7 +195,7 @@ A  fg=accent bold underline
 B  fg=primary
 C  fg=primary bold
 D  fg=primary italic
-E  fg=warning bg=hover
+E  fg=warning bg=surface
 F  fg=accent underline
 G  fg=primary dim
 H  fg=accent bold
@@ -249,7 +249,7 @@ Read the cache path from the config:
 ````text
 Callouts (72x7, 0-based):
 1. r0       Paragraph -- Text, `primary`; content, wraps
-2. r2, r6   Fence rows "```rust" and "```" -- literal text, `border` (token pending plan 032 step 5.3)
+2. r2, r6   Fence rows "```rust" and "```" -- literal text, `border`
 3. r3-r5    Code body -- CodeView, indented two columns, no box; chrome, one row per line (code exception); roles in the styled grid
 ````
 
@@ -266,21 +266,25 @@ Read the cache path from the config:
 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 
 BBBBBBB
-AACC.DDDDDDDDDEAAAAE.C....E.EE.........E
-AA.........DDDDEEBBBBBBEE.DDDDEEBBBBBBBEE
-AAE
+..KK.FFFFFFFFFP....P.PTTTTP.PP.TTTTTTT.P
+..........PFFFFPSSSSSSSSPPFFFFPSSSSSSSSSP
+..P
 BBB
 ── legend ──
-.  default
+.  syntax.plain
 A  fg=primary
 B  fg=border
-C  fg=accent
-D  fg=success
-E  fg=output
+F  fg=syntax.function
+K  fg=syntax.keyword
+P  fg=syntax.punctuation
+S  fg=syntax.string
+T  fg=syntax.type
 ````
 
-Syntax roles in the code body are omp2 palette names. Tessera names are open; see Open
-questions.
+Code-body roles are the `syntax.*` roles in [syntax roles](../tokens.md#syntax-roles):
+`syntax.keyword` for keywords, `syntax.function` for function names, `syntax.type` for
+types and builtins, `syntax.string` for literals, `syntax.punctuation` for punctuation and
+operators, `syntax.plain` otherwise.
 
 ### Lists
 
@@ -356,8 +360,8 @@ Callouts (24x7, 0-based):
 2. r0-r1 c3-c20    Ordered item text, hanging indent at c3 -- Text, `primary`; content, wraps
 3. r2 c2-c4        Task checkbox "[ ]" -- Text, `primary` bold; chrome, one row
 4. r2-r3 c6-c22    Task item text, hanging indent at c6 -- Text, `primary`; content, wraps
-5. r5-r6 c0        Quote rail "│" repeated on each wrapped row -- Text, `muted`; chrome, one row
-6. r5-r6 c2-c20    Quoted text -- Text, `muted` dim italic; content, wraps
+5. r5-r6 c0        Quote rail "│" repeated on each wrapped row -- Text, `border`; chrome, one row
+6. r5-r6 c2-c20    Quoted text -- Text, `secondary` italic; content, wraps
 ```
 
 ```text
@@ -375,18 +379,19 @@ BBBBBBBBBBBBBB
 AABBBBBBBBBBBBBBB
 BBBBBBBBBBBBBBBBBBBBBBB
 
-CCCCCCCCCCCCCCCCCCCCC
-CCCCCCCCCCCCCCCCCCCC
+G.CCCCCCCCCCCCCCCCCCC
+G.CCCCCCCCCCCCCCCCCC
 ── legend ──
 .  default
 A  fg=info
 B  fg=primary
-C  fg=muted dim italic
+C  fg=secondary italic
+G  fg=border
 ```
 
 ### Block quote
 
-A quote draws one rail per level in `muted`. Quoted text is `muted` dim italic; emphasis
+A quote draws one rail per level in `border`. Quoted text is `secondary` italic; emphasis
 inside a quote is `primary` dim italic. A nested quote indents one more level. Quoted text
 is content and wraps inside the rails; every wrapped row repeats them.
 
@@ -399,10 +404,10 @@ is content and wraps inside the rails; every wrapped row repeats them.
 
 ```text
 Callouts (40x4, 0-based):
-1. r0-r3 c0      Quote rail "│" -- Text, `muted`
-2. r0, r2        Quoted text -- Text, `muted` dim italic
+1. r0-r3 c0      Quote rail "│" -- Text, `border`
+2. r0, r2        Quoted text -- Text, `secondary` italic
 3. r3 c14-c21    Emphasis "emphasis" -- Text, `primary` dim italic
-4. r2-r3 c2      Second rail, one level deeper -- Text, `muted`
+4. r2-r3 c2      Second rail, one level deeper -- Text, `border`
 ```
 
 ```text
@@ -412,21 +417,22 @@ Callouts (40x4, 0-based):
 │ │ Nested quotes indent one more level.
 │ │ They keep emphasis as well.
 ── style ──
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAABBBBBBBBAAAAAAAAA
+G.AAAAAAAAAAAAAAAAAAAAAAAAAAA
+G
+G.G.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+G.G.AAAAAAAAAABBBBBBBBAAAAAAAAA
 ── legend ──
 .  default
-A  fg=muted dim italic
+A  fg=secondary italic
 B  fg=primary dim italic
+G  fg=border
 ```
 
 ### Pipe table
 
 A pipe table with left, centre and right alignment renders through the [Table](table.md)
 `grid` style. The grid is 31 columns wide, so it fits 72 and the 40-column design. Inline
-code in cells takes `warning` on `hover`. Grid lines take the Table renderer's border
+code in cells takes `warning` on `surface`. Grid lines take the Table renderer's border
 colour, captured here as `primary`. Cells follow Table's single-line default (owner
 decision Q15, 2026-10-18) and Markdown opts no column into wrapping; a column narrower
 than its content tail-truncates, and a column set narrower than the grid follows Table's
@@ -449,7 +455,7 @@ than its source at a narrow width.
 Callouts (40x9, 0-based):
 1. r0-r8           Table grid -- Table `grid` style, light box set
 2. r1              Header row -- Table header, `primary` bold
-3. r3, r5, r7 c2-c10  First-column cells "text-leaf", "pre", "markdown" -- Text, `warning` on `hover`
+3. r3, r5, r7 c2-c10  First-column cells "text-leaf", "pre", "markdown" -- Text, `warning` on `surface`
 4. r3-r7 c14-c20   Status column, centred -- Table cell alignment
 5. r3-r7 c28       Cases column, right-aligned -- Table cell alignment
 ```
@@ -479,7 +485,7 @@ AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 .  default
 A  fg=primary
 B  fg=primary bold
-C  fg=warning bg=hover
+C  fg=warning bg=surface
 ```
 
 ## State model
@@ -546,19 +552,19 @@ fixture.
 
 Tokens consumed, each defined in [tokens.md](../tokens.md).
 
-- `semantic.primary`: body text, strong and emphasis runs, table header.
-- `semantic.accent`: headings, link text.
-- `semantic.disabled`: not used.
+- `primary`: body text, strong and emphasis runs, table header.
+- `accent`: headings, link text.
+- `disabled`: not used.
 - `readableWidth` (environment): the prose blocks' maximum width, default 72; see
   [Readable width](../primitives/readable-width.md).
 
-Roles without a `tokens.md` row yet, token pending plan 032 step 5.3:
+Further roles, each defined in tokens.md:
 
-- `muted`: quote rail and quoted text.
+- `border`: quote rail and fence rows; `secondary` italic: quoted text.
 - `info`: list markers.
-- `warning` and `hover`: inline code.
-- `success` and `border`: syntax palette and fence rows (see [code view](code-view.md)).
-- `output`: no Tessera role has been named; see Open questions.
+- `warning` on `surface`: inline code.
+- `syntax.*`: code block body; see [code view](code-view.md) and
+  [syntax roles](../tokens.md#syntax-roles).
 
 ## Primitive dependencies
 
@@ -575,7 +581,7 @@ above.
 - `markdown renders a level one heading in accent bold underline` (Anatomy callout 1)
 - `markdown renders strong and emphasis runs in primary bold and primary italic` (Anatomy
   callouts 2, 3)
-- `markdown renders inline code in warning on the hover role` (Anatomy callouts 4, 8, 9)
+- `markdown renders inline code in warning on the surface role` (Anatomy callouts 4, 8, 9)
 - `markdown separates blocks with one blank row` (Anatomy callout 10)
 - `markdown re-wraps paragraphs at the proposed width and keeps run roles` (Mobile)
 - `markdown caps prose width at the readable width, 72 by default, and does not fill a wider proposal`
@@ -598,7 +604,11 @@ above.
   decision, 2026-10-18)
 - `markdown draws fenced code through the code view without a box` (Fenced code)
 - `markdown draws ordered, bullet and task markers in info` (Lists callouts 1-3)
-- `markdown draws one quote rail per level in muted` (Block quote callouts 1, 4)
+- `markdown draws one quote rail per level in border` (Block quote callouts 1, 4)
+- `markdown draws quoted text in secondary italic` (Block quote callout 2; Wrapped items
+  callout 6)
+- `markdown draws fenced code body in syntax roles and fence rows in border` (Fenced code
+  callouts 2, 3)
 - `markdown renders a pipe table through the table grid style` (Pipe table callout 1)
 - `markdown aligns pipe table columns left, centre and right as written` (Pipe table
   callouts 4, 5)
@@ -629,8 +639,10 @@ to the ASCII set (`+`, `-`, `|`), as captured:
 
 Under `NO_COLOR`, inline roles become attributes: each keeps its bold, italic or underline
 and drops its colour. Quoted text becomes dim, and the quote rail keeps its glyph (owner
-decision, 2026-10-10). Behaviour of inline roles and quote dimming under 16-colour
-terminals is not decided; see Open questions.
+decision, 2026-10-10). At 16 colours, inline roles and quoted text follow their slots
+columns in [roles](../tokens.md#roles) and the
+[degradation ladder](../tokens.md#degradation-ladder); inline code's `surface` fill is
+ANSI 8 on dark terminals and absent on light ones (owner decision, 2026-10-19).
 
 A terminal without OSC 8 support ignores the hyperlink sequence, and the link text still
 draws in `accent` underline with its destination in parentheses, so no information is
@@ -638,12 +650,7 @@ lost.
 
 ## Open questions
 
-- Colour roles without a token row: `muted`, `info`, `warning`, `hover`, `success`,
-  `border`. Blocks `ready`. Unblocked by plan 032 step 5.3 (token rows).
-- `output` (the body colour of code blocks, `syntax.*` roles): no Tessera role name yet.
-  Blocks `ready`. Unblocked by plan 032 step 5.3.
-- 16-colour behaviour of inline roles and quote dimming. Unblocked by the degradation
-  ladder.
+None open.
 
 ## Inspiration
 

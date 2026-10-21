@@ -122,10 +122,9 @@ clipped to their intersection. The primary paints first; the overlay paints on t
 
 Overlay consumes no token and creates no environment value. It does not create a
 view-layer style or a color-only alias: the buffer's single `Style` remains the style
-contract for each child. A primary or overlay child may independently consume
-`semantic.primary`, `semantic.secondary`, `semantic.accent`, `semantic.disabled`, or
-`semantic.destructive` through that existing `Style`, but Overlay neither resolves nor
-changes those tokens.
+contract for each child. A primary or overlay child may independently consume `primary`,
+`secondary`, `accent`, `disabled`, or `destructive` through that existing `Style`, but
+Overlay neither resolves nor changes those tokens.
 
 ## Requirements
 

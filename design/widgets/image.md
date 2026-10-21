@@ -157,10 +157,10 @@ Callouts (8x4, 0-based):
 ### Placeholder
 
 While the load phase is `Unloaded` or `Loading`, Image draws a box of `░` cells in
-`muted`, filling the requested box, with `Loading…` centred on the middle row. The
-wireframe shows the default 32 by 16 box. This is a Tessera drawing, not an omp2 capture,
-so no capture is needed (owner decision, 2026-10-10). The placeholder draws whenever the
-phase is not `Ready`; the `Boxed` phase draws the label instead (see Boxed).
+`border`, filling the requested box, with `Loading…` in `secondary` centred on the middle
+row. The wireframe shows the default 32 by 16 box. This is a Tessera drawing, not an omp2
+capture, so no capture is needed (owner decision, 2026-10-10). The placeholder draws
+whenever the phase is not `Ready`; the `Boxed` phase draws the label instead (see Boxed).
 
 ```wireframe 32x16
 ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
@@ -183,51 +183,48 @@ phase is not `Ready`; the `Boxed` phase draws the label instead (see Boxed).
 
 ```text
 Callouts (32x16, 0-based):
-1. r0-r15 c0-c31   Placeholder box, `░` fill -- Image, `muted`
-2. r8 c12-c19      `Loading…` centred -- Image, `muted`; chrome, one row
+1. r0-r15 c0-c31   Placeholder box, `░` fill -- Image, `border`
+2. r8 c12-c19      `Loading…` centred -- Image, `secondary`; chrome, one row
 ```
 
 ```text
 ── style ──
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBBBDDDDDDDDBBBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 ── legend ──
-A  fg=muted
+B  fg=border
+D  fg=secondary
 ```
 
 ### Boxed
 
 The `Boxed` phase settles with no pixels: a failed read or decode, or a probe-only format.
-It keeps the same muted `░` box at the same size and replaces `Loading…` with the app's
+It keeps the same `border` `░` box at the same size and replaces `Loading…` with the app's
 `label`, or the file name when the app gave none (owner decision, 2026-10-18). The text is
-`muted` and is content: it wraps within the box, at the box width less two cells so a `░`
-cell always shows at each edge, and is centred as a block on the middle rows. Under a
+`secondary` and is content: it wraps within the box, at the box width less two cells so a
+`░` cell always shows at each edge, and is centred as a block on the middle rows. Under a
 fixed box height the last visible row ends in `…` (see
 [Text](../primitives/text.md#row-budget)). The capture shows the label
 `Anthropic logo: an orange spark mark on a transparent background` after the optional icon
 in its Unicode text form.
 
-An optional `image` icon may precede the text (owner decision, 2026-10-18). It is a row
-for the [Label icon catalog](../primitives/label.md#icon-catalog), pending plan 032 step
-5.3:
-
-| Name    | Unicode | ASCII   | Nerd Font | Default role                              |
-| ------- | ------- | ------- | --------- | ----------------------------------------- |
-| `image` | `[img]` | `[img]` | U+F03E    | `muted` (token pending plan 032 step 5.3) |
+An optional `image` icon may precede the text (owner decision, 2026-10-18). It is a row of
+the [icon catalog](../tokens.md#icon-catalog): `[img]` in Unicode and ASCII, U+F03E in
+Nerd Font, role `secondary` (owner decision, 2026-10-18).
 
 ```wireframe 32x16
 ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
@@ -250,13 +247,13 @@ for the [Label icon catalog](../primitives/label.md#icon-catalog), pending plan 
 
 ```text
 Callouts (32x16, 0-based):
-1. r0-r15 c0-c31   Placeholder box, `░` fill -- Image, `muted`; same box as Loading
-2. r6 c4-c8        Icon `[img]` -- `image` icon, Unicode text form, `muted`; chrome, one row
-3. r6-r8 c4-c27    Label -- Text, `muted`; content, wraps within c1-c30, each row centred
+1. r0-r15 c0-c31   Placeholder box, `░` fill -- Image, `border`; same box as Loading
+2. r6 c4-c8        Icon `[img]` -- `image` icon, Unicode text form, `secondary`; chrome, one row
+3. r6-r8 c4-c27    Label -- Text, `secondary`; content, wraps within c1-c30, each row centred
 ```
 
-Every cell of the box and the text is `muted`, so the styled grid is the Loading grid
-above.
+Styled grid: the Loading grid above, with the box cells `B` (`border`), and the icon and
+label cells `D` (`secondary`): row 6 cols 4-8 and 10-27; rows 7-8 cols 5-26.
 
 ### Sized
 
@@ -426,12 +423,11 @@ follows the reservation rule instead (owner decision, 2026-10-10).
 
 Tokens consumed, each defined in [tokens.md](../tokens.md).
 
-- `semantic.disabled`: not used. Image has no disabled state.
+- `disabled`: not used. Image has no disabled state.
 
-Roles without a `tokens.md` row, token pending plan 032 step 5.3:
-
-- `muted`: placeholder fill, `Loading…` text, and the `Boxed` label and icon while the
-  load phase is not `Ready`.
+Roles: `border` for the placeholder fill (`image.placeholder`,
+[bars and ramps](../tokens.md#bars-and-ramps)); `secondary` for the `Loading…` text, the
+`Boxed` label and the `image` icon ([text roles](../tokens.md#text-roles)).
 
 Pixel colours are the image's own data, not Tessera roles, and take no token. The legend
 for the default capture lists each pixel's foreground and background hex value, so it is
@@ -461,10 +457,10 @@ above.
 - `image keeps the aspect ratio when it fits the requested box` (Sized)
 - `image narrows its drawn width to fit max-rows` (Sized callout 1)
 - `image trim crops fully transparent margins before sampling` (Trim)
-- `image draws a ░ placeholder box with muted Loading… text centred until the load phase is Ready`
+- `image draws a ░ placeholder box in border with secondary Loading… text centred until the load phase is Ready`
   (Placeholder)
 - `image draws ink cells as # in the ASCII degradation set` (ASCII fallback)
-- `image boxed phase draws the muted ░ box at the same size as the loading placeholder`
+- `image boxed phase draws the border ░ box at the same size as the loading placeholder`
   (Boxed; owner decision, 2026-10-18)
 - `image boxed phase draws the app's label, wrapped within the box, or the file name when there is no label`
   (Boxed; State model; owner decision, 2026-10-18)
@@ -481,6 +477,7 @@ above.
 - `image draws 16-colour cells as the nearest indexed colour per pixel` (Degradation)
 - `image draws density art from the ten-step ramp under NO_COLOR` (Degradation)
 - `image draws the placeholder fill as . under the ASCII charset` (Degradation)
+- `image density ramp inverts on a light scheme` (Degradation; bars and ramps)
 
 ## Degradation
 
@@ -494,8 +491,10 @@ the label stands out (owner decision, 2026-10-18).
 - `NO_COLOR`: Image draws density art in its box instead of the pixels (owner decision,
   2026-10-10). Each cell takes the glyph from a ten-step ramp, a space followed by
   `.:-=+*#%@`, whose ink matches the cell's brightness: blank for background or
-  transparent pixels, `@` for full ink, assuming the catalog's dark-background convention
-  (owner decision, 2026-10-18). A bright disc at 14x6 reads as:
+  transparent pixels, `@` for full ink, on a dark scheme (owner decision, 2026-10-18). On
+  a light scheme the ramp inverts, so dark cells take dense glyphs (owner decision,
+  2026-10-19; [bars and ramps](../tokens.md#bars-and-ramps)). A bright disc at 14x6 reads
+  as:
 
   ```text
      .:-==-:.
@@ -510,8 +509,6 @@ Below 8 by 4 the drawn width floors at one cell, per Sizing.
 
 ## Open questions
 
-- `muted` placeholder role: no `tokens.md` row. Blocks `ready`. Unblocked by plan 032 step
-  5.3.
 - Protocol tiers: omp2 has `Cells`, `Sixel`, `KittyDirect`, `KittyPlaceholders` and
   `Iterm2`. Tessera's tier set is not decided. Blocks `ready`. Unblocked by the Kitty
   graphics slice in [docs/Spec.md](../../docs/Spec.md#slice-7-kitty-graphics-protocol).

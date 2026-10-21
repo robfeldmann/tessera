@@ -138,7 +138,7 @@ and `.focused(_:equals:)`, as Picker's callers do.
 
 The menu lists options in place under its title row, with a check mark on every chosen
 option. The cursor is separate from the marks: `❯` marks the cursor row, `☑` in `accent`
-marks a chosen option, and `☐` in `muted*` marks the others. Space toggles the cursor
+marks a chosen option, and `☐` in `secondary` marks the others. Space toggles the cursor
 option and keeps the list open. Enter never toggles. Option labels and the title row are
 content: they wrap and scroll in rows, as in [Picker's menu](picker.md#menu);
 `.lineLimit(1)` opts out (owner decision, 2026-10-18).
@@ -155,10 +155,10 @@ Channels
 Callouts (40x5, 0-based):
 1. r0 c0-c7  Title row -- the MultiPicker's title; not a selection target; content, wraps.
 2. r1 c2     chosen mark -- `☑` in `accent`; chrome, one row.
-3. r2 c0     cursor -- `❯` in `semantic.focus` on the cursor row, drawn while focused.
-4. r2 c2     unchosen mark -- `☐` in `muted*`; chrome, one row.
+3. r2 c0     cursor -- `❯` in `focus` on the cursor row, drawn while focused.
+4. r2 c2     unchosen mark -- `☐` in `secondary`; chrome, one row.
 5. r1 c4-8   option label "Email" -- `primary`; content, wraps.
-6. r2 c4-6   option label "SMS" -- the cursor label, `semantic.focus` bold; content, wraps.
+6. r2 c4-6   option label "SMS" -- the cursor label, `focus` bold; content, wraps.
 ```
 
 Styled grid for the Unicode menu:
@@ -180,10 +180,10 @@ C.E.FFF
 .  default
 A  fg=primary bold
 B  fg=accent
-C  focus (`semantic.focus`)
+C  fg=focus
 D  fg=primary
-E  fg=muted*
-F  focus (`semantic.focus`) bold
+E  fg=secondary
+F  fg=focus bold
 ```
 
 ## States
@@ -215,7 +215,7 @@ Channels
 Callouts (11x5, 0-based):
 1. r0 c0-c7  Title row -- content, wraps.
 2. r1-r4 c2  marks -- `☑` and `☐`; chrome, one row.
-3. r2 c0     cursor -- `❯` in `semantic.focus`, drawn while focused.
+3. r2 c0     cursor -- `❯` in `focus`, drawn while focused.
 4. r4 c4-10  option label "Webhook" -- the widest word; content, wraps.
 ```
 
@@ -259,11 +259,11 @@ Tags
 Callouts (40x6, 0-based):
 1. r0 c0-c3   Title row -- content, wraps.
 2. r1-r3      supplied option rows -- in `options` order; "Bug" is checked.
-3. r4 c0      cursor -- `❯` in `semantic.focus` on the typed row.
+3. r4 c0      cursor -- `❯` in `focus` on the typed row.
 4. r4 c2      typed row mark -- `☑` in `accent`; a typed value is always checked while its row
               exists.
 5. r4 c4-7    typed row label -- "perf", drawn through `content`; content, wraps.
-6. r5 c2      Other row mark -- `☐` in `muted*`.
+6. r5 c2      Other row mark -- `☐` in `secondary`.
 7. r5 c4-24   Other row label -- `customOptionLabel`; Space starts editing; content, wraps.
 ```
 
@@ -272,7 +272,7 @@ checked supplied option unchecks and stays in place.
 
 ### Typing on the Other row
 
-Space on the Other row starts editing. The draft follows a colon in `info*` with a beam
+Space on the Other row starts editing. The draft follows a colon in `info` with a beam
 caret. Enter hands the draft to `customOption`: a non-nil value is added to the binding
 (never as a duplicate), editing ends, and the new row appears above the Other row. The
 cursor stays on the Other row, which stays unchecked, so the next value can be typed at
@@ -289,11 +289,11 @@ Tags
 
 ```text
 Callouts (40x6, 0-based):
-1. r5 c0      cursor -- `❯` in `semantic.focus`; the Other row is the cursor row.
-2. r5 c2      Other row mark -- `☐` in `muted*`; editing does not check it.
-3. r5 c4-24   Other row label -- "Other (type your own)" in `semantic.focus`; content, wraps.
-4. r5 c25-26  separator -- ": " in `muted*`.
-5. r5 c27-30  draft text -- "flak" in `info*`; edited by the shared text-editing core.
+1. r5 c0      cursor -- `❯` in `focus`; the Other row is the cursor row.
+2. r5 c2      Other row mark -- `☐` in `secondary`; editing does not check it.
+3. r5 c4-24   Other row label -- "Other (type your own)" in `focus`; content, wraps.
+4. r5 c25-26  separator -- ": " in `secondary`.
+5. r5 c27-30  draft text -- "flak" in `info`; edited by the shared text-editing core.
 6. r5 c31     beam caret -- `▏` in accent; shown only while editing.
 ```
 
@@ -305,10 +305,10 @@ Callouts (40x6, 0-based):
 ### Radio group
 
 The radio group is Picker's chip row (see [Picker: radio group](picker.md#radio-group))
-with toggle semantics: a checked chip is a pill with accent background, contrast bold
-label, and pill caps; an unchecked chip is muted. Left and Right move the cursor only.
-Space toggles the cursor chip. Enter never toggles. Chips are chrome, one row each, and
-the row wraps onto more rows as chips require, never clipping (owner decision,
+with toggle semantics: a checked chip is `solid(accent)`, a pill with a `contrast` bold
+label and pill caps; an unchecked chip is `secondary`. Left and Right move the cursor
+only. Space toggles the cursor chip. Enter never toggles. Chips are chrome, one row each,
+and the row wraps onto more rows as chips require, never clipping (owner decision,
 2026-10-18). The custom row does not exist in this style. The title draws before the
 chips, or stacks above them when they do not fit beside it, as in
 [Picker's title](picker.md#title); the wireframes here show the group alone, as under
@@ -323,9 +323,9 @@ chips, or stacks above them when they do not fit beside it, as in
 Callouts (20x2, 0-based):
 1. r0-r1 c0-c19 Radio group hit target -- each chip is one Chip hit; the group is the
             allocated frame.
-2. r0 c0-c1  focus cursor -- `❯` plus a space in `semantic.focus` while focused.
+2. r0 c0-c1  focus cursor -- `❯` plus a space in `focus` while focused.
 3. r0 c2-c6  chip "sol" -- checked pill with caps ▐ and ▌; the cursor chip; chrome, one row.
-4. r0 c8-c14 chip "terra" -- unchecked chip; muted label with padding; chrome, one row.
+4. r0 c8-c14 chip "terra" -- unchecked chip; secondary label with padding; chrome, one row.
 5. r1 c2-c7  chip "kimi" -- unchecked chip on the wrapped row, indented under the first
             chip; chrome, one row.
 6. r1 c9-c15 chip "fable" -- checked pill; chrome, one row.
@@ -348,7 +348,7 @@ the floor a chip wider than the row tail-truncates with `truncation.mark`, as ch
 ```text
 Callouts (9x4, 0-based):
 1. r0-r3 c0-c8 Radio group hit target -- four rows at the floor width.
-2. r0 c0-c1  focus cursor -- `❯` plus a space in `semantic.focus` while focused.
+2. r0 c0-c1  focus cursor -- `❯` plus a space in `focus` while focused.
 3. r0 c2-c6  chip "sol" -- checked pill with caps ▐ and ▌; the cursor chip; chrome, one row.
 4. r1 c2-c8  chip "terra" -- unchecked; a widest chip with its two padding cells, whole;
              chrome, one row.
@@ -466,7 +466,8 @@ acts installs this MultiPicker's explicit focus first (owner decision, 2026-10-1
 A MultiPicker `.menu` can sit inside a host row, such as a Form row. The host supplies the
 label column and draws the MultiPicker's title there as the row label (owner decision,
 2026-10-18). The MultiPicker takes the value column after it, up to the row's right edge.
-Collapsed, the row shows the summary and an open marker `▾` in `muted`.
+Collapsed, the row shows the summary and an open marker `▾` in `secondary`
+([Marks](../tokens.md#marks), `dropdown`).
 
 The summary is content (owner decision, 2026-10-18). It keeps its form, the first two
 chosen names and then `+N` for the rest, but the names wrap at word boundaries under the
@@ -497,7 +498,7 @@ Callouts (40x1, 0-based):
               row label; not drawn by MultiPicker.
 2. r0 c12-c20 summary -- "eu, us +1": the first two chosen names, then a count of the rest;
               `info`; content, wraps.
-3. r0 c22     open marker -- `▾` in `muted`; drawn while closed and while open.
+3. r0 c22     open marker -- `▾` in `secondary`; drawn while closed and while open.
 ```
 
 ### Closed row, wrapped summary
@@ -517,7 +518,7 @@ Callouts (24x2, 0-based):
 2. r0 c12-c19 summary, first row -- "eu-west," in `info`; content, wraps.
 3. r1 c12-c21 summary, continuation -- "us-east +2", under the value column; the count
               follows the second name; content, wraps.
-4. r1 c23     open marker -- `▾` in `muted`, one space after the last word.
+4. r1 c23     open marker -- `▾` in `secondary`, one space after the last word.
 ```
 
 ### Open list
@@ -534,12 +535,12 @@ Regions     eu, us +1 ▾
 Callouts (40x5, 0-based):
 1. r0 c0-c11  host label -- "Regions", supplied by the host.
 2. r0 c12-c20 summary -- "eu, us +1"; `info`; content, wraps.
-3. r0 c22     open marker -- `▾` in `muted`.
+3. r0 c22     open marker -- `▾` in `secondary`.
 4. r1-r4 c4-c39 option rows -- indented four cells below the host row, with the menu's marks;
               content, wraps.
-5. r2 c4      cursor -- `❯` in `semantic.focus` on the cursor row, drawn while focused.
-6. r1-r4 c6   check marks -- `☑` in `accent` for chosen options, `☐` in `muted*` otherwise.
-7. r2 c8-9    label "us" -- the cursor label, `semantic.focus` bold.
+5. r2 c4      cursor -- `❯` in `focus` on the cursor row, drawn while focused.
+6. r1-r4 c6   check marks -- `☑` in `accent` for chosen options, `☐` in `secondary` otherwise.
+7. r2 c8-9    label "us" -- the cursor label, `focus` bold.
 ```
 
 ### Host mouse
@@ -620,31 +621,25 @@ measures its natural width and does not opportunistically grow into surplus spac
 
 ## Environment
 
-MultiPicker consumes `isEnabled` and applies one resolved semantic Style:
-`semantic.primary` when enabled and unfocused, `semantic.focus` when focused, and
-`semantic.disabled` when disabled. `truncation.mark` defines grapheme-safe overflow of
-chips and marks the cut of a summary under a fixed one-row host; its ASCII substitution is
-in [Degradation](#degradation). `lineLimit` and `truncationMode` flow through the
-environment to the title, option labels, descriptions, and the collapsed summary
-(content); the marks and chips pin their own single-row values (owner decision,
-2026-10-18). `labelsHidden` (environment, set by `.labelsHidden()`) hides the drawn title.
-Sub-element roles:
+MultiPicker consumes `isEnabled` and applies one resolved semantic Style: `primary` when
+enabled and unfocused, `focus` when focused, and `disabled` when disabled.
+`truncation.mark` defines grapheme-safe overflow of chips and marks the cut of a summary
+under a fixed one-row host; its ASCII substitution is in [Degradation](#degradation).
+`lineLimit` and `truncationMode` flow through the environment to the title, option labels,
+descriptions, and the collapsed summary (content); the marks and chips pin their own
+single-row values (owner decision, 2026-10-18). `labelsHidden` (environment, set by
+`.labelsHidden()`) hides the drawn title. Sub-element roles:
 
 - `primary` -- labels and unchecked option text.
 - `secondary` -- the title drawn before the radio group, as in Picker.
-- `focus` -- the focused cursor glyph and label, and the checked chip underline, via
-  `semantic.focus`.
+- `focus` -- the focused cursor glyph and label, and the checked chip underline.
 - `accent` -- the check mark `☑` (the same selection-mark colour as Toggle and Form) and
-  the checked chip background.
-- `muted` -- unchecked chips, the unchecked mark `☐`, the Other row's separator, and each
-  option description.
+  the checked chip's `solid(accent)` fill.
+- `secondary` -- unchecked chips, the unchecked mark `☐`, the Other row's separator, and
+  each option description.
 - `disabled` -- every visible cell of a disabled MultiPicker.
 - `contrast` -- the label on a checked chip.
 - `info` -- the typed draft and the host summary.
-
-Token pending plan 032 step 5.3: `muted`, `info`, and `contrast` have no entry in
-[tokens](../tokens.md) yet. `semantic.primary`, `semantic.accent`, `semantic.focus`, and
-`semantic.disabled` exist.
 
 ## Primitive dependencies
 
@@ -761,8 +756,8 @@ Menu in a host row:
 MultiPicker follows the [degradation ladder](../tokens.md#degradation-ladder). In
 `NO_COLOR`, semantic Styles reduce to their attributes; the checked and unchecked marks
 differ by glyph (`☑` against `☐`), not by colour, so the selection reads without colour
-(owner decision, 2026-10-11). In 16-color, `semantic.accent` resolves to its indexed-color
-plus attribute fallback. `truncation.mark` becomes `~` at the ASCII-only rung.
+(owner decision, 2026-10-11). In 16-color, `accent` follows its slots column in
+[roles](../tokens.md#roles). `truncation.mark` becomes `~` at the ASCII-only rung.
 
 Per presentation:
 
@@ -775,7 +770,7 @@ Per presentation:
   as in [Picker's radio group](picker.md#radio-group). Chip width is unchanged, so the
   wrap rule measures the same width at every rung.
 - Option descriptions: plain text after the label at every rung; `NO_COLOR` removes only
-  the `muted*` colour.
+  the colour of `secondary`, which stays dim.
 - Collapsed host row: the open marker `▾` becomes `v`. Under a fixed one-row host the cut
   keeps the `+N` suffix at every rung (owner decision, 2026-10-11), and its mark becomes
   `~`.

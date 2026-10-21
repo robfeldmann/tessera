@@ -58,42 +58,42 @@ taller than the space it has, it reserves its last column and mounts the shared
 
 A changed-files tree at 40 columns, Unicode charset: the root row, two open folders, one
 closed folder, and files with two-letter git status letters in a status column. Rows read
-left to right: expander, status column, lead icon, label. The status column is a fixed two
-cells wide (owner decision, omp2 review, 2026-10). The owner's grid shows the selected row
-with its status colours; the styled grid follows the callouts.
+left to right: expander, status column, label; Nerd Font and ASCII add a lead icon before
+the label (see [Icon charsets](#icon-charsets)). The status column is a fixed two cells
+wide (owner decision, omp2 review, 2026-10). The owner's grid shows the selected row with
+its status colours; the styled grid follows the callouts.
+
+Under Unicode, folder and file names draw no icon
+([icon catalog](../tokens.md#icon-catalog)), so the Unicode grid below has no lead icons.
 
 ```wireframe 40x9
-▾ 📂 /
-  ▾ 📂 .agents/plans
-    ?? 📄 014-collections-and-tables.md
-   M 📄 .codespellrc
-  ▸ 📁 Examples/TesseraDemos
-  ▾ 📂 design
-     M 📄 README.md
-    AM 📄 component-index.md
-    ▸ 📁 screenshots
+▾ /
+  ▾ .agents/plans
+    ?? 014-collections-and-tables.md
+   M .codespellrc
+  ▸ Examples/TesseraDemos
+  ▾ design
+     M README.md
+    AM component-index.md
+    ▸ screenshots
 ```
 
 ```text
 Callouts (40x9, 0-based):
-0. r0 c0        Expander -- `disclosure.expanded` `▾` (ASCII `v`), muted; the root is open;
+0. r0 c0        Expander -- `disclosure.expanded` `▾` (ASCII `-`), secondary; the root is open;
                 chrome, one row
-1. r0 c2-c3     Lead icon -- open folder 📂 (U+1F4C2), accent; the root's folder icon
-                sits before `/`; chrome, one row
-2. r0 c5        Label -- root `/`, bold primary; content, one row (wrap exception)
-3. r2 c4-c5     Status column -- two-cell slot; `??` in `error` (untracked), before the
-                icon; chrome, one row
-4. r2 c7-c8     Lead icon -- file 📄 (U+1F4C4), accent; one column right of a folder
-                icon at the same depth; chrome, one row
-5. r2 c10-c37   Label -- file name, primary; content, one row (wrap exception), tail
-                truncates
-6. r3 c3        Status column -- `M` in `warning` (modified), right-aligned in its slot
-7. r4 c2        Expander -- `▸` collapsed folder, muted (ASCII `>`)
-8. r4 c4-c5     Lead icon -- closed folder 📁 (U+1F4C1), accent
-9. r4 c7-c26    Label -- folder name, bold primary; content, one row (wrap exception)
-10. r7 c4-c5    Status column -- `AM` in `success` (added) on the selected row
-11. r7 c0-c38   Selection row -- `selection.fill` (reverse video) across the row, from the owner's grid
-12. r0-r8 c0-c39  Row -- any cell of a row; the mouse region `Row`
+1. r0 c2        Label -- root `/`, bold primary; content, one row (wrap exception)
+2. r2 c4-c5     Status column -- two-cell slot; `??` in `error` (untracked), before the label
+                (and before the lead icon in Nerd Font and ASCII); chrome, one row
+3. r2 c7-c35    Label -- file name, primary; content, one row (wrap exception), tail truncates
+4. r3 c3        Status column -- `M` in `warning` (modified), right-aligned in its slot
+5. r4 c2        Expander -- `▸` collapsed folder, secondary (ASCII `+`)
+6. r4 c4-c24    Label -- folder name, bold primary; content, one row (wrap exception)
+7. r7 c4-c5     Status column -- `A` in `success` (added) and `M` in `warning` (modified) on the
+                selected row; each keeps its tone on `selection.fill`
+8. r7 c0-c38    Selection row -- `selection.fill` across the row: faint accent when derived,
+                reverse video in slots, indexed256 and NO_COLOR
+9. r0-r8 c0-c39 Row -- any cell of a row; the mouse region `Row`
 ```
 
 > Wrap exception (rule 1): rows stay single-line and the label tail-truncates. The
@@ -105,35 +105,33 @@ rows; the label's `truncationMode` still comes from the environment (default tai
 
 ```text
 ── chars ──
-▾ 📂 /
-  ▾ 📂 .agents/plans
-    ?? 📄 014-collections-and-tables.md
-   M 📄 .codespellrc
-  ▸ 📁 Examples/TesseraDemos
-  ▾ 📂 design
-     M 📄 README.md
-    AM 📄 component-index.md
-    ▸ 📁 screenshots
+▾ /
+  ▾ .agents/plans
+    ?? 014-collections-and-tables.md
+   M .codespellrc
+  ▸ Examples/TesseraDemos
+  ▾ design
+     M README.md
+    AM component-index.md
+    ▸ screenshots
 ── style ──
-EEIIID
-..EEIIIDDDDDDDDDDDDD
-....RRNIIINNNNNNNNNNNNNNNNNNNNNNNNNNNNN
-..NWNIIINNNNNNNNNNNN
-..EEIIIDDDDDDDDDDDDDDDDDDDDD
-..EEIIIDDDDDD
-....NWNIIINNNNNNNNN
-LLLLswLllLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL
-....EEIIIDDDDDDDDDDD
+E.D
+..E.DDDDDDDDDDDDD
+....RR.NNNNNNNNNNNNNNNNNNNNNNNNNNNNN
+...W.NNNNNNNNNNNN
+..E.DDDDDDDDDDDDDDDDDDDDD
+..E.DDDDDD
+.....W.NNNNNNNNN
+LLLLswLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL
+....E.DDDDDDDDDDD
 ── legend ──
 .  default
-E  fg=muted
-I  fg=accent
+E  fg=secondary
 N  fg=primary
 D  fg=primary bold
 R  fg=error
 W  fg=warning
 L  fg=primary, selection.fill
-l  fg=accent, selection.fill
 s  fg=success, selection.fill
 w  fg=warning, selection.fill
 ```
@@ -149,9 +147,9 @@ its row is `floor(7 × (4 − 1) / (12 − 4)) = 2`. The selection highlight sto
 38, one column before the indicator.
 
 ```wireframe 40x4
-  │ └─ lib.rs                          │
+  │  └─ lib.rs                         │
   ├─ ▾ vocab                           │
-  │ └─ lib.rs                          █
+  │  └─ lib.rs                         █
 ▌ └─ ▾ tessera                         │
 ```
 
@@ -159,35 +157,42 @@ its row is `floor(7 × (4 − 1) / (12 − 4)) = 2`. The selection highlight sto
 Callouts (40x4, 0-based):
 0. r0-r3 c0-c38  Viewport -- the Outline's rows, clipped to 39 columns; the scroll track
                  begins at c39
-1. r0-r3 c39     Scroll track -- ScrollIndicator, `muted` `│` (default track)
+1. r0-r3 c39     Scroll track -- ScrollIndicator, `border` `│` track (`standard` preset)
 2. r2 c39        Scroll thumb -- `accent` `█`, one cell at row 2 (see the formulas above)
-3. r3 c0         Selection bar -- `▌` (`selection.bar`) in `accent`, on the selected row only
-4. r3 c0-c38     Selection highlight -- `selection.fill` (reverse video); stops one column before the indicator
-5. r0-r3 c2-c4   Tree guides -- `muted` `│` and `└─` / `├─`, depth lines
+3. r3 c0         Selection bar -- `▌` (`selection.bar`) in `accent` when focused, `secondary`
+                 unfocused; the bar cell takes the fill when derived; where
+                 `selection.fill` is reverse video the bar draws on the terminal background
+                 and the fill starts at the next cell ([selection](../tokens.md#selection))
+4. r3 c0-c38     Selection highlight -- `selection.fill` (faint accent when derived; reverse
+                 video in slots, indexed256 and NO_COLOR); stops one column before the
+                 indicator
+5. r0-r3 c2-c3 and r0, r2 c5-c6  Tree guides -- `border` `│`, `└─` / `├─`, depth lines;
+                 the child elbows sit under the parent `▾` at c5
 ```
 
 ```text
 ── chars ──
-  │ └─ lib.rs                          │
+  │  └─ lib.rs                         │
   ├─ ▾ vocab                           │
-  │ └─ lib.rs                          █
+  │  └─ lib.rs                         █
 ▌ └─ ▾ tessera                         │
 ── style ──
-AABBBBBCCCCCC..........................T
-AABBBBBCCCCC...........................T
-AABBBBBCCCCCC..........................U
-DDEEEEEFFFFFFFGGGGGGGGGGGGGGGGGGGGGGGGGT
+..B..BB.CCCCCC.........................T
+..BB.S.CCCCC...........................T
+..B..BB.CCCCCC.........................U
+DGEEGHGFFFFFFFGGGGGGGGGGGGGGGGGGGGGGGGGT
 ── legend ──
 .  default
-A  fg=accent
-B  fg=muted
+B  fg=border
 C  fg=primary
+S  fg=secondary
+T  fg=border
+U  fg=accent
 D  fg=accent, selection.fill
-E  fg=muted, selection.fill
+E  fg=border, selection.fill
 F  fg=primary, selection.fill
 G  selection.fill
-T  fg=muted
-U  fg=accent
+H  fg=secondary, selection.fill
 ```
 
 ### Mobile
@@ -208,12 +213,15 @@ the root, with a `selection.fill`. The six rows fit the viewport with no scroll 
 ```text
 Callouts (40x6, 0-based):
 0. r0 c0         Selection bar -- `▌` (`selection.bar`) in `accent`; the selected root row has a
-                 `selection.fill` across c0-c39
-1. r0 c2         Expander -- `▾` open root branch, muted
+                 `selection.fill` across c0-c39; the bar cell takes the fill when derived;
+                 where `selection.fill` is reverse video the bar draws on the terminal
+                 background and the fill starts at the next cell
+                 ([selection](../tokens.md#selection))
+1. r0 c2         Expander -- `▾` open root branch, secondary
 2. r0 c4-c10     Label -- `services`, primary on `selection.fill`
-3. r1 c3         Expander -- `▾` open branch `api`, muted
+3. r1 c3         Expander -- `▾` open branch `api`, secondary
 4. r2 c6-c9      Leaf -- `auth`; two cells of plain indentation per depth, no expander
-5. r4 c3         Expander -- `▸` collapsed branch `workers`, muted
+5. r4 c3         Expander -- `▸` collapsed branch `workers`, secondary
 6. r5 c5-c8      Leaf -- `edge`
 ```
 
@@ -235,11 +243,11 @@ EE.FFGGGG
 ── legend ──
 .  default
 A  fg=accent, selection.fill
-B  fg=muted, selection.fill
+B  fg=secondary, selection.fill
 C  fg=primary, selection.fill
 D  selection.fill
 E  fg=accent
-F  fg=muted
+F  fg=secondary
 G  fg=primary
 ```
 
@@ -262,7 +270,7 @@ wrap, so the floor is not re-derived from whole words.
 ```text
 Callouts (12x3, 0-based):
 0. r0 c0-c10   Viewport -- three rows, labels truncated with `…`
-1. r0-r2 c11   Scroll track and thumb -- ScrollIndicator; `muted` `│` track, `accent` `█`
+1. r0-r2 c11   Scroll track and thumb -- ScrollIndicator; `border` `│` track, `accent` `█`
                thumb at r1
 2. r0 c0       Selection bar -- `▌` in `accent` on the selected row
 ```
@@ -271,9 +279,9 @@ Callouts (12x3, 0-based):
 
 The `Files` path mode: four input paths become one hierarchy. Directories with a single
 child folder fold into one row (`coding-agent/src/tools`, `tui/README.md`), so a deep
-chain reads as one path. Directory rows are bold and guides are muted. Path mode uses the
-tree's keys and mouse, and its overflow follows the tree: Outline scrolls itself, and the
-indicator uses the ScrollView styles the app chose (owner decision, 2026-10-10).
+chain reads as one path. Directory rows are bold and guides are `border`. Path mode uses
+the tree's keys and mouse, and its overflow follows the tree: Outline scrolls itself, and
+the indicator uses the ScrollView styles the app chose (owner decision, 2026-10-10).
 
 ```wireframe 40x6
 └─ packages
@@ -286,13 +294,13 @@ indicator uses the ScrollView styles the app chose (owner decision, 2026-10-10).
 
 ```text
 Callouts (40x6, 0-based):
-0. r0 c0-c2     Root guide -- `└─` muted
+0. r0 c0-c2     Root guide -- `└─` border
 1. r0 c3-c10    Root label -- `packages`, bold; a relative path, no leading `/`
-2. r1 c2-c4     Branch guide -- `├─` muted
+2. r1 c2-c4     Branch guide -- `├─` border
 3. r1 c5-c26    Folded directory -- `coding-agent/src/tools`, bold; single-child folders
                 joined with `/` into one row
-4. r2-r4 c2     Continuation -- `│` muted under the branch
-5. r5 c2-c4     Last branch guide -- `└─` muted
+4. r2-r4 c2     Continuation -- `│` border under the branch
+5. r5 c2-c4     Last branch guide -- `└─` border
 6. r5 c5-c17    File -- `tui/README.md`, default style; a path with `/` stays one row
 ```
 
@@ -313,16 +321,18 @@ AAAAAAA.......
 AAAAA.............
 ── legend ──
 .  default
-A  fg=muted
+A  fg=border
 B  bold
 ```
 
 ### Icon charsets
 
-The Nerd Font and ASCII charsets change only the glyphs. Expanders, status letters, and
-styles are the same as [Anatomy](#anatomy). In the owner's ASCII grid, the expanders are
-`v` and `>`, and the icons use the icon catalog's text forms `[O]` (open folder), `[D]`
-(closed folder), and `[F]` (file).
+The Nerd Font and ASCII charsets draw the lead-icon slot; the Unicode charset draws none.
+Nerd Font icons take two cells: the glyph and a real U+0020 (the icon-title gap). ASCII
+bracket forms take three cells plus their space. Status letters and styles are the same as
+[Anatomy](#anatomy); expanders are `-` and `+` in ASCII (owner decision, 2026-10-19), and
+icons use the catalog's text forms `[O]` (open folder), `[D]` (closed folder), and `[F]`
+(file).
 
 #### Nerd Font
 
@@ -340,9 +350,9 @@ styles are the same as [Anatomy](#anatomy). In the owner's ASCII grid, the expan
 
 ```text
 Callouts (40x9, 0-based):
-0. r0 c2        Lead icon -- open folder U+F07C, accent; one cell wide
-1. r2 c7        Lead icon -- file U+F15B, accent
-2. r4 c4        Lead icon -- closed folder U+F07B, accent
+0. r0 c2-c3     Lead icon -- open folder U+F07C, accent; two cells: the glyph and a real space (icon-title gap)
+1. r2 c7-c8     Lead icon -- file U+F15B, accent; two cells: the glyph and a real space
+2. r4 c4-c5     Lead icon -- closed folder U+F07B, accent; two cells: the glyph and a real space
 3. r2 c4-c5     Status column -- `??` in `error`; the same slot as Anatomy callout 3
 ```
 
@@ -369,7 +379,7 @@ LLLLswLlLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL
 ....EEIIDDDDDDDDDDD
 ── legend ──
 .  default
-E  fg=muted
+E  fg=secondary
 I  fg=accent
 N  fg=primary
 D  fg=primary bold
@@ -384,38 +394,38 @@ w  fg=warning, selection.fill
 #### ASCII
 
 ```wireframe 40x9
-v [O] /
-  v [O] .agents/plans
+- [O] /
+  - [O] .agents/plans
     ?? [F] 014-collections-and-tables.md
    M [F] .codespellrc
-  > [D] Examples/TesseraDemos
-  v [O] design
+  + [D] Examples/TesseraDemos
+  - [O] design
      M [F] README.md
     AM [F] component-index.md
-    > [D] screenshots
+    + [D] screenshots
 ```
 
 ```text
 Callouts (40x9, 0-based):
-0. r0 c0        Expander -- `v` open, the ASCII form of `disclosure.expanded`
+0. r0 c0        Expander -- `-` open, the ASCII form of `disclosure.expanded`
 1. r0 c2-c4     Lead icon -- `[O]` open folder, accent
 2. r2 c4-c5     Status column -- `??` in `error`, unchanged from Unicode
 3. r2 c7-c9     Lead icon -- `[F]` file, accent
-4. r4 c2        Expander -- `>` collapsed, the ASCII form of `disclosure.collapsed`
+4. r4 c2        Expander -- `+` collapsed, the ASCII form of `disclosure.collapsed`
 5. r4 c4-c6     Lead icon -- `[D]` closed folder, accent
 ```
 
 ```text
 ── chars ──
-v [O] /
-  v [O] .agents/plans
+- [O] /
+  - [O] .agents/plans
     ?? [F] 014-collections-and-tables.md
    M [F] .codespellrc
-  > [D] Examples/TesseraDemos
-  v [O] design
+  + [D] Examples/TesseraDemos
+  - [O] design
      M [F] README.md
     AM [F] component-index.md
-    > [D] screenshots
+    + [D] screenshots
 ── style ──
 EEIIIID
 ..EEIIIIDDDDDDDDDDDDD
@@ -428,7 +438,7 @@ LLLLswLlllLLLLLLLLLLLLLLLLLLLLLLLLLLLLL
 ....EEIIIIDDDDDDDDDDD
 ── legend ──
 .  default
-E  fg=muted
+E  fg=secondary
 I  fg=accent
 N  fg=primary
 D  fg=primary bold
@@ -502,25 +512,32 @@ fills the proposal as List and Table do, since Outline scrolls itself like them.
 
 Tokens consumed, each defined in [tokens.md](../tokens.md) unless marked.
 
-- `primary` -- `semantic.primary`; labels, root and folder names with `bold`.
-- `accent` -- `semantic.accent`; open and closed folder icons, file icons, the selection
-  bar, and the scroll thumb.
-- `selection.bar` (`▌`) and `selection.fill` (reverse video), as in [List](list.md): the
-  selected row.
-- `muted` -- token pending plan 032 step 5.3. Expanders, guides, and the scroll track.
-- `error`, `warning`, `success` (status letters) -- token pending plan 032 step 5.3.
-- `scrollbar.weight` -- token pending plan 032 step 5.3. This doc uses the ScrollIndicator
-  default.
-- `scrollbar.track` -- the [ScrollIndicator](../primitives/scroll-indicator.md) axes,
-  supplied by the app's ScrollView style.
+- `primary` -- labels, root and folder names with `bold`.
+- `accent` -- open and closed folder icons and file icons (Nerd Font and ASCII only), the
+  selection bar when focused, and the scroll thumb.
+- `selection.bar` (`▌`; `accent` focused, `secondary` unfocused; the bar cell takes the
+  fill when derived) and `selection.fill` (faint accent when derived; reverse video in
+  slots, indexed256 and NO_COLOR), as in [List](list.md): the selected row. Status letters
+  keep their tone on the fill ([selection](../tokens.md#selection)).
+- `secondary` -- expanders (`disclosure.expanded`, `disclosure.collapsed`). `border` --
+  tree guides and the scroll track ([roles](../tokens.md#roles);
+  [scroll indicators](../tokens.md#scroll-indicators)).
+- `error`, `warning`, `success` (status letters) -- tones in [roles](../tokens.md#roles)
+  (owner decision, 2026-10-19); on the selected row each keeps its tone on
+  `selection.fill`.
+- ScrollIndicator preset `standard` (the default: `█` over `│`)
+  ([scroll indicators](../tokens.md#scroll-indicators)).
+- scroll track `border`, thumb `accent`; the preset is the app's ScrollView style
+  ([scroll indicators](../tokens.md#scroll-indicators)).
 
 ## Primitive dependencies
 
 - [ScrollIndicator](../primitives/scroll-indicator.md) (`specified`): the trailing
   indicator when rows overflow; the default look is `█` over `│` (owner decision,
   2026-10-10).
-- [Label](../primitives/label.md) (`wireframed`): icon names. Owner decision, 2026-10-10:
-  the catalog gains `folder-open` (`[O]`), `folder` (`[D]`) and `file` (`[F]`) rows.
+- [Label](../primitives/label.md) (`wireframed`): icon names. The
+  [icon catalog](../tokens.md#icon-catalog) defines `folder-open` (`[O]`), `folder`
+  (`[D]`) and `file` (`[F]`); `folder` and `file` draw no icon under Unicode.
 - [Badge](../primitives/badge.md) (`wireframed`): not used for the status column, which is
   a plain two-cell letter slot, not a capsule. Badge stays for capsule counts, as in List.
 - [Text](../primitives/text.md#row-budget) (`ready`): `lineLimit(1)` and
@@ -537,17 +554,24 @@ Schema: [README](../README.md#requirements-list). Traced to the states and table
 - `stops the selection highlight one column before the indicator` (Scrolled)
 - `thumb length and row follow the scrolled formulas` (Scrolled)
 - `draws the selected row with selection.bar and selection.fill` (Scrolled)
-- `shows a folder icon before the root slash` (Anatomy)
-- `shows the status column before the lead icon` (Anatomy)
+- `draws the selection bar cell with the selection fill when derived and on the terminal background where selection.fill is reverse video`
+  (Scrolled: callouts 3-4)
+- `shows a folder icon before the root slash in Nerd Font and ASCII; Unicode draws no folder icon`
+  (Anatomy; Icon charsets)
+- `shows the status column before the label, and before the lead icon where the charset draws one`
+  (Anatomy)
 - `keeps status columns two cells wide so icons align with expanders` (Anatomy)
 - `colours each status letter by its git status` (Anatomy)
-- `draws folders bold with open and closed folder icons` (Anatomy)
+- `draws folders bold; open and closed folder icons appear in Nerd Font and ASCII only`
+  (Anatomy)
+- `draws no folder or file icon under the Unicode charset` (Anatomy; Icon charsets)
+- `keeps a status letter's tone on the selected row` (Anatomy: callouts 7-8)
 - `draws plain indentation without tree guides` (Mobile)
 - `shows one cell of thumb in a three-row viewport at the declared minimum` (Declared
   minimum)
 - `folds single-child directory chains into one row` (Path mode)
 - `uses the tree keys and mouse in path mode` (Path mode)
-- `renders expanders as v and > and icons as [O], [D] and [F] in ASCII` (ASCII)
+- `renders expanders as - and + and icons as [O], [D] and [F] in ASCII` (ASCII)
 - `binds selection as Binding<ID?> and expansion as Binding<Set<ID>>, both app-owned`
   (State model)
 - `moves selection with the up and down arrows` (Key table)
@@ -568,9 +592,10 @@ Schema: [README](../README.md#requirements-list). Traced to the states and table
 
 Reference the [degradation ladder](../tokens.md#degradation-ladder).
 
-- ASCII: the scroll indicator uses `scrollbar.ascii` (`|` track, `#` thumb), expanders
-  become `v` and `>`, icons become `[O]`, `[D]` and `[F]`, and the status letters keep
-  their text (owner grid).
+- ASCII: the scroll indicator uses `scrollIndicator.ascii` (`|` track, `#` thumb),
+  expanders become `-` and `+`, icons become `[O]`, `[D]` and `[F]`, and the status
+  letters keep their text (owner grid).
+- Unicode: folder and file names draw no icon; the lead-icon slot is absent.
 - `NO_COLOR`: the git status letters are the cue. They stay plain text in their two-cell
   slot and nothing is added: no marker, glyph, or word (owner decision, 2026-10-18).
 - Below the floor: labels truncate at the tail (see [Sizing](#sizing)).

@@ -126,9 +126,9 @@ Callouts (52x12, 0-based):
 0. r0-r10 c0-c50  Viewport content -- child `View` rendered through a translated, clipped
                    `RenderRegion`; this is the primary wheel and click region
 1. r0-r10 c51     Vertical scroll indicator -- `█` thumb (`accent`) on a `│` track
-                   (`muted`); five-cell thumb at r3-r7, present only for vertical overflow
+                   (`border`); five-cell thumb at r3-r7, present only for vertical overflow
 2. r11 c0-c50     Horizontal scroll indicator -- `🬋` thumb (`accent`) on a `─` track
-                   (`muted`); forty-cell thumb at c10-c49, present only for horizontal
+                   (`border`); forty-cell thumb at c10-c49, present only for horizontal
                    overflow
 3. r11 c51        Indicator corner -- reserved intersection of the two indicator edges; no
                    content and no independent action
@@ -219,7 +219,7 @@ Callouts (40x6, 0-based):
 
 ## Indicator styles
 
-The default look is omp2's vertical one: an accent `█` thumb on a muted `│` track. For
+The default look is omp2's vertical one: an accent `█` thumb on a `border` `│` track. For
 horizontal scrolling the thumb is `🬋`, a centred one-third bar on a `─` track, which is
 thicker than omp2's `━` (owner decision, 2026-10-11). The look is one curated
 `ScrollIndicatorStyle` preset, set with
@@ -233,7 +233,7 @@ box's border is a separate opt-in modifier. The preset list (confirmed, owner de
 ### Standard
 
 Six rows show the default `standard` preset: the thumb is three cells at r1-r3 and the
-track is `muted`.
+track is `border`.
 
 ```wireframe 40x6
 step 04 compile tui                    │
@@ -248,7 +248,7 @@ step 09 run lints                      │
 Callouts (40x6, 0-based):
 0. r0-r5 c0-c38  Viewport content -- child rows translated and clipped; the same region as
                  Anatomy callout 0
-1. r0, r4-r5 c39 Vertical track -- `muted` `│` (the `standard` track)
+1. r0, r4-r5 c39 Vertical track -- `border` `│` (the `standard` track)
 2. r1-r3 c39     Vertical thumb -- `accent` `█` (the `standard` thumb), three cells
 ```
 
@@ -269,7 +269,7 @@ step 09 run lints                      │
 .......................................A
 ── legend ──
 .  default
-A  fg=muted
+A  fg=border
 B  fg=accent
 ```
 
@@ -399,7 +399,7 @@ Callouts (40x16, 0-based):
 0. r0-r15 c0-c38  Viewport content -- content rows 3-18 of the child wrapped at 39 columns;
                    the same region as Anatomy callout 0; content, wraps
 1. r0-r15 c39     Vertical scroll indicator -- mobile trailing edge; `accent` `█` thumb,
-                   thirteen cells at r3-r15, on a `muted` `│` track
+                   thirteen cells at r3-r15, on a `border` `│` track
 ```
 
 ### Declared minimum
@@ -452,7 +452,7 @@ se they change things. They push the human race forw
 ```text
 Callouts (52x6, 0-based):
 0. r0-r4 c0-c51  Viewport content -- horizontally translated child cells
-1. r5 c0-c51     Horizontal scroll indicator -- bottom edge; `accent` thumb on a `muted`
+1. r5 c0-c51     Horizontal scroll indicator -- bottom edge; `accent` thumb on a `border`
                   track; thirty-three-cell thumb at c12-c44 (`max(1, floor(52 * 52 / 80))`
                   cells starting at `floor(18 * (52 - 33) / (80 - 52))`)
 ```
@@ -503,7 +503,7 @@ have no respect for the status quo. You|
 ```text
 Callouts (40x6, 0-based):
 0. r0-r5 c0-c38  Viewport content -- the quote wrapped at 39 columns, rows 0-5
-1. r0-r5 c39     Vertical scroll indicator -- `scrollbar.ascii`: `|` track, `#` thumb at
+1. r0-r5 c39     Vertical scroll indicator -- `scrollIndicator.ascii`: `|` track, `#` thumb at
                   r0-r1
 ```
 
@@ -519,7 +519,7 @@ Callouts (40x6, 0-based):
 | maximum offset                  | derived     | `TerminalPosition`            | Recomputed as `max(0, content extent - viewport extent)` per enabled axis after resize, content, axes, or binding changes.                                                                                                        |
 | vertical indicator visibility   | derived     | `Bool`                        | True exactly when axes contains vertical, content height exceeds the stabilized viewport height, and the trailing-edge reservation leaves the stabilized content viewport at least `1x1`; otherwise no trailing edge is reserved. |
 | horizontal indicator visibility | derived     | `Bool`                        | True exactly when axes contains horizontal, content width exceeds the stabilized viewport width, and the bottom-edge reservation leaves the stabilized content viewport at least `1x1`; otherwise no bottom edge is reserved.     |
-| scroll view styles              | Environment | semantic `Style` roles        | Resolve `semantic.primary`, `muted` (tracks, token pending plan 032 step 5.3), and `semantic.accent` (thumbs) each render; never retain style in widget state.                                                                    |
+| scroll view styles              | Environment | semantic `Style` roles        | Resolve `primary`, `border` (tracks), and `accent` (thumbs) each render ([scroll indicators](../tokens.md#scroll-indicators)); never retain style in widget state.                                                                |
 | is focused                      | Environment | `Bool`                        | Injected below the explicit `.focusable` modifier from the FocusManager's live identity; ScrollView reads it for rendering and checks `ResponderContext.isFocused` for keyboard movement.                                         |
 | owned focus eligibility         | derived     | `FocusID?`                    | `focusable(whileScrollable:)` publishes its identity exactly when enabled, offset-bound, and overflowing an enabled axis; recomputed as each layout pass settles, so registration and withdrawal never lag a graph update.        |
 | is focus-within                 | Responder   | `Bool`                        | Supplied per dispatch as `ResponderContext.isFocusWithin`; lets the viewport consume unmodified press/repeat scroll keys its focused descendant declined.                                                                         |
@@ -564,15 +564,16 @@ inertial motion, or animation.
 
 `ScrollView` delegates automatic focus appearance to an enclosing willing focus host such
 as `Box`; that host paints after descendants without acquiring a focus-list entry or any
-key events. Its border glyphs use the focus color as a bold foreground-only overlay, with
-their background unchanged. The ScrollView remains the focused key responder and retains
-its own edge-riding, overflow-only scroll indicator. The indicator is the focus telegraph:
-a focused viewport paints its indicator thumbs bold in the focus accent and applies no
-other local treatment, so scrolled content is never restyled. A focused fitting viewport
-therefore shows no local treatment (only reachable through an external `.focusable`
-identity, since `focusable(whileScrollable:)` withdraws when nothing can scroll); callers
-that need a visible ring host one with `focusAppearance(_:)` or a `Box`. Unfocused thumbs
-remain a secondary `semantic.accent` affordance.
+key events. Its border glyphs use `focus` (the terminal's default foreground in bold, no
+hue) as a foreground-only overlay, with their background unchanged. The ScrollView remains
+the focused key responder and retains its own edge-riding, overflow-only scroll indicator.
+The indicator is the focus telegraph: a focused viewport paints its indicator thumbs in
+`focus` (bold default foreground) and applies no other local treatment, so scrolled
+content is never restyled. A focused fitting viewport therefore shows no local treatment
+(only reachable through an external `.focusable` identity, since
+`focusable(whileScrollable:)` withdraws when nothing can scroll); callers that need a
+visible ring host one with `focusAppearance(_:)` or a `Box`. Unfocused thumbs remain a
+secondary `accent` affordance.
 
 ## Mouse table
 
@@ -642,26 +643,26 @@ a horizontal-only instance with the same child):
 
 Existing canonical tokens consumed by the standard/default rendering are:
 
-- `scrollbar.ascii` for the ASCII fallback of proportional edge indicators (`|` track, `#`
-  thumb). Thumb and track glyphs come from the indicator's style selection, see
+- `scrollIndicator.ascii` for the ASCII fallback of proportional edge indicators (`|`
+  track, `#` thumb). Thumb and track glyphs come from the indicator's style selection, see
   [ScrollIndicator](../primitives/scroll-indicator.md#environment); their token rows are
-  pending plan 032 step 5.3.
-- `focus.border` and `focus.content` when the surrounding style elects to expose focus;
-  ScrollView adds no focus chrome by itself.
+  in [scroll indicators](../tokens.md#scroll-indicators).
+- the [focus](../tokens.md#focus) role when the surrounding style elects to expose focus
+  (migration map: `focus.border`, `focus.content`); ScrollView adds no focus chrome by
+  itself.
 - `truncation.mark` only when a child draws it under its own row budget, such as an app
   `lineLimit`. ScrollView content has an unbounded height, so wrapped content shows every
   row and draws no mark; ScrollView clips at the viewport, never inserts a truncation
   glyph, and leaves the indicator as the overflow cue.
 
-The semantic environment roles are complete `Style` values named `semantic.primary`,
-`semantic.secondary`, `semantic.accent`, `semantic.disabled`, and `semantic.destructive`,
-never colors or partial foreground values. Standard rendering uses `semantic.primary` for
-child-default text, `muted` for tracks (token pending plan 032 step 5.3), and
-`semantic.accent` for unfocused thumbs; a focused viewport paints its thumbs bold in the
-focus accent (`semantic.focus`'s background color), which is the viewport's entire focus
-telegraph. Custom applications replace those same environment values; ScrollView does not
-introduce a parallel `ScrollViewStyle` protocol. No hex colors, ANSI sequences, or
-noncanonical glyph set is introduced here.
+The semantic environment roles are complete `Style` values named `primary`, `secondary`,
+`accent`, `disabled`, and `destructive`, never colors or partial foreground values.
+Standard rendering uses `primary` for child-default text, `border` for tracks, and
+`accent` for unfocused thumbs; a focused viewport paints its thumbs in `focus` (the
+terminal's default foreground in bold, no hue; [focus](../tokens.md#focus)), which is the
+viewport's entire focus telegraph. Custom applications replace those same environment
+values; ScrollView does not introduce a parallel `ScrollViewStyle` protocol. No hex
+colors, ANSI sequences, or noncanonical glyph set is introduced here.
 
 ## Primitive dependencies
 
@@ -745,7 +746,7 @@ noncanonical glyph set is introduced here.
   (focus appearance)
 - `focused fitting scroll view shows no local treatment without an indicator` (focus
   appearance; states: no overflow and empty child)
-- `focused viewport paints indicator thumbs in the focus accent without restyling content`
+- `focused viewport paints indicator thumbs in focus (bold default foreground) without restyling content`
   (focus appearance)
 - `owned focus identity registers and withdraws as layout settles` (state model: owned
   focus eligibility)
@@ -761,7 +762,7 @@ noncanonical glyph set is introduced here.
   minimum; sizing: `10x3`)
 - `ascii degradation preserves scroll geometry and boundary routing` (states: degraded)
 - `scroll view exposes no zoom or smooth animation transition` (state model: motion model)
-- `standard preset paints an accent block thumb on a muted track` (Indicator styles:
+- `standard preset paints an accent block thumb on a border track` (Indicator styles:
   standard)
 - `a preset fixes its thumb and track glyphs and keeps the proportional geometry`
   (Indicator styles; ScrollIndicator Variants)
@@ -781,9 +782,9 @@ noncanonical glyph set is introduced here.
 - `NO_COLOR`: keep the same glyph geometry; focus falls back to bold and any child
   selection uses reverse video according to the
   [degradation ladder](../tokens.md#degradation-ladder).
-- 16-color: resolve `semantic.primary`, `muted`, and `semantic.accent` to indexed terminal
-  styles; tracks use `muted` and thumbs `semantic.accent`, while a host border remains
-  foreground-only in the focus color.
+- 16-color: resolve `primary`, `border`, and `accent` to indexed terminal styles; tracks
+  use `border` and thumbs `accent`, while a host border remains foreground-only in
+  `focus`.
 - ASCII-only: every preset draws `#` as its thumb and `|` (vertical) or `-` (horizontal)
   as its track, and `thumbOnly` draws no track, as the degraded fixture shows; a child
   that draws a truncation mark degrades it to `~` under its own rules. No Unicode-only
@@ -806,8 +807,8 @@ noncanonical glyph set is introduced here.
   [system and custom style plumbing](../../docs/Spec.md#system-and-custom-style-plumbing).
   It has no separate style protocol.
 - **Indicator presentation (owner decision, omp2 review, 2026-10):** omp2's look stays the
-  default vertically: an accent `█` thumb on a muted `│` track. Horizontally the default
-  thumb is `🬋` on `─` (owner decision, 2026-10-11). The look is one curated
+  default vertically: an accent `█` thumb on a `border` `│` track. Horizontally the
+  default thumb is `🬋` on `─` (owner decision, 2026-10-11). The look is one curated
   `ScrollIndicatorStyle` preset, set with `.scrollIndicatorStyle(_ style:)`; each preset
   fixes its thumb and track together for both axes. The confirmed preset list is
   `standard` (default), `thin`, `inner`, `outer`, `dashed`, `dotted`, `heavy`, and
@@ -835,9 +836,8 @@ state synchronously, and rendering is a translated clipped region.
 
 ## Open questions
 
-- Track role: the accepted wireframes paint tracks in the `muted` role, which `tokens.md`
-  does not define; token pending plan 032 step 5.3.
-- Token rows for the preset thumb and track roles are pending plan 032 step 5.3.
+The only remaining gate is ScrollIndicator's open question, the spelling of its
+environment key (`.scrollIndicatorStyle(_:)`), which this document's contract reuses.
 
 ## Inspiration
 

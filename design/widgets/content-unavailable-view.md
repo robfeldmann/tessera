@@ -70,15 +70,15 @@ chrome and stay on one row.
 Callouts (40x12, 0-based):
 1. r0-r11 c0-c39   Viewport -- the 40-column design frame, outside the view; styled `border`
 2. r3-r8 c2-c37    Content stack -- VStack in the readable column (the whole 40 columns here), centred horizontally and vertically in the proposal
-3. r3 c19          Icon -- `Label` icon from the semantic icon catalog (`mail`); styled `muted`; chrome, one row
-4. r5 c14-c24      Title -- Text, `semantic.primary` bold; content, wraps
-5. r6 c2-c37       Description -- Text, `semantic.secondary`; content, wraps, each line centred
+3. r3 c19          Icon -- `Label` icon `mail` from the [icon catalog](../tokens.md#icon-catalog); styled `secondary`; chrome, one row
+4. r5 c14-c24      Title -- Text, `primary` bold; content, wraps
+5. r6 c2-c37       Description -- Text, `secondary`; content, wraps, each line centred
 6. r8 c13-c25      Action -- Button ([button.md](button.md)); chrome, one row; the first action is `.filled`
                    as the default action (`accent` fill, `contrast` text, bold)
 ```
 
-Colour and weight matter here, so the styled grid follows. Roles `muted`, `contrast`, and
-`border` have no token yet (token pending plan 032 step 5.3).
+Colour and weight matter here, so the styled grid follows. Roles `secondary`, `contrast`
+and `border` are defined in [tokens.md](../tokens.md#roles).
 
 ```text
 ── chars ──
@@ -109,7 +109,7 @@ R......................................R
 RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
 ── legend ──
 .  default
-I  fg=muted
+I  fg=secondary
 T  fg=primary bold
 D  fg=secondary
 p  fg=contrast bg=accent bold
@@ -135,7 +135,7 @@ and description are the framework's wording, as in SwiftUI. There are no actions
 ┌──────────────────────────────────────┐
 │                                      │
 │                                      │
-│                  🔍                  │
+│                                      │
 │                                      │
 │       No results for "deploy"        │
 │     Check the spelling or try a      │
@@ -148,9 +148,9 @@ and description are the framework's wording, as in SwiftUI. There are no actions
 
 ```text
 Callouts (40x12, 0-based):
-1. r3 c19-c20      Icon -- `search` icon, two cells wide (emoji); styled `muted`; chrome, one row
-2. r5 c8-c30       Title -- Text, `semantic.primary` bold; framework wording; content, wraps
-3. r6-r7 c6-c32    Description -- Text, `semantic.secondary`; content, wraps; two centred lines
+1. r3 Icon row -- no icon under `.unicode`: `search` has no Unicode glyph ([icon catalog](../tokens.md#icon-catalog)); the row stays blank; ASCII draws `[/]`
+2. r5 c8-c30       Title -- Text, `primary` bold; framework wording; content, wraps
+3. r6-r7 c6-c32    Description -- Text, `secondary`; content, wraps; two centred lines
 ```
 
 ```text
@@ -158,7 +158,7 @@ Callouts (40x12, 0-based):
 ┌──────────────────────────────────────┐
 │                                      │
 │                                      │
-│                  🔍                  │
+│                                      │
 │                                      │
 │       No results for "deploy"        │
 │     Check the spelling or try a      │
@@ -171,7 +171,7 @@ Callouts (40x12, 0-based):
 RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
 R......................................R
 R......................................R
-R..................II..................R
+R......................................R
 R......................................R
 R.......TTTTTTTTTTTTTTTTTTTTTTT........R
 R.....DDDDDDDDDDDDDDDDDDDDDDDDDDD......R
@@ -182,7 +182,6 @@ R......................................R
 RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
 ── legend ──
 .  default
-I  fg=muted
 T  fg=primary bold
 D  fg=secondary
 R  fg=border
@@ -210,8 +209,8 @@ An unavailable state with two actions and a warning-toned icon.
 ```text
 Callouts (40x12, 0-based):
 1. r2 c19          Icon -- `warning` icon, `warning` tone; chrome, one row
-2. r4 c9-c30       Title -- Text, `semantic.primary` bold; content, wraps
-3. r5-r6 c4-c34    Description -- Text, `semantic.secondary`; content, wraps; two centred lines
+2. r4 c9-c30       Title -- Text, `primary` bold; content, wraps
+3. r5-r6 c4-c34    Description -- Text, `secondary`; content, wraps; two centred lines
 4. r8 c10-c16      Action -- Button, first action, `.filled` as the default action; chrome, one row
 5. r8 c19-c28      Action -- Button, second action, `.tinted`; chrome, one row
 ```
@@ -273,9 +272,9 @@ viewport outline is not drawn.
 
 ```text
 Callouts (40x6, 0-based):
-1. r0 c19           Icon -- `mail` icon, styled `muted`; chrome, one row
-2. r2 c14-c24       Title -- Text, `semantic.primary` bold; content, wraps
-3. r3 c2-c37        Description -- Text, `semantic.secondary`; content, wraps
+1. r0 c19           Icon -- `mail` icon, styled `secondary`; chrome, one row
+2. r2 c14-c24       Title -- Text, `primary` bold; content, wraps
+3. r3 c2-c37        Description -- Text, `secondary`; content, wraps
 4. r5 c13-c25       Action -- Button, `.filled` as the default action; chrome, one row
 5. r0-r5 c0-c39     Content stack -- VStack at natural height; no rows added
 ```
@@ -298,9 +297,9 @@ margins (22 cells) and the stack grows by a row; nothing is truncated (owner dec
 
 ```text
 Callouts (24x7, 0-based):
-1. r0 c11          Icon -- `mail` icon, styled `muted`; chrome, one row
-2. r2 c6-c16       Title -- Text, `semantic.primary` bold; content, wraps
-3. r3-r4 c3-c20    Description -- Text, `semantic.secondary`; content, wraps; each line centred
+1. r0 c11          Icon -- `mail` icon, styled `secondary`; chrome, one row
+2. r2 c6-c16       Title -- Text, `primary` bold; content, wraps
+3. r3-r4 c3-c20    Description -- Text, `secondary`; content, wraps; each line centred
 4. r6 c5-c17       Action -- Button, `.filled` as the default action; chrome, one row
 ```
 
@@ -324,7 +323,7 @@ Styling follows the grid below.
 
 ```text
 Callouts (13x3, 0-based):
-1. r0 c1-c11       Title -- Text, `semantic.primary` bold; content, wraps; the icon and description are dropped
+1. r0 c1-c11       Title -- Text, `primary` bold; content, wraps; the icon and description are dropped
 2. r2 c0-c12       Action -- Button, `.filled` as the default action; chrome, one row; the only action shown
 ```
 
@@ -388,14 +387,15 @@ column in it; the column is `min(width, readableWidth)` cells wide, since
 
 Tokens consumed, each defined in [tokens.md](../tokens.md).
 
-- `semantic.primary`: title (bold).
-- `semantic.secondary`: description.
-- `semantic.accent` with `contrast` text: the `.filled` default action.
-- `muted` (token pending plan 032 step 5.3): icon.
-- `warning` (token pending plan 032 step 5.3): warning-toned icon in the error state.
+- `primary`: title (bold).
+- `secondary`: description.
+- `accent` fill with `contrast` text (`solid(accent)`,
+  [composite styles](../tokens.md#composite-styles)): the `.filled` default action.
+- `secondary`: the icon.
+- `warning`: warning-toned icon in the error state.
 - `.tinted` action (the other actions): label in `accent` with a faint fill derived from
   it (owner decision, 2026-10-10; [Button emphasis](button.md#emphasis)).
-- `border` (token pending plan 032 step 5.3): viewport outline and the grid frame.
+- `border`: viewport outline and the grid frame.
 - `readableWidth` (environment): caps the content column's width (maximum only), default
   72; see [Readable width](../primitives/readable-width.md).
 
@@ -407,8 +407,8 @@ Tokens consumed, each defined in [tokens.md](../tokens.md).
 - [Frame](../primitives/frame.md): centring within the proposal.
 - [Readable width](../primitives/readable-width.md): `.readableWidth()` caps the content
   column's width; the environment value `readableWidth` (default 72) is read here.
-- [Label](../primitives/label.md): the icon, from its semantic icon catalog. Label owns
-  the catalog (owner decision, 2026-10-10).
+- [Label](../primitives/label.md): the icon, named from the
+  [icon catalog](../tokens.md#icon-catalog).
 
 ## Requirements
 
@@ -431,6 +431,7 @@ Schema: [README](../README.md#requirements-list).
 - `under the 13x3 floor the title wraps and the description, icon, then later actions give up rows first`
   (States: Min; Sizing; owner decision, 2026-10-18)
 - `icons render their ASCII text forms when the icon catalog is ASCII` (Degradation)
+- `search state draws no icon under the unicode charset` (States: Search; icon catalog)
 - `loading is not a content-unavailable case; it renders a centred ProgressView` (Prior
   art; owner decision)
 
@@ -451,15 +452,9 @@ What changes at `NO_COLOR`, 16-color, ascii-only, and below `min`. Reference the
 
 ## Open questions
 
-Decisions deliberately not made yet, each with what unblocks it.
-
-1. Icon catalog rows: `mail` and `search` are not in the
-   [Label icon catalog](../primitives/label.md#icon-catalog), and their ASCII forms are
-   not decided. The Degradation `[/]` text waits on the same row. Label owns the catalog
-   (owner decision, 2026-10-10). Unblocked by adding the rows to Label.
-2. Tokens: `muted`, `contrast`, `warning`, and `border` are not in
-   [tokens.md](../tokens.md). Unblocked by plan 032 step 5.3. The doc stays `wireframed`
-   until then.
+- **Icon row without a glyph.** Under `.unicode` the `search` icon draws nothing
+  ([icon catalog](../tokens.md#icon-catalog)). Whether the blank icon row stays, as the
+  Search state draws it, or collapses so the stack recentres is undecided.
 
 ## Inspiration
 

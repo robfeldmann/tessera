@@ -334,7 +334,7 @@ Callouts (5x1, 0-based):
 ### Focused
 
 Focus is never inferred from position. An app-installed `FocusID` match gives the inline
-row `semantic.focus`; its cells and geometry do not change.
+row `focus`; its cells and geometry do not change.
 
 ```wireframe 10x1
 ‹ Medium ›
@@ -350,9 +350,9 @@ Callouts (10x1, 0-based):
 
 ### Disabled
 
-A disabled Picker renders all visible cells in `semantic.disabled`, is absent from the
-focusable list, never changes its binding, and leaves keys and clicks unconsumed so an
-ancestor may handle them.
+A disabled Picker renders all visible cells in `disabled`, is absent from the focusable
+list, never changes its binding, and leaves keys and clicks unconsumed so an ancestor may
+handle them.
 
 ```wireframe 10x1
 ‹ Medium ›
@@ -428,26 +428,26 @@ Size ‹ Medium ›
 AAAA.BBBBBBBBBB
 ── legend ──
 .  default
-A  fg=secondary (`semantic.secondary`)
-B  fg=primary (`semantic.primary`)
+A  fg=secondary
+B  fg=primary
 ```
 
 #### Title stacked above the segmented control
 
-At 24 columns the segmented fixture's natural width (29 cells) does not fit after the
+At 24 columns the segmented fixture's natural width (28 cells) does not fit after the
 title "View" and its gap, so the title stacks above the segments. The segments take the
 full row and tail-truncate as in
 [Tail-truncated labels at 24 columns](#tail-truncated-labels-at-24-columns).
 
 ```wireframe 24x2
 View
- ▦ Grid  📜 List  ⚙ Se…
+ ▦ Grid  ≡ List  ⚙ Set…
 ```
 
 ```text
 Callouts (24x2, 0-based):
 1. r0 c0-c3  title -- "View" in `secondary`, stacked above the control; content, wraps.
-2. r1 c0-c23 segmented control -- the full row; "Settings" tail-truncates to "Se…";
+2. r1 c0-c23 segmented control -- the full row; "Settings" tail-truncates to "Set…";
              chrome, one row.
 ```
 
@@ -455,16 +455,17 @@ Callouts (24x2, 0-based):
 
 The radio group is a horizontal row of chips, one per option. The selected chip is a pill
 with accent background, contrast bold label, and pill caps on both sides. Unselected chips
-are muted. A chip's width is its label plus two pill-cap cells and one gap cell. Each chip
-is chrome, one row (owner decision, 2026-10-18): the group is the component's own flow
-layout of chrome items, so a chip that does not fit on the current row wraps onto the next
-row, indented under the first chip, and every option stays visible and reachable. A chip
-wider than the row tail-truncates with `truncation.mark`; the chip pins `.lineLimit(1)`,
-so an inherited `lineLimit` never reaches it. Left and Right move through the options in
-order and wrap across rows. The `❯` cursor prefix appears only while the group is focused.
-Owner decision, omp2 review, 2026-10. `.radioGroup` is the wrapping chip row; the vertical
-list is `.menu`, so there is no third layout (owner decision, 2026-10-10). The group's
-floor is the gutter plus the widest chip, `9x4` for this fixture (see Sizing).
+are `secondary`. A chip's width is its label plus two pill-cap cells and one gap cell.
+Each chip is chrome, one row (owner decision, 2026-10-18): the group is the component's
+own flow layout of chrome items, so a chip that does not fit on the current row wraps onto
+the next row, indented under the first chip, and every option stays visible and reachable.
+A chip wider than the row tail-truncates with `truncation.mark`; the chip pins
+`.lineLimit(1)`, so an inherited `lineLimit` never reaches it. Left and Right move through
+the options in order and wrap across rows. The `❯` cursor prefix appears only while the
+group is focused. Owner decision, omp2 review, 2026-10. `.radioGroup` is the wrapping chip
+row; the vertical list is `.menu`, so there is no third layout (owner decision,
+2026-10-10). The group's floor is the gutter plus the widest chip, `9x4` for this fixture
+(see Sizing).
 
 #### Wrapped to two rows
 
@@ -477,8 +478,8 @@ floor is the gutter plus the widest chip, `9x4` for this fixture (see Sizing).
 Callouts (20x2, 0-based):
 1. r0-r1 c0-c19 Radio group hit target -- each chip is one Chip hit; the group is the
             allocated frame.
-2. r0 c0-c1  focus cursor -- `❯` plus a space in `semantic.focus` while focused; blank when unfocused.
-3. r0 c3-c5  chip "sol" -- inactive chip; muted label with padding; chrome, one row.
+2. r0 c0-c1  focus cursor -- `❯` plus a space in `focus` while focused; blank when unfocused.
+3. r0 c3-c5  chip "sol" -- inactive chip; `secondary` label with padding; chrome, one row.
 4. r0 c9-c13 chip "terra" -- inactive chip; starts the first row's second column stop;
             chrome, one row.
 5. r1 c3-c6  chip "kimi" -- inactive chip on the wrapped row, indented under the first chip;
@@ -511,8 +512,8 @@ Callouts (14x4, 0-based):
             column, so the label aligns with the other chips; chrome, one row.
 ```
 
-Styled grid for the wrapped radio group (owner-accepted review grid, roles renamed to
-Tessera names; `contrast*` and `muted*` pending, see Open questions):
+Styled grid for the wrapped radio group (owner-accepted review grid, roles renamed per
+[tokens.md](../tokens.md#roles)):
 
 ```text
 ── chars ──
@@ -525,9 +526,9 @@ EEBCCCBBBCCCCC
 .  default
 A  fg=accent (pill caps)
 B  fg=primary
-C  fg=muted*
-D  fg=contrast* bg=accent bold underline
-E  focus role (`semantic.focus`)
+C  fg=secondary
+D  fg=contrast bg=accent bold underline
+E  fg=focus bold
 ```
 
 Styled grid for the one-chip-per-row radio group:
@@ -547,9 +548,9 @@ EEBCCC
 .  default
 A  fg=accent (pill caps)
 B  fg=primary
-C  fg=muted*
-D  fg=contrast* bg=accent bold underline
-E  focus role (`semantic.focus`)
+C  fg=secondary
+D  fg=contrast bg=accent bold underline
+E  fg=focus bold
 ```
 
 The active chip's underline appears only while the group is focused; there is no hover
@@ -583,76 +584,84 @@ The segmented control is one row of segments. Each segment shows an icon, a labe
 both, with one cell of padding on each side. Segments are chrome, one row (owner decision,
 2026-10-18): each pins `.lineLimit(1)`, so an inherited `lineLimit` never reaches it and a
 segment label never wraps; every segment callout below is chrome, one row. The active
-segment has an accent background, a contrast bold label, and an underline while focused.
-Inactive segments are muted on a `surface*` band. When the row is too narrow for the full
-labels, the longest label gives up space first and tail-truncates with `truncation.mark`,
-keeping two characters before the mark. Below that floor, every segment shows its icon
-only. A segment without an icon and without room for its label keeps `truncation.mark`
-rather than disappearing, so no option is dropped. Owner decision, omp2 review, 2026-10.
-Segment icons are [Label](../primitives/label.md) catalog names: every catalog row has an
-ASCII form, and an unknown name draws its raw text.
+segment is `solid(accent)`: a contrast bold label on an accent fill, with no underline in
+colour tiers; under `NO_COLOR` it is reverse video, bold, and underlined while the picker
+is focused (owner decision, 2026-10-19;
+[composite styles](../tokens.md#composite-styles)). Inactive segments are `secondary` on a
+`surface` band, and draw `primary` while the picker is focused (owner decision,
+2026-10-19; [fill roles](../tokens.md#fill-roles)). Icons are monochrome, never colour
+emoji. When the row is too narrow for the full labels, the longest label gives up space
+first and tail-truncates with `truncation.mark`, keeping two characters before the mark.
+Below that floor, every segment shows its icon only. A segment without an icon and without
+room for its label keeps `truncation.mark` rather than disappearing, so no option is
+dropped. Owner decision, omp2 review, 2026-10. Segment icons are
+[Label](../primitives/label.md) catalog names: every catalog row has an ASCII form, and an
+unknown name draws its raw text.
 
 #### Icons only at 40 columns
 
 The app uses `.labelStyle(.iconOnly)`. Path, Tree, and Diff are icons only, with Tree
-selected.
+selected. This grid draws the Nerd Font charset: each icon is two cells, the glyph and a
+real space, so an icon-only segment is `pad + icon(2) + pad`, four cells
+([Nerd Font cells](../tokens.md#nerd-font-cells)). Under the Unicode charset Path and Tree
+have no icon and keep `truncation.mark`; Diff draws `▤`.
 
 ```wireframe 40x1
- 📄  📁  ▤
+       
 ```
 
 ```text
 Callouts (40x1, 0-based):
-1. r0 c0-c10 Segmented group hit target -- one row; each segment is one Chip hit spanning its
+1. r0 c0-c11 Segmented group hit target -- one row; each segment is one Chip hit spanning its
             cells.
-2. r0 c0-c3  Path segment -- icon-only (📄), inactive; chrome, one row.
-3. r0 c4-c7  Tree segment -- icon-only (📁), active: accent background, contrast bold label,
-            underline while focused; chrome, one row.
-4. r0 c8-c10 Diff segment -- icon-only (▤), inactive; chrome, one row.
+2. r0 c0-c3  Path segment -- icon-only (U+F15B), inactive; chrome, one row.
+3. r0 c4-c7  Tree segment -- icon-only (U+F07B), active: `solid(accent)`; chrome, one row.
+4. r0 c8-c11 Diff segment -- icon-only (U+EAE9), inactive; chrome, one row.
 ```
 
 Styled grid for icons only at 40 columns (review grid, roles renamed):
 
 ```text
 ── chars ──
- 📄  📁  ▤
+       
 ── style ──
-AAAABBBBAAA
+AAAABBBBAAAA
 ── legend ──
 .  default
-A  fg=muted* bg=surface*
-B  fg=contrast* bg=accent bold underline
+A  fg=secondary bg=surface
+B  fg=contrast bg=accent bold
 ```
 
 #### Tail-truncated labels at 24 columns
 
-"Settings" is the longest label, so it gives up space first and becomes "Se…". "Grid" and
-"List" keep their full labels because the row still has room for them.
+"Settings" is the longest label, so it gives up space first and becomes "Set…". "Grid" and
+"List" keep their full labels because the row still has room for them. The grid draws the
+Unicode charset, so `list` is the one-cell `≡` (owner decision, 2026-10-19).
 
 ```wireframe 24x1
- ▦ Grid  📜 List  ⚙ Se…
+ ▦ Grid  ≡ List  ⚙ Set…
 ```
 
 ```text
 Callouts (24x1, 0-based):
 1. r0 c0-c23  Segmented group hit target -- one row; three segments.
-2. r0 c0-c7   Grid segment -- active: " ▦ Grid " with one cell of padding on each side.
-3. r0 c8-c16  List segment -- inactive; full label fits.
-4. r0 c17-c23 Settings segment -- inactive; the label is tail-truncated to "Se…" (two
-            characters plus `truncation.mark`), with its icon.
+2. r0 c0-c7   Grid segment -- active: `▦ Grid` with one cell of padding on each side.
+3. r0 c8-c15  List segment -- inactive; full label fits.
+4. r0 c16-c23 Settings segment -- inactive; label tail-truncated to `Set…` with its ⚙
+            icon at c17.
 ```
 
 Styled grid for tail-truncated labels at 24 columns:
 
 ```text
 ── chars ──
- ▦ Grid  📜 List  ⚙ Se…
+ ▦ Grid  ≡ List  ⚙ Set…
 ── style ──
 BBBBBBBBAAAAAAAAAAAAAAAA
 ── legend ──
 .  default
-A  fg=muted* bg=surface*
-B  fg=contrast* bg=accent bold underline
+A  fg=secondary bg=surface
+B  fg=contrast bg=accent bold
 ```
 
 #### Icons only at 20 columns
@@ -660,37 +669,37 @@ B  fg=contrast* bg=accent bold underline
 Labels are too narrow for any useful text, so all three segments show their icons only.
 
 ```wireframe 20x1
- ▦  📜  ⚙
+ ▦  ≡  ⚙
 ```
 
 ```text
 Callouts (20x1, 0-based):
-1. r0 c0-c9  Segmented group hit target -- one row; the labels are dropped below the floor.
+1. r0 c0-c8  Segmented group hit target -- one row; the labels are dropped below the floor.
 2. r0 c0-c2  Grid segment -- icon-only (▦), active.
-3. r0 c3-c6  List segment -- icon-only (📜), inactive.
-4. r0 c7-c9  Settings segment -- icon-only (⚙), inactive.
+3. r0 c3-c5  List segment -- icon-only (≡), inactive.
+4. r0 c6-c8  Settings segment -- icon-only (⚙), inactive.
 ```
 
 Styled grid for icons only at 20 columns:
 
 ```text
 ── chars ──
- ▦  📜  ⚙
+ ▦  ≡  ⚙
 ── style ──
-BBBAAAAAAA
+BBBAAAAA
 ── legend ──
 .  default
-A  fg=muted* bg=surface*
-B  fg=contrast* bg=accent bold underline
+A  fg=secondary bg=surface
+B  fg=contrast bg=accent bold
 ```
 
 ### Menu
 
 The menu is an in-place list: the title row draws the Picker's title (owner decision,
 2026-10-18), and each option takes one or more rows below it. No overlay opens. The cursor
-row carries a `❯` and a bold label in the `semantic.focus` role. The cursor and the chosen
-option are separate: `◉` in `accent` (one selection-mark colour with Toggle and Form;
-owner decision, 2026-10-10) marks the chosen option, and `○` in `muted*` marks every other
+row carries a `❯` and a bold label in the `focus` role. The cursor and the chosen option
+are separate: `◉` in `accent` (one selection-mark colour with Toggle and Form; owner
+decision, 2026-10-10) marks the chosen option, and `○` in `secondary` marks every other
 option. The cursor starts on the chosen option, or on the first option when the bound
 value is absent; it clamps when the option set changes, and the `❯` appears only while the
 Picker is focused (owner decision, 2026-10-10). Enter or Space on an option chooses it.
@@ -706,7 +715,7 @@ environment, opts out: the label then tail-truncates on its row (owner decision,
 The custom row exists only when the initializer receives
 `customOption: (String) -> Selection?`; no closure, no row (owner decision, 2026-10-18).
 Its label is `customOptionLabel`, defaulting to "Other (type your own)". The row starts
-text editing on Enter or Space, and the typed text follows a colon in `info*` with a beam
+text editing on Enter or Space, and the typed text follows a colon in `info` with a beam
 caret. Enter hands the draft to the closure: a non-nil value is committed and stays chosen
 after the caret goes away; `nil` rejects the draft and editing continues. Owner decision,
 omp2 review, 2026-10. In 1.0 the menu also takes digit quick-select and option
@@ -729,10 +738,10 @@ Environment
 ```text
 Callouts (40x4, 0-based):
 1. r0 c0-c10  Picker title -- the title row; not a selection target; content, wraps.
-2. r1 c0      cursor -- `❯` in `semantic.focus` on the cursor row; blank when unfocused.
-3. r1 c2      unchosen marker -- `○` in `muted*`; chosen rows show `◉` in `accent`; chrome,
+2. r1 c0      cursor -- `❯` in `focus` on the cursor row; blank when unfocused.
+3. r1 c2      unchosen marker -- `○` in `secondary`; chosen rows show `◉` in `accent`; chrome,
             one row.
-4. r1 c4-c13  cursor label -- "Production" in the `semantic.focus` role; content, wraps.
+4. r1 c4-c13  cursor label -- "Production" in the `focus` role; content, wraps.
 5. r2 c4-c10  option label -- "Staging" in primary; content, wraps.
 6. r3 c4-c24  custom row -- "Other (type your own)"; Enter or Space starts editing; present
             only because the Picker was given `customOption`; content, wraps.
@@ -754,15 +763,15 @@ BBCDDDDDDDDDDDDDDDDDDDDDD
 ── legend ──
 .  default
 A  fg=primary bold
-B  focus (`semantic.focus`)
-C  fg=muted*
+B  fg=focus
+C  fg=secondary
 D  fg=primary
-E  focus (`semantic.focus`) bold
+E  fg=focus bold
 ```
 
 #### Custom row while typing
 
-The custom row is chosen and editing. Its typed draft follows the colon in `info*`, and a
+The custom row is chosen and editing. Its typed draft follows the colon in `info`, and a
 beam caret follows the draft. The chosen marker is `◉` in `accent`. A click on another
 option while editing ends editing, discards the draft, and commits that option; a click on
 the custom row keeps editing (owner decision, 2026-10-10).
@@ -777,12 +786,12 @@ Environment
 ```text
 Callouts (40x4, 0-based):
 1. r0 c0-c10  Picker title -- the title row; content, wraps.
-2. r3 c0      cursor -- `❯` in `semantic.focus`; the custom row is the cursor row.
+2. r3 c0      cursor -- `❯` in `focus`; the custom row is the cursor row.
 3. r3 c2      chosen marker -- `◉` in `accent`: the custom row is the chosen value; chrome, one
             row.
-4. r3 c4-c24 custom label -- "Other (type your own)" in `semantic.focus`; content, wraps.
-5. r3 c25-c26 separator -- ": " in `muted*`; chrome, one row.
-6. r3 c27-c36 draft text -- "staging-eu" in `info*`; the shared text-editing core edits it;
+4. r3 c4-c24 custom label -- "Other (type your own)" in `focus`; content, wraps.
+5. r3 c25-c26 separator -- ": " in `secondary`; chrome, one row.
+6. r3 c27-c36 draft text -- "staging-eu" in `info`; the shared text-editing core edits it;
             chrome, one row (see the exception below).
 7. r3 c37     beam caret -- `▏` in accent; shown only while editing; chrome, one row.
 ```
@@ -809,11 +818,11 @@ HHEDHHHHHHHHHHHHHHHHHHHHHCCGGGGGGGGGGB
 .  default
 A  fg=primary bold
 B  fg=accent (caret)
-C  fg=muted*
+C  fg=secondary
 D  fg=primary
 E  fg=accent
-G  fg=info*
-H  focus (`semantic.focus`)
+G  fg=info
+H  fg=focus
 ```
 
 #### Custom row after commit
@@ -835,9 +844,9 @@ Environment
 Callouts (40x4, 0-based):
 1. r0 c0-c10  Picker title -- the title row; content, wraps.
 2. r3 c2      chosen marker -- `◉` in `accent`; the custom value is committed; chrome, one row.
-3. r3 c4-c24 custom label -- `customOptionLabel`, "Other (type your own)" in `semantic.focus`;
+3. r3 c4-c24 custom label -- `customOptionLabel`, "Other (type your own)" in `focus`;
             content, wraps.
-4. r3 c27-c36 committed value -- "staging-eu" drawn through `content` in `info*`; no caret, no
+4. r3 c27-c36 committed value -- "staging-eu" drawn through `content` in `info`; no caret, no
             editing; content, wraps.
 ```
 
@@ -858,11 +867,11 @@ HHEDHHHHHHHHHHHHHHHHHHHHHCCGGGGGGGGGG
 .  default
 A  fg=primary bold
 B  fg=accent
-C  fg=muted*
+C  fg=secondary
 D  fg=primary
 E  fg=accent
-G  fg=info*
-H  focus (`semantic.focus`)
+G  fg=info
+H  fg=focus
 ```
 
 #### No selection
@@ -881,8 +890,8 @@ Editor
 ```text
 Callouts (40x5, 0-based):
 1. r0 c0-c5 Picker title -- the title row; content, wraps.
-2. r1-r4    option rows -- every option is unchosen; `○` in `muted*`; labels are content, wraps.
-3. r1 c0    cursor -- `❯` in `semantic.focus` on "Vim"; the cursor does not select it.
+2. r1-r4    option rows -- every option is unchosen; `○` in `secondary`; labels are content, wraps.
+3. r1 c0    cursor -- `❯` in `focus` on "Vim"; the cursor does not select it.
 ```
 
 Styled grid for no selection:
@@ -904,9 +913,9 @@ BBCDDDDDD
 .  default
 A  fg=primary bold
 B  fg=accent
-C  fg=muted*
+C  fg=secondary
 D  fg=primary
-H  focus (`semantic.focus`)
+H  fg=focus
 ```
 
 #### Wrapped option label
@@ -926,12 +935,12 @@ Theme
 ```text
 Callouts (24x4, 0-based):
 1. r0 c0-c4   Picker title -- the title row; content, wraps.
-2. r1 c0      cursor -- `❯` in `semantic.focus` on the option's first row.
+2. r1 c0      cursor -- `❯` in `focus` on the option's first row.
 3. r1 c2      chosen marker -- `◉` in `accent`, on the first row only; chrome, one row.
-4. r1 c4-c23  label, first row -- "Solarized light with" in `semantic.focus` bold; content, wraps.
+4. r1 c4-c23  label, first row -- "Solarized light with" in `focus` bold; content, wraps.
 5. r2 c4-c16  label, continuation row -- "high contrast", indented under the label and part of
               the same cursor option; content, wraps.
-6. r3 c2      unchosen marker -- `○` in `muted*`.
+6. r3 c2      unchosen marker -- `○` in `secondary`.
 7. r3 c4-c7   option label -- "Nord" in primary; content, wraps.
 ```
 
@@ -957,7 +966,7 @@ Environment
 ```text
 Callouts (14x6, 0-based):
 1. r0 c0-c10    Picker title -- the title row; content, wraps.
-2. r1 c0        cursor -- `❯` in `semantic.focus` on the cursor row.
+2. r1 c0        cursor -- `❯` in `focus` on the cursor row.
 3. r1 c4-c13    label "Production" -- the widest word, whole in the ten cells after the
                 prefix; content, wraps.
 4. r3-r5 c4-c13 custom row label -- "Other (type your own)" on three rows, continuation
@@ -966,13 +975,13 @@ Callouts (14x6, 0-based):
 
 #### Menu with descriptions
 
-Each option may carry a description, drawn in `muted` and content (owner decision,
+Each option may carry a description, drawn in `secondary` and content (owner decision,
 2026-10-11). The layout is chosen per menu with `ViewThatFits`, never per option (owner
 decision, 2026-10-18):
 
 - **Aligned column.** When every description fits whole in the cells after the column, the
-  descriptions align in a muted column that starts two cells after the widest label, past
-  the four prefix cells. Each option stays one row.
+  descriptions align in a `secondary` column that starts two cells after the widest label,
+  past the four prefix cells. Each option stays one row.
 - **Own rows.** Otherwise every description goes on its own row under its label, indented
   to the label column (omp2's layout). On its own row a description wraps and never
   tail-truncates, and a description is never dropped.
@@ -993,14 +1002,14 @@ Deploy region
 ```text
 Callouts (40x5, 0-based):
 1. r0 c0-c12   Picker title -- the title row; content, wraps.
-2. r1 c0       cursor -- `❯` in `semantic.focus`, drawn while focused.
-3. r1 c2       chosen mark -- `◉` in `accent`; the other rows show `○` in `muted*`.
-4. r1 c4-10    label "eu-west" -- `semantic.focus` bold on the cursor row; content, wraps.
+2. r1 c0       cursor -- `❯` in `focus`, drawn while focused.
+3. r1 c2       chosen mark -- `◉` in `accent`; the other rows show `○` in `secondary`.
+4. r1 c4-10    label "eu-west" -- `focus` bold on the cursor row; content, wraps.
 5. r1-r4 c14   description column -- starts at cell 14: four prefix cells, the widest label
                "ap-south" (eight cells), and two cells.
-6. r1 c14-36   description "Ireland, lowest latency" -- `muted*`; fits whole in the 26 cells
+6. r1 c14-36   description "Ireland, lowest latency" -- `secondary`; fits whole in the 26 cells
                that remain; content, wraps.
-7. r3 c14-35   description "Mumbai, for APAC users" -- `muted*`; fits whole; content, wraps.
+7. r3 c14-35   description "Mumbai, for APAC users" -- `secondary`; fits whole; content, wraps.
 ```
 
 ##### Own rows
@@ -1025,13 +1034,13 @@ Deploy region
 ```text
 Callouts (40x10, 0-based):
 1. r0 c0-c12   Picker title -- the title row; content, wraps.
-2. r1 c0       cursor -- `❯` in `semantic.focus` on the first option's label row.
-3. r1 c2       chosen mark -- `◉` in `accent`; the other label rows show `○` in `muted*`.
-4. r1 c4-10    label "eu-west" -- `semantic.focus` bold; content, wraps.
-5. r2 c4-26    description "Ireland, lowest latency" -- `muted*`, indented to the label column;
+2. r1 c0       cursor -- `❯` in `focus` on the first option's label row.
+3. r1 c2       chosen mark -- `◉` in `accent`; the other label rows show `○` in `secondary`.
+4. r1 c4-10    label "eu-west" -- `focus` bold; content, wraps.
+5. r2 c4-26    description "Ireland, lowest latency" -- `secondary`, indented to the label column;
                content, wraps.
 6. r6-r7 c4-35 description "Mumbai, for APAC users, best for India and Southeast Asia" --
-               `muted*`, wrapped to two rows in the 36 cells after the indent; never
+               `secondary`, wrapped to two rows in the 36 cells after the indent; never
                tail-truncated; content, wraps.
 ```
 
@@ -1061,7 +1070,7 @@ Callouts (40x6, 0-based):
 1. r0 c0-c12   Picker title -- the title row, outside the scrolling region; content, wraps.
 2. r1 c4-c26   partial item, top -- the description row of us-east; its label row is above
                the viewport. The partial item draws its visible row with no mark.
-3. r2 c0       cursor -- `❯` in `semantic.focus` on ap-south, a whole item in view.
+3. r2 c0       cursor -- `❯` in `focus` on ap-south, a whole item in view.
 4. r3-r4 c4-c35 description of ap-south -- two wrapped rows; content, wraps.
 5. r5 c2-c10   partial item, bottom -- the label row of sa-east; its description row is below
                the viewport.
@@ -1075,17 +1084,17 @@ the only widget-retained values are the UI states named below.
 
 ### Inline cycling row
 
-| State                              | Owner       | Type                                                                              | Reset or clamp rule                                                                                                                                                                                                                                                                                              |
-| ---------------------------------- | ----------- | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| selection                          | Binding     | `Binding<Selection>`                                                              | App-owned source of truth. Picker writes only a supplied option after an enabled interior cycle or a first cycle from an absent value; an external replacement is authoritative.                                                                                                                                 |
-| is enabled                         | Environment | `Bool`                                                                            | Read on every reconciliation. `false` removes Picker from the focusable list and prevents activation without changing `selection`.                                                                                                                                                                               |
-| semantic Styles                    | Environment | `semantic.primary`, `semantic.focus`, and `semantic.disabled` full `Style` values | Read on every render; the resolved row Style is primary when enabled and unfocused, focus when focused, and disabled when disabled.                                                                                                                                                                              |
-| option count                       | derived     | `Int`                                                                             | Recomputed from the current app-supplied option set on every reconciliation; clamps to `0...Int.max` and never changes the set.                                                                                                                                                                                  |
-| selected option index              | derived     | `Int?`                                                                            | Recompute by searching the current option set on every reconciliation. It is `nil` when the set is empty or `selection` is absent; Picker shows the placeholder and does not write the binding. Otherwise it is in `0...(option count - 1)`.                                                                     |
-| is focused                         | Environment | `Bool`                                                                            | Injected below the explicit `.focusable` modifier from the FocusManager's live identity; Picker reads it during rendering and checks `ResponderContext.isFocused` for events.                                                                                                                                    |
-| value slot geometry and truncation | derived     | `TerminalSize` and rendered grapheme range                                        | Recomputed from the final one-row allocation on every layout; clamp to the value slot, tail-truncate at grapheme boundaries with `truncation.mark`, and never increase height.                                                                                                                                   |
-| title layout                       | derived     | beside or stacked                                                                 | Recomputed on every layout by `ViewThatFits`: the title sits before the row, in `secondary` with one gap cell, when the row's natural width fits after it; otherwise it stacks above the row. Never stored. The radio group and segmented control lay out their title the same way (owner decision, 2026-10-18). |
-| labels hidden                      | Environment | `Bool`                                                                            | Set by `.labelsHidden()` on the Picker or an ancestor; read on every layout. `true` draws no title in any presentation; the title stays the accessible name.                                                                                                                                                     |
+| State                              | Owner       | Type                                                   | Reset or clamp rule                                                                                                                                                                                                                                                                                              |
+| ---------------------------------- | ----------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| selection                          | Binding     | `Binding<Selection>`                                   | App-owned source of truth. Picker writes only a supplied option after an enabled interior cycle or a first cycle from an absent value; an external replacement is authoritative.                                                                                                                                 |
+| is enabled                         | Environment | `Bool`                                                 | Read on every reconciliation. `false` removes Picker from the focusable list and prevents activation without changing `selection`.                                                                                                                                                                               |
+| semantic Styles                    | Environment | `primary`, `focus`, and `disabled` full `Style` values | Read on every render; the resolved row Style is primary when enabled and unfocused, focus when focused, and disabled when disabled.                                                                                                                                                                              |
+| option count                       | derived     | `Int`                                                  | Recomputed from the current app-supplied option set on every reconciliation; clamps to `0...Int.max` and never changes the set.                                                                                                                                                                                  |
+| selected option index              | derived     | `Int?`                                                 | Recompute by searching the current option set on every reconciliation. It is `nil` when the set is empty or `selection` is absent; Picker shows the placeholder and does not write the binding. Otherwise it is in `0...(option count - 1)`.                                                                     |
+| is focused                         | Environment | `Bool`                                                 | Injected below the explicit `.focusable` modifier from the FocusManager's live identity; Picker reads it during rendering and checks `ResponderContext.isFocused` for events.                                                                                                                                    |
+| value slot geometry and truncation | derived     | `TerminalSize` and rendered grapheme range             | Recomputed from the final one-row allocation on every layout; clamp to the value slot, tail-truncate at grapheme boundaries with `truncation.mark`, and never increase height.                                                                                                                                   |
+| title layout                       | derived     | beside or stacked                                      | Recomputed on every layout by `ViewThatFits`: the title sits before the row, in `secondary` with one gap cell, when the row's natural width fits after it; otherwise it stacks above the row. Never stored. The radio group and segmented control lay out their title the same way (owner decision, 2026-10-18). |
+| labels hidden                      | Environment | `Bool`                                                 | Set by `.labelsHidden()` on the Picker or an ancestor; read on every layout. `true` draws no title in any presentation; the title stays the accessible name.                                                                                                                                                     |
 
 The title, option set, and label builder are immutable widget configuration, not retained
 business state. The inline cycling row has no expanded presentation, so it needs no open
@@ -1117,13 +1126,13 @@ or reveal `NodeState`.
 
 ### Segmented control
 
-| State                 | Owner       | Type                             | Reset or clamp rule                                                                                                                                                                                       |
-| --------------------- | ----------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| selection             | Binding     | `Binding<Selection>`             | App-owned. Picker writes only after Left, Right, or a segment click.                                                                                                                                      |
-| selected option index | derived     | `Int?`                           | Recomputed from `selection`; `nil` when the value is absent, and no segment is active.                                                                                                                    |
-| label presentation    | derived     | per-segment icon, label, or both | Recomputed from the final width on every layout: first the longest label tail-truncates to two characters plus `truncation.mark`; below that floor every segment is icon-only. Never changes `selection`. |
-| segment widths        | derived     | cells per segment                | Recomputed on every layout as icon width, one padding cell on each side, and label width (when shown). A segment with no icon and no room keeps `truncation.mark`.                                        |
-| is focused            | Environment | `Bool`                           | Controls the underline of the active segment; events are checked through `ResponderContext.isFocused`.                                                                                                    |
+| State                 | Owner       | Type                             | Reset or clamp rule                                                                                                                                                                                                                                                                                                      |
+| --------------------- | ----------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| selection             | Binding     | `Binding<Selection>`             | App-owned. Picker writes only after Left, Right, or a segment click.                                                                                                                                                                                                                                                     |
+| selected option index | derived     | `Int?`                           | Recomputed from `selection`; `nil` when the value is absent, and no segment is active.                                                                                                                                                                                                                                   |
+| label presentation    | derived     | per-segment icon, label, or both | Recomputed from the final width on every layout: first the longest label tail-truncates to two characters plus `truncation.mark`; below that floor every segment is icon-only. Never changes `selection`.                                                                                                                |
+| segment widths        | derived     | cells per segment                | Recomputed on every layout as icon width, one padding cell on each side, and label width (when shown). A Nerd Font icon is two cells, the glyph and its gap; a Unicode icon is one cell plus one gap cell ([Nerd Font cells](../tokens.md#nerd-font-cells)). A segment with no icon and no room keeps `truncation.mark`. |
+| is focused            | Environment | `Bool`                           | While focused, unselected labels brighten from `secondary` to `primary`; under `NO_COLOR` the same brightening shows as dim to default, and the selected segment, reverse and bold, also underlines (owner decision, 2026-10-19). Events are checked through `ResponderContext.isFocused`.                               |
 
 ### Menu in a host row
 
@@ -1286,7 +1295,8 @@ bubble.
 A Picker `.menu` can sit inside a host row, such as a Form row. The host supplies the
 label column and draws the Picker's title there as the row label (owner decision,
 2026-10-18). The Picker takes the value column after it, up to the row's right edge.
-Collapsed, the row shows the chosen option's label and an open marker `▾` in `muted`.
+Collapsed, the row shows the chosen option's label and an open marker `▾` in `secondary`
+([Marks](../tokens.md#marks), `dropdown`).
 
 The collapsed value is content (owner decision, 2026-10-18). It wraps at word boundaries
 under the value column, and `▾` follows its last word after one space, moving to the next
@@ -1320,7 +1330,7 @@ Callouts (40x1, 0-based):
               label; not drawn by Picker.
 2. r0 c12-c13 value -- "eu", the chosen option's label, in `info`, as Form's select value;
               content, wraps.
-3. r0 c15     open marker -- `▾` in `muted`; drawn while closed and while open.
+3. r0 c15     open marker -- `▾` in `secondary`; drawn while closed and while open.
 ```
 
 ### Closed row, wrapped value
@@ -1339,7 +1349,7 @@ Callouts (24x2, 0-based):
 1. r0 c0-c5   host label -- "Region", the Picker's title, drawn by the host.
 2. r0 c12-c22 value, first row -- "Europe West" in `info`; content, wraps.
 3. r1 c12-c20 value, continuation -- "(Ireland)", under the value column; content, wraps.
-4. r1 c22     open marker -- `▾` in `muted`, one space after the last word.
+4. r1 c22     open marker -- `▾` in `secondary`, one space after the last word.
 ```
 
 ### Open list, single-select
@@ -1355,12 +1365,12 @@ Region      eu ▾
 Callouts (40x4, 0-based):
 1. r0 c0-c11  host label -- "Region", supplied by the host.
 2. r0 c12-c13 value -- "eu"; `info`; content, wraps.
-3. r0 c15     open marker -- `▾` in `muted`.
+3. r0 c15     open marker -- `▾` in `secondary`.
 4. r1-r3 c4-c39 option rows -- indented four cells below the host row, with the menu's marks;
               content, wraps.
-5. r1 c4      cursor -- `❯` in `semantic.focus` on the cursor row, drawn while focused.
-6. r1-r3 c6   markers -- `◉` in `accent` on the chosen option, `○` in `muted*` otherwise.
-7. r1 c8-9    label "eu" -- the cursor label, `semantic.focus` bold.
+5. r1 c4      cursor -- `❯` in `focus` on the cursor row, drawn while focused.
+6. r1-r3 c6   markers -- `◉` in `accent` on the chosen option, `○` in `secondary` otherwise.
+7. r1 c8-9    label "eu" -- the cursor label, `focus` bold.
 ```
 
 The multi-select open list, with its Space toggles and Enter-closes keys, is
@@ -1458,11 +1468,11 @@ content at word boundaries; a nil height reports every row (owner decision, 2026
 
 ### Segmented control
 
-| Proposal  | Result | Rule                                                                                                                         |
-| --------- | ------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| nil x nil | 1 row  | Natural width: each segment is one padding cell, its icon, one cell between icon and label, its label, and one padding cell. |
-| 24x1      | 1 row  | The longest label tail-truncates first, down to two characters plus `truncation.mark` (narrow-24).                           |
-| 20x1      | 1 row  | Below the label floor every segment is icon-only (narrow-20).                                                                |
+| Proposal  | Result | Rule                                                                                                                                                                                                                                                                    |
+| --------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| nil x nil | 1 row  | Natural width: each segment is one padding cell, its icon, one cell between icon and label, its label, and one padding cell. A Nerd Font icon counts two cells, the glyph and its gap, so it needs no extra gap cell ([Nerd Font cells](../tokens.md#nerd-font-cells)). |
+| 24x1      | 1 row  | The longest label tail-truncates first, down to two characters plus `truncation.mark` (narrow-24).                                                                                                                                                                      |
+| 20x1      | 1 row  | Below the label floor every segment is icon-only (narrow-20).                                                                                                                                                                                                           |
 
 ### Collapsed host row
 
@@ -1475,11 +1485,10 @@ content at word boundaries; a nil height reports every row (owner decision, 2026
 
 ## Environment
 
-Picker consumes `isEnabled` and applies one resolved semantic Style to its implemented
-inline row: `semantic.primary` when enabled and unfocused, `semantic.focus` when focused,
-and `semantic.disabled` when disabled. `truncation.mark` defines grapheme-safe value-slot
-overflow; its chevron and placeholder substitutions are specified in
-[Degradation](#degradation).
+Picker consumes `isEnabled` and applies one resolved Style to its implemented inline row:
+`primary` when enabled and unfocused, `focus` when focused, and `disabled` when disabled.
+`truncation.mark` defines grapheme-safe value-slot overflow; its chevron and placeholder
+substitutions are specified in [Degradation](#degradation).
 
 `lineLimit` and `truncationMode` flow through the environment to the title, menu option
 labels, descriptions, and the collapsed host-row value (content). The standalone inline
@@ -1494,23 +1503,23 @@ sub-element roles are:
 - `primary` -- labels and unchosen option text.
 - `secondary` -- the title drawn before the inline row, radio group, and segmented
   control, as LabeledContent draws its label.
-- `focus` -- the focused group's cursor glyph and label, and the active chip underline,
-  via `semantic.focus`.
+- `focus` -- the focused group's cursor glyph and label, and the active chip underline.
 - `accent` -- the active segment and active chip background; the chosen marker `◉` in the
   menu, the same selection-mark colour as Toggle and Form.
-- `muted` -- inactive chips and segments, the unchosen marker `○`, and each option
-  description (owner decision, 2026-10-11).
+- `secondary` -- inactive chips and segments, the unchosen marker `○`, and each option
+  description (owner decision, 2026-10-11). Unselected segment labels draw `primary`
+  instead while the picker is focused (owner decision, 2026-10-19).
 - `disabled` -- every visible cell of a disabled Picker.
 - `contrast` -- the label on an active chip or segment.
 - `info` -- the typed custom text in the menu.
 - `surface` -- the inactive segment band.
 
-Token pending plan 032 step 5.3: `muted`, `info`, `contrast`, and `surface` have no entry
-in [tokens](../tokens.md) yet. `semantic.primary`, `semantic.accent`, `semantic.focus`,
-and `semantic.disabled` exist.
+Roles: `secondary` (was `muted`), `info`, `contrast` (`on(R)` inside `solid(R)`), and
+`surface` are defined in [tokens.md](../tokens.md#roles); `primary`, `accent`, `focus`,
+and `disabled` are too.
 
-> Deferred: endpoint-specific affordance styling, custom `PickerStyle`, `focus.border`,
-> and custom-style environment inputs land in a later slice.
+> Deferred: endpoint-specific affordance styling, custom `PickerStyle`, and custom-style
+> environment inputs land in a later slice. Focus follows [tokens.md](../tokens.md#focus).
 
 ## Primitive dependencies
 
@@ -1670,6 +1679,15 @@ Segmented control:
   (state model: segment widths).
 - `picker segmented draws an unknown icon name as its raw text` (degradation: segmented
   control).
+- `picker segmented active segment draws solid(accent) with no underline in colour tiers and underlines only under NO_COLOR while focused`
+  (anatomy: segmented control; [composite styles](../tokens.md#composite-styles); owner
+  decision, 2026-10-19).
+- `picker segmented unselected segment labels brighten from secondary to primary while the picker is focused`
+  (state model: segment widths; owner decision, 2026-10-19).
+- `picker segmented icon-only segment is four cells with Nerd Font icons, pad + icon(2) + pad`
+  (sizing; [Nerd Font cells](../tokens.md#nerd-font-cells)).
+- `picker segmented file and folder icons draw no icon under the Unicode charset and the segment keeps its truncation mark`
+  (icon catalog; [icon catalog](../tokens.md#icon-catalog)).
 - `picker segmented Right and Left wrap and are consumed` (key table: segmented Right and
   Left).
 - `picker segmented click on a segment sets selection and consumes the click` (mouse
@@ -1682,14 +1700,14 @@ Menu digits and descriptions:
 - `picker menu draws no digit labels on rows` (state: cursor on an unchosen option).
 - `picker menu digit is typed text while editing the custom row` (key table: editing
   rows).
-- `picker menu aligns descriptions in a muted column when every description fits whole`
+- `picker menu aligns descriptions in a secondary column when every description fits whole`
   (state: menu with descriptions, aligned column; sizing: 40x5).
 - `picker menu puts every description on its own row when any would not fit whole` (state:
   menu with descriptions, own rows; sizing: 40x10).
 - `picker menu wraps a description on its own row and never tail-truncates it` (state:
   menu with descriptions, own rows; sizing: 20x15).
 - `picker menu chooses the description layout per menu` (state model: description layout).
-- `picker menu descriptions use the muted role` (environment: sub-element roles).
+- `picker menu descriptions use the secondary role` (environment: sub-element roles).
 
 Menu collapsed in a host row:
 
@@ -1716,11 +1734,12 @@ Menu collapsed in a host row:
 ## Degradation
 
 Picker follows the [degradation ladder](../tokens.md#degradation-ladder). In `NO_COLOR`,
-semantic Styles reduce to their attributes and focused Picker remains bold; in 16-color,
-`semantic.accent` resolves to its indexed-color plus attribute fallback. At the ASCII-only
-rung, U+2039 `‹` becomes `<`, U+203A `›` becomes `>`, and the absent-value em dash `—`
-becomes `-`; every replacement is one display cell and preserves the inline geometry.
-`truncation.mark` becomes `~` at that same rung.
+[roles](../tokens.md#roles) reduce to their attributes and focused Picker remains bold; in
+16-color, `accent` resolves to ANSI 14 on dark schemes and ANSI 6 on light, with no bold
+in colour tiers ([hue roles](../tokens.md#hue-roles)). At the ASCII-only rung, U+2039 `‹`
+becomes `<`, U+203A `›` becomes `>`, and the absent-value em dash `—` becomes `-`; every
+replacement is one display cell and preserves the inline geometry. `truncation.mark`
+becomes `~` at that same rung.
 
 Per presentation:
 
@@ -1731,8 +1750,9 @@ Per presentation:
   2026-10-10).
 - Segmented control: segment icons are [Label](../primitives/label.md) catalog names, so
   they resolve through the active charset; every catalog row has an ASCII form, and an
-  unknown name draws its raw text. The label floor and icon-only fallback are unchanged at
-  every rung.
+  unknown name draws its raw text. Unicode: Path and Tree have no icon and keep
+  `truncation.mark`; Diff draws `▤` ([icon catalog](../tokens.md#icon-catalog)). The label
+  floor and icon-only fallback are unchanged at every rung.
 - Menu: at the ASCII-only rung the chosen marker `◉` becomes `(*)` and the unchosen marker
   `○` becomes `( )`, the ASCII forms of Toggle's `.circle`. These markers are three cells
   instead of one, so the option label is measured within the remaining width. The cursor
@@ -1741,7 +1761,7 @@ Per presentation:
   degradation live in [MultiPicker](multi-picker.md#degradation).
 - Option descriptions: a description is plain text at every rung, on its own row or in the
   aligned column. The ASCII-only rung changes no description glyph, and `NO_COLOR` removes
-  only its `muted*` colour (owner decision, 2026-10-11).
+  only its `secondary` colour (owner decision, 2026-10-11).
 - Collapsed host row: the open marker `▾` becomes `v` (owner decision, 2026-10-11), and a
   fixed one-row cut ends in `~`.
 
@@ -1762,8 +1782,9 @@ only the last visible row with `truncation.mark` (`~` at the ASCII-only rung).
 - **Deferred:** per-option disabled state. 1.0 treats every supplied option as selectable;
   disabled-option visibility, traversal, and placeholder policy are deferred to
   [Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase).
-- **Open:** the `contrast` role used on active chips and segments is not in the Tessera
-  role list. Name it or map it to an existing role; token pending plan 032 step 5.3.
+- **Resolved:** `contrast` is `on(R)`, the label colour inside `solid(R)`
+  ([composite styles](../tokens.md#composite-styles)), not a free-standing role. The
+  active segment and chip are `solid(accent)` (owner decision, 2026-10-19).
 - **Resolved:** an absent bound value displays `—` and does not write the binding. The
   first enabled cycle with a nonempty option set writes the first option.
 

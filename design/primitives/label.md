@@ -1,6 +1,6 @@
 ---
 kind: primitive
-status: wireframed
+status: specified
 ---
 
 # Label
@@ -12,7 +12,7 @@ roles below.
 
 Owner decision, omp2 review, 2026-10: adopt the omp2 icon behaviour. Names resolve per
 charset (Unicode, ASCII, Nerd Font) from the environment. Unknown names draw as their raw
-text. The catalog's token rows are pending plan 032 step 5.3.
+text. The icon catalog is [tokens.md](../tokens.md#icon-catalog).
 
 ## Prior art
 
@@ -30,10 +30,6 @@ text. The catalog's token rows are pending plan 032 step 5.3.
 ## API direction
 
 ```swift
-public enum IconCharset: Sendable {
-    case unicode, ascii, nerdFont
-}
-
 public struct IconName: ExpressibleByStringLiteral, Sendable {
     public init(stringLiteral value: String)
 }
@@ -54,46 +50,34 @@ extension Label {
 }
 
 Label("Build passed", icon: "success")
-    .labelIconRole(.blue)
+    .labelIconRole(.info)
 ```
 
-- The charset is a shared environment value, `\.iconCharset` (proposed), read by every
-  `Label`: `.unicode` by default, `.nerdFont`, or `.ascii`. The app or the terminal
-  capability sets it (owner decision, 2026-10-10). The charset's token row lands in plan
-  032 step 5.3.
+- The charset is the shared environment value `\.charset`
+  ([tokens.md#charset](../tokens.md#charset)), read by every `Label`: `.unicode` by
+  default, `.nerdFont`, or `.ascii`. The app states an intent, `.automatic` by default;
+  the locale, `NERDFONT` and the intent resolve the charset. Terminal identity never
+  selects it (owner decision, 2026-10-19).
 - `icon` names one row of the semantic icon catalog. Unknown names draw the raw name text
   in the title's place of the icon.
-- The icon and title are separated by one column (owner decision, 2026-10-10).
+- The icon and title are separated by one column (owner decision, 2026-10-10). A Nerd Font
+  icon's blank second cell is that gap ([Nerd Font cells](../tokens.md#nerd-font-cells);
+  owner decision, 2026-10-19). A name with no glyph in the active charset (a `none` cell
+  in the [icon catalog](../tokens.md#icon-catalog)) draws no icon and no gap: the title
+  starts at c0.
 
 ## Icon catalog
 
-Each semantic name has a glyph in each charset and a default role. The catalog is the omp2
-icon table, with one row per name and columns for Unicode, ASCII and Nerd Font. The rows
-in this doc are the names the captures use.
+Glyphs, ASCII forms and default roles for every name are the
+[icon catalog](../tokens.md#icon-catalog) (owner decision, 2026-10-19). The captures below
+use `error`, `success`, `done`, `pending`, `running`, `idle`, `parked`, `stopped`,
+`enabled`, `cursor`, `folder`, `git` and `warning`.
 
-| Name          | Unicode | ASCII  | Nerd Font | Default role                                |
-| ------------- | ------- | ------ | --------- | ------------------------------------------- |
-| `error`       | ✘       | `[!!]` | U+F00D    | `error`                                     |
-| `success`     | ✔       | `[ok]` | U+F00C    | `success`                                   |
-| `done`        | •       | `*`    | •         | `success`                                   |
-| `pending`     | ⏳      | `[*]`  | U+F254    | `output` (token pending plan 032 step 5.3)  |
-| `running`     | ⟳       | `[~]`  | U+F110    | `accent`                                    |
-| `idle`        | ○       | `[-]`  | U+F111    | `accent`                                    |
-| `parked`      | ⏸       | `[\|]` | U+F04C    | `accent`                                    |
-| `stopped`     | ⏹       | `[#]`  | U+F28D    | `accent`                                    |
-| `enabled`     | ●       | `[x]`  | U+F111    | `accent`                                    |
-| `cursor`      | ❯       | `>`    | U+F054    | `accent`                                    |
-| `folder`      | 📁      | `[D]`  | U+F115    | `accent`                                    |
-| `folder-open` | 📂      | `[O]`  | U+F07C    | `accent`                                    |
-| `file`        | 📄      | `[F]`  | U+F15B    | `accent`                                    |
-| `git`         | ⎇       | `git:` | U+F1D3    | `accent`                                    |
-| `warning`     | ⚠       | `[!]`  | U+F071    | `warning` (token pending plan 032 step 5.3) |
-
-Default roles follow omp2's rule (`icon.rs` L79-L86): `error` takes `error`; `done` and
-`success` take `success`; `pending` takes `output`; any other name takes `accent`, except
-`warning`. Owner decision, 2026-10-10: `warning` takes the `warning` role (token pending
-plan 032 step 5.3), the warning tone, not `accent` as omp2 gives it. Callout and
-ContentUnavailableView already assume that tone.
+Default roles follow [tokens.md#icon-catalog](../tokens.md#icon-catalog): omp2's rule
+(`icon.rs` L79-L86) with the owner's changes. `error` takes `error`; `done` and `success`
+take `success`; `warning` takes `warning` (owner decision, 2026-10-10); `info` takes
+`info`; `pending` takes `secondary` (owner decision, 2026-10-19); any other name takes
+`accent`. A caller may replace the icon's role with `.labelIconRole(_:)`.
 
 ## Anatomy
 
@@ -140,20 +124,21 @@ B  fg=success
 ### Unicode catalog (40 columns)
 
 Every name in the capture, drawn with its default role. The title is `primary`, the glyph
-takes the role. The `pending` and `folder` glyphs are two columns wide.
+takes the role. Under `.unicode`, `pending` and `folder` draw no icon and no gap, so their
+titles start at c0 (owner decision, 2026-10-19).
 
 ```wireframe 40x13
 ✘ error
 ✔ success
 • done
-⏳ pending
+pending
 ⟳ running
 ○ idle
 ⏸ parked
 ⏹ stopped
 ● enabled
 ❯ cursor
-📁 folder
+folder
 ⎇ git
 ⚠ warning
 ```
@@ -161,10 +146,9 @@ takes the role. The `pending` and `folder` glyphs are two columns wide.
 ```text
 Callouts (40x13, 0-based):
 1. r0, r1, r2 c0       Icon -- `error`, `success`, `done`; error, success, success roles
-2. r3 c0-1             Icon -- `pending`, wide glyph; output role (pending 5.3)
-3. r4-r11 c0           Icon -- `running`, `idle`, `parked`, `stopped`, `enabled`, `cursor`,
-                       `folder`, `git`, accent role; `folder` is wide
-4. r12 c0              Icon -- `warning`, warning role (token pending plan 032 step 5.3)
+2. r3, r10 c0          Title only -- `pending` and `folder` draw no Unicode icon (tokens.md#icon-catalog); the title starts at c0 with no gap
+3. r4-r9, r11 c0       Icon -- `running`, `idle`, `parked`, `stopped`, `enabled`, `cursor`, `git`; accent role
+4. r12 c0              Icon -- `warning`, warning role
 5. title columns       Title -- primary role, after a one-column gap
 ```
 
@@ -173,37 +157,36 @@ Callouts (40x13, 0-based):
 ✘ error
 ✔ success
 • done
-⏳ pending
+pending
 ⟳ running
 ○ idle
 ⏸ parked
 ⏹ stopped
 ● enabled
 ❯ cursor
-📁 folder
+folder
 ⎇ git
 ⚠ warning
 ── style ──
 A
 B
 B
-CC
+
 D
 D
 D
 D
 D
 D
-DD
+
 D
 E
 ── legend ──
 .  default
 A  fg=error
 B  fg=success
-C  fg=output
 D  fg=accent
-E  fg=warning (token pending plan 032 step 5.3)
+E  fg=warning
 ```
 
 ### ASCII catalog (40 columns)
@@ -231,9 +214,9 @@ Callouts (40x13, 0-based):
 1. r0 c0-3    Icon -- `error`, error role
 2. r1 c0-3    Icon -- `success`, success role
 3. r2 c0      Icon -- `done`, success role
-4. r3 c0-2    Icon -- `pending`, output role (token pending plan 032 step 5.3)
+4. r3 c0-2    Icon -- `pending`, secondary role
 5. r4-r11     Icon -- accent role, one per name; `git` draws `git:`, `folder` draws `[D]`
-6. r12 c0-2   Icon -- `warning`, warning role (token pending plan 032 step 5.3)
+6. r12 c0-2   Icon -- `warning`, warning role
 ```
 
 ```text
@@ -269,15 +252,16 @@ EEE
 .  default
 A  fg=error
 B  fg=success
-C  fg=output
+C  fg=secondary
 D  fg=accent
-E  fg=warning (token pending plan 032 step 5.3)
+E  fg=warning
 ```
 
 ### Nerd Font catalog (40 columns)
 
-Each Nerd Font glyph is one private-use character, drawn as one column. The name's role
-colours it the same way as in Unicode.
+Each Nerd Font icon is a private-use glyph followed by a real U+0020: two cells in layout,
+and the space is the icon-title gap ([Nerd Font cells](../tokens.md#nerd-font-cells);
+owner decision, 2026-10-19). The name's role colours the glyph as in Unicode.
 
 ```wireframe 40x13
  error
@@ -285,23 +269,23 @@ colours it the same way as in Unicode.
 • done
  pending
  running
- idle
+ idle
  parked
  stopped
  enabled
  cursor
- folder
+ folder
  git
  warning
 ```
 
 ```text
 Callouts (40x13, 0-based):
-1. r0 c0       Icon -- `error` glyph U+F00D, error role
-2. r1 c0       Icon -- `success` glyph U+F00C, success role
-3. r2 c0       Icon -- `done`, a Unicode bullet kept in Nerd Font, success role
-4. r3-r11 c0   Icon -- Nerd Font glyphs, role by name (pending output, others accent)
-5. r12 c0      Icon -- `warning` glyph U+F071, warning role (token pending plan 032 step 5.3)
+1. r0 c0-c1    Icon -- `error` glyph U+F00D and its blank cell, error role
+2. r1 c0-c1    Icon -- `success` glyph U+F00C and its blank cell, success role
+3. r2 c0       Icon -- `done`, a Unicode bullet kept in Nerd Font (the ladder's fallback), success role
+4. r3-r11 c0-c1  Icon -- Nerd Font glyphs and blank cells, role by name (pending secondary, others accent)
+5. r12 c0-c1   Icon -- `warning` glyph U+F071 and its blank cell, warning role
 ```
 
 ```text
@@ -311,35 +295,35 @@ Callouts (40x13, 0-based):
 • done
  pending
  running
- idle
+ idle
  parked
  stopped
  enabled
  cursor
- folder
+ folder
  git
  warning
 ── style ──
-A
+AA
+BB
 B
-B
-C
-D
-D
-D
-D
-D
-D
-D
-D
-E
+CC
+DD
+DD
+DD
+DD
+DD
+DD
+DD
+DD
+EE
 ── legend ──
 .  default
 A  fg=error
 B  fg=success
-C  fg=output
+C  fg=secondary
 D  fg=accent
-E  fg=warning (token pending plan 032 step 5.3)
+E  fg=warning
 ```
 
 ### In running text (40 columns)
@@ -388,22 +372,22 @@ C  fg=info bold
 and leaves the title `primary` (owner decision, 2026-10-10).
 
 ```wireframe 40x3
-✘ error, recoloured blue
-✔ success, recoloured blue
+✘ error, recoloured info
+✔ success, recoloured info
 ✘ error, default red
 ```
 
 ```text
 Callouts (40x3, 0-based):
-1. r0-r1 c0    Icon -- explicit blue, replacing the `error` and `success` roles
+1. r0-r1 c0    Icon -- explicit info, replacing the `error` and `success` roles
 2. r0-r1 c2-   Title -- primary role
 3. r2 c0       Icon -- `error` default role, error
 ```
 
 ```text
 ── chars ──
-✘ error, recoloured blue
-✔ success, recoloured blue
+✘ error, recoloured info
+✔ success, recoloured info
 ✘ error, default red
 ── style ──
 A
@@ -411,17 +395,17 @@ A
 B
 ── legend ──
 .  default
-A  fg=blue (explicit)
+A  fg=info (explicit)
 B  fg=error
 ```
 
 ## Variants
 
-| Charset  | Icon form      | Column width | Source                   |
-| -------- | -------------- | ------------ | ------------------------ |
-| unicode  | one glyph      | one or two   | catalog Unicode column   |
-| ascii    | bracketed text | one to four  | catalog ASCII column     |
-| nerdFont | one PUA glyph  | one          | catalog Nerd Font column |
+| Charset  | Icon form         | Column width | Source                   |
+| -------- | ----------------- | ------------ | ------------------------ |
+| unicode  | one glyph         | one or two   | catalog Unicode column   |
+| ascii    | bracketed text    | one to four  | catalog ASCII column     |
+| nerdFont | PUA glyph + blank | two          | catalog Nerd Font column |
 
 ## Sizing
 
@@ -438,15 +422,14 @@ under-minimum, over-maximum.
 
 ## Environment
 
-- `\.iconCharset` (proposed): the shared charset, `.unicode` by default, `.nerdFont`, or
-  `.ascii`. The app or terminal capability sets it. Token row pending plan 032 step 5.3.
-- Role `primary` for titles: `semantic.primary`, see
-  [tokens.md](../tokens.md#semantic-styles).
-- Role `accent` for default names: `semantic.accent`.
-- Roles `error`, `success`, `output`, and `warning`: token pending plan 032 step 5.3. The
-  Tokens catalog defines no such rows.
-- Icon catalog: one row per semantic name, per charset. Token rows pending plan 032 step
-  5.3.
+- `\.charset` ([tokens.md#charset](../tokens.md#charset)): the shared charset, `.unicode`
+  by default, `.nerdFont`, or `.ascii`. The app's intent sets it; the locale and
+  `NERDFONT` cap it.
+- Role `primary` for titles: [text roles](../tokens.md#text-roles).
+- Role `accent` for default names: [hue roles](../tokens.md#hue-roles).
+- Roles `error`, `success` and `warning`: [hue roles](../tokens.md#hue-roles); `pending`
+  takes `secondary`.
+- Icon catalog: [tokens.md](../tokens.md#icon-catalog).
 
 ## Primitive dependencies
 
@@ -461,7 +444,7 @@ under-minimum, over-maximum.
 - `label draws only the icon under the minimum width, and nothing below one cell` (Sizing,
   Degradation)
 - `label colours the glyph by its name's default role` (Unicode catalog)
-- `label draws the pending glyph in the output role` (Unicode catalog, ASCII catalog)
+- `label draws the pending icon in the secondary role` (ASCII catalog)
 - `label separates the icon from the title by one column` (Anatomy)
 - `label draws the warning name in the warning role` (Unicode catalog, ASCII catalog, Nerd
   Font catalog)
@@ -471,12 +454,19 @@ under-minimum, over-maximum.
 - `label keeps icon and title on one row and tail-truncates the title at a narrow width`
   (Anatomy: Wrap exception; Sizing: tight)
 - `label draws icons in running text in the surrounding role` (In running text)
+- `label draws no icon for a name whose Unicode cell is none` (Unicode catalog; icon
+  catalog)
+- `label draws a Nerd Font icon in two cells with a real space after the glyph` (Nerd Font
+  catalog; Nerd Font cells)
+- `unicode icons never draw colour emoji` (icon catalog)
 
 ## Degradation
 
 - ASCII charset: the bracketed ASCII column is used. Names draw as the ASCII column.
 - Each catalog row falls back in this order: Nerd Font, then Unicode, then ASCII (owner
-  decision, 2026-10-10).
+  decision, 2026-10-10). A `none` cell in the catalog is a deliberate blank: the row draws
+  nothing in that charset and does not fall back
+  ([tokens.md#icon-catalog](../tokens.md#icon-catalog)).
 - `NO_COLOR`: role colours are lost. Glyphs still identify the name in every charset.
 - Under the minimum width: the icon only. Below one cell: nothing (owner decision,
   2026-10-10).
@@ -485,8 +475,7 @@ under-minimum, over-maximum.
 
 ## Open questions
 
-- Catalog token rows: the `error`, `success`, `output`, and `warning` roles and the
-  catalog's glyph rows are token pending plan 032 step 5.3.
+- None.
 
 ## Inspiration
 
