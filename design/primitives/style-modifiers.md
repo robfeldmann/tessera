@@ -24,7 +24,9 @@ state, focus, bindings, nor input handling. Their contract is the Slice 3
 ## Anatomy
 
 Style wrappers have no visible box geometry. The text glyphs below are therefore the same
-before and after a modifier; the adjacent styled grids show the inherited cell attributes.
+before and after a modifier; the styled grids show the inherited cell attributes. Each
+grid is `standalone`: a minimal illustration of one inheritance rule, so its glyphs differ
+from the wireframe above.
 
 ```wireframe 4x1
 Text
@@ -37,58 +39,78 @@ Callouts (4x1, 0-based):
 
 ### Nested inheritance
 
-```text
+An ancestor `.bold()` wraps two cells. The second cell's own wrapper adds the `accent`
+foreground and inherits the bold. Both cells retain their source glyphs.
+
+```text standalone
 ── chars ──
 AB
-── attributes ──
+── style ──
 BA
-Legend: B = bold from the ancestor `.bold()`; A = foreground from
-`accent` added by the child. Both cells retain their source glyphs.
+── legend ──
+B  bold -- bold from the ancestor `.bold()`
+A  fg=accent bold -- foreground from `accent` added by the child, bold inherited
 ```
 
 ### Sibling isolation
 
-```text
+A sibling wrapper never alters its peer.
+
+```text standalone
 ── chars ──
 LR
-── attributes ──
+── style ──
 A.
-Legend: A = foreground from `accent` on the left sibling; . = inherited
-`primary` on the right sibling. A sibling wrapper never alters its peer.
+── legend ──
+.  default -- inherited `primary` on the right sibling
+A  fg=accent -- foreground from `accent` on the left sibling
 ```
 
 ### Explicit attribute override
 
-```text
+The child's `.bold(false)` records bold as off, so the second cell resolves to the default
+style; both cells otherwise inherit `primary`.
+
+```text standalone
 ── chars ──
 NO
-── attributes ──
-B-
-Legend: B = bold from the ancestor `.bold()`; - = bold explicitly off from the child
-`.bold(false)`. Both cells otherwise inherit `primary`.
+── style ──
+B.
+── legend ──
+.  default -- bold explicitly off by the child `.bold(false)`, otherwise `primary`
+B  bold -- bold from the ancestor `.bold()`
 ```
 
 ### Whole-style merge
 
-```text
+The child's complete `destructive` Style, merged by `.style(_)`, replaces every attribute
+it supplies in the inherited `secondary` Style.
+
+```text standalone
 ── chars ──
 MN
-── attributes ──
+── style ──
 SD
-Legend: S = inherited complete `secondary` Style; D = child complete
-`destructive` Style merged by `.style(_)`, replacing every attribute it supplies.
+── legend ──
+S  fg=secondary -- inherited complete `secondary` Style
+D  fg=destructive -- child complete `destructive` Style merged by `.style(_)`
 ```
 
 ### Foreground and region fill
 
-```text
+`.background(Color)` fills the final allocated child region; descendant glyphs take the
+`accent` foreground over that fill. The `·` is an otherwise empty cell, drawn visibly so
+the aligned grid can show the fill. The fill is an arbitrary `Color`; the legend draws it
+as `surface`.
+
+```text standalone
 ── chars ──
 INK·
-── attributes ──
-AABB
-Legend: A = foreground from `accent` on descendant glyphs; B = background
-from `.background(Color)` across the final allocated child region; · = an otherwise
-empty cell represented visibly so the aligned grid can show the fill.
+── style ──
+AAAB
+── legend ──
+A  fg=accent bg=surface -- `accent` foreground on a descendant glyph over the fill
+B  bg=surface -- region fill alone, in a cell no descendant draws
 ```
 
 The region fill paints first, then descendant content paints over it. It is clipped to the

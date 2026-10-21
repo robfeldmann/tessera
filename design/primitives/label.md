@@ -395,7 +395,7 @@ A
 B
 ── legend ──
 .  default
-A  fg=info (explicit)
+A  fg=info -- explicit
 B  fg=error
 ```
 

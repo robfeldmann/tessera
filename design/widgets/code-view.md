@@ -302,7 +302,7 @@ AAGA....KKK...P.FFFFFPP...P.SSSSSSSSSSS
 AAGA.......
 AAGAP
 ── legend ──
-.  syntax.plain (default)
+.  default -- syntax.plain
 A  fg=secondary
 G  fg=border
 K  fg=syntax.keyword

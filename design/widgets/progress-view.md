@@ -163,7 +163,7 @@ Callouts (12x2, 0-based):
 Each built-in set and the custom example, in frame order. These rows run past 40 cells, so
 this is a text reference rather than a wireframe block.
 
-```text
+```text standalone
 ── chars ──
 braille  ⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏
 orbit    ⣾ ⣽ ⣻ ⢿ ⡿ ⣟ ⣯ ⣷

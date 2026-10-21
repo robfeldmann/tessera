@@ -131,9 +131,9 @@ N  fg=primary
 D  fg=primary bold
 R  fg=error
 W  fg=warning
-L  fg=primary, selection.fill
-s  fg=success, selection.fill
-w  fg=warning, selection.fill
+L  fg=primary bg=selection.fill
+s  fg=success bg=selection.fill
+w  fg=warning bg=selection.fill
 ```
 
 ## States
@@ -188,11 +188,11 @@ C  fg=primary
 S  fg=secondary
 T  fg=border
 U  fg=accent
-D  fg=accent, selection.fill
-E  fg=border, selection.fill
-F  fg=primary, selection.fill
-G  selection.fill
-H  fg=secondary, selection.fill
+D  fg=accent bg=selection.fill
+E  fg=border bg=selection.fill
+F  fg=primary bg=selection.fill
+G  bg=selection.fill
+H  fg=secondary bg=selection.fill
 ```
 
 ### Mobile
@@ -242,10 +242,10 @@ EE.FFGGGGGGG
 EE.FFGGGG
 ── legend ──
 .  default
-A  fg=accent, selection.fill
-B  fg=secondary, selection.fill
-C  fg=primary, selection.fill
-D  selection.fill
+A  fg=accent bg=selection.fill
+B  fg=secondary bg=selection.fill
+C  fg=primary bg=selection.fill
+D  bg=selection.fill
 E  fg=accent
 F  fg=secondary
 G  fg=primary
@@ -385,10 +385,10 @@ N  fg=primary
 D  fg=primary bold
 R  fg=error
 W  fg=warning
-L  fg=primary, selection.fill
-l  fg=accent, selection.fill
-s  fg=success, selection.fill
-w  fg=warning, selection.fill
+L  fg=primary bg=selection.fill
+l  fg=accent bg=selection.fill
+s  fg=success bg=selection.fill
+w  fg=warning bg=selection.fill
 ```
 
 #### ASCII
@@ -444,10 +444,10 @@ N  fg=primary
 D  fg=primary bold
 R  fg=error
 W  fg=warning
-L  fg=primary, selection.fill
-l  fg=accent, selection.fill
-s  fg=success, selection.fill
-w  fg=warning, selection.fill
+L  fg=primary bg=selection.fill
+l  fg=accent bg=selection.fill
+s  fg=success bg=selection.fill
+w  fg=warning bg=selection.fill
 ```
 
 ## State model

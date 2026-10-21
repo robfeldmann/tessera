@@ -190,24 +190,33 @@ def load_themes(path: Path = THEMES_FILE) -> list[Theme]:
 
 
 # Legend specs --------------------------------------------------------------------------------
+#
+# The grammar of design/README.md, linted by scripts/check-wireframes.py:
+# `L  fg=ROLE bg=ROLE attribute...[ -- description]`. The gallery reads it the same way and
+# collects what it cannot resolve in `Spec.problems` so a page can show it, never guessing.
 
 ATTRIBUTES = {"bold", "dim", "italic", "underline", "strikethrough", "reverse"}
-ALIASES = {
-    "muted": "secondary",
-    "output": "secondary",
-    "selection": "selection.fill",
-    "faint-focus": "faint(focus)",
-    "focus-faint": "faint(focus)",
-    "disabled-fill": "disabled.fill",
-    "disabled-label": "disabled.label",
-    "blue": "info",
-}
+# The roles of tokens.md "Roles" that a legend may name (`faint(R)` of any of them too);
+# scripts/test_check_wireframes.py keeps this set equal to the tables of tokens.md.
+ROLES = frozenset(
+    {"primary", "secondary", "border", "disabled", "focus", "contrast", "disabled.label",
+     "syntax.plain", "syntax.comment", "syntax.punctuation", *PAIR, *FILL_ROLES}
+)
+DESCRIPTION = re.compile(r"(?:^| )--(?: |$)")  # ` -- ` opens the free-text description
 
 
-def canonical(role: str) -> str:
-    """Old catalog spellings (tokens.md "Migration map") and starred legend roles."""
-    role = role.rstrip("*").removeprefix("semantic.")
-    return ALIASES.get(role, role)
+def split_description(text: str) -> tuple[str, str | None]:
+    """A legend entry's `SPEC` and its free-text description (None without ` -- `)."""
+    divider = DESCRIPTION.search(text)
+    if divider is None:
+        return text, None
+    return text[: divider.start()], text[divider.end() :].strip()
+
+
+def is_role(name: str) -> bool:
+    """A role of tokens.md, or `faint(R)` with `R` a role."""
+    inner = faint_of(name)
+    return (name if inner is None else inner) in ROLES
 
 
 @dataclass(frozen=True)
@@ -215,40 +224,38 @@ class Spec:
     fg: str | None
     bg: str | None
     attrs: frozenset[str]
+    problems: tuple[str, ...] = ()  # what the grammar rejected; the page shows these
 
 
 _specs: dict[str, Spec] = {}
 
 
 def parse_spec(text: str) -> Spec:
-    """Reads a legend spec such as `fg=contrast bg=accent bold`. Legends in the catalog
-    carry prose after the spec (`fg=focus: cursor`, `fg=accent (pill caps)`, `fg=focus, bold`);
-    reading stops at a token ending in a colon or starting with a parenthesis. A bare fill
-    role (`selection.fill`) is a background; unknown words are ignored."""
+    """Reads a legend entry's `SPEC[ -- description]`, such as `fg=contrast bg=accent bold`.
+    The description is dropped. A token the grammar does not know, a role that tokens.md
+    does not define, and a repeated `fg=` or `bg=` come back in `problems` and change
+    nothing else about the style."""
     if text in _specs:
         return _specs[text]
     fg = bg = None
     attrs: set[str] = set()
-    for token in text.split():
-        if token.startswith("("):
-            break
-        stop = token.endswith(":")
-        token = token.rstrip(",:;")
+    problems: list[str] = []
+    for token in split_description(text)[0].split():
         key, sep, value = token.partition("=")
         if sep and key in ("fg", "bg"):
-            if key == "fg":
-                fg = canonical(value)
+            if (fg if key == "fg" else bg) is not None:
+                problems.append(f"`{key}=` appears twice")
+            if not is_role(value):
+                problems.append(f"unknown role `{value}` in `{token}`")
+            elif key == "fg":
+                fg = value
             else:
-                bg = canonical(value)
+                bg = value
         elif not sep and token in ATTRIBUTES:
             attrs.add(token)
-        elif not sep and canonical(token) in FILL_ROLES:
-            bg = canonical(token)
-        elif not sep and fg is None and token == "disabled":
-            fg = "disabled"
-        if stop:
-            break
-    _specs[text] = Spec(fg, bg, frozenset(attrs))
+        elif token != "default":
+            problems.append(f"unknown token `{token}`")
+    _specs[text] = Spec(fg, bg, frozenset(attrs), tuple(problems))
     return _specs[text]
 
 

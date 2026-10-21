@@ -331,7 +331,7 @@ Callouts (14x1, 0-based):
 ── style ──
 DDDDDDDDDDDDDD
 ── legend ──
-D  disabled full Style
+D  fg=disabled
 ```
 
 ### ASCII

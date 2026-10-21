@@ -82,7 +82,7 @@ Known issues
 The cache can go stale after a git pull; run just warm to rebuild it.
 ```
 
-````text
+```text
 Callouts (72x8, 0-based):
 1. r0 c0-c12    Heading level 1 -- Text, `accent` bold underline; content, wraps
 2. r2 c8-c10    Strong run "2.4" -- Text, `primary` bold; content, wraps
@@ -94,6 +94,7 @@ Callouts (72x8, 0-based):
 8. r7 c31-c38   Inline code "git pull" -- Text, `warning` on `surface`; content, wraps
 9. r7 c45-c53   Inline code "just warm" -- Text, `warning` on `surface`; content, wraps
 10. r1, r4, r6  Block spacing -- one blank row between blocks
+```
 
 Styled grid for the same block. Colour, weight and underline matter here, so the roles are
 shown. Legend roles are the omp2 captures renamed to Tessera roles (`fg` is `primary`,
@@ -128,7 +129,7 @@ E  fg=warning bg=surface
 F  fg=accent underline
 G  fg=primary dim
 H  fg=accent bold
-````
+```
 
 ## States
 
@@ -271,7 +272,7 @@ BBBBBBB
 ..P
 BBB
 ── legend ──
-.  syntax.plain
+.  default -- syntax.plain
 A  fg=primary
 B  fg=border
 F  fg=syntax.function

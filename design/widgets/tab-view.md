@@ -117,14 +117,13 @@ Build passed on main at 14:02.
 A.ABBBBBBBBA...CCCC....CCCCCC
 EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
 DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
-
 ── legend ──
 .  default
-A  fg=focus: cursor and active-chip caps
-B  fg=contrast bg=focus, bold: active-chip title
-C  fg=secondary: inactive titles
-D  fg=primary: pane content
-E  fg=border: rule row
+A  fg=focus -- cursor and active-chip caps
+B  fg=contrast bg=focus bold -- active-chip title
+C  fg=secondary -- inactive titles
+D  fg=primary -- pane content
+E  fg=border -- rule row
 ```
 
 ## States
@@ -165,14 +164,13 @@ A.ABBBBBBBBA...CCCC....CCCCCC
 ...CCCCCCC....CCCCCCC
 EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
 DDDDDDDDDDDDDDDDDDDDD
-
 ── legend ──
 .  default
-A  fg=focus: cursor and active-chip caps
-B  fg=contrast bg=focus, bold: active-chip title
-C  fg=secondary: inactive titles
-D  fg=primary: pane content
-E  fg=border: rule row
+A  fg=focus -- cursor and active-chip caps
+B  fg=contrast bg=focus bold -- active-chip title
+C  fg=secondary -- inactive titles
+D  fg=primary -- pane content
+E  fg=border -- rule row
 ```
 
 ### Switched: Left on the first tab wraps to Config
@@ -204,14 +202,13 @@ strict = true
 A..CCCCCCCC....CCCC...ABBBBBBA
 EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
 DDDDDDDDDDDDD
-
 ── legend ──
 .  default
-A  fg=focus: cursor and active-chip caps
-B  fg=contrast bg=focus, bold: active-chip title
-C  fg=secondary: inactive titles
-D  fg=primary: pane content
-E  fg=border: rule row
+A  fg=focus -- cursor and active-chip caps
+B  fg=contrast bg=focus bold -- active-chip title
+C  fg=secondary -- inactive titles
+D  fg=primary -- pane content
+E  fg=border -- rule row
 ```
 
 ### Minimum: icon collapse (24x5)
@@ -260,14 +257,13 @@ A.ABBBBBBBBBBA...CC
 EEEEEEEEEEEEEEEEEEEEEEEE
 DDDDDDDDDDDDDDDDDDDDDDD
 DDDDDD
-
 ── legend ──
 .  default
-A  fg=focus: cursor and active-chip caps
-B  fg=contrast bg=focus, bold: active-chip title
-C  fg=secondary: inactive icons and titles
-D  fg=primary: pane content
-E  fg=border: rule row
+A  fg=focus -- cursor and active-chip caps
+B  fg=contrast bg=focus bold -- active-chip title
+C  fg=secondary -- inactive icons and titles
+D  fg=primary -- pane content
+E  fg=border -- rule row
 ```
 
 ### Minimum, ASCII (24x5)
@@ -297,14 +293,13 @@ A.BBBBBBBBBBBBB
 EEEEEEEEEEEEEEEEEEEEEEEE
 DDDDDDDDDDDDDDDDDDDDDDD
 DDDDDD
-
 ── legend ──
 .  default
-A  fg=focus: cursor
-B  fg=focus, bold: active label
-C  fg=secondary: inactive titles and icon names
-D  fg=primary: pane content
-E  fg=border: rule row
+A  fg=focus -- cursor
+B  fg=focus bold -- active label
+C  fg=secondary -- inactive titles and icon names
+D  fg=primary -- pane content
+E  fg=border -- rule row
 ```
 
 ### Under the minimum: truncated active label (12x6)
@@ -367,14 +362,13 @@ Build passed on main at 14:02.
 ..ABBBBBBBBA...CCCC....CCCCCC
 EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
 DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
-
 ── legend ──
 .  default
-A  fg=accent: active-chip caps
-B  fg=contrast bg=accent, bold: active-chip title
-C  fg=secondary: inactive titles
-D  fg=primary: pane content
-E  fg=border: rule row
+A  fg=accent -- active-chip caps
+B  fg=contrast bg=accent bold -- active-chip title
+C  fg=secondary -- inactive titles
+D  fg=primary -- pane content
+E  fg=border -- rule row
 ```
 
 ### No matching selection
@@ -405,13 +399,11 @@ Callouts (40x3, 0-based):
 ── style ──
 A..CCCCCCCC....CCCC....CCCCCC
 EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
-
-
 ── legend ──
 .  default
-A  fg=focus: cursor
-C  fg=secondary: inactive titles
-E  fg=border: rule row
+A  fg=focus -- cursor
+C  fg=secondary -- inactive titles
+E  fg=border -- rule row
 ```
 
 ## State model

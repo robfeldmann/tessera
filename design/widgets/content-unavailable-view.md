@@ -246,8 +246,8 @@ RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
 .  default
 T  fg=primary bold
 D  fg=secondary
-v  tinted fill (`.tinted`)
-V  fg=accent (`.tinted` label)
+v  fg=accent bg=faint(accent) -- `.tinted` label on its fill
+V  fg=faint(accent) -- `.tinted` caps
 p  fg=contrast bg=accent bold
 P  fg=accent
 W  fg=warning

@@ -111,8 +111,8 @@ AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 A  fg=warning
 B  fg=primary
 C  fg=warning bold
-E  fg=warning (badge caps, in the fill colour)
-F  fg=contrast bg=warning bold (badge label)
+E  fg=warning -- badge caps, in the fill colour
+F  fg=contrast bg=warning bold -- badge label
 ```
 
 ## States

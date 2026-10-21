@@ -164,7 +164,7 @@ AABBBBBB....DDDD
 ── legend ──
 .  default
 A  fg=focus
-B  fg=focus, bold
+B  fg=focus bold
 C  fg=primary
 D  fg=success
 E  fg=info
@@ -264,7 +264,7 @@ A.BBBBBB....F.EE.F
 ── legend ──
 .  default
 A  fg=focus
-B  fg=focus, bold
+B  fg=focus bold
 C  fg=primary
 D  fg=success
 E  fg=info
@@ -321,7 +321,7 @@ B  fg=primary
 C  fg=success
 D  fg=info
 E  fg=secondary
-F  fg=focus, bold
+F  fg=focus bold
 ```
 
 ### Focused, ASCII
@@ -368,7 +368,7 @@ B  fg=primary
 C  fg=success
 D  fg=info
 E  fg=secondary
-F  fg=focus, bold
+F  fg=focus bold
 ```
 
 ### Select dropdown open
@@ -431,7 +431,7 @@ A  fg=focus
 B  fg=primary
 C  fg=success
 D  fg=info
-E  fg=focus, bold
+E  fg=focus bold
 F  fg=secondary
 G  fg=accent
 ```
@@ -488,7 +488,7 @@ A.BBBBB.....EEEE.F
 ── legend ──
 .  default
 A  fg=focus
-B  fg=focus, bold
+B  fg=focus bold
 C  fg=primary
 D  fg=success
 E  fg=info
@@ -554,7 +554,7 @@ A.BBBBBB....EEEEEEEEEEEEEEE.F
 ── legend ──
 .  default
 A  fg=focus
-B  fg=focus, bold
+B  fg=focus bold
 C  fg=primary
 D  fg=success
 E  fg=info
@@ -616,7 +616,7 @@ A.BBBBBB....EEEEEEEEEEEE.F
 ── legend ──
 .  default
 A  fg=focus
-B  fg=focus, bold
+B  fg=focus bold
 C  fg=primary
 D  fg=success
 E  fg=info
@@ -680,7 +680,7 @@ H.HHHH..CCCCCCCC..HHHHHHHHHHHHHHHHHHH
 A  fg=focus
 C  fg=primary
 H  fg=error
-I  fg=error, bold
+I  fg=error bold
 ```
 
 ### Validation: inline message, 24 columns
@@ -720,7 +720,7 @@ H.HHHH..CCCCCCCC..HHH
 A  fg=focus
 C  fg=primary
 H  fg=error
-I  fg=error, bold
+I  fg=error bold
 ```
 
 ### Validation: inline message, ASCII
@@ -757,7 +757,7 @@ H.HHHH..CCCCCCCC..HHHHHHHHHHHHHHHHHHH
 A  fg=focus
 C  fg=primary
 H  fg=error
-I  fg=error, bold
+I  fg=error bold
 ```
 
 ### Validation: below-row message (rejected)
@@ -803,7 +803,7 @@ H.HHHH..CCCCCCCC
 A  fg=focus
 C  fg=primary
 H  fg=error
-I  fg=error, bold
+I  fg=error bold
 ```
 
 ```wireframe 24x5
@@ -841,7 +841,7 @@ H.HHHH..CCCCCCCC
 A  fg=focus
 C  fg=primary
 H  fg=error
-I  fg=error, bold
+I  fg=error bold
 ```
 
 ### Mobile: the anatomy at 40 columns
@@ -916,7 +916,7 @@ A.BBBBBB
 ── legend ──
 .  default
 A  fg=focus
-B  fg=focus, bold
+B  fg=focus bold
 C  fg=primary
 D  fg=success
 E  fg=info
@@ -967,7 +967,7 @@ A.BBBBBBBBG
 ── legend ──
 .  default
 A  fg=focus
-B  fg=focus, bold
+B  fg=focus bold
 C  fg=primary
 E  fg=info
 F  fg=secondary
@@ -1037,7 +1037,7 @@ A.BBBBB.....EEEE.F.....................H
 ── legend ──
 .  default
 A  fg=focus
-B  fg=focus, bold
+B  fg=focus bold
 C  fg=primary
 E  fg=info
 F  fg=secondary
@@ -1088,7 +1088,7 @@ AABBBBBB....DDDD
 ── legend ──
 .  default
 A  fg=focus
-B  fg=focus, bold
+B  fg=focus bold
 C  fg=primary
 D  fg=success
 E  fg=info
@@ -1158,7 +1158,7 @@ A.BBBBBB
 ── legend ──
 .  default
 A  fg=focus
-B  fg=focus, bold
+B  fg=focus bold
 C  fg=primary
 D  fg=success
 E  fg=info
@@ -1217,7 +1217,7 @@ A.BBBB
 ── legend ──
 .  default
 A  fg=focus
-B  fg=focus, bold
+B  fg=focus bold
 C  fg=primary
 E  fg=info
 F  fg=secondary
@@ -1270,7 +1270,7 @@ A.BBBBB.........G
 ── legend ──
 .  default
 A  fg=focus
-B  fg=focus, bold
+B  fg=focus bold
 C  fg=primary
 E  fg=info
 F  fg=secondary

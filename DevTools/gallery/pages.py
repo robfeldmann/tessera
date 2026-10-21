@@ -3,11 +3,18 @@ Tokens page. Pages are built on every request, so edits to the catalog show on r
 
 Each wireframe fence of a catalog doc is one entry with three slots: the catalog wireframe,
 and the `Current` and `Previous` renders of the real widget. The slots read
-`.build/tessera-dev/<slug>/<index>-current.svg` and `<index>-previous.svg`, where `<slug>`
-is the doc's file name without `.md` and `<index>` is the fence's 0-based position among the
-doc's `wireframe` fences; a missing file shows "not built yet". This layout is a provisional
-guess pending plan 033 Phase C, which decides where `tessera-dev` writes its renders; the
-gallery only displays what it finds and never judges it.
+`.build/tessera-dev/<slug>/<key>-current.svg` and `<key>-previous.svg`, where `<slug>` is the
+doc's file name without `.md` and `<key>` is the fence's `id=NAME` when its header has one
+and its 0-based position among the doc's `wireframe` fences otherwise (`catalog.Wireframe.key`);
+a missing file shows "not built yet". This layout is a provisional guess pending plan 033
+Phase C, which decides where `tessera-dev` writes its renders; the gallery only displays what
+it finds and never judges it.
+
+A styled grid whose fence opens with `text standalone` illustrates no wireframe, so it has no
+render slots: it is drawn from its own `chars` rows as a standalone entry after the doc's
+wireframes. Anything the gallery cannot honour in a doc (a grid that matches no wireframe, an
+unknown legend token or role, a style letter the legend does not define) shows as a warning
+badge and list on the page instead of silently falling back to a default.
 """
 
 from __future__ import annotations
@@ -23,7 +30,7 @@ from .colors import TIERS, Theme, contrast, hs, paint, resolve
 
 ASSETS = Path(__file__).parent
 BUILD = catalog.REPO / ".build" / "tessera-dev"
-RENDER = re.compile(r"(\d+)-(current|previous)\.svg")
+RENDER = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*-(?:current|previous)\.svg")
 SLOTS = (("current", "Current"), ("previous", "Previous"))
 
 
@@ -147,8 +154,8 @@ def index_page(theme: Theme) -> str:
 # Component pages -------------------------------------------------------------------------------
 
 
-def slot_html(slug: str, index: int, kind: str, caption: str) -> str:
-    name = f"{index}-{kind}.svg"
+def slot_html(slug: str, key: str, kind: str, caption: str) -> str:
+    name = f"{key}-{kind}.svg"
     path = render_path(slug, name)
     if path is None:
         body = '<p class="placeholder">not built yet</p>'
@@ -156,7 +163,7 @@ def slot_html(slug: str, index: int, kind: str, caption: str) -> str:
         version = path.stat().st_mtime_ns
         body = (
             f'<div class="picture"><img src="/render/{quote(slug)}/{name}?v={version}" '
-            f'alt="{caption} render of {html.escape(slug)} fence {index}"></div>'
+            f'alt="{caption} render of {html.escape(slug)} wireframe {html.escape(key)}"></div>'
         )
     return f'<figure class="slot {kind}"><figcaption>{caption}</figcaption>{body}</figure>'
 
@@ -164,17 +171,40 @@ def slot_html(slug: str, index: int, kind: str, caption: str) -> str:
 def grid_text(wire: catalog.Wireframe) -> str:
     lines = list(wire.rows)
     if wire.grid is not None:
-        legend = [f"{letter}  {spec}" for letter, spec in wire.grid.legend.items()]
-        lines += ["── style ──", *wire.grid.styles, "── legend ──", *legend]
+        lines += grid_sections(wire.grid)
     return "\n".join(lines)
 
 
+def grid_sections(grid: catalog.StyledGrid) -> list[str]:
+    legend = [f"{letter}  {spec}" for letter, spec in grid.legend.items()]
+    return ["── style ──", *grid.styles, "── legend ──", *legend]
+
+
+def warnings_html(warnings: list[str]) -> str:
+    """What the gallery could not honour in the catalog, in plain sight on the page."""
+    if not warnings:
+        return ""
+    items = "".join(f"<li>{inline(text)}</li>" for text in warnings)
+    return f'<ul class="warnings">{items}</ul>'
+
+
+def warning_chip(count: int) -> str:
+    if not count:
+        return ""
+    noun = "warning" if count == 1 else "warnings"
+    return f'<span class="chip warning">⚠ {count} {noun}</span>'
+
+
 def entry_html(doc: catalog.Doc, wire: catalog.Wireframe, theme: Theme) -> str:
+    problems = list(wire.warnings)
+    if wire.grid is not None:
+        problems += [f"styled grid: {problem}" for problem in wire.grid.problems]
     chips = [f'<span class="chip">{wire.size}</span>']
     if wire.viewport != wire.size:
         chips.append(f'<span class="chip viewport">{html.escape(wire.viewport)}</span>')
     chips.append(
-        f'<span class="chip" title="{html.escape(doc.path)}:{wire.line}">fence {wire.index}'
+        f'<span class="chip" title="{html.escape(doc.path)}:{wire.line}">'
+        f"{f'{html.escape(wire.id)} · ' if wire.id else ''}fence {wire.index}"
         f" · line {wire.line}</span>"
     )
     chips.append(
@@ -183,20 +213,47 @@ def entry_html(doc: catalog.Doc, wire: catalog.Wireframe, theme: Theme) -> str:
         else '<span class="chip plain" title="no styled grid follows this fence">'
         "unstyled</span>"
     )
+    chips.append(warning_chip(len(problems)))
     picture = wireframe.render(
         wire.rows, theme, "derived", wire.grid, (wire.width, wire.height),
         label=f"{doc.slug} {wire.heading}",
     )
     callouts = "".join(f'<pre class="callouts">{html.escape(text)}</pre>' for text in wire.callouts)
     return (
-        f'<section class="entry" id="w{wire.index}" data-index="{wire.index}">'
-        f'<h2><a href="#w{wire.index}">{inline(wire.heading)}</a></h2>'
+        f'<section class="entry" id="w-{html.escape(wire.key)}" data-key="{html.escape(wire.key)}">'
+        f'<h2><a href="#w-{html.escape(wire.key)}">{inline(wire.heading)}</a></h2>'
         f'<p class="meta">{"".join(chips)}</p>'
+        f"{warnings_html(problems)}"
         '<div class="triple">'
         f'<figure class="slot wireframe"><figcaption>Wireframe</figcaption>{picture}</figure>'
-        + "".join(slot_html(doc.slug, wire.index, kind, caption) for kind, caption in SLOTS)
+        + "".join(slot_html(doc.slug, wire.key, kind, caption) for kind, caption in SLOTS)
         + f"</div>{callouts}"
         f"<details><summary>Text</summary><pre>{html.escape(grid_text(wire))}</pre></details>"
+        "</section>"
+    )
+
+
+def standalone_html(doc: catalog.Doc, grid: catalog.StyledGrid, number: int,
+                    theme: Theme) -> str:
+    """A `text standalone` grid: drawn from its own chars rows, with no render slots,
+    since it names no wireframe a real widget could be compared with."""
+    picture = wireframe.render(
+        grid.chars, theme, "derived", grid, label=f"{doc.slug} {grid.heading} (standalone)"
+    )
+    chips = (
+        '<span class="chip">standalone</span>'
+        f'<span class="chip" title="{html.escape(doc.path)}:{grid.line}">line {grid.line}</span>'
+        '<span class="chip styled">styled grid</span>'
+        + warning_chip(len(grid.problems))
+    )
+    text = "\n".join(["── chars ──", *grid.chars, *grid_sections(grid)])
+    return (
+        f'<section class="entry standalone" id="standalone-{number}">'
+        f'<h2><a href="#standalone-{number}">{inline(grid.heading)}</a></h2>'
+        f'<p class="meta">{chips}</p>'
+        f"{warnings_html([f'styled grid: {p}' for p in grid.problems])}"
+        f'<figure class="slot wireframe"><figcaption>Styled grid</figcaption>{picture}</figure>'
+        f"<details><summary>Text</summary><pre>{html.escape(text)}</pre></details>"
         "</section>"
     )
 
@@ -214,8 +271,18 @@ def component_page(slug: str, theme: Theme) -> str | None:
             text = f"{arrow} {other.slug}" if arrow == "←" else f"{other.slug} {arrow}"
             neighbours.append(f'<a href="{link(f"/c/{other.slug}", theme)}">{text}</a>')
     contents = "".join(
-        f'<a href="#w{w.index}">{w.index} {inline(w.heading)} <small>{w.size}</small></a>'
+        f'<a href="#w-{w.key}">{html.escape(w.key)} {inline(w.heading)} <small>{w.size}</small></a>'
         for w in doc.wireframes
+    ) + "".join(
+        f'<a href="#standalone-{n}">standalone {n} {inline(grid.heading)}</a>'
+        for n, grid in enumerate(doc.standalone)
+    )
+    standalone = (
+        "<h2 class=\"standalone-title\">Standalone styled grids</h2>"
+        "<p class=\"hint\">Grids that illustrate no wireframe (<code>```text standalone</code>), "
+        "drawn from their <code>chars</code> rows.</p>"
+        + "".join(standalone_html(doc, grid, n, theme) for n, grid in enumerate(doc.standalone))
+        if doc.standalone else ""
     )
     body = (
         f'<p class="crumbs"><a href="{link("/", theme)}">Gallery</a> › '
@@ -223,12 +290,15 @@ def component_page(slug: str, theme: Theme) -> str | None:
         f'<h1>{inline(doc.title)} <span class="badge status-{html.escape(doc.status)}">'
         f"{html.escape(doc.status or 'no status')}</span></h1>"
         f'<p class="hint"><code>{html.escape(doc.path)}</code> · {len(doc.wireframes)} '
-        "wireframes · colours resolved for the <b>derived</b> tier of the chosen theme</p>"
+        f"wireframes{f' · {len(doc.standalone)} standalone grids' if doc.standalone else ''}"
+        " · colours resolved for the <b>derived</b> tier of the chosen theme</p>"
+        f"{warnings_html(doc.warnings)}"
         f"{theme_picker(theme)}"
-        + (f'<nav class="contents">{contents}</nav>' if doc.wireframes else "")
+        + (f'<nav class="contents">{contents}</nav>' if contents else "")
         + "".join(entry_html(doc, wire, theme) for wire in doc.wireframes)
-        + ('<p class="empty">This doc has no wireframe fences yet.</p>' if not doc.wireframes
-           else "")
+        + standalone
+        + ('<p class="empty">This doc has no wireframe fences yet.</p>'
+           if not doc.wireframes and not doc.standalone else "")
         + f'<p class="pager">{" · ".join(neighbours)}</p>'
     )
     return page(f"{doc.slug} · gallery", body, theme, active="gallery", wide=True)
@@ -448,7 +518,7 @@ def tokens_page(requested_tier: str | None) -> str:
             for t in all_themes
         )
         parts.append(
-            f'<h3><a href="/c/{slug}#w{wire.index}">{html.escape(slug)} · '
+            f'<h3><a href="/c/{slug}#w-{html.escape(wire.key)}">{html.escape(slug)} · '
             f"{inline(wire.heading)}</a> <small>{html.escape(why)}</small></h3>"
             f'<div class="themes">{cards}</div>'
         )

@@ -170,6 +170,23 @@ summary {
 .chip.plain {
   color: #8b93a1;
 }
+.chip.warning {
+  background: #3d1d1d;
+  color: #ff8a80;
+  font-weight: 600;
+}
+.warnings {
+  margin: 0 0 12px;
+  padding: 8px 12px 8px 30px;
+  border: 1px solid #5a2a2a;
+  border-radius: 8px;
+  background: #1e1212;
+  color: #ff8a80;
+  font-size: 14px;
+}
+.standalone-title {
+  margin-top: 34px;
+}
 
 table.index {
   width: 100%;

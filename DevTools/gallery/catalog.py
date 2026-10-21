@@ -1,11 +1,20 @@
 """Reads the design catalog: one `Doc` per component doc, one `Wireframe` per
-```` ```wireframe WxH ```` fence in document order.
+```` ```wireframe WxH[ id=NAME] ```` fence in document order.
 
 The catalog (`design/primitives/*.md`, `design/widgets/*.md`) is the only source of
-wireframes. A fence's styled grid is the first `── chars ──` text fence between it and the
-next wireframe fence whose character grid equals the fence; its callouts are every
-`Callouts (WxH, 0-based):` text fence in the same span. Fences follow the rules of
-`scripts/check-wireframes.py`: they start in column 0.
+wireframes. A wireframe's identity is `(doc slug, key)`: `key` is the fence's `id` when it
+has one and its 0-based position among the doc's wireframe fences otherwise. A styled grid
+is a `text` fence that starts with `── chars ──`; it belongs to the nearest preceding
+wireframe and colours it when its chars equal the fence's rows. A grid whose fence opens
+with ```` ```text standalone ```` illustrates no wireframe and is listed in
+`Doc.standalone`. A wireframe's callouts are every `Callouts (WxH, 0-based):` text fence
+after it, up to the next wireframe fence.
+
+The gallery never drops catalog content silently. What it cannot honour (a grid that
+matches no wireframe, an unknown legend token, an undefined style letter) is kept in the
+`warnings` and `problems` lists for the page to show. `scripts/check-wireframes.py` lints
+the same grammar and is the gate; these lists only keep the pages honest while a doc is
+being edited. Fences follow the rules of that script: they start in column 0.
 """
 
 from __future__ import annotations
@@ -14,15 +23,20 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .colors import parse_spec, split_description
+
 REPO = Path(__file__).resolve().parents[2]
 DESIGN = REPO / "design"
 GROUPS = (("primitives", "Primitives"), ("widgets", "Widgets"))
 
 FENCE = re.compile(r"^(`{3,}|~{3,})\s*(\S*)\s*(.*)$")
 HEADING = re.compile(r"^#{1,6}\s+(.*?)(?:\s+#+)?\s*$")
-SECTION = re.compile(r"^── (.+) ──$")
+SECTION = re.compile(r"^── ([a-z]+) ──$")
+LEGEND = re.compile(r"^(\S)  (\S.*)$")
 SIZE = re.compile(r"^(\d+)x(\d+)$")
+ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 MIN_HEADING = re.compile(r"\bmin(?:imum)?\b", re.IGNORECASE)
+GRID_SECTIONS = ("chars", "style", "legend")
 
 
 @dataclass
@@ -31,7 +45,10 @@ class StyledGrid:
 
     chars: list[str]
     styles: list[str]
-    legend: dict[str, str]
+    legend: dict[str, str]  # letter -> `SPEC[ -- description]` as written
+    line: int = 0  # 1-based line of the opening fence
+    heading: str = ""  # nearest preceding heading, as written
+    problems: list[str] = field(default_factory=list)  # what the gallery had to work around
 
 
 @dataclass
@@ -42,8 +59,16 @@ class Wireframe:
     width: int
     height: int
     rows: list[str]
+    id: str | None = None  # the `id=NAME` of the fence header
     grid: StyledGrid | None = None
     callouts: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)  # styled grids that were not used
+
+    @property
+    def key(self) -> str:
+        """The wireframe's identity within its doc, and the stem of its render files
+        (`<slug>/<key>-current.svg`): the id when there is one, else the position."""
+        return self.id or str(self.index)
 
     @property
     def size(self) -> str:
@@ -68,30 +93,106 @@ class Doc:
     status: str
     path: str  # relative to the repository root
     wireframes: list[Wireframe]
+    standalone: list[StyledGrid] = field(default_factory=list)  # grids of no wireframe
+    warnings: list[str] = field(default_factory=list)  # fences the gallery could not place
 
 
-def _normalized(rows: list[str]) -> list[str]:
-    rows = [row.rstrip() for row in rows]
-    while rows and not rows[-1]:
-        rows.pop()
-    return rows
+def _trimmed(rows: list[str]) -> list[str]:
+    return [row.rstrip() for row in rows]
 
 
-def parse_styled_grid(body: list[str]) -> StyledGrid | None:
+def parse_styled_grid(body: list[str], line: int = 0, heading: str = "") -> StyledGrid:
+    """The grid of a fence whose body starts with `── chars ──`. Whatever the gallery can
+    only work around (a missing section, an unknown legend token, a style letter the legend
+    does not define) goes into `StyledGrid.problems`."""
     sections: dict[str, list[str]] = {}
+    problems: list[str] = []
     current: list[str] | None = None
-    for line in body:
-        if (match := SECTION.match(line)) is not None:
-            current = sections.setdefault(match.group(1), [])
+    for text in body:
+        if (match := SECTION.match(text)) is not None:
+            name = match.group(1)
+            if name not in GRID_SECTIONS:
+                problems.append(f"unknown section `── {name} ──`")
+            elif name in sections:
+                problems.append(f"section `── {name} ──` appears twice")
+            current = sections.setdefault(name, [])
         elif current is not None:
-            current.append(line)
-    if not {"chars", "style", "legend"} <= sections.keys():
-        return None
-    legend = {}
-    for line in sections["legend"]:
-        if line.strip():
-            legend[line[0]] = line[1:].strip()
-    return StyledGrid(sections["chars"], sections["style"], legend)
+            current.append(text)
+    problems.extend(
+        f"missing section `── {name} ──`" for name in GRID_SECTIONS if name not in sections
+    )
+
+    legend: dict[str, str] = {}
+    for text in sections.get("legend", []):
+        if not text.strip():
+            problems.append("blank line in the legend")
+        elif (match := LEGEND.match(text)) is None:
+            problems.append(f"legend line `{text}` is not `L  SPEC`")
+        elif match.group(1) in legend:
+            problems.append(f"legend letter `{match.group(1)}` is defined twice")
+        else:
+            letter, spec = match.groups()
+            legend[letter] = spec
+            problems.extend(f"legend `{letter}`: {problem}" for problem in parse_spec(spec).problems)
+            words = split_description(spec)[0].split()
+            if letter == "." and words != ["default"]:
+                problems.append("legend `.`: the default entry is `.  default`")
+            elif letter != "." and "default" in words:
+                problems.append(f"legend `{letter}`: `default` is only for the `.` entry")
+
+    styles = sections.get("style", [])
+    letters = {ch for row in styles for ch in row if not ch.isspace()} - {"."} - legend.keys()
+    if letters:
+        problems.append(
+            "style letters missing from the legend: " + ", ".join(f"`{ch}`" for ch in sorted(letters))
+        )
+    if any(ch.isspace() for row in styles for ch in row):
+        problems.append("a style row holds whitespace; `.` is the default style")
+    return StyledGrid(sections.get("chars", []), styles, legend, line, heading, problems)
+
+
+def _parse_header(path: Path, line: int, rest: str) -> tuple[int, int, str | None]:
+    """`WxH` and an optional `id=NAME` from the text after `wireframe`."""
+    tokens = rest.split()
+    size = SIZE.match(tokens[0]) if tokens else None
+    if size is None:
+        raise ValueError(f"{path}:{line}: wireframe fence needs a WxH size")
+    wire_id = None
+    for token in tokens[1:]:
+        if wire_id is None and token.startswith("id=") and ID.fullmatch(token[3:]):
+            wire_id = token[3:]
+        else:
+            raise ValueError(
+                f"{path}:{line}: wireframe fence header is `WxH` or `WxH id=NAME`; "
+                f"found `{token}`"
+            )
+    return int(size.group(1)), int(size.group(2)), wire_id
+
+
+def _place(doc: Doc, grid: StyledGrid, standalone: bool) -> None:
+    """Gives `grid` to the latest wireframe of `doc`, or lists it as standalone. A grid that
+    cannot be used becomes a warning where the page shows it."""
+    if standalone:
+        doc.standalone.append(grid)
+    elif not doc.wireframes:
+        doc.warnings.append(
+            f"line {grid.line}: a styled grid before any wireframe needs `text standalone`"
+        )
+    else:
+        wire = doc.wireframes[-1]
+        if _trimmed(grid.chars) != _trimmed(wire.rows):
+            wire.warnings.append(
+                f"the styled grid at line {grid.line} does not match this wireframe; "
+                "it is not shown (open its fence with `text standalone` if it illustrates "
+                "no wireframe)"
+            )
+        elif wire.grid is not None:
+            wire.warnings.append(
+                f"the styled grid at line {grid.line} is a second grid for this wireframe; "
+                f"only the first, at line {wire.grid.line}, is shown"
+            )
+        else:
+            wire.grid = grid
 
 
 def parse_doc(path: Path, group: str, group_title: str) -> Doc:
@@ -112,8 +213,17 @@ def parse_doc(path: Path, group: str, group_title: str) -> Doc:
 
     title = ""
     heading = ""
-    wireframes: list[Wireframe] = []
-    span: list[tuple[str, list[str]]] = []  # text fences after the latest wireframe
+    doc = Doc(
+        slug=path.stem,
+        group=group,
+        group_title=group_title,
+        title=path.stem,
+        kind=kind,
+        status=status,
+        path=path.relative_to(REPO).as_posix(),
+        wireframes=[],
+    )
+    ids: dict[str, int] = {}  # id -> line of the fence that declares it
     number = start
     while number < len(lines):
         line = lines[number]
@@ -140,52 +250,56 @@ def parse_doc(path: Path, group: str, group_title: str) -> Doc:
             body.append(lines[number])
             number += 1
         number += 1  # past the closing fence
+        label = heading or title or path.stem
         if info == "wireframe":
-            size = SIZE.match(rest.strip())
-            if size is None:
-                raise ValueError(f"{path}:{opening}: wireframe fence needs a WxH size")
-            _attach(wireframes, span)
-            span = []
-            wireframes.append(
+            width, height, wire_id = _parse_header(path, opening, rest)
+            if wire_id is not None:
+                if wire_id in ids:
+                    raise ValueError(
+                        f"{path}:{opening}: duplicate wireframe id `{wire_id}` "
+                        f"(first used at line {ids[wire_id]})"
+                    )
+                ids[wire_id] = opening
+            doc.wireframes.append(
                 Wireframe(
-                    index=len(wireframes),
+                    index=len(doc.wireframes),
                     line=opening,
-                    heading=heading or title or path.stem,
-                    width=int(size.group(1)),
-                    height=int(size.group(2)),
+                    heading=label,
+                    width=width,
+                    height=height,
                     rows=body,
+                    id=wire_id,
                 )
             )
-        elif info == "text" and wireframes:
-            span.append((marker, body))
-    _attach(wireframes, span)
+        elif info == "text" and body and body[0].startswith("── chars"):
+            grid = parse_styled_grid(body, opening, label)
+            if rest.strip() not in ("", "standalone"):
+                grid.problems.append(f"unexpected `{rest.strip()}` after `text`")
+            _place(doc, grid, rest.strip() == "standalone")
+        elif info == "text" and body and body[0].startswith("Callouts (") and doc.wireframes:
+            doc.wireframes[-1].callouts.append("\n".join(body))
+        elif body and (
+            body[0].startswith("── chars")
+            or (
+                info == "text"
+                and any(SECTION.match(text) for text in body)
+                and not any(FENCE.match(text) for text in body)  # not a documented example
+            )
+        ):
+            doc.warnings.append(
+                f"line {opening}: a fence holds styled-grid sections but is not a `text` "
+                "fence that starts with `── chars ──`; it is not shown"
+            )
+    doc.title = title or path.stem
 
-    return Doc(
-        slug=path.stem,
-        group=group,
-        group_title=group_title,
-        title=title or path.stem,
-        kind=kind,
-        status=status,
-        path=path.relative_to(REPO).as_posix(),
-        wireframes=wireframes,
-    )
-
-
-def _attach(wireframes: list[Wireframe], span: list[tuple[str, list[str]]]) -> None:
-    """Gives the latest wireframe the styled grid and callouts found after it."""
-    if not wireframes:
-        return
-    wire = wireframes[-1]
-    for _, body in span:
-        if not body:
-            continue
-        if body[0].startswith("Callouts ("):
-            wire.callouts.append("\n".join(body))
-        elif body[0].startswith("── chars ──") and wire.grid is None:
-            grid = parse_styled_grid(body)
-            if grid is not None and _normalized(grid.chars) == _normalized(wire.rows):
-                wire.grid = grid
+    positional = {str(wire.index): wire for wire in doc.wireframes if wire.id is None}
+    for wire_id, line in ids.items():
+        if wire_id in positional:
+            raise ValueError(
+                f"{path}:{line}: wireframe id `{wire_id}` collides with the position-based "
+                f"identity of the id-less wireframe at line {positional[wire_id].line}"
+            )
+    return doc
 
 
 _cache: dict[Path, tuple[int, Doc]] = {}

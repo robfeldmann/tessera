@@ -282,7 +282,7 @@ AAFFFFFFFFFFFFEELLEX
 .  default
 A  fg=focus
 L  fg=primary
-F  fg=focus, bold
+F  fg=focus bold
 E  fg=secondary
 X  fg=disabled
 ```

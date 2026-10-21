@@ -488,6 +488,25 @@ Callouts (20x2, 0-based):
             pill caps ▐ and ▌ outside the label; chrome, one row.
 ```
 
+Styled grid for the wrapped radio group (owner-accepted review grid, roles renamed per
+[tokens.md](../tokens.md#roles)):
+
+```text
+── chars ──
+❯  sol   terra
+   kimi  ▐fable▌
+── style ──
+EEBCCCBBBCCCCC
+..BCCCCBBADDDDDA
+── legend ──
+.  default
+A  fg=accent -- pill caps
+B  fg=primary
+C  fg=secondary
+D  fg=contrast bg=accent bold underline
+E  fg=focus bold
+```
+
 #### Wrapped to one chip per row
 
 At 14 columns no two chips share a row. Each chip takes its own row, which reads as a
@@ -512,25 +531,6 @@ Callouts (14x4, 0-based):
             column, so the label aligns with the other chips; chrome, one row.
 ```
 
-Styled grid for the wrapped radio group (owner-accepted review grid, roles renamed per
-[tokens.md](../tokens.md#roles)):
-
-```text
-── chars ──
-❯  sol   terra
-   kimi  ▐fable▌
-── style ──
-EEBCCCBBBCCCCC
-..BCCCCBBADDDDDA
-── legend ──
-.  default
-A  fg=accent (pill caps)
-B  fg=primary
-C  fg=secondary
-D  fg=contrast bg=accent bold underline
-E  fg=focus bold
-```
-
 Styled grid for the one-chip-per-row radio group:
 
 ```text
@@ -546,7 +546,7 @@ EEBCCC
 ..ADDDDDA
 ── legend ──
 .  default
-A  fg=accent (pill caps)
+A  fg=accent -- pill caps
 B  fg=primary
 C  fg=secondary
 D  fg=contrast bg=accent bold underline
@@ -817,7 +817,7 @@ HHEDHHHHHHHHHHHHHHHHHHHHHCCGGGGGGGGGGB
 ── legend ──
 .  default
 A  fg=primary bold
-B  fg=accent (caret)
+B  fg=accent -- caret
 C  fg=secondary
 D  fg=primary
 E  fg=accent
