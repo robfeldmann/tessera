@@ -121,3 +121,33 @@ Format: `- YYYY-MM-DD -- thought`
   (omp2's select has it). Deferred out of 1.0 by the owner; worth a "Feature Requests,
   Ideas" GitHub Discussion if it isn't picked up later. Multi-select, digit quick-select,
   and option descriptions are in 1.0 (see [Picker](widgets/picker.md)).
+
+## Filed as Discussions
+
+Owner decision 9 (omp2 review, 2026-10-08): out-of-scope and post-1.0 ideas go to GitHub
+Discussions in the "Feature Requests, Ideas" category. Plan 032 step 4.2 filed these
+twelve on 2026-10-08. They are not inbox entries to triage; the assessment's parenthetical
+names are the omp2 components each idea came from.
+
+- [#28](https://github.com/robfeldmann/tessera/discussions/28) -- Canvas view (Shader).
+- [#29](https://github.com/robfeldmann/tessera/discussions/29) -- Sub-cell raster: braille
+  and half-block.
+- [#30](https://github.com/robfeldmann/tessera/discussions/30) -- Gradient fills (Brand).
+- [#31](https://github.com/robfeldmann/tessera/discussions/31) -- Math typesetting in
+  Markdown (Latex).
+- [#32](https://github.com/robfeldmann/tessera/discussions/32) -- Scroll overview track
+  (DiffPane minimap).
+- [#33](https://github.com/robfeldmann/tessera/discussions/33) -- Diff view (DiffView,
+  DiffPane, DiffStat).
+- [#34](https://github.com/robfeldmann/tessera/discussions/34) -- `TextEditor` with
+  completion popup.
+- [#35](https://github.com/robfeldmann/tessera/discussions/35) -- Paged flow with step
+  indicator (Wizard).
+- [#36](https://github.com/robfeldmann/tessera/discussions/36) -- Status bar with priority
+  segments (Status).
+- [#37](https://github.com/robfeldmann/tessera/discussions/37) -- Checklist and task-tree
+  view (Todo).
+- [#38](https://github.com/robfeldmann/tessera/discussions/38) -- Value formatting through
+  Foundation `FormatStyle`.
+- [#39](https://github.com/robfeldmann/tessera/discussions/39) -- Structured value
+  inspector (JsonPreview).

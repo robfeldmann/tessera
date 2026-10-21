@@ -777,8 +777,8 @@ app-supplied custom set such as `◢ ◣ ◤ ◥` has the same font dependence.
 
 The spinner glyph is `accent`. Frames derive from the injected clock; a spinner stores no
 state. Tessera has no reduced-motion setting in 1.0: terminals report no such preference,
-and the spinner is the only animation in the catalog. Whether shimmer joins it in 1.0 is
-an [open question](widgets/progress-view.md#open-questions).
+and the spinner is the only animation in the catalog. Whether shimmer and elapsed time
+join it in 1.0 is an [open question](widgets/progress-view.md#open-questions).
 
 ### Truncation
 

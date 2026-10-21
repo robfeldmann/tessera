@@ -510,6 +510,8 @@ substitute a private navigator, animation shim, source browser, or layout solver
   trailing column, named for Apple's inspector presentation. SwiftUI's `detail` is
   rejected -- its master/detail lineage reads as the _main_ surface and contradicts a
   trailing auxiliary column.
+- **Pattern name** (owner decision, omp2 review, 2026-10-08): the sidebar-and-content
+  pattern is called "list-detail", which replaces "master-detail".
 - **No `NavigationSplitViewStyle` protocol in 1.0** (2026-08-17 hunk review): left out
   unless a need is discovered; the container paints nothing a style protocol would vary.
   Divider appearance customization stays on the existing token/environment path.

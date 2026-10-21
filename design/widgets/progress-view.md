@@ -641,14 +641,16 @@ output with no responder.
 
 ## Open questions
 
-- **Shimmer (key L5).** The omp2 review's owner decision 3 (2026-10-08) puts shimmer,
-  omp2's brightness crest sweeping across text
+- **Shimmer and elapsed time (key L5).** The omp2 review's owner decision 3 (2026-10-08)
+  reads: "The animation path is in 1.0, so indeterminate `ProgressView`, elapsed time, and
+  shimmer are too." It puts shimmer, omp2's brightness crest sweeping across text
   ([anim.rs#L252-L262](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/anim.rs#L252-L262)),
-  in 1.0 beside the spinner. But [spinners](../tokens.md#spinners) says the spinner is the
-  only animation in the catalog, which is also why Tessera has no reduced-motion setting
-  in 1.0, and no catalog doc defines shimmer. Does shimmer ship in 1.0, and if so, is it a
-  ProgressView style or its own motion view? Blocks `ready`: a second motion view changes
-  the reduced-motion reasoning this doc cites.
+  and elapsed time, a running count since a start instant, in 1.0 beside the spinner. But
+  [spinners](../tokens.md#spinners) says the spinner is the only animation in the catalog,
+  which is also why Tessera has no reduced-motion setting in 1.0, and no catalog doc
+  defines shimmer or elapsed time. Do shimmer and elapsed time ship in 1.0, and if so, is
+  each a ProgressView style or its own motion view? Blocks `ready`: a second motion view
+  changes the reduced-motion reasoning this doc cites.
 
 ## Inspiration
 

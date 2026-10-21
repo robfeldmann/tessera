@@ -8,7 +8,7 @@ description:
   Replaces plan 030.
 status: in-progress
 created: 2026-10-08
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 <!-- Allowed status values: planning, in-review, pending, in-progress, complete, superseded. -->
@@ -35,13 +35,13 @@ updated: 2026-10-20
   - [x] 5.1 Review the gallery and record decisions
   - [x] 5.2 Move adjusted designs into the design catalog as wireframes
   - [x] 5.3 Propose token changes implied by the decisions
-- [ ] **Phase 6 — Write the Rust-to-Swift translation key**
-  - [ ] 6.1 Map omp2 concepts to Tessera's API vocabulary
-- [ ] **Phase 7 — Revise the Phase 4 catalog and plan**
-  - [ ] 7.1 Write or update per-component Swift design docs
-  - [ ] 7.2 Amend `docs/Spec.md` Phase 4 and `design/tokens.md` after owner confirmation
+- [x] **Phase 6 — Write the Rust-to-Swift translation key**
+  - [x] 6.1 Map omp2 concepts to Tessera's API vocabulary
+- [x] **Phase 7 — Revise the Phase 4 catalog and plan**
+  - [x] 7.1 Write or update per-component Swift design docs
+  - [x] 7.2 Amend `docs/Spec.md` Phase 4 and `design/tokens.md` after owner confirmation
   - [x] 7.3 Sequence the implementation (replaces plan 030; Phases 8-17 below)
-  - [ ] 7.4 Remove the omp2 scaffolding from the working tree
+  - [x] 7.4 Remove the omp2 scaffolding from the working tree
 - [ ] **Phase 8 — Demo harness (replaces the Showcase)**
   - [ ] 8.1 Retire the Showcase example
   - [ ] 8.2 Build the demo runner and headless driver
@@ -60,7 +60,7 @@ updated: 2026-10-20
   - [ ] 11.2 Hover and motion requirements
   - [ ] 11.3 Application-owned text selection and copy
 - [ ] **Phase 12 — Interactive ScrollView**
-  - [ ] 12.1 Keyboard, wheel, and indicator interaction
+  - [ ] 12.1 Keyboard and wheel scrolling
   - [ ] 12.2 Reveal on focus change
 - [ ] **Phase 13 — Controls**
   - [ ] 13.1 Button and button styles
@@ -335,12 +335,13 @@ classification (Phase 4) no longer gates capture.
   indicator, a status bar, a checklist view, `FormatStyle` value formatting, and a
   structured value inspector.
 - Done: the owner approved the drafts, and they were posted as Discussions #28–#39 on
-  2026-10-08. The assessment's "1.0 additions" section links each one. The value inspector
-  (#39) is an app-facing view (renamed `ValueTree` to avoid clashing with the Showcase
-  inspector), not developer infrastructure; Phase 4's own debugging tool remains the Slice
-  1 diagnostics snapshot and the Showcase inspector.
+  2026-10-08. The assessment's "1.0 additions" section linked each one; since step 7.4
+  deleted the assessment, `design/inbox.md` ("Filed as Discussions") links them. The value
+  inspector (#39) is an app-facing view (renamed `ValueTree` to avoid clashing with the
+  Showcase inspector), not developer infrastructure; Phase 4's own debugging tool remains
+  the Slice 1 diagnostics snapshot and the Showcase inspector.
 - Acceptance: each idea is posted once, after the owner approves the drafts, and linked
-  from the assessment.
+  from `design/inbox.md`.
 
 ## Phase 5 — Owner taste review
 
@@ -411,7 +412,10 @@ classification (Phase 4) no longer gates capture.
   `design/tokens.md` (step 5.3 input), the ScrollIndicator preset list, and the inferences
   listed in Form's and Picker's open questions (Form's 12-cell narrow floor and default
   `<Label> is required` / `<Label> is invalid` wording; Picker's multi initializer shape,
-  digits past 9, and description layout).
+  digits past 9, and description layout). Corrected (2026-10-21): Form no longer switches
+  at a fixed column count. `ViewThatFits` keeps the side-by-side layout while every row
+  fits and stacks otherwise, so the switch point depends on the content; the anatomy
+  fixture stacks at 17 columns (`design/widgets/form.md`, "Narrow: 17 columns").
 - Committed (2026-10-18) as `e5fe358`, scaffolding excluded.
 - Grill round (2026-10-18), applied: the owner settled the remaining non-token open
   questions (Q1-Q30). The biggest is a catalog-wide wrap rule: content word-wraps at any
@@ -455,6 +459,14 @@ classification (Phase 4) no longer gates capture.
   component state → `Binding` (Tessera widgets are controlled); `Charset` and `Theme` →
   environment values and semantic `Style` roles; `dom!` and markup → `@ViewBuilder`;
   `pc.wake`/`pc.now` → clock-driven views; `HitTag` → Slice 5 hit testing.
+- Done (2026-10-21, commit `da2e962`): the key is `design/translation-key.md`, listed in
+  `design/README.md`. The agent chose that location while the owner was away, not with the
+  owner as planned, so it awaits owner review. Four ownership rules decide where omp2
+  state lives (`Binding`, initializer parameter, `NodeState`, graph-owned). One table maps
+  119 concepts in 13 families: 94 to a Tessera form and 25 rejected with a reason. Per-row
+  notes carry the rules, a Theme-field table maps omp2's theme onto `design/tokens.md`
+  roles, and a coverage appendix lists each catalog doc's omp2 counterpart and the rows it
+  uses. omp2 sources are cited at the pinned commit on GitHub.
 - Acceptance: every concept used by an in-scope component maps to one Tessera form, or is
   explicitly rejected with a reason.
 
@@ -466,6 +478,19 @@ classification (Phase 4) no longer gates capture.
   `design/widgets/`, and move each through the catalog's status ladder. Prior-art
   citations point at omp2's source at the pinned commit on GitHub, never at
   `design/prior-art/` or the gallery, because those are deleted in step 7.4.
+- Done (2026-10-21, commit `c19e896`): every catalog doc names its omp2 counterpart, cites
+  it at the pinned commit, applies the translation key's Tessera forms by row ID, and
+  records its departures. Each doc was reviewed against the Phase 4 theses and promoted as
+  far as its gates allow. Two new primitives serve step 14.1: `design/primitives/flow.md`
+  (a greedy wrapping row) and `design/primitives/view-that-fits.md` (the first candidate
+  whose ideal size fits, else the last). Form, Picker, MultiPicker, LabeledContent,
+  ProgressView, and TabView build their arrangement choices on them. 38 of the 44
+  component docs are `ready` (the `design/README.md` index). Below `ready`: Grid
+  (`specified`, owner questions on extra and bare cells, row spacing, and cell priority),
+  ProgressView (`specified`, the shimmer question, key L5), Markdown (`specified`, its
+  Phase 4 theses review), Image (`wireframed`, Kitty tier sizing and loader ownership),
+  Text selection (`sketch`, decided in step 11.3), and NavigationSplitView (`wireframed`,
+  post-1.0).
 
 ### Step 7.2 — Amend `docs/Spec.md` Phase 4 and `design/tokens.md`
 
@@ -492,6 +517,21 @@ classification (Phase 4) no longer gates capture.
     reports Nerd Font coverage as `.notDetectable` until a protocol-native coverage query
     is adopted; terminal identity never selects it."
   - Phase 4 Slice 5: Table and List request motion tracking for their default row hover.
+- Done (2026-10-21, commits `2010609` and `5c33360`). The agent applied these amendments
+  while the owner was away, not after the owner confirmed them as planned, so they await
+  owner review. Spec Phase 4 now follows Phases 8-17: Slices 1, 2, and 2.5 stay as
+  implemented, the remaining slices are technical contracts naming the plan phase that
+  delivers each, per-component demos and the Phase 17 intro app replace the Showcase, and
+  a new "The 1.0 surface" list gathers the catalog docs' decisions, with
+  NavigationSplitView post-1.0. Text follows the 2026-10-18 wrap rules; Slice 3 takes its
+  role families from `design/tokens.md` with `\.colorScheme` and `\.charset`; Slice 4 adds
+  focus appearance, focus scopes, and declared key bindings; Slice 5 adds pointer capture
+  and default row hover motion tracking for Table and List; a new section covers motion
+  views and the tick requirement. Phase 3 Slice 6 gains the terminal contracts listed
+  above. A follow-up aligned the Spec's Box, background, ScrollIndicator, GridRow, and
+  Flow/ViewThatFits sections and `design/tokens.md` with the revised catalog: focus clears
+  after every layout pass, unplaced nodes are not focusable, and terminal requirements
+  count every live node, placed or not.
 
 ### Step 7.3 — Sequence the implementation
 
@@ -528,6 +568,14 @@ classification (Phase 4) no longer gates capture.
   lines in `design/README.md`.
 - Decide with the owner whether `design/omp2-assessment.md` is committed (its owner
   decisions are the durable part) or folded into the Spec and catalog and deleted.
+- Done (2026-10-21): `design/prior-art/`, `design/omp2-assessment.md`, and the cached
+  checkout under `~/.cache/tessera/omp2/` are deleted; `backup/review-site-2026-10-20`
+  keeps the inventory and the assessment. The agent folded the assessment's durable facts
+  into `design/inbox.md` (including the step 4.2 Discussions) and the catalog docs rather
+  than committing it, while the owner was away; that choice awaits owner review. The
+  `.codespellrc` gallery-captures skip and `ans` word and the four prior-art lines in
+  `design/README.md` are reverted. The `.prettierignore` feedback entry was already gone,
+  and the `.codespellrc` wireframe regex stays because the catalog keeps its wireframes.
 - Acceptance: `git status` shows none of the scaffolding, and no committed file links into
   it.
 
@@ -585,10 +633,21 @@ focus border.
 - Inherited `Style` values through the environment, the tone set and semantic roles from
   step 5.3, and `Text + Text` styled runs measured once.
 
+> Owner review (2026-10-21): no plan phase implements the Phase 3 colour-report probe that
+> `docs/Spec.md` Phase 3 Slice 6 now specifies: the OSC 10/11/4 colour round in the
+> DA1-terminated probe, mode 2031 theme-change notifications, the re-query on resume, and
+> `TerminalCapabilities.colorReport` (`TerminalColorReport`). The derived colour roles
+> this step resolves blend their shades from that reported foreground, background, and
+> palette (`design/tokens.md`). Owner to decide where the probe lands: a step before or
+> inside Phase 9, or a separate Phase 3 plan, with step 9.1 rendering the attribute
+> fallbacks until it exists.
+
 ### Step 9.2 — Wrapping and truncation
 
-- Word and character wrapping; `.truncationMode(.tail/.head/.middle)` with the ellipsis
-  keeping the text's style.
+- Word wrapping that breaks inside a word only when the word is wider than the line;
+  character-flow wrapping is rejected (`design/primitives/text.md`, translation key I3).
+  `.lineLimit(Int?)` and `.truncationMode(.tail/.head/.middle)` with the ellipsis keeping
+  the text's style.
 
 ### Step 9.3 — Borders, Box, background, overlay, and the focus border
 
@@ -644,10 +703,12 @@ focus border.
 
 ## Phase 12 — Interactive ScrollView
 
-### Step 12.1 — Keyboard, wheel, and indicator interaction
+### Step 12.1 — Keyboard and wheel scrolling
 
 - Keyboard and wheel scrolling, boundary bubbling to an enclosing viewport, and focus only
-  while scrollable. Port from `phase4` `ScrollView.swift` and its tests.
+  while scrollable. Indicators stay output-only: a click or drag on one returns `.ignored`
+  (`design/primitives/scroll-indicator.md`, translation key F2). Port from `phase4`
+  `ScrollView.swift` and its tests.
 
 ### Step 12.2 — Reveal on focus change
 
@@ -660,14 +721,28 @@ Each control lands with its demo, keyboard and pointer paths, and disabled state
 
 ### Step 13.1 — Button and button styles
 
-- Button with the pill, soft, tint, and ghost styles and their ASCII ends; the pressed
-  state must reach rendering (investigation 036, lesson 4).
+- Button with the `.filled`, `.tinted`, and `.plain` emphases and the `.squared`,
+  `.capsule`, `.rectangle`, `.brackets`, `.box`, and `.custom` shapes with their ASCII
+  ends (`design/widgets/button.md`: omp2's Pill, Tint, and Ghost become the three
+  emphases, and Soft has none); the pressed state must reach rendering (investigation 036,
+  lesson 4).
 
 ### Step 13.2 — Toggle and Picker styles
 
 - Toggle with the `.checkbox` (default) and `.circle` styles, taking the Form row focus
   rule inside a Form; Picker as radio group (chips wrap, never clip), menu (including the
   custom "Other" row), and segmented (icons-only and tail truncation when narrow).
+
+> Owner review (2026-10-21): Picker's radio group wraps its chips with Flow, and
+> `ViewThatFits` chooses its title layout and its menu's description layout; MultiPicker,
+> which `docs/Spec.md` Phase 4 also places in Phase 13, does the same
+> (`design/widgets/picker.md`, `design/widgets/multi-picker.md`). Both primitives are
+> built in step 14.1, after this step. Button, Toggle, Stepper, and TextField do not use
+> them, and Form, LabeledContent, ProgressView, and TabView land in Phase 16, after step
+> 14.1. Proposal: move step 14.1 to the start of Phase 13, or into Phase 9. Phase 9 comes
+> before focus and hit testing exist, so `ViewThatFits`'s rule that unchosen candidates
+> leave focus and hit testing could only be tested once Phases 10 and 11 land. The order
+> is unchanged until the owner decides.
 
 ### Step 13.3 — Stepper
 
@@ -684,10 +759,10 @@ Each control lands with its demo, keyboard and pointer paths, and disabled state
 ### Step 14.1 — Flow layout and `ViewThatFits`
 
 - A wrapping row layout and `ViewThatFits` with layout priority (owner decision 2).
-- Needs a catalog doc (`design/primitives/view-that-fits.md`) before it's built: Form's
-  stacked layout, Picker's description layouts, and ProgressView's label placement all
-  choose between arrangements with it (owner decisions, 2026-10-18), so those widgets
-  can't reach `ready` until it exists.
+- Catalog docs: `design/primitives/flow.md` and `design/primitives/view-that-fits.md`,
+  both `ready` since step 7.1. Form, Picker, MultiPicker, LabeledContent, ProgressView,
+  and TabView wrap or choose between arrangements with them (owner decisions, 2026-10-18).
+  See the owner review note under step 13.2 for this step's position.
 
 ### Step 14.2 — List and Section
 
@@ -725,7 +800,8 @@ Each control lands with its demo, keyboard and pointer paths, and disabled state
 
 ### Step 16.3 — TabView, Form, Markdown, code view, and Image
 
-- The remaining views from `design/omp2-assessment.md` ("1.0 additions").
+- The remaining 1.0 views in `docs/Spec.md` ("The 1.0 surface"). This step first cited the
+  "1.0 additions" in `design/omp2-assessment.md`, which step 7.4 deleted.
 
 ## Phase 17 — Intro app and Phase 4 closure
 
@@ -741,7 +817,8 @@ Each control lands with its demo, keyboard and pointer paths, and disabled state
 
 ## References
 
-- Inventory: `design/prior-art/README.md`, `design/prior-art/omp2-components.md`,
+- Inventory (deleted in step 7.4; kept on the `backup/review-site-2026-10-20` branch):
+  `design/prior-art/README.md`, `design/prior-art/omp2-components.md`,
   `design/prior-art/tsp-components.md`.
 - omp2: <https://github.com/can1357/oh-my-pi>, branch `omp2`, commit
   `2f92f3b5aa2035d21c9f016f9ff6350795e5685a`; crate `crates/tui` (README "Element

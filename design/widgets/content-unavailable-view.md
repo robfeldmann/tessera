@@ -33,7 +33,8 @@ Cite concrete sources with paths or links, and say what to copy and what to reje
   `ProgressView` instead (owner decision, omp2 review, 2026-10), so its spinner frames,
   clock and wake scheduling (keys K11, L1, L2, L3) belong to
   [ProgressView](progress-view.md). Apps that want an omp2-style wait panel compose their
-  own view.
+  own view. This supersedes the 2026-10-08 owner decision that moved Loader to 1.0 as its
+  own component.
 - omp2 `Select` filter flow
   ([select.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/select.rs#L464-L486))
   -- the empty filter result is one of the empty states this view covers. Copy the single

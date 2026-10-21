@@ -891,7 +891,10 @@ form.
   `trim`. Tessera uses Image's protocol tiers over the Phase 3 Kitty substrate, and
   `.trim()`. Graphics capability is terminal state, never a view attribute.
 - **M6.** `NumberLeaf`'s compact and byte counts. Tessera uses Foundation `FormatStyle`
-  parameters, such as Stepper's `format:`. Tessera ships no formatters of its own.
+  parameters, such as Stepper's `format:`, the way SwiftUI's `Text(_:format:)` does.
+  Tessera ships no formatters of its own. Owner decision 5 (omp2 review, 2026-10-08) makes
+  value formatting post-1.0 or Phase 5+; the idea is filed as
+  [Discussion #38](https://github.com/robfeldmann/tessera/discussions/38).
 - **M7.** An input character cap with a counter. The counter counts graphemes, never caps
   input, and shows overage as `+N` in `error`.
 - **M8.** Obscured input. Tessera paints the `secret` icon in place of a masked value.
@@ -1214,10 +1217,11 @@ Design choices in this key that need the owner's confirmation:
   no Outline counterpart. Catalog status: Outline now has `onActivate:`, which Enter calls
   with the selected node, and Space toggles expansion (key C9); `TreeActivated` maps to
   it. Awaiting owner confirmation.
-- **Shimmer (L5).** The omp2 review's owner decision 3 (2026-10-08) puts shimmer in 1.0,
-  but no catalog doc defines it and [spinners](tokens.md#spinners) says the spinner is the
-  only animation. The answer blocks
-  [ProgressView](widgets/progress-view.md#open-questions)'s `ready`.
+- **Shimmer and elapsed time (L5).** The omp2 review's owner decision 3 (2026-10-08)
+  reads: "The animation path is in 1.0, so indeterminate `ProgressView`, elapsed time, and
+  shimmer are too." It puts shimmer and elapsed time in 1.0, but no catalog doc defines
+  either and [spinners](tokens.md#spinners) says the spinner is the only animation. The
+  answer blocks [ProgressView](widgets/progress-view.md#open-questions)'s `ready`.
 - **Box title slot (A7).** The key makes a promoted title child a `@ViewBuilder` slot with
   a `String` convenience, as plan 032 step 9.3 asked for Box. [Box](primitives/box.md) now
   follows the key. Awaiting owner confirmation.

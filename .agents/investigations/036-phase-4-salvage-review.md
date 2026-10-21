@@ -110,7 +110,8 @@ already dropped the Showcase for "small directly runnable specimens".
 ## Port map
 
 Read each file from its tag before writing the step, and port only what survives review
-against the updated catalog doc and the omp2 decisions in `design/omp2-assessment.md`.
+against the updated catalog doc and
+[`design/translation-key.md`](../../design/translation-key.md).
 
 | Plan 032 phase          | Port from                                                                                                                                                                                                                                                                                                                                                                        |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

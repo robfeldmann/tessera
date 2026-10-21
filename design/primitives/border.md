@@ -211,7 +211,9 @@ be checked together, and it replaces the `focus.border` direction in
 [tokens.md](../tokens.md#focus). Every look uses the `focus` role: the terminal's default
 foreground in bold, with no hue (owner decision, 2026-10-19; see Focus colour below). omp2
 paints focus in `accent`; Tessera's focus is its own role, so it never reads as a tone
-(key E2).
+(key E2). This supersedes the "accent-like" focus style of the 2026-10-08 owner decision
+(omp2 review, decision 7); its optional heavier weight while focused survives as the heavy
+ring below.
 
 Summary of the accepted focus looks: one specimen per rule, with the rules following the
 grid.

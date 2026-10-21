@@ -9,9 +9,9 @@ status: resolved
 **Superseded 2026-10-10.** The owner abandoned the Showcase in favour of small
 per-component demos assembled later into an intro app, and `design/showcase.md` was
 removed (it is in git history and in the `archive/phase4` tag). NavigationSplitView left
-1.0, and `Form` and `Outline` moved into it; see `design/omp2-assessment.md` and plan 032.
-The record below is kept for its history; its links to `design/showcase.md` are now plain
-text.
+1.0, and `Form` and `Outline` moved into it; see
+[the 1.0 surface](../../docs/Spec.md#the-10-surface) and plan 032. The record below is
+kept for its history; its links to `design/showcase.md` are now plain text.
 
 ## Accepted decisions
 
