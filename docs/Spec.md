@@ -6942,7 +6942,8 @@ gathers those decisions.
   [stacks](../design/primitives/stacks.md) and `Spacer`,
   [`frame`](../design/primitives/frame.md), [`padding`](../design/primitives/padding.md),
   [`ZStack`](../design/primitives/z-stack.md), [`Flex`](../design/primitives/flex.md),
-  [`Grid`](../design/primitives/grid.md), a flow layout, `ViewThatFits`,
+  [`Grid`](../design/primitives/grid.md), [`Flow`](../design/primitives/flow.md),
+  [`ViewThatFits`](../design/primitives/view-that-fits.md),
   [`Divider`](../design/primitives/divider.md), [borders](../design/primitives/border.md),
   [`Box`](../design/primitives/box.md),
   [`background`](../design/primitives/background.md),
@@ -7042,17 +7043,17 @@ finishes the doc first.
 | 11        | Hit testing, click-to-focus, and pointer capture; hover and motion requirements; text selection or its deferral                                                                | Slice 5                    |
 | 12        | Interactive `ScrollView`: keyboard, wheel, boundary bubbling, and reveal on focus change                                                                                       | Slices 4 and 5             |
 | 13        | `Button`, `Toggle`, `Picker`, `MultiPicker`, `Stepper`, and `TextField` on a shared text editing core                                                                          | Slices 4, 5, and 7         |
-| 14        | Flow layout and `ViewThatFits`; `List` and `Section`; `Outline`; `Grid` and `Table`                                                                                            | Slices 6 and 7             |
+| 14        | `Flow` and `ViewThatFits`; `List` and `Section`; `Outline`; `Grid` and `Table`                                                                                                 | Slices 6 and 7             |
 | 15        | Interactive `SplitView`: divider keyboard and pointer resizing, focus style                                                                                                    | Slices 4 and 5             |
 | 16        | Motion clock and tick requirement; `ProgressView`, `Callout`, `LabeledContent`, `Label`, `Badge`, `ContentUnavailableView`; `TabView`, `Form`, `Markdown`, `CodeView`, `Image` | Motion views               |
 | 17        | Intro app; catalog graduation to DocC; performance, platform, and quality checks                                                                                               | Phase 4 definition of done |
 
 Three dependencies cut across the order. Form, the description layouts of Picker and
 MultiPicker, and ProgressView's label placement choose between arrangements with
-`ViewThatFits`, so they cannot reach `ready` before step 14.1 writes its catalog doc;
-Picker itself is scheduled earlier, in step 13.2. Markdown needs the `Text + Text` styled
-runs of step 9.1. List and Table reuse the ScrollIndicator geometry of step 9.4 and the
-interactive ScrollView of Phase 12.
+[`ViewThatFits`](../design/primitives/view-that-fits.md), which lands in step 14.1
+although Picker is scheduled earlier, in step 13.2. Markdown needs the `Text + Text`
+styled runs of step 9.1. List and Table reuse the ScrollIndicator geometry of step 9.4 and
+the interactive ScrollView of Phase 12.
 
 ### Testing posture: Tessera-native oracles
 
@@ -8010,12 +8011,12 @@ focus border (9.3), and `ScrollIndicator` (9.4).
 `Text` normalizes each `\r\n` sequence to one source newline at its public initializer; a
 lone `\r` remains literal source text. Slice 3 exposes `TruncationMode.tail` (the
 default), `.head`, `.middle`, and `.clip`; every marker replaces only whole extended
-grapheme clusters. Plan 032 step 9.1 schedules styled runs (`Text + Text`, measured once
-as one leaf), which Markdown needs; [Text](../design/primitives/text.md) still lists rich
-text segments as deferred, so that step settles their catalog contract first. Localized
-interpolation and formatted values are out of Phase 4 1.0 and require a separate post-1.0
-text-composition proposal; `Text` stays an immutable value and never becomes a mutable
-document model.
+grapheme clusters. Plan 032 step 9.1 lands styled runs (`Text + Text`, measured once as
+one leaf), which Markdown needs. [Text](../design/primitives/text.md#styled-runs) defines
+them; step 9.1 settles only that doc's open questions, the `+` spelling and inline icon
+runs. Localized interpolation and formatted values are out of Phase 4 1.0 and require a
+separate post-1.0 text-composition proposal; `Text` stays an immutable value and never
+becomes a mutable document model.
 
 #### Style chains and inheritance
 
@@ -8113,20 +8114,39 @@ extension View {
         -> some View
     public func overlay<O: View>(alignment: Alignment = .topLeading,
                                  @ViewBuilder _ overlay: () -> O) -> some View
-    public func background<B: View>(@ViewBuilder _ background: () -> B) -> some View
+    public func background<BackgroundLayer: View>(
+        alignment: Alignment = .topLeading,
+        @ViewBuilder background: () -> BackgroundLayer
+    ) -> some View
 }
 
-public struct Box<Content: View>: View {        // border + padding + optional title
-    public init(title: String? = nil, border: BorderStyle = .rounded,
+// Border, one column of padding left and right (none above or below), and a title slot.
+public struct Box<Title: View, Content: View>: View {
+    public init(border: BorderStyle = .rounded,
+                @ViewBuilder content: () -> Content,
+                @ViewBuilder title: () -> Title)
+}
+
+extension Box where Title == Text {
+    public init(title: String, border: BorderStyle = .rounded,
                 @ViewBuilder content: () -> Content)
+}
+
+extension Box where Title == EmptyView {
+    public init(border: BorderStyle = .rounded, @ViewBuilder content: () -> Content)
 }
 ```
 
 `border` adds 1 to each inset and draws box-drawing glyphs in the inset ring — it is a
 unary layout wrapper plus a render decoration, the model case for "modifiers are just
-nodes." `overlay`/`background` are ZStack-equivalent wrappers sized by the primary child.
-The Slice 2 [`Divider`](../design/primitives/divider.md) receives this same style and
-decoration plumbing without changing its stack-derived geometry.
+nodes." `overlay`/`background` are ZStack-equivalent wrappers sized by the primary child;
+the background layer is proposed the primary's final bounds and painted first
+([Background](../design/primitives/background.md)), while `.background(_:)` with a `Color`
+stays the style fill of [Style chains](#style-chains-and-inheritance). Box's title is an
+ordinary child view with its own identity, so it can carry styled runs, a badge, or a
+motion view ([Box](../design/primitives/box.md)). The Slice 2
+[`Divider`](../design/primitives/divider.md) receives this same style and decoration
+plumbing without changing its stack-derived geometry.
 
 `.link(URL)` (OSC 8, Phase 3 Slice 5) joins the chain here if that slice has landed — it
 is an environment-merged `Style` attribute like any other.
@@ -8144,6 +8164,33 @@ overflow geometry: it derives an indicator track and thumb from a viewport, cont
 and clamped offset, but owns neither input nor scrolling state. `ScrollView` consumes it
 now; `List` and `Table` consume the same representation when they land. It reserves a
 trailing or bottom edge only for an overflowing axis.
+
+Two environment values select its look and placement. Each has its own modifier, and the
+nearest ancestor wins, as with Text's `lineLimit` and `truncationMode`:
+
+```swift
+extension EnvironmentValues {
+    /// One of eight closed presets; default `.standard`.
+    public var scrollIndicatorStyle: ScrollIndicatorStyle { get set }
+    /// `.reserved` (default) or `.border`.
+    public var scrollIndicatorPlacement: ScrollIndicatorPlacement { get set }
+}
+
+extension View {
+    public func scrollIndicatorStyle(_ style: ScrollIndicatorStyle) -> some View
+    public func scrollIndicatorPlacement(
+        _ placement: ScrollIndicatorPlacement
+    ) -> some View
+}
+```
+
+Under `.reserved` the parent reserves the trailing column or bottom row. Under `.border`
+it reserves nothing: the ring of the nearest bordered [`Box`](../design/primitives/box.md)
+is the track, and Box paints the thumb cells after its descendants, as it paints delegated
+focus, because no view writes outside its own region. Without a bordered Box ancestor,
+`.border` falls back to `.reserved`. Plan 032 step 9.4 settles the channel that carries
+the parent's resolved indicator geometry up to that Box, without giving the indicator any
+input ([ScrollIndicator](../design/primitives/scroll-indicator.md#decisions)).
 
 #### Tests
 
@@ -8212,8 +8259,11 @@ extension View {
 Focus IDs are explicit. Auto-derived focus identity is a footgun (it silently changes when
 structure changes); requiring an ID is one argument and removes a whole bug class. The
 focus order is the depth-first document order of `.focusable` nodes after layout —
-`focusableIDs` _is_ the debug tool. If the focused node disappears in an update, focus
-clears to `nil` and the graph records it in `statistics`; it does not guess a neighbor.
+`focusableIDs` _is_ the debug tool. Only placed nodes count: a node its parent never
+places, such as an unchosen `ViewThatFits` candidate, is not in `focusableIDs`. When the
+focused node leaves the focus order, focus clears to `nil` and the graph records it in
+`statistics`; it does not guess a neighbor. That check runs after every layout pass, a
+resize included, not only after an update.
 
 **No implicit Tab handling.** The graph never swallows keys. The app (or the Phase 5
 runtime, as a default policy) opts in:
@@ -8293,7 +8343,11 @@ public struct TerminalRequirements: Sendable, Equatable {
 ```
 
 Recomputed during reconciliation as the union over live nodes (an `.onTap` anywhere ⇒
-`wantsMouse`). The app forwards `graph.terminalRequirements` to the session, which checks
+`wantsMouse`). Live means present in the graph, not placed: because requirements are
+recomputed before layout chooses, an unchosen `ViewThatFits` candidate or a Table scrolled
+out of view still contributes, a resize never toggles a terminal mode, and a component
+that requests a mode "while it is on screen" requests it while it is live. The app
+forwards `graph.terminalRequirements` to the session, which checks
 capabilities/configuration and applies deltas through `ModeLifecycle`. Views still never
 touch modes; this is the declarative-requirements design from the ownership thesis made
 concrete.
@@ -8400,10 +8454,11 @@ in Phase 14, and SplitView in Phase 15.
 - Presence of any mouse handler (`.onTap` or `.onMouse`) sets
   `terminalRequirements.wantsMouse`; presence of any `onHover` handler (or a widget that
   requests motion directly) sets `terminalRequirements.wantsMouseMotion`. Table and List
-  request motion tracking for their default row hover while they are on screen;
-  `.rowHover(.disabled)`, a placeholder spelling that [Table](../design/widgets/table.md)
-  and [List](../design/widgets/list.md) settle, removes both the hover fill and the
-  request. The session maps these onto Phase 3's `MouseTracking`: `wantsMouseMotion` →
+  request motion tracking for their default row hover while they are live in the graph
+  ([terminal requirements](#terminal-requirements-aggregation)); `.rowHover(.disabled)`, a
+  placeholder spelling that [Table](../design/widgets/table.md) and
+  [List](../design/widgets/list.md) settle, removes both the hover fill and the request.
+  The session maps these onto Phase 3's `MouseTracking`: `wantsMouseMotion` →
   `.mouseTracking(.anyEvent)`; `wantsMouse` alone → `.mouseTracking(.buttonEvents)`;
   neither → mouse tracking disabled. This extends the existing dynamic-disable behavior
   below to two escalating tiers instead of one on/off switch.
@@ -8452,15 +8507,17 @@ tests. Text selection has a contract or a recorded deferral.
 ### Slice 6: `Grid`, `Table`, and fitting
 
 Slice 6 consumes the Phase 2.5 Flex solver and final SplitView geometry; it does not
-reopen either allocator. Plan 032 Phase 14 delivers it: the flow layout and `ViewThatFits`
-in step 14.1, and `Grid` and `Table` in step 14.4.
+reopen either allocator. Plan 032 Phase 14 delivers it: `Flow` and `ViewThatFits` in step
+14.1, and `Grid` and `Table` in step 14.4.
 
 ```swift
 public struct Grid<Content: View>: View {
     public init(columns: [FlexConstraint], spacing: Int = 0,
                 @ViewBuilder content: () -> Content)
 }
-public struct GridRow<Content: View>: View { … }
+public struct GridRow<Content: View>: View {
+    public init(@ViewBuilder content: () -> Content)
+}
 ```
 
 Columns resolve once per grid through the established Flex algorithm; row heights are the
@@ -8474,14 +8531,20 @@ APIs.
 
 #### Flow layout and `ViewThatFits`
 
-A flow layout places children along a row and starts a new row when the next child would
-pass the width; Picker's radio chips wrap this way and never clip. `ViewThatFits` chooses
-between candidate arrangements by whether each fits the proposal, honoring layout
-priority, so priority fitting is one shared mechanism rather than per-component rules.
-Form's stacked layout, the description layouts of Picker and MultiPicker, LabeledContent's
-stacked form, and ProgressView's label placement all choose through it. Step 14.1 writes
-its catalog doc (`design/primitives/view-that-fits.md`) before building it; the stack
-contract stays unchanged, because `HStack` never wraps.
+[`Flow`](../design/primitives/flow.md) places its children left to right in source order
+and starts a new line when the next child would pass the proposed width; each child keeps
+its ideal width, capped at the line width, and is never split or stretched. Picker's radio
+chips wrap this way and never clip.
+[`ViewThatFits`](../design/primitives/view-that-fits.md) holds candidate arrangements in
+order of preference and shows the first whose ideal size fits the proposal on its tested
+axes, or the last when none fits; it never places the others. Layout priority is read by
+the parent, never among candidates or Flow items: `.layoutPriority(_:)` on a candidate or
+an item does nothing, while priority on the `ViewThatFits` or the `Flow` itself decides,
+through the enclosing stack or Flex allocation, which one keeps its preferred arrangement
+longer. Priority fitting is therefore one shared mechanism rather than per-component
+rules. Form's stacked layout, the description layouts of Picker and MultiPicker,
+LabeledContent's stacked form, and ProgressView's label placement all choose through
+`ViewThatFits`. `HStack` never wraps, so the stack contract stays unchanged.
 
 #### Table
 
@@ -8506,8 +8569,8 @@ is scheduled.
    order while proving the shared Flex solver is the only allocator.
 2. [`Table`](../design/widgets/table.md) reuses the Flex representation for its column
    solver and has ScrollIndicator parity with ScrollView.
-3. The flow layout and `ViewThatFits` meet their catalog contracts, and the components
-   that choose between arrangements do so only through `ViewThatFits`.
+3. `Flow` and `ViewThatFits` meet their catalog contracts, and the components that choose
+   between arrangements do so only through `ViewThatFits`.
 
 ---
 

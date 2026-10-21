@@ -390,7 +390,7 @@ attribute.
 | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ---------------- | ---------------- | ---------- |
 | `primary`   | Ordinary content: labels, values, body text, titles                                                                                                                                                                                                                         | every component                                                                                                                                                                                                                              | `.default`       | `.default`       | `.default`       | none       |
 | `secondary` | Receding text: descriptions, captions, prompts, LabeledContent labels, KeyLegend keys (bold) and descriptions, percent and value labels, line numbers, unchecked marks, disclosure glyphs, in-range arrows, `false`, quoted text, the `pending`, `image` and `secret` icons | badge, box, button (cancel intent), code-view, content-unavailable-view, form, image, key-legend, label, labeled-content, markdown, multi-picker, outline, picker, progress-view, section, split-view, stepper, tab-view, text-field, toggle | `ink2`           | dim              | dim              | dim        |
-| `border`    | Structural lines: frames, rules, separators, junctions, scroll and progress tracks, outline guides, quote rails, fence rows, Image's placeholder fill                                                                                                                       | box, code-view, content-unavailable-view, divider, form, image, key-legend, leading-rail, markdown, outline, progress-view, scroll-indicator, scroll-view, split-view, table, tab-view                                                       | `ink3`           | dim              | dim              | dim        |
+| `border`    | Structural lines: frames, rules, separators, junctions, scroll and progress tracks, outline guides, quote rails, fence rows, Image's placeholder fill                                                                                                                       | border, box, code-view, content-unavailable-view, divider, form, image, key-legend, leading-rail, markdown, outline, progress-view, scroll-indicator, scroll-view, split-view, table, tab-view                                               | `ink3`           | dim              | dim              | dim        |
 | `disabled`  | Disabled labels and glyphs, Stepper arrows at a limit, unfilled glyphs of a disabled Button, a non-resizable split handle                                                                                                                                                   | button, split-view, stepper, text-field, toggle                                                                                                                                                                                              | `ink3`           | dim              | dim              | dim        |
 | `focus`     | The focus owner: the terminal's default foreground in bold, foreground only, never a background ([Focus](#focus))                                                                                                                                                           | border, box, button, form, picker, split-view, stepper, tab-view, table, text-field, toggle                                                                                                                                                  | `.default`, bold | `.default`, bold | `.default`, bold | bold       |
 
@@ -432,12 +432,14 @@ Stripes use `surface` (owner decision, 2026-10-10) and are dropped wherever `sur
 no fill. Markdown inline code sits on `surface` (owner decision, 2026-10-19).
 
 Row hover (owner decisions, 2026-10-19): Table and List rows show `hover` by default, and
-request pointer motion (`wantsMouseMotion`, Spec Phase 4 Slice 5) while they are on
-screen; apps opt out with a modifier whose placeholder name is `.rowHover(.disabled)`, and
-table.md and list.md settle the final name. Hover and stripes coexist: a hovered stripe
-row shows `hover` in place of the stripe. A selected row keeps its selection fill under
-the pointer. Where no fill can stand apart (`slots` and `NO_COLOR`; in 16 colours a hover
-fill could only repeat the ANSI 8 stripe), hover is an underline on the row label.
+request pointer motion (`wantsMouseMotion`, Spec Phase 4 Slice 5) while they are live in
+the graph, scrolled into view or not
+([terminal requirements](../docs/Spec.md#terminal-requirements-aggregation)); apps opt out
+with a modifier whose placeholder name is `.rowHover(.disabled)`, and table.md and list.md
+settle the final name. Hover and stripes coexist: a hovered stripe row shows `hover` in
+place of the stripe. A selected row keeps its selection fill under the pointer. Where no
+fill can stand apart (`slots` and `NO_COLOR`; in 16 colours a hover fill could only repeat
+the ANSI 8 stripe), hover is an underline on the row label.
 
 ### Composite styles
 
@@ -609,7 +611,10 @@ Picker's segments and TabView's tabs use; their ASCII forms are omp2's (`file-di
 Default roles follow omp2's rule: `error` takes `error`; `done` and `success` take
 `success`; `warning` takes `warning` (owner decision, 2026-10-10); `info` takes `info`;
 `pending`, `image` and `secret` take `secondary`; any other name takes `accent`. Callers
-may replace the icon's role (`.labelIconRole(_:)`); the title stays `primary`. Icons
+may replace the icon's role (`.labelIconRole(_:)`); the title stays `primary`.
+ContentUnavailableView is such a caller: it draws `mail`, `search` and its other non-tone
+icons in `secondary`, and a tone icon (`warning`, `error`, `success`, `info`) keeps its
+default role ([ContentUnavailableView](widgets/content-unavailable-view.md)). Icons
 written inside running text take the surrounding text role (owner decision, 2026-10-10).
 
 ### Nerd Font cells
@@ -654,10 +659,10 @@ its glyph and that space form the two-cell slot of [Nerd Font cells](#nerd-font-
 
 The ends of Button and Badge shapes ([Button shape](widgets/button.md#shape)).
 
-| Token          | Nerd Font                                                      | Unicode                      | ASCII                      |
-| -------------- | -------------------------------------------------------------- | ---------------------------- | -------------------------- |
-| `caps.squared` | `▐` label `▌`, in the fill colour                              | same                         | falls back to `.rectangle` |
-| `caps.capsule` | U+E0B6 label U+E0B4 (Powerline round caps), in the fill colour | falls back to `caps.squared` | falls back to `.rectangle` |
+| Token          | Nerd Font                                                      | Unicode                      | ASCII                                                                                |
+| -------------- | -------------------------------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------ |
+| `caps.squared` | `▐` label `▌`, in the fill colour                              | same                         | Button: falls back to `.rectangle`; Badge: `[` label `]` in the tone colour, no fill |
+| `caps.capsule` | U+E0B6 label U+E0B4 (Powerline round caps), in the fill colour | falls back to `caps.squared` | as `caps.squared`                                                                    |
 
 The Powerline caps are the "Nerd Font capability" Button's open question asks for: they
 draw exactly when `\.charset` is `.nerdFont`.
@@ -722,7 +727,7 @@ is `#`, every track `|` or `-`, and `thumbOnly` keeps a blank track.
 | Placement            | Reserves                          | Track                                                  | Used by                 |
 | -------------------- | --------------------------------- | ------------------------------------------------------ | ----------------------- |
 | `reserved` (default) | one trailing column or bottom row | the preset's track                                     | ScrollView, List, Table |
-| `.border`            | nothing                           | the nearest bordered Box's edge; only the thumb paints | Border, Box             |
+| `.border`            | nothing                           | the nearest bordered Box's edge; only the thumb paints | Box                     |
 
 `.border` falls back to `reserved` without a bordered Box ancestor (owner decision,
 2026-10-10). Thumb length is `max(1, floor(track x viewport / content))` for every
@@ -772,7 +777,8 @@ app-supplied custom set such as `◢ ◣ ◤ ◥` has the same font dependence.
 
 The spinner glyph is `accent`. Frames derive from the injected clock; a spinner stores no
 state. Tessera has no reduced-motion setting in 1.0: terminals report no such preference,
-and the spinner is the only animation in the catalog.
+and the spinner is the only animation in the catalog. Whether shimmer joins it in 1.0 is
+an [open question](widgets/progress-view.md#open-questions).
 
 ### Truncation
 
