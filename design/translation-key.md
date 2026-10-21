@@ -8,14 +8,20 @@ state, and reports `UiEvent`s addressed by id; a Tessera view takes initializer
 parameters, modifiers, and environment values, is controlled through bindings, and calls
 closures.
 
-This key settles that translation once. Each row maps one omp2 concept to the one Tessera
+> **Frozen (2026-10-21).** This key served plan 032 step 7.1, which applied it to every
+> doc in `primitives/` and `widgets/`; it is no longer maintained. The catalog docs and
+> the Spec own every contract the key maps to, and win wherever they now differ. Existing
+> row citations in the docs stay as provenance; new docs and later edits need not cite
+> rows, and nothing here is renumbered or updated as the docs change.
+
+The key settled the translation once. Each row maps one omp2 concept to the one Tessera
 form that expresses it, or rejects it with a reason. omp2 citations point at its source at
 the pinned commit `2f92f3b`. Each Tessera form links the Spec section or catalog doc that
 owns it; the key restates none of their rules.
 
-## How to apply it
+## How it was applied
 
-Plan 032 step 7.1 applies the key to every doc in `primitives/` and `widgets/`:
+Plan 032 step 7.1 applied the key to every doc in `primitives/` and `widgets/`:
 
 1. Name the omp2 counterpart in the doc's prior-art section and cite its source at the
    pinned commit. [Coverage](#coverage) lists each doc's counterpart.
@@ -33,25 +39,11 @@ lands on a token, tokens.md owns the token.
 ## Ownership rules
 
 Most omp2 components keep their data inside themselves and hand it out through `UiEvent`s
-and `value()`. Tessera widgets are controlled
-([state model](../docs/Spec.md#state-model-bring-your-own)). Four rules decide where each
-omp2 state field goes, and the D rows apply them:
-
-1. **Binding.** Data the user produces or the app must read or persist (text, a checked
-   value, a selection, expansion, an active tab, pane sizes, a sort order) is an app-owned
-   `Binding` that the initializer takes. The widget writes it only on the documented
-   interaction and never retains an initial value.
-2. **Initializer parameter.** Data the app supplies for display (a progress value, source
-   text, an image source) is a plain parameter, redeclared on every update. A State model
-   table still names its owner `Binding`, meaning app-owned
-   ([README](README.md#state-model-table)).
-3. **NodeState.** Position and interaction in flight (a cursor, a scroll position no
-   binding owns, a caret, a pressed or open flag, an uncommitted draft) is `NodeState`.
-   Losing it loses position or unfinished input, never committed data.
-4. **Graph-owned.** Focus, hover, the clock, and environment values belong to the graph. A
-   view reads them as `Environment` or `derived` state and never mirrors them into
-   `NodeState`, per the runtime ownership invariant
-   ([README](README.md#state-model-table)).
+and `value()`. Tessera widgets are controlled, and the D rows place each omp2 state field
+by the Spec's four homes for widget state: app-owned `Binding`, initializer parameter,
+`NodeState`, and graph-owned ([state model](../docs/Spec.md#state-model-bring-your-own)).
+The Spec owns those rules; [State model table](README.md#state-model-table) says how a
+catalog doc records them.
 
 ## Key
 

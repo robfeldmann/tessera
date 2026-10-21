@@ -19,7 +19,7 @@ Everything below exists to keep wireframes fixture-grade and behavior tables tes
 design/
   README.md         this file: process, conventions, table schemas, index
   tokens.md         shared visual vocabulary: viewports, borders, selection, ...
-  translation-key.md  how each omp2 concept maps onto Tessera's API forms
+  translation-key.md  frozen record of how plan 032 mapped omp2 concepts onto Tessera
   inbox.md          append-only inspiration capture
   templates/        starting points for new docs
     primitive.md
@@ -292,6 +292,13 @@ Columns: `State | Owner | Type | Reset or clamp rule`
   widget. Every `NodeState` and `derived` row must answer this; "clamps on every update"
   is the
   [Slice 7 baseline](../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
+- Choose the owner by the Spec's four homes for widget state
+  ([state model](../docs/Spec.md#state-model-bring-your-own)): data the user produces or
+  the app reads is a `Binding`; display data the app supplies is an initializer parameter,
+  recorded as `Binding` (app-owned) in this column; position and interaction in flight
+  (cursor, unbound scroll offset, pressed or open flag, uncommitted draft) is `NodeState`;
+  focus, hover, the clock, and environment values are graph-owned, so they appear as
+  `Environment` or `derived` and are never stored.
 
 Runtime ownership invariant: every `NodeState` row has exactly one live storage owner. A
 stateful `LeafView` handles events through `LeafView.handleEvent`, so measurement,

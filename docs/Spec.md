@@ -7353,6 +7353,23 @@ The rules, exhaustively:
   `RuntimeNode`, keyed by identity, passed `inout` to the primitive's methods. It survives
   updates while identity survives, and dies with the node. It must never hold business
   state.
+- **Every piece of widget state has exactly one of four homes.** A catalog doc's State
+  model table names the home for each row
+  ([State model table](../design/README.md#state-model-table)):
+  1. **App-owned `Binding`.** Data the user produces, or that the app must read or persist
+     (text, a checked value, a selection, expansion, an active tab, pane sizes, a sort
+     order), is an app-owned `Binding` that the initializer takes. The widget writes it
+     only on its documented interaction and never retains an initial value.
+  2. **Initializer parameter.** Data the app supplies for display (a progress value,
+     source text, an image source) is a plain parameter, redeclared on every update and
+     never copied into widget state.
+  3. **`NodeState`.** Position and interaction in flight (a cursor, a scroll position no
+     binding owns, a caret, a pressed or open flag, an uncommitted draft) is `NodeState`.
+     Losing it loses position or unfinished input, never committed data; anything whose
+     loss would lose data is a `Binding`.
+  4. **Graph-owned.** Focus, hover, the clock, and environment values belong to the graph.
+     A view reads them through the environment or derives them during layout or render,
+     and never mirrors them into `NodeState`.
 - **Re-render is externally driven.** The app mutates its state, then calls
   `graph.update()` (directly, or via the Phase 5 runtime). Integration recipes that belong
   in DocC, not in the core API:
