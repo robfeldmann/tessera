@@ -1,7 +1,8 @@
 ---
 type: plan
-stage: planned
+stage: done
 created: 2026-07-17
+completed: 2026-10-22
 order: 29
 description: Unify formatter ownership, deterministic quality gates, hook management, and CI around repository-managed commands.
 ---
@@ -23,9 +24,9 @@ description: Unify formatter ownership, deterministic quality gates, hook manage
 - [x] **Phase 4 — Align CI and documentation**
   - [x] 4.1 Make workflows call canonical quality gates
   - [x] 4.2 Publish the contributor workflow
-- [ ] **Phase 5 — Normalize and verify the migration**
+- [x] **Phase 5 — Normalize and verify the migration**
   - [x] 5.1 Apply one isolated formatting baseline
-  - [ ] 5.2 Exercise all local and CI-equivalent gates
+  - [x] 5.2 Exercise all local and CI-equivalent gates (2026-10-22, against the hk hooks and mise tasks that plan 035 put in place of Lefthook and Just; see the step)
 
 ## Overview
 
@@ -152,14 +153,23 @@ The target contract is: pinned project-local npm and Python tooling own JavaScri
 - Validate workflow syntax and run the changed CI paths through the repository's normal PR checks; confirm macOS, Linux, and Windows test jobs preserve their existing Ghostty setup.
 - Acceptance: all commands pass after normalization; deliberate malformed Swift/Markdown, misspelled text, and Conventional Commit fixtures fail in the expected layer; the PR workflows pass without skipped mandatory quality tooling.
 
-### Verification note
+#### Done (2026-10-22)
 
-Local and disposable-repository verification completed. Remote PR workflows remain pending because this phase has no commit or push authorization; run the changed workflows after the next authorized commit reaches GitHub.
+Plan 035 (`toolchain-conventions-and-plan-consolidation.md`, Steps 5.4 and 5.5) replaced the tools this plan named before this step ran: Lefthook became [hk](https://hk.jdx.dev) (`hk.pkl`, installed as Git config hooks by `mise run setup:hooks`), the Just recipes became mise tasks, and Prettier plus markdownlint became rumdl for Markdown (Prettier stays for YAML and JSON). The contract this plan set is unchanged: `mise run quality:format` mutates, `mise run quality:lint` checks portable policy and fails closed, `mise run docs:lint` is the macOS DocC gate, the pre-commit hook checks the staged index without touching it, and `scripts/conventional_commits.py` is the one Conventional Commit authority (its `--message-file` mode is what the commit-msg hook calls). The step was exercised against that stack:
+
+- Disposable worktree of `main` at `e7bd73a`, the installed hooks, Xcode 26.6: a nested `Sources/TesseraTerminalCore/Nested/DeepHookTest.swift` with layout violations is refused (swift-format `[Indentation]`, `[Spacing]`); good staged Swift with a broken unstaged edit commits; bad staged Swift fixed only in the working tree is refused; a staged misspelling is refused with codespell's correction; Markdown with consecutive blank lines is refused (`MD012`); clean Markdown commits; the subject `not conventional` is refused by the commit-msg hook. After every refusal the index and the unstaged edit were intact and no file had been rewritten (hk runs pre-commit with `fix = false` and a Git stash around the check).
+- A worktree without `node_modules` fails the staged Markdown check with `Missing local markup tools. Run 'npm ci' first.` rather than passing: the fail-closed behavior Step 1.1 asked for.
+- DocC escalation lives in the changed-file runner, not the hook: `mise run quality:changed` with an edited `.docc` page runs `mise run docs:lint` after the spelling check and names its macOS requirement; the pre-commit hook only spell-checks `.docc` Markdown, so a commit stays fast.
+- Full gates on the same tree: `mise run quality:format` (stable on a second run), `mise run core:test` (663 tests), `mise run quality:lint`, `mise run docs:lint`, and `python3 -m unittest scripts/test_conventional_commits.py` all pass; the CI workflows run those same tasks through `jdx/mise-action`, and every job (lint, macOS, Linux, Windows, Swift 6.4 lanes, DocC) is green on the eight pull requests that landed plan 035 and on #52.
 
 ### Review handback disposition
 
 - Accepted F1: removed the Volta-specific fallback so Node resolution requires the manager-neutral `node` executable on `PATH`.
 - Accepted F2: removed duplicate Node-path resolution from the staged hook; the markup checker is the single owner.
+
+## Outcome (2026-10-22)
+
+Every phase shipped. Phases 1 to 4 and Step 5.1 landed on the Just and Lefthook stack this plan described; plan 035 then moved the same contract onto mise, hk, and rumdl before Step 5.2 ran, so the verification above is of the current stack. The durable decisions (one layout owner per file class, staged-index hooks that never rewrite, one Conventional Commit validator, portable quality separate from macOS DocC) are now stated in `CONTRIBUTING.md` and `AGENTS.md`, which are the reference going forward; the Just and Lefthook file names in the steps above are history.
 
 ## References
 

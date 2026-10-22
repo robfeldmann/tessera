@@ -18,10 +18,11 @@ package actor PlatformIO {
     drainWaiters.count
   }
 
-  /// Reads raw byte chunks from terminal input.
+  /// Raw byte chunks from terminal input, consumed only by the `events` pipeline.
   ///
-  /// Empty chunks are input-idle notifications used internally for ESC timeout handling.
-  package nonisolated let bytes: AsyncStream<[UInt8]>
+  /// An `AsyncStream` has one consumer; a second reader would race the parser for
+  /// chunks. Empty chunks are input-idle notifications used for ESC timeout handling.
+  nonisolated private let bytes: AsyncStream<[UInt8]>
 
   /// Streams semantic terminal input events.
   ///
