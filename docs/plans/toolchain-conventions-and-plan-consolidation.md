@@ -1,7 +1,8 @@
 ---
 type: plan
-stage: active
+stage: done
 created: 2026-10-21
+completed: 2026-10-22
 order: 35
 description: Baseline every local check, make Xcode 26.6 and Swift 6.3.3 the baseline on every lane while adding Swift 6.4 and Xcode 27 support, port plan 033 and its spikes to main, run plan 034, adopt the owner's newer repository conventions (unwrapped prose with rumdl, an IWE docs workspace with slug-named plans and a split spec, mise and hk in place of just and Lefthook, Tessera-owned Tart and Lima VMs, and a current Zig and libghostty-vt), then merge plans 032 and 033 into one plan.
 ---
@@ -31,12 +32,12 @@ description: Baseline every local check, make Xcode 26.6 and Swift 6.3.3 the bas
   - [x] 5.5 Replace `just` with mise and Lefthook with hk (`044f074`, `c49bb74`, `219ae7e`; matrix passes through the tasks; CI run `39738324893` green on every job with mise-action)
   - [x] 5.6 Give Tessera its own Tart and Lima VM tasks (`c8dc5d6`; both macOS guests run the matrix; clean-guest proof with Zig 0.17 in the step)
   - [x] 5.7 Update libghostty-vt and Zig (`9ece4bd` on `plan-035-zig`, draft PR #42; Ghostty `f54340ad` on Zig 0.17.0; all three lanes pass locally; CI run `39741965705` on the branch green on every job, including Windows)
-- [ ] **Phase 6 — Merge plans 032 and 033**
+- [x] **Phase 6 — Merge plans 032 and 033**
   - [x] 6.1 Write the merged plan (`docs/plans/phase-4-view-layer-and-developer-tooling.md`, `proposed`, order 36; `640071d`; owner review pending)
-  - [ ] 6.2 Owner decision: the `mobile` viewport rule, then apply it (blocked on the owner; see the step)
-  - [ ] 6.3 Retire plans 032 and 033 (blocked on the owner's review of 6.1; see the step)
+  - [x] 6.2 Owner decision: the `mobile` viewport rule, then apply it ((b), decided 2026-10-22; template, Stepper page, and the merged plan agree)
+  - [x] 6.3 Retire plans 032 and 033 (both `cancelled` with the successor link; the merged plan is `planned`)
 
-Next: the owner. Morning review of `plan-035` commit by commit, then pull requests to `main` in phase order (the 25 local commits first), plus the draft pull requests #41 (`plan-035`) and #42 (`plan-035-zig`, Step 5.7, to fold into `plan-035` after review); Step 6.2 (the `mobile` viewport decision) and Step 6.3 (retire plans 032 and 033 after reviewing the merged plan); deleting the `devtools-plan` and `devtools-seams-spike` branches and worktrees once their contents are on `main` (Step 3.3). Everything an agent can do without the owner is done.
+Next: nothing; every step is done. The owner merges the `pr/1` to `pr/7` series and this closing branch into `main` and deletes the working branches.
 
 ## Overview
 
@@ -372,6 +373,10 @@ Pre-existing failures and recipe defects, none fixed here:
 
 - Nothing was applied. The merged plan lists the rule as Decision 1 with both options and the three documents that still contradict `docs/design/tokens.md` and `docs/design.md` (`docs/design/templates/widget.md`, plan 032 Step 8.2, `docs/design/widgets/stepper.md`). Once the owner decides, apply it in the template, the merged plan's Slice 3, and the widget docs, and run `mise run quality:wireframes`.
 
+#### Done (2026-10-22)
+
+- The owner chose (b): `mobile` is 40 columns at the component's natural height, with `mobileScreen` (40x16) declared per demo for screen-filling compositions, confirming the 2026-10-10 catalog decision. Applied: `docs/design/templates/widget.md` (the `wireframed` requirement), `docs/design/widgets/stepper.md` (the mobile wireframe is now `40x1`, the callouts and prose follow), and the merged plan's Slice 3 and Decisions. Plan 032 Step 8.2 keeps the old wording as history in the cancelled plan; `mise run quality:wireframes` passes.
+
 ### Step 6.3 — Retire plans 032 and 033
 
 - Set both to `cancelled` with a link to the merged plan (the `superseded` status before Step 5.2), and update `docs/plans.md` and the links to them.
@@ -380,6 +385,10 @@ Pre-existing failures and recipe defects, none fixed here:
 #### Blocked on the owner (2026-10-22)
 
 - Waits for the owner's review of the merged plan (Step 6.1). Then: set plan 032 and plan 033 to `stage: cancelled` with a line under their H1 linking the successor (`phase-4-view-layer-and-developer-tooling.md`), set the merged plan to `planned`, run `scripts/plans.py`, and check that no open step remains only in a retired plan (the merged plan's Acceptance has that box).
+
+#### Done (2026-10-22)
+
+- After the owner's review of the merged plan: plans 032 and 033 are `cancelled`, each with a line under its title naming the successor; the merged plan is `planned` with `Next: Slice 1.`; `docs/plans.md` re-rendered. The merged plan's first acceptance box (no open step remains only in a retired plan) was checked against both plans' Progress lists when it was written.
 
 ## Outcome (2026-10-22, overnight run)
 

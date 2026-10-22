@@ -84,29 +84,14 @@ Stepper has no label of its own: the label belongs to the host row ([LabeledCont
 
 ### Mobile
 
-`mobile` is the canonical 40x16 viewport. The Stepper retains its natural one-row, label-hugging size at the top-left; the remaining cells are unoccupied viewport, not component padding.
+`mobile` is 40 columns at the component's natural height (one row for a Stepper); the control keeps its label-hugging size at the left, and a wider viewport does not stretch it. A 40x16 `mobileScreen` fixture is only for screen-filling compositions.
 
-```wireframe 40x16
+```wireframe 40x1
 ◂ 42 ▸
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ```
 
 ```text
-Callouts (40x16, 0-based):
+Callouts (40x1, 0-based):
 1. r0 c0-c5 Stepper hit target -- the complete 6-cell focusable control; it does not
    stretch merely because the viewport is wider.
 2. r0 c0    decrement arrow -- available decrement action.

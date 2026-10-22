@@ -31,7 +31,7 @@ Callouts (10x3, 0-based):
 
 ## States
 
-Required to reach `wireframed`: `mobile` (40x16) and `min` (declare the floor). Recommended: empty, focused vs unfocused, overflow, degraded (ascii/no-color).
+Required to reach `wireframed`: `mobile` (40 columns at the component's natural height; `mobileScreen`, 40x16, only for a screen-filling composition) and `min` (declare the floor). Recommended: empty, focused vs unfocused, overflow, degraded (ascii/no-color).
 
 ## State model
 

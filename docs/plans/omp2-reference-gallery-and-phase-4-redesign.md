@@ -1,12 +1,14 @@
 ---
 type: plan
-stage: active
+stage: cancelled
 created: 2026-10-08
 order: 32
 description: Use oh-my-pi's omp2 TUI as the visual and behavioral reference for Tessera's Phase 4 components (a verified prior-art inventory, a captured reference gallery with ASCII fallbacks, an owner taste review, a Rust-to-Swift translation key, and a revised catalog), then implement the view layer in dependency order with per-component demos. Replaces plan 030.
 ---
 
 # Phase 4 view layer, redesigned from the omp2 reference
+
+> **Cancelled 2026-10-22.** Its open steps continue in [Build the Phase 4 view layer with the tooling that proves it](phase-4-view-layer-and-developer-tooling.md) (plan 035 Step 6.3); the completed phases, decisions, and findings below stay as the record.
 
 ## Progress
 

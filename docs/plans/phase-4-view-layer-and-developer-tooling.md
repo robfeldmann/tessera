@@ -1,6 +1,6 @@
 ---
 type: plan
-stage: proposed
+stage: planned
 created: 2026-10-22
 order: 36
 description: Build the Phase 4 view layer from the omp2-reviewed catalog and the developer tooling that drives, pictures, and checks it, in one slice order where each component lands with its demo, its scenario, and the harness capability it needs.
@@ -10,7 +10,7 @@ description: Build the Phase 4 view layer from the omp2-reviewed catalog and the
 
 Goal: Tessera's 1.0 view layer (styling, focus, pointer, scrolling, controls, collections, SplitView, the remaining views, and an intro app) lands component by component from the `ready` catalog docs, and every component arrives with a demo that runs live and headlessly, a scenario that an agent can run without prose, and the harness checks that catch the defect classes the archived attempts missed. When this is done, `mise run dev:run Examples/Scenarios` passes on macOS and Linux, `conform` gates every `implemented` catalog page, and a fresh agent given only the `tessera-devtools` skill can drive a demo, read a failure, and take a shot.
 
-This plan merges plan 032 (Phases 8-17, its open implementation phases; Phases 1-7 are complete and stay there as history) and plan 033 (the developer tooling, with its spikes, decisions, and owner feedback). Both are cancelled with a link here once the owner approves this plan (plan 035 Step 6.3).
+This plan merges plan 032 (Phases 8-17, its open implementation phases; Phases 1-7 are complete and stay there as history) and plan 033 (the developer tooling, with its spikes, decisions, and owner feedback). Both are cancelled and link here (plan 035 Step 6.3).
 
 ## Progress
 
@@ -34,7 +34,7 @@ This plan merges plan 032 (Phases 8-17, its open implementation phases; Phases 1
 - [ ] 18 Docs, skill, and the conformance gate
 - [ ] 19 Intro app and Phase 4 closure
 
-Next: the owner reviews this plan (plan 035 Step 6.1) and decides the `mobile` viewport rule (Decision 1; plan 035 Step 6.2); then Slice 1.
+Next: Slice 1.
 
 ## Approach
 
@@ -50,7 +50,7 @@ Files that orient a newcomer. `docs/spec/phase-4/architecture.md`, `docs/spec/ph
 
 Non-goals. The Phase 3 colour-report probe (OSC 10/11/4, mode 2031) that the spec's Phase 3 Slice 6 now specifies is not in this plan; Slice 6 renders the attribute fallbacks until the owner places that probe (Decision 5). A `TesseraTern` backend, modal overlays, and post-1.0 views stay out. Windows runs the Examples build in CI (plan 034 Step 10.3) but not the scenario corpus until Decision 7 is made.
 
-Open questions while proposed: Decisions 1, 2, 4, 5, 7, and 8 below.
+Open questions: Decisions 2, 4, 5, 7, and 8 below.
 
 ## Slices
 
@@ -68,7 +68,7 @@ Delivers: `swift build` and `mise run quality:architecture` green with the new t
 
 ### 3 Demo contract, registry, viewports, and the headless driver
 
-Plan 032 Step 8.2 and plan 033 Step B.1. `Examples/Sources/DemoSupport`: `HeadlessApp` (in `TesseraHarness`), `Demo`, `DemoRegistry` (one selection point, fails closed on duplicates), `Viewport` (`desktop` 80x24, `mobile`, `mobileScreen` 40x16, `custom`); each demo declares its `fixtures`, no default. One `Driver` with one update policy (ported from the review loop's `ApplicationDriver`) and `DemoHost.isQuitKey` whole-key matching; live and headless share the `Driver` and the `TerminalSession.draw` path. The `mobile` rule follows Decision 1: with (b), a package-level nil-height proposal on `ViewGraph` for the natural-height probe plus two-height detection, so a height-greedy demo fails `size mobile` with an error naming `mobileScreen`. The "Demo rules" from `docs/research/phase-4-salvage-review.md` go into the harness documentation.
+Plan 032 Step 8.2 and plan 033 Step B.1. `Examples/Sources/DemoSupport`: `HeadlessApp` (in `TesseraHarness`), `Demo`, `DemoRegistry` (one selection point, fails closed on duplicates), `Viewport` (`desktop` 80x24, `mobile`, `mobileScreen` 40x16, `custom`); each demo declares its `fixtures`, no default. One `Driver` with one update policy (ported from the review loop's `ApplicationDriver`) and `DemoHost.isQuitKey` whole-key matching; live and headless share the `Driver` and the `TerminalSession.draw` path. The `mobile` rule is decided (Decision 1, (b)): `mobile` is 40 columns at natural height, derived through a package-level nil-height proposal on `ViewGraph` plus two-height detection, so a height-greedy demo fails `size mobile` with an error naming `mobileScreen` (40x16). The "Demo rules" from `docs/research/phase-4-salvage-review.md` go into the harness documentation.
 
 Delivers: a demo runs live in a terminal and renders identically headless. Verify: registry tests cover duplicates and lookup; a greedy demo fails `size mobile`; one demo's snapshot test is a few lines.
 
@@ -186,7 +186,7 @@ Delivers: Phase 4 closed. Verify: every catalog page for a shipped view is `impl
 - 2026-10-21 The headless driver lives in the harness library (`TesseraHarness`, root-package test support), and each demo declares its viewports. (owner, plan 034 R-10 and plan 033 Decision 3)
 - 2026-10-21 Plan 032 Step 10.1 wires the dead `focusChanges` counter; the role and label hook lands before the first control; the environment clock is a `Clock` the harness can advance. (owner, plan 035 Step 6.1)
 - 2026-10-22 Flow and `ViewThatFits` (plan 032 Step 14.1) move before the controls, after focus and hit testing exist (Slice 10), because the Picker family and the Phase 16 views depend on them and their focus rule is only testable once Slices 7 and 8 land. (this plan, from the 2026-10-21 owner review note under plan 032 Step 13.2; the owner confirms on review)
-- Open, Decision 1: the `mobile` viewport. (a) 40x16 everywhere; (b) 40 columns at natural height, 40x16 (`mobileScreen`) for screen-filling compositions, with the package nil-height probe, two-height detection, and `fixtures` declared per demo. Plan 033 recommends (b); `docs/design/tokens.md` and `docs/design.md` already say (b) while `docs/design/templates/widget.md`, plan 032 Step 8.2, and `docs/design/widgets/stepper.md` still say (a). The owner decides in plan 035 Step 6.2, and the template, Slice 3, and the widget docs are then made to agree.
+- 2026-10-22 Decision 1, the `mobile` viewport: (b), 40 columns at the component's natural height, with `mobileScreen` (40x16) declared per demo for screen-filling compositions; the harness derives natural height with the package nil-height probe and two-height detection, and a height-greedy demo fails `size mobile` naming `mobileScreen`. This confirms the 2026-10-10 catalog decision; `docs/design/templates/widget.md`, `docs/design/widgets/stepper.md`, and Slice 3 were brought into line, and plan 032 Step 8.2 stays as history in the cancelled plan. (owner, plan 035 Step 6.2)
 - Open, Decision 2: Slice 10's position, as proposed above.
 - Open, Decision 3: live inspection versus the spec's prohibition on serialising from `TesseraCore`: (a) keep the prohibition, (b) amend the spec so a dev runner may expose an opt-in loopback endpoint that also injects input, (c) a TCP port like Textual, (d) no transport. Slice 17 happens only under (b).
 - Open, Decision 4: `role` and `label` as derived values (a) or as optional fields set by library controls through an internal hook (b). Plan 033 recommends (a) in Slice 5 and (b) in Slice 11.

@@ -1,12 +1,14 @@
 ---
 type: plan
-stage: proposed
+stage: cancelled
 created: 2026-10-19
 order: 33
 description: A headless harness, a scenario language, semantic queries over the view graph, deterministic text/grid/SVG shots, invariant and cost checks, "why" traces, and a catalog review view, built on plan 032's Phase 8 demo runner and landing one capability per Phase 4 phase so agents can build, debug, and evaluate Tessera apps unattended.
 ---
 
 # Developer tooling for agents and humans
+
+> **Cancelled 2026-10-22.** Its open steps continue in [Build the Phase 4 view layer with the tooling that proves it](phase-4-view-layer-and-developer-tooling.md) (plan 035 Step 6.3); the completed phases, decisions, and findings below stay as the record.
 
 ## Progress
 
