@@ -4,7 +4,9 @@ description:
   Fix the concurrency and isolation findings from a review of TesseraTerminal and
   TesseraTerminalIO: cancellation-safe teardown, serialized terminal output, blocking
   I/O off the cooperative pool, session and stream lifetimes, vouch cleanup, and
-  deterministic terminal tests.
+  deterministic terminal tests. Also the bug punchlist from the 2026-10-17 and 2026-10-20
+  repository review notes: nested view lists in layout containers, the parallel suite,
+  error-type conformances, and CI coverage of the Examples package.
 status: pending
 created: 2026-10-21
 updated: 2026-10-21
@@ -25,7 +27,7 @@ updated: 2026-10-21
   - [ ] 3.2 Make `PlatformIO.flush` a single drain owner
   - [ ] 3.3 Serialize `draw` with its own gate
 - [ ] **Phase 4 — Closed session lifecycle**
-  - [ ] 4.1 Owner decision on use after teardown
+  - [ ] 4.1 Use after teardown throws (decided 2026-10-21)
   - [ ] 4.2 Close `ModeLifecycle` after a successful exit
   - [ ] 4.3 Close `TerminalSession` after its scoped teardown
 - [ ] **Phase 5 — Blocking I/O off the cooperative pool**
@@ -35,19 +37,19 @@ updated: 2026-10-21
 - [ ] **Phase 6 — Stream, observer, and descriptor lifetimes**
   - [ ] 6.1 Stop leaking cancelled waiter IDs in `AsyncEventBuffer`
   - [ ] 6.2 Guard the POSIX cancel descriptor against the actor's close
-  - [ ] 6.3 Finish the input pump when the session is gone
-  - [ ] 6.4 Owner decision: start the input pump after construction
-  - [ ] 6.5 Owner decision: buffering policy for input and size streams
+  - [ ] 6.3 Finish the input pump when the session is gone (skipped: Step 6.4 replaces it)
+  - [ ] 6.4 Start the input pump after construction (decided 2026-10-21)
+  - [ ] 6.5 Buffering policy for input and size streams (decided 2026-10-21)
   - [ ] 6.6 Create one size subscription and fan it out
   - [ ] 6.7 Fix the Windows input-loop restart race (unverified platform)
 - [ ] **Phase 7 — Active probe retry policy**
-  - [ ] 7.1 Owner decision: is a cancelled or failed probe permanent?
-  - [ ] 7.2 Retry after cancellation or emit failure, if confirmed
+  - [ ] 7.1 Probe retry policy (decided 2026-10-21)
+  - [ ] 7.2 Retry after cancellation or emit failure
 - [ ] **Phase 8 — Vouches, invariants, and process globals**
   - [ ] 8.1 Remove the two unneeded `@unchecked Sendable` attributes
   - [ ] 8.2 Document the `ResizeSignalSource` invariant and the SIGWINCH disposition
   - [ ] 8.3 Replace or justify the test-helper vouches
-  - [ ] 8.4 Owner decision: descriptor ownership shape
+  - [ ] 8.4 Descriptor ownership: borrowed standard descriptors (decided 2026-10-21)
   - [ ] 8.5 Stop freeing retired cleanup states in the C shim (unverified)
 - [ ] **Phase 9 — Deterministic terminal tests**
   - [ ] 9.1 Order the queued-setter test on an observable
@@ -56,6 +58,12 @@ updated: 2026-10-21
   - [ ] 9.4 Remove the bounded yield loops in the input and resize tests
   - [ ] 9.5 Remove the real 60-second sleep from the probe test
   - [ ] 9.6 Narrow `.serialized` to suites that reach a process global
+  - [ ] 9.7 Order the remaining yield-before-cancel tests on observables
+  - [ ] 9.8 Exercise the suite in parallel, or drop the promise (decided 2026-10-21)
+- [ ] **Phase 10 — Repository review punchlist**
+  - [ ] 10.1 Flatten nested view lists into layout containers
+  - [ ] 10.2 Give `VirtualTerminalError` the standard error conformances
+  - [ ] 10.3 Build the Examples package in CI
 
 ## Overview
 
@@ -74,6 +82,13 @@ been built or stressed on its platform. The repository pins Swift 6.3.2 (`.swift
 with `swift-tools-version: 6.3`, but the compiler checks in the review used Swift 6.4, so
 each compiler-dependent step must be rechecked on the pinned toolchain.
 
+Phase 10, Steps 9.7 and 9.8, and additions to Steps 3.2 and 8.3 come from two repository
+review notes (2026-10-17 and 2026-10-20), re-checked against `28c34b8` on 2026-10-21; see
+[Repository review findings](#repository-review-findings). Plan 035
+(`.agents/plans/035-toolchain-conventions-and-plan-consolidation.md`) runs this plan as
+its Phase 4, after its full local baseline (Step 1.1) and the Swift 6.4 and Xcode 27
+toolchain update (Phase 2).
+
 ## Phase 1 — Baseline and test seams
 
 **Goal**: a recorded baseline and the package-internal observables that the later
@@ -87,6 +102,10 @@ regression tests need, with no behavior change.
   6.3.2). The package needs remote dependencies and a prebuilt `CGhosttyVT` library, so
   the first run may need setup beyond the repo defaults.
 - Record which tests already fail, so later failures can be attributed.
+- When this plan runs inside plan 035, Step 1.1 of plan 035 has already recorded the full
+  check matrix, and its Phase 2 has set the toolchain lanes. Then run the two filters
+  above on every lane Phase 2 kept, and replace "pinned toolchain" in the steps below with
+  "each supported lane".
 - Acceptance: both commands complete, and any pre-existing failure is written into this
   step before Phase 2 starts.
 
@@ -174,6 +193,17 @@ frame actually on screen.
   safe alone. While the first drain is suspended, a second `flush` that swaps the buffer
   out can send bytes appended later before the first drain's remainder, which reorders
   output. Step (a) is required with any swap.
+- (e) The `writeWouldBlock` catch at lines 119-122, whose `Task.yield()` spins: the live
+  POSIX device never surfaces that error, because `TerminalDevice+Live.swift:191-192`
+  catches it and waits in `waitUntilWritable` (bounded by Step 5.2), so only test doubles
+  reach the yield. Decision (owner, 2026-10-21): delete the catch, and state in the
+  `TerminalDevice` doc comment that `write` either blocks until it makes progress or
+  throws. Two existing tests feed `writeWouldBlock` through `CountingOutputWriter` and
+  expect a retry: `flush retries temporarily unavailable writes without dropping bytes`
+  (`Tests/TesseraTerminalIOTests/PlatformIOTests.swift:91-102`) and
+  `flush retries after transient write errors` (`:316-335`). Rewrite the first to assert
+  that `flush` throws `writeWouldBlock` and keeps the unwritten bytes, and drop the
+  `writeWouldBlock` case from the second, keeping its other transient errors.
 - Cost/risk: a second `flush` waits for the first. Public callers are unchanged. A discard
   cannot recall bytes the terminal has already accepted; it only prevents re-sending them.
 - Acceptance: Steps 3.1 A, B, and C pass; `swift test --filter PlatformIOTests` is green,
@@ -204,14 +234,14 @@ frame actually on screen.
 
 **Goal**: a session that has left its scoped teardown cannot write to the terminal again.
 
-### Step 4.1 — Owner decision on use after teardown
+### Step 4.1 — Use after teardown throws (decided 2026-10-21)
 
 - File: none (decision).
-- Decide whether calls on a `TerminalSession` after `withApplicationTerminal` returns
-  should throw (proposed; a pre-1.0 behavior change) or do nothing. Record the decision
-  here before Step 4.2. The reviews found no in-scope caller that depends on the current
-  behavior.
-- Acceptance: the decision is recorded in this step.
+- Decision (owner, 2026-10-21): calls on a `TerminalSession` after
+  `withApplicationTerminal` returns throw, as proposed. This is a pre-1.0 behavior change;
+  the reviews found no in-scope caller that depends on the current behavior. Record it in
+  `CHANGELOG.md` when Step 4.3 lands.
+- Acceptance: none beyond Steps 4.2 and 4.3.
 
 ### Step 4.2 — Close `ModeLifecycle` after a successful exit
 
@@ -328,27 +358,28 @@ path.
   `events` stream to terminate. Before the fix the stream never finishes, so run the test
   with a timeout.
 
-### Step 6.4 — Owner decision: start the input pump after construction
+### Step 6.4 — Start the input pump after construction (decided 2026-10-21)
 
 - File: `Sources/TesseraTerminal/TerminalSession.swift`: the pump start (lines 276-286),
   the observer (lines 68-96), and `deinit` (lines 879-881).
-- Proposed: start the pump from a method that `withApplicationTerminal` calls after the
-  session is constructed, capturing `[weak self]`, and delete
-  `TerminalSessionInputObserver`. Event order is unchanged, because the pump still runs
-  sequentially. This makes Step 6.3 unnecessary.
-- Acceptance: decision recorded here. If adopted, Step 6.3 is skipped and the existing
+- Decision (owner, 2026-10-21), as proposed: start the pump from a method that
+  `withApplicationTerminal` calls after the session is constructed, capturing
+  `[weak self]`, and delete `TerminalSessionInputObserver`. Event order is unchanged,
+  because the pump still runs sequentially. Step 6.3 is skipped.
+- Acceptance: Step 6.3 is marked skipped with this reason, and the existing
   `TerminalSessionTests` stay green.
 
-### Step 6.5 — Owner decision: buffering policy for input and size streams
+### Step 6.5 — Buffering policy for input and size streams (decided 2026-10-21)
 
 - Files: `Sources/TesseraTerminal/TerminalSession.swift` (lines 238-239, the input buffer
   and event stream, both unbounded); `Sources/TesseraTerminalIO/PlatformIO.swift`
   (`events`, lines 52-91).
-- Decide: one consumer path or one shared buffer for input; a bounded newest-only policy
-  for size changes, since only the latest size matters; and a documented drop policy for
-  input, or no drop. Input must not be dropped silently.
-- Acceptance: the decision is recorded here, and the policy is written into the doc
-  comments of `events`, `inputEvents`, and `sizeChanges`.
+- Decision (owner, 2026-10-21): input is never dropped and has one consumer path (one
+  shared buffer, unbounded as today); size changes keep only the newest value
+  (`.bufferingNewest(1)` or equivalent), since only the latest size matters.
+- Acceptance: the policy is implemented and written into the doc comments of `events`,
+  `inputEvents`, and `sizeChanges`, and a test shows that several size changes queued
+  before a read deliver only the last one.
 
 ### Step 6.6 — Create one size subscription and fan it out
 
@@ -375,16 +406,17 @@ path.
 
 **Goal**: a probe that was cancelled or failed to send is not treated as answered.
 
-### Step 7.1 — Owner decision: is a cancelled or failed probe permanent?
+### Step 7.1 — Probe retry policy (decided 2026-10-21)
 
-- File: none (decision). Context: `TerminalSession.swift` lines 516-518 describe the
-  generation as "permanently cached". `ActiveCapabilityProbeCoordinator.swift` lines
-  161-166 resolve the generation on any error, including cancellation and an emit failure.
-- Decide whether a timeout stays permanent (the docs say so) and whether cancellation or
-  an emit failure should return the generation to idle. Check intent first.
-- Acceptance: the decision is recorded here.
+- Context: `TerminalSession.swift` lines 516-518 describe the generation as "permanently
+  cached". `ActiveCapabilityProbeCoordinator.swift` lines 161-166 resolve the generation
+  on any error, including cancellation and an emit failure.
+- Decision (owner, 2026-10-21): a timeout stays permanent, as the docs say; a cancelled
+  probe or a failed emit returns the generation to idle so a later reconcile retries. Step
+  7.2 is confirmed.
+- Acceptance: none beyond Step 7.2.
 
-### Step 7.2 — Retry after cancellation or emit failure, if confirmed
+### Step 7.2 — Retry after cancellation or emit failure
 
 - File: `Sources/TesseraTerminal/ActiveCapabilityProbeCoordinator.swift`: the `catch` in
   `reconcile` (lines 161-166).
@@ -420,33 +452,37 @@ removed or stated in writing.
 - Change: write the invariant above the class. It is one `resume` and one `cancel`, the
   event handler runs on the Dispatch queue, and the continuation is finished from the
   cancel handler. Document why `signal(SIGWINCH, SIG_IGN)` is set, and note that it is
-  process-wide and never restored. Owner choice: save and restore the previous disposition
-  in `init` and `cancel` (which can race with another source that also sets it), or
-  document only.
-- Acceptance: the comment is reviewed. No behavior change.
+  process-wide and never restored. Decision (owner, 2026-10-21): document only; restoring
+  the previous disposition can race with another source that also sets it.
+- Acceptance: the comment is written. No behavior change.
 
 ### Step 8.3 — Replace or justify the test-helper vouches
 
 - Files and lines: `Tests/TesseraTerminalIOTests/PlatformIOTests.swift:429`,
   `TerminalDeviceLiveTests.swift:106`, `CleanupRegistryTests.swift:115`,
   `WindowsInputLoopTests.swift:179`, `WindowsConsoleModeTests.swift:213`,
-  `POSIXSyscallsTests.swift:63`, `PlatformIOInputTests.swift:53, 76, 119, 160, 212`, and
-  `TerminalResizeRegistryTests.swift:11, 40, 67`.
+  `POSIXSyscallsTests.swift:63`, `PlatformIOInputTests.swift:53, 76, 119, 160, 212`,
+  `TerminalResizeRegistryTests.swift:11, 40, 67`, and
+  `Tests/TesseraLayoutTests/FlexDistributionTests.swift:449` (`MeasurementRecorder`).
 - Change: for each class, either use `Mutex`-guarded state, or add a one-line comment
   naming the task that owns the state. Do it file by file.
-- Acceptance: `swift test` is green, and each remaining `@unchecked` has a comment naming
-  its invariant.
+- Also: add a one-line comment above the `Mutex` in
+  `Sources/TesseraTerminalSnapshotSupport/VirtualTerminal+Ghostty.swift:31-32`
+  (`GhosttyTerminalState`). The `.pi/prompts/phase-slice-workflow.md` rule prefers actors
+  for test-support state (line 62), but `VirtualTerminal`'s closures are synchronous, so
+  an actor cannot back them; the comment says so.
+- Acceptance: `swift test` is green, each remaining `@unchecked` has a comment naming its
+  invariant, and the `Mutex` has its justification.
 
-### Step 8.4 — Owner decision: descriptor ownership shape
+### Step 8.4 — Descriptor ownership: borrowed standard descriptors (decided 2026-10-21)
 
 - Files: `Sources/TesseraTerminalIO/FileDescriptor.swift` (lines 2-8);
   `PlatformHandles.swift` (lines 3-10); `TerminalDevice+Live.swift` (lines 37-41).
 - The `~Copyable` markers do not stop the raw `CInt` from being copied into `@Sendable`
-  closures, where it outlives the wrapper. Choose one: drop `~Copyable` and document the
-  standard descriptors as borrowed for the process lifetime; or keep the owner noncopyable
-  and expose only scoped `borrowing` access.
-- Acceptance: the decision is recorded here. If the second option is chosen, the raw-value
-  capture is removed and the live-device tests stay green.
+  closures, where it outlives the wrapper. Decision (owner, 2026-10-21): drop `~Copyable`,
+  and document the standard descriptors as borrowed for the process lifetime.
+- Acceptance: `~Copyable` is gone from the three files, the borrowing contract is in their
+  doc comments, and the live-device tests stay green.
 
 ### Step 8.5 — Stop freeing retired cleanup states in the C shim (unverified)
 
@@ -475,8 +511,9 @@ removed or stated in writing.
 
 ### Step 9.2 — Replace waiter-count spins with a bounded waiting helper
 
-- File: `Tests/TesseraTerminalTests/TerminalSessionTests.swift`, at lines 1934, 1967,
-  1971, 1990, 2112, and 2119 (each `while await buffer.waiterCount … Task.yield()`).
+- File: `Tests/TesseraTerminalTests/TerminalSessionTests.swift`, the `while` statements at
+  lines 1934, 1967, 1971, 1990, 2112, and 2119 (each
+  `while await buffer.waiterCount … Task.yield()`; the yield is on the next line).
 - Add a test helper that waits for a waiter count with a deadline, and records an issue
   when the deadline passes. Model it on `waitForCount` in
   `ActiveCapabilityProbeCoordinatorTests.swift` (line 310), and prefer a signal over
@@ -526,6 +563,100 @@ removed or stated in writing.
   `CleanupRegistry.install` directly still need the shim.
 - Acceptance: `swift test` is green, and each remaining `.serialized` attribute has a
   comment naming its global or PTY.
+
+### Step 9.7 — Order the remaining yield-before-cancel tests on observables
+
+- File: `Tests/TesseraTerminalTests/TerminalSessionTests.swift`. C-18 cites these two
+  yields, but Steps 9.1 to 9.4 do not cover them.
+- `queued runtime mode setters preserve unrelated requests` (lines 370-401; yield at line
+  388): wait until the focus setter is queued on `modeTransitionGate` (the Step 1.2
+  accessor) before resuming the suspended write.
+- `pending event read cancellation preserves the next input` (lines 1899-1925; yield at
+  line 1915): wait until the buffer has one waiter (the Step 9.2 helper) before
+  cancelling.
+- Acceptance: both tests assert their precondition before they proceed, and a search of
+  `Tests/` for `Task.yield` finds nothing.
+
+### Step 9.8 — Exercise the suite in parallel, or drop the promise (decided 2026-10-21)
+
+- Context: `CONTRIBUTING.md:219` requires tests to be safe under the full parallel suite,
+  but every runner passes `--no-parallel`: `justfiles/core.just:28` and `:32`,
+  `justfiles/ci.just:18` and `:23`, `.github/workflows/ci.yml:270`, and the Linux script
+  (`CONTRIBUTING.md:242`); `CONTRIBUTING.md:103` labels `just core test` "(non-parallel)".
+  Read `.agents/investigations/024-phase-3-full-suite-hang.md` first, in case the flag
+  works around that hang.
+- Decision (owner, 2026-10-21): read investigation 024 first. If its hang no longer
+  reproduces under `swift test --parallel` (macOS and Linux, three runs each), take (a):
+  after Step 9.6, add a `just` recipe for a parallel run and a non-required CI job, and
+  keep `--no-parallel` only where 024 still requires it. Otherwise take (b): remove the
+  promise from `CONTRIBUTING.md` and say why, citing 024.
+- Acceptance: the branch taken and its evidence (run counts and results) are recorded
+  here. This plan runs before plan 035 Step 5.5 replaces `just` with mise, which ports the
+  recipe.
+
+## Phase 10 — Repository review punchlist
+
+**Goal**: the defects from the repository review notes that are not concurrency findings
+are fixed, each behind a test or a CI step that would have caught it.
+
+### Step 10.1 — Flatten nested view lists into layout containers
+
+- Files: `Sources/TesseraCore/Views/StructuralView.swift` (`_visitLayoutChildren`, lines
+  77-99), `TupleView.swift` (`_visitChildren`, lines 11-29), `ViewBuilder.swift`
+  (`buildBlock`, lines 10-13). Every layout container goes through the same function:
+  `Sources/TesseraLayout/Stacks.swift:274`, `:334`, `:379`, `Flex.swift:544`,
+  `Layout.swift:111`, `Sources/TesseraWidgets/ScrollView.swift:28`, and
+  `SplitView.swift:89`.
+- Defect (reproduced 2026-10-21 at `28c34b8` with a throwaway test, then deleted): in a
+  20x10 graph, `VStack { header(5x2); ForEach(1...3) { row(3x1) } }` places all three rows
+  at (0,2), and `VStack { ForEach(1...3) { row(3x1) } }` places all three at (0,0).
+  `_visitLayoutChildren` flattens only a top-level `_ViewList`, and `buildBlock` wraps
+  even a single expression in a `TupleView`, so a `ForEach` is always nested and becomes
+  one child. The 2026-10-20 note predicted the single-`ForEach` case would work; it does
+  not.
+- Tests first, in `Tests/TesseraLayoutTests/StackDistributionTests.swift`: a `ForEach`
+  beside a sibling, a `ForEach` alone, two adjacent `ForEach`es, and the same in an
+  `HStack`. In `Tests/TesseraCoreTests/ReconciliationTests.swift`: a keyed child keeps its
+  state when an item is inserted before it inside a stack that also has a fixed sibling.
+- Change (owner decision, 2026-10-21): flatten at layout time, not at reconciliation, so
+  node identity, keyed reconciliation, and the graph's node tree stay exactly as they are.
+  `makeLayoutSubviews` (`Sources/TesseraCore/Runtime/ViewGraph.swift:519-548`) builds one
+  subview per child node; make it descend through child nodes whose view is a `_ViewList`
+  (`TupleView`, `ForEach`, `ConditionalView`, `Optional`, `EmptyView`) and collect their
+  leaf descendants as the layout's subviews. Placement then sets each leaf's frame, and
+  each intermediate list node takes the union of its children's frames (an empty list gets
+  a zero-size frame at its parent's origin). Do not change `_visitLayoutChildren` or
+  `_ViewSlot`.
+- Also test a two-view `if` branch inside a stack: `ConditionalView` is a `_ViewList`
+  (`ConditionalView.swift:2-4`), so its branch must flatten the same way.
+- Acceptance: the new tests fail on the current HEAD and pass after the change;
+  `swift test` is green; `ReconciliationTests` snapshots are unchanged; and every changed
+  frame in a diagnostics snapshot is one the new tests predict. This step lands before any
+  demo is built on stacks (plan 032 Step 8.3, or its successor in plan 035 Phase 6).
+
+### Step 10.2 — Give `VirtualTerminalError` the standard error conformances
+
+- File: `Sources/TesseraTerminalSnapshotSupport/VirtualTerminalError.swift:5`.
+- Change: conform to `Error, Equatable, Sendable`, like every other error type in
+  `Sources/` (for example `PlatformIOError.swift:37`, `GhosttyKeyEncoder.swift:167`). The
+  `ghostty(operation:result:)` payload is a `GhosttyResult` imported from C, which should
+  already be `Equatable` and `Sendable` (inference, not compiled).
+- Acceptance: `swift build` passes on macOS, Linux, and Windows, where the
+  `#if canImport(CGhosttyVT)` case differs.
+
+### Step 10.3 — Build the Examples package in CI
+
+- Files: `.github/workflows/ci.yml` (the test matrix, lines 144-270), and
+  `justfiles/ci.just` (lines 17-23).
+- Context: CI runs root `swift build` (line 256) and `swift test --no-parallel` (line 270)
+  only; nothing in `.github` passes `--package-path Examples`, though
+  `justfiles/core.just:62` already has `just core examples`. Today that leaves the
+  Showcase unguarded; once demos live in `Examples/`, it leaves every demo unguarded.
+- Change: add `swift build --package-path Examples` to the macOS, Linux, and Windows
+  matrix legs (Windows decided by the owner, 2026-10-21; the demos are meant to be checked
+  on Windows) and to the local CI recipe.
+- Acceptance: a deliberate compile error in `Examples/` fails the CI run, then is
+  reverted.
 
 ## Findings
 
@@ -883,6 +1014,45 @@ C-17).
   still need the shim.
 - Confidence: medium. Not every test that reaches the shim was confirmed.
 
+### Repository review findings
+
+Two repository review notes (2026-10-17, while mining conventions for Lattice at
+`f597ac9`; 2026-10-20, while drafting plan 033 at `31966cc`) listed places where practice
+contradicts the written rules. Each item was re-checked against `28c34b8` on 2026-10-21.
+
+- R-01, `Task.yield()` in tests despite `CONTRIBUTING.md:217-219` and `docs/Spec.md:173`,
+  `:8403`, `:8737`: confirmed at every cited line. Steps 9.1 to 9.4 and Step 9.7.
+- R-02, `Task.yield()` in production at `PlatformIO.swift:120`: confirmed, but reachable
+  only from test doubles (see Step 3.2 (e)).
+- R-03, the parallel-safety rule is never exercised: confirmed. Step 9.8.
+- R-04, undocumented `@unchecked Sendable` in test helpers: confirmed at 16 sites. Step
+  8.3, which now also lists `FlexDistributionTests.swift:449` and the `Mutex` in
+  `VirtualTerminal+Ghostty.swift`. The note's claim that the two production vouches are
+  documented is wrong: C-13 found both comments stale and both vouches unnecessary (Step
+  8.1).
+- R-05, CHANGELOG entries not concise: every `Unreleased` entry is one physical line, as
+  `CONTRIBUTING.md:161` requires; "concise" is a matter of taste. Recorded in Checked and
+  sound.
+- R-06, line length 90 in `CONTRIBUTING.md:189` but 91 in `.swift-format:3`: confirmed;
+  SwiftLint's `line_length` is disabled (`.swiftlint.yml:26`), so the stated 150-character
+  hard limit is not enforced either. Routed to plan 035 Step 5.1.
+- R-07, `VirtualTerminalError` conforms to `Error` only: confirmed. Step 10.2.
+- R-08, silent Ghostty fallback in `VirtualTerminal+Ghostty.swift:24-27`: not a defect.
+  Recorded in Checked and sound.
+- R-09, `mobile` viewport: natural height or 40x16: partly stale. Text-field, picker,
+  multi-picker, and content-unavailable-view now say natural height, and key-legend labels
+  its 40x16 frame as screen context. Still contradictory: `design/templates/widget.md:38`,
+  plan 032 Step 8.2 (lines 609-610, acceptance line 623), and
+  `design/widgets/stepper.md:138`; `design/widgets/list.md:186` is defensible if List is
+  screen-filling. Routed to plan 035 Step 6.2.
+- R-10, plan 032 amendments that plan 033 depends on: a plan change, not a defect.
+  `focusChanges` (`GraphStatistics.swift:51`) is confirmed dead: only
+  `GraphDiagnosticsSnapshotting.swift:102` reads it and nothing increments it. Routed to
+  plan 035 Step 6.1.
+- R-11, CI never builds `Examples`: confirmed. Step 10.3.
+- R-12, `ForEach` beside other children is not flattened: confirmed and broader than
+  reported. Step 10.1.
+
 ### Citation corrections
 
 The reports' citations were re-read against the current source. Corrections:
@@ -962,6 +1132,12 @@ All other cited lines were re-read and match the current source.
   lock in either target (the search that found this was not repeated).
 - `TerminalDeviceLiveTests` builds `PlatformIO(handles:)`, which uses the live registry,
   but does not enter `ModeLifecycle`. Reported as sound; not re-checked.
+- The Ghostty fallback in `VirtualTerminal+Ghostty.swift:24-27` (R-08) is loud, not
+  silent: `reportIssue` fails the running test, and the returned `Self()` is built from
+  `unimplemented(...)` closures (`VirtualTerminal.swift:30-64`), each of which reports
+  another issue when called. Outside a test it is a runtime warning.
+- The `Unreleased` CHANGELOG entries (R-05) are each one physical line, which is the
+  checkable part of `CONTRIBUTING.md:161`.
 
 ## Not covered
 
@@ -973,7 +1149,7 @@ All other cited lines were re-read and match the current source.
   Swift 6.3.2 (`.swift-version`), with `swift-tools-version: 6.3` (`Package.swift:1`). The
   `withTaskCancellationShield` availability claim (macOS 27, SE-0504) comes from one
   reviewer's compile against the macOS 27 SDK. It was rechecked neither here nor on the
-  pinned toolchain.
+  pinned toolchain. Plan 035 Phase 2 settles the toolchain lanes before this plan runs.
 - Windows: `WindowsInputLoop.swift`, `WindowsConsole.swift`, `WindowsConsoleMode.swift`,
   the Windows branches of `CleanupRegistry.swift` and `TerminalDevice+Live.swift`,
   `WindowsInputLoopTests.swift`, and `WindowsConsoleModeTests.swift` were read only. C-07,
@@ -1013,3 +1189,5 @@ All other cited lines were re-read and match the current source.
   [proposals/0504-task-cancellation-shields.md](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0504-task-cancellation-shields.md)
 - A concurrency/isolation review on 2026-10-20, two passes over these sources at the
   current HEAD. The origin of every finding in this plan.
+- Repository review notes from 2026-10-17 and 2026-10-20 (personal vault inbox, folded
+  here and deleted). The origin of Phase 10, Steps 9.7 and 9.8, and the R findings.
