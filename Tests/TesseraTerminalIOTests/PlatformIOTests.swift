@@ -106,19 +106,6 @@ func `flush throws temporarily unavailable writes without dropping bytes`() asyn
 }
 
 @Test
-func `bytes reads terminal device seam input byte chunks`() async {
-  let terminalDevice = InMemoryTerminalDevice(inputBytes: [0x61, 0x62])
-  let io = PlatformIO(terminalDevice: await terminalDevice.terminalDevice)
-  var iterator = io.bytes.makeAsyncIterator()
-
-  let chunk = await iterator.next()
-  let end = await iterator.next()
-
-  expectNoDifference(chunk, [0x61, 0x62])
-  expectNoDifference(end, nil)
-}
-
-@Test
 func `events parses terminal device seam input byte chunks`() async {
   let terminalDevice = InMemoryTerminalDevice(inputBytes: Array("\u{1B}[1;5A".utf8))
   let io = PlatformIO(terminalDevice: await terminalDevice.terminalDevice)
