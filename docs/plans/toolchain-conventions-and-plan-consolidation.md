@@ -27,8 +27,8 @@ description: Baseline every local check, make Xcode 26.6 and Swift 6.3.3 the bas
   - [x] 5.1 Set the Swift line width to 90 (`34119a5` sets `.swift-format` and `CONTRIBUTING.md`; the reformat of 20 files is `be4a42a`; lint and tests pass)
   - [x] 5.2 Move project docs into an IWE workspace with slug-named plans (`de0c89b`, `ba7c11b`; `iwe schema validate` clean, links checked)
   - [x] 5.3 Split the spec into workspace pages (`50f7147`; zero-diff reconstruction, 284 anchors mapped)
-  - [x] 5.4 Unwrap prose and lint Markdown with rumdl (`4313e07`, `d6215f1`; `rumdl check .` clean on 236 files)
-  - [ ] 5.5 Replace `just` with mise and Lefthook with hk
+  - [x] 5.4 Unwrap prose and lint Markdown with rumdl (`4313e07`, `d6215f1`; `rumdl check .` clean on 236 files; CI run `39735348057` green on every job)
+  - [x] 5.5 Replace `just` with mise and Lefthook with hk (`044f074`; matrix passes through the tasks; CI run below)
   - [ ] 5.6 Give Tessera its own Tart and Lima VM tasks
   - [ ] 5.7 Update libghostty-vt and Zig
 - [ ] **Phase 6 — Merge plans 032 and 033**
@@ -36,7 +36,7 @@ description: Baseline every local check, make Xcode 26.6 and Swift 6.3.3 the bas
   - [ ] 6.2 Owner decision: the `mobile` viewport rule, then apply it
   - [ ] 6.3 Retire plans 032 and 033
 
-Next: Step 5.5 (mise tasks replace the just recipes; hk replaces Lefthook).
+Next: Step 5.6 (Tessera-owned Tart and Lima VM tasks), then Step 5.7 on `plan-035-zig`.
 
 ## Overview
 
@@ -69,7 +69,7 @@ Work happens on one integration branch, `plan-035` (owner decision, 2026-10-21);
 Rules for an agent running this plan unattended.
 
 - Branch: create `plan-035` from local `main` (which carries 25 commits not on `origin/main`) and do all work there. One commit per step, or a few for a large step, with Conventional Commit messages; commits are signed by the repository's Git configuration. Push `plan-035` after each phase and keep one draft pull request from `plan-035` to `main` open, with a Conventional Commit title, so CI runs. Never push to `main`, merge a pull request, force-push, or delete a branch or worktree.
-- Checks: the repository's pre-commit hooks do not run in this worktree (`core.hooksPath` in `../.bare/config` is `.githooks`, which does not exist, and Lefthook is not installed); only the owner's Git config hook validates Conventional Commit subjects. So run the `AGENTS.md` gate by hand before every commit: `just quality format`, the full `swift test` on the baseline toolchain (`DEVELOPER_DIR` set to Xcode 26.6), and `just quality lint`; add `just docs lint` when DocC or public API changes.
+- Checks: the repository's pre-commit hooks do not run in this worktree (`core.hooksPath` in `../.bare/config` is `.githooks`, which does not exist, and Lefthook is not installed); only the owner's Git config hook validates Conventional Commit subjects. So run the `AGENTS.md` gate by hand before every commit: `just quality format`, the full `swift test` on the baseline toolchain (`DEVELOPER_DIR` set to Xcode 26.6), and `just quality lint`; add `just docs lint` when DocC or public API changes. (From Step 5.5 on, the same gate is `mise run quality:format`, `mise run core:test`, and `mise run quality:lint`, and hk runs the staged gate on every commit.)
 - Tools: mise is installed but not activated in a plain shell; run mise-managed tools (hk, rumdl, and later the Tessera tasks) through `mise exec --` or an activated shell.
 - Handoff: after each step, check its box only with evidence on the line (a commit SHA, a command and its result) and update the `Next:` line under Progress. The run will outlast one context; the plan is the handoff.
 - Blocked steps: record what was tried and the first error in the step, leave the box unchecked, and continue with the next step that does not depend on it. Step 2.1 gates every later build step; Steps 3.1 and 3.3's patch, and plan 034's test-only steps, do not depend on each other.
@@ -304,6 +304,15 @@ Pre-existing failures and recipe defects, none fixed here:
 - CI: install mise with `jdx/mise-action`, pinned to a full commit SHA as the repository requires (`CONTRIBUTING.md:291-293`). The owner added `jdx/mise-action@*` to the allowed actions on 2026-10-21; the latest release then was `v5.2.2`, commit `8418fedb1110381a0d3ba51a7a415d7c1b884550` (re-check for a newer release when the step runs). Add it to the reviewed-actions list in `CONTRIBUTING.md`, and once `just` is gone, drop the `taiki-e/install-action` steps and tell the owner that pattern can leave the allow-list.
 - Contributors: `mise install` then one setup task is the whole bootstrap; nothing depends on the owner's dotfiles.
 - Acceptance: every recipe has a mise task or a recorded reason for removal; `Justfile`, `justfiles/`, and `lefthook.yml` are gone; CI uses mise; fish completes every task and its arguments; `CONTRIBUTING.md`, `AGENTS.md`, and the docs name the new commands; the Phase 1 check matrix passes through them.
+
+#### Done (2026-10-22)
+
+- Commit `044f074`. `mise.toml` pins the tools (`mise.lock` records them for macos-arm64, linux-x64, and linux-arm64): SwiftLint 0.65.1, rumdl 0.3.0, hk 2.8.0, codespell 2.4.3 (`pipx:` through uv), Node 24.22.1, Python 3.15.1, uv 0.13.5, yamllint 1.38.0, taplo 0.10.0, jq 1.8.2, iwe 0.29.0, and, matching the pinned Ghostty, zig 0.15.2 with cmake 4.4.4 and ninja 1.13.2. Swift stays with Xcode (mise's `[env]` sets `DEVELOPER_DIR` to Xcode 26.6 wherever it is installed, falling back to `xcode-select -p`) and swiftly; swift-format comes from the selected Xcode toolchain through `scripts/swift-format.sh`, so CI and local runs format alike.
+- Every `just` recipe is a file task under `mise-tasks/<module>/<name>` (76 tasks: `core:`, `quality:`, `ci:`, `docs:`, `linux:`, `windows-frost:`, `windows-utm:`, `setup:`), each with a description and a `#USAGE` spec; variadic arguments pass through (`mise run core:test -- --filter X`), and `core:example` completes its names with a usage `complete` directive. Verified in fish with mise activated: `mise run core:<Tab>` lists tasks with descriptions, `mise run core:example <Tab>` lists the example executables, and `mise run quality:changed --<Tab>` offers `--staged`. Removed with a reason: `setup:quality-tools` and `scripts/quality-python.sh` (codespell comes from mise, no project venv); `.node-version` (`mise.toml` pins Node). `linux:build` is ported but still fails for the pre-existing reason recorded in Step 2.1 (the Static Linux SDK has no XCTest for the SnapshotTesting products); the Lima VM is the working Linux path.
+- `hk.pkl` replaces `lefthook.yml`: `pre-commit` runs `scripts/pre-commit-lint-staged.sh` on the staged tree with `stash = "git"` and never fixes; `commit-msg` runs `scripts/conventional_commits.py`; `hk check` and `hk fix` run the full gates. `core.hooksPath` was unset in `../.bare/config` (it pointed at a missing `.githooks`), `mise run setup:hooks` installed hk through Git's `hook.*` config, and the stale Lefthook stubs in `.bare/hooks` were removed; the owner's global commit-msg hook still runs beside hk's. Verified on this commit (the staged gate ran on 110 files) and with `git commit --allow-empty -m "not a conventional subject"`, which both validators refused.
+- CI: `jdx/mise-action@8418fedb…` (v5.2.2) installs the tools in the lint, test (macOS and Linux legs), parallel, DocC, and Pages jobs; the `taiki-e/install-action`, `mlugg/setup-zig`, `actions/setup-node`, and `brew install` steps are gone, and `CONTRIBUTING.md` tells the owner those two patterns can leave the allow-list. `Brewfile` keeps only what mise cannot provide (swiftly, Lima, QEMU, swtpm, sshpass, UTM, lgit).
+- Docs: 154 `just <module> <recipe>` mentions in living files became `mise run <module>:<recipe>`; `CONTRIBUTING.md` describes the bootstrap (`mise install`, `npm ci`, `mise run setup:hooks`) and the task groups; `README.md`, the guides, the skills, and the commands name the tasks; completed plans, research, and the spec keep their history.
+- Check matrix through the tasks: `mise run ci:check` (663 tests and the portable gate), `mise run docs:lint`, `mise run core:examples`, `mise run linux:test` (656 tests), and the Windows guest after `mise run windows-frost:sync-utm 192.168.64.3` (651 tests) all pass; the CI run on the push is recorded on the Progress line.
 
 ### Step 5.6 — Give Tessera its own Tart and Lima VM tasks
 

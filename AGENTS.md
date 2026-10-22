@@ -2,7 +2,7 @@
 
 - Be concise; load only the context needed for the task.
 - Prefer local project files and tool help before web searches.
-- Use `pnpm`/`pnpx` for Node tooling.
+- Node tooling is the repository's pinned npm setup (`npm ci`); tools come from `mise install` (`mise.toml`).
 - Local references before web searches:
   - Ratatui: `~/Developer/ratatui/ratatui/main/`
   - Ratatui crossterm backend: `~/Developer/ratatui/ratatui/main/ratatui-crossterm/`
