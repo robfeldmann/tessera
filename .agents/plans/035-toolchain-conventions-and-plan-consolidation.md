@@ -17,7 +17,8 @@ updated: 2026-10-21
 ## Progress
 
 - [ ] **Phase 1 — Baseline**
-  - [ ] 1.1 Run every local check at HEAD and record the results
+  - [x] 1.1 Run every local check at HEAD and record the results (results table in the
+        step; commit below)
 - [ ] **Phase 2 — Xcode 26.6 baseline, plus Swift 6.4 and Xcode 27**
   - [ ] 2.1 Move every lane to the Xcode 26.6 and Swift 6.3.3 baseline
   - [ ] 2.2 Build and test on Xcode 27 and Swift 6.4
@@ -42,7 +43,8 @@ updated: 2026-10-21
   - [ ] 6.2 Owner decision: the `mobile` viewport rule, then apply it
   - [ ] 6.3 Retire plans 032 and 033
 
-Next: Step 1.1, on a new `plan-035` branch (see Overnight execution).
+Next: Step 2.1 (`.swift-version` 6.3.3, CI setup action, SDK entry, Lima and Frost
+provisioning).
 
 ## Overview
 
@@ -167,6 +169,68 @@ Rules for an agent running this plan unattended.
 - Acceptance: a table in this step gives, per check and toolchain, pass or fail, wall
   time, and any pre-existing failure with its first error. This also satisfies plan 034
   Step 1.1 on the old toolchain.
+
+#### Results (2026-10-21, HEAD `78616a2` on `plan-035`)
+
+Toolchains: `xcode-select -p` is `/Applications/Xcode-27.1.0.app/Contents/Developer`
+(Xcode 27.1, build 27A9275, `swiftlang-6.4.0.34.1`); the baseline run used
+`DEVELOPER_DIR=/Applications/Xcode-26.6.0.app/Contents/Developer` (Xcode 26.6, build
+17F113, `swiftlang-6.3.3.1.3`); `.swift-version` is `6.3.2`. Lima guest: Ubuntu 24.04.5,
+Swift 6.3.2 (`swift-6.3.2-RELEASE`, the only swiftly toolchain), Zig 0.15.2. Windows guest
+(UTM `tessera-frost-import`): Swift 6.3.2 (`aarch64-unknown-windows-msvc`), with the
+pinned `libghostty-vt` artifact already provisioned. macOS wall times are warm-cache
+(`.build` existed); the host also ran the VMs during the macOS runs.
+
+| Check                        | Xcode 26.6 (6.3.3) | Xcode 27.1 (6.4) | Linux 6.3.2                               | Windows 6.3.2                                     |
+| ---------------------------- | ------------------ | ---------------- | ----------------------------------------- | ------------------------------------------------- |
+| `just core build`            | pass, 5s           | pass, 9s         | skipped (see below)                       | —                                                 |
+| `just core test` (634 tests) | pass, 3s           | pass, 13s        | pass, 317s (627 tests, `just linux test`) | pass, 117s (629 tests, Ghostty-backed, UTM guest) |
+| `just quality lint`          | pass, 9s           | pass, 13s        | —                                         | —                                                 |
+| `just docs lint`             | **fail**, 58s      | **fail**, 41s    | —                                         | —                                                 |
+| `just docs build`            | **fail**, 19s      | not run          | —                                         | —                                                 |
+| `just core examples`         | pass, 30s          | pass, 14s        | —                                         | —                                                 |
+
+Pre-existing failures and recipe defects, none fixed here:
+
+- `just docs lint` and `just docs build` fail on both Xcodes with the same first error:
+  `Extensions/VirtualTerminal.md:10:5: error: 'init(feed:text:cell:cursor:kittyImages:kittyPlacements:snapshot:)' doesn't exist at '/TesseraTerminalSnapshotSupport/VirtualTerminal'`
+  (DocC suggests
+  `init(feed:resize:text:cell:cursor:kittyImages:kittyPlacements:snapshot:)`).
+- `just linux build` skipped as the step says: `scripts/install-linux-sdk.sh` selects the
+  6.3.2 Static Linux SDK from `.swift-version`, which cannot match Xcode 26.6's 6.3.3
+  compiler. Step 2.1 runs it.
+- `just linux start` fails when the instance already exists
+  (`limactl --yes start --name=tessera-linux … tessera-linux.yaml` →
+  `instance "tessera-linux" already exists`); `scripts/linux-test.sh` starts and stops a
+  stopped instance itself, so `just linux test` passed, and then `just linux stop` failed
+  (`expected status "Running", got "Stopped"`). Both recipes assume a VM that `test` does
+  not leave behind; Step 5.6 replaces them.
+- Windows Frost is unavailable on this host: QEMU 11.1.2 under macOS 27.0.1 aborts at VM
+  creation with
+  `qemu-system-aarch64: -device tpm-tis-device,tpmdev=tpm0: Error: ret = HV_BAD_ARGUMENT (0xfae94003, at ../accel/hvf/hvf-all.c:123)`,
+  for `just windows-frost start` (the persistent VM; `stop` then reported a stale pid),
+  `check-toolchain` (244s, "SSH did not come up"), and `test` (242s, same), so
+  `conpty-smoke` found nothing on port 2222. `doctor` passed. Also `check-toolchain` and
+  `test` boot disposable overlays on the same SSH port as the persistent VM, so the order
+  in this step (`start` then `check-toolchain`) cannot work even on a healthy host; the
+  `CONTRIBUTING.md` order (`start`, `build-ghostty`, `stop`, then `test`) is right.
+- Windows fallback, as the step allows: the UTM-imported Frost VM (`tessera-frost-import`,
+  already holding Swift 6.3.2 and the pinned `libghostty-vt` artifact). `utmctl` fails
+  with `OSStatus error -10004` (Apple Events automation permission; the agent runs under a
+  launchd-started `herdr`, which macOS cannot prompt for), so the VM was started from the
+  UTM window. The guest's DHCP address was `192.168.64.3`; the owner's
+  `~/.ssh/config.d/tessera-windows.conf` still points at `192.168.64.2` and user `tess`,
+  so a `tessera-utm` alias (user `tester`, key `~/.ssh/tessera_windows`) was added as
+  `~/.ssh/config.d/zz-plan035-tessera-utm.conf` for the run.
+  `just windows-frost sync-utm 192.168.64.3` and `just windows-utm check` passed. Plain
+  `just windows-utm test` fails at
+  `Sources\CGhosttyVT\shim.c:1:10: fatal error: 'ghostty/vt.h' file not found`, because
+  that recipe never provisions the Ghostty headers or sets `GHOSTTY_VT_OUTPUT_DIR`; the
+  Ghostty-backed suite was run with the guest script Frost uses
+  (`scripts/run-windows-frost-tests.ps1 -GhosttyOutputDir …`): pass, 117s, 629 tests,
+  `==> Ghostty VT enabled`.
+- `just windows-frost conpty-smoke` was not rerun against the UTM guest; it is written for
+  the Frost SSH port and needs a Frost host fix first (recorded as unverified).
 
 ## Phase 2 — Xcode 26.6 baseline, plus Swift 6.4 and Xcode 27
 
