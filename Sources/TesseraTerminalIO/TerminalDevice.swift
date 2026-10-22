@@ -33,6 +33,10 @@ package struct TerminalDevice: Sendable {
   package var sizeChanges: @Sendable () -> AsyncStream<TerminalSize>
 
   /// Performs one output write operation and returns the number of bytes written.
+  ///
+  /// The write either blocks until it makes progress or throws. `PlatformIO.flush` retries
+  /// only `PlatformIOError.writeInterrupted`, so an implementation waits out a full output
+  /// buffer itself rather than throwing `PlatformIOError.writeWouldBlock`.
   package var write: @Sendable (ArraySlice<UInt8>) async throws -> Int
 
   package init(

@@ -123,6 +123,9 @@ public actor ModeLifecycle {
   private var possiblyActiveModes: Set<Mode> = []
   private var requestedModes: Set<Mode> = []
 
+  /// Whether `exit()` has succeeded; afterwards `enter` and `apply` throw before writing.
+  private var isClosed = false
+
   /// The modes currently believed active by this lifecycle manager.
   public var activeModes: Set<Mode> {
     modes
@@ -324,9 +327,12 @@ public actor ModeLifecycle {
   }
 
   /// Enters all requested modes in canonical acquisition order.
+  ///
+  /// Throws `ModeLifecycleError.closed`, before any write, once `exit()` has succeeded.
   public func enter(_ modes: Set<Mode>) async throws {
     try await beginTransition()
     do {
+      try ensureOpen()
       try await performEnter(modes)
       await endTransition()
     } catch {
@@ -336,9 +342,12 @@ public actor ModeLifecycle {
   }
 
   /// Reconciles active application protocol modes after startup.
+  ///
+  /// Throws `ModeLifecycleError.closed`, before any write, once `exit()` has succeeded.
   package func apply(applicationModes requestedApplicationModes: Set<Mode>) async throws {
     try await beginTransition()
     do {
+      try ensureOpen()
       try await performApply(applicationModes: requestedApplicationModes)
       await endTransition()
     } catch {
@@ -348,14 +357,24 @@ public actor ModeLifecycle {
   }
 
   /// Exits believed/requested modes in reverse acquisition order.
+  ///
+  /// A successful exit closes the lifecycle to `enter` and `apply`; `exit()` itself stays
+  /// callable, so a failed exit can be retried and a repeated exit is harmless.
   public func exit() async throws {
     try await beginTransition()
     do {
       try await performExit()
+      isClosed = true
       await endTransition()
     } catch {
       await endTransition()
       throw error
+    }
+  }
+
+  private func ensureOpen() throws {
+    guard !isClosed else {
+      throw ModeLifecycleError.closed
     }
   }
 
@@ -681,6 +700,9 @@ public actor ModeLifecycle {
 
 /// Errors thrown by terminal mode lifecycle operations.
 public enum ModeLifecycleError: Error, Equatable, Sendable {
+  /// The lifecycle already exited successfully, so it accepts no further mode changes.
+  case closed
+
   /// The requested modes overlap with modes already active in this lifecycle.
   case modesAlreadyActive(Set<ModeLifecycle.Mode>)
 

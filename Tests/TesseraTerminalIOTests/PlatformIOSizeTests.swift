@@ -34,13 +34,15 @@ func `cell pixel size returns terminal device value`() async {
 }
 
 @Test
-func `size changes yields terminal size notifications`() async throws {
+func `size changes queued before a read deliver only the newest size`() async {
   let io = PlatformIO(
     terminalDevice: TerminalDevice(
+      inputStreamsShareLifetime: true,
       size: { TerminalSize(columns: 1, rows: 1) },
       sizeChanges: {
         AsyncStream { continuation in
           continuation.yield(TerminalSize(columns: 80, rows: 24))
+          continuation.yield(TerminalSize(columns: 90, rows: 27))
           continuation.yield(TerminalSize(columns: 100, rows: 30))
           continuation.finish()
         }
@@ -48,15 +50,40 @@ func `size changes yields terminal size notifications`() async throws {
       write: { $0.count }
     )
   )
-  var iterator = io.sizeChanges.makeAsyncIterator()
+  // With finished input and a shared lifetime, `events` ends only after every size change
+  // has been forwarded, so all three are queued before `sizeChanges` is read.
+  for await _ in io.events {}
 
-  let first = await iterator.next()
-  let second = await iterator.next()
-  let end = await iterator.next()
+  var sizes: [TerminalSize] = []
+  for await size in io.sizeChanges {
+    sizes.append(size)
+  }
 
-  expectNoDifference(first, TerminalSize(columns: 80, rows: 24))
-  expectNoDifference(second, TerminalSize(columns: 100, rows: 30))
-  expectNoDifference(end, nil)
+  expectNoDifference(sizes, [TerminalSize(columns: 100, rows: 30)])
+}
+
+@Test
+func `platform io subscribes to device size changes once`() async {
+  let (subscriptions, subscription) = AsyncStream.makeStream(of: Void.self)
+  let io = PlatformIO(
+    terminalDevice: TerminalDevice(
+      size: { TerminalSize(columns: 1, rows: 1) },
+      sizeChanges: {
+        subscription.yield()
+        return AsyncStream { $0.finish() }
+      },
+      write: { $0.count }
+    )
+  )
+  subscription.finish()
+
+  var subscriptionCount = 0
+  for await _ in subscriptions {
+    subscriptionCount += 1
+  }
+
+  #expect(subscriptionCount == 1)
+  withExtendedLifetime(io) {}
 }
 
 @Test

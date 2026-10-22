@@ -89,13 +89,16 @@ func `flush retries interrupted writes without dropping bytes`() async throws {
 }
 
 @Test
-func `flush retries temporarily unavailable writes without dropping bytes`() async throws {
+func `flush throws temporarily unavailable writes without dropping bytes`() async throws {
   let output = CountingOutputWriter(
     results: [.failure(PlatformIOError.writeWouldBlock), .success(3)]
   )
   let io = PlatformIO(terminalDevice: await output.terminalDevice)
 
   await io.write([0x48, 0x69, 0x21])
+  await #expect(throws: PlatformIOError.writeWouldBlock) {
+    try await io.flush()
+  }
   try await io.flush()
 
   let writes = await output.writes
@@ -317,7 +320,6 @@ func `discard buffered output removes unwritten suffix after failure`() async th
 func `flush retries after transient write errors`() async throws {
   let output = CountingOutputWriter(
     results: [
-      .failure(PlatformIOError.writeWouldBlock),
       .failure(PlatformIOError.writeInterrupted),
       .success(2),
     ]
@@ -328,10 +330,79 @@ func `flush retries after transient write errors`() async throws {
   try await io.flush()
 
   let writes = await output.writes
-  expectNoDifference(
-    writes,
-    [[0x41, 0x42], [0x41, 0x42], [0x41, 0x42]]
+  expectNoDifference(writes, [[0x41, 0x42], [0x41, 0x42]])
+}
+
+@Test
+func `overlapping flushes write each byte once in order`() async throws {
+  let output = GatedOutputWriter(suspendingAttempt: 1)
+  let io = PlatformIO(terminalDevice: await output.terminalDevice)
+
+  await io.write([0x41])
+  let first = Task { try await io.flush() }
+  await output.waitForSuspension()
+  await io.write([0x42])
+  let second = Task { try await io.flush() }
+  await waitUntil("the second flush queues") { await io.queuedFlushCount == 1 }
+  #expect(await io.queuedFlushCount == 1)
+
+  await output.release()
+  try await first.value
+  try await second.value
+
+  let writes = await output.writes
+  let acceptedBytes = await output.acceptedBytes
+  expectNoDifference(writes, [[0x41], [0x42]])
+  expectNoDifference(acceptedBytes, [0x41, 0x42])
+}
+
+@Test
+func `discard during a suspended write keeps later bytes after the write fails`()
+  async throws
+{
+  let output = GatedOutputWriter(
+    results: [1: .success(2), 2: .failure(PlatformIOError.writeFailed(errno: .ioError))],
+    suspendingAttempt: 2
   )
+  let io = PlatformIO(terminalDevice: await output.terminalDevice)
+
+  await io.write([0x41, 0x42, 0x43, 0x44])
+  let flush = Task { try await io.flush() }
+  await output.waitForSuspension()
+  await io.discardBufferedOutput()
+  await io.write([0x45])
+  await output.release()
+
+  await #expect(throws: PlatformIOError.writeFailed(errno: .ioError)) {
+    try await flush.value
+  }
+  try await io.flush()
+
+  let writes = await output.writes
+  expectNoDifference(writes, [[0x41, 0x42, 0x43, 0x44], [0x43, 0x44], [0x45]])
+}
+
+@Test
+func `bytes appended during a suspended drain follow its remainder once`() async throws {
+  let output = GatedOutputWriter(results: [1: .success(1)], suspendingAttempt: 1)
+  let io = PlatformIO(terminalDevice: await output.terminalDevice)
+
+  await io.write([0x41, 0x42, 0x43])
+  let first = Task { try await io.flush() }
+  await output.waitForSuspension()
+  await io.write([0x44])
+  let second = Task { try await io.flush() }
+  await waitUntil("the second flush queues") { await io.queuedFlushCount == 1 }
+  #expect(await io.queuedFlushCount == 1)
+
+  await output.release()
+  try await first.value
+  try await second.value
+
+  let writes = await output.writes
+  let acceptedBytes = await output.acceptedBytes
+  expectNoDifference(writes, [[0x41, 0x42, 0x43], [0x42, 0x43, 0x44]])
+  expectNoDifference(acceptedBytes, [0x41, 0x42, 0x43, 0x44])
 }
 
 #if os(Windows)
@@ -509,6 +580,67 @@ private actor CountingOutputWriter {
     case .failure(let error):
       throw error
     }
+  }
+}
+
+/// Records every chunk written, and suspends one write attempt until `release()`.
+private actor GatedOutputWriter {
+  private let results: [Int: Result<Int, any Error>]
+  private let suspendingAttempt: Int
+  private var attempts = 0
+  private var gate: CheckedContinuation<Void, Never>?
+  private var isSuspended = false
+  private var suspensionWaiter: CheckedContinuation<Void, Never>?
+
+  /// The prefix of each chunk the device reported as written, in order.
+  private(set) var acceptedBytes: [UInt8] = []
+  private(set) var writes: [[UInt8]] = []
+
+  var terminalDevice: TerminalDevice {
+    TerminalDevice(
+      size: { TerminalSize(columns: 1, rows: 1) },
+      write: { try await self.write($0) }
+    )
+  }
+
+  /// Creates a writer whose attempt `n` (from 1) returns `results[n]`, or writes the whole
+  /// chunk when absent.
+  init(results: [Int: Result<Int, any Error>] = [:], suspendingAttempt: Int) {
+    self.results = results
+    self.suspendingAttempt = suspendingAttempt
+  }
+
+  func release() {
+    gate?.resume()
+    gate = nil
+  }
+
+  func waitForSuspension() async {
+    guard !isSuspended else {
+      return
+    }
+    await withCheckedContinuation { continuation in
+      suspensionWaiter = continuation
+    }
+  }
+
+  private func write(_ bytes: ArraySlice<UInt8>) async throws -> Int {
+    writes.append(Array(bytes))
+    attempts += 1
+    let result = results[attempts] ?? .success(bytes.count)
+
+    if attempts == suspendingAttempt {
+      await withCheckedContinuation { continuation in
+        gate = continuation
+        isSuspended = true
+        suspensionWaiter?.resume()
+        suspensionWaiter = nil
+      }
+    }
+
+    let count = try result.get()
+    acceptedBytes.append(contentsOf: bytes.prefix(count))
+    return count
   }
 }
 
