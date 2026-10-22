@@ -22,16 +22,21 @@ container, so `utmctl` and the bundle's config.plist are the sources of truth fo
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
+import plistlib
 import re
+import secrets
 import shlex
 import shutil
+import socket
 import subprocess
 import sys
 import tarfile
 import tempfile
 import time
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -65,11 +70,13 @@ UTM_APP = Path("/Applications/UTM.app")
 UTMCTL = shutil.which("utmctl") or str(UTM_APP / "Contents/MacOS/utmctl")
 UTM_DOCUMENTS = HOME / "Library/Containers/com.utmapp.UTM/Data/Documents"
 DHCPD_LEASES = Path("/var/db/dhcpd_leases")
-# The guest provisioned by hand during plan 035; windows-create names new ones.
-WINDOWS_DEFAULT_NAME = "tessera-frost-import"
+WINDOWS_DEFAULT_NAME = "tessera-windows-11"
 WINDOWS_USER = "tester"
 # The key the existing guest trusts; new guests get SSH_KEY from windows-provision.
 WINDOWS_LEGACY_KEY = HOME / ".ssh/tessera_windows"
+WINDOWS_TEMP = "C:/Windows/Temp"
+WINDOWS_PROVISION_SCRIPT = ROOT / "scripts/provision-windows-vm.ps1"
+WINDOWS_TEMPLATE = ROOT / "scripts/config/utm/windows-11-arm64.plist"
 UTM_TIMEOUT = 180
 
 
@@ -477,7 +484,7 @@ def macos_delete(name: str) -> None:
 
 
 def source_paths() -> list[str]:
-    """Tracked plus untracked-but-not-ignored paths, as windows-frost-sync-source.sh sends."""
+    """Tracked plus untracked-but-not-ignored paths, what a push delivers."""
     listing = output(
         [
             "git",
@@ -692,20 +699,9 @@ def utm_bundle(name: str) -> Path:
     return bundle
 
 
-def utm_config(name: str, key: str):
-    return json.loads(
-        output(
-            [
-                "plutil",
-                "-extract",
-                key,
-                "json",
-                "-o",
-                "-",
-                str(utm_bundle(name) / "config.plist"),
-            ]
-        )
-    )
+def utm_config(name: str) -> dict:
+    with open(utm_bundle(name) / "config.plist", "rb") as file:
+        return plistlib.load(file)
 
 
 def utm_app() -> str | None:
@@ -781,13 +777,20 @@ def utm_wait(name: str, state: str, timeout: int = UTM_TIMEOUT) -> None:
 
 
 def windows_name(args: argparse.Namespace) -> str:
+    """`--name`, then $TESSERA_WINDOWS_VM_NAME, then the one Tessera guest UTM has."""
     name = getattr(args, "name", None)
     remote = getattr(args, "args", None)
     # Pass-through commands take no options; a leading `--name <vm>` is still honored.
     if remote and remote[:1] == ["--name"] and len(remote) > 1:
         name = remote[1]
         del remote[:2]
-    return name or os.environ.get("TESSERA_WINDOWS_VM_NAME") or WINDOWS_DEFAULT_NAME
+    name = name or os.environ.get("TESSERA_WINDOWS_VM_NAME")
+    if name or args.command == "windows-create":
+        return name or WINDOWS_DEFAULT_NAME
+    names = utm_names()
+    if WINDOWS_DEFAULT_NAME in names or len(names) != 1:
+        return WINDOWS_DEFAULT_NAME
+    return names[0]
 
 
 def windows_start(name: str) -> None:
@@ -811,8 +814,14 @@ def windows_start(name: str) -> None:
 def windows_stop(name: str, *, force: bool = False, quit_app: bool = False) -> None:
     if utm_state(name) != "stopped":
         utm_ensure_running()
-        # `utmctl stop` defaults to a power-off event; `--request` asks the guest.
-        utmctl("stop", name, "--force" if force else "--request")
+        if force:
+            # `utmctl stop` defaults to this power-off event.
+            utmctl("stop", name, "--force")
+        elif ssh_answers(name):
+            # Windows ignored the ACPI request once in a while; `shutdown` never did.
+            run([*ssh_args(name), "shutdown /s /f /t 0"], check=False)
+        else:
+            utmctl("stop", name, "--request")
         utm_wait(name, "stopped")
     print(f"vm: {name} is stopped")
     if quit_app:
@@ -826,7 +835,7 @@ def windows_ip(name: str) -> str:
         for line in result.stdout.splitlines():
             if re.fullmatch(r"\d+\.\d+\.\d+\.\d+", line.strip()):
                 return line.strip()
-    mac = utm_config(name, "Network")[0]["MacAddress"]
+    mac = utm_config(name)["Network"][0]["MacAddress"]
     wanted = [int(octet, 16) for octet in mac.split(":")]
     # Entries look like `hw_address=1,76:f9:a1:50:3c:f0`, octets without zero padding.
     leases = DHCPD_LEASES.read_text(encoding="utf-8") if DHCPD_LEASES.exists() else ""
@@ -846,6 +855,285 @@ def windows_ip(name: str) -> str:
 def windows_boot(name: str) -> None:
     windows_start(name)
     wait_for_ssh(name)
+
+
+def powershell(script: str) -> list[str]:
+    """A PowerShell invocation that survives Windows OpenSSH's cmd.exe quoting."""
+    encoded = base64.b64encode(script.encode("utf-16-le")).decode()
+    return ["powershell", "-NoProfile", "-EncodedCommand", encoded]
+
+
+def windows_guest(name: str, script: str, *, check: bool = True):
+    """Run a PowerShell script in the guest, streaming its output."""
+    return run([*ssh_args(name), *powershell(script)], check=check)
+
+
+def ssh_answers(name: str, *, batch: bool = True) -> bool:
+    options = ["-o", "ConnectTimeout=10"] + (["-o", "BatchMode=yes"] if batch else [])
+    return run([*ssh_args(name, *options), "exit 0"], check=False).returncode == 0
+
+
+def port_open(host: str, port: int) -> bool:
+    with socket.socket() as probe:
+        probe.settimeout(3)
+        try:
+            probe.connect((host, port))
+        except OSError:
+            return False
+    return True
+
+
+def windows_reboot(name: str) -> None:
+    run([*ssh_args(name), "shutdown /r /t 0"], check=False)
+    address = windows_ip(name)
+    deadline = time.monotonic() + UTM_TIMEOUT
+    while port_open(address, 22):
+        if time.monotonic() > deadline:
+            raise VMError(f"{name} did not go down for its reboot within {UTM_TIMEOUT} s")
+        time.sleep(3)
+    wait_for_ssh(name)
+
+
+def pinned_swift_version() -> str:
+    return (ROOT / ".swift-version").read_text(encoding="utf-8").strip()
+
+
+def pinned_zig_version() -> str:
+    """mise.toml's `zig`, which scripts/build-libghostty-vt.ps1 must match."""
+    match = re.search(
+        r'^zig\s*=\s*"([^"]+)"', (ROOT / "mise.toml").read_text(encoding="utf-8"), re.M
+    )
+    if match is None:
+        raise VMError("mise.toml does not pin zig")
+    return match.group(1)
+
+
+def windows_provision(name: str) -> None:
+    """Converge the guest on the toolchain the checkout names; reboots as needed."""
+    windows_start(name)
+    swift_version = pinned_swift_version()
+    zig_version = pinned_zig_version()
+    if not ssh_answers(name):
+        if not port_open(windows_ip(name), 22):
+            raise VMError(
+                f"{name} has no SSH server yet. In the guest, open an elevated PowerShell "
+                "and run\n"
+                "  Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0; "
+                "Set-Service sshd -StartupType Automatic; Start-Service sshd\n"
+                f"then rerun `mise run vm:windows-provision`; it asks for {WINDOWS_USER}'s "
+                "password once and installs its key."
+            )
+        print(f"vm: {name} asks for a password until its key is installed")
+    script = f"{WINDOWS_TEMP}/{WINDOWS_PROVISION_SCRIPT.name}"
+    key = f"{WINDOWS_TEMP}/tessera-vm.pub"
+    run(
+        [
+            "scp",
+            "-q",
+            "-F",
+            str(SSH_CONFIG),
+            str(WINDOWS_PROVISION_SCRIPT),
+            str(SSH_KEY.with_suffix(".pub")),
+            f"{name}:{WINDOWS_TEMP}/",
+        ]
+    )
+    command = (
+        f"powershell -NoProfile -ExecutionPolicy Bypass -File {script} "
+        f"-ExpectedSwiftVersion {swift_version} -ZigVersion {zig_version} "
+        f"-AuthorizedKeyPath {key}"
+    )
+    for attempt in range(1, 6):
+        print(f"vm: provisioning {name} (pass {attempt})")
+        result = run([*ssh_args(name), command], check=False)
+        if result.returncode == 0:
+            print(f"vm: {name} is provisioned (Swift {swift_version}, Zig {zig_version})")
+            return
+        if result.returncode != 100:
+            raise VMError(f"provisioning {name} failed (exit {result.returncode})")
+        print(f"vm: {name} needs a reboot; rebooting and continuing")
+        windows_reboot(name)
+    raise VMError(f"{name} still wanted a reboot after 5 passes; see {WINDOWS_TEMP}")
+
+
+def random_mac() -> str:
+    octets = [secrets.randbits(8) for _ in range(6)]
+    octets[0] = (octets[0] & 0xFC) | 0x02  # locally administered, unicast
+    return ":".join(f"{octet:02X}" for octet in octets)
+
+
+def clone_path(source: Path, target: Path) -> None:
+    """Copy with APFS clonefile when possible (instant, shares blocks), else bytewise."""
+    if run(["cp", "-Rc", str(source), str(target)], check=False, capture=True).returncode:
+        shutil.rmtree(target, ignore_errors=True)
+        if target.exists():
+            target.unlink()
+        run(["cp", "-R", str(source), str(target)])
+
+
+def windows_create(name: str, *, bundle: Path | None, disk: Path | None) -> None:
+    """Add a UTM VM: a copy of an existing bundle, or the template around a qcow2 disk."""
+    target = UTM_DOCUMENTS / f"{name}.utm"
+    if target.exists():
+        raise VMError(f"{target} already exists")
+    if utm_app() is not None:
+        # UTM scans its documents folder when it launches; a running UTM would not see
+        # the new bundle until the next launch.
+        if any(utm_state(vm) != "stopped" for vm in utm_names()):
+            raise VMError("stop the running UTM guests first; UTM.app has to be quit")
+        utm_quit()
+    UTM_DOCUMENTS.mkdir(parents=True, exist_ok=True)
+    if bundle is not None:
+        if not (bundle / "config.plist").is_file():
+            raise VMError(f"{bundle} is not a UTM bundle")
+        print(f"vm: copying {bundle} to {target}")
+        clone_path(bundle, target)
+        with open(target / "config.plist", "rb") as file:
+            config = plistlib.load(file)
+    else:
+        if disk is None or not disk.is_file():
+            raise VMError("windows-create needs --import <bundle.utm> or --disk <image>")
+        with open(WINDOWS_TEMPLATE, "rb") as file:
+            config = plistlib.load(file)
+        (target / "Data").mkdir(parents=True)
+        image = f"{name}.qcow2"
+        print(f"vm: copying {disk} to {target / 'Data' / image}")
+        clone_path(disk, target / "Data" / image)
+        shutil.copy(UTM_APP / "Contents/Resources/qemu/edk2-arm-vars.fd", target / "Data/efi_vars.fd")
+        config["Drive"][0]["ImageName"] = image
+        config["Drive"][0]["Identifier"] = str(uuid.uuid4()).upper()
+    config["Information"]["Name"] = name
+    config["Information"]["UUID"] = str(uuid.uuid4()).upper()
+    for interface in config.get("Network", []):
+        interface["MacAddress"] = random_mac()
+    with open(target / "config.plist", "wb") as file:
+        plistlib.dump(config, file, sort_keys=True)
+    print(f"vm: created {name}; `mise run vm:windows-provision --name {name}` is next")
+
+
+def windows_delete(name: str) -> None:
+    bundle = utm_bundle(name)
+    if utm_state(name) != "stopped":
+        raise VMError(f"{name} is running; stop it first")
+    if utm_app() is not None:
+        utm_quit()
+    shutil.rmtree(bundle)
+    forget_host_key(name)
+    print(f"vm: deleted {name}")
+
+
+def ps_quote(value: str) -> str:
+    """A single-quoted PowerShell string literal."""
+    return "'" + value.replace("'", "''") + "'"
+
+
+def windows_push(name: str) -> None:
+    """Deliver the working tree to the guest's checkout, as macos-push does."""
+    windows_boot(name)
+    with tempfile.TemporaryDirectory() as scratch:
+        archive = Path(scratch) / "tessera-source.tar.gz"
+        paths = source_paths()
+        with tarfile.open(archive, "w:gz") as tar:
+            for path in paths:
+                tar.add(ROOT / path, arcname=path, recursive=False)
+        print(f"vm: delivering {len(paths)} paths to {name}:~/{GUEST_CHECKOUT}")
+        remote = f"{WINDOWS_TEMP}/tessera-source-{os.getpid()}.tar.gz"
+        run(["scp", "-q", "-F", str(SSH_CONFIG), str(archive), f"{name}:{remote}"])
+    # The checkout is a Git repository whose index records the last delivery, so paths
+    # the host no longer has are removed, and scripts that call `git rev-parse` work.
+    windows_guest(
+        name,
+        f"""
+$ErrorActionPreference = "Stop"
+$archive = {ps_quote(remote)}
+$checkout = Join-Path $env:USERPROFILE {ps_quote(GUEST_CHECKOUT)}
+New-Item -ItemType Directory -Force $checkout | Out-Null
+Set-Location $checkout
+if (-not (Test-Path .git)) {{ git init -q }}
+$delivered = [Collections.Generic.HashSet[string]]::new([string[]]@(tar -tzf $archive))
+foreach ($path in @(git -c core.quotePath=false ls-files)) {{
+    if (-not $delivered.Contains($path)) {{
+        Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+    }}
+}}
+tar -xzf $archive
+if ($LASTEXITCODE) {{ throw "tar failed with exit code $LASTEXITCODE" }}
+# The index only records deliveries; never let Git rewrite line endings on the way in.
+git -c core.autocrlf=false add -A
+Remove-Item $archive -Force
+""",
+    )
+    print(f"vm: {name}:~/{GUEST_CHECKOUT} matches the working tree")
+
+
+def windows_test(name: str, args: list[str]) -> int:
+    windows_boot(name)
+    zig_version = pinned_zig_version()
+    swift_args = ", ".join(ps_quote(arg) for arg in args)
+    result = windows_guest(
+        name,
+        f"""
+$checkout = Join-Path $env:USERPROFILE {ps_quote(GUEST_CHECKOUT)}
+& (Join-Path $checkout "scripts\\run-windows-tests.ps1") -RepoPath $checkout `
+    -ZigVersion {ps_quote(zig_version)} -SwiftTestArgs @({swift_args})
+exit $LASTEXITCODE
+""",
+        check=False,
+    )
+    status = (
+        "passed" if result.returncode == 0 else f"failed (exit {result.returncode})"
+    )
+    print(f"vm: tests in {name} {status}")
+    return result.returncode
+
+
+def windows_conpty_smoke(name: str) -> int:
+    """Print colored lines through a real ConPTY, to see ANSI survive the round trip."""
+    windows_boot(name)
+    script = (
+        '$esc = [char]27; Write-Host "ConPTY ANSI smoke"; '
+        'Write-Host "$esc[31mred$esc[0m $esc[32mgreen$esc[0m $esc[34mblue$esc[0m"; '
+        'Write-Host "cursor save/restore:$esc[s here$esc[u done"'
+    )
+    command = [*ssh_args(name, "-tt"), *powershell(script)]
+    if not sys.stdin.isatty():
+        # OpenSSH needs a local pseudo-terminal to request a ConPTY on the far side.
+        command = ["script", "-q", "/dev/null", *command]
+    return run(command, check=False).returncode
+
+
+def utm_snapshots(name: str) -> Path:
+    return VM_ROOT / "utm" / name / "snapshots"
+
+
+def windows_snapshot(name: str, snapshot: str | None) -> None:
+    """Keep an APFS clone of the stopped guest's disk, firmware, and TPM state."""
+    if snapshot is None:
+        for path in sorted(utm_snapshots(name).glob("*")):
+            print(path.name)
+        return
+    if utm_state(name) != "stopped":
+        raise VMError(f"{name} is running; stop it first")
+    target = utm_snapshots(name) / snapshot
+    if target.exists():
+        raise VMError(f"snapshot {snapshot} of {name} already exists")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    clone_path(utm_bundle(name) / "Data", target)
+    print(f"vm: {name} snapshot {snapshot} taken at {target}")
+
+
+def windows_restore(name: str, snapshot: str) -> None:
+    source = utm_snapshots(name) / snapshot
+    if not source.is_dir():
+        raise VMError(f"no snapshot {snapshot} of {name}; `windows-snapshot` lists them")
+    if utm_state(name) != "stopped":
+        raise VMError(f"{name} is running; stop it first")
+    data = utm_bundle(name) / "Data"
+    incoming = data.with_name("Data.restoring")
+    shutil.rmtree(incoming, ignore_errors=True)
+    clone_path(source, incoming)
+    shutil.rmtree(data)
+    incoming.rename(data)
+    print(f"vm: {name} restored to snapshot {snapshot}")
 
 
 # Commands
@@ -906,9 +1194,16 @@ def parser() -> argparse.ArgumentParser:
         passthrough = commands.add_parser(command, prefix_chars="\0", add_help=False)
         passthrough.add_argument("args", nargs=argparse.REMAINDER)
     for command, help_text in (
+        ("windows-create", "add a UTM VM from a bundle or a disk image"),
+        ("windows-provision", "install the toolchain, SSH key, and guest tools"),
         ("windows-start", "start the UTM guest (launching UTM.app if needed)"),
         ("windows-stop", "shut the UTM guest down"),
         ("windows-ip", "print the UTM guest's IPv4 address"),
+        ("windows-push", "deliver the working tree to the guest's ~/tessera"),
+        ("windows-conpty-smoke", "print ANSI-colored lines through a ConPTY"),
+        ("windows-snapshot", "take a named snapshot of the stopped guest, or list them"),
+        ("windows-restore", "put the stopped guest back to a snapshot"),
+        ("windows-delete", "delete the UTM guest's bundle"),
     ):
         windows = commands.add_parser(command, help=help_text)
         windows.add_argument("--name", help="UTM VM (default: $TESSERA_WINDOWS_VM_NAME)")
@@ -917,7 +1212,19 @@ def parser() -> argparse.ArgumentParser:
             windows.add_argument(
                 "--quit", action="store_true", help="quit UTM.app afterwards"
             )
-    for command in ("windows-ssh",):
+        elif command == "windows-create":
+            source = windows.add_mutually_exclusive_group(required=True)
+            source.add_argument(
+                "--import", dest="bundle", type=Path, help="copy this .utm bundle"
+            )
+            source.add_argument(
+                "--disk", type=Path, help="wrap this qcow2 disk in the template"
+            )
+        elif command == "windows-snapshot":
+            windows.add_argument("snapshot", nargs="?")
+        elif command == "windows-restore":
+            windows.add_argument("snapshot")
+    for command in ("windows-ssh", "windows-test"):
         passthrough = commands.add_parser(command, prefix_chars="\0", add_help=False)
         passthrough.add_argument("args", nargs=argparse.REMAINDER)
     return parser
@@ -959,15 +1266,31 @@ def dispatch(args: argparse.Namespace) -> int:
             return run([*ssh_args(name), *guest_args(args)], check=False).returncode
     elif command.startswith("windows-"):
         name = windows_name(args)
-        if command == "windows-start":
+        if command == "windows-create":
+            windows_create(name, bundle=args.bundle, disk=args.disk)
+        elif command == "windows-provision":
+            windows_provision(name)
+        elif command == "windows-start":
             windows_start(name)
         elif command == "windows-stop":
             windows_stop(name, force=args.force, quit_app=args.quit)
         elif command == "windows-ip":
             print(windows_ip(name))
+        elif command == "windows-push":
+            windows_push(name)
+        elif command == "windows-conpty-smoke":
+            return windows_conpty_smoke(name)
+        elif command == "windows-snapshot":
+            windows_snapshot(name, args.snapshot)
+        elif command == "windows-restore":
+            windows_restore(name, args.snapshot)
+        elif command == "windows-delete":
+            windows_delete(name)
         elif command == "windows-ssh":
             windows_boot(name)
             return run([*ssh_args(name), *guest_args(args)], check=False).returncode
+        elif command == "windows-test":
+            return windows_test(name, guest_args(args))
     else:
         require("limactl")
         name = linux_name()

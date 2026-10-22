@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Run the Windows test suite in a disposable Frost overlay; pass swift test arguments after the task name"
-#USAGE arg "[args]..." help="Arguments passed to the script" var=#true
-set -euo pipefail
-cd "$MISE_PROJECT_ROOT"
-scripts/windows-frost-test.sh "$@"

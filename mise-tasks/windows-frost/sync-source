@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Sync the local source tree into the Frost Windows VM"
-set -euo pipefail
-cd "$MISE_PROJECT_ROOT"
-scripts/windows-frost-sync-source.sh

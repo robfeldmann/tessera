@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#MISE description="Put the stopped UTM Windows guest back to a snapshot"
+#USAGE flag "--name <name>" help="UTM virtual machine"
+#USAGE arg "<snapshot>" help="Snapshot name from vm:windows-snapshot"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+exec python3 scripts/vm.py windows-restore "$@"

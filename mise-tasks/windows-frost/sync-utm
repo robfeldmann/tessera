@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Sync the local source tree into the UTM-imported Frost VM at the given host"
-#USAGE arg "[args]..." help="Arguments passed to the script" var=#true
-set -euo pipefail
-cd "$MISE_PROJECT_ROOT"
-scripts/windows-frost-sync-utm.sh "$@"

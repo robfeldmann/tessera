@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Converge the UTM Windows guest on the checkout's Swift and Zig, OpenSSH with the host key, and the UTM guest tools (reboots as needed)"
+#USAGE flag "--name <name>" help="UTM virtual machine"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+exec python3 scripts/vm.py windows-provision "$@"

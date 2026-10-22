@@ -15,15 +15,15 @@ Run:
 mise run core:doctor
 ```
 
-This prints the active checkout, the pinned Ghostty VT revision, the Ghostty VT cache path, the Lima VM name and mount, and the Windows Frost image paths. `mise run vm:status` lists the Tart and Lima VMs.
+This prints the active checkout, the pinned Ghostty VT revision, the Ghostty VT cache path, the Lima VM name and mount, and the UTM Windows guest. `mise run vm:status` lists the Tart, Lima, and UTM guests.
 
 ## Toolchains
 
-`.swift-version` (6.3.3) is the baseline every lane must pass; Swift 6.4 is a second lane. On macOS the baseline is Xcode 26.6, selected with `DEVELOPER_DIR` when another Xcode is active; the Lima VM keeps both toolchains under swiftly and `TESSERA_LINUX_SWIFT_VERSION` picks one per run; the Windows VMs carry the baseline only. See [Toolchain lanes](../../CONTRIBUTING.md#toolchain-lanes).
+`.swift-version` (6.3.3) is the baseline every lane must pass; Swift 6.4 is a second lane. On macOS the baseline is Xcode 26.6, selected with `DEVELOPER_DIR` when another Xcode is active; the Lima VM keeps both toolchains under swiftly and `TESSERA_LINUX_SWIFT_VERSION` picks one per run; the Windows guest carries the baseline only. See [Toolchain lanes](../../CONTRIBUTING.md#toolchain-lanes).
 
 ## Ghostty VT
 
-`TesseraTerminalSnapshotSupport` links against Ghostty's `libghostty-vt` on macOS and Linux. Windows currently skips this target dependency until the Windows `libghostty-vt` build path is proven.
+`TesseraTerminalSnapshotSupport` links against Ghostty's `libghostty-vt` on macOS, Linux, and Windows. On Windows the UTM guest builds the artifact itself on the first `mise run vm:windows-test` after a pin changes.
 
 The pin lives in:
 
@@ -89,45 +89,19 @@ You usually do not need to rebuild the Linux VM after switching branches. Rebuil
 
 A macOS work instance (`tessera-macos-26`, `tessera-macos-27`) does not mount the host checkout. `mise run vm:macos-push` delivers the working tree to `~/tessera` in the guest, which keeps its own `.build` and libghostty-vt cache between runs, so that state is VM-local. The disks live under `~/.local/share/vms/tart/`; see [Tessera VMs](vms.md).
 
-## Windows Frost
+## Windows (UTM)
 
-Frost is the recommended Windows workflow. Tessera keeps the generated VM images outside the repository:
+The Windows guest is a UTM VM, so its state lives with UTM rather than in the repository:
 
-```text
-${XDG_STATE_HOME:-~/.local/state}/tessera/windows-frost/
-```
+- `/Applications/UTM.app` (installed by `brew bundle install`).
+- `~/Library/Containers/com.utmapp.UTM/Data/Documents/tessera-*.utm`: the guest's bundles, disk included.
+- `~/.local/share/vms/utm/<vm>/snapshots/<name>/`: APFS-clone snapshots of the stopped guest's `Data/` (`mise run vm:windows-snapshot <name>`).
 
-That directory contains VM artifacts, not a Git clone:
-
-- `disks/base-win11.qcow2` and `disks/base-win11-vars.fd`: the base Windows image.
-- `disks/tessera-win11.qcow2` and `disks/tessera-win11-vars.fd`: the Swift/toolchain image.
-- `run/`: disposable overlays and runtime files.
-- `persistent/`: the optional interactive VM overlay.
-- `source/tessera-source.tar.gz`: the latest Mac-to-Windows source snapshot.
-
-`mise run windows-frost:test` creates a disposable overlay, archives the current macOS working tree, copies that archive into the guest, extracts it to `C:\Users\tester\tessera`, runs `swift test --no-parallel` plus any forwarded SwiftPM test args, then deletes the disposable overlay. The guest source tree is a snapshot, not a clone, and `.git` is not copied.
-
-Forward focused SwiftPM test arguments after `--` when you do not need the full Frost suite:
+`mise run core:doctor` prints UTM.app's presence, each `tessera-*` bundle, and its snapshots, and says how to create a guest when there is none. The guest owns a Git checkout at `C:\Users\tester\tessera` and its own `.build` and libghostty-vt cache, so that state is VM-local; `mise run vm:windows-push` delivers the working tree into it. Forward focused SwiftPM test arguments after `--`:
 
 ```sh
-mise run windows-frost:test -- --filter WindowsInputLoopTests
+mise run vm:windows-push
+mise run vm:windows-test -- --filter WindowsConsoleModeTests
 ```
 
-You usually do not need to rebuild the Windows images after switching branches. Rebuild the base image when the Windows/VirtIO inputs change. Rebuild the toolchain image when Swift, Visual Studio, the Windows SDK, or the provisioning scripts change.
-
-## Manual Windows UTM
-
-The manual UTM workflow is different: the Windows VM owns a normal Git checkout and its own `.build`. Use:
-
-```sh
-mise run windows-utm:sync
-mise run windows-utm:test
-```
-
-Forward focused SwiftPM test arguments after `--` when you do not need the full UTM suite:
-
-```sh
-mise run windows-utm:test -- --filter WindowsConsoleModeTests
-```
-
-`mise run windows-utm:sync` force-pushes your current branch into the guest checkout with `receive.denyCurrentBranch=updateInstead`. The guest tree must be clean.
+Restore a snapshot (`mise run vm:windows-restore <name>`) to get a clean guest back, and rerun `mise run vm:windows-provision` when `.swift-version`, the pinned Zig, or `scripts/provision-windows-vm.ps1` change. [Windows VM with UTM](windows-vm.md) has the details.

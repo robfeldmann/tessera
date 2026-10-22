@@ -1,13 +1,19 @@
 ---
 type: guide
-description: "Tessera's macOS (Tart) and Linux (Lima) VMs: storage, names, Xcode in macOS bases, and the vm: tasks"
+description: "Tessera's macOS (Tart), Linux (Lima), and Windows (UTM) VMs: storage, names, Xcode in macOS bases, and the vm: tasks"
 ---
 
 # Tessera VMs
 
-Tessera tests on clean systems from a Mac: macOS guests under [Tart](https://tart.run/) run the whole check matrix with only the lane's Xcode installed, and a Linux guest under [Lima](https://lima-vm.io/) runs the Linux suite. `scripts/vm.py` drives both through the `vm:` tasks; Windows has its own workflows ([Frost](windows-frost-vm.md), [UTM](windows-vm.md)).
+Tessera tests on clean systems from a Mac. `scripts/vm.py` drives three guests through the `vm:` tasks:
 
-Requirements: an Apple silicon Mac, `mise install` (it provides Tart, with the rest of the tools in `mise.toml`), and `brew bundle install` (it provides Lima).
+| Guest | Manager | Tasks | Runs |
+| --- | --- | --- | --- |
+| macOS | [Tart](https://tart.run/) | `vm:macos-*` | the whole check matrix with only the lane's Xcode installed |
+| Linux | [Lima](https://lima-vm.io/) | `vm:linux-*` | the Linux suite |
+| Windows 11 ARM64 | [UTM](https://mac.getutm.app/) | `vm:windows-*` | the Windows suite ([Windows VM with UTM](windows-vm.md)) |
+
+Requirements: an Apple silicon Mac, `mise install` (it provides Tart, with the rest of the tools in `mise.toml`), and `brew bundle install` (it provides Lima and UTM).
 
 ## Storage
 
@@ -20,7 +26,7 @@ VM disks live outside the repository and outside the managers' defaults, one dir
 
 The tasks set `TART_HOME` and `LIMA_HOME` for their own commands only, so running `tart` or `limactl` by hand still uses your own setting (`~/.tart` and `~/.lima` unless you export these variables). Export the variable in your shell to keep the disks somewhere else, and use the same value when you call the manager directly, for example `TART_HOME=~/.local/share/vms/tart tart list`. The disks are reproducible from these tasks, so the directory is a good candidate for excluding from backups.
 
-A macOS base is the vanilla image (about 25 GB on disk) plus Xcode; work instances are APFS clones of it and only claim what they change. `mise run vm:status` lists both managers' VMs.
+A macOS base is the vanilla image (about 25 GB on disk) plus Xcode; work instances are APFS clones of it and only claim what they change. `mise run vm:status` lists the Tart, Lima, and UTM guests. UTM keeps the Windows guest's bundle in its own documents folder; see the [Windows guide](windows-vm.md).
 
 ## Names
 
@@ -66,7 +72,7 @@ mise run vm:macos-delete tessera-macos-26  # bases are refused
 
 `vm:macos-push`, `vm:macos-check`, and `vm:macos-ssh` start the instance when it is stopped and leave it running; stop it with `vm:macos-stop`.
 
-`vm:macos-push` sends what `git ls-files --cached --others --exclude-standard` lists (tracked files plus untracked files that are not ignored, as the Frost sync does) and extracts it into `~/tessera`, the guest's persistent checkout. That checkout is a Git repository whose index records the last delivery: the next push removes paths the host no longer has, and the repository's scripts that call `git rev-parse` work. Ignored paths such as `.build` and `node_modules` stay in the guest between pushes, so builds there are incremental. Edits made in the guest are overwritten by the next push.
+`vm:macos-push` sends what `git ls-files --cached --others --exclude-standard` lists (tracked files plus untracked files that are not ignored) and extracts it into `~/tessera`, the guest's persistent checkout. That checkout is a Git repository whose index records the last delivery: the next push removes paths the host no longer has, and the repository's scripts that call `git rev-parse` work. Ignored paths such as `.build` and `node_modules` stay in the guest between pushes, so builds there are incremental. Edits made in the guest are overwritten by the next push. `vm:windows-push` works the same way for the Windows guest.
 
 `vm:macos-check` runs, in the guest's checkout, `mise install`, `npm ci`, `swift --version`, then `mise run ci:check` (the full suite and the portable quality gate), `mise run docs:lint`, and `mise run core:examples`. Output streams to your terminal, and the task exits with the guest's status.
 
@@ -94,3 +100,14 @@ mise run vm:linux-delete
 `linux:start`, `linux:test`, `linux:stop`, `linux:shell`, and `linux:delete` remain as aliases. The Linux VM mounts the host checkout instead of holding a copy: when it is stopped and mounts another checkout, `vm:linux-test` re-points it at the current one with `limactl edit`, which keeps its toolchains and caches; when it is running for another checkout, the task stops. `TESSERA_LINUX_SWIFT_VERSION` picks the Swift release for one run ([Toolchain lanes](../../CONTRIBUTING.md#toolchain-lanes)).
 
 Lima instances created before these tasks live in `~/.lima`. Either delete the old one (`LIMA_HOME=~/.lima limactl delete tessera-linux`) and let `vm:linux-test` create a new one under `~/.local/share/vms/lima/`, or keep using it by exporting `LIMA_HOME=~/.lima`.
+
+## Windows (UTM)
+
+```sh
+mise run vm:windows-push                   # deliver the working tree to the guest
+mise run vm:windows-test                   # full Windows suite
+mise run vm:windows-test -- --filter WindowsInputLoopTests
+mise run vm:windows-stop --quit            # shut the guest down and quit UTM
+```
+
+The guest is a UTM VM named `tessera-windows-11` (or the one `tessera-*` bundle UTM has), with its bundle in UTM's documents folder and its snapshots under `~/.local/share/vms/utm/`. Creating it from an ISO or an existing bundle, provisioning it, snapshots, SSH, and troubleshooting are in [Windows VM with UTM](windows-vm.md).

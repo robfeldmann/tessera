@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#MISE description="Snapshot the stopped UTM Windows guest under ~/.local/share/vms/utm/<vm>/snapshots/<name> (APFS clone), or list its snapshots"
+#USAGE flag "--name <name>" help="UTM virtual machine"
+#USAGE arg "[snapshot]" help="Snapshot name, for example provisioned; omit to list"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+exec python3 scripts/vm.py windows-snapshot "$@"
