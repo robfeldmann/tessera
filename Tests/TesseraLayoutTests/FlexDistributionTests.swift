@@ -444,7 +444,8 @@ func `custom layouts consume Flex constraints through public layout value APIs`(
     }
   }
 
-  #expect(graph.diagnostics.nodes.first?.measuredSize == TerminalSize(columns: 7, rows: 1))
+  #expect(
+    graph.diagnostics.nodes.first?.measuredSize == TerminalSize(columns: 7, rows: 1))
 }
 
 // `LeafView.sizeThatFits` is a synchronous, non-async requirement of the layout pass, so

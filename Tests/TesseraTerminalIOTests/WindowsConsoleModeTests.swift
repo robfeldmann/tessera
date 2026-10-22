@@ -112,7 +112,8 @@
       )
 
       await #expect(
-        throws: PlatformIOError.consoleModeFailed(operation: .setOutputMode, errorCode: 50)
+        throws: PlatformIOError.consoleModeFailed(
+          operation: .setOutputMode, errorCode: 50)
       ) {
         try await mode.enterRawMode()
       }
@@ -130,7 +131,8 @@
     }
 
     @Test
-    func `exit raw mode attempts both restores and propagates first error`() async throws {
+    func `exit raw mode attempts both restores and propagates first error`() async throws
+    {
       let state = ConsoleState()
       let mode = WindowsConsoleMode(
         inputHandle: inputHandle,

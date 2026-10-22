@@ -133,7 +133,8 @@ private func conciseViewType(_ reflectedType: String) -> String {
   return base.split(separator: ".").last.map(String.init) ?? String(base)
 }
 
-private func terminalRequirementsSnapshot(_ requirements: TerminalRequirements) -> [String]
+private func terminalRequirementsSnapshot(_ requirements: TerminalRequirements)
+  -> [String]
 {
   var names: [String] = []
   if requirements.wantsKeyboardEnhancement {

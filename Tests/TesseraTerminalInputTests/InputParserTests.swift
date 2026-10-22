@@ -942,7 +942,8 @@ func `parser keeps ordinary keys around bracketed paste separate`() {
 func `parser does not emit partial key events for incomplete bracketed paste`() {
   var parser = InputParser()
 
-  #expect(parser.feed(contentsOf: bracketedPasteStart + Array("abc\u{1B}[A".utf8)).isEmpty)
+  #expect(
+    parser.feed(contentsOf: bracketedPasteStart + Array("abc\u{1B}[A".utf8)).isEmpty)
 }
 
 @Test
@@ -1098,7 +1099,8 @@ func `parser decodes byte by byte kitty reports`() {
 @Test
 func `parser keeps kitty reports isolated from paste and mixed protocol events`() {
   var parser = InputParser()
-  let events = parser.feed(contentsOf: Array("\u{1B}[<0;1;1M\u{1B}[I\u{1B}[107;9:3u".utf8))
+  let events = parser.feed(
+    contentsOf: Array("\u{1B}[<0;1;1M\u{1B}[I\u{1B}[107;9:3u".utf8))
 
   assertInlineSnapshot(of: eventLog(events), as: .lines) {
     #"""

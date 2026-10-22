@@ -530,7 +530,8 @@ func `delete images writes exact kitty graphics bytes and flushes`() async throw
 
 @Test
 func `graphics query runs one serialized active probe generation`() async throws {
-  let device = KeyboardProbeResponseTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let device = KeyboardProbeResponseTerminalDevice(
+    size: TerminalSize(columns: 4, rows: 2))
   let session = await makeSession(device)
 
   let result = try await session.queryKittyGraphicsSupport(id: KittyImageID(rawValue: 17))
@@ -543,7 +544,8 @@ func `graphics query runs one serialized active probe generation`() async throws
 
 @Test
 func `keyboard query runs one serialized active probe generation`() async throws {
-  let device = KeyboardProbeResponseTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let device = KeyboardProbeResponseTerminalDevice(
+    size: TerminalSize(columns: 4, rows: 2))
   let session = await makeSession(device)
 
   let result = try await session.queryKittyKeyboardSupport()
@@ -556,7 +558,8 @@ func `keyboard query runs one serialized active probe generation`() async throws
 
 @Test
 func `private mode query runs one serialized active probe generation`() async throws {
-  let device = KeyboardProbeResponseTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let device = KeyboardProbeResponseTerminalDevice(
+    size: TerminalSize(columns: 4, rows: 2))
   let session = await makeSession(device)
 
   let result = try await session.queryPrivateModeStatuses()
@@ -568,8 +571,10 @@ func `private mode query runs one serialized active probe generation`() async th
 }
 
 @Test
-func `active capability query serializes rounds and caches the generation`() async throws {
-  let device = KeyboardProbeResponseTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+func `active capability query serializes rounds and caches the generation`() async throws
+{
+  let device = KeyboardProbeResponseTerminalDevice(
+    size: TerminalSize(columns: 4, rows: 2))
   let session = await makeSession(device)
 
   let first = try await session.queryActiveCapabilities()
@@ -1850,7 +1855,8 @@ func `color policy pinned by NO_COLOR does not repaint unchanged frames`() async
 }
 
 @Test
-func `runtime hyperlink rendering repaints unchanged cells and equal assignment does not`()
+func
+  `runtime hyperlink rendering repaints unchanged cells and equal assignment does not`()
   async throws
 {
   let device = InMemoryTerminalDevice(size: TerminalSize(columns: 1, rows: 1))
@@ -2761,7 +2767,8 @@ private let cursorVisibleBytes = Array("\u{1B}[?25h".utf8)
 private let cursorColor = CursorColor(red: 0x12, green: 0xAB, blue: 0xF0)
 private let cursorShapeSteadyBlockBytes =
   ControlSequence.setCursorShape(.steadyBlock).bytes
-private let cursorShapeResetBytes = ControlSequence.setCursorShape(.defaultUserShape).bytes
+private let cursorShapeResetBytes = ControlSequence.setCursorShape(.defaultUserShape)
+  .bytes
 private let cursorColorSetBytes = ControlSequence.setCursorColor(cursorColor).bytes
 private let cursorColorResetBytes = ControlSequence.resetCursorColor.bytes
 private let cursorStyleOverrideBytes =
@@ -2817,7 +2824,8 @@ private func firstByteRange(_ needle: [UInt8], in haystack: [UInt8]) -> Range<In
 
   return haystack.indices.lazy.compactMap { index in
     let endIndex = index + needle.count
-    guard endIndex <= haystack.endIndex, Array(haystack[index..<endIndex]) == needle else {
+    guard endIndex <= haystack.endIndex, Array(haystack[index..<endIndex]) == needle
+    else {
       return nil
     }
     return index..<endIndex

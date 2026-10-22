@@ -92,7 +92,8 @@ let AllTesseraExampleTargetNames: Set<String> = [
 
 // MARK: ANSIEncoderDemo
 
-package.products.append(.executable(name: "ANSIEncoderDemo", targets: ["ANSIEncoderDemo"]))
+package.products.append(
+  .executable(name: "ANSIEncoderDemo", targets: ["ANSIEncoderDemo"]))
 
 package.targets.append(
   .executableTarget(

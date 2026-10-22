@@ -250,7 +250,8 @@ public actor TerminalSession {
     keyboardProtocol: KeyboardProtocolMode = .legacyOnly,
     kittyKeyboardFlags: KittyKeyboardFlags = .tesseraDefault,
     activeProbeTimeout: Duration = .milliseconds(250),
-    probeImageID: KittyImageID = KittyImageID(rawValue: UInt32.random(in: 1...UInt32.max)),
+    probeImageID: KittyImageID = KittyImageID(
+      rawValue: UInt32.random(in: 1...UInt32.max)),
     probeSleep: @escaping ActiveCapabilityProbeCoordinator.Sleep = { duration in
       try await ContinuousClock().sleep(for: duration)
     },
@@ -917,7 +918,8 @@ public actor TerminalSession {
       capabilities.kittyGraphics = .supported
     case .kittyKeyboardEnhancementFlags:
       capabilities.kittyKeyboard = .supported
-    case .focusGained, .focusLost, .key, .mouse, .paste, .primaryDeviceAttributes, .resize,
+    case .focusGained, .focusLost, .key, .mouse, .paste, .primaryDeviceAttributes,
+      .resize,
       .unknown:
       break
     }

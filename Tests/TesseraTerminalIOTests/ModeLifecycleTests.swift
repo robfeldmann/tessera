@@ -486,7 +486,8 @@ func `exit pops kitty keyboard before mouse focus and paste`() async throws {
 }
 
 @Test
-func `apply enables and disables application modes in deterministic order`() async throws {
+func `apply enables and disables application modes in deterministic order`() async throws
+{
   let device = LifecycleTestDevice()
   let lifecycle = await makeLifecycle(device)
 
@@ -741,7 +742,8 @@ func `cursor styling request succeeds without capability responses`() async thro
 }
 
 @Test
-func `mouse enable failure retains successful and possible protocol modes`() async throws {
+func `mouse enable failure retains successful and possible protocol modes`() async throws
+{
   let device = LifecycleTestDevice(failure: .writeOnAttempt(3))
   let lifecycle = await makeLifecycle(device)
 
@@ -848,7 +850,9 @@ func `concurrent apply transitions serialize`() async throws {
   let second = Task {
     try await lifecycle.apply(applicationModes: [.focusEvents, .mouseTracking(.anyEvent)])
   }
-  await waitUntil("the second apply queues") { await lifecycle.queuedTransitionCount == 1 }
+  await waitUntil("the second apply queues") {
+    await lifecycle.queuedTransitionCount == 1
+  }
   #expect(await lifecycle.queuedTransitionCount == 1)
 
   let flushesBeforeResume = await device.events.filter(\.isFlush).map(\.flushBytes)
@@ -878,7 +882,9 @@ func `cancelled queued transition does not mutate lifecycle state`() async throw
   let queued = Task {
     try await lifecycle.apply(applicationModes: [.focusEvents, .mouseTracking(.anyEvent)])
   }
-  await waitUntil("the second apply queues") { await lifecycle.queuedTransitionCount == 1 }
+  await waitUntil("the second apply queues") {
+    await lifecycle.queuedTransitionCount == 1
+  }
   #expect(await lifecycle.queuedTransitionCount == 1)
   queued.cancel()
 
@@ -1365,7 +1371,8 @@ private let kittyGraphicsDeleteAllBytes = Array("\u{1B}_Ga=d,d=A\u{1B}\\".utf8)
 private let cursorColor = CursorColor(red: 0x12, green: 0xAB, blue: 0xF0)
 private let cursorShapeSteadyBlockBytes =
   ControlSequence.setCursorShape(.steadyBlock).bytes
-private let cursorShapeResetBytes = ControlSequence.setCursorShape(.defaultUserShape).bytes
+private let cursorShapeResetBytes = ControlSequence.setCursorShape(.defaultUserShape)
+  .bytes
 private let cursorColorSetBytes = ControlSequence.setCursorColor(cursorColor).bytes
 private let cursorColorResetBytes = ControlSequence.resetCursorColor.bytes
 private let cursorStyleABytes =

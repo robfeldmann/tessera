@@ -154,7 +154,8 @@ func `terminfo compatibility never upgrades a conservative underline request`() 
 
 @Test
 func `terminal identities do not alter configured underline rendering`() {
-  let underlineRendering = UnderlineRenderingPolicy(style: .preserveVariants, color: .omit)
+  let underlineRendering = UnderlineRenderingPolicy(
+    style: .preserveVariants, color: .omit)
   let configuration = TerminalApplicationConfiguration(
     underlineRendering: underlineRendering
   )
@@ -250,7 +251,8 @@ private func `color hints map to the advertised color capability`(
 
 @Test
 func `color override wins when no environment constraint is present`() {
-  let configuration = TerminalApplicationConfiguration(colorCapability: .force(.truecolor))
+  let configuration = TerminalApplicationConfiguration(
+    colorCapability: .force(.truecolor))
 
   let resolution = configuration.resolve(environment: [:])
   expectNoDifference(resolution.capabilities.color, .unknown)
@@ -259,7 +261,8 @@ func `color override wins when no environment constraint is present`() {
 
 @Test
 func `NO_COLOR records separate provenance and pins forced color output`() {
-  let configuration = TerminalApplicationConfiguration(colorCapability: .force(.truecolor))
+  let configuration = TerminalApplicationConfiguration(
+    colorCapability: .force(.truecolor))
 
   let resolution = configuration.resolve(
     environment: [
@@ -277,7 +280,8 @@ func `NO_COLOR records separate provenance and pins forced color output`() {
 
 @Test
 func `dumb TERM records separate provenance and pins forced color output`() {
-  let configuration = TerminalApplicationConfiguration(colorCapability: .force(.truecolor))
+  let configuration = TerminalApplicationConfiguration(
+    colorCapability: .force(.truecolor))
 
   let resolution = configuration.resolve(environment: ["TERM": "dumb"])
 
@@ -700,7 +704,8 @@ func `exact modes round trip cursor styling policy`() {
   let styledConfiguration = TerminalApplicationConfiguration(
     modes: baseApplicationModes.union([.cursorStyle(cursorStyle)])
   )
-  let unstyledConfiguration = TerminalApplicationConfiguration(modes: baseApplicationModes)
+  let unstyledConfiguration = TerminalApplicationConfiguration(
+    modes: baseApplicationModes)
 
   expectNoDifference(styledConfiguration.cursorStyling, .enabled(default: cursorStyle))
   expectNoDifference(cursorStyles(in: styledConfiguration.modes), [cursorStyle])

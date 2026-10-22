@@ -291,7 +291,8 @@ public struct InputParser: Sendable {
     return .kittyGraphicsResponse(response)
   }
 
-  private func csiCode(finalByte: UInt8, params: String, parameterBytes: [UInt8]) -> Key? {
+  private func csiCode(finalByte: UInt8, params: String, parameterBytes: [UInt8]) -> Key?
+  {
     switch finalByte {
     case 0x41:
       return modifiedCSIKey(defaultCode: .up, parameterBytes: parameterBytes)
@@ -393,7 +394,8 @@ public struct InputParser: Sendable {
 
     var modifiers: Modifiers = []
     var kind: KeyEventKind = .press
-    guard parseModifierAndKind(parameters: parameters, into: &modifiers, and: &kind) else {
+    guard parseModifierAndKind(parameters: parameters, into: &modifiers, and: &kind)
+    else {
       return nil
     }
 
@@ -504,7 +506,8 @@ public struct InputParser: Sendable {
         return [event]
       }
       guard
-        let code = csiCode(finalByte: byte, params: params, parameterBytes: parameterBytes)
+        let code = csiCode(
+          finalByte: byte, params: params, parameterBytes: parameterBytes)
       else {
         return [.unknown(sequence)]
       }
@@ -883,7 +886,8 @@ public struct InputParser: Sendable {
       default:
         return nil
       }
-      return MouseEvent(kind: .scroll(direction), position: position, modifiers: modifiers)
+      return MouseEvent(
+        kind: .scroll(direction), position: position, modifiers: modifiers)
     }
 
     if hasMotionBit {
@@ -928,7 +932,8 @@ public struct InputParser: Sendable {
 
     var modifiers: Modifiers = []
     var kind: KeyEventKind = .press
-    guard parseModifierAndKind(parameters: parameters, into: &modifiers, and: &kind) else {
+    guard parseModifierAndKind(parameters: parameters, into: &modifiers, and: &kind)
+    else {
       return nil
     }
 

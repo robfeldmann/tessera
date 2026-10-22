@@ -106,7 +106,8 @@ private final class ScrollModel {
 }
 
 @Test
-func `vertical scrolling measures unbounded content height without indicator reservation`()
+func
+  `vertical scrolling measures unbounded content height without indicator reservation`()
 {
   let recorder = MeasurementRecorder()
   let size = TerminalSize(columns: 4, rows: 2)

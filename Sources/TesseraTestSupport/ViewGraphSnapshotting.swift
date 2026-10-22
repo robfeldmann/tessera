@@ -74,7 +74,8 @@ private func graphStatisticsSnapshot(_ statistics: GraphStatistics) -> String {
     + " renders=\(statistics.renderedNodes) reasons=\(reasons)"
 }
 
-private func terminalRequirementsSnapshot(_ requirements: TerminalRequirements) -> String {
+private func terminalRequirementsSnapshot(_ requirements: TerminalRequirements) -> String
+{
   var names: [String] = []
   if requirements.wantsKeyboardEnhancement {
     names.append("keyboard")
