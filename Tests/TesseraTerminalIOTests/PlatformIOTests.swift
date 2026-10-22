@@ -497,6 +497,8 @@ func `bytes appended during a suspended drain follow its remainder once`() async
     }
   }
 
+  // Each test owns its instance: only the flush drain calls the stubs, one write at a
+  // time, and the test reads `writeCalls` after the awaited flush returns.
   private final class WindowsOutputState: @unchecked Sendable {
     enum WriteResult: Sendable {
       case failure(UInt32)

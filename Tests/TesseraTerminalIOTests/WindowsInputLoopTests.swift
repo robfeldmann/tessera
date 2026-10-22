@@ -7,7 +7,10 @@
 
   @testable import TesseraTerminalIO
 
-  @Suite(.serialized)
+  // Not serialized: the stubs ride the task-local `WindowsConsoleSystem.override`, the
+  // handles are fake, and `PlatformIO(terminalDevice:)` injects `.disabled` cleanup, so no
+  // test reaches the `tessera_cleanup_*` shim or a real console.
+  @Suite
   struct WindowsInputLoopTests {
     @Test
     func `windows input loop yields bytes carried by queued key record`() async {
@@ -176,6 +179,8 @@
     return await iterator.next()
   }
 
+  // Each test owns its instance: the input loop's single wait task calls the stubs one at
+  // a time, and the test reads the counters only after the stream yields or finishes.
   private final class WindowsInputState: @unchecked Sendable {
     private var peekResults: [Result<[WindowsInputRecord], PlatformIOError>]
     private var readConsoleResults: [Result<[WindowsInputRecord], PlatformIOError>]

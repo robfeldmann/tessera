@@ -50,13 +50,11 @@ import Testing
 
     @Test
     func `input loop skips poll timeout then yields readable byte`() async {
-      final class State: @unchecked Sendable { var calls = 0 }
-      let state = State()
+      let calls = SyscallCallCounter()
       let value = await nextNonEmptyValue(
         with: .stub(
           poll: { descriptors, _, _ in
-            defer { state.calls += 1 }
-            if state.calls == 0 {
+            if calls.increment() == 0 {
               return 0
             }
             descriptors?[0].revents = Int16(POLLIN)
@@ -73,13 +71,11 @@ import Testing
 
     @Test
     func `input loop ignores interrupted poll before eof`() async {
-      final class State: @unchecked Sendable { var calls = 0 }
-      let state = State()
+      let calls = SyscallCallCounter()
       let value = await nextValue(
         with: .stub(
           poll: { descriptors, _, _ in
-            defer { state.calls += 1 }
-            if state.calls == 0 {
+            if calls.increment() == 0 {
               errno = EINTR
               return -1
             }
@@ -116,8 +112,7 @@ import Testing
 
     @Test(arguments: [EINTR, EAGAIN])
     func `input loop retries transient read failures`(errorNumber: CInt) async {
-      final class State: @unchecked Sendable { var calls = 0 }
-      let state = State()
+      let calls = SyscallCallCounter()
       let value = await nextValue(
         with: .stub(
           poll: { descriptors, _, _ in
@@ -125,8 +120,7 @@ import Testing
             return 1
           },
           read: { _, buffer, _ in
-            defer { state.calls += 1 }
-            if state.calls == 0 {
+            if calls.increment() == 0 {
               errno = errorNumber
               return -1
             }
@@ -354,7 +348,9 @@ import Testing
     }
   }
 
-  private final class FileDescriptorPipe: @unchecked Sendable {
+  // Owned by one test body: it creates, uses, and closes the pipe on that test's task and
+  // never passes it to a `@Sendable` closure (only `readDescriptor` integers leave it).
+  private final class FileDescriptorPipe {
     private var descriptors: [CInt] = [-1, -1]
 
     var readDescriptor: CInt {

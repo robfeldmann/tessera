@@ -210,6 +210,8 @@
     mode & flag.rawValue == flag.rawValue
   }
 
+  // Test-owned: the test sets it up before driving `PlatformIO`, the stubs then run one at
+  // a time on the awaited call's path, and the test reads it only after that call returns.
   private final class ConsoleState: @unchecked Sendable {
     struct SetCall: Equatable, Hashable, Sendable {
       let handle: UInt

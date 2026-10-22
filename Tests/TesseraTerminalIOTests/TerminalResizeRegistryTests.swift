@@ -8,15 +8,13 @@ import Testing
   @Test
   func `resize registry yields queried sizes for notifications`() async throws {
     let (notifications, notificationContinuation) = AsyncStream.makeStream(of: Void.self)
-    final class State: @unchecked Sendable {
-      var sizes = [
-        TerminalSize(columns: 80, rows: 24),
-        TerminalSize(columns: 100, rows: 30),
-      ]
-    }
-    let state = State()
+    let sizes = [
+      TerminalSize(columns: 80, rows: 24),
+      TerminalSize(columns: 100, rows: 30),
+    ]
+    let calls = SyscallCallCounter()
     let stream = TerminalResizeRegistry.sizeChanges(
-      querySize: { state.sizes.removeFirst() },
+      querySize: { sizes[calls.increment()] },
       notifications: notifications
     )
     var iterator = stream.makeAsyncIterator()
@@ -37,12 +35,10 @@ import Testing
   @Test
   func `resize registry ignores failed queries before later success`() async throws {
     let (notifications, notificationContinuation) = AsyncStream.makeStream(of: Void.self)
-    final class State: @unchecked Sendable { var calls = 0 }
-    let state = State()
+    let calls = SyscallCallCounter()
     let stream = TerminalResizeRegistry.sizeChanges(
       querySize: {
-        defer { state.calls += 1 }
-        if state.calls == 0 {
+        if calls.increment() == 0 {
           throw PlatformIOError.terminalSizeUnavailable(errno: .ioError)
         }
         return TerminalSize(columns: 90, rows: 25)

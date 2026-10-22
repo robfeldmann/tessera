@@ -5,13 +5,16 @@ import Testing
 @testable import TesseraTerminalIO
 
 #if os(macOS)
+  // Serialized because every test drives a real PTY pair (`openpty`, `tcsetattr` and
+  // `TIOCSWINSZ` on the replica). The suite injects `.disabled` cleanup, so it never
+  // reaches the `tessera_cleanup_*` shim.
   @Suite(.serialized)
   struct TerminalDeviceLiveTests {
     @Test
     func `live terminal writes alternate screen bytes to pty`() async throws {
       let pty = try PTYFixture()
       defer { pty.closeAll() }
-      let io = try PlatformIO(handles: pty.handles())
+      let io = pty.io()
 
       try await io.enableAltScreen()
       try await io.disableAltScreen()
@@ -27,7 +30,7 @@ import Testing
       let pty = try PTYFixture()
       defer { pty.closeAll() }
       let original = try pty.termios()
-      let io = try PlatformIO(handles: pty.handles())
+      let io = pty.io()
 
       try await io.enableRawMode()
       let raw = try pty.termios()
@@ -45,7 +48,7 @@ import Testing
       let pty = try PTYFixture()
       defer { pty.closeAll() }
       try pty.setSize(columns: 132, rows: 43)
-      let io = try PlatformIO(handles: pty.handles())
+      let io = pty.io()
 
       let size = try await io.size()
 
@@ -57,7 +60,7 @@ import Testing
       let pty = try PTYFixture()
       defer { pty.closeAll() }
       try pty.setSize(columns: 10, rows: 5, xPixels: 200, yPixels: 100)
-      let io = try PlatformIO(handles: pty.handles())
+      let io = pty.io()
 
       let pixelSize = await io.cellPixelSize()
 
@@ -69,7 +72,7 @@ import Testing
       let pty = try PTYFixture()
       defer { pty.closeAll() }
       try pty.setSize(columns: 10, rows: 5, xPixels: 0, yPixels: 0)
-      let io = try PlatformIO(handles: pty.handles())
+      let io = pty.io()
 
       let pixelSize = await io.cellPixelSize()
 
@@ -80,7 +83,7 @@ import Testing
     func `live terminal flush writes bytes to pty`() async throws {
       let pty = try PTYFixture()
       defer { pty.closeAll() }
-      let io = try PlatformIO(handles: pty.handles())
+      let io = pty.io()
 
       await io.write([0x48, 0x69])
       try await io.flush()
@@ -90,11 +93,14 @@ import Testing
 
     @Test
     func `live terminal reports unsupported invalid descriptors`() async throws {
-      let io = try PlatformIO(
-        handles: PlatformHandles(
-          stdin: FileDescriptor(rawValue: -1),
-          stdout: FileDescriptor(rawValue: -1)
-        )
+      let io = PlatformIO(
+        terminalDevice: .live(
+          handles: PlatformHandles(
+            stdin: FileDescriptor(rawValue: -1),
+            stdout: FileDescriptor(rawValue: -1)
+          )
+        ),
+        cleanupRegistry: .disabled
       )
 
       await #expect(throws: PlatformIOError.rawModeFailed(errno: .badFileDescriptor)) {
@@ -103,7 +109,9 @@ import Testing
     }
   }
 
-  private final class PTYFixture: @unchecked Sendable {
+  // Each test creates its fixture, uses it on its own task, and closes it in `defer`; the
+  // fixture is never shared, and only its descriptor values reach `PlatformIO`.
+  private final class PTYFixture {
     private var primaryFileDescriptor: CInt = -1
     private var replicaFileDescriptor: CInt = -1
 
@@ -121,6 +129,10 @@ import Testing
       }
       let flags = fcntl(primaryFileDescriptor, F_GETFL)
       _ = fcntl(primaryFileDescriptor, F_SETFL, flags | O_NONBLOCK)
+    }
+
+    func io() -> PlatformIO {
+      PlatformIO(terminalDevice: .live(handles: handles()), cleanupRegistry: .disabled)
     }
 
     func handles() -> PlatformHandles {
