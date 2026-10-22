@@ -241,12 +241,13 @@ expressible; Phase 10–14 acceptances each gain "and its scenario corpus passes
 
 ### Step A.2 — Land the device, probe, draw-tap, and events-buffer seams
 
-- From `devtools-seams-spike` (`30e4bbf`): `InMemoryTerminalDevice`
-  `package init(…keepsInputOpen:)`, `deliverResize(to:)`, `closeInput()`, fan-out to
-  `PlatformIO`'s two `sizeChanges` subscriptions with since-subscription semantics (drop
-  the `deliveredSizes` replay; live platforms deliver only after subscription);
-  `withApplicationTerminal` forwarding `probeImageID` and `probeSleep` (so the seam test
-  stops waiting on a wall-clock timeout); the `ViewGraph` clock seam as is.
+- From the seams spike (`spikes/Seams/30e4bbf.patch`, commit `30e4bbf`):
+  `InMemoryTerminalDevice` `package init(…keepsInputOpen:)`, `deliverResize(to:)`,
+  `closeInput()`, fan-out to `PlatformIO`'s two `sizeChanges` subscriptions with
+  since-subscription semantics (drop the `deliveredSizes` replay; live platforms deliver
+  only after subscription); `withApplicationTerminal` forwarding `probeImageID` and
+  `probeSleep` (so the seam test stops waiting on a wall-clock timeout); the `ViewGraph`
+  clock seam as is.
 - `TerminalSession`: `package private(set) var lastDrawn: DrawnFrame?` (buffer, cursor,
   sequence) set after a successful flush, `package var size`, `package var outputTap` teed
   before `io.write` (Spike 4); bound or drain the `events` buffer a `nextEvent()` consumer
@@ -399,9 +400,10 @@ Found by the spikes, outside this plan's scope:
 ## Spikes
 
 Standalone packages under `spikes/<Name>/` (path dependency `../..`, public API only, as
-Lattice did, 038 Findings 7); Spike 5 edits root sources on branch `devtools-seams-spike`.
-All ran 2026-10-19 (`939beb0`, `ce0a046`, `30e4bbf`); each README holds the hypothesis,
-criteria, and "proves / does not prove". Nothing new goes into `spikes/` after A.3.
+Lattice did, 038 Findings 7); Spike 5 edits root sources and is saved as
+`spikes/Seams/30e4bbf.patch`. All ran 2026-10-19 (`939beb0`, `ce0a046`, `30e4bbf`); each
+README holds the hypothesis, criteria, and "proves / does not prove". Nothing new goes
+into `spikes/` after A.3.
 
 | Spike                                                   | Verdict           | Findings that changed the plan                                                                                                                                                                                                                                                                                                                                                  |
 | ------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

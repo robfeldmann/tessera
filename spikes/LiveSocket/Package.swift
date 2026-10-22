@@ -1,15 +1,6 @@
 // swift-tools-version: 6.3
 
-import Foundation
 import PackageDescription
-
-// A path dependency's identity is its directory name, not the manifest's `name`, so the
-// product reference must follow the checkout's folder (`devtools` here, `main` elsewhere).
-let tesseraIdentity = URL(fileURLWithPath: #filePath)
-  .deletingLastPathComponent()
-  .deletingLastPathComponent()
-  .deletingLastPathComponent()
-  .lastPathComponent
 
 let package = Package(
   name: "LiveSocket",
@@ -20,14 +11,16 @@ let package = Package(
     .executable(name: "livesocket", targets: ["livesocket"])
   ],
   dependencies: [
-    .package(path: "../..")
+    // `name:` fixes the path dependency's identity, which would otherwise be the checkout's
+    // directory name (`main`, `devtools`, …).
+    .package(name: "tessera", path: "../..")
   ],
   targets: [
     .target(
       name: "LiveSocketKit",
       dependencies: [
-        .product(name: "Tessera", package: tesseraIdentity),
-        .product(name: "TesseraTerminalSnapshotSupport", package: tesseraIdentity),
+        .product(name: "Tessera", package: "tessera"),
+        .product(name: "TesseraTerminalSnapshotSupport", package: "tessera"),
       ]
     ),
     .executableTarget(
@@ -38,7 +31,7 @@ let package = Package(
       name: "LiveSocketKitTests",
       dependencies: [
         "LiveSocketKit",
-        .product(name: "TesseraTerminalTestSupport", package: tesseraIdentity),
+        .product(name: "TesseraTerminalTestSupport", package: "tessera"),
       ]
     ),
   ],

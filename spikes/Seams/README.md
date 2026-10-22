@@ -1,8 +1,11 @@
 # Spike 5: Seams
 
-Worktree `/Users/rob/Developer/robfeldmann/tessera/devtools-seams`, branch
-`devtools-seams-spike`, commit `30e4bbf`
-(`feat(spike): add resize, clock, and probe-ID seams for developer tooling`).
+Saved as [`30e4bbf.patch`](30e4bbf.patch) in this directory: commit `30e4bbf`
+(`feat(spike): add resize, clock, and probe-ID seams for developer tooling`), written on
+branch `devtools-seams-spike` on top of `cb8d143` (the plan 033 draft commit). It applies
+cleanly to that base (`git apply --check spikes/Seams/30e4bbf.patch` against `cb8d143`)
+and, as of 2026-10-22, to `plan-035` as well. The branch and its worktree are retired once
+everything is on `main`; the patch is the record.
 
 ## Hypothesis
 
@@ -16,7 +19,7 @@ public API and without changing existing snapshots:
 ## How to run
 
 ```sh
-cd /Users/rob/Developer/robfeldmann/tessera/devtools-seams
+git apply spikes/Seams/30e4bbf.patch   # on a scratch branch
 swift test --filter "injected clock|deterministic clocks|resize delivered|closed input|injected probe"
 for t in TesseraTerminalTests TesseraCoreTests TesseraTerminalIOTests TesseraTerminalSnapshotSupportTests TesseraWidgetsTests; do swift test --filter "$t"; done
 ```

@@ -143,8 +143,9 @@ re-render); `out/demo-dark.svg`
    pointer should be corrected.
 5. **`TesseraTerminal` re-exports `TesseraTerminalANSI`, `Core`, and the rest.** A spike
    needs only `TesseraTerminal` and `TesseraTerminalSnapshotSupport` products. Path
-   dependencies take their identity from the directory name (`devtools`), so
-   `.product(name:package: "devtools")`.
+   dependencies take their identity from the directory name (`devtools` at the time)
+   unless the manifest sets one; the port to main (plan 035 Step 3.2) uses
+   `.package(name: "tessera", path: "../..")`.
 6. **Plan 033 Spike 3 wording.** Pass criteria call for "rects + text runs". The spike
    shows that rectangles for backgrounds and decorations plus per-glyph `x` is enough.
    `textLength` is only used on standalone glyphs (wide or multi-scalar graphemes), to

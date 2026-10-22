@@ -235,10 +235,11 @@ headlessly (`text returns the screen the terminal received`) against
 
 ### API surprises (all public-API; none blocked the spike)
 
-- **Path-dependency identity is the folder name.** `.product(name:package:)` needs
-  `"devtools"` in this worktree and `"main"` in the main checkout; `"tessera"` fails with
-  `unknown package 'tessera'`. `Package.swift` derives it from `#filePath`. Spikes 1–3 and
-  the A.3 copy-migration should do the same (or the plan should state it).
+- **Path-dependency identity is the folder name by default.** `.product(name:package:)`
+  needed `"devtools"` in that worktree and `"main"` in the main checkout; `"tessera"`
+  failed with `unknown package 'tessera'`, and `Package.swift` derived it from
+  `#filePath`. The port to main (plan 035 Step 3.2) replaced that with
+  `.package(name: "tessera", path: "../..")` in every spike, which fixes the identity.
 - **`terminal.draw`'s closure is not `Sendable`.** It compiles only from inside the
   session actor's isolation. A local nested `async` func in the `isolated` body lost
   isolation (`#IsolatedConformances` warning, then a sending error). Keep loop state in a

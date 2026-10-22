@@ -148,10 +148,11 @@ headless natural workspace --width 40  workspace root_rows=500 fills_proposal=tr
    derivation work through public API. One caveat: natural height is unavailable for any
    demo that contains a height-greedy view, so `Viewport.mobile` must be an explicit
    per-demo choice or error, not a default.
-2. Package identity: `.product(name: "Tessera", package: "devtools")` — SwiftPM derives
-   the identity of a path dependency from the directory name (`devtools`), not from the
-   root manifest's `name: "tessera"`. Phase A.3's copy-migration removes this, but any
-   spike that moves to another checkout name breaks.
+2. Package identity: SwiftPM derives the identity of a path dependency from the directory
+   name (`devtools` at the time), not from the root manifest's `name: "tessera"`, so the
+   manifest first said `package: "devtools"`. The port to main (plan 035 Step 3.2) pins it
+   with `.package(name: "tessera", path: "../..")`, which holds for any checkout name.
+   Phase A.3's copy-migration removes it.
 3. `diagnostics.statistics` holds `Duration` fields (`updateDuration`, `layoutDuration`,
    `renderDuration`); they are not byte-stable. The projection must exclude durations (the
    plan's trace "statistics delta" needs counters only). `GraphStatistics`' counters are

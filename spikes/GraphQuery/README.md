@@ -271,8 +271,10 @@ Does not prove:
 11. **Public reach is sufficient.** `Rect`, `TerminalSize`, `Cell`, and `ProposedSize`
     come through the `Tessera` umbrella product's `@_exported` imports; no module beyond
     the two products was needed, and nothing required `package` access.
-12. **Package identity.** A path dependency's identity is its directory name, so the
-    manifest says `package: "devtools"` (the worktree directory), not `"tessera"`. Spikes
-    copied into the root package in Phase A.3 drop this.
+12. **Package identity.** A path dependency's identity defaults to its directory name, so
+    the manifest first said `package: "devtools"` (the worktree directory). The port to
+    main (plan 035 Step 3.2) fixed the identity with
+    `.package(name: "tessera", path: "../..")`. Spikes copied into the root package in
+    Phase A.3 drop this.
 13. **Cost.** `swift run graphquery query --demo hello 'text="Hello"'` takes about 20 ms
     wall (process start, Ghostty VT, render, projection, query) in a debug build.

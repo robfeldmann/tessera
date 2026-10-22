@@ -11,14 +11,14 @@ let package = Package(
     .executable(name: "headless", targets: ["headless"])
   ],
   dependencies: [
-    .package(path: "../..")
+    .package(name: "tessera", path: "../..")
   ],
   targets: [
     .target(
       name: "HeadlessKit",
       dependencies: [
-        .product(name: "Tessera", package: "devtools"),
-        .product(name: "TesseraTerminalSnapshotSupport", package: "devtools"),
+        .product(name: "Tessera", package: "tessera"),
+        .product(name: "TesseraTerminalSnapshotSupport", package: "tessera"),
       ]
     ),
     .executableTarget(
@@ -29,7 +29,7 @@ let package = Package(
       name: "HeadlessKitTests",
       dependencies: [
         "HeadlessKit",
-        .product(name: "Tessera", package: "devtools"),
+        .product(name: "Tessera", package: "tessera"),
       ]
     ),
   ],

@@ -13,8 +13,15 @@ package imports these; plan 033 step A.3 migrates the useful code by copy.
 | [LiveSocket](LiveSocket/)         | Can a running app answer `text`, `tree`, `key`, and `quit` over a local socket?        | pass    |
 | [Seams](Seams/README.md)          | Are live resize, an injected clock, and a probe ID small `package` seams?              | pass    |
 
-The Seams spike edits root sources, so its code lives on branch `devtools-seams-spike`
-(one commit on top of this branch's base); only its README is here.
+The Seams spike edits root sources, so its code is saved as a patch,
+[`Seams/30e4bbf.patch`](Seams/30e4bbf.patch), beside its README.
+
+## Status
+
+The spikes are frozen evidence for plan 033: they are built by hand and stay out of CI
+(owner decision, 2026-10-21), so nothing guards them against drift in the root package.
+They were last built and tested on 2026-10-22 against the root package at that date, on
+both toolchain lanes (Xcode 26.6 and Xcode 27.1).
 
 ## Running
 
@@ -23,7 +30,5 @@ cd spikes/<Name>
 swift build && swift test
 ```
 
-SwiftPM names a path dependency after its directory, so these manifests refer to the root
-package as `devtools`, the name of the worktree they were written in. `LiveSocket` derives
-the name from `#filePath` instead; the others need the string changed when built from a
-checkout with a different directory name.
+Each manifest declares the root package as `.package(name: "tessera", path: "../..")`, so
+the dependency's identity is `tessera` whatever the checkout directory is called.

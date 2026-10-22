@@ -19,14 +19,14 @@ let package = Package(
     .library(name: "SVGShot", targets: ["SVGShot"]),
   ],
   dependencies: [
-    .package(path: "../..")
+    .package(name: "tessera", path: "../..")
   ],
   targets: [
     .target(
       name: "SVGShot",
       dependencies: [
-        .product(name: "TesseraTerminal", package: "devtools"),
-        .product(name: "TesseraTerminalSnapshotSupport", package: "devtools"),
+        .product(name: "TesseraTerminal", package: "tessera"),
+        .product(name: "TesseraTerminalSnapshotSupport", package: "tessera"),
       ],
       swiftSettings: upcomingFeatures
     ),
@@ -34,7 +34,7 @@ let package = Package(
       name: "SVGShotCLI",
       dependencies: [
         "SVGShot",
-        .product(name: "TesseraTerminalSnapshotSupport", package: "devtools"),
+        .product(name: "TesseraTerminalSnapshotSupport", package: "tessera"),
       ],
       swiftSettings: upcomingFeatures
     ),
@@ -42,8 +42,8 @@ let package = Package(
       name: "SVGShotTests",
       dependencies: [
         "SVGShot",
-        .product(name: "TesseraTerminal", package: "devtools"),
-        .product(name: "TesseraTerminalSnapshotSupport", package: "devtools"),
+        .product(name: "TesseraTerminal", package: "tessera"),
+        .product(name: "TesseraTerminalSnapshotSupport", package: "tessera"),
       ],
       swiftSettings: upcomingFeatures
     ),

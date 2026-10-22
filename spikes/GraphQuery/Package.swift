@@ -13,14 +13,14 @@ let package = Package(
     .executable(name: "graphquery", targets: ["GraphQueryCLI"])
   ],
   dependencies: [
-    .package(path: "../..")
+    .package(name: "tessera", path: "../..")
   ],
   targets: [
     .target(
       name: "GraphQuery",
       dependencies: [
-        .product(name: "Tessera", package: "devtools"),
-        .product(name: "TesseraTerminalSnapshotSupport", package: "devtools"),
+        .product(name: "Tessera", package: "tessera"),
+        .product(name: "TesseraTerminalSnapshotSupport", package: "tessera"),
       ]
     ),
     .executableTarget(
@@ -31,8 +31,8 @@ let package = Package(
       name: "GraphQueryTests",
       dependencies: [
         "GraphQuery",
-        .product(name: "Tessera", package: "devtools"),
-        .product(name: "TesseraTerminalSnapshotSupport", package: "devtools"),
+        .product(name: "Tessera", package: "tessera"),
+        .product(name: "TesseraTerminalSnapshotSupport", package: "tessera"),
       ]
     ),
   ],
