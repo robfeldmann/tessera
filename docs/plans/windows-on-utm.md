@@ -1,6 +1,6 @@
 ---
 type: plan
-stage: proposed
+stage: active
 created: 2026-10-22
 order: 37
 description: Retire the Frost QEMU workflow and make the UTM guest the one scripted, rebuildable Windows lane, driven by scripts/vm.py like the macOS and Linux guests.
@@ -12,13 +12,13 @@ Goal: Tessera has one Windows path, a UTM guest named `tessera-windows-11` that 
 
 ## Progress
 
-- [ ] 1 Drive UTM from `vm.py` without the two known traps
+- [x] 1 Drive UTM from `vm.py` without the two known traps — with UTM quit beforehand: `mise run vm:windows-start` 7.9 s to `started`, frontmost app `com.mitchellh.ghostty` before and after; `vm:windows-ip` 192.168.64.3; `vm:windows-ssh -- swift --version` prints 6.3.3; `vm:windows-stop --quit` leaves no UTM process; `windows-ip` afterwards still prints the address from the lease file; `vm:status` shows the UTM row.
 - [ ] 2 One provisioning script for a Windows guest
 - [ ] 3 Sync, build libghostty-vt in the guest, test, and a known state
 - [ ] 4 Retire Frost
 - [ ] 5 Docs and the guide
 
-Next: the owner reads this plan; then Slice 1.
+Next: Slice 2, `scripts/provision-windows-vm.ps1` and `windows-provision`.
 
 ## Approach
 
@@ -87,6 +87,7 @@ Delivers: a contributor with UTM and a Windows ISO reaches `vm:windows-test` fro
 - `utmctl start` and `stop` need UTM.app to have been activated once since launch; a never-activated launch (by the Apple Event, `open -g`, `open -gj`, the URL scheme) hangs for two minutes with `-1712` while `list` and `status` work, and hidden or windowless UTM works once it was active — reproduced seven ways on 2026-10-22. `open -a UTM` followed by `open -b <previous frontmost bundle id>` (from `lsappinfo front`) launches and activates it with a one-second focus flash and no Apple Events; quitting UTM after `windows-stop` keeps it from running between sessions.
 - `--hide` emits `-10004` twice per command and does nothing harmful (UTM #5509); plan 035 misread it as a permission failure.
 - TCC attributes an omp session's requests to `com.robfeldmann.herdr` (the `dev.mise.herdr-server` LaunchAgent's binary), not to Ghostty or omp; Automation grants are per responsible app, so herdr needs its own grant for each target app, made once.
+- `lsappinfo info com.utmapp.UTM` reports `(hidden)` for a never-activated UTM as well as one the user hid, and no state once it was activated; `vm.py` activates UTM whenever it is absent or hidden (an `open -a` plus `open -b <previous front app>`, measured at 1.1 s round trip), which costs a focus flash in the user-hid case and nothing else. `utmctl stop` defaults to `--force` (a power-off event); `--request` is the graceful path.
 - Frost's failure is `qemu-system-aarch64 -accel hvf … -device tpm-tis-device`: `hv_vm_unmap` of the 20 KiB (not 16 KiB-aligned) TPM TIS MMIO window returns `HV_BAD_ARGUMENT` on macOS 27.0.1 with QEMU 11.1.2; the same VM without the TPM starts. The path is unchanged in QEMU master.
 
 ## Outcome
