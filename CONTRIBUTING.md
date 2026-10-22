@@ -223,9 +223,10 @@ presentation; they do not add headings to the canonical changelog.
 
 Match the surrounding code and the repository conventions:
 
-- **Formatting**: 2-space indentation, no tabs; 90-character soft limit, 150-character
-  hard limit; trailing commas in multi-line arrays and dictionaries. `just quality format`
-  is authoritative — prefer it over hand-fixing individual findings.
+- **Formatting**: 2-space indentation, no tabs; 90-character lines (`.swift-format`
+  wraps at that width); trailing commas in multi-line arrays and dictionaries.
+  `just quality format` is authoritative — prefer it over hand-fixing individual
+  findings.
 - **Ordering**: imports sorted alphabetically; properties sorted alphabetically within
   their visibility group; protocol conformances sorted alphabetically (e.g.
   `Equatable, Sendable`).
