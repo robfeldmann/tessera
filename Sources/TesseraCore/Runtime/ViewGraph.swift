@@ -489,39 +489,141 @@ extension ViewGraph {
       subviews: makeLayoutSubviews(for: node, collector: collector)
     )
 
-    for child in node.children {
-      guard let placement = collector.placements[ObjectIdentifier(child)] else {
-        let hidden = Rect(
-          origin: frame.origin,
-          size: TerminalSize(columns: 0, rows: 0)
-        )
-        place(child, in: hidden, clip: node.clip)
-        continue
-      }
-
-      let childSize = measure(child, proposal: placement.proposal)
-      let childFrame = Rect(origin: placement.origin, size: childSize)
-      let childClip: Rect
-      if let requestedClip = placement.clip {
-        childClip =
-          requestedClip.intersection(node.clip)
-          ?? Rect(
-            origin: placement.origin,
-            size: TerminalSize(columns: 0, rows: 0)
-          )
-      } else {
-        childClip = node.clip
-      }
-      place(child, in: childFrame, clip: childClip)
+    let contents = placeLayoutChildren(
+      of: node,
+      in: frame,
+      collector: collector,
+      clip: node.clip
+    )
+    for list in contents.emptyLists {
+      placeEmptyList(list, at: frame.origin, clip: node.clip)
     }
   }
 
+  /// Places the layout subviews below `node`, descending through view lists.
+  ///
+  /// Returns the union of the frames the layout placed, or `nil` when it placed none, and
+  /// the child lists that contain no placed subview. Each nonempty descendant list takes
+  /// the union of its children's frames; the caller positions the returned empty lists.
+  private func placeLayoutChildren(
+    of node: RuntimeNode,
+    in bounds: Rect,
+    collector: _LayoutPlacementCollector,
+    clip: Rect
+  ) -> (union: Rect?, emptyLists: [RuntimeNode]) {
+    var union: Rect?
+    var emptyLists: [RuntimeNode] = []
+    for child in node.children {
+      let childFrame: Rect?
+      if child.view is any _ViewList {
+        let contents = placeLayoutChildren(
+          of: child,
+          in: bounds,
+          collector: collector,
+          clip: clip
+        )
+        if let listFrame = contents.union {
+          setListFrame(child, listFrame, clip: clip)
+          for list in contents.emptyLists {
+            placeEmptyList(list, at: listFrame.origin, clip: clip)
+          }
+        } else {
+          emptyLists.append(child)
+        }
+        childFrame = contents.union
+      } else {
+        childFrame = placeLayoutSubview(
+          child,
+          in: bounds,
+          collector: collector,
+          clip: clip
+        )
+      }
+
+      if let childFrame {
+        union = union.map { $0.union(childFrame) } ?? childFrame
+      }
+    }
+    return (union, emptyLists)
+  }
+
+  /// Places one layout subview where the layout put it and returns its frame, or hides it
+  /// at the layout's origin and returns `nil` when the layout did not place it.
+  private func placeLayoutSubview(
+    _ child: RuntimeNode,
+    in bounds: Rect,
+    collector: _LayoutPlacementCollector,
+    clip: Rect
+  ) -> Rect? {
+    guard let placement = collector.placements[ObjectIdentifier(child)] else {
+      let hidden = Rect(origin: bounds.origin, size: TerminalSize(columns: 0, rows: 0))
+      place(child, in: hidden, clip: clip)
+      return nil
+    }
+
+    let childSize = measure(child, proposal: placement.proposal)
+    let childFrame = Rect(origin: placement.origin, size: childSize)
+    let childClip: Rect
+    if let requestedClip = placement.clip {
+      childClip =
+        requestedClip.intersection(clip)
+        ?? Rect(
+          origin: placement.origin,
+          size: TerminalSize(columns: 0, rows: 0)
+        )
+    } else {
+      childClip = clip
+    }
+    place(child, in: childFrame, clip: childClip)
+    return childFrame
+  }
+
+  /// Gives a list that holds no placed subview, and each of its descendant lists, a
+  /// zero-size frame at `origin`.
+  private func placeEmptyList(
+    _ list: RuntimeNode,
+    at origin: TerminalPosition,
+    clip: Rect
+  ) {
+    let frame = Rect(origin: origin, size: TerminalSize(columns: 0, rows: 0))
+    setListFrame(list, frame, clip: clip)
+    for child in list.children where child.view is any _ViewList {
+      placeEmptyList(child, at: origin, clip: clip)
+    }
+  }
+
+  private func setListFrame(_ list: RuntimeNode, _ frame: Rect, clip: Rect) {
+    list.frame = frame
+    list.clip =
+      frame.intersection(clip)
+      ?? Rect(origin: frame.origin, size: TerminalSize(columns: 0, rows: 0))
+    statistics.placements += 1
+  }
+
+  /// Builds one subview per child of `node`, descending through view lists so each of
+  /// their elements is measured and placed by the layout individually.
   private func makeLayoutSubviews(
     for node: RuntimeNode,
     collector: _LayoutPlacementCollector?
   ) -> _LayoutSubviewsProxy {
-    _LayoutSubviewsProxy(
-      node.children.map { child in
+    var subviews: [_LayoutSubviewProxy] = []
+    subviews.reserveCapacity(node.children.count)
+    appendLayoutSubviews(of: node, collector: collector, to: &subviews)
+    return _LayoutSubviewsProxy(subviews)
+  }
+
+  private func appendLayoutSubviews(
+    of node: RuntimeNode,
+    collector: _LayoutPlacementCollector?,
+    to subviews: inout [_LayoutSubviewProxy]
+  ) {
+    for child in node.children {
+      if child.view is any _ViewList {
+        appendLayoutSubviews(of: child, collector: collector, to: &subviews)
+        continue
+      }
+
+      subviews.append(
         _LayoutSubviewProxy(
           measure: { [weak self, child] proposal in
             guard let self else {
@@ -543,8 +645,8 @@ extension ViewGraph {
             return layoutValue(for: key, in: child)
           }
         )
-      }
-    )
+      )
+    }
   }
 
   private func layoutValue(for key: ObjectIdentifier, in node: RuntimeNode) -> Any? {
@@ -683,5 +785,19 @@ extension ViewGraph {
 
   private static func describe(_ rect: Rect) -> String {
     "(\(rect.origin.column),\(rect.origin.row),\(rect.size.columns)x\(rect.size.rows))"
+  }
+}
+
+extension Rect {
+  /// The smallest rectangle containing both rectangles, including zero-size ones.
+  fileprivate func union(_ other: Self) -> Self {
+    let column = min(origin.column, other.origin.column)
+    let row = min(origin.row, other.origin.row)
+    return Rect(
+      column: column,
+      row: row,
+      columns: max(maxColumn, other.maxColumn) - column,
+      rows: max(maxRow, other.maxRow) - row
+    )
   }
 }

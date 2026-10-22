@@ -166,6 +166,78 @@ private struct DuplicateIdentityView: View {
   }
 }
 
+/// A minimal top-to-bottom layout, so this target can exercise layout without TesseraLayout.
+private struct ColumnStack<Content: View>: View, _LayoutView {
+  typealias Body = Never
+
+  let content: Content
+
+  init(@ViewBuilder content: () -> Content) {
+    self.content = content()
+  }
+
+  func _visitChildren(
+    in environment: EnvironmentValues,
+    environmentOverrides: [String],
+    _ visit: (_ViewChild) -> Void
+  ) {
+    _visitLayoutChildren(
+      content,
+      in: environment,
+      environmentOverrides: environmentOverrides,
+      visit
+    )
+  }
+
+  func _sizeThatFits(
+    _ proposal: ProposedSize,
+    subviews: _LayoutSubviewsProxy
+  ) -> TerminalSize {
+    let childProposal = ProposedSize(width: proposal.width, height: nil)
+    return subviews.reduce(into: TerminalSize(columns: 0, rows: 0)) { size, subview in
+      let child = subview.measure(childProposal)
+      size = TerminalSize(
+        columns: max(size.columns, child.columns),
+        rows: size.rows + child.rows
+      )
+    }
+  }
+
+  func _placeSubviews(
+    in bounds: Rect,
+    proposal: ProposedSize,
+    subviews: _LayoutSubviewsProxy
+  ) {
+    let childProposal = ProposedSize(width: bounds.size.columns, height: nil)
+    var row = bounds.origin.row
+    for subview in subviews {
+      subview.place(
+        TerminalPosition(column: bounds.origin.column, row: row),
+        childProposal
+      )
+      row += subview.measure(childProposal).rows
+    }
+  }
+}
+
+private final class InsertionModel {
+  let recorder = ProbeRecorder()
+  var ids = [2]
+}
+
+private struct InsertionView: View {
+  let model: InsertionModel
+
+  var body: some View {
+    ColumnStack {
+      ProbeLeaf(key: 0, recorder: model.recorder)
+      ForEach(model.ids, id: \.self) { id in
+        ProbeLeaf(key: id, recorder: model.recorder)
+      }
+    }
+  }
+}
+
 @Test
 func `keyed foreach reorder preserves node state`() {
   let model = RowModel()
@@ -378,6 +450,33 @@ func `duplicate explicit identities under different parents remain distinct`() {
   #expect(initialLeft != initialRight)
   #expect(recorder.identities[1] == initialLeft)
   #expect(recorder.identities[2] == initialRight)
+}
+
+@Test
+func `keyed child keeps its state after an insertion before it beside a fixed sibling`() {
+  let model = InsertionModel()
+  let size = TerminalSize(columns: 4, rows: 4)
+  let graph = ViewGraph(root: { InsertionView(model: model) }, size: size)
+  _ = withTestFrame(size: size) { graph.render(into: $0) }
+  let initial = model.recorder.identities
+
+  model.ids = [1, 2]
+  graph.update()
+  _ = withTestFrame(size: size) { graph.render(into: $0) }
+
+  let probeFrames = graph.diagnostics.nodes.compactMap { node in
+    node.viewType == String(reflecting: ProbeLeaf.self) ? node.frame : nil
+  }
+  #expect(
+    probeFrames == [
+      Rect(column: 0, row: 0, columns: 1, rows: 1),
+      Rect(column: 0, row: 1, columns: 1, rows: 1),
+      Rect(column: 0, row: 2, columns: 1, rows: 1),
+    ])
+  #expect(model.recorder.identities[0] == initial[0])
+  #expect(model.recorder.identities[2] == initial[2])
+  #expect(model.recorder.identities[1] != nil)
+  #expect(model.recorder.identities[1] != initial[2])
 }
 
 @Test
