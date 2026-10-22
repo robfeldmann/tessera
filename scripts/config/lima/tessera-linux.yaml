@@ -54,7 +54,7 @@ provision:
       swiftly install "$swift_version" --use --assume-yes || swiftly use "$swift_version"
       swift --version
 
-      zig_version="0.15.2"
+      zig_version="0.17.0"
       case "$arch" in
         aarch64|arm64)
           zig_arch="aarch64"
