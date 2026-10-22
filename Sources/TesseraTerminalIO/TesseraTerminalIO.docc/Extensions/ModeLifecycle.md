@@ -44,3 +44,7 @@ An error reported while entering requested lifecycle modes.
 
 - ``ModeLifecycleError/modesAlreadyActive(_:)``
 - ``ModeLifecycleError/unsupportedModes(_:)``
+
+### Closed lifecycles
+
+- ``ModeLifecycleError/closed``

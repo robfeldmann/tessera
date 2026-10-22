@@ -29,5 +29,6 @@ borrowed ``/TesseraTerminalBuffer/Frame`` for each draw transaction.
 ### Essentials
 
 - ``TerminalSession``
+- ``TerminalSessionError``
 - <doc:Building-on-the-Terminal-Substrate>
 - <doc:Modern-Terminal-Protocols>

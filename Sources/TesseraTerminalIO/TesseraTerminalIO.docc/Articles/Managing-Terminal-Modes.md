@@ -59,7 +59,9 @@ session owns setup and restoration alongside the application body.
 acquisition order. That symmetry matters when modes interact and when cleanup must restore the
 terminal after an error. An attempt to enter a mode slot that is already occupied reports
 ``ModeLifecycleError/modesAlreadyActive(_:)``; unsupported requests report
-``ModeLifecycleError/unsupportedModes(_:)``.
+``ModeLifecycleError/unsupportedModes(_:)``. Once `exit()` has succeeded the lifecycle is
+closed: `enter(_:)` and `apply(_:)` report ``ModeLifecycleError/closed`` before writing
+anything, while `exit()` stays callable so a failed teardown can be retried.
 
 ## Distinguish confirmed state from cleanup state
 
