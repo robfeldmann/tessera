@@ -848,7 +848,8 @@ func `concurrent apply transitions serialize`() async throws {
   let second = Task {
     try await lifecycle.apply(applicationModes: [.focusEvents, .mouseTracking(.anyEvent)])
   }
-  await Task.yield()
+  await waitUntil("the second apply queues") { await lifecycle.queuedTransitionCount == 1 }
+  #expect(await lifecycle.queuedTransitionCount == 1)
 
   let flushesBeforeResume = await device.events.filter(\.isFlush).map(\.flushBytes)
   expectNoDifference(flushesBeforeResume, [focusEnableBytes])
@@ -877,7 +878,8 @@ func `cancelled queued transition does not mutate lifecycle state`() async throw
   let queued = Task {
     try await lifecycle.apply(applicationModes: [.focusEvents, .mouseTracking(.anyEvent)])
   }
-  await Task.yield()
+  await waitUntil("the second apply queues") { await lifecycle.queuedTransitionCount == 1 }
+  #expect(await lifecycle.queuedTransitionCount == 1)
   queued.cancel()
 
   await device.resumeWrite()
@@ -915,6 +917,28 @@ func `exit is idempotent after focus cleanup`() async throws {
     flush: 1B 5F 47 61 3D 64 2C 64 3D 41 1B 5C
     """
   }
+}
+
+@Test
+func `enter and apply after a successful exit throw without writing`() async throws {
+  let device = LifecycleTestDevice()
+  let lifecycle = await makeLifecycle(device)
+
+  try await lifecycle.enter([.rawMode, .altScreen])
+  try await lifecycle.exit()
+  let eventsAfterExit = await device.events
+
+  await #expect(throws: ModeLifecycleError.closed) {
+    try await lifecycle.apply(applicationModes: [.focusEvents])
+  }
+  await #expect(throws: ModeLifecycleError.closed) {
+    try await lifecycle.enter([.rawMode])
+  }
+
+  let events = await device.events
+  let activeModes = await lifecycle.activeModes
+  expectNoDifference(events, eventsAfterExit)
+  expectNoDifference(activeModes, [])
 }
 
 @Test(

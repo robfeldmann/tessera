@@ -10,15 +10,26 @@ package actor AsyncEventBuffer<Element: Sendable> {
       _ incoming: Element
     ) -> Bool
 
+  /// Waiters cancelled before their continuation was appended.
+  ///
+  /// `cancelWaiter(id:)` records an ID here only while `next()` for that ID is pending, so
+  /// a cancellation that arrives after the waiter already received its element leaves no
+  /// entry behind.
   private var cancelledWaiterIDs: Set<Int> = []
   private var elements: [Element] = []
   private var finished = false
   private var nextWaiterID = 0
+  private var pendingWaiterIDs: Set<Int> = []
   private var waiters: [Waiter] = []
   private let coalescing: CoalescingPredicate?
 
   package var waiterCount: Int {
     waiters.count
+  }
+
+  /// The number of recorded early cancellations; a test seam for the waiter-ID bookkeeping.
+  package var cancelledWaiterCount: Int {
+    cancelledWaiterIDs.count
   }
 
   package init(coalescing: CoalescingPredicate? = nil) {
@@ -51,7 +62,9 @@ package actor AsyncEventBuffer<Element: Sendable> {
 
     let waiterID = nextWaiterID
     nextWaiterID += 1
+    pendingWaiterIDs.insert(waiterID)
     defer {
+      pendingWaiterIDs.remove(waiterID)
       cancelledWaiterIDs.remove(waiterID)
     }
 
@@ -92,7 +105,10 @@ package actor AsyncEventBuffer<Element: Sendable> {
     return coalescing(buffered, incoming)
   }
 
-  private func cancelWaiter(id: Int) {
+  /// Cancels the read with `id`: a queued waiter resumes by throwing `CancellationError`,
+  /// and a pending read that has not queued yet throws when it does. A cancellation for a
+  /// read that already returned is ignored. Package-visible as a test seam.
+  package func cancelWaiter(id: Int) {
     guard finished == false else {
       return
     }
@@ -100,7 +116,7 @@ package actor AsyncEventBuffer<Element: Sendable> {
     if let index = waiters.firstIndex(where: { $0.id == id }) {
       let waiter = waiters.remove(at: index)
       waiter.continuation.resume(throwing: CancellationError())
-    } else {
+    } else if pendingWaiterIDs.contains(id) {
       cancelledWaiterIDs.insert(id)
     }
   }

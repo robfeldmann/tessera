@@ -1,8 +1,9 @@
 import CTesseraTerminalPlatform
 
 #if os(macOS) || os(Linux)
-  /// Immutable POSIX state registered for emergency terminal restoration.
-  package struct PlatformCleanupRegistration: @unchecked Sendable {
+  /// POSIX state registered for emergency terminal restoration. The C shim copies it on
+  /// install, so the registration is a value snapshot taken at registration time.
+  package struct PlatformCleanupRegistration: Sendable {
     package var inputFileDescriptor: CInt
     package var outputFileDescriptor: CInt
     package var savedTermios: termios?

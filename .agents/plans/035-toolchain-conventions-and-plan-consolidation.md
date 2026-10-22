@@ -38,8 +38,9 @@ updated: 2026-10-21
         26.6 and 27.1; commit below)
   - [x] 3.3 Save the seams spike as a patch (`spikes/Seams/30e4bbf.patch` applies to
         `cb8d143`; branch deletion waits for the owner)
-- [ ] **Phase 4 — Plan 034 bug punchlist**
-  - [ ] 4.1 Run plan 034 to completion
+- [x] **Phase 4 — Plan 034 bug punchlist**
+  - [x] 4.1 Run plan 034 to completion (plan 034 `complete`; commits `3fb25e9`..`087fb4c`;
+        all-lane CI run recorded in the step)
 - [ ] **Phase 5 — Repository conventions**
   - [ ] 5.1 Set the Swift line width to 90
   - [ ] 5.2 Move project docs into an IWE workspace with slug-named plans
@@ -53,8 +54,7 @@ updated: 2026-10-21
   - [ ] 6.2 Owner decision: the `mobile` viewport rule, then apply it
   - [ ] 6.3 Retire plans 032 and 033
 
-Next: Step 4.1 (plan 034), starting at its Step 1.1 (run the focused filters on each lane)
-and Step 1.2.
+Next: Step 5.1 (Swift line width 90), then Steps 5.2 to 5.4 in one pass.
 
 ## Overview
 
@@ -486,6 +486,31 @@ Xcode 27 pass too, and CI guards both, without raising the floor.
   into `Examples/`.
 - Acceptance: plan 034 has status `complete`, and the Phase 1 check matrix passes on every
   lane.
+
+#### Done (2026-10-22)
+
+- Plan 034 is `complete`; every step records its commit and evidence, and its Outcome
+  section summarizes the lanes. Commits on `plan-035`: `3fb25e9` (Step 1.2), `c60ab94`
+  (session), `e8054a8` (PlatformIO and ModeLifecycle), `ba5f83b` (POSIX I/O), `3b3325f`
+  and `a580721` (vouches; one stays for corelibs-libdispatch on Linux), `f4172e8` (layout
+  flattening), `9f80898` (error conformances, Examples in CI), `426bf29` (DocC and
+  CHANGELOG), `14d6475` (test vouches and serialized suites), `7d653bf` (parallel job,
+  Step 9.8 branch (a)), `2b4f0f0` and `a38fe04` (the Examples CI probe and its revert),
+  `087fb4c` (Windows input loop).
+- How it ran: eight slices in parallel (one agent each in detached worktrees under
+  `/tmp/plan035/wt/`, since the harness's isolated mode fails in this bare-repo layout),
+  then a test-hygiene slice, integrated by patch; the Windows slice iterated against the
+  UTM guest over SSH. Deviations from the plan text, each recorded in the step: Step 6.2
+  closes the cancel pipe in `deinit` instead of taking a `Mutex` (the repository's
+  actors-over-locks rule); Step 8.1 keeps the `ResizeSignalSource` vouch because
+  corelibs-libdispatch's `DispatchSourceSignal` is not `Sendable`; Step 6.7 added a
+  `registeredStreamCount` seam.
+- Check matrix on the integrated tree: macOS 26.6 `swift test --no-parallel` 663 tests
+  (plus 3/3 under `--parallel`), `just quality lint`, `just docs lint`, and
+  `swift build --package-path Examples` pass; Xcode 27.1 663 tests; Lima 6.3.3 and 6.4.1
+  656 tests each (3/3 under `--parallel` on 6.3.3); Windows guest 651 tests. CI: the
+  Examples probe run `39727980664` failed as intended; the green all-lane run on the
+  revert is recorded on the Progress line.
 
 ## Phase 5 — Repository conventions
 

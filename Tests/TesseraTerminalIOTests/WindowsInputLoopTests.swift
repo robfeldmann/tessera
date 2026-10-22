@@ -1,13 +1,17 @@
 #if os(Windows)
 
   import CustomDump
+  import Foundation
   import TesseraTerminalCore
   import TesseraTerminalInput
   import Testing
 
   @testable import TesseraTerminalIO
 
-  @Suite(.serialized)
+  // Not serialized: the stubs ride the task-local `WindowsConsoleSystem.override`, the
+  // handles are fake, and `PlatformIO(terminalDevice:)` injects `.disabled` cleanup, so no
+  // test reaches the `tessera_cleanup_*` shim or a real console.
+  @Suite
   struct WindowsInputLoopTests {
     @Test
     func `windows input loop yields bytes carried by queued key record`() async {
@@ -138,6 +142,44 @@
     }
 
     @Test
+    func
+      `windows input loop serves a stream registered after the previous run was cancelled`()
+      async
+    {
+      let bytes = Array("a".utf8)
+      let state = IdleInputState()
+      let loop = WindowsInputLoop(inputHandle: 0x10, system: state.system)
+
+      // The first consumer parks its run inside the next wait, then goes away, so the run is
+      // cancelled while the new consumer has not registered yet.
+      let first = Task {
+        var iterator = loop.bytes().makeAsyncIterator()
+        let chunk = await iterator.next()
+        state.holdNextWait()
+        return chunk
+      }
+      let idle = await first.value
+      expectNoDifference(idle, [])
+      let parked = await state.waitUntilHeld()
+      #expect(parked)
+      // The last consumer is unregistered, so the run has been cancelled.
+      let unregistered = await loop.waitForRegisteredStreamCount(0)
+      #expect(unregistered)
+
+      // Register before the parked run resumes, so the old run exits while the new stream
+      // is live.
+      let stream = loop.bytes()
+      let registered = await loop.waitForRegisteredStreamCount(1)
+      #expect(registered)
+      state.queueKey(bytes)
+      async let pending = nextNonEmptyChunk(from: stream)
+      state.releaseHeldWait()
+      let received = await pending
+
+      expectNoDifference(received, bytes)
+    }
+
+    @Test
     func `platform io drains windows resize before the shared input loop closes`() async {
       let size = TerminalSize(columns: 80, rows: 25)
       let state = WindowsInputState(
@@ -176,6 +218,127 @@
     return await iterator.next()
   }
 
+  extension WindowsInputLoop {
+    fileprivate func waitForRegisteredStreamCount(_ count: Int) async -> Bool {
+      let deadline = ContinuousClock.now + .seconds(5)
+      while ContinuousClock.now < deadline {
+        if registeredStreamCount == count {
+          return true
+        }
+        try? await Task.sleep(for: .milliseconds(5))
+      }
+      return false
+    }
+  }
+
+  /// The first non-empty chunk, or an empty array if none arrives within five seconds.
+  private func nextNonEmptyChunk(from stream: AsyncStream<[UInt8]>) async -> [UInt8] {
+    await withTaskGroup(of: [UInt8].self) { group in
+      group.addTask {
+        for await chunk in stream where chunk.isEmpty == false {
+          return chunk
+        }
+        return []
+      }
+      group.addTask {
+        try? await Task.sleep(for: .seconds(5))
+        return []
+      }
+      let result = await group.next() ?? []
+      group.cancelAll()
+      return result
+    }
+  }
+
+  /// A console stub that reports timeouts until a key record is queued.
+  ///
+  /// Test-owned: the stubs run on the input loop's single reader thread one call at a
+  /// time, and every field is read or written under `lock`, so the vouch is sound.
+  private final class IdleInputState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var pending: [UInt8] = []
+    private let held = DispatchSemaphore(value: 0)
+    private var holdRequested = false
+    private var isHeld = false
+    var system: WindowsConsoleSystem {
+      .stub(
+        waitForSingleObject: { _, _ in self.wait() },
+        peekConsoleInput: { _, _ in self.peek() },
+        readConsoleInput: { _, _ in self.drain() },
+        readFile: { _, _, _ in nil }
+      )
+    }
+
+    func queueKey(_ bytes: [UInt8]) {
+      lock.withLock { pending = bytes }
+    }
+
+    /// Makes the next wait block until `releaseHeldWait()`, then report a timeout.
+    func holdNextWait() {
+      lock.withLock { holdRequested = true }
+    }
+
+    /// Returns `false` if no wait was parked within five seconds.
+    func waitUntilHeld() async -> Bool {
+      let deadline = ContinuousClock.now + .seconds(5)
+      while ContinuousClock.now < deadline {
+        if lock.withLock({ isHeld }) {
+          return true
+        }
+        try? await Task.sleep(for: .milliseconds(5))
+      }
+      return false
+    }
+
+    func releaseHeldWait() {
+      held.signal()
+    }
+
+    private func wait() -> UInt32 {
+      if holdIfRequested() {
+        return WindowsWaitStatus.timeout
+      }
+      let ready = lock.withLock { !pending.isEmpty }
+      if ready {
+        return WindowsWaitStatus.object
+      }
+      Thread.sleep(forTimeInterval: 0.005)
+      // A request that arrives while this call sleeps parks it here, so the parked wait
+      // is the one in flight when the consumer goes away.
+      _ = holdIfRequested()
+      return WindowsWaitStatus.timeout
+    }
+
+    /// Parks the caller until `releaseHeldWait()` when a hold was requested.
+    private func holdIfRequested() -> Bool {
+      let shouldHold = lock.withLock {
+        let shouldHold = holdRequested
+        if shouldHold {
+          holdRequested = false
+          isHeld = true
+        }
+        return shouldHold
+      }
+      if shouldHold {
+        held.wait()
+      }
+      return shouldHold
+    }
+
+    private func peek() -> [WindowsInputRecord] {
+      lock.withLock { pending.isEmpty ? [] : [.key(pending)] }
+    }
+
+    private func drain() -> [WindowsInputRecord] {
+      lock.withLock {
+        defer { pending = [] }
+        return pending.isEmpty ? [] : [.key(pending)]
+      }
+    }
+  }
+
+  // Each test owns its instance: the input loop's single wait task calls the stubs one at
+  // a time, and the test reads the counters only after the stream yields or finishes.
   private final class WindowsInputState: @unchecked Sendable {
     private var peekResults: [Result<[WindowsInputRecord], PlatformIOError>]
     private var readConsoleResults: [Result<[WindowsInputRecord], PlatformIOError>]

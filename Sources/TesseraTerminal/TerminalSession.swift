@@ -65,37 +65,17 @@ public struct TerminalProtocolModeReport: Equatable, Sendable {
   }
 }
 
-private actor TerminalSessionInputObserver {
-  private weak var session: TerminalSession?
-  private var waiters: [CheckedContinuation<TerminalSession?, Never>] = []
-
-  func install(_ session: TerminalSession) {
-    self.session = session
-    let waiters = self.waiters
-    self.waiters.removeAll()
-    for waiter in waiters {
-      waiter.resume(returning: session)
-    }
-  }
-
-  func observe(_ event: InputEvent) async {
-    guard let session = await installedSession() else {
-      return
-    }
-    await session.observeInput(event)
-  }
-
-  private func installedSession() async -> TerminalSession? {
-    if let session {
-      return session
-    }
-    return await withCheckedContinuation { continuation in
-      waiters.append(continuation)
-    }
-  }
+/// Errors thrown by a ``TerminalSession``.
+public enum TerminalSessionError: Error, Equatable, Sendable {
+  /// The session has left its scoped teardown, so it no longer writes to the terminal.
+  case closed
 }
 
 /// A scoped live-terminal capability for Tessera applications.
+///
+/// The session is closed when its `withApplicationTerminal` scope ends. After that, draw,
+/// image, clipboard, and runtime mode calls throw ``TerminalSessionError/closed`` before
+/// writing to the terminal.
 public actor TerminalSession {
   private enum ApplicationModeMutation {
     case cursorStyle(CursorStyle?)
@@ -109,12 +89,44 @@ public actor TerminalSession {
   ]
 
   private let activeProbeTimeout: Duration
+  /// Serializes `draw` from the size query through the flush, so each frame diffs against
+  /// the frame the terminal last received. It is separate from `modeTransitionGate`, so a
+  /// long mode transition does not stall drawing, and a draw does not stall mode changes.
+  private let drawGate = ModeLifecycleTransitionGate()
+  /// The single queue behind ``events`` and ``nextEvent()``. It is unbounded, so input is
+  /// never dropped while it waits for a reader.
   private let inputEvents: AsyncEventBuffer<InputEvent>
   private var inputPump: Task<Void, Never>?
   private let io: PlatformIO
+  private var isClosed = false
   private var lastDrawnBuffer: Buffer?
   private let modeLifecycle: ModeLifecycle?
   private let modeTransitionGate = ModeLifecycleTransitionGate()
+
+  /// The number of input reads waiting for an event; a test seam for ordering tests on a
+  /// pending read.
+  package var pendingEventReadCount: Int {
+    get async {
+      await inputEvents.waiterCount
+    }
+  }
+
+  /// The number of draws queued behind the one in flight; a test seam for ordering tests
+  /// on the queued state.
+  package var queuedDrawCount: Int {
+    get async {
+      await drawGate.waiterCount
+    }
+  }
+
+  /// The number of mode setters queued behind the one in flight on this session's gate;
+  /// a test seam for ordering tests on the queued state.
+  package var queuedModeSetterCount: Int {
+    get async {
+      await modeTransitionGate.waiterCount
+    }
+  }
+
   private let probeCoordinator: ActiveCapabilityProbeCoordinator
   private let probeImageID: KittyImageID
   private let probeSleep: ActiveCapabilityProbeCoordinator.Sleep
@@ -151,12 +163,21 @@ public actor TerminalSession {
   }
 
   /// The session's semantic terminal event stream.
+  ///
+  /// `events` and ``nextEvent()`` read one shared, unbounded input queue: each event is
+  /// delivered once, to whichever reader takes it first, and no event is dropped while it
+  /// waits. Consecutive buffered pointer moves, and drags with the same button, coalesce to
+  /// the latest position. Cancelling a pending read ends this stream; queued events stay
+  /// available to ``nextEvent()``.
   nonisolated public let events: AsyncStream<InputEvent>
 
   /// OSC 8 hyperlink rendering policy applied to future drawn frames.
   public private(set) var hyperlinkRendering: HyperlinkRenderingMode
 
   /// Terminal-size notifications for the live session.
+  ///
+  /// While no reader is waiting, the stream keeps only the newest size and drops older
+  /// ones, since only the latest size matters.
   nonisolated public let sizeChanges: AsyncStream<TerminalSize>
 
   /// DEC synchronized output policy applied to future drawn frames.
@@ -236,9 +257,6 @@ public actor TerminalSession {
     modeLifecycle: ModeLifecycle? = nil
   ) {
     let inputEvents = AsyncEventBuffer<InputEvent>(coalescing: shouldCoalesceInputEvents)
-    let eventStream = AsyncStream<InputEvent>.makeStream()
-    let inputObserver = TerminalSessionInputObserver()
-    let probeCoordinator = ActiveCapabilityProbeCoordinator()
     self.activeProbeTimeout = activeProbeTimeout
     self.capabilities = capabilities
     self.clipboardWriting = clipboardWriting
@@ -250,7 +268,9 @@ public actor TerminalSession {
       hasNoColorEnvironment: hasNoColorEnvironment
     )
     self.enabledProtocolModes = enabledProtocolModes
-    self.events = eventStream.stream
+    self.events = AsyncStream { [inputEvents] in
+      try? await inputEvents.next()
+    }
     self.hasDumbTerminal = hasDumbTerminal
     self.hasNoColorEnvironment = hasNoColorEnvironment
     self.hyperlinkRendering = hyperlinkRendering
@@ -261,7 +281,7 @@ public actor TerminalSession {
     self.kittyKeyboardFlags = kittyKeyboardFlags
     self.modeLifecycle = modeLifecycle
     self.possiblyActiveProtocolModes = []
-    self.probeCoordinator = probeCoordinator
+    self.probeCoordinator = ActiveCapabilityProbeCoordinator()
     self.probeImageID = probeImageID
     self.probeSleep = probeSleep
     var requestedModes =
@@ -273,17 +293,6 @@ public actor TerminalSession {
     self.sizeChanges = io.sizeChanges
     self.synchronizedOutput = synchronizedOutput
     self.underlineRendering = underlineRendering
-    self.inputPump = Task {
-      for await event in io.events {
-        await inputObserver.observe(event)
-        eventStream.continuation.yield(event)
-        await inputEvents.yield(event)
-      }
-      await probeCoordinator.finishInput()
-      eventStream.continuation.finish()
-      await inputEvents.finish()
-    }
-    Task { await inputObserver.install(self) }
   }
 
   nonisolated private static func fixedOwnershipModes(
@@ -391,6 +400,7 @@ public actor TerminalSession {
         modeLifecycle: lifecycle
       )
       session = constructedSession
+      await constructedSession.startInputPump()
 
       if resolution.runsActiveProbes {
         _ = try await constructedSession.queryActiveCapabilities()
@@ -398,21 +408,64 @@ public actor TerminalSession {
       try await constructedSession.applyInitialApplicationModes()
 
       let result = try await body(constructedSession)
+      await constructedSession.close()
       cursorRestoreAttempted = true
-      try await constructedSession.restoreCursorVisibility()
+      try await runUncancellableTeardown {
+        try await constructedSession.restoreCursorVisibility()
+      }
       lifecycleExitAttempted = true
-      try await lifecycle.exit()
+      try await runUncancellableTeardown {
+        try await lifecycle.exit()
+      }
       return result
     } catch {
+      await session?.close()
       if !cursorRestoreAttempted, let session {
         cursorRestoreAttempted = true
-        try? await session.restoreCursorVisibility()
+        try? await runUncancellableTeardown {
+          try await session.restoreCursorVisibility()
+        }
       }
       if !lifecycleExitAttempted {
         lifecycleExitAttempted = true
-        try? await lifecycle.exit()
+        try? await runUncancellableTeardown {
+          try await lifecycle.exit()
+        }
       }
       throw error
+    }
+  }
+
+  /// Runs a teardown step in an unstructured task, which does not inherit the caller's
+  /// cancellation, so a cancelled scope still restores the terminal. `value` rethrows the
+  /// step's error.
+  private static func runUncancellableTeardown(
+    _ operation: @escaping @Sendable () async throws -> Void
+  ) async throws {
+    try await Task {
+      try await operation()
+    }.value
+  }
+
+  /// Starts forwarding parsed input into the session's input queue.
+  ///
+  /// `withApplicationTerminal` calls this once the session is constructed. The pump holds
+  /// the session weakly, so a released session stops it at the next event. Later calls do
+  /// nothing.
+  package func startInputPump() {
+    guard inputPump == nil else {
+      return
+    }
+    inputPump = Task { [weak self, io, inputEvents, probeCoordinator] in
+      for await event in io.events {
+        guard let self else {
+          break
+        }
+        await self.observeInput(event)
+        await inputEvents.yield(event)
+      }
+      await probeCoordinator.finishInput()
+      await inputEvents.finish()
     }
   }
 
@@ -445,6 +498,7 @@ public actor TerminalSession {
     _ write: ClipboardWrite,
     intent: ClipboardUserIntent?
   ) async throws -> ClipboardWriteResult {
+    try checkOpen()
     guard case .enabled(let policy) = clipboardWriting else {
       return .denied(.disabledByConfiguration)
     }
@@ -483,6 +537,7 @@ public actor TerminalSession {
   /// `nil`, tears down any Tessera-owned cursor style. All other application protocol
   /// modes are preserved.
   public func setCursorStyle(_ style: CursorStyle?) async throws {
+    try checkOpen()
     guard case .enabled = cursorStyling, modeLifecycle != nil else {
       return
     }
@@ -498,6 +553,7 @@ public actor TerminalSession {
 
   /// Changes mouse-event reporting at runtime through the mode lifecycle.
   public func setMouseTracking(_ mouseTracking: MouseTrackingMode) async throws {
+    try checkOpen()
     guard modeLifecycle != nil else {
       return
     }
@@ -506,6 +562,7 @@ public actor TerminalSession {
 
   /// Enables or disables terminal focus-event reporting at runtime.
   public func setFocusEvents(_ enabled: Bool) async throws {
+    try checkOpen()
     guard modeLifecycle != nil else {
       return
     }
@@ -514,9 +571,12 @@ public actor TerminalSession {
 
   /// Changes the requested keyboard protocol at runtime.
   ///
-  /// Conditional Kitty enablement consumes only the permanently cached active-probe
-  /// generation. It never starts another probe or trusts passive capability metadata.
+  /// Conditional Kitty enablement consumes only the cached result of the session's
+  /// active-probe generation. It never starts another probe or trusts passive capability
+  /// metadata. A probe that timed out stays resolved; a cancelled probe, or one whose
+  /// bytes failed to send, returns to idle, and a later active-probe query retries it.
   public func setKeyboardProtocol(_ keyboardProtocol: KeyboardProtocolMode) async throws {
+    try checkOpen()
     guard modeLifecycle != nil else {
       return
     }
@@ -590,9 +650,29 @@ public actor TerminalSession {
   }
 
   /// Draws one frame and flushes it to terminal output.
+  ///
+  /// Concurrent draws run one at a time, so each frame diffs against the frame the
+  /// terminal last received.
   public func draw<R>(
     _ body: (borrowing Frame) throws -> sending R
   ) async throws -> sending R {
+    guard await drawGate.acquire() else {
+      throw CancellationError()
+    }
+    do {
+      let result = try await drawHoldingGate(body)
+      await drawGate.release()
+      return result
+    } catch {
+      await drawGate.release()
+      throw error
+    }
+  }
+
+  private func drawHoldingGate<R>(
+    _ body: (borrowing Frame) throws -> sending R
+  ) async throws -> sending R {
+    try checkOpen()
     let size = try await io.size()
     // This is the rendering policy commit point. It follows the size suspension and
     // precedes the synchronous frame body and encoding, so no setter can affect a frame
@@ -652,7 +732,7 @@ public actor TerminalSession {
   /// Runs or reuses this session's single serialized active-probe generation.
   ///
   /// The rounds are DECRQM, Kitty keyboard plus DA1, then Kitty Graphics plus DA1. Every
-  /// parsed event remains available through both public input APIs.
+  /// parsed event, including probe replies, remains available through the input queue.
   @discardableResult
   public func queryActiveCapabilities() async throws -> ActiveCapabilityProbeResult {
     try await queryActiveCapabilities(kittyImageID: probeImageID)
@@ -682,12 +762,14 @@ public actor TerminalSession {
 
   /// Transmits image data over the tty. Session-scoped, outside draw.
   public func transmitImage(_ transmission: KittyGraphicsTransmission) async throws {
+    try checkOpen()
     await io.write(ControlSequence.kittyGraphics(.transmit(transmission)).bytes)
     try await io.flush()
   }
 
   /// Deletes Kitty Graphics Protocol images or placements immediately.
   public func deleteImages(_ delete: KittyGraphicsDelete) async throws {
+    try checkOpen()
     await io.write(ControlSequence.kittyGraphics(.delete(delete)).bytes)
     try await io.flush()
   }
@@ -713,6 +795,7 @@ public actor TerminalSession {
     }
 
     do {
+      try checkOpen()
       var desiredModes = requestedApplicationModes
       switch mutation {
       case .cursorStyle(let style):
@@ -825,7 +908,7 @@ public actor TerminalSession {
     }
   }
 
-  fileprivate func observeInput(_ event: InputEvent) async {
+  private func observeInput(_ event: InputEvent) async {
     await probeCoordinator.observe(event)
     switch event {
     case .privateModeStatus(let status):
@@ -867,7 +950,18 @@ public actor TerminalSession {
     try await io.flush()
   }
 
-  /// Reads the next parsed input event.
+  /// Marks the session closed once its scope ends; later writing calls throw.
+  private func close() {
+    isClosed = true
+  }
+
+  private func checkOpen() throws {
+    if isClosed {
+      throw TerminalSessionError.closed
+    }
+  }
+
+  /// Reads the next parsed input event from the queue shared with ``events``.
   public func nextEvent() async throws -> InputEvent {
     guard let event = try await inputEvents.next() else {
       throw PlatformIOError.inputClosed

@@ -4,115 +4,140 @@ import Testing
 @testable import TesseraTerminalIO
 
 #if os(macOS) || os(Linux)
+  // Serialized because every test installs, clears, or fires the process-wide
+  // `tessera_cleanup_*` C shim state through `CleanupRegistry` directly. No other suite
+  // reaches that state: they inject `.disabled` or `TestCleanupRegistry`.
   @Suite(.serialized)
   struct CleanupRegistryTests {
     @Test
-    func `cleanup registry writes installed teardown bytes`() async throws {
-      try await CleanupRegistryTestIsolation.withExclusiveAccess {
-        let pipe = try FileDescriptorPipe()
-        defer {
-          CleanupRegistry.clear()
-          pipe.closeAll()
-        }
-
-        CleanupRegistry.install(
-          inputFileDescriptor: -1,
-          outputFileDescriptor: pipe.writeDescriptor,
-          teardownBytes: [0x1B, 0x5B, 0x3F, 0x31, 0x30, 0x34, 0x39, 0x6C],
-          savedTermios: nil
-        )
-
-        CleanupRegistry.performEmergencyCleanupForTesting()
-        pipe.closeWriteDescriptor()
-
-        let bytes = try pipe.readAll()
-        expectNoDifference(bytes, [0x1B, 0x5B, 0x3F, 0x31, 0x30, 0x34, 0x39, 0x6C])
+    func `cleanup registry writes installed teardown bytes`() throws {
+      let pipe = try FileDescriptorPipe()
+      defer {
+        CleanupRegistry.clear()
+        pipe.closeAll()
       }
+
+      CleanupRegistry.install(
+        inputFileDescriptor: -1,
+        outputFileDescriptor: pipe.writeDescriptor,
+        teardownBytes: [0x1B, 0x5B, 0x3F, 0x31, 0x30, 0x34, 0x39, 0x6C],
+        savedTermios: nil
+      )
+
+      CleanupRegistry.performEmergencyCleanupForTesting()
+      pipe.closeWriteDescriptor()
+
+      let bytes = try pipe.readAll()
+      expectNoDifference(bytes, [0x1B, 0x5B, 0x3F, 0x31, 0x30, 0x34, 0x39, 0x6C])
     }
 
     @Test
-    func `cleanup registry stores saved termios when installed`() async throws {
-      await CleanupRegistryTestIsolation.withExclusiveAccess {
-        var saved = termios()
-        saved.c_lflag = tcflag_t(ICANON | ECHO)
-        defer { CleanupRegistry.clear() }
+    func `cleanup registry stores saved termios when installed`() {
+      var saved = termios()
+      saved.c_lflag = tcflag_t(ICANON | ECHO)
+      defer { CleanupRegistry.clear() }
 
-        CleanupRegistry.install(
-          inputFileDescriptor: -1,
-          outputFileDescriptor: -1,
-          teardownBytes: [],
-          savedTermios: saved
-        )
+      CleanupRegistry.install(
+        inputFileDescriptor: -1,
+        outputFileDescriptor: -1,
+        teardownBytes: [],
+        savedTermios: saved
+      )
 
-        #expect(CleanupRegistry.hasSavedTermiosForTesting())
-      }
+      #expect(CleanupRegistry.hasSavedTermiosForTesting())
     }
 
     @Test
     func `test terminal device cleanup client cannot clear live registry`() async {
-      await CleanupRegistryTestIsolation.withExclusiveAccess {
-        var saved = termios()
-        saved.c_lflag = tcflag_t(ICANON | ECHO)
-        defer { CleanupRegistry.clear() }
-        CleanupRegistry.install(
-          inputFileDescriptor: -1,
-          outputFileDescriptor: -1,
-          teardownBytes: [],
-          savedTermios: saved
+      var saved = termios()
+      saved.c_lflag = tcflag_t(ICANON | ECHO)
+      defer { CleanupRegistry.clear() }
+      CleanupRegistry.install(
+        inputFileDescriptor: -1,
+        outputFileDescriptor: -1,
+        teardownBytes: [],
+        savedTermios: saved
+      )
+      let io = PlatformIO(
+        terminalDevice: TerminalDevice(
+          size: { .init(columns: 1, rows: 1) },
+          write: { _ in 0 }
         )
-        let io = PlatformIO(
-          terminalDevice: TerminalDevice(
-            size: { .init(columns: 1, rows: 1) },
-            write: { _ in 0 }
-          )
-        )
+      )
 
-        await io.clearCleanup()
+      await io.clearCleanup()
 
-        #expect(CleanupRegistry.hasSavedTermiosForTesting())
-      }
+      #expect(CleanupRegistry.hasSavedTermiosForTesting())
     }
 
     @Test
-    func `cleanup registry clear removes installed teardown bytes`() async throws {
-      try await CleanupRegistryTestIsolation.withExclusiveAccess {
-        let pipe = try FileDescriptorPipe()
-        defer {
-          CleanupRegistry.clear()
-          pipe.closeAll()
-        }
+    func `cleanup registry clear removes installed teardown bytes`() throws {
+      let pipe = try FileDescriptorPipe()
+      defer {
+        CleanupRegistry.clear()
+        pipe.closeAll()
+      }
 
+      CleanupRegistry.install(
+        inputFileDescriptor: -1,
+        outputFileDescriptor: pipe.writeDescriptor,
+        teardownBytes: [0x1B],
+        savedTermios: nil
+      )
+      CleanupRegistry.clear()
+      CleanupRegistry.performEmergencyCleanupForTesting()
+      pipe.closeWriteDescriptor()
+
+      let bytes = try pipe.readAll()
+      expectNoDifference(bytes, [])
+    }
+
+    @Test
+    func
+      `cleanup registry performs only the latest state after repeated installs and clears`()
+      throws
+    {
+      let pipe = try FileDescriptorPipe()
+      defer {
+        CleanupRegistry.clear()
+        pipe.closeAll()
+      }
+
+      // More replacements than the C shim's retired-state ring holds, so evictions run.
+      for index in 0..<40 {
         CleanupRegistry.install(
           inputFileDescriptor: -1,
           outputFileDescriptor: pipe.writeDescriptor,
-          teardownBytes: [0x1B],
+          teardownBytes: [UInt8(index)],
           savedTermios: nil
         )
-        CleanupRegistry.clear()
-        CleanupRegistry.performEmergencyCleanupForTesting()
-        pipe.closeWriteDescriptor()
-
-        let bytes = try pipe.readAll()
-        expectNoDifference(bytes, [])
+        if index.isMultiple(of: 7) {
+          CleanupRegistry.clear()
+        }
       }
+
+      CleanupRegistry.performEmergencyCleanupForTesting()
+      pipe.closeWriteDescriptor()
+
+      expectNoDifference(try pipe.readAll(), [39])
     }
 
     @Test
-    func `querying installed handlers is side-effect free`() async {
-      await CleanupRegistryTestIsolation.withExclusiveAccess {
-        // Regression: the query previously used `atomic_flag_test_and_set`, so merely
-        // asking whether handlers were installed marked them installed and flipped a
-        // subsequent read to true. Reset to a known-clear flag, then prove a query keeps
-        // it clear.
-        CleanupRegistry.resetHandlersForTesting()
+    func `querying installed handlers is side-effect free`() {
+      // Regression: the query previously used `atomic_flag_test_and_set`, so merely
+      // asking whether handlers were installed marked them installed and flipped a
+      // subsequent read to true. Reset to a known-clear flag, then prove a query keeps
+      // it clear.
+      CleanupRegistry.resetHandlersForTesting()
 
-        #expect(!CleanupRegistry.hasInstalledHandlersForTesting())
-        #expect(!CleanupRegistry.hasInstalledHandlersForTesting())
-      }
+      #expect(!CleanupRegistry.hasInstalledHandlersForTesting())
+      #expect(!CleanupRegistry.hasInstalledHandlersForTesting())
     }
   }
 
-  private final class FileDescriptorPipe: @unchecked Sendable {
+  // Created, used, and closed inside one test body; never shared or captured by a
+  // `@Sendable` closure.
+  private final class FileDescriptorPipe {
     private var descriptors: [CInt] = [-1, -1]
 
     var writeDescriptor: CInt {
@@ -171,6 +196,8 @@ import Testing
     read(fileDescriptor, buffer, count)
   }
 #elseif os(Windows)
+  // Serialized because every test installs, clears, or fires the process-wide
+  // `tessera_cleanup_*` C shim state (`tessera_cleanup_install_windows`, `_clear`).
   @Suite(.serialized)
   struct CleanupRegistryTests {
     @Test
@@ -279,49 +306,5 @@ actor TestCleanupRegistry {
 
   private func install(_ registration: PlatformCleanupRegistration) {
     self.registration = registration
-  }
-}
-
-enum CleanupRegistryTestIsolation {
-  private static let lock = CleanupRegistryAsyncLock()
-
-  static func withExclusiveAccess<T>(
-    _ operation: () async throws -> T
-  ) async rethrows -> T {
-    await lock.acquire()
-    do {
-      let result = try await operation()
-      await lock.release()
-      return result
-    } catch {
-      await lock.release()
-      throw error
-    }
-  }
-}
-
-private actor CleanupRegistryAsyncLock {
-  private var isLocked = false
-  private var waiters: [CheckedContinuation<Void, Never>] = []
-
-  func acquire() async {
-    if !isLocked {
-      isLocked = true
-      return
-    }
-
-    await withCheckedContinuation { continuation in
-      waiters.append(continuation)
-    }
-  }
-
-  func release() {
-    guard !waiters.isEmpty else {
-      isLocked = false
-      return
-    }
-
-    let nextWaiter = waiters.removeFirst()
-    nextWaiter.resume()
   }
 }

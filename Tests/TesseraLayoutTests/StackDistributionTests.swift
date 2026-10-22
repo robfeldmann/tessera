@@ -87,6 +87,39 @@ private func sizedFrames(in graph: ViewGraph) -> [Rect] {
   frames(of: SizedLeaf.self, in: graph)
 }
 
+private func rigid(_ columns: Int, _ rows: Int) -> SizedLeaf {
+  SizedLeaf(
+    minimumColumns: columns,
+    minimumRows: rows,
+    idealColumns: columns,
+    idealRows: rows
+  )
+}
+
+private func listFrames(named name: String, in graph: ViewGraph) -> [Rect] {
+  graph.diagnostics.nodes.compactMap { node in
+    node.viewType.hasPrefix("\(name)<") ? node.frame : nil
+  }
+}
+
+@ViewBuilder
+private func branch(showsPair: Bool) -> some View {
+  if showsPair {
+    rigid(4, 1)
+    rigid(2, 1)
+  } else {
+    rigid(1, 1)
+  }
+}
+
+@ViewBuilder
+private func optionalPair(isPresent: Bool) -> some View {
+  if isPresent {
+    rigid(4, 1)
+    rigid(2, 1)
+  }
+}
+
 private struct StackFrameCase: Sendable {
   let name: String
   let expected: [Rect]
@@ -357,4 +390,204 @@ func `complex HStack geometry remains inspectable`() {
     requirements: requested=[] effective=unavailable
     """
   }
+}
+
+@Test
+func `stacks lay out ForEach elements beside a sibling individually`() {
+  let vertical = laidOut(size: TerminalSize(columns: 20, rows: 10)) {
+    VStack {
+      rigid(5, 2)
+      ForEach(1...3, id: \.self) { _ in rigid(3, 1) }
+    }
+  }
+  let horizontal = laidOut(size: TerminalSize(columns: 20, rows: 10)) {
+    HStack {
+      rigid(5, 2)
+      ForEach(1...3, id: \.self) { _ in rigid(3, 1) }
+    }
+  }
+
+  #expect(
+    sizedFrames(in: vertical) == [
+      Rect(column: 0, row: 0, columns: 5, rows: 2),
+      Rect(column: 0, row: 2, columns: 3, rows: 1),
+      Rect(column: 0, row: 3, columns: 3, rows: 1),
+      Rect(column: 0, row: 4, columns: 3, rows: 1),
+    ])
+  #expect(
+    listFrames(named: "TesseraCore.ForEach", in: vertical) == [
+      Rect(column: 0, row: 2, columns: 3, rows: 3)
+    ])
+  #expect(
+    sizedFrames(in: horizontal) == [
+      Rect(column: 0, row: 0, columns: 5, rows: 2),
+      Rect(column: 5, row: 0, columns: 3, rows: 1),
+      Rect(column: 8, row: 0, columns: 3, rows: 1),
+      Rect(column: 11, row: 0, columns: 3, rows: 1),
+    ])
+  #expect(
+    listFrames(named: "TesseraCore.ForEach", in: horizontal) == [
+      Rect(column: 5, row: 0, columns: 9, rows: 1)
+    ])
+}
+
+@Test
+func `stacks lay out a lone ForEach individually`() {
+  let vertical = laidOut(size: TerminalSize(columns: 20, rows: 10)) {
+    VStack {
+      ForEach(1...3, id: \.self) { _ in rigid(3, 1) }
+    }
+  }
+  let horizontal = laidOut(size: TerminalSize(columns: 20, rows: 10)) {
+    HStack {
+      ForEach(1...3, id: \.self) { _ in rigid(3, 1) }
+    }
+  }
+
+  #expect(
+    sizedFrames(in: vertical) == [
+      Rect(column: 0, row: 0, columns: 3, rows: 1),
+      Rect(column: 0, row: 1, columns: 3, rows: 1),
+      Rect(column: 0, row: 2, columns: 3, rows: 1),
+    ])
+  #expect(
+    sizedFrames(in: horizontal) == [
+      Rect(column: 0, row: 0, columns: 3, rows: 1),
+      Rect(column: 3, row: 0, columns: 3, rows: 1),
+      Rect(column: 6, row: 0, columns: 3, rows: 1),
+    ])
+}
+
+@Test
+func `stacks lay out adjacent ForEach views individually`() {
+  let vertical = laidOut(size: TerminalSize(columns: 20, rows: 10)) {
+    VStack {
+      ForEach(1...2, id: \.self) { _ in rigid(3, 1) }
+      ForEach(3...4, id: \.self) { _ in rigid(4, 1) }
+    }
+  }
+  let horizontal = laidOut(size: TerminalSize(columns: 20, rows: 10)) {
+    HStack {
+      ForEach(1...2, id: \.self) { _ in rigid(3, 1) }
+      ForEach(3...4, id: \.self) { _ in rigid(4, 1) }
+    }
+  }
+
+  #expect(
+    sizedFrames(in: vertical) == [
+      Rect(column: 0, row: 0, columns: 3, rows: 1),
+      Rect(column: 0, row: 1, columns: 3, rows: 1),
+      Rect(column: 0, row: 2, columns: 4, rows: 1),
+      Rect(column: 0, row: 3, columns: 4, rows: 1),
+    ])
+  #expect(
+    listFrames(named: "TesseraCore.ForEach", in: vertical) == [
+      Rect(column: 0, row: 0, columns: 3, rows: 2),
+      Rect(column: 0, row: 2, columns: 4, rows: 2),
+    ])
+  #expect(
+    sizedFrames(in: horizontal) == [
+      Rect(column: 0, row: 0, columns: 3, rows: 1),
+      Rect(column: 3, row: 0, columns: 3, rows: 1),
+      Rect(column: 6, row: 0, columns: 4, rows: 1),
+      Rect(column: 10, row: 0, columns: 4, rows: 1),
+    ])
+  #expect(
+    listFrames(named: "TesseraCore.ForEach", in: horizontal) == [
+      Rect(column: 0, row: 0, columns: 6, rows: 1),
+      Rect(column: 6, row: 0, columns: 8, rows: 1),
+    ])
+}
+
+@Test
+func `stacks lay out a two view conditional branch individually`() {
+  let vertical = laidOut(size: TerminalSize(columns: 20, rows: 10)) {
+    VStack {
+      rigid(5, 2)
+      branch(showsPair: true)
+    }
+  }
+  let verticalElse = laidOut(size: TerminalSize(columns: 20, rows: 10)) {
+    VStack {
+      rigid(5, 2)
+      branch(showsPair: false)
+    }
+  }
+  let horizontal = laidOut(size: TerminalSize(columns: 20, rows: 10)) {
+    HStack {
+      rigid(5, 2)
+      branch(showsPair: true)
+    }
+  }
+
+  #expect(
+    sizedFrames(in: vertical) == [
+      Rect(column: 0, row: 0, columns: 5, rows: 2),
+      Rect(column: 0, row: 2, columns: 4, rows: 1),
+      Rect(column: 0, row: 3, columns: 2, rows: 1),
+    ])
+  #expect(
+    listFrames(named: "TesseraCore.ConditionalView", in: vertical) == [
+      Rect(column: 0, row: 2, columns: 4, rows: 2)
+    ])
+  #expect(
+    sizedFrames(in: verticalElse) == [
+      Rect(column: 0, row: 0, columns: 5, rows: 2),
+      Rect(column: 0, row: 2, columns: 1, rows: 1),
+    ])
+  #expect(
+    sizedFrames(in: horizontal) == [
+      Rect(column: 0, row: 0, columns: 5, rows: 2),
+      Rect(column: 5, row: 0, columns: 4, rows: 1),
+      Rect(column: 9, row: 0, columns: 2, rows: 1),
+    ])
+  #expect(
+    listFrames(named: "TesseraCore.ConditionalView", in: horizontal) == [
+      Rect(column: 5, row: 0, columns: 6, rows: 1)
+    ])
+}
+
+@Test
+func `an empty view list takes a zero size frame at its parent origin`() {
+  let graph = laidOut(size: TerminalSize(columns: 20, rows: 10)) {
+    VStack {
+      rigid(5, 2)
+      optionalPair(isPresent: false)
+      ForEach(1...2, id: \.self) { _ in
+        rigid(3, 1)
+        optionalPair(isPresent: false)
+      }
+    }
+    .padding(EdgeInsets(top: 1, leading: 2, bottom: 0, trailing: 0))
+  }
+
+  #expect(
+    sizedFrames(in: graph) == [
+      Rect(column: 2, row: 1, columns: 5, rows: 2),
+      Rect(column: 2, row: 3, columns: 3, rows: 1),
+      Rect(column: 2, row: 4, columns: 3, rows: 1),
+    ])
+  #expect(
+    listFrames(named: "Swift.Optional", in: graph) == [
+      Rect(column: 2, row: 1, columns: 0, rows: 0),
+      Rect(column: 2, row: 3, columns: 0, rows: 0),
+      Rect(column: 2, row: 4, columns: 0, rows: 0),
+    ])
+}
+
+@Test
+func `custom Layout lays out ForEach elements individually`() {
+  let graph = laidOut(size: TerminalSize(columns: 12, rows: 4)) {
+    LeadingLayout {
+      rigid(2, 1)
+      ForEach(1...2, id: \.self) { _ in rigid(3, 2) }
+    }
+  }
+
+  #expect(
+    sizedFrames(in: graph) == [
+      Rect(column: 0, row: 0, columns: 2, rows: 1),
+      Rect(column: 2, row: 0, columns: 3, rows: 2),
+      Rect(column: 5, row: 0, columns: 3, rows: 2),
+    ])
 }

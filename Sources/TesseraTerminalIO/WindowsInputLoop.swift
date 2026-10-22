@@ -1,5 +1,6 @@
 #if os(Windows)
 
+  import Foundation
   import TesseraTerminalCore
 
   /// Shared Windows console input owner that fans out bytes and resize events.
@@ -11,16 +12,36 @@
   /// waiting for a later keypress, and prevents independent byte/resize loops from
   /// stealing records from each other.
   package actor WindowsInputLoop {
+    /// One console event produced by the reader thread, in console queue order.
+    private enum Event: Sendable {
+      case bytes([UInt8])
+      case size(TerminalSize)
+    }
+
+    /// A registered continuation and the run generation it belongs to.
+    private struct Registration<Element: Sendable> {
+      let generation: Int
+      let continuation: AsyncStream<Element>.Continuation
+    }
+
     private let inputHandle: UInt
     private let peekRecordLimit: UInt32
     private let pollTimeoutMilliseconds: UInt32
     private let system: WindowsConsoleSystem
     private let requiresByteAndSizeConsumers: Bool
 
-    private var byteContinuations: [Int: AsyncStream<[UInt8]>.Continuation] = [:]
+    private var byteRegistrations: [Int: Registration<[UInt8]>] = [:]
     private var nextContinuationID = 0
-    private var sizeContinuations: [Int: AsyncStream<TerminalSize>.Continuation] = [:]
-    private var task: Task<Void, Never>?
+    private var sizeRegistrations: [Int: Registration<TerminalSize>] = [:]
+    /// Advances each time a run is cancelled, so late registrants belong to the next run
+    /// and a finished run never touches them.
+    private var generation = 0
+    private var readerThread: Thread?
+
+    /// The number of live byte and size streams, for tests that order registration.
+    package var registeredStreamCount: Int {
+      byteRegistrations.count + sizeRegistrations.count
+    }
 
     package init(
       inputHandle: UInt,
@@ -36,21 +57,26 @@
       self.peekRecordLimit = peekRecordLimit
     }
 
+    /// Blocks on the console input handle until the thread is cancelled, the wait fails, or
+    /// a console call throws, yielding each event into `events`.
+    ///
+    /// Runs on a dedicated thread so the 25 ms waits never occupy a cooperative-pool
+    /// thread. Always finishes `events` on return.
     private static func run(
       inputHandle: UInt,
       system: WindowsConsoleSystem,
       pollTimeoutMilliseconds: UInt32,
       peekRecordLimit: UInt32,
-      loop: WindowsInputLoop
-    ) async {
-      while !Task.isCancelled {
+      events: AsyncStream<Event>.Continuation
+    ) {
+      defer { events.finish() }
+      while !Thread.current.isCancelled {
         let waitResult = system.waitForSingleObject(inputHandle, pollTimeoutMilliseconds)
         if waitResult == WindowsWaitStatus.timeout {
-          await loop.yieldBytes([])
+          events.yield(.bytes([]))
           continue
         }
         guard waitResult == WindowsWaitStatus.object else {
-          await loop.finishAll()
           return
         }
 
@@ -58,7 +84,6 @@
         do {
           records = try system.peekConsoleInput(inputHandle, peekRecordLimit)
         } catch {
-          await loop.finishAll()
           return
         }
         guard records.isEmpty == false else {
@@ -72,25 +97,22 @@
             UInt32(records.count)
           )
         } catch {
-          await loop.finishAll()
           return
         }
 
         for record in drainedRecords {
           switch record {
           case .key(let bytes) where bytes.isEmpty == false:
-            await loop.yieldBytes(bytes)
+            events.yield(.bytes(bytes))
 
           case .resize(let size):
-            await loop.yieldSize(size)
+            events.yield(.size(size))
 
           case .key, .other:
             break
           }
         }
       }
-
-      await loop.finishAll()
     }
 
     package nonisolated func bytes() -> AsyncStream<[UInt8]> {
@@ -124,7 +146,8 @@
     ) -> Int {
       let id = nextContinuationID
       nextContinuationID += 1
-      byteContinuations[id] = continuation
+      byteRegistrations[id] = Registration(
+        generation: generation, continuation: continuation)
       startIfNeeded()
       return id
     }
@@ -134,27 +157,28 @@
     ) -> Int {
       let id = nextContinuationID
       nextContinuationID += 1
-      sizeContinuations[id] = continuation
+      sizeRegistrations[id] = Registration(
+        generation: generation, continuation: continuation)
       startIfNeeded()
       return id
     }
 
     private func unregisterByteContinuation(_ id: Int) {
-      byteContinuations[id] = nil
+      byteRegistrations[id] = nil
       cancelIfUnused()
     }
 
     private func unregisterSizeContinuation(_ id: Int) {
-      sizeContinuations[id] = nil
+      sizeRegistrations[id] = nil
       cancelIfUnused()
     }
 
     private func startIfNeeded() {
-      guard task == nil else {
+      guard readerThread == nil else {
         return
       }
       if requiresByteAndSizeConsumers,
-        byteContinuations.isEmpty || sizeContinuations.isEmpty
+        byteRegistrations.isEmpty || sizeRegistrations.isEmpty
       {
         return
       }
@@ -163,48 +187,80 @@
       let peekRecordLimit = peekRecordLimit
       let pollTimeoutMilliseconds = pollTimeoutMilliseconds
       let system = system
-      task = Task.detached { [self] in
-        await Self.run(
+      let runGeneration = generation
+      let (events, continuation) = AsyncStream<Event>.makeStream()
+      let thread = Thread {
+        Self.run(
           inputHandle: inputHandle,
           system: system,
           pollTimeoutMilliseconds: pollTimeoutMilliseconds,
           peekRecordLimit: peekRecordLimit,
-          loop: self
+          events: continuation
         )
       }
+      thread.name = "tessera.windows-input"
+      readerThread = thread
+      Task { [self] in
+        for await event in events {
+          dispatch(event, generation: runGeneration)
+        }
+        finishAll(generation: runGeneration)
+      }
+      thread.start()
     }
 
+    /// Stops the reader once nobody listens. Clearing the thread and advancing the
+    /// generation lets a later registrant start a fresh run that the old run cannot finish.
     private func cancelIfUnused() {
-      guard byteContinuations.isEmpty, sizeContinuations.isEmpty else {
+      guard byteRegistrations.isEmpty, sizeRegistrations.isEmpty else {
         return
       }
-      task?.cancel()
+      readerThread?.cancel()
+      readerThread = nil
+      generation += 1
     }
 
-    private func yieldBytes(_ bytes: [UInt8]) {
-      for continuation in byteContinuations.values {
-        continuation.yield(bytes)
+    private func dispatch(_ event: Event, generation runGeneration: Int) {
+      switch event {
+      case .bytes(let bytes):
+        for registration in byteRegistrations.values
+        where registration.generation == runGeneration {
+          registration.continuation.yield(bytes)
+        }
+
+      case .size(let size):
+        for registration in sizeRegistrations.values
+        where registration.generation == runGeneration {
+          registration.continuation.yield(size)
+        }
       }
     }
 
-    private func yieldSize(_ size: TerminalSize) {
-      for continuation in sizeContinuations.values {
-        continuation.yield(size)
+    /// Finishes the continuations that belong to `runGeneration`; newer generations keep
+    /// their streams and their own run.
+    private func finishAll(generation runGeneration: Int) {
+      let byteRegistrations = self.byteRegistrations.filter {
+        $0.value.generation == runGeneration
       }
-    }
-
-    private func finishAll() {
-      let byteContinuations = Array(self.byteContinuations.values)
-      let sizeContinuations = Array(self.sizeContinuations.values)
-      self.byteContinuations.removeAll()
-      self.sizeContinuations.removeAll()
-      task = nil
-
-      for continuation in byteContinuations {
-        continuation.finish()
+      let sizeRegistrations = self.sizeRegistrations.filter {
+        $0.value.generation == runGeneration
       }
-      for continuation in sizeContinuations {
-        continuation.finish()
+      for id in byteRegistrations.keys {
+        self.byteRegistrations[id] = nil
+      }
+      for id in sizeRegistrations.keys {
+        self.sizeRegistrations[id] = nil
+      }
+      if runGeneration == generation {
+        readerThread = nil
+        generation += 1
+      }
+
+      for registration in byteRegistrations.values {
+        registration.continuation.finish()
+      }
+      for registration in sizeRegistrations.values {
+        registration.continuation.finish()
       }
     }
   }

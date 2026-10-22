@@ -8,15 +8,13 @@ import Testing
   @Test
   func `resize registry yields queried sizes for notifications`() async throws {
     let (notifications, notificationContinuation) = AsyncStream.makeStream(of: Void.self)
-    final class State: @unchecked Sendable {
-      var sizes = [
-        TerminalSize(columns: 80, rows: 24),
-        TerminalSize(columns: 100, rows: 30),
-      ]
-    }
-    let state = State()
+    let sizes = [
+      TerminalSize(columns: 80, rows: 24),
+      TerminalSize(columns: 100, rows: 30),
+    ]
+    let calls = SyscallCallCounter()
     let stream = TerminalResizeRegistry.sizeChanges(
-      querySize: { state.sizes.removeFirst() },
+      querySize: { sizes[calls.increment()] },
       notifications: notifications
     )
     var iterator = stream.makeAsyncIterator()
@@ -37,12 +35,10 @@ import Testing
   @Test
   func `resize registry ignores failed queries before later success`() async throws {
     let (notifications, notificationContinuation) = AsyncStream.makeStream(of: Void.self)
-    final class State: @unchecked Sendable { var calls = 0 }
-    let state = State()
+    let calls = SyscallCallCounter()
     let stream = TerminalResizeRegistry.sizeChanges(
       querySize: {
-        defer { state.calls += 1 }
-        if state.calls == 0 {
+        if calls.increment() == 0 {
           throw PlatformIOError.terminalSizeUnavailable(errno: .ioError)
         }
         return TerminalSize(columns: 90, rows: 25)
@@ -62,12 +58,11 @@ import Testing
     expectNoDifference(end, nil)
   }
 
-  @Test
+  @Test(.timeLimit(.minutes(1)))
   func `resize stream termination cancels notification producer`() async throws {
-    final class TerminationState: @unchecked Sendable { var terminated = false }
-    let state = TerminationState()
+    let (terminations, terminationContinuation) = AsyncStream.makeStream(of: Void.self)
     let notifications = AsyncStream<Void> { continuation in
-      continuation.onTermination = { _ in state.terminated = true }
+      continuation.onTermination = { _ in terminationContinuation.yield() }
     }
     let stream = TerminalResizeRegistry.sizeChanges(
       querySize: { TerminalSize(columns: 1, rows: 1) },
@@ -80,10 +75,11 @@ import Testing
 
     pending.cancel()
     _ = await pending.value
-    for _ in 0..<20 where !state.terminated {
-      await Task.yield()
-    }
 
-    #expect(state.terminated)
+    // Resumes when the notification stream is terminated; a producer that is never
+    // cancelled leaves this waiting until the time limit fails the test.
+    var terminationIterator = terminations.makeAsyncIterator()
+    let terminated: Void? = await terminationIterator.next()
+    #expect(terminated != nil)
   }
 #endif

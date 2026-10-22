@@ -9,6 +9,9 @@ managing terminal protocol policy, and performing clipboard writes.
 
 - ``withApplicationTerminal(configuration:_:)``
 
+Once the scoped body returns, the session is closed: every call that would write to the
+terminal throws ``TerminalSessionError/closed``.
+
 ### Drawing
 
 - ``draw(_:)``

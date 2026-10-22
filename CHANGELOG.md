@@ -25,6 +25,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Added read-only DocC pull-request validation plus main-branch and manual GitHub Pages deployment for the combined static documentation site.
 
 ### Changed
+- Changed `TerminalSession` to run its terminal teardown in an uncancellable task, so a cancelled body still leaves raw mode and the alternate screen, and to throw `TerminalSessionError.closed` from every writing call once `withApplicationTerminal` has returned; `events` and `nextEvent()` now drain one shared input queue, size changes keep only the newest value, and overlapping draws and flushes are serialized so each byte is sent once and frames diff against what the terminal received.
+- Changed `ModeLifecycle` to close after a successful `exit()`: `enter` and `apply` then throw `ModeLifecycleError.closed` before writing; `exit()` stays retryable. `PlatformIO.flush` no longer retries `writeWouldBlock`; a `TerminalDevice` write either blocks until it makes progress or throws.
+- Changed the POSIX input loop to run on a dedicated thread with cancellation through its pipe, and bounded terminal write waits to 50 ms slices that honor task cancellation.
+- Changed layout containers to lay out `ForEach`, conditional, optional, and tuple children element by element instead of as one overlapping child.
 - Changed the baseline toolchain to Swift 6.3.3 (Xcode 26.6 on macOS, swift.org 6.3.3 on Linux and Windows) and added Swift 6.4 lanes (Xcode 27.1, swift.org 6.4.1 on Linux) in CI and the Lima VM; macOS CI now selects Xcode through the setup action, and the Static Linux SDK follows the active compiler.
 - Relicensed Tessera's original material from the MIT License to the Apache License 2.0 before the first public release.
 - Changed capability detection to use active protocol-native probes and parser-observed evidence; OSC 8 remains explicitly not actively detectable, and conditional Kitty keyboard support enables only after support is observed.

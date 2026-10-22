@@ -355,6 +355,7 @@ func `conditional keyboard setter consumes cached supported probe evidence`()
     keyboardProtocol: .legacyOnly,
     modeLifecycle: lifecycle
   )
+  await session.startInputPump()
   _ = try await session.queryActiveCapabilities()
 
   try await session.setKeyboardProtocol(.kittyIfAvailable)
@@ -385,7 +386,11 @@ func `queued runtime mode setters preserve unrelated requests`() async throws {
     let focusTask = Task {
       try await session.setFocusEvents(false)
     }
-    await Task.yield()
+    await waitUntil("the focus setter is queued behind the mouse setter") {
+      await session.queuedModeSetterCount == 1
+    }
+    let queuedSetters = await session.queuedModeSetterCount
+    expectNoDifference(queuedSetters, 1)
     await device.resumeSuspendedWrite()
 
     try await mouseTask.value
@@ -418,7 +423,11 @@ func `cancelled queued runtime setter does not mutate requested policy`() async 
     let focusTask = Task {
       try await session.setFocusEvents(false)
     }
-    await Task.yield()
+    await waitUntil("the focus setter is queued behind the mouse setter") {
+      await session.queuedModeSetterCount == 1
+    }
+    let queuedSetters = await session.queuedModeSetterCount
+    expectNoDifference(queuedSetters, 1)
     focusTask.cancel()
     await device.resumeSuspendedWrite()
 
@@ -1020,6 +1029,117 @@ func `cursor restoration error remains primary after exit failure`() async throw
 }
 
 @Test
+func `cancelled body still exits raw mode and the alternate screen`() async throws {
+  let device = LifecycleFailureTerminalDevice(failures: [])
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+  let bodyGate = AsyncEventBuffer<Int>()
+  let application = Task {
+    try await TerminalSession.withApplicationTerminal(
+      configuration: .default,
+      io: io,
+      environment: [:]
+    ) { _ in
+      _ = try await bodyGate.next()
+    }
+  }
+
+  await waitUntil("the body is suspended on its gate") {
+    await bodyGate.waiterCount == 1
+  }
+  application.cancel()
+  await #expect(throws: CancellationError.self) {
+    try await application.value
+  }
+
+  let events = await device.events
+  #expect(events.contains(.flush(cursorVisibleBytes)))
+  #expect(events.contains(.exitAltScreen))
+  #expect(events.contains(.exitRawMode))
+}
+
+@Test
+func `body that returns after its task is cancelled still exits terminal modes`()
+  async throws
+{
+  let device = LifecycleFailureTerminalDevice(failures: [])
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+  let application = Task {
+    try await TerminalSession.withApplicationTerminal(
+      configuration: .default,
+      io: io,
+      environment: [:]
+    ) { _ in
+      withUnsafeCurrentTask { $0?.cancel() }
+      return "done"
+    }
+  }
+
+  let result = try await application.value
+
+  let events = await device.events
+  expectNoDifference(result, "done")
+  #expect(events.contains(.flush(cursorVisibleBytes)))
+  #expect(events.contains(.exitAltScreen))
+  #expect(events.contains(.exitRawMode))
+}
+
+@Test
+func `session calls after the scoped teardown throw without writing`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+  let configuration = TerminalApplicationConfiguration(
+    clipboardWriting: .enabled(.default),
+    cursorStyling: .enabled(default: nil)
+  )
+  let session = try await TerminalSession.withApplicationTerminal(
+    configuration: configuration,
+    io: io,
+    environment: [:]
+  ) { session in
+    session
+  }
+  let eventsAfterTeardown = await device.events
+
+  await #expect(throws: TerminalSessionError.closed) {
+    try await session.setMouseTracking(.anyEvent)
+  }
+  await #expect(throws: TerminalSessionError.closed) {
+    try await session.draw { frame in
+      frame.write("x", at: TerminalPosition(column: 0, row: 0))
+    }
+  }
+  await #expect(throws: TerminalSessionError.closed) {
+    try await session.transmitImage(
+      KittyGraphicsTransmission(
+        id: KittyImageID(rawValue: 7),
+        format: .rgb(width: 1, height: 1),
+        data: [0xFF, 0x00, 0x00]
+      )
+    )
+  }
+  await #expect(throws: TerminalSessionError.closed) {
+    try await session.deleteImages(
+      .placement(KittyImageID(rawValue: 7), KittyPlacementID(rawValue: 9))
+    )
+  }
+  await #expect(throws: TerminalSessionError.closed) {
+    try await session.copyToClipboard("late", intent: .userInitiated)
+  }
+  await #expect(throws: TerminalSessionError.closed) {
+    try await session.setCursorStyle(CursorStyle(shape: .steadyBar))
+  }
+  await #expect(throws: TerminalSessionError.closed) {
+    try await session.setFocusEvents(false)
+  }
+  await #expect(throws: TerminalSessionError.closed) {
+    try await session.setKeyboardProtocol(.kittyRequired)
+  }
+
+  let events = await device.events
+  expectNoDifference(events, eventsAfterTeardown)
+}
+
+@Test
 func `app terminal keeps Kitty off for passive Ghostty`() async throws {
   let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
   let io = PlatformIO(terminalDevice: await device.terminalDevice)
@@ -1327,6 +1447,49 @@ func `draw writes rendered frame and flushes once`() async throws {
   expectNoDifference(result, 42)
   #expect(!bytes.isEmpty)
   expectNoDifference(events.filter(\.isFlush).count, 1)
+}
+
+@Test
+func `overlapping draws diff against the frame the terminal received`() async throws {
+  let size = TerminalSize(columns: 2, rows: 1)
+  let device = SuspendingWriteTerminalDevice(size: size)
+  let session = TerminalSession(
+    io: PlatformIO(terminalDevice: await device.terminalDevice),
+    synchronizedOutput: .disabled
+  )
+  try await session.draw { _ in }
+
+  await device.suspendNextWrite()
+  let firstDraw = Task {
+    try await session.draw { frame in
+      frame.write("A", at: TerminalPosition(column: 0, row: 0))
+    }
+  }
+  await device.waitForSuspension()
+  let secondDraw = Task {
+    try await session.draw { _ in }
+  }
+  await waitUntil("the second draw is queued behind the suspended flush") {
+    await session.queuedDrawCount == 1
+  }
+  await device.resumeSuspendedWrite()
+  try await firstDraw.value
+  try await secondDraw.value
+
+  let referenceDevice = InMemoryTerminalDevice(size: size)
+  let referenceSession = TerminalSession(
+    io: PlatformIO(terminalDevice: await referenceDevice.terminalDevice),
+    synchronizedOutput: .disabled
+  )
+  try await referenceSession.draw { _ in }
+  try await referenceSession.draw { frame in
+    frame.write("A", at: TerminalPosition(column: 0, row: 0))
+  }
+  try await referenceSession.draw { _ in }
+
+  let output = await device.bytes
+  let expectedOutput = await referenceDevice.bytes
+  expectNoDifference(output, expectedOutput)
 }
 
 @Test
@@ -1873,6 +2036,19 @@ func `events stream exposes parsed input events`() async throws {
 }
 
 @Test
+func `events stream and next event share one input queue`() async throws {
+  let device = InMemoryTerminalDevice(inputBytes: [0x61, 0x62])
+  let session = await makeSession(device)
+  var iterator = session.events.makeAsyncIterator()
+
+  let streamed = await iterator.next()
+  let next = try await session.nextEvent()
+
+  expectNoDifference(streamed, .key(Key(code: .character("a"))))
+  expectNoDifference(next, .key(Key(code: .character("b"))))
+}
+
+@Test
 func `next event returns resize events from semantic stream`() async throws {
   let size = TerminalSize(columns: 80, rows: 24)
   let session = TerminalSession(
@@ -1890,10 +2066,33 @@ func `next event returns resize events from semantic stream`() async throws {
       )
     )
   )
+  await session.startInputPump()
 
   let event = try await session.nextEvent()
 
   #expect(event == .resize(size))
+}
+
+@Test
+func `running input pump does not keep a released session alive`() async {
+  let (bytes, continuation) = AsyncStream.makeStream(of: [UInt8].self)
+  weak var releasedSession: TerminalSession?
+  do {
+    let session = TerminalSession(
+      io: PlatformIO(
+        terminalDevice: TerminalDevice(
+          bytes: { bytes },
+          size: { TerminalSize(columns: 1, rows: 1) },
+          write: { $0.count }
+        )
+      )
+    )
+    await session.startInputPump()
+    releasedSession = session
+  }
+
+  #expect(releasedSession == nil)
+  continuation.finish()
 }
 
 @Test
@@ -1908,11 +2107,16 @@ func `pending event read cancellation preserves the next input`() async throws {
       )
     )
   )
+  await session.startInputPump()
   let pendingEvent = Task {
     try await session.nextEvent()
   }
 
-  await Task.yield()
+  await waitUntil("the first read is waiting for input") {
+    await session.pendingEventReadCount == 1
+  }
+  let pendingReads = await session.pendingEventReadCount
+  expectNoDifference(pendingReads, 1)
   pendingEvent.cancel()
   await #expect(throws: CancellationError.self) {
     try await pendingEvent.value
@@ -1931,8 +2135,8 @@ func `event buffer cancellation preserves later values`() async throws {
     try await buffer.next()
   }
 
-  while await buffer.waiterCount == 0 {
-    await Task.yield()
+  await waitUntil("the read is waiting") {
+    await buffer.waiterCount == 1
   }
 
   pendingValue.cancel()
@@ -1964,12 +2168,12 @@ func `event buffer delivers buffered values before waiting`() async throws {
 func `event buffer delivers values fifo to multiple waiters`() async throws {
   let buffer = AsyncEventBuffer<Int>()
   let first = Task { try await buffer.next() }
-  while await buffer.waiterCount == 0 {
-    await Task.yield()
+  await waitUntil("the first read is waiting") {
+    await buffer.waiterCount == 1
   }
   let second = Task { try await buffer.next() }
-  while await buffer.waiterCount < 2 {
-    await Task.yield()
+  await waitUntil("both reads are waiting") {
+    await buffer.waiterCount == 2
   }
 
   await buffer.yield(1)
@@ -1987,8 +2191,8 @@ func `event buffer finish wakes waiters and is idempotent`() async throws {
   let buffer = AsyncEventBuffer<Int>()
   let pending = Task { try await buffer.next() }
 
-  while await buffer.waiterCount == 0 {
-    await Task.yield()
+  await waitUntil("the read is waiting") {
+    await buffer.waiterCount == 1
   }
 
   await buffer.finish()
@@ -2027,6 +2231,28 @@ func `event buffer cancellation before waiter append throws cancellation`() asyn
   }
   let waiterCount = await buffer.waiterCount
   expectNoDifference(waiterCount, 0)
+}
+
+@Test
+func `event buffer ignores a late cancel for a waiter that already received a value`()
+  async throws
+{
+  let buffer = AsyncEventBuffer<Int>()
+  let pending = Task {
+    try await buffer.next()
+  }
+  await waitUntil("the read is waiting") {
+    await buffer.waiterCount == 1
+  }
+  await buffer.yield(1)
+  let value = try await pending.value
+
+  // The first waiter's ID is 0. Its cancellation handler can run after `next()` returned.
+  await buffer.cancelWaiter(id: 0)
+
+  let cancelledWaiters = await buffer.cancelledWaiterCount
+  expectNoDifference(value, 1)
+  expectNoDifference(cancelledWaiters, 0)
 }
 
 @Test
@@ -2109,15 +2335,15 @@ func `event buffer delivers waiting consumers every mouse move`() async throws {
   let secondMove = mouseInputEvent(.move, column: 2, row: 1)
 
   let firstPending = Task { try await buffer.next() }
-  while await buffer.waiterCount == 0 {
-    await Task.yield()
+  await waitUntil("the first read is waiting") {
+    await buffer.waiterCount == 1
   }
   await buffer.yield(firstMove)
   let first = try await firstPending.value
 
   let secondPending = Task { try await buffer.next() }
-  while await buffer.waiterCount == 0 {
-    await Task.yield()
+  await waitUntil("the second read is waiting") {
+    await buffer.waiterCount == 1
   }
   await buffer.yield(secondMove)
   let second = try await secondPending.value
@@ -2366,22 +2592,26 @@ private func makeSession(
   capabilities: TerminalCapabilities = .conservativeDefault,
   clipboardWriting: ClipboardWriteMode = .disabled
 ) async -> TerminalSession {
-  TerminalSession(
+  let session = TerminalSession(
     io: PlatformIO(terminalDevice: await device.terminalDevice),
     synchronizedOutput: synchronizedOutput,
     capabilities: capabilities,
     clipboardWriting: clipboardWriting,
     probeImageID: KittyImageID(rawValue: 17)
   )
+  await session.startInputPump()
+  return session
 }
 
 private func makeSession(_ device: KeyboardProbeResponseTerminalDevice) async
   -> TerminalSession
 {
-  TerminalSession(
+  let session = TerminalSession(
     io: PlatformIO(terminalDevice: await device.terminalDevice),
     probeImageID: KittyImageID(rawValue: 17)
   )
+  await session.startInputPump()
+  return session
 }
 
 private let clipboardNestedTerminalCases = [
@@ -2949,6 +3179,66 @@ private actor RuntimeModeTerminalDevice {
       }
     }
     return byteSlice.count
+  }
+}
+
+private actor SuspendingWriteTerminalDevice {
+  private var isWriteSuspended = false
+  private var recordedBytes: [UInt8] = []
+  private let storedSize: TerminalSize
+  private var suspendsNextWrite = false
+  private var suspensionWaiters: [CheckedContinuation<Void, Never>] = []
+  private var writeContinuation: CheckedContinuation<Void, Never>?
+
+  var bytes: [UInt8] {
+    recordedBytes
+  }
+
+  var terminalDevice: TerminalDevice {
+    TerminalDevice(
+      size: { self.storedSize },
+      write: { await self.write($0) }
+    )
+  }
+
+  init(size: TerminalSize) {
+    self.storedSize = size
+  }
+
+  func suspendNextWrite() {
+    suspendsNextWrite = true
+  }
+
+  func waitForSuspension() async {
+    guard !isWriteSuspended else {
+      return
+    }
+    await withCheckedContinuation { continuation in
+      suspensionWaiters.append(continuation)
+    }
+  }
+
+  func resumeSuspendedWrite() {
+    writeContinuation?.resume()
+    writeContinuation = nil
+    isWriteSuspended = false
+  }
+
+  private func write(_ bytes: ArraySlice<UInt8>) async -> Int {
+    if suspendsNextWrite {
+      suspendsNextWrite = false
+      await withCheckedContinuation { continuation in
+        writeContinuation = continuation
+        isWriteSuspended = true
+        let waiters = suspensionWaiters
+        suspensionWaiters.removeAll()
+        for waiter in waiters {
+          waiter.resume()
+        }
+      }
+    }
+    recordedBytes.append(contentsOf: bytes)
+    return bytes.count
   }
 }
 

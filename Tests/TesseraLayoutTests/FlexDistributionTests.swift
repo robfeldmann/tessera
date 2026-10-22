@@ -1,3 +1,4 @@
+import Synchronization
 import TesseraCore
 import TesseraLayout
 import TesseraTerminalCore
@@ -446,8 +447,18 @@ func `custom layouts consume Flex constraints through public layout value APIs`(
   #expect(graph.diagnostics.nodes.first?.measuredSize == TerminalSize(columns: 7, rows: 1))
 }
 
-private final class MeasurementRecorder: @unchecked Sendable {
-  var proposals: [ProposedSize] = []
+// `LeafView.sizeThatFits` is a synchronous, non-async requirement of the layout pass, so
+// an actor cannot back this recorder; a `Mutex` is the smallest Sendable guard for it.
+private final class MeasurementRecorder: Sendable {
+  private let storage = Mutex<[ProposedSize]>([])
+
+  var proposals: [ProposedSize] {
+    storage.withLock { $0 }
+  }
+
+  func record(_ proposal: ProposedSize) {
+    storage.withLock { $0.append(proposal) }
+  }
 }
 
 private struct CountingLeaf: LeafView {
@@ -458,7 +469,7 @@ private struct CountingLeaf: LeafView {
     state: inout Void,
     environment: EnvironmentValues
   ) -> TerminalSize {
-    recorder.proposals.append(proposal)
+    recorder.record(proposal)
     return TerminalSize(columns: proposal.width ?? 4, rows: proposal.height ?? 1)
   }
 
