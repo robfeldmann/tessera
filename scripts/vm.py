@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import html
 import json
 import os
 import plistlib
@@ -35,6 +36,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import threading
 import time
 import uuid
 from dataclasses import dataclass
@@ -863,9 +865,52 @@ def powershell(script: str) -> list[str]:
     return ["powershell", "-NoProfile", "-EncodedCommand", encoded]
 
 
+def decode_clixml(blob: str) -> str:
+    """The error and warning records of a CLIXML blob as text; the rest is noise."""
+    lines = []
+    for body in re.findall(r'<S S="(?:Error|warning)">(.*?)</S>', blob, re.S):
+        text = html.unescape(body).replace("_x000D__x000A_", "\n").replace("_x000A_", "\n")
+        lines.append(text if text.endswith("\n") else text + "\n")
+    return "".join(lines)
+
+
+def relay_powershell_stderr(pipe) -> None:
+    """Print a guest PowerShell's stderr, decoding what sshd makes it serialize.
+
+    Without a console, PowerShell wraps its error, warning, information, and progress
+    streams in CLIXML on stderr, so every Write-Host would otherwise appear twice.
+    """
+    blob = ""
+    for raw in iter(pipe.readline, b""):
+        line = raw.decode(errors="replace")
+        if blob or line.startswith("<Objs "):
+            blob += line
+            if "</Objs>" in line:
+                sys.stderr.write(decode_clixml(blob))
+                blob = ""
+        elif not line.startswith("#< CLIXML"):
+            sys.stderr.write(line)
+        sys.stderr.flush()
+    if blob:
+        sys.stderr.write(decode_clixml(blob))
+        sys.stderr.flush()
+
+
+def windows_run(name: str, *command: str, check: bool = True):
+    """Run a command in the guest over SSH, relaying stderr through the decoder."""
+    process = subprocess.Popen([*ssh_args(name), *command], stderr=subprocess.PIPE)
+    relay = threading.Thread(target=relay_powershell_stderr, args=(process.stderr,))
+    relay.start()
+    returncode = process.wait()
+    relay.join()
+    if check and returncode:
+        raise subprocess.CalledProcessError(returncode, process.args)
+    return subprocess.CompletedProcess(process.args, returncode)
+
+
 def windows_guest(name: str, script: str, *, check: bool = True):
     """Run a PowerShell script in the guest, streaming its output."""
-    return run([*ssh_args(name), *powershell(script)], check=check)
+    return windows_run(name, *powershell(script), check=check)
 
 
 def ssh_answers(name: str, *, batch: bool = True) -> bool:
@@ -944,7 +989,7 @@ def windows_provision(name: str) -> None:
     )
     for attempt in range(1, 6):
         print(f"vm: provisioning {name} (pass {attempt})")
-        result = run([*ssh_args(name), command], check=False)
+        result = windows_run(name, command, check=False)
         if result.returncode == 0:
             print(f"vm: {name} is provisioned (Swift {swift_version}, Zig {zig_version})")
             return

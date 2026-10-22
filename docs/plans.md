@@ -11,7 +11,6 @@ One plan per piece of work, in order. This page is rendered from each plan's fro
 
 - [Phase 4 view layer, redesigned from the omp2 reference](plans/omp2-reference-gallery-and-phase-4-redesign.md): Use oh-my-pi's omp2 TUI as the visual and behavioral reference for Tessera's Phase 4 components (a verified prior-art inventory, a captured reference gallery with ASCII fallbacks, an owner taste review, a Rust-to-Swift translation key, and a revised catalog), then implement the view layer in dependency order with per-component demos. Replaces plan 030.
 - [Toolchain, repository conventions, and plan consolidation](plans/toolchain-conventions-and-plan-consolidation.md): Baseline every local check, make Xcode 26.6 and Swift 6.3.3 the baseline on every lane while adding Swift 6.4 and Xcode 27 support, port plan 033 and its spikes to main, run plan 034, adopt the owner's newer repository conventions (unwrapped prose with rumdl, an IWE docs workspace with slug-named plans and a split spec, mise and hk in place of just and Lefthook, Tessera-owned Tart and Lima VMs, and a current Zig and libghostty-vt), then merge plans 032 and 033 into one plan.
-- [Make UTM the one Windows lane and retire Frost](plans/windows-on-utm.md): Retire the Frost QEMU workflow and make the UTM guest the one scripted, rebuildable Windows lane, driven by scripts/vm.py like the macOS and Linux guests.
 
 ## Next
 
@@ -51,6 +50,7 @@ One plan per piece of work, in order. This page is rendered from each plan's fro
 - 2026-07-11 [Phase 3 Slice 12 Runtime Protocol Control](plans/phase-3-runtime-protocol-control.md): Reconcile active protocol evidence and make selected rendering policies and terminal modes adjustable during a live application session.
 - 2026-07-20 [Tessera open-source readiness](plans/open-source-readiness.md): Prepare Tessera for a deliberate public GitHub launch with Apache-2.0 licensing, community governance, release notes, and post-launch static DocC hosting.
 - 2026-10-22 [Terminal I/O concurrency review fixes](plans/terminal-io-concurrency-review-fixes.md): Fix the concurrency and isolation findings from a review of TesseraTerminal and TesseraTerminalIO: cancellation-safe teardown, serialized terminal output, blocking I/O off the cooperative pool, session and stream lifetimes, vouch cleanup, and deterministic terminal tests. Also the bug punchlist from the 2026-10-17 and 2026-10-20 repository review notes: nested view lists in layout containers, the parallel suite, error-type conformances, and CI coverage of the Examples package.
+- 2026-10-22 [Make UTM the one Windows lane and retire Frost](plans/windows-on-utm.md): Retire the Frost QEMU workflow and make the UTM guest the one scripted, rebuildable Windows lane, driven by scripts/vm.py like the macOS and Linux guests.
 
 ## Cancelled
 
