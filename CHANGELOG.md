@@ -46,6 +46,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Removed the Frost Windows workflow (its scripts, `windows-frost:` tasks, guide, and the Homebrew `qemu`, `swtpm`, and `sshpass` dependencies); QEMU's Apple hypervisor backend aborts on the TPM device on macOS 27, and snapshots of the UTM guest replace Frost's disposable overlays.
 
 ### Fixed
+- Fixed `PlatformIO` to keep its raw input byte stream private to the event parser: a second reader raced the parser for chunks (an `AsyncStream` has one consumer), which surfaced as a flaky `TesseraTerminalIOTests` failure on the Xcode 27 lane.
 - Fixed Windows terminal input shutdown so queued resize notifications drain before the event stream finishes, and fixed text snapshots to omit wide-cell continuation placeholders.
 - Fixed POSIX input cancellation to break retention cycles, wake blocked polls, prevent empty-read CPU spins, and keep active-probe tests deterministic; Linux Lima test arguments now support an empty forwarded argument list.
 - Fixed CI and documentation cache restoration and made Windows Frost SSH prefer the configured key without exhausting authentication attempts during password fallback.
