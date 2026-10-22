@@ -1,0 +1,489 @@
+From 30e4bbf7f6eec6c83bcac557104a38fe1afed0e6 Mon Sep 17 00:00:00 2001
+From: Rob Feldmann <me@robfeldmann.com>
+Date: Mon, 19 Oct 2026 23:28:17 -0400
+Subject: [PATCH] feat(spike): add resize, clock, and probe-ID seams for
+ developer tooling
+
+---
+ Sources/TesseraCore/Runtime/ViewGraph.swift   |  29 ++--
+ Sources/TesseraTerminal/TerminalSession.swift |   8 +-
+ .../InMemoryTerminalDevice.swift              |  78 ++++++++++-
+ .../InMemoryTerminalSession.swift             |   5 +
+ .../ViewGraphClockTests.swift                 |  59 ++++++++
+ .../TerminalSessionSeamTests.swift            | 130 ++++++++++++++++++
+ 6 files changed, 297 insertions(+), 12 deletions(-)
+ create mode 100644 Tests/TesseraCoreTests/ViewGraphClockTests.swift
+ create mode 100644 Tests/TesseraTerminalTests/TerminalSessionSeamTests.swift
+
+diff --git a/Sources/TesseraCore/Runtime/ViewGraph.swift b/Sources/TesseraCore/Runtime/ViewGraph.swift
+index 24da31a..612d47d 100644
+--- a/Sources/TesseraCore/Runtime/ViewGraph.swift
++++ b/Sources/TesseraCore/Runtime/ViewGraph.swift
+@@ -20,6 +20,7 @@ private final class _LayoutPlacementCollector {
+ /// An explicit, synchronous runtime tree reconciled from declarative view values.
+ public final class ViewGraph {
+   private let makeRoot: () -> any View
++  private let now: () -> ContinuousClock.Instant
+   private let baseEnvironment: EnvironmentValues
+   private lazy var rootNode = buildNode(
+     view: makeRoot(),
+@@ -60,12 +61,23 @@ public final class ViewGraph {
+   }
+ 
+   /// Creates and lowers the initial root value immediately.
+-  public init<Root: View>(
++  public convenience init<Root: View>(
+     root: @escaping () -> Root,
+     size: TerminalSize,
+     environment: EnvironmentValues = EnvironmentValues()
++  ) {
++    self.init(root: root, size: size, environment: environment, now: { .now })
++  }
++
++  /// Creates a graph that reads pass timings from `now` instead of the system clock.
++  package init<Root: View>(
++    root: @escaping () -> Root,
++    size: TerminalSize,
++    environment: EnvironmentValues = EnvironmentValues(),
++    now: @escaping () -> ContinuousClock.Instant
+   ) {
+     makeRoot = root
++    self.now = now
+     self.size = Self.sanitized(size)
+     baseEnvironment = environment
+     _ = rootNode
+@@ -78,15 +90,14 @@ extension ViewGraph {
+   public func update() {
+     statistics = GraphStatistics()
+     statistics.record(.updateRequested)
+-    let clock = ContinuousClock()
+-    let start = clock.now
++    let start = now()
+     rootNode = reconcile(
+       node: rootNode,
+       view: makeRoot(),
+       environment: baseEnvironment,
+       environmentOverrides: []
+     )
+-    statistics.updateDuration = start.duration(to: clock.now)
++    statistics.updateDuration = start.duration(to: now())
+   }
+ 
+   /// Measures and places dirty nodes using the graph's vertical composition rule.
+@@ -96,15 +107,14 @@ extension ViewGraph {
+     }
+ 
+     statistics.beginLayoutPass()
+-    let clock = ContinuousClock()
+-    let start = clock.now
++    let start = now()
+     layoutMeasurements.removeAll(keepingCapacity: true)
+     let proposal = ProposedSize(width: size.columns, height: size.rows)
+     _ = measure(rootNode, proposal: proposal)
+     let rootFrame = Rect(column: 0, row: 0, columns: size.columns, rows: size.rows)
+     place(rootNode, in: rootFrame, clip: rootFrame)
+     clearLayoutFlags(rootNode)
+-    statistics.layoutDuration = start.duration(to: clock.now)
++    statistics.layoutDuration = start.duration(to: now())
+   }
+ 
+   /// Renders through the borrowed frame capability, laying out first when required.
+@@ -116,11 +126,10 @@ extension ViewGraph {
+     }
+     layoutIfNeeded()
+ 
+-    let clock = ContinuousClock()
+-    let start = clock.now
++    let start = now()
+     render(rootNode, into: frame)
+     clearRenderFlags(rootNode)
+-    statistics.renderDuration = start.duration(to: clock.now)
++    statistics.renderDuration = start.duration(to: now())
+   }
+ 
+   /// Changes the graph viewport and invalidates layout only when the size changed.
+diff --git a/Sources/TesseraTerminal/TerminalSession.swift b/Sources/TesseraTerminal/TerminalSession.swift
+index c5fa9d6..d4e8715 100644
+--- a/Sources/TesseraTerminal/TerminalSession.swift
++++ b/Sources/TesseraTerminal/TerminalSession.swift
+@@ -5,6 +5,10 @@ import TesseraTerminalIO
+ import TesseraTerminalInput
+ import TesseraTerminalRendering
+ 
++func randomProbeImageID() -> KittyImageID {
++  KittyImageID(rawValue: UInt32.random(in: 1...UInt32.max))
++}
++
+ func shouldCoalesceInputEvents(
+   _ buffered: InputEvent,
+   _ incoming: InputEvent
+@@ -229,7 +233,7 @@ public actor TerminalSession {
+     keyboardProtocol: KeyboardProtocolMode = .legacyOnly,
+     kittyKeyboardFlags: KittyKeyboardFlags = .tesseraDefault,
+     activeProbeTimeout: Duration = .milliseconds(250),
+-    probeImageID: KittyImageID = KittyImageID(rawValue: UInt32.random(in: 1...UInt32.max)),
++    probeImageID: KittyImageID = randomProbeImageID(),
+     probeSleep: @escaping ActiveCapabilityProbeCoordinator.Sleep = { duration in
+       try await ContinuousClock().sleep(for: duration)
+     },
+@@ -355,6 +359,7 @@ public actor TerminalSession {
+     configuration: TerminalApplicationConfiguration,
+     io: PlatformIO,
+     environment: [String: String] = TerminalCapabilityDetector.currentEnvironment(),
++    probeImageID: KittyImageID = randomProbeImageID(),
+     _ body: (isolated TerminalSession) async throws -> sending R
+   ) async throws -> sending R {
+     let resolution = configuration.resolve(environment: environment)
+@@ -388,6 +393,7 @@ public actor TerminalSession {
+         keyboardProtocol: resolution.keyboardProtocol,
+         kittyKeyboardFlags: resolution.kittyKeyboardFlags,
+         activeProbeTimeout: resolution.activeProbeTimeout,
++        probeImageID: probeImageID,
+         modeLifecycle: lifecycle
+       )
+       session = constructedSession
+diff --git a/Sources/TesseraTerminalTestSupport/InMemoryTerminalDevice.swift b/Sources/TesseraTerminalTestSupport/InMemoryTerminalDevice.swift
+index 196335f..1c5e16b 100644
+--- a/Sources/TesseraTerminalTestSupport/InMemoryTerminalDevice.swift
++++ b/Sources/TesseraTerminalTestSupport/InMemoryTerminalDevice.swift
+@@ -21,7 +21,12 @@ public enum InMemoryTerminalDeviceEvent: Equatable, Sendable {
+ 
+ /// An in-memory terminal device for deterministic terminal I/O tests.
+ public actor InMemoryTerminalDevice {
++  private var deliveredSizes: [TerminalSize] = []
++  private var inputContinuation: AsyncStream<[UInt8]>.Continuation?
++  private var isInputClosed = false
++  private let keepsInputOpen: Bool
+   private var recordedEvents: [InMemoryTerminalDeviceEvent] = []
++  private var sizeContinuations: [AsyncStream<TerminalSize>.Continuation] = []
+   private var storedBytes: [UInt8] = []
+   private var storedInputBytes: [UInt8]
+   private var storedCellPixelSize: CellPixelSize?
+@@ -40,6 +45,7 @@ public actor InMemoryTerminalDevice {
+   /// A terminal device seam backed by this actor's in-memory state.
+   package var terminalDevice: TerminalDevice {
+     let inputBytes = storedInputBytes
++    let keepsInputOpen = keepsInputOpen
+ 
+     return TerminalDevice(
+       bytes: {
+@@ -47,7 +53,11 @@ public actor InMemoryTerminalDevice {
+           if !inputBytes.isEmpty {
+             continuation.yield(inputBytes)
+           }
+-          continuation.finish()
++          if keepsInputOpen {
++            Task { await self.attachInput(continuation) }
++          } else {
++            continuation.finish()
++          }
+         }
+       },
+       cellPixelSize: { await self.storedCellPixelSize },
+@@ -56,6 +66,15 @@ public actor InMemoryTerminalDevice {
+       exitAltScreen: { await self.exitAltScreen() },
+       exitRawMode: { await self.exitRawMode() },
+       size: { await self.storedSize },
++      sizeChanges: {
++        AsyncStream { continuation in
++          if keepsInputOpen {
++            Task { await self.attachSizeChanges(continuation) }
++          } else {
++            continuation.finish()
++          }
++        }
++      },
+       write: { try await self.write($0) }
+     )
+   }
+@@ -66,6 +85,24 @@ public actor InMemoryTerminalDevice {
+     cellPixelSize: CellPixelSize? = nil,
+     inputBytes: [UInt8] = []
+   ) {
++    self.init(
++      size: size,
++      cellPixelSize: cellPixelSize,
++      inputBytes: inputBytes,
++      keepsInputOpen: false
++    )
++  }
++
++  /// Creates a device whose input and size-change streams stay open until `closeInput()`.
++  ///
++  /// An open device can deliver `.resize` mid-session through `deliverResize(to:)`.
++  package init(
++    size: TerminalSize,
++    cellPixelSize: CellPixelSize?,
++    inputBytes: [UInt8],
++    keepsInputOpen: Bool
++  ) {
++    self.keepsInputOpen = keepsInputOpen
+     self.storedInputBytes = inputBytes
+     self.storedCellPixelSize = cellPixelSize
+     self.storedSize = size
+@@ -76,6 +113,45 @@ public actor InMemoryTerminalDevice {
+     self.storedSize = size
+   }
+ 
++  /// Finishes the input and size-change streams of an open device.
++  package func closeInput() {
++    isInputClosed = true
++    inputContinuation?.finish()
++    inputContinuation = nil
++    for continuation in sizeContinuations {
++      continuation.finish()
++    }
++    sizeContinuations = []
++  }
++
++  /// Reports a new size and emits it on every size-change stream, including late subscribers.
++  package func deliverResize(to size: TerminalSize) {
++    storedSize = size
++    deliveredSizes.append(size)
++    for continuation in sizeContinuations {
++      continuation.yield(size)
++    }
++  }
++
++  private func attachInput(_ continuation: AsyncStream<[UInt8]>.Continuation) {
++    if isInputClosed {
++      continuation.finish()
++    } else {
++      inputContinuation = continuation
++    }
++  }
++
++  private func attachSizeChanges(_ continuation: AsyncStream<TerminalSize>.Continuation) {
++    for size in deliveredSizes {
++      continuation.yield(size)
++    }
++    if isInputClosed {
++      continuation.finish()
++    } else {
++      sizeContinuations.append(continuation)
++    }
++  }
++
+   private func enterAltScreen() {
+     recordedEvents.append(.enterAltScreen)
+     storedBytes.append(contentsOf: "\u{1B}[?1049h".utf8)
+diff --git a/Sources/TesseraTerminalTestSupport/InMemoryTerminalSession.swift b/Sources/TesseraTerminalTestSupport/InMemoryTerminalSession.swift
+index f29aabc..9d80055 100644
+--- a/Sources/TesseraTerminalTestSupport/InMemoryTerminalSession.swift
++++ b/Sources/TesseraTerminalTestSupport/InMemoryTerminalSession.swift
+@@ -32,6 +32,11 @@ public struct InMemoryTerminalSession: Sendable {
+     )
+   }
+ 
++  /// Creates a session around an existing device, such as one that stays open for resizes.
++  package init(device: InMemoryTerminalDevice) {
++    self.device = device
++  }
++
+   /// Runs a body in an application terminal scope backed by this in-memory device.
+   ///
+   /// The terminal scope restores every acquired application mode before this method
+diff --git a/Tests/TesseraCoreTests/ViewGraphClockTests.swift b/Tests/TesseraCoreTests/ViewGraphClockTests.swift
+new file mode 100644
+index 0000000..9dbb096
+--- /dev/null
++++ b/Tests/TesseraCoreTests/ViewGraphClockTests.swift
+@@ -0,0 +1,59 @@
++import TesseraTerminalCore
++import TesseraTestSupport
++import Testing
++
++@testable import TesseraCore
++
++@Test
++func `injected clock supplies every graph pass duration`() {
++  let size = TerminalSize(columns: 4, rows: 1)
++  let origin = ContinuousClock.now
++  var readings = 0
++  let graph = ViewGraph(
++    root: { Text("tick") },
++    size: size,
++    now: {
++      readings += 1
++      return origin.advanced(by: .milliseconds(10 * readings))
++    }
++  )
++
++  graph.update()
++  expectDurations(graph.statistics, update: .milliseconds(10), layout: .zero, render: .zero)
++
++  _ = withTestFrame(size: size) { graph.render(into: $0) }
++  expectDurations(
++    graph.statistics,
++    update: .milliseconds(10),
++    layout: .milliseconds(10),
++    render: .milliseconds(10)
++  )
++}
++
++@Test
++func `graphs sharing deterministic clocks produce equal diagnostics`() {
++  let size = TerminalSize(columns: 4, rows: 1)
++  let origin = ContinuousClock.now
++  func makeGraph() -> ViewGraph {
++    ViewGraph(root: { Text("same") }, size: size, now: { origin })
++  }
++  let first = makeGraph()
++  let second = makeGraph()
++
++  _ = withTestFrame(size: size) { first.render(into: $0) }
++  _ = withTestFrame(size: size) { second.render(into: $0) }
++
++  #expect(first.diagnostics == second.diagnostics)
++  #expect(first.diagnostics.statistics.renderDuration == .zero)
++}
++
++private func expectDurations(
++  _ statistics: GraphStatistics,
++  update: Duration,
++  layout: Duration,
++  render: Duration
++) {
++  #expect(statistics.updateDuration == update)
++  #expect(statistics.layoutDuration == layout)
++  #expect(statistics.renderDuration == render)
++}
+diff --git a/Tests/TesseraTerminalTests/TerminalSessionSeamTests.swift b/Tests/TesseraTerminalTests/TerminalSessionSeamTests.swift
+new file mode 100644
+index 0000000..41a8186
+--- /dev/null
++++ b/Tests/TesseraTerminalTests/TerminalSessionSeamTests.swift
+@@ -0,0 +1,130 @@
++import TesseraTerminalANSI
++import TesseraTerminalCore
++import TesseraTerminalInput
++import TesseraTerminalTestSupport
++import Testing
++
++@testable import TesseraTerminal
++@testable import TesseraTerminalIO
++
++@Test
++func `resize delivered mid-session produces a second draw at the new size`() async throws {
++  let initialSize = TerminalSize(columns: 4, rows: 2)
++  let resizedSize = TerminalSize(columns: 6, rows: 3)
++  let device = InMemoryTerminalDevice(
++    size: initialSize,
++    cellPixelSize: nil,
++    inputBytes: [],
++    keepsInputOpen: true
++  )
++  let session = InMemoryTerminalSession(device: device)
++  var drawnSizes: [TerminalSize] = []
++  var receivedEvent: InputEvent?
++  var receivedSizeChange: TerminalSize?
++
++  try await session.withApplicationTerminal { terminal in
++    var sizeChanges = terminal.sizeChanges.makeAsyncIterator()
++    drawnSizes.append(
++      try await terminal.draw { frame in
++        frame.write("a", at: TerminalPosition(column: 0, row: 0))
++        return frame.size
++      }
++    )
++
++    await device.deliverResize(to: resizedSize)
++    receivedEvent = try await terminal.nextEvent()
++    receivedSizeChange = await sizeChanges.next()
++
++    drawnSizes.append(
++      try await terminal.draw { frame in
++        frame.write("b", at: TerminalPosition(column: 5, row: 2))
++        return frame.size
++      }
++    )
++    await device.closeInput()
++  }
++
++  #expect(drawnSizes == [initialSize, resizedSize])
++  #expect(receivedEvent == .resize(resizedSize))
++  #expect(receivedSizeChange == resizedSize)
++  #expect(await device.events.filter(\.isFlush).count >= 2)
++}
++
++@Test
++func `closed input ends the event stream of an open device`() async throws {
++  let device = InMemoryTerminalDevice(
++    size: TerminalSize(columns: 4, rows: 2),
++    cellPixelSize: nil,
++    inputBytes: [],
++    keepsInputOpen: true
++  )
++  let session = InMemoryTerminalSession(device: device)
++
++  await #expect(throws: PlatformIOError.inputClosed) {
++    try await session.withApplicationTerminal { terminal in
++      await device.closeInput()
++      _ = try await terminal.nextEvent()
++    }
++  }
++}
++
++@Test
++func `injected probe image ID reaches the active Kitty graphics query`() async throws {
++  let device = DeviceAttributesTerminalDevice()
++  let io = PlatformIO(terminalDevice: await device.terminalDevice)
++  let configuration = TerminalApplicationConfiguration(
++    activeProbeTimeout: .milliseconds(100),
++    capabilityDetection: .active
++  )
++
++  try await TerminalSession.withApplicationTerminal(
++    configuration: configuration,
++    io: io,
++    environment: [:],
++    probeImageID: KittyImageID(rawValue: 4_242)
++  ) { _ in }
++
++  let queries = await device.flushes.map { String(decoding: $0, as: UTF8.self) }
++  #expect(queries.contains { $0.hasPrefix("\u{1B}_Gi=4242,") })
++}
++
++/// Answers every probe round that ends in a primary device attributes query.
++private actor DeviceAttributesTerminalDevice {
++  private let inputContinuation: AsyncStream<[UInt8]>.Continuation
++  private let inputStream: AsyncStream<[UInt8]>
++
++  private(set) var flushes: [[UInt8]] = []
++
++  var terminalDevice: TerminalDevice {
++    let inputStream = inputStream
++    return TerminalDevice(
++      bytes: { inputStream },
++      size: { TerminalSize(columns: 4, rows: 2) },
++      write: { await self.write($0) }
++    )
++  }
++
++  init() {
++    let stream = AsyncStream<[UInt8]>.makeStream()
++    self.inputContinuation = stream.continuation
++    self.inputStream = stream.stream
++  }
++
++  private func write(_ byteSlice: ArraySlice<UInt8>) -> Int {
++    let bytes = Array(byteSlice)
++    flushes.append(bytes)
++    if bytes.suffix(3) == [0x1B, 0x5B, 0x63] {
++      inputContinuation.yield(Array("\u{1B}[?1;2c".utf8))
++    }
++    return bytes.count
++  }
++}
++
++extension InMemoryTerminalDeviceEvent {
++  fileprivate var isFlush: Bool {
++    if case .flush = self {
++      return true
++    }
++    return false
++  }
++}
+-- 
+2.56.0
+

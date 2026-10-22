@@ -16,20 +16,28 @@ updated: 2026-10-21
 
 ## Progress
 
-- [ ] **Phase 1 — Baseline**
+- [x] **Phase 1 — Baseline**
   - [x] 1.1 Run every local check at HEAD and record the results (`982779d`; results table
         in the step)
-- [ ] **Phase 2 — Xcode 26.6 baseline, plus Swift 6.4 and Xcode 27**
+- [x] **Phase 2 — Xcode 26.6 baseline, plus Swift 6.4 and Xcode 27**
   - [x] 2.1 Move every lane to the Xcode 26.6 and Swift 6.3.3 baseline (`7334486`; macOS,
-        Lima, and UTM Windows pass on 6.3.3; CI run on PR #41 recorded in the step)
-  - [x] 2.2 Build and test on Xcode 27 and Swift 6.4 (no source change; clean build, test,
-        Examples, and DocC pass on 27.1; DocC fix in the step's commit)
-  - [ ] 2.3 Add the Swift 6.4 lanes
-  - [ ] 2.4 Toolchain documentation
-- [ ] **Phase 3 — Port plan 033 and its spikes to main**
-  - [ ] 3.1 Bring the `devtools-plan` commits onto main
-  - [ ] 3.2 Build and test each spike on the Phase 2 lanes
-  - [ ] 3.3 Save the seams spike as a patch (branch deletion waits for the owner)
+        Lima, and UTM Windows pass on 6.3.3; CI run `39719857507` green on all three
+        platforms with `swiftlang-6.3.3.1.3` on macOS and `6.3.3-RELEASE` on Linux and
+        Windows)
+  - [x] 2.2 Build and test on Xcode 27 and Swift 6.4 (`0b0e351`; no source change; clean
+        build, test, Examples, and DocC pass on 27.1)
+  - [x] 2.3 Add the Swift 6.4 lanes (`9027620`; probe `895e5d1` failed `test (macos-26)`
+        on run `39720701651` and was reverted in `c8b4904`; run `39721016859` is green on
+        all five legs, `xcode-27` on Xcode 27.1 `swiftlang-6.4.0.34.1` and
+        `ubuntu-latest / swift-6.4.1` on 6.4.1)
+  - [x] 2.4 Toolchain documentation (`b128c2d`)
+- [x] **Phase 3 — Port plan 033 and its spikes to main**
+  - [x] 3.1 Bring the `devtools-plan` commits onto main (`788b59a`..`f82f56e`, nine
+        cherry-picks; lint passes)
+  - [x] 3.2 Build and test each spike on the Phase 2 lanes (identity fix; all four pass on
+        26.6 and 27.1; commit below)
+  - [x] 3.3 Save the seams spike as a patch (`spikes/Seams/30e4bbf.patch` applies to
+        `cb8d143`; branch deletion waits for the owner)
 - [ ] **Phase 4 — Plan 034 bug punchlist**
   - [ ] 4.1 Run plan 034 to completion
 - [ ] **Phase 5 — Repository conventions**
@@ -45,7 +53,8 @@ updated: 2026-10-21
   - [ ] 6.2 Owner decision: the `mobile` viewport rule, then apply it
   - [ ] 6.3 Retire plans 032 and 033
 
-Next: Step 2.3 (Swift 6.4 lanes in CI and a second swiftly toolchain in Lima).
+Next: Step 4.1 (plan 034), starting at its Step 1.1 (run the focused filters on each lane)
+and Step 1.2.
 
 ## Overview
 
@@ -410,6 +419,11 @@ Xcode 27 pass too, and CI guards both, without raising the floor.
   request to merge is unnecessary; the owner's squash merges make any later rebase moot.
 - Acceptance: the files are on `plan-035`, and `just quality lint` passes with them.
 
+#### Done (2026-10-22)
+
+- `git cherry-pick fdd4732^..8ee4c59` applied all nine commits with no conflicts
+  (`788b59a` through `f82f56e` on `plan-035`); `just quality lint` passes with them.
+
 ### Step 3.2 — Build and test each spike on the Phase 2 lanes
 
 - Each spike is its own package. Run `swift build` and `swift test` with
@@ -418,6 +432,20 @@ Xcode 27 pass too, and CI guards both, without raising the floor.
 - Spikes stay out of CI (owner decision). Say so in `spikes/README.md`: they are frozen
   evidence, built by hand.
 - Acceptance: every spike builds and its tests pass on the baseline and the 6.4 lane.
+
+#### Done (2026-10-22)
+
+- Drift fixed: every spike manifest referred to the root package by the worktree's
+  directory name (`package: "devtools"`; `LiveSocket` derived it from `#filePath`), so
+  none built from a checkout named `main`. Each now declares
+  `.package(name: "tessera", path: "../..")`, which fixes the identity for any checkout
+  name; the four README findings that described the old behavior say so. No API drift: the
+  spikes compile against the root package unchanged.
+- Baseline (Xcode 26.6): `swift build` and `swift test` pass for GraphQuery (30 tests),
+  HeadlessRunner (18), LiveSocket (35), and SvgShot (10). Swift 6.4 lane (Xcode 27.1, a
+  separate scratch path): the same four pass with the same counts and no diagnostics.
+- `spikes/README.md` has a "Status" section: frozen evidence, built by hand, out of CI
+  (owner decision), last built 2026-10-22 on both lanes.
 
 ### Step 3.3 — Save the seams spike as a patch and retire the devtools branches
 
@@ -431,6 +459,15 @@ Xcode 27 pass too, and CI guards both, without raising the floor.
   owner, once their contents are on `main`.
 - Acceptance: `git apply --check spikes/Seams/30e4bbf.patch` succeeds against `30e4bbf^`,
   and the README names that base.
+
+#### Done (2026-10-22)
+
+- `spikes/Seams/30e4bbf.patch` is `git format-patch -1 30e4bbf --stdout` (489 lines).
+  `git apply --check` succeeds against `cb8d143` (`30e4bbf^`, checked in the
+  `devtools-seams` worktree, then restored to its branch) and against the `plan-035` tip.
+  `spikes/Seams/README.md` names the base and the patch, and plan 033 Step A.2 and its
+  "Spikes" section point at the patch instead of the branch. Both worktrees and both
+  branches are left for the owner.
 
 ## Phase 4 — Plan 034 bug punchlist
 
