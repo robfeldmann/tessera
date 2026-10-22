@@ -15,7 +15,7 @@ Run:
 mise run core:doctor
 ```
 
-This prints the active checkout, the pinned Ghostty VT revision, the Ghostty VT cache path, the Lima VM name and mount, and the Windows Frost image paths.
+This prints the active checkout, the pinned Ghostty VT revision, the Ghostty VT cache path, the Lima VM name and mount, and the Windows Frost image paths. `mise run vm:status` lists the Tart and Lima VMs.
 
 ## Toolchains
 
@@ -63,31 +63,31 @@ mise run core:clean-libghostty-vt
 There are two Linux paths:
 
 1. `mise run linux:build` uses Swift's Static Linux SDK from macOS. The SDK is installed into the active Swift toolchain, not into this repository.
-2. `mise run linux:test` uses a Lima VM so tests run on an actual Linux userspace.
+2. `mise run vm:linux-test` uses a Lima VM so tests run on an actual Linux userspace.
 
 The Static Linux SDK metadata lives in `scripts/config/swift-sdks.json`, keyed by Swift version. `scripts/linux-sdk-version.sh` picks the entry that matches the active compiler (`swift --version`), because the SDK must match the compiler that uses it, and falls back to `.swift-version` when the active compiler has no entry. Updating the baseline Swift means adding an entry here and updating `.swift-version` together.
 
-The default Lima VM name is:
-
-```text
-tessera-linux
-```
+The default Lima VM name is `tessera-linux`, and its disk lives under `~/.local/share/vms/lima/`: the VM tasks set `LIMA_HOME` for their own commands only, so other Lima users keep their default. [Tessera VMs](vms.md) has the storage, naming, and move details.
 
 A Lima VM mounts one checkout path. If you want multiple worktrees active at the same time, give each worktree its own VM name:
 
 ```sh
-env TESSERA_LINUX_VM_NAME=tessera-linux-slice6 mise run linux:test
+env TESSERA_LINUX_VM_NAME=tessera-linux-slice6 mise run vm:linux-test
 ```
 
 Forward focused SwiftPM test arguments after `--` when you do not need the full Linux suite:
 
 ```sh
-mise run linux:test -- --filter PlatformHandlesTests
+mise run vm:linux-test -- --filter PlatformHandlesTests
 ```
 
-If the VM is stopped and points at a different checkout, `mise run linux:test` recreates it for the current path. If it is running for another checkout, the recipe stops instead of silently testing the wrong tree.
+If the VM is stopped and mounts a different checkout, `mise run vm:linux-test` re-points it at the current one (`limactl edit`), keeping its toolchains and caches. If it is running for another checkout, the task stops instead of silently testing the wrong tree.
 
 You usually do not need to rebuild the Linux VM after switching branches. Rebuild or delete it when `.swift-version`, `scripts/config/lima/tessera-linux.yaml`, or the Linux package prerequisites change.
+
+## macOS VMs
+
+A macOS work instance (`tessera-macos-26`, `tessera-macos-27`) does not mount the host checkout. `mise run vm:macos-push` delivers the working tree to `~/tessera` in the guest, which keeps its own `.build` and libghostty-vt cache between runs, so that state is VM-local. The disks live under `~/.local/share/vms/tart/`; see [Tessera VMs](vms.md).
 
 ## Windows Frost
 

@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Added Windows Ghostty snapshot support with a static library, reproducible Zig build and cache tooling, Frost VM recipes, console mode setup and restoration, live terminal device I/O, focused cross-platform test recipes, and hosted CI coverage.
 - Added public issue, Discussion, and pull-request forms, private security and conduct reporting, solo-maintainer ownership metadata, and a fork-safe reviewed contributor vouch gate with tested trust parsing.
 - Added read-only DocC pull-request validation plus main-branch and manual GitHub Pages deployment for the combined static documentation site.
+- Added macOS VMs under Tart for local validation: `vm:` tasks build macOS 26 and 27 bases with Xcode 26.6 and 27.1 from Cirrus Labs vanilla images, clone work instances, deliver the working tree, and run the check matrix in the guest; the Lima tasks moved to `vm:linux-*`, keeping `linux:*` as aliases.
 
 ### Changed
 - Changed `TerminalSession` to run its terminal teardown in an uncancellable task, so a cancelled body still leaves raw mode and the alternate screen, and to throw `TerminalSessionError.closed` from every writing call once `withApplicationTerminal` has returned; `events` and `nextEvent()` now drain one shared input queue, size changes keep only the newest value, and overlapping draws and flushes are serialized so each byte is sent once and frames diff against what the terminal received.

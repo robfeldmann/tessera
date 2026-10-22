@@ -168,7 +168,8 @@ mise run quality:lint     # strict format + lint gate
 
 Cross-platform work runs in reproducible VMs:
 
-- 🐧 [Linux (Lima) test runs](CONTRIBUTING.md#linux) and `mise run linux:…`
+- 🍎 [macOS VMs (Tart)](docs/guides/vms.md) with a clean Xcode per lane and `mise run vm:macos-…`
+- 🐧 [Linux (Lima) test runs](CONTRIBUTING.md#linux) and `mise run vm:linux-…`
 - 🪟 [Windows VM with Frost](docs/guides/windows-frost-vm.md) / [manual UTM setup](docs/guides/windows-vm.md) and `mise run windows-frost:…` / `mise run windows-utm:…`
 
 Start in the appropriate Discussion category before opening a pull request so we can agree on the problem and direction. First-time contributors then use the [Vouch Request form](https://github.com/robfeldmann/tessera/discussions/new?category=vouch-request).

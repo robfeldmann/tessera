@@ -45,8 +45,8 @@ Two toolchains are supported, and both must pass:
 
 | Lane | macOS | Linux and Windows | Where it runs |
 | --- | --- | --- | --- |
-| Baseline | Xcode 26.6 (`swiftlang-6.3.3`) | swift.org Swift 6.3.3 | Required CI checks, DocC, Pages, the Lima and Windows VMs |
-| Swift 6.4 | Xcode 27.1 (`swiftlang-6.4`) | swift.org Swift 6.4.1 | CI (`ubuntu-latest / swift-6.4.1`; `xcode-27`, non-required) |
+| Baseline | Xcode 26.6 (`swiftlang-6.3.3`) | swift.org Swift 6.3.3 | Required CI checks, DocC, Pages, the macOS 26, Lima, and Windows VMs |
+| Swift 6.4 | Xcode 27.1 (`swiftlang-6.4`) | swift.org Swift 6.4.1 | CI (`ubuntu-latest / swift-6.4.1`; `xcode-27`, non-required), the macOS 27 VM |
 
 `.swift-version` names the baseline (6.3.3). The floor for consumers stays `swift-tools-version: 6.3` and macOS 26; code must compile on both lanes without raising either, and any API that needs the macOS 27 SDK goes behind `#available` at a leaf seam.
 
@@ -60,7 +60,8 @@ Select a toolchain locally:
 
   (Adjust the path to where Xcode 26.6 is installed; `xcodes` installs it as `Xcode-26.6.0.app`.) CI selects `/Applications/Xcode_26.6.app` on the `macos-26` image through `.github/actions/setup-swift`, whose `xcode` input is the one place to change.
 
-- Lima: `mise run linux:test` uses the baseline from `.swift-version`; `TESSERA_LINUX_SWIFT_VERSION=6.4.1 mise run linux:test` runs the same suite on Swift 6.4.1, installing it with swiftly on first use (both toolchains stay installed).
+- macOS VMs: `tessera-macos-26` carries Xcode 26.6 and `tessera-macos-27` carries Xcode 27.1, so `mise run vm:macos-check` runs the baseline or the 6.4 lane on a clean system ([Tessera VMs](docs/guides/vms.md)).
+- Lima: `mise run vm:linux-test` uses the baseline from `.swift-version`; `TESSERA_LINUX_SWIFT_VERSION=6.4.1 mise run vm:linux-test` runs the same suite on Swift 6.4.1, installing it with swiftly on first use (both toolchains stay installed).
 - Windows: the Frost toolchain image and the UTM VM carry the baseline only (`mise run windows-frost:provision-toolchain` reads `.swift-version`). There is no Windows 6.4 lane yet.
 - Linux cross-compilation (`mise run linux:build`) picks the Static Linux SDK that matches the active compiler from `scripts/config/swift-sdks.json`, falling back to the baseline.
 
@@ -80,11 +81,12 @@ npm ci                     # pinned Prettier (YAML and JSON)
 mise run setup:hooks       # hk: staged quality gate and Conventional Commit checks
 ```
 
-That is the whole bootstrap; nothing depends on anyone's personal dotfiles. Run tasks with `mise run <task>` (`mise tasks` lists them, grouped as `core:`, `quality:`, `docs:`, `ci:`, `linux:`, `windows-frost:`, `windows-utm:`, and `setup:`), or [activate mise](https://mise.jdx.dev/getting-started.html#activate-mise) in your shell so the tools are on `PATH` and fish completes every task and its arguments.
+That is the whole bootstrap; nothing depends on anyone's personal dotfiles. Run tasks with `mise run <task>` (`mise tasks` lists them, grouped as `core:`, `quality:`, `docs:`, `ci:`, `linux:`, `vm:`, `windows-frost:`, `windows-utm:`, and `setup:`), or [activate mise](https://mise.jdx.dev/getting-started.html#activate-mise) in your shell so the tools are on `PATH` and fish completes every task and its arguments.
 
 Optional platform tooling for cross-platform testing:
 
-- [Lima](https://lima-vm.io/) — Docker-free Linux test runs.
+- [Tart](https://tart.run/) (from `mise install`) — macOS VMs with a clean Xcode, driven by the `vm:macos-*` tasks.
+- [Lima](https://lima-vm.io/) — Docker-free Linux test runs, driven by the `vm:linux-*` tasks.
 - [UTM](https://mac.getutm.app/) — Windows GUI VM on Apple silicon.
 - [QEMU](https://www.qemu.org/), swtpm, and sshpass — scripted Windows VM runs with Frost.
 
@@ -175,7 +177,21 @@ Match the surrounding code and the repository conventions:
 
 ## Cross-platform testing
 
-CI runs the full suite on macOS, Linux, and Windows with Ghostty-backed snapshot coverage. Locally you can validate other platforms from macOS.
+CI runs the full suite on macOS, Linux, and Windows with Ghostty-backed snapshot coverage. Locally you can validate other platforms from macOS. The macOS and Linux VMs are Tessera's own `vm:` tasks; [Tessera VMs](docs/guides/vms.md) covers where their disks live, how they are named, and the SSH setup.
+
+### macOS
+
+A macOS VM runs the check matrix on a clean macOS with only the lane's Xcode installed, which catches anything that passes only because of your host's setup. Build a base once per release (Tart pulls a Cirrus Labs vanilla image of tens of GB and installs Xcode into it), then clone a work instance from it:
+
+```sh
+mise run vm:macos-base 26 --xcode host   # copy this Mac's Xcode 26.6; --xcode xcodes downloads it with your Apple Account
+mise run vm:macos-clone 26               # tessera-macos-26
+mise run vm:macos-push tessera-macos-26  # deliver the working tree to ~/tessera in the guest
+mise run vm:macos-check tessera-macos-26 # ci:check, docs:lint, and core:examples in the guest
+mise run vm:macos-stop tessera-macos-26
+```
+
+Use `27` for the Swift 6.4 lane (macOS 27 with Xcode 27.1).
 
 ### Linux
 
@@ -189,11 +205,13 @@ mise run linux:build
 Run the Linux test suite in a [Lima](https://lima-vm.io/) VM (Ubuntu 24.04, no Docker):
 
 ```sh
-mise run linux:start           # create/start the VM; set TESSERA_LINUX_VM_NAME for parallel worktrees
-mise run linux:test            # full Linux suite from macOS
-mise run linux:test -- --filter PlatformHandlesTests   # focused; keeps --jobs 2 --no-parallel
-mise run linux:stop            # then `mise run linux:delete` for a fresh environment
+mise run vm:linux-start        # create/start the VM; set TESSERA_LINUX_VM_NAME for parallel worktrees
+mise run vm:linux-test         # full Linux suite from macOS
+mise run vm:linux-test -- --filter PlatformHandlesTests   # focused; keeps --jobs 2 --no-parallel
+mise run vm:linux-stop         # then `mise run vm:linux-delete` for a fresh environment
 ```
+
+The older names (`linux:start`, `linux:test`, `linux:stop`, `linux:shell`, `linux:delete`) still run these tasks.
 
 ### Windows
 

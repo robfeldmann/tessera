@@ -39,6 +39,26 @@ checksum = "sha256:4b7b73704b1db9b374e5c9ab8e17ac6148b817b6396ee75cd94a852cbac9d
 url = "https://github.com/Kitware/CMake/releases/download/v4.4.4/cmake-4.4.4-macos-universal.tar.gz"
 url_api = "https://api.github.com/repos/Kitware/CMake/releases/assets/605993514"
 
+[[tools."github:cirruslabs/tart"]]
+version = "2.41.1"
+backend = "github:cirruslabs/tart"
+specifiers = ["2.41.1"]
+
+[tools."github:cirruslabs/tart"."platforms.linux-arm64"]
+checksum = "sha256:e680a734febccfce7d4e910c1f7f13fc3b00f19a181c945e2d746de3214c32c2"
+url = "https://github.com/cirruslabs/tart/releases/download/2.41.1/tart.tar.gz"
+url_api = "https://api.github.com/repos/cirruslabs/tart/releases/assets/644183490"
+
+[tools."github:cirruslabs/tart"."platforms.linux-x64"]
+checksum = "sha256:e680a734febccfce7d4e910c1f7f13fc3b00f19a181c945e2d746de3214c32c2"
+url = "https://github.com/cirruslabs/tart/releases/download/2.41.1/tart.tar.gz"
+url_api = "https://api.github.com/repos/cirruslabs/tart/releases/assets/644183490"
+
+[tools."github:cirruslabs/tart"."platforms.macos-arm64"]
+checksum = "sha256:e680a734febccfce7d4e910c1f7f13fc3b00f19a181c945e2d746de3214c32c2"
+url = "https://github.com/cirruslabs/tart/releases/download/2.41.1/tart.tar.gz"
+url_api = "https://api.github.com/repos/cirruslabs/tart/releases/assets/644183490"
+
 [[tools."github:iwe-org/iwe"]]
 version = "0.29.0"
 backend = "github:iwe-org/iwe"

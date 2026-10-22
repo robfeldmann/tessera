@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Create or start the Lima Linux VM for this checkout"
+#MISE alias="linux:start"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+exec python3 scripts/vm.py linux-start "$@"

@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Show the Tart and Lima VMs under ~/.local/share/vms (TART_HOME, LIMA_HOME)"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+exec python3 scripts/vm.py status "$@"
