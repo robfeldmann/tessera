@@ -55,6 +55,7 @@ Start here — the DocC catalogs are the API reference and article home:
 - 📘 [**Tessera** DocC catalog](Sources/Tessera/Tessera.docc/Tessera.md) — umbrella API and module map.
 - 📗 [**TesseraTerminal** DocC catalog](Sources/TesseraTerminal/TesseraTerminal.docc/TesseraTerminal.md) — the terminal substrate, sessions, and [Modern Terminal Protocols](Sources/TesseraTerminal/TesseraTerminal.docc/Articles/Modern-Terminal-Protocols.md).
 - 🗺️ [Project status](docs/project-status.md) — maturity, roadmap, and documentation boundaries.
+- 🧭 [Project knowledge](docs/index.md) — the spec, plans, research, architecture decisions, the design catalog, and contributor guides, kept as an [IWE](https://iwe.md) workspace in `docs/`; `mise install` provides `iwe`, and `iwe find --fuzzy <terms>` from `docs/` is the fastest way in for contributors and agents alike.
 - 🛠️ [Contributing](CONTRIBUTING.md) — dev loop, quality gates, and VM guides.
 
 ## Quick start

@@ -67,7 +67,7 @@ Select a toolchain locally:
 
 ## Setup
 
-[Homebrew](https://brew.sh/) is the recommended way to install the macOS tool set. A `Brewfile` installs everything at once:
+Install [mise](https://mise.jdx.dev/getting-started.html) first (`brew install mise`, or the installer on that page); it provides every other pinned tool. On macOS a `Brewfile` installs the host packages mise cannot (swiftly, Lima, UTM):
 
 ```sh
 brew bundle install        # or install the tools above individually and put them on PATH
@@ -81,7 +81,7 @@ npm ci                     # pinned Prettier (YAML and JSON)
 mise run setup:hooks       # hk: staged quality gate and Conventional Commit checks
 ```
 
-That is the whole bootstrap; nothing depends on anyone's personal dotfiles. Run tasks with `mise run <task>` (`mise tasks` lists them, grouped as `core:`, `quality:`, `docs:`, `ci:`, `linux:`, `vm:`, `windows-frost:`, `windows-utm:`, and `setup:`), or [activate mise](https://mise.jdx.dev/getting-started.html#activate-mise) in your shell so the tools are on `PATH` and fish completes every task and its arguments.
+Run tasks with `mise run <task>` (`mise tasks` lists them, grouped as `core:`, `quality:`, `docs:`, `ci:`, `linux:`, `vm:`, `windows-frost:`, `windows-utm:`, and `setup:`), or [activate mise](https://mise.jdx.dev/getting-started.html#activate-mise) in your shell so the tools are on `PATH` and your shell completes every task and its arguments.
 
 Optional platform tooling for cross-platform testing:
 
@@ -140,14 +140,6 @@ PR titles must use Conventional Commit style.
 [`CHANGELOG.md`](CHANGELOG.md) is the canonical release history. Add one entry for each notable user- or contributor-visible change under `Unreleased`. Use only these headings: `Breaking Changes`, `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, and `Security`. Choose the heading by effect rather than commit type; documentation and tooling changes belong under the standard heading whose behavior they affect. Omit internal planning and mechanical changes.
 
 Each entry must be a concise, self-contained bullet on one physical line. The supported commit tools rebuild `Unreleased` with different valid blank-line layouts, so a file-level rumdl directive allows either layout while all other Markdown rules remain enforced.
-
-`omp commit` and [`lgit`](https://github.com/can1357/llm-git) can generate a Conventional Commit message and update the changelog. The `Brewfile` installs `lgit`; it is optional, and neither changelog formatting nor linting requires an API credential. For Tessera, set the following non-secret option in the configuration passed to `lgit`:
-
-```toml
-changelog_revise = false
-```
-
-This prevents an unrelated commit from revising established release-note wording. Use `omp commit --no-changelog` or `lgit --no-changelog` when a change is not notable or when you have already staged its entry. A dry run previews only the commit message in the supported `lgit` version; it does not exercise changelog updates.
 
 Release-note labels are `breaking-change`, `enhancement`, `bug`, `documentation`, `dependencies`, and `maintenance`. Apply `skip-release-notes` only to changes that should not appear in GitHub-generated notes. These labels control the generated GitHub release presentation; they do not add headings to the canonical changelog.
 
@@ -248,7 +240,7 @@ Every pull request must pass these required checks:
 - `Documentation gate`
 - `DocC validation (macOS)`
 
-The `skip-ci` label deliberately fails the two gate checks. Remove it before requesting review or merge. GitHub Actions require full commit-SHA pins and are restricted to GitHub-owned actions plus the reviewed `SwiftyLab/setup-swift`, `jdx/mise-action`, and draft-release actions (the `mlugg/setup-zig` and `taiki-e/install-action` patterns are no longer used and can leave the allow-list). Dependabot checks Swift, npm, and GitHub Actions dependencies monthly.
+The `skip-ci` label deliberately fails the two gate checks. Remove it before requesting review or merge. GitHub Actions require full commit-SHA pins and are restricted to GitHub-owned actions plus the reviewed `SwiftyLab/setup-swift`, `jdx/mise-action`, and draft-release actions. Dependabot checks Swift, npm, and GitHub Actions dependencies monthly.
 
 Discussions, automatic merge after requirements pass, and automatic deletion of merged head branches are enabled. Maintainers squash each pull request so `main` retains one reviewed, Conventional Commit-style subject per change.
 

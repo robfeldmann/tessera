@@ -14,5 +14,3 @@ brew "qemu" # For Tessera Frost
 brew "sshpass" # For Tessera Frost
 brew "swtpm" # For Tessera Frost
 cask "utm" # Windows virtual machines
-
-uv "lgit-cli" # AI commit message generator (optional).
