@@ -129,19 +129,45 @@ jobs:
         run: just quality lint
 
   test:
-    name: test (${{ matrix.os }})
+    name: test (${{ matrix.name }})
     needs: ci-gate
     if: >
       github.event_name != 'pull_request' ||
       !contains(github.event.pull_request.labels.*.name, 'skip-ci')
     runs-on: ${{ matrix.os }}
+    # The xcode-27 label is a public preview image (actions/runner-images#14404); its leg
+    # reports but cannot fail the run until the image is generally available.
+    continue-on-error: ${{ matrix.required == false }}
     # Windows pays a one-time Zig build of libghostty-vt on cache miss.
     timeout-minutes: ${{ matrix.os == 'windows-latest' && 45 || 20 }}
     strategy:
       # Cancel sibling OS jobs on first failure to save hosted minutes.
       fail-fast: true
       matrix:
-        os: [macos-26, ubuntu-latest, windows-latest]
+        include:
+          # Baseline lane: Xcode 26.6 on macOS, the swift.org release named by
+          # .swift-version on Linux and Windows. These three names are the required
+          # status checks in the main branch ruleset; keep them stable.
+          - name: macos-26
+            os: macos-26
+            xcode: "26.6"
+            required: true
+          - name: ubuntu-latest
+            os: ubuntu-latest
+            required: true
+          - name: windows-latest
+            os: windows-latest
+            required: true
+          # Swift 6.4 lane: swift.org 6.4.1 on Linux, Xcode 27.1 on the xcode-27 preview
+          # image. No Windows 6.4 leg yet (owner decision pending).
+          - name: ubuntu-latest / swift-6.4.1
+            os: ubuntu-latest
+            swift-version: "6.4.1"
+            required: true
+          - name: xcode-27
+            os: xcode-27
+            xcode: "27.1"
+            required: false
     steps:
       - name: Skip full platform tests for trust-only change
         if: needs.ci-gate.outputs.vouch-only == 'true'
@@ -157,6 +183,9 @@ jobs:
         id: swift
         if: needs.ci-gate.outputs.vouch-only != 'true'
         uses: ./.github/actions/setup-swift
+        with:
+          xcode: ${{ matrix.xcode || '26.6' }}
+          swift-version: ${{ matrix.swift-version || '' }}
 
       - name: Restore SwiftPM cache
         id: swiftpm-cache
