@@ -1,17 +1,29 @@
 #!/usr/bin/env python3
-"""Validate fixture-grade wireframes in the design catalog.
+"""Validate fixture-grade wireframes and styled grids in the design catalog.
 
-A wireframe is a fenced code block whose info string is `wireframe WxH`
-(for example ```wireframe 46x9). The contract, defined in
+A wireframe is a fenced code block whose info string is `wireframe WxH` with an optional
+`id=NAME` (for example ```wireframe 46x9 id=anatomy). The contract, defined in
 design/README.md, is:
 
 - exactly H lines between the fences
 - every line's display width is <= W (rows are trailing-trimmed)
 - no trailing whitespace, no tab characters
+- `NAME` matches [a-z0-9]+(-[a-z0-9]+)* and is unique within its doc; it never collides
+  with the position-based identity (the 0-based fence index) of an id-less wireframe
 
 Display width uses East Asian Width (F/W count as 2) and skips combining
 marks, matching the naive-but-honest width model wireframes are drawn
-against. Usage:
+against.
+
+A styled grid is a `text` fence whose body starts with `── chars ──`, then `── style ──`,
+then `── legend ──`. It belongs to the nearest preceding wireframe and its chars rows
+must equal that wireframe's rows, unless the fence opens with ```text standalone. Style
+rows use one letter per display cell (`.` is the default style), may be shorter than the
+chars row, and are at most as wide as the wireframe. Legend lines are
+`L  fg=ROLE bg=ROLE attribute...[ -- description]` with roles from design/tokens.md
+`## Roles`. Every style letter is defined and every legend letter is used.
+
+Usage:
 
     scripts/check-wireframes.py [paths...]
 
@@ -21,13 +33,21 @@ Paths may be markdown files or directories (searched recursively for
 
 from __future__ import annotations
 
+import functools
 import re
 import sys
 import unicodedata
 from pathlib import Path
+from typing import NamedTuple
 
 FENCE_RE = re.compile(r"^(`{3,}|~{3,})\s*(\S*)\s*(.*)$")
 SIZE_RE = re.compile(r"^(\d+)x(\d+)$")
+ID_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+SECTION_RE = re.compile(r"^── ([a-z]+) ──$")
+LEGEND_RE = re.compile(r"^(\S)  (\S.*)$")
+GRID_SECTIONS = ("chars", "style", "legend")
+ATTRIBUTES = ("bold", "dim", "italic", "underline", "reverse", "strikethrough")
+TOKENS_PATH = Path(__file__).resolve().parent.parent / "design" / "tokens.md"
 
 
 def _is_variation_selector(ch: str) -> bool:
@@ -181,6 +201,10 @@ SUPPORTED_CORNERS = (
 
 FULL_CAPABILITY_INDICATORS = frozenset("│┃█")
 ASCII_INDICATORS = frozenset("|#")
+# A scroll indicator placed in a box's border draws its thumb in the edge column, so
+# these glyphs continue a vertical edge. They never start one: a solid bar elsewhere in a
+# grid is not a broken edge.
+EDGE_THUMBS = frozenset("█▐▌")
 DIRECTION_OFFSETS = {
     "N": (-1, 0),
     "E": (0, 1),
@@ -223,6 +247,10 @@ def _connects(ch: str | None, direction: str) -> bool:
     return direction in CONNECTIONS.get(ch or "", ())
 
 
+def _continues_vertical_edge(ch: str | None, direction: str) -> bool:
+    return _connects(ch, direction) or (ch in EDGE_THUMBS and direction in "NS")
+
+
 def _corner_columns(cells: dict[int, str], corners: frozenset[str]) -> list[int]:
     return [column for column, ch in cells.items() if ch in corners]
 
@@ -252,7 +280,7 @@ def _check_vertical_edge(
     for row in range(top, bottom):
         source = grid[row].get(column)
         below = grid[row + 1].get(column)
-        if _connects(source, "S") and _connects(below, "N"):
+        if _continues_vertical_edge(source, "S") and _continues_vertical_edge(below, "N"):
             continue
 
         shifted_column = next(
@@ -291,7 +319,9 @@ def _check_shifted_vertical_connections(
     """Catch a displaced divider without treating an endpoint as a broken box."""
     for row, cells in enumerate(grid[:-1]):
         for column, source in cells.items():
-            if not _connects(source, "S") or _connects(grid[row + 1].get(column), "N"):
+            if not _connects(source, "S") or _continues_vertical_edge(
+                grid[row + 1].get(column), "N"
+            ):
                 continue
             shifted_column = next(
                 (
@@ -420,8 +450,8 @@ def _has_reciprocal_vertical_edge(
     grid: list[dict[int, str]], top: int, bottom: int, column: int
 ) -> bool:
     return all(
-        _connects(grid[row].get(column), "S")
-        and _connects(grid[row + 1].get(column), "N")
+        _continues_vertical_edge(grid[row].get(column), "S")
+        and _continues_vertical_edge(grid[row + 1].get(column), "N")
         for row in range(top, bottom)
     )
 
@@ -597,25 +627,291 @@ def check_wireframe_geometry(rows: list[str], first_markdown_line: int) -> list[
     ]
 
 
-def check_file(path: Path) -> list[str]:
+class Fence(NamedTuple):
+    line: int  # 1-based line of the opening fence
+    marker: str
+    info: str
+    rest: str
+    body: list[str]
+    closed: bool
+
+
+def parse_fences(lines: list[str]) -> list[Fence]:
+    """Every fenced block of a document, in order.
+
+    Fences start in column 0. A closing fence repeats the opening character at least as
+    many times and has no info string, so a fence nested in a longer one is body text.
+    """
+    fences: list[Fence] = []
+    index = 0
+    while index < len(lines):
+        match = FENCE_RE.match(lines[index])
+        index += 1
+        if match is None:
+            continue
+        marker, info, rest = match.groups()
+        opening = index
+        body: list[str] = []
+        closed = False
+        while index < len(lines):
+            closing = FENCE_RE.match(lines[index])
+            index += 1
+            if (
+                closing is not None
+                and closing.group(1)[0] == marker[0]
+                and len(closing.group(1)) >= len(marker)
+                and not closing.group(2)
+                and not closing.group(3)
+            ):
+                closed = True
+                break
+            body.append(lines[index - 1])
+        fences.append(Fence(opening, marker, info, rest.strip(), body, closed))
+    return fences
+
+
+class RoleTableError(Exception):
+    """design/tokens.md has no readable `## Roles` tables."""
+
+
+@functools.cache
+def load_roles(tokens: Path = TOKENS_PATH) -> frozenset[str]:
+    """The role names a legend may use: the backticked first column of the role tables
+    (`Role` and `Style` columns) under `## Roles` in tokens.md. `solid(R)` and `faint(R)`
+    are functions of a role, not roles; a legend spells the first `fg=contrast bg=R bold`
+    and the second `faint(R)`."""
+    try:
+        lines = tokens.read_text(encoding="utf-8").splitlines()
+    except OSError as error:
+        raise RoleTableError(f"cannot read {tokens}: {error}") from error
+    roles: set[str] = set()
+    in_roles = False
+    header: str | None = None  # first header cell of the table being read
+    for line in lines:
+        if line.startswith("## "):
+            in_roles = line.rstrip() == "## Roles"
+        if not in_roles:
+            continue
+        if not line.startswith("|"):
+            header = None
+            continue
+        cell = line[1:].split("|", 1)[0].strip()
+        if header is None:
+            header = cell
+        elif header in ("Role", "Style"):
+            name = re.fullmatch(r"`([^`]+)`", cell)
+            if name and "(" not in name.group(1):
+                roles.add(name.group(1))
+    if not roles:
+        raise RoleTableError(f"{tokens}: no roles found in the tables under `## Roles`")
+    return frozenset(roles)
+
+
+def is_role(name: str, roles: frozenset[str]) -> bool:
+    """A role of tokens.md, or `faint(R)` with `R` a role."""
+    if name.startswith("faint(") and name.endswith(")"):
+        return name[6:-1] in roles
+    return name in roles
+
+
+# ` -- ` opens a legend entry's free-text description; so does a trailing ` --`.
+DESCRIPTION_RE = re.compile(r"(?:^| )--(?: |$)")
+
+
+def check_legend_spec(letter: str, text: str, roles: frozenset[str]) -> list[str]:
+    """The problems of one legend entry's `SPEC[ -- description]`, as messages."""
+    problems: list[str] = []
+    divider = DESCRIPTION_RE.search(text)
+    spec = text[: divider.start()] if divider else text
+    if divider and not text[divider.end() :].strip():
+        problems.append("empty description after `--`")
+    tokens = spec.split()
+    if not tokens:
+        return [*problems, "no style before `--`"]
+    if letter == ".":
+        if tokens != ["default"]:
+            problems.append("`.` is the default style; its entry is `.  default`")
+        return problems
+    seen: set[str] = set()
+    for token in tokens:
+        key, equals, value = token.partition("=")
+        if equals and key in ("fg", "bg"):
+            if key in seen:
+                problems.append(f"`{key}=` appears twice")
+            seen.add(key)
+            if not is_role(value, roles):
+                hint = (
+                    "; solid(R) is written `fg=contrast bg=R bold`"
+                    if value.startswith("solid(")
+                    else "; roles are the `## Roles` tables of design/tokens.md"
+                )
+                problems.append(f"unknown role `{value}` in `{token}`{hint}")
+        elif not equals and token in ATTRIBUTES:
+            continue
+        elif token == "default":
+            problems.append("`default` is only for the `.` entry")
+        else:
+            problems.append(
+                f"unknown token `{token}`: a spec is fg=ROLE, bg=ROLE and attributes "
+                f"({', '.join(ATTRIBUTES)}); free text goes after ` -- `"
+            )
+    return problems
+
+
+class Wireframe(NamedTuple):
+    line: int  # 1-based line of the opening fence
+    rows: list[str]
+    width: int | None  # None when the fence header has no valid size
+    id: str | None
+
+
+def _row_mismatch(chars: list[str], rows: list[str]) -> tuple[int, str]:
+    """Where the chars rows first differ from the wireframe rows, and how."""
+    if len(chars) != len(rows):
+        return 0, f"{len(chars)} chars rows but the wireframe has {len(rows)}"
+    row = next(r for r, (first, second) in enumerate(zip(chars, rows)) if first != second)
+    return row, f"chars row r{row} is {chars[row]!r} but the wireframe row is {rows[row]!r}"
+
+
+def check_styled_grid(
+    path: Path, fence: Fence, owner: Wireframe | None, roles: frozenset[str]
+) -> list[str]:
+    """Lint one ```text styled grid (a fence whose body starts with `── chars ──`)."""
+    errors: list[str] = []
+    body = fence.body
+    standalone = fence.rest == "standalone"
+
+    def error(offset: int | None, message: str) -> None:
+        line = fence.line if offset is None else fence.line + 1 + offset
+        errors.append(f"{path}:{line}: styled grid: {message}")
+
+    if fence.rest not in ("", "standalone"):
+        error(None, f"unexpected `{fence.rest}` after `text`; the only header word is `standalone`")
+
+    headers = [
+        (offset, match.group(1))
+        for offset, line in enumerate(body)
+        if (match := SECTION_RE.match(line))
+    ]
+    unknown = [(offset, name) for offset, name in headers if name not in GRID_SECTIONS]
+    for offset, name in unknown:
+        error(offset, f"unknown section `── {name} ──`; the sections are chars, style and legend")
+    names = [name for _, name in headers if name in GRID_SECTIONS]
+    if unknown:
+        return errors
+    if names != list(GRID_SECTIONS):
+        found = ", ".join(f"`── {name} ──`" for name in names) or "none"
+        error(
+            0,
+            "sections must be `── chars ──`, `── style ──` and `── legend ──`, once each "
+            f"and in that order (found {found})",
+        )
+        return errors
+    starts = {name: offset for offset, name in headers}
+    chars_start = starts["chars"] + 1
+    style_start = starts["style"] + 1
+    legend_start = starts["legend"] + 1
+    chars = body[chars_start : starts["style"]]
+    styles = body[style_start : starts["legend"]]
+    legend = body[legend_start:]
+    trimmed = [row.rstrip() for row in chars]
+
+    for r, row in enumerate(chars):
+        if "\t" in row:
+            error(chars_start + r, f"tab character in chars row r{r}")
+
+    width: int | None = None  # the widest a style row may be; None when unbounded
+    if not standalone:
+        if owner is None:
+            error(
+                None,
+                "no preceding wireframe fence; open the fence with ```text standalone "
+                "if the grid illustrates no wireframe",
+            )
+        else:
+            width = owner.width
+            wanted = [row.rstrip() for row in owner.rows]
+            if trimmed != wanted:
+                row, detail = _row_mismatch(trimmed, wanted)
+                error(
+                    chars_start + row,
+                    f"chars do not match the preceding wireframe at line {owner.line} "
+                    f"({detail}); open the fence with ```text standalone if the grid "
+                    "illustrates no wireframe",
+                )
+
+    if len(styles) > len(chars):
+        error(
+            style_start + len(chars),
+            f"{len(styles)} style rows but only {len(chars)} chars rows",
+        )
+    used: dict[str, int] = {}  # style letter -> body offset of its first row
+    for r, row in enumerate(styles):
+        offset = style_start + r
+        if width is not None and len(row) > width:
+            error(offset, f"style row r{r} is {len(row)} cells wide; the wireframe is {width} wide")
+        blank = next((column for column, ch in enumerate(row) if ch.isspace()), None)
+        if blank is not None:
+            error(
+                offset,
+                f"style row r{r} has whitespace at column c{blank}; write `.` for the "
+                "default style (a row may end early instead)",
+            )
+        for ch in row:
+            if not ch.isspace() and ch != ".":
+                used.setdefault(ch, offset)
+
+    defined: dict[str, int] = {}  # legend letter -> body offset of its line
+    for j, line in enumerate(legend):
+        offset = legend_start + j
+        if not line.strip():
+            error(offset, "blank line in the legend")
+            continue
+        match = LEGEND_RE.match(line)
+        if match is None:
+            error(offset, f"legend line {line!r} must be `L  SPEC`: one letter, two spaces, a spec")
+            continue
+        letter, text = match.groups()
+        if display_width(letter) != 1:
+            error(offset, f"legend letter {letter!r} must be one display cell wide")
+            continue
+        if letter in defined:
+            error(
+                offset,
+                f"legend letter `{letter}` is defined twice (first at line "
+                f"{fence.line + 1 + defined[letter]})",
+            )
+            continue
+        defined[letter] = offset
+        for message in check_legend_spec(letter, text, roles):
+            error(offset, f"legend `{letter}`: {message}")
+
+    for letter, offset in used.items():
+        if letter not in defined:
+            error(offset, f"style letter `{letter}` is not defined in the legend")
+    for letter, offset in defined.items():
+        if letter != "." and letter not in used:
+            error(offset, f"legend letter `{letter}` is not used in the style rows")
+    return errors
+
+
+def check_file(path: Path, roles: frozenset[str] | None = None) -> list[str]:
+    """Every problem of one markdown file. `roles` defaults to the roles of tokens.md,
+    which is read only when the file holds a styled grid."""
     errors: list[str] = []
     lines = path.read_text(encoding="utf-8").splitlines()
-    in_wireframe = False
-    fence = ""
-    declared: tuple[int, int] | None = None
-    block_start = 0
-    block_lines: list[str] = []
+    wireframes: list[Wireframe] = []  # one per wireframe fence; the position is its index
+    ids: dict[str, int] = {}  # id -> line of the fence that declares it
 
-    def close_block(end_line: int) -> None:
-        assert declared is not None
-        width, height = declared
-        if len(block_lines) != height:
+    def check_rows(fence: Fence, width: int, height: int) -> None:
+        rows = fence.body
+        if len(rows) != height:
             errors.append(
-                f"{path}:{block_start}: declared {width}x{height} but block has "
-                f"{len(block_lines)} rows"
+                f"{path}:{fence.line}: declared {width}x{height} but block has "
+                f"{len(rows)} rows"
             )
-        for offset, row in enumerate(block_lines):
-            lineno = block_start + 1 + offset
+        for offset, row in enumerate(rows):
+            lineno = fence.line + 1 + offset
             if "\t" in row:
                 errors.append(f"{path}:{lineno}: tab character in wireframe row")
             if row != row.rstrip():
@@ -627,37 +923,96 @@ def check_file(path: Path) -> list[str]:
                     f"declared width {width}"
                 )
         errors.extend(
-            f"{path}: {error}"
-            for error in check_wireframe_geometry(block_lines, block_start + 1)
+            f"{path}: {error}" for error in check_wireframe_geometry(rows, fence.line + 1)
         )
 
-    for lineno, line in enumerate(lines, start=1):
-        match = FENCE_RE.match(line)
-        if in_wireframe:
-            if match and match.group(1).startswith(fence[0]) and len(match.group(1)) >= len(fence):
-                close_block(lineno)
-                in_wireframe = False
-                block_lines = []
-            else:
-                block_lines.append(line)
-            continue
-        if match and match.group(2) == "wireframe":
-            fence = match.group(1)
-            block_start = lineno
-            size = SIZE_RE.match(match.group(3).strip())
-            if not size:
+    def check_header(fence: Fence) -> tuple[tuple[int, int] | None, str | None]:
+        """Validate `WxH[ id=NAME]`; return the size and the id when they are valid."""
+        where = f"{path}:{fence.line}"
+        tokens = fence.rest.split()
+        size = SIZE_RE.match(tokens[0]) if tokens else None
+        if size is None:
+            errors.append(
+                f"{where}: wireframe fence needs a WxH size, e.g. ```wireframe 46x9"
+            )
+            return None, None
+        names = [token for token in tokens[1:] if token.startswith("id=")]
+        for token in tokens[1:]:
+            if not token.startswith("id="):
                 errors.append(
-                    f"{path}:{lineno}: wireframe fence needs a WxH size, "
-                    f"e.g. ```wireframe 46x9"
+                    f"{where}: unexpected `{token}` after the size; the only allowed "
+                    "header word is `id=NAME`"
                 )
-                declared = None
-                continue
-            declared = (int(size.group(1)), int(size.group(2)))
-            in_wireframe = True
-            block_lines = []
+        wire_id: str | None = None
+        if len(names) > 1:
+            errors.append(f"{where}: more than one `id=` in the wireframe fence header")
+        elif names:
+            name = names[0][3:]
+            if not ID_RE.fullmatch(name):
+                errors.append(
+                    f"{where}: invalid wireframe id `{name}`; use lowercase words joined "
+                    "by hyphens (a-z, 0-9), e.g. `id=anatomy`"
+                )
+            elif name in ids:
+                errors.append(
+                    f"{where}: duplicate wireframe id `{name}` (first used at line "
+                    f"{ids[name]})"
+                )
+            else:
+                ids[name] = fence.line
+                wire_id = name
+        return (int(size.group(1)), int(size.group(2))), wire_id
 
-    if in_wireframe:
-        errors.append(f"{path}:{block_start}: unterminated wireframe fence")
+    for fence in parse_fences(lines):
+        where = f"{path}:{fence.line}"
+        grid = bool(fence.body) and fence.body[0].startswith("── chars")
+        if not fence.closed:
+            kind = "wireframe" if fence.info == "wireframe" else "code"
+            errors.append(f"{where}: unterminated {kind} fence")
+            if fence.info == "wireframe":
+                wireframes.append(Wireframe(fence.line, fence.body, None, None))
+            continue
+        if fence.info == "wireframe":
+            size, wire_id = check_header(fence)
+            wireframes.append(
+                Wireframe(fence.line, fence.body, size[0] if size else None, wire_id)
+            )
+            if size is not None:
+                check_rows(fence, *size)
+        elif grid and fence.info == "text":
+            if roles is None:
+                roles = load_roles()
+            owner = wireframes[-1] if wireframes else None
+            errors.extend(check_styled_grid(path, fence, owner, roles))
+        elif grid:
+            errors.append(
+                f"{where}: a styled grid must be a `text` fence, not `{fence.info or 'unlabeled'}`"
+            )
+        elif fence.info == "text":
+            # A fence that shows other fences (the README's examples) documents the
+            # convention; its section headers belong to the examples.
+            documents_fences = any(FENCE_RE.match(line) for line in fence.body)
+            stray = next((line for line in fence.body if SECTION_RE.match(line)), None)
+            if stray is not None and not documents_fences:
+                errors.append(
+                    f"{where}: section header `{stray}` outside a styled grid; a styled "
+                    "grid is one `text` fence that starts with `── chars ──`"
+                )
+            if fence.rest == "standalone":
+                errors.append(
+                    f"{where}: `standalone` applies only to styled grids, whose fence "
+                    "starts with `── chars ──`"
+                )
+
+    positional = {
+        str(position): wire.line for position, wire in enumerate(wireframes) if wire.id is None
+    }
+    for name, line in ids.items():
+        if name in positional:
+            errors.append(
+                f"{path}:{line}: wireframe id `{name}` collides with the position-based "
+                f"identity of the id-less wireframe at line {positional[name]}"
+            )
     return errors
 
 
@@ -677,7 +1032,11 @@ def main(argv: list[str]) -> int:
     checked = 0
     for file in files:
         checked += 1
-        all_errors.extend(check_file(file))
+        try:
+            all_errors.extend(check_file(file))
+        except RoleTableError as error:
+            print(f"check-wireframes: {error}", file=sys.stderr)
+            return 2
 
     for error in all_errors:
         print(error, file=sys.stderr)

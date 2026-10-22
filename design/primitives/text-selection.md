@@ -19,6 +19,19 @@ capability with an explicitly documented coexistence policy.
 
 ## Prior art
 
+- omp2 has no selection component; its counterpart is the `noselect` attribute
+  ([vocab/lib.rs#L49-L50](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/vocab/src/lib.rs#L49-L50))
+  and the host-owned clipboard. `noselect` records a subtree's chrome as excluded from
+  host-driven selection
+  ([frame.rs#L901-L920](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/frame.rs#L901-L920)),
+  a hint the terminal renderer ignores because native selection cannot honour it. Key B15
+  brings that concept here: selection and copy are application-owned. Copy the idea of
+  regions that opt out of selection; reject a hint no terminal honours. omp2 widgets hand
+  copied text to the host as `UiEvent::Copied`
+  ([input.rs#L1889-L1892](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/input.rs#L1889-L1892)),
+  which is rejected for 1.0 (key C11): no widget copies, and copy policy belongs to this
+  doc. A copy writes through the Spec's policy-gated
+  [OSC 52 clipboard](../../docs/Spec.md#slice-9-osc-52-clipboard).
 - Ratatui Paragraph: `~/Developer/ratatui/ratatui/main/ratatui-widgets/src/paragraph.rs` —
   retain its stateless rendering boundary as a negative example: rendered terminal cells
   do not retain enough source information to reconstruct semantic selection after layout.
@@ -46,8 +59,10 @@ The candidate system has five conceptual regions rather than settled visible chr
 5. **Copy action** — an explicit application command that resolves selected semantic text
    and requests policy-gated clipboard output.
 
-Wireframes and callout coordinates are deferred until Slice 5 specifies whether selection
-is a modifier, scope container, environment facility, or dedicated view-layer service.
+Wireframes and callout coordinates are deferred to plan 032 step 11.3, which decides
+whether [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing) adopts this contract,
+as a modifier, scope container, environment facility, or view-layer service, or records
+its deferral.
 
 ## Variants
 
@@ -72,19 +87,26 @@ styles are sufficient for partial text ranges.
 ## Requirements
 
 Normative requirement names are intentionally deferred until the selection state model,
-pointer tables, keyboard tables, and wireframes are specified in Slice 5. Promotion beyond
-`sketch` is blocked on requirements for adjacent columns, clipped and scrolled text,
-wrapped and wide graphemes, drag capture, selection replacement, and copy output.
+pointer tables, keyboard tables, and wireframes are specified in plan 032 step 11.3.
+Promotion beyond `sketch` is blocked on requirements for adjacent columns, clipped and
+scrolled text, wrapped and wide graphemes, drag capture, selection replacement, and copy
+output.
 
 ## Degradation
 
-Selection must remain geometrically correct without color and must not depend on OSC 52
-availability. When clipboard output is unavailable or denied by session policy, the
-selected semantic range and its visible highlight remain valid; the copy action reports or
-ignores denial according to the future responder contract. ASCII-only presentation must
-use an accepted shared token rather than altering selected text.
+Selection must remain geometrically correct without color and must not depend on
+[OSC 52](../../docs/Spec.md#slice-9-osc-52-clipboard) availability. When clipboard output
+is unavailable or denied by session policy, the selected semantic range and its visible
+highlight remain valid; the copy action reports or ignores denial according to the future
+responder contract. ASCII-only presentation must use an accepted shared token rather than
+altering selected text.
 
 ## Open questions
+
+Every question below is deferred to plan 032 step 11.3, which answers it in the Slice 5
+contract or records the deferral in the Spec
+([Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing);
+[the 1.0 surface](../../docs/Spec.md#the-10-surface)).
 
 - What public type represents a semantic selection range, and is it always controlled by a
   binding?
@@ -107,6 +129,8 @@ use an accepted shared token rather than altering selected text.
 - Can `TextField` reuse the same range and highlight model without violating its
   controlled-value boundary?
 - Which immutable diagnostics are safe to expose without leaking selected text content?
+- Can a subtree opt out of selection, as omp2's `noselect` marks chrome (key B15), and is
+  that a scope boundary or a per-fragment flag?
 
 ## Inspiration
 

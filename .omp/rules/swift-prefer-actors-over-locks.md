@@ -11,5 +11,5 @@ justified as unavoidable. This includes `NSLock`, `NSAllocatedUnfairLock`,
 `OSAllocatedUnfairLock`, `Mutex`, serial queues used as locks, and similar wrappers.
 Prefer modern Swift 6 concurrency tools first, especially actor isolation for shared
 mutable state. Before using any lock, read
-`skill://swift6-concurrency-migration/playbooks/actor-migration.md` and confirm why an
-actor-based design is not suitable.
+`skill://swift6-concurrency/playbooks/actor-migration.md` and confirm why an actor-based
+design is not suitable.

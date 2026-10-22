@@ -25,6 +25,17 @@ focus, or handle input.
 - SwiftUI's flexible frame vocabulary motivates separating a child's measured minimum,
   ideal, and cap. Tessera retains explicit integer-cell constraints and tolerance-free
   results rather than proposing floating-point geometry.
+- omp2 has no Flex component. Its counterparts are the shared track solver
+  [`distribute`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/layout.rs#L142-L188)
+  and Row's
+  [`solve_row`](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/row.rs#L180-L237),
+  and the [translation key](../translation-key.md#g-layout) maps their `grow` weight to
+  `.flex(.fill(n))` (keys B2 and G5) and a `w=40%` width to `.flex(.percentage(40))`,
+  resolved against a finite proposal only (key G8). Copy the track's base, floor, and cap,
+  which become this doc's resolver item. Reject its floating-point weights, its
+  one-cell-at-a-time growth that breaks ties toward the later track, its
+  widest-track-first shrink, and its one-cell minimum per track: Tessera uses integer
+  weights, priority tiers, earlier-child remainders, and zero-cell allocations.
 
 ## Anatomy
 
@@ -205,12 +216,12 @@ order are identical at every capability tier in the
 - `.layoutPriority(_:)` is the only priority API. Flex does not add priority to
   `FlexConstraint` or child configuration.
 - Percentage and ratio are relative only when the main-axis proposal is finite; child
-  ideal is the deterministic unconstrained fallback.
+  ideal is the deterministic unconstrained fallback (key G8).
 - An unannotated child mirrors stack behavior: its measured ideal is the initial
   allocation, its measured minimum is the compression floor, and it participates with
   weight 1.
-- Grid and Table will consume this constraint vocabulary and solver later; they do not own
-  separate allocators.
+- [Grid](grid.md) and Table consume this constraint vocabulary and solver in plan 032 step
+  14.4; they do not own separate allocators (key G9).
 
 This contract was reviewed against the
 [Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): views remain
