@@ -25,9 +25,9 @@ description: Baseline every local check, make Xcode 26.6 and Swift 6.3.3 the bas
   - [x] 4.1 Run plan 034 to completion (plan 034 `complete`; commits `3fb25e9`..`087fb4c`; all-lane CI run `39732795646` green: nine jobs, including `xcode-27`, `swift-6.4.1`, the parallel suite, and DocC)
 - [ ] **Phase 5 — Repository conventions**
   - [x] 5.1 Set the Swift line width to 90 (`34119a5` sets `.swift-format` and `CONTRIBUTING.md`; the reformat of 20 files is `be4a42a`; lint and tests pass)
-  - [ ] 5.2 Move project docs into an IWE workspace with slug-named plans
-  - [ ] 5.3 Split the spec into workspace pages
-  - [ ] 5.4 Unwrap prose and lint Markdown with rumdl
+  - [x] 5.2 Move project docs into an IWE workspace with slug-named plans (`de0c89b`, `ba7c11b`; `iwe schema validate` clean, links checked)
+  - [x] 5.3 Split the spec into workspace pages (`50f7147`; zero-diff reconstruction, 284 anchors mapped)
+  - [x] 5.4 Unwrap prose and lint Markdown with rumdl (`4313e07`, `d6215f1`; `rumdl check .` clean on 236 files)
   - [ ] 5.5 Replace `just` with mise and Lefthook with hk
   - [ ] 5.6 Give Tessera its own Tart and Lima VM tasks
   - [ ] 5.7 Update libghostty-vt and Zig
@@ -36,7 +36,7 @@ description: Baseline every local check, make Xcode 26.6 and Swift 6.3.3 the bas
   - [ ] 6.2 Owner decision: the `mobile` viewport rule, then apply it
   - [ ] 6.3 Retire plans 032 and 033
 
-Next: Steps 5.2 to 5.4 in one pass (docs move, spec split, unwrap and rumdl).
+Next: Step 5.5 (mise tasks replace the just recipes; hk replaces Lefthook).
 
 ## Overview
 
@@ -255,6 +255,17 @@ Pre-existing failures and recipe defects, none fixed here:
 - Update `AGENTS.md` (project memory, search, and recording rules, as in the owner's global `AGENTS.md`) and `CONTRIBUTING.md`.
 - Acceptance: `iwe find` and `iwe retrieve` work from `docs/`, `docs/plans.md` lists every plan in order with its stage, the wireframe check passes on `docs/design`, the commands appear in omp's slash menu, and no link points at an old path.
 
+#### Done (2026-10-22)
+
+- Commits `de0c89b` (pure renames, 132 files: `.agents/plans/NNN-slug.md` → `docs/plans/slug.md`, `.agents/investigations/` → `docs/research/`, `design/` → `docs/design/` with `design/README.md` as `docs/design.md`, the four guides to `docs/guides/`, `ProjectStatus.md` → `project-status.md`, `Spec.md` → `spec.md`, `.pi/prompts/` → `.agents/commands/`, and `.agents/prompts/.gitkeep` gone) and `ba7c11b` (everything else).
+- Workspace: `docs/.iwe/config.toml` and schemas for `hub`, `okf-index`, `okf-log`, `plan` (the dotfiles' shape: `type`, `stage`, `created`, `completed`, `order`, `description`), `research` (`observed`, `status`, `description`), `architecture`, `design` (`kind`, `status`), `guide`, and `spec`. `iwe schema validate` from `docs/` reports nothing. Hubs: `index.md`, `log.md`, `plans.md`, `research.md` (numbered, with dates), `architecture.md` (seeded with `architecture/toolchain-lanes.md`, the Phase 2 decision), `design.md`, `guides.md`, `spec.md`.
+- Frontmatter: every plan maps `status` to `stage` (planning and in-review → proposed, pending → planned, in-progress → active, complete/completed → done with `completed` taken from `updated`, superseded → cancelled; plan 030 links its successor), takes `type: plan`, `order` (its old number), and an H1 from `name`; the `<!-- Allowed status values -->` comments are gone. Research records take `type: research`, `observed` (from `date`), `status`, `description`, and an H1.
+- `scripts/plans.py` (ported from the dotfiles) renders `docs/plans.md`: Active, Next, Done, Cancelled, and a one-time number-to-slug table; `just quality plans` (`--check`) is part of `just quality lint`, and `.prettierignore` leaves the rendered page alone.
+- References: 525 relative links, 27 reference-style definitions, and 66 files with textual path mentions rewritten; a repo-wide checker finds every link target present (the one remaining miss is an illustrative `../primitives/divider.md` inside a code span in `docs/design.md`). `scripts/check-wireframes.py` and `DevTools/gallery/catalog.py` read `docs/design`, the codespell paths drop `design`, and `just quality wireframes` passes (49 files clean).
+- Agent files: the four commands carry `description` and `argument-hint` frontmatter with `$1`/`$2`/`$ARGUMENTS`; the `planning`, `investigations`, and `design-catalog` skills describe the workspace, slug names, schemas, and the plan shape from the dotfiles template; `.omp/rules/` is unchanged. Whether omp lists the commands in its slash menu was not observed from inside this session (the files follow the documented `agents` provider layout).
+- `AGENTS.md` names the workspace, the search commands, and the recording rule; `CONTRIBUTING.md` gained a Documentation section; `docs/project-status.md` points at the hubs.
+- Discovery: `iwe normalize` is not usable as a gate here. On a copy it rewrote 147 pages: reference-style links became inline, `_emphasis_` became `*emphasis*`, and ```` ```wireframe 12x4 ```` fences gained a space after the backticks, which the wireframe checker and the gallery would not recognize. The workspace is validated with `iwe schema validate` and the link checker instead.
+
 ### Step 5.3 — Split the spec into workspace pages
 
 - `docs/spec.md` is 9,133 lines under twelve `##` sections; Phase 2 (lines 714-3650), Phase 3 (3651-6822), and Phase 4 (6823-8699) are each about 1,900 to 3,200 lines, and 89 files mention `Spec.md`.
@@ -263,6 +274,12 @@ Pre-existing failures and recipe defects, none fixed here:
 - "Open question for Phase N" entries stay in the spec until decided, then move to `docs/architecture/` like other decisions.
 - Acceptance: the hub lists every page in the original order; concatenating the pages in hub order reproduces the original text apart from headings and links; no living document cites `Spec.md` by line.
 
+#### Done (2026-10-22)
+
+- Commit `50f7147`. `docs/spec.md` is the hub (framing, "How to use this spec", and the page list in the original order, with the note on line citations); ten section pages under `docs/spec/`, with Phases 2, 3, and 4 split again by `###` into `docs/spec/phase-2/` (7 pages), `phase-3/` (14), and `phase-4/` (20), each phase page keeping its intro and a Sections list. Page H1s are the original headings; deeper headings move up one or two levels.
+- Verified: concatenating the pages in hub order and ignoring heading levels and links reproduces the original 7,438 non-blank lines with a zero-line diff. All 284 original anchors map to a page (and heading); 282 anchor links outside the spec and 51 inside it were rewritten, 99 outbound links from spec pages re-based, and the repo-wide link check finds no missing target or anchor.
+- Line citations: the living documents that cited `docs/Spec.md` by line (plans 033, 034, and this one, and plan 032's `#text-grows-up` link) now link to pages; the 21 citations in completed research records stay as written, and the hub says why.
+
 ### Step 5.4 — Unwrap prose and lint Markdown with rumdl
 
 - Rule, from `~/.dotfiles/AGENTS.md:41`, `~/.dotfiles/.rumdl.toml`, and Lattice's `.rumdl.toml`: one paragraph per line; line length is not a gate.
@@ -270,6 +287,12 @@ Pre-existing failures and recipe defects, none fixed here:
 - Unwrapping: the first commit of this step runs the repository's pinned Prettier with prose wrapping off over every Markdown file (`node_modules/.bin/prettier --prose-wrap never --write "**/*.md"`; `.prettierrc` sets `proseWrap: "always"` today), including DocC catalogs and the spec pages. A second commit removes Prettier's Markdown role and adds rumdl. `CHANGELOG.md` is already one physical line per entry. Swift doc comments keep the Swift width. After both commits, `just quality wireframes` (the fenced wireframes in `docs/design/`), the release-notes tests (`scripts/test_release_notes.py`), and codespell must still pass.
 - Update `AGENTS.md` (its "validate with `pnpx markdownlint-cli`" instruction becomes the rumdl command), `CONTRIBUTING.md`, and `scripts/check-markup.sh`.
 - Acceptance: rumdl passes on the whole tree, and a spot check of a spec page, one design doc, and one DocC article shows no hard-wrapped paragraphs.
+
+#### Done (2026-10-22)
+
+- Commit `4313e07` (unwrap): the pinned Prettier 3.9.5 with `--prose-wrap never` over every Markdown file (230 files, 31,593 lines joined into 11,497), with `.prettierrc.json` scoping `proseWrap: never` to `*.md`. DocC catalogs went through a conservative paragraph joiner instead, because Prettier collapsed ``` ``Symbol`` ``` links to single backticks and flattened `@Metadata` blocks; `just docs lint` passes after it. The wireframe checks, the release-notes tests, codespell, and the full test suite pass. Prettier's compact tables tripped markdownlint's MD060 on four files, disabled for the one commit in which markdownlint still ran.
+- Commit `d6215f1` (rumdl): `.rumdl.toml` starts from Lattice's (MD003, MD013, MD025, MD049, MD052 off) and adds MD076 off (loose lists are deliberate), excludes `.agents/skills` and `.agents/commands` as the dotfiles do, and ignores MD041 for the README, the pull-request template, and `.omp/rules`, plus MD033 for the README's HTML logo block. rumdl 0.3.0 is pinned in a new `mise.toml` (`mise.lock` arrives with Step 5.5) and `scripts/rumdl.sh` runs it through `mise exec` when mise is not activated. `markdownlint-cli2` is gone from `package.json` and `.markdownlint.json` is deleted; `.prettierignore` excludes `**/*.md`, so Prettier formats only YAML and JSON (nothing else here does), and `scripts/check-markup.sh` and the new `scripts/format-markup.sh` run both tools. The CI lint job installs mise tools with `jdx/mise-action@8418fedb…` (v5.2.2, the latest release on 2026-10-22). `rumdl check .` passes on 236 files.
+- Docs: `AGENTS.md` and the commands and skills say `mise exec -- rumdl check <path>`; `CONTRIBUTING.md` names rumdl, Prettier's reduced scope, and the one-paragraph-per-line rule.
 
 ### Step 5.5 — Replace `just` with mise and Lefthook with hk
 
