@@ -62,12 +62,11 @@ import Testing
     expectNoDifference(end, nil)
   }
 
-  @Test
+  @Test(.timeLimit(.minutes(1)))
   func `resize stream termination cancels notification producer`() async throws {
-    final class TerminationState: @unchecked Sendable { var terminated = false }
-    let state = TerminationState()
+    let (terminations, terminationContinuation) = AsyncStream.makeStream(of: Void.self)
     let notifications = AsyncStream<Void> { continuation in
-      continuation.onTermination = { _ in state.terminated = true }
+      continuation.onTermination = { _ in terminationContinuation.yield() }
     }
     let stream = TerminalResizeRegistry.sizeChanges(
       querySize: { TerminalSize(columns: 1, rows: 1) },
@@ -80,10 +79,11 @@ import Testing
 
     pending.cancel()
     _ = await pending.value
-    for _ in 0..<20 where !state.terminated {
-      await Task.yield()
-    }
 
-    #expect(state.terminated)
+    // Resumes when the notification stream is terminated; a producer that is never
+    // cancelled leaves this waiting until the time limit fails the test.
+    var terminationIterator = terminations.makeAsyncIterator()
+    let terminated: Void? = await terminationIterator.next()
+    #expect(terminated != nil)
   }
 #endif
