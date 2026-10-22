@@ -234,12 +234,6 @@ url = "https://github.com/astral-sh/uv/releases/download/0.13.5/uv-aarch64-apple
 url_api = "https://api.github.com/repos/astral-sh/uv/releases/assets/664335803"
 provenance = "github-attestations"
 
-[[tools.yamllint]]
-version = "1.38.0"
-backend = "pypi:yamllint"
-specifiers = ["1.38.0"]
-uv = { path = ".mise/locks/yamllint/1.38.0", digest = "sha256:121caf1641b4f806800ab7ca8d9a9ed92b6d15631ba0ed299e9e2a17e1895a04" }
-
 [[tools.zig]]
 version = "0.15.2"
 backend = "core:zig"
