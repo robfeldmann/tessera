@@ -155,12 +155,15 @@ package actor ActiveCapabilityProbeCoordinator {
       }
 
       round = .none
-      generation = .resolved(evidence)
       try Task.checkCancellation()
+      generation = .resolved(evidence)
       return evidence
     } catch {
+      // Cancellation and emit failures mean the terminal was never fully asked, so a later
+      // reconcile retries from scratch. Timeouts do not reach here; they resolve permanently.
       round = .none
-      generation = .resolved(evidence)
+      evidence = ActiveCapabilityProbeEvidence()
+      generation = .idle
       cancelWaiter()
       throw error
     }

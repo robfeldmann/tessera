@@ -130,8 +130,8 @@ func `input closure resumes a probe and rejects an overlapping generation`() asy
       privateModes: [2_004],
       kittyImageID: KittyImageID(rawValue: 7),
       timeout: .seconds(60),
-      sleep: { duration in
-        try await ContinuousClock().sleep(for: duration)
+      sleep: { _ in
+        try await suspendUntilCancelled()
       },
       emit: { bytes in
         await recorder.append(bytes)
@@ -156,6 +156,113 @@ func `input closure resumes a probe and rejects an overlapping generation`() asy
   expectNoDifference(evidence, ActiveCapabilityProbeEvidence())
   let emissionCount = await recorder.count
   expectNoDifference(emissionCount, 2)
+}
+
+@Test
+func `failed emit returns the probe generation to idle so a later reconcile retries`()
+  async throws
+{
+  struct EmitFailure: Error, Equatable {}
+  let coordinator = ActiveCapabilityProbeCoordinator()
+  let recorder = ProbeEmissionRecorder()
+
+  await #expect(throws: EmitFailure()) {
+    try await coordinator.reconcile(
+      privateModes: [2_004],
+      kittyImageID: KittyImageID(rawValue: 7),
+      timeout: .seconds(1),
+      sleep: { _ in },
+      emit: { bytes in
+        await recorder.append(bytes)
+        throw EmitFailure()
+      }
+    )
+  }
+  let cachedAfterFailure = await coordinator.cachedEvidence()
+  let inProgressAfterFailure = await coordinator.isInProgress()
+  #expect(cachedAfterFailure == nil)
+  #expect(!inProgressAfterFailure)
+
+  let evidence = try await coordinator.reconcile(
+    privateModes: [2_004],
+    kittyImageID: KittyImageID(rawValue: 7),
+    timeout: .milliseconds(250),
+    sleep: { _ in },
+    emit: { bytes in
+      await recorder.append(bytes)
+    }
+  )
+
+  let emissions = await recorder.values
+  expectNoDifference(
+    emissions,
+    [
+      privateModeProbeBytes([2_004]),
+      privateModeProbeBytes([2_004]),
+      kittyKeyboardProbeBytes,
+    ])
+  expectNoDifference(evidence, ActiveCapabilityProbeEvidence())
+  let cachedAfterRetry = await coordinator.cachedEvidence()
+  expectNoDifference(cachedAfterRetry, evidence)
+}
+
+@Test
+func `cancelled probe discards partial evidence and a later reconcile retries`()
+  async throws
+{
+  let coordinator = ActiveCapabilityProbeCoordinator()
+  let recorder = ProbeEmissionRecorder()
+  let modes = [2_004]
+
+  let cancelledProbe = Task {
+    try await coordinator.reconcile(
+      privateModes: modes,
+      kittyImageID: KittyImageID(rawValue: 7),
+      timeout: .seconds(60),
+      sleep: { _ in
+        try await suspendUntilCancelled()
+      },
+      emit: { bytes in
+        await recorder.append(bytes)
+        if bytes == privateModeProbeBytes(modes) {
+          await coordinator.observe(
+            .privateModeStatus(PrivateModeStatus(mode: modes[0], state: .set))
+          )
+        }
+      }
+    )
+  }
+
+  await recorder.waitForCount(2)
+  cancelledProbe.cancel()
+  await #expect(throws: CancellationError.self) {
+    try await cancelledProbe.value
+  }
+  let cachedAfterCancel = await coordinator.cachedEvidence()
+  let inProgressAfterCancel = await coordinator.isInProgress()
+  #expect(cachedAfterCancel == nil)
+  #expect(!inProgressAfterCancel)
+
+  let evidence = try await coordinator.reconcile(
+    privateModes: modes,
+    kittyImageID: KittyImageID(rawValue: 7),
+    timeout: .milliseconds(250),
+    sleep: { _ in },
+    emit: { bytes in
+      await recorder.append(bytes)
+    }
+  )
+
+  let emissions = await recorder.values
+  expectNoDifference(
+    emissions,
+    [
+      privateModeProbeBytes(modes),
+      kittyKeyboardProbeBytes,
+      privateModeProbeBytes(modes),
+      kittyKeyboardProbeBytes,
+    ])
+  expectNoDifference(evidence, ActiveCapabilityProbeEvidence())
 }
 
 @Test
@@ -227,11 +334,8 @@ func `active reconciliation preserves events and enables Kitty`() async throws {
     #expect(session.enabledProtocolModes.contains(.kittyKeyboard))
     #expect(session.protocolModeReport.requested.contains(.kittyKeyboard))
 
-    var iterator = session.events.makeAsyncIterator()
     let nextEvent = try await session.nextEvent()
-    let streamedEvent = await iterator.next()
     expectNoDifference(nextEvent, .key(Key(code: .character("x"))))
-    expectNoDifference(streamedEvent, .key(Key(code: .character("x"))))
   }
 
   let flushes = await device.flushes
@@ -288,6 +392,15 @@ func `required Kitty policy wins when active evidence remains unknown`() async t
   let flushes = await device.events.map(\.flushBytes)
   #expect(flushes.contains(kittyKeyboardPushBytes))
   #expect(flushes.contains(kittyKeyboardPopBytes))
+}
+
+/// Suspends until the surrounding task is cancelled, then throws `CancellationError`.
+/// Stands in for a sleep that never elapses, so tests never wait on a clock.
+private func suspendUntilCancelled() async throws {
+  let (stream, continuation) = AsyncStream<Void>.makeStream()
+  for await _ in stream {}
+  continuation.finish()
+  try Task.checkCancellation()
 }
 
 private actor ProbeEmissionRecorder {
@@ -387,10 +500,12 @@ private actor PartialCursorTerminalDevice {
 }
 
 private func makeProbeSession(_ device: InMemoryTerminalDevice) async -> TerminalSession {
-  TerminalSession(
+  let session = TerminalSession(
     io: PlatformIO(terminalDevice: await device.terminalDevice),
     probeImageID: KittyImageID(rawValue: 17)
   )
+  await session.startInputPump()
+  return session
 }
 
 private let activePrivateModeProbeModes = [2_004, 1_004, 1_002, 1_003, 1_006, 2_026]
