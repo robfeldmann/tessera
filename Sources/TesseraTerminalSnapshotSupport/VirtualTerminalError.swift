@@ -2,7 +2,7 @@
   import CGhosttyVT
 #endif
 
-enum VirtualTerminalError: Error {
+enum VirtualTerminalError: Error, Equatable, Sendable {
   #if canImport(CGhosttyVT)
     case ghostty(operation: String, result: GhosttyResult)
   #endif

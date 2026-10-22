@@ -15,6 +15,7 @@ check:
 build-test:
     just core build-libghostty-vt
     swift build
+    swift build --package-path Examples
     swift test --no-parallel
 
 # Build and test on Windows, honoring TESSERA_CI_WINDOWS_TEST_FILTER.

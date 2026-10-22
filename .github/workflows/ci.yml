@@ -285,6 +285,10 @@ jobs:
         if: needs.ci-gate.outputs.vouch-only != 'true'
         run: swift build
 
+      - name: Build Examples
+        if: needs.ci-gate.outputs.vouch-only != 'true'
+        run: swift build --package-path Examples
+
       - name: Save SwiftPM cache after build
         if: >
           needs.ci-gate.outputs.vouch-only != 'true' && runner.os != 'Windows' &&
