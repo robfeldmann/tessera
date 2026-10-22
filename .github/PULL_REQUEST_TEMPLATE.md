@@ -21,8 +21,7 @@
 ## Checklist
 
 - [ ] I linked the accepted issue or Discussion.
-- [ ] I added or updated tests for new observable behavior, or explained why none are
-      needed.
+- [ ] I added or updated tests for new observable behavior, or explained why none are needed.
 - [ ] I considered documentation and changelog impact.
 - [ ] I documented compatibility or Breaking Changes.
 - [ ] I removed credentials, private logs, and other sensitive information.

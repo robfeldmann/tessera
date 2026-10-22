@@ -1,0 +1,39 @@
+version = 4
+format = "markdown"
+
+[markdown]
+refs_extension = ".md"
+
+[markdown.formatting]
+preserve_newlines = true
+
+[workspace]
+path = ""
+frontmatter_document_title = "title"
+
+[schemas.okf-index]
+match = "index"
+
+[schemas.okf-log]
+match = "log"
+
+[schemas.hub]
+match = ["architecture", "design", "guides", "plans", "research", "spec"]
+
+[schemas.plan]
+match = "plans/**"
+
+[schemas.research]
+match = "research/**"
+
+[schemas.architecture]
+match = "architecture/**"
+
+[schemas.design]
+match = "design/**"
+
+[schemas.guide]
+match = "guides/**"
+
+[schemas.spec]
+match = "spec/**"

@@ -127,8 +127,8 @@ def index_page(theme: Theme) -> str:
     parts = [
         "<h1>Component gallery</h1>",
         f"<p>{len(docs)} catalog components and {total} wireframes, read from the "
-        "<code>wireframe</code> fences of <code>design/primitives</code> and "
-        "<code>design/widgets</code>. Each wireframe sits beside empty Current and "
+        "<code>wireframe</code> fences of <code>docs/design/primitives</code> and "
+        "<code>docs/design/widgets</code>. Each wireframe sits beside empty Current and "
         "Previous slots for the renders <code>tessera-dev</code> will write to "
         "<code>.build/tessera-dev/</code>.</p>",
         theme_picker(theme),
@@ -444,7 +444,7 @@ def tokens_page(requested_tier: str | None) -> str:
     header = "".join(f"<th>{html.escape(t.name)}</th>" for t in all_themes)
     parts = [
         "<h1>Tokens</h1>",
-        "<p>Roles computed from <code>design/tokens.md</code> (blend and contrast rules, "
+        "<p>Roles computed from <code>docs/design/tokens.md</code> (blend and contrast rules, "
         "roles, selection) for the five review themes in "
         "<code>DevTools/gallery/themes.json</code>. Swatches are drawn from each theme's hex "
         "values, not terminal screenshots.</p>",

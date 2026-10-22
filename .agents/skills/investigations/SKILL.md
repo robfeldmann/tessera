@@ -1,44 +1,36 @@
 ---
 name: investigations
-description:
-  Record findings from research, debugging, or exploratory work as markdown files in
-  .agents/investigations/. Use when investigating root causes, comparing approaches,
-  researching APIs, or any analysis that should be preserved for future reference.
-version: 0.1.0
+description: Record research findings, debugging analysis, or a survey as a research page in docs/research/ when the user commissions it. Use when investigating root causes, comparing approaches, or researching APIs whose findings must outlive the session.
+version: 0.2.0
 ---
 
-# Investigations
+# Research records
 
-Investigations capture research findings, debugging results, or comparative analysis.
-Unlike plans, they are exploratory — they answer "what did we learn?" rather than "what
-should we build?".
+A research record captures what was observed, with citations, and what it means. Unlike a plan it is exploratory: it answers "what did we learn?" rather than "what should we build?". Records live in `docs/research/<slug>.md`, inside the `docs/` IWE workspace, and `docs/research.md` lists them.
 
-## When to Create
+## When
 
-- Debugging a non-obvious issue and discovering the root cause.
-- Comparing approaches or libraries before deciding on a direction.
-- Researching an API, framework, or tool whose behaviour is unclear.
-- Any analysis whose findings will be useful beyond the current session.
+- The user commissions a question whose answer is only knowledge: a root cause, a comparison of approaches or libraries, how an API or tool behaves. A commissioned question whose answer is work to do is a plan instead (`planning` skill), with the answer in its Outcome.
+- Findings you turn up on your own while building go to the current plan's Discoveries, not to a new record.
 
-## File Naming
+## File and frontmatter
 
-`NNN-topic.md` where `NNN` is a zero-padded 3-digit sequence number.
+Slug filename, no number: `docs/research/phase-3-full-suite-hang.md`. Older records were numbered; `docs/research.md` keeps each one's number beside its link.
 
-- `000-receipt-caching-strategy.md` ✅
-- `001-typebox-version-compat.md` ✅
+```yaml
+---
+type: research
+observed: YYYY-MM-DD # citations hold at the commit of that day
+status: open # open | resolved
+description: One line for docs/research.md.
+---
+```
 
-Find the next number: `ls .agents/investigations/ | grep -E '^[0-9]{3}-' | sort | tail -1`
-then increment.
+The schema is `docs/.iwe/schemas/research.yaml`; `iwe schema validate` from `docs/` checks it. Add the new record to `docs/research.md` with its date.
 
-## Structure
+## Shape
 
 ```markdown
----
-name: Topic
-date: YYYY-MM-DD
-status: open # open | resolved
----
-
 # Topic
 
 ## Question
@@ -47,12 +39,12 @@ What are we trying to find out?
 
 ## Findings
 
-- Finding 1 with supporting evidence.
-- Finding 2 with links or code snippets.
+- Finding, with the evidence: a `path:line` citation, a command and its output, a link.
+- Mark anything not observed as inference.
 
 ## Conclusion
 
-Summary of what we learned and any recommended action.
+What we learned and any recommended action. Set `status: resolved` once this exists.
 ```
 
-Set `status: resolved` when the investigation has a clear conclusion.
+One paragraph per line; relative `.md` links; no raw HTML. Line citations into the spec stay as they were written: `docs/spec.md` was split into pages on 2026-10-22, and a citation like `docs/Spec.md:1234` holds at the commit it cites, so older records are not rewritten.

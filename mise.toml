@@ -1,0 +1,5 @@
+# Repository tools, pinned to the versions mise.lock records; `mise install` provides
+# them and `mise exec -- <tool>` runs one without activating mise in the shell.
+# Plan 035 Step 5.5 moves the just recipes here as mise tasks.
+[tools]
+rumdl = "0.3.0"

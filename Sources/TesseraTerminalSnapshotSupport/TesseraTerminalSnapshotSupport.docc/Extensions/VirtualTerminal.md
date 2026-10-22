@@ -1,7 +1,6 @@
 # ``VirtualTerminal``
 
-A test-only virtual terminal for feeding output and inspecting reconstructed screen
-state.
+A test-only virtual terminal for feeding output and inspecting reconstructed screen state.
 
 ## Topics
 

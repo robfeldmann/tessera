@@ -63,7 +63,8 @@ private func bufferStyleSuffix(for style: Style) -> String {
   }
   components.append(contentsOf: bufferAttributeDescriptions(style.attributes))
   if style.underlineStyle != .none {
-    components.append("underline=\(bufferUnderlineStyleDescription(style.underlineStyle))")
+    components.append(
+      "underline=\(bufferUnderlineStyleDescription(style.underlineStyle))")
   }
   if style.underlineColor != .default {
     components.append("underlineColor=\(bufferColorDescription(style.underlineColor))")

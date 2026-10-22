@@ -1,4 +1,4 @@
-<!-- markdownlint-disable MD022 MD032 -->
+<!-- rumdl-disable MD022 MD032 -->
 
 # Changelog
 

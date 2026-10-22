@@ -147,7 +147,7 @@ sync:
     repo="${TESSERA_WINDOWS_VM_REPO:-tessera}"; \
     if [[ -z "$host" ]]; then \
         echo "⚠️  TESSERA_WINDOWS_VM_SSH is not set"; \
-        echo "See docs/WindowsVM.md for VM setup."; \
+        echo "See docs/guides/windows-vm.md for VM setup."; \
         exit 1; \
     fi; \
     branch="$(git rev-parse --abbrev-ref HEAD)"; \

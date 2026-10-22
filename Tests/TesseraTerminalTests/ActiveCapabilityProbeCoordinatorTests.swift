@@ -8,7 +8,8 @@ import Testing
 @testable import TesseraTerminal
 
 @Test
-func `probe coordinator runs graphics after unsupported keyboard evidence`() async throws {
+func `probe coordinator runs graphics after unsupported keyboard evidence`() async throws
+{
   let coordinator = ActiveCapabilityProbeCoordinator()
   let recorder = ProbeEmissionRecorder()
   let imageID = KittyImageID(rawValue: 41)
@@ -62,7 +63,8 @@ func `probe coordinator runs graphics after unsupported keyboard evidence`() asy
 }
 
 @Test
-func `keyboard timeout skips graphics probe and resolves partial evidence`() async throws {
+func `keyboard timeout skips graphics probe and resolves partial evidence`() async throws
+{
   let coordinator = ActiveCapabilityProbeCoordinator()
   let recorder = ProbeEmissionRecorder()
   let imageID = KittyImageID(rawValue: 7)
@@ -122,7 +124,8 @@ func `late DA1 after keyboard timeout is ignored`() async throws {
 }
 
 @Test
-func `input closure resumes a probe and rejects an overlapping generation`() async throws {
+func `input closure resumes a probe and rejects an overlapping generation`() async throws
+{
   let coordinator = ActiveCapabilityProbeCoordinator()
   let recorder = ProbeEmissionRecorder()
   let firstProbe = Task {

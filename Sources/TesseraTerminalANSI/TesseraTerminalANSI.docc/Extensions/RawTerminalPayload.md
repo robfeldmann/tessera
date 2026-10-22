@@ -1,9 +1,6 @@
 # ``RawTerminalPayload``
 
-A byte-for-byte escape hatch for terminal output that Tessera does not semantically
-model. Encode it explicitly with ``ControlSequence/raw(_:)``. For safe frame-scoped
-use, write the payload through a frame's raw-output API so the frame records its
-position, occupied region, and repaint policy.
+A byte-for-byte escape hatch for terminal output that Tessera does not semantically model. Encode it explicitly with ``ControlSequence/raw(_:)``. For safe frame-scoped use, write the payload through a frame's raw-output API so the frame records its position, occupied region, and repaint policy.
 
 ## Topics
 

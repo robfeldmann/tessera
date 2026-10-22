@@ -709,7 +709,8 @@ enum Phase3ProtocolsDemo {
   }
 
   private static func drawKeySummary(frame: borrowing Frame, state: DemoState, top: Int) {
-    frame.write("Typed keys", at: position(0, top + 12), style: Style(attributes: [.bold]))
+    frame.write(
+      "Typed keys", at: position(0, top + 12), style: Style(attributes: [.bold]))
     frame.write(state.lastKeyDescription, at: position(2, top + 13))
   }
 
@@ -924,7 +925,7 @@ enum Phase3ProtocolsDemo {
       frame: frame,
       label: "Docs:",
       text: "Tessera Spec",
-      uri: "https://github.com/robfeldmann/tessera/blob/main/docs/Spec.md",
+      uri: "https://github.com/robfeldmann/tessera/blob/main/docs/spec.md",
       id: "docs",
       enabled: hyperlinkRendering == .enabled,
       row: top + 5
@@ -1568,7 +1569,8 @@ enum Phase3ProtocolsDemo {
         style: Style(attributes: [.dim])
       )
       for column in 0..<MouseGrid.columnCount {
-        let cellPosition = MouseGrid.cellPosition(row: row, column: column, offset: offset)
+        let cellPosition = MouseGrid.cellPosition(
+          row: row, column: column, offset: offset)
         let isPointerOverCell = pointer == cellPosition
         let isSelectedCell = state.selectedMouseGridCell == cellPosition
         let symbol: String

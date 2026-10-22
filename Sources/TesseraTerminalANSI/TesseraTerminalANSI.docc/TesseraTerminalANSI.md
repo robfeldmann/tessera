@@ -7,14 +7,9 @@
 
 ANSI/VT control sequence encoding.
 
-`TesseraTerminalANSI` is the pure, synchronous boundary between semantic terminal
-operations and their ANSI/VT byte spelling. Build ``ControlSequence`` values and encode
-them into a caller-owned buffer with ``ControlSequence/encode(into:)`` or
-``ANSIEncoder/encode(_:)``; this module performs no terminal I/O.
+`TesseraTerminalANSI` is the pure, synchronous boundary between semantic terminal operations and their ANSI/VT byte spelling. Build ``ControlSequence`` values and encode them into a caller-owned buffer with ``ControlSequence/encode(into:)`` or ``ANSIEncoder/encode(_:)``; this module performs no terminal I/O.
 
-Higher-level terminal sessions choose operations and write the resulting bytes. Keep
-protocol spelling here, while higher layers own session lifetime, output, and frame
-composition.
+Higher-level terminal sessions choose operations and write the resulting bytes. Keep protocol spelling here, while higher layers own session lifetime, output, and frame composition.
 
 ## Topics
 

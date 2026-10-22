@@ -1,0 +1,16 @@
+$schema: https://document-schema.org/draft/2026-06/schema
+description: A research record or survey, with the question, findings, and conclusion.
+maxDepth: 4
+frontmatter:
+  type: object
+  required: [type, observed, status, description]
+  properties:
+    type: { const: research }
+    observed:
+      type: string
+      format: date
+      description: When the research was done; citations hold at the commit of that day.
+    status:
+      enum: [open, resolved]
+      description: open means the question has no conclusion yet.
+    description: { type: string }

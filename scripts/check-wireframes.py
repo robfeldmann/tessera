@@ -3,7 +3,7 @@
 
 A wireframe is a fenced code block whose info string is `wireframe WxH` with an optional
 `id=NAME` (for example ```wireframe 46x9 id=anatomy). The contract, defined in
-design/README.md, is:
+docs/design.md, is:
 
 - exactly H lines between the fences
 - every line's display width is <= W (rows are trailing-trimmed)
@@ -20,7 +20,7 @@ then `── legend ──`. It belongs to the nearest preceding wireframe and i
 must equal that wireframe's rows, unless the fence opens with ```text standalone. Style
 rows use one letter per display cell (`.` is the default style), may be shorter than the
 chars row, and are at most as wide as the wireframe. Legend lines are
-`L  fg=ROLE bg=ROLE attribute...[ -- description]` with roles from design/tokens.md
+`L  fg=ROLE bg=ROLE attribute...[ -- description]` with roles from docs/design/tokens.md
 `## Roles`. Every style letter is defined and every legend letter is used.
 
 Usage:
@@ -28,7 +28,7 @@ Usage:
     scripts/check-wireframes.py [paths...]
 
 Paths may be markdown files or directories (searched recursively for
-*.md). Defaults to `design/`. Exits non-zero on any violation.
+*.md). Defaults to `docs/design/`. Exits non-zero on any violation.
 """
 
 from __future__ import annotations
@@ -47,7 +47,7 @@ SECTION_RE = re.compile(r"^── ([a-z]+) ──$")
 LEGEND_RE = re.compile(r"^(\S)  (\S.*)$")
 GRID_SECTIONS = ("chars", "style", "legend")
 ATTRIBUTES = ("bold", "dim", "italic", "underline", "reverse", "strikethrough")
-TOKENS_PATH = Path(__file__).resolve().parent.parent / "design" / "tokens.md"
+TOKENS_PATH = Path(__file__).resolve().parent.parent / "docs" / "design" / "tokens.md"
 
 
 def _is_variation_selector(ch: str) -> bool:
@@ -671,7 +671,7 @@ def parse_fences(lines: list[str]) -> list[Fence]:
 
 
 class RoleTableError(Exception):
-    """design/tokens.md has no readable `## Roles` tables."""
+    """docs/design/tokens.md has no readable `## Roles` tables."""
 
 
 @functools.cache
@@ -743,7 +743,7 @@ def check_legend_spec(letter: str, text: str, roles: frozenset[str]) -> list[str
                 hint = (
                     "; solid(R) is written `fg=contrast bg=R bold`"
                     if value.startswith("solid(")
-                    else "; roles are the `## Roles` tables of design/tokens.md"
+                    else "; roles are the `## Roles` tables of docs/design/tokens.md"
                 )
                 problems.append(f"unknown role `{value}` in `{token}`{hint}")
         elif not equals and token in ATTRIBUTES:
@@ -1017,7 +1017,7 @@ def check_file(path: Path, roles: frozenset[str] | None = None) -> list[str]:
 
 
 def main(argv: list[str]) -> int:
-    targets = [Path(a) for a in argv] or [Path("design")]
+    targets = [Path(a) for a in argv] or [Path("docs/design")]
     files: list[Path] = []
     for target in targets:
         if target.is_dir():

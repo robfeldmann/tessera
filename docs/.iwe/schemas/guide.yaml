@@ -1,0 +1,9 @@
+$schema: https://document-schema.org/draft/2026-06/schema
+description: A contributor how-to for one workflow or environment.
+maxDepth: 4
+frontmatter:
+  type: object
+  required: [type]
+  properties:
+    type: { const: guide }
+    description: { type: string }

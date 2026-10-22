@@ -709,7 +709,8 @@ extension ViewGraph {
     return result
   }
 
-  private func appendDiagnostics(_ node: RuntimeNode, to result: inout [NodeDiagnostics]) {
+  private func appendDiagnostics(_ node: RuntimeNode, to result: inout [NodeDiagnostics])
+  {
     result.append(
       NodeDiagnostics(
         identity: node.identity,

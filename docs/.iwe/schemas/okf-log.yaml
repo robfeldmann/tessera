@@ -1,0 +1,16 @@
+$schema: https://document-schema.org/draft/2026-06/schema
+description: OKF v0.2 date-grouped update history.
+frontmatter:
+  type: object
+  additionalProperties: false
+maxDepth: 2
+sections:
+  - header: { pattern: ".+" }
+    maxContains: 1
+    sections:
+      - header: { pattern: '^\d{4}-\d{2}-\d{2}$' }
+        minContains: 1
+        blocks:
+          - type: bullet-list
+    additionalSections: false
+additionalSections: false

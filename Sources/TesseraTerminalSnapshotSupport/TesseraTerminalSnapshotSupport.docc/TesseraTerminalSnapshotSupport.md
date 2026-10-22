@@ -5,11 +5,7 @@
     @PageImage(purpose: card, source: "snapshot-card", alt: "Module card.")
 }
 
-Use this test-support module to feed terminal output into a virtual terminal and
-inspect its reconstructed screen state. When `CGhosttyVT` is compiled into the build,
-the Ghostty-backed ``VirtualTerminal`` factory uses `libghostty-vt`, a high-quality VT
-parser for inspecting the resulting screen, cells, cursor, and Kitty graphics state.
-That inspection does not prove that every terminal emulator will behave identically.
+Use this test-support module to feed terminal output into a virtual terminal and inspect its reconstructed screen state. When `CGhosttyVT` is compiled into the build, the Ghostty-backed ``VirtualTerminal`` factory uses `libghostty-vt`, a high-quality VT parser for inspecting the resulting screen, cells, cursor, and Kitty graphics state. That inspection does not prove that every terminal emulator will behave identically.
 
 ## Topics
 

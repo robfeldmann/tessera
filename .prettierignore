@@ -15,3 +15,10 @@ node_modules/
 **/Package.resolved
 package-lock.json
 Sources/CGhosttyVT/include/ghostty/
+# Rendered from plan frontmatter by scripts/plans.py; the renderer owns its layout.
+docs/plans.md
+
+# Markdown is rumdl's (.rumdl.toml): one paragraph per line, no formatter. Prettier keeps
+# YAML and JSON, which nothing else formats here.
+**/*.md
+.rumdl_cache/

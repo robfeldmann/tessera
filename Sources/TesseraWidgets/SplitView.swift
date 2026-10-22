@@ -329,7 +329,8 @@ package struct _SplitViewLayout: Layout {
   let axis: Axis
   let panes: [SplitViewPane]
 
-  package func sizeThatFits(_ proposal: ProposedSize, subviews: Subviews) -> TerminalSize {
+  package func sizeThatFits(_ proposal: ProposedSize, subviews: Subviews) -> TerminalSize
+  {
     let allocations = allocations(proposal: proposal, subviews: subviews)
     return size(main: allocations.totalMain, cross: allocations.cross)
   }

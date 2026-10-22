@@ -1,0 +1,15 @@
+$schema: https://document-schema.org/draft/2026-06/schema
+description:
+  A design catalog page for one component, the tokens, a template, or the inbox.
+maxDepth: 5
+frontmatter:
+  type: object
+  required: [kind]
+  properties:
+    kind:
+      enum: [widget, primitive, tokens, app, template, inbox, reference]
+    status:
+      enum: [sketch, wireframed, specified, ready, implemented]
+      description:
+        The status ladder in docs/design.md; absent on tokens, templates, the inbox, and
+        references.

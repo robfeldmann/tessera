@@ -366,7 +366,8 @@ public struct FrameRegion: ~Copyable, ~Escapable {
       && containsLocalRow(position.row)
   }
 
-  private func absolutePosition(for localPosition: TerminalPosition) -> TerminalPosition? {
+  private func absolutePosition(for localPosition: TerminalPosition) -> TerminalPosition?
+  {
     guard let column = adding(localPosition.column, to: origin.column),
       let row = adding(localPosition.row, to: origin.row)
     else {

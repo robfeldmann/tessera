@@ -1,0 +1,14 @@
+---
+type: hub
+stage: living
+description: Contributor how-tos for the local environments and recurring maintenance.
+---
+
+# Guides
+
+How-tos for contributors. The [contributing guide](../CONTRIBUTING.md) covers the workflow and the gates; these pages cover one environment or recurring task each.
+
+- [Local development state](guides/local-development-state.md): Where the Ghostty VT cache, Lima VM, Windows images, and other local state live, and how to diagnose them.
+- [Updating Ghostty VT](guides/updating-ghostty-vt.md): How to move the pinned libghostty-vt revision and rebuild it on every lane.
+- [Windows VM with Frost](guides/windows-frost-vm.md): The scripted Windows test workflow: base image, toolchain image, disposable overlays.
+- [Manual Windows VM with UTM](guides/windows-vm.md): The manual Windows desktop VM for GUI validation and ad-hoc test runs.

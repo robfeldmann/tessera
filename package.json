@@ -1,6 +1,5 @@
 {
   "devDependencies": {
-    "markdownlint-cli2": "0.23.1",
     "prettier": "3.9.5"
   },
   "engines": {
@@ -10,6 +9,6 @@
   "private": true,
   "scripts": {
     "check:markup": "scripts/check-markup.sh",
-    "format:markup": "prettier --write ."
+    "format:markup": "scripts/format-markup.sh"
   }
 }

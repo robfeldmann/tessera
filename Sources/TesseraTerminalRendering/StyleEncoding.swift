@@ -39,7 +39,8 @@ package func sgrDelta(
     ControlSequence.setBackground(resolvedNewStyle.background).encode(into: &bytes)
   }
   if resolvedOldStyle.underlineColor != resolvedNewStyle.underlineColor {
-    ControlSequence.setUnderlineColor(resolvedNewStyle.underlineColor).encode(into: &bytes)
+    ControlSequence.setUnderlineColor(resolvedNewStyle.underlineColor).encode(
+      into: &bytes)
   }
 
   encodeAddedAttributes(
@@ -49,7 +50,8 @@ package func sgrDelta(
   )
 
   if resolvedOldStyle.underlineStyle != resolvedNewStyle.underlineStyle {
-    ControlSequence.setUnderlineStyle(resolvedNewStyle.underlineStyle).encode(into: &bytes)
+    ControlSequence.setUnderlineStyle(resolvedNewStyle.underlineStyle).encode(
+      into: &bytes)
   }
 }
 
