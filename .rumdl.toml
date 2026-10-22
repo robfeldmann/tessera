@@ -1,0 +1,17 @@
+[global]
+# Prose is one paragraph per line; line length is not a gate. IWE frontmatter and task
+# checkboxes are workspace syntax; hubs (docs/index.md) hold several top-level sections.
+# MD033 (inline HTML) stays enabled: `iwe normalize` deletes HTML blocks, so pages avoid
+# raw HTML. MD076 is off because loose lists (a blank line between items that carry
+# several paragraphs or a nested code block) are written on purpose.
+disable = ["MD003", "MD013", "MD025", "MD049", "MD052", "MD076"]
+# Skill and command bodies are prose addressed to agents, kept as written (placeholders
+# in angle brackets, template fragments without headings).
+exclude = [".agents/skills", ".agents/commands"]
+
+[per-file-ignores]
+# The README opens with an HTML logo and badge block for GitHub, the pull-request template with a comment to the author,
+# and the omp rules with frontmatter and a short rule; none wants a level-one heading.
+"README.md" = ["MD033", "MD041"]
+".github/PULL_REQUEST_TEMPLATE.md" = ["MD041"]
+".omp/rules/*.md" = ["MD041"]

@@ -26,6 +26,7 @@ The snapshot strategies cover a character grid, an aligned style grid, hyperlink
 - <doc:Terminal-Snapshot-Strategies>
 
 ### Buffer and renderer dumps
+
 Use `Buffer.customDumpDescription` to inspect buffer cells directly.
 
 - ``RendererCustomDump``

@@ -15,6 +15,6 @@ Process every entry in `docs/design/inbox.md`.
    - **Escalate**: the entry challenges an architectural rule -- it belongs in `docs/spec.md` discussion or an issue, not the catalog. Note the destination, move it there, delete from inbox.
    - **Kill**: no longer interesting -- delete, optionally with a one-line tombstone in the relevant doc's Open questions if the rejection is informative.
 3. Never leave an entry both in the inbox and in a doc; the inbox holds only untriaged thoughts.
-4. Validate touched files: `node_modules/.bin/markdownlint-cli2 docs/design.md "docs/design/**/*.md"`.
+4. Validate touched files: `mise exec -- rumdl check docs/design.md docs/design`.
 
 Report a short table: entry, decision, destination.

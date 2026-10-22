@@ -22,7 +22,7 @@ Component: `$1` -- kind: `$2` (`widget` or `primitive`)
 
    ```fish
    scripts/check-wireframes.py design/
-   pnpx markdownlint-cli design/
+   mise exec -- rumdl check docs/design
    prettier --check "design/**/*.md"
    ```
 

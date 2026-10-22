@@ -37,7 +37,7 @@ Each requirement is a backticked sentence-style Swift Testing name (matches the 
 
 ```fish
 scripts/check-wireframes.py docs/design/
-node_modules/.bin/markdownlint-cli2 docs/design.md "docs/design/**/*.md"
+mise exec -- rumdl check docs/design.md docs/design
 ```
 
 Both also run in `just quality lint` (the `wireframes` and `markdown` recipes). Pages carry the `kind`/`status` frontmatter of `docs/.iwe/schemas/design.yaml`; `iwe schema validate` from `docs/` checks it. One paragraph per line outside wireframes; no raw HTML.

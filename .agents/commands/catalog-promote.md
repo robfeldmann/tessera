@@ -14,7 +14,7 @@ Page: `docs/design/$1.md` -- target status: `$2` (`wireframed`, `specified`, or 
 1. Use the `design-catalog` skill. Read the promotion gate for the target status in `docs/design.md#status-ladder`; the gate is the checklist, verbatim.
 2. Verify mechanically first:
    - `scripts/check-wireframes.py docs/design/$1.md`
-   - `node_modules/.bin/markdownlint-cli2 docs/design/$1.md`
+   - `mise exec -- rumdl check docs/design/$1.md`
 3. Verify against the schemas (`docs/design.md#table-schemas`):
    - every table has exactly the schema columns and closed-vocabulary values;
    - every key/mouse precondition references only declared state-model rows;

@@ -76,7 +76,8 @@ brew bundle install        # or install the tools above individually and put the
 Then bootstrap the repository-local tooling and git hooks:
 
 ```sh
-npm ci                     # pinned Prettier + markdownlint
+npm ci                     # pinned Prettier (YAML and JSON)
+mise install               # rumdl (Markdown), from mise.toml
 just setup quality-tools   # pinned codespell environment
 just setup hooks           # Lefthook: non-mutating staged + Conventional Commit checks
 ```
@@ -136,7 +137,7 @@ PR titles must use Conventional Commit style.
 
 [`CHANGELOG.md`](CHANGELOG.md) is the canonical release history. Add one entry for each notable user- or contributor-visible change under `Unreleased`. Use only these headings: `Breaking Changes`, `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, and `Security`. Choose the heading by effect rather than commit type; documentation and tooling changes belong under the standard heading whose behavior they affect. Omit internal planning and mechanical changes.
 
-Each entry must be a concise, self-contained bullet on one physical line. Prettier deliberately ignores the changelog because the supported commit tools rebuild `Unreleased` with different valid blank-line layouts. A file-level Markdownlint directive allows either layout while all other Markdown rules remain enforced.
+Each entry must be a concise, self-contained bullet on one physical line. The supported commit tools rebuild `Unreleased` with different valid blank-line layouts, so a file-level rumdl directive allows either layout while all other Markdown rules remain enforced.
 
 `omp commit` and [`lgit`](https://github.com/can1357/llm-git) can generate a Conventional Commit message and update the changelog. The `Brewfile` installs `lgit`; it is optional, and neither changelog formatting nor linting requires an API credential. For Tessera, set the following non-secret option in the configuration passed to `lgit`:
 
@@ -152,7 +153,7 @@ Release-note labels are `breaking-change`, `enhancement`, `bug`, `documentation`
 
 The project's documents live in one [IWE](https://iwe.md) workspace, `docs/`, mapped by [`docs/index.md`](docs/index.md): the [spec](docs/spec.md) (one page per section), [plans](docs/plans.md), [research records](docs/research.md), [architecture decisions](docs/architecture.md), the [design catalog](docs/design.md), and [contributor guides](docs/guides.md). Each directory has a frontmatter schema in `docs/.iwe/schemas/`; `iwe schema validate` from `docs/` checks every page, and `iwe find --fuzzy <terms>` and `iwe retrieve -k <key>` search and read it. `docs/plans.md` is rendered from the plans' frontmatter by `scripts/plans.py` and the quality gate fails while it is stale, so edit a plan's `stage`, `order`, or `description` and re-run the script rather than the hub.
 
-DocC catalogs beside the sources (`Sources/*/*.docc`) stay the reference for the public API; `just docs lint` validates them. Markdown prose is one paragraph per line (no hard wrapping) with relative `.md` links and no raw HTML, because `iwe normalize` rewrites pages into that shape; Swift code keeps the formatter's 90-column width.
+DocC catalogs beside the sources (`Sources/*/*.docc`) stay the reference for the public API; `just docs lint` validates them. Markdown prose is one paragraph per line (no hard wrapping) with relative `.md` links and no raw HTML, because `iwe normalize` rewrites pages into that shape; Swift code keeps the formatter's 90-column width. [rumdl](https://github.com/rvben/rumdl) lints every Markdown file (`.rumdl.toml`; `mise exec -- rumdl check <path>`, or `just quality format` to apply its fixes) and no formatter rewraps prose. Prettier stays for YAML and JSON only, because nothing else in the repository formats those.
 
 ## Coding standards
 

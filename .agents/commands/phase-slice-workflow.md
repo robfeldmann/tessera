@@ -74,7 +74,7 @@ During implementation:
 3. Run Markdown lint for edited Markdown files:
 
    ```fish
-   node_modules/.bin/markdownlint-cli2 <path>
+   mise exec -- rumdl check <path>
    ```
 
 4. Run targeted DocC generation when public symbols or DocC pages change.

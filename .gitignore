@@ -61,3 +61,6 @@ DerivedData/
 xcuserdata/
 *.moved-aside
 profile
+
+# rumdl writes its cache beside the files it checks
+.rumdl_cache/

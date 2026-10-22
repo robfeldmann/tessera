@@ -1,7 +1,5 @@
 <!-- LOGO -->
 
-<!-- markdownlint-disable MD033 -->
-
 <p align="center">
   <img src="assets/tessera-logo.png" alt="Tessera logo: a terminal window containing an orange tessellated mark" width="220">
 </p>
@@ -31,8 +29,6 @@
   <a href="#requirements-and-supported-platforms"><img src="https://img.shields.io/badge/platforms-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey.svg" alt="Platforms: macOS, Linux, and Windows"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache--2.0-blue.svg" alt="Apache 2.0 license"></a>
 </p>
-
-<!-- markdownlint-enable MD033 -->
 
 <!-- prettier-ignore -->
 > [!WARNING]
