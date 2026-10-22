@@ -568,8 +568,7 @@ no body cell; see Open questions.
 - Below 9 columns: the badge drops, the title tail-truncates, and body words break between
   grapheme clusters at width minus two (see Sizing).
 
-This design was reviewed against the
-[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): Callout is a
+This design was reviewed against the [Phase 4 theses](../../spec/phase-4.md): Callout is a
 composite of Label, Badge, the leading rail and app content, not a painter (key A1); its
 title, kind, badge and body are app-owned values redeclared on every update; it stores no
 state and takes no input; colour comes from the hue roles; and its layout is deterministic

@@ -1406,8 +1406,9 @@ Two repository review notes (2026-10-17, while mining conventions for Lattice at
 `f597ac9`; 2026-10-20, while drafting plan 033 at `31966cc`) listed places where practice
 contradicts the written rules. Each item was re-checked against `28c34b8` on 2026-10-21.
 
-- R-01, `Task.yield()` in tests despite `CONTRIBUTING.md:217-219` and `docs/spec.md:173`,
-  `:8403`, `:8737`: confirmed at every cited line. Steps 9.1 to 9.4 and Step 9.7.
+- R-01, `Task.yield()` in tests despite `CONTRIBUTING.md:217-219` and the spec's
+  [ownership and isolation thesis](../spec/ownership-and-isolation-thesis.md), `:8403`,
+  `:8737`: confirmed at every cited line. Steps 9.1 to 9.4 and Step 9.7.
 - R-02, `Task.yield()` in production at `PlatformIO.swift:120`: confirmed, but reachable
   only from test doubles (see Step 3.2 (e)).
 - R-03, the parallel-safety rule is never exercised: confirmed. Step 9.8.

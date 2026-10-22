@@ -57,10 +57,10 @@ SwiftUI. `Text + Text` joins styled runs into one Text that measures and wraps a
   `truncationMode(_:)` as environment modifiers whose truncation applies to the last
   visible line. Reject treating Text as an input control; editable text belongs to
   TextField.
-- Tessera [Slice 1](../../spec.md#slice-1-tesseracore--view-viewgraph-reconciliation-text)
-  — copy the leaf seam, top-leading `RenderRegion` rendering, and no-wrap initial
-  delivery. Tessera [Slice 3](../../spec.md#slice-3-styling-text-wrapping-and-decoration)
-  supplies wrapping, truncation, style inheritance, and decoration composition.
+- Tessera [Slice 1](../../spec/phase-4/slice-01-tesseracore.md) — copy the leaf seam,
+  top-leading `RenderRegion` rendering, and no-wrap initial delivery. Tessera
+  [Slice 3](../../spec/phase-4/slice-03-styling-and-decoration.md) supplies wrapping,
+  truncation, style inheritance, and decoration composition.
 
 ## Anatomy
 
@@ -270,8 +270,9 @@ deliberate wrap exception.
 `Text + Text` joins two Texts into one (key I1). Each operand becomes a run that keeps its
 own attributes, and the result is a single `Text` leaf that measures, wraps, and truncates
 the joined string once, as the Spec's
-[text boundary](../../spec.md#catalog-text-boundary-decisions) requires. Markdown builds
-its inline emphasis, code, and links from runs ([Markdown](../widgets/markdown.md)).
+[text boundary](../../spec/phase-4/slice-03-styling-and-decoration.md#catalog-text-boundary-decisions)
+requires. Markdown builds its inline emphasis, code, and links from runs
+([Markdown](../widgets/markdown.md)).
 
 ```swift
 extension Text {
@@ -290,9 +291,10 @@ extension Text {
   [style modifiers](style-modifiers.md) return `Text`, as in SwiftUI, so a styled operand
   can still be joined. Each sets its attribute on every run of its receiver that has not
   set it: the innermost value wins, which is the Slice 3
-  [merge rule](../../spec.md#style-chains-and-inheritance) inside one leaf. A run's
-  attributes win over the inherited `defaultStyle`, attribute by attribute. `.link(_:)` is
-  the OSC 8 attribute of the Spec's [Decoration](../../spec.md#decoration) (key I7).
+  [merge rule](../../spec/phase-4/slice-03-styling-and-decoration.md#style-chains-and-inheritance)
+  inside one leaf. A run's attributes win over the inherited `defaultStyle`, attribute by
+  attribute. `.link(_:)` is the OSC 8 attribute of the Spec's
+  [Decoration](../../spec/phase-4/slice-03-styling-and-decoration.md#decoration) (key I7).
 - **Backgrounds.** `.background(_:)` has no `Text` overload, so on a Text it stays the
   region fill of the allocated rectangle. A run's own background is a `Style` attribute
   set through `.style(_:)`, and it colours only the cells the run writes.
@@ -560,20 +562,19 @@ fixture-testable without giving a leaf focus or state.
   resolved Style" to runs without letting one run's look, such as an inline-code fill,
   leak onto the mark.
 
-Reviewed against the
-[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): Text is a value
-with no state, styled runs compose values inside one leaf instead of adding nodes, its
-style resolves from the environment, and wrapping and truncation are deterministic
-integer-cell output.
+Reviewed against the [Phase 4 theses](../../spec/phase-4.md): Text is a value with no
+state, styled runs compose values inside one leaf instead of adding nodes, its style
+resolves from the environment, and wrapping and truncation are deterministic integer-cell
+output.
 
 ## Deferred scope
 
 Localized interpolation and formatted values are excluded from Phase 4 1.0; the exact
 boundary is
-[Catalog text boundary decisions](../../spec.md#catalog-text-boundary-decisions). They
-need a separate post-1.0 text-composition proposal and must not turn Text into a mutable
-document model. Styled runs are in 1.0 ([Styled runs](#styled-runs)); a run holds text
-only, never an embedded view.
+[Catalog text boundary decisions](../../spec/phase-4/slice-03-styling-and-decoration.md#catalog-text-boundary-decisions).
+They need a separate post-1.0 text-composition proposal and must not turn Text into a
+mutable document model. Styled runs are in 1.0 ([Styled runs](#styled-runs)); a run holds
+text only, never an embedded view.
 
 ## Open questions
 

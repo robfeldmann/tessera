@@ -717,22 +717,21 @@ colors, ANSI sequences, or noncanonical glyph set is introduced here.
 ## Primitive dependencies
 
 - Viewport substrate --
-  [Slice 2](../../spec.md#slice-2-the-layout-protocol-and-stack-containers):
-  `ProposedSize`, child ideal measurement, absolute placement, clipping, and the
-  translated `RenderRegion` operation are required before a static viewport can exist.
+  [Slice 2](../../spec/phase-4/slice-02-layout-protocol-and-stacks.md): `ProposedSize`,
+  child ideal measurement, absolute placement, clipping, and the translated `RenderRegion`
+  operation are required before a static viewport can exist.
 - [Text](../primitives/text.md) -- supplies normal content measurement; wrapping, row
   budgets, and truncation remain Text's responsibility. ScrollView only chooses the
   cross-axis proposal Text wraps against.
-- Focus/key dispatch --
-  [Slice 4](../../spec.md#slice-4-focus-and-key-routing-the-responder-system): required
-  for focused keyboard movement and boundary bubbling.
-- Mouse/hit testing -- [Slice 5](../../spec.md#slice-5-mouse-and-hit-testing): required
-  for wheel routing, clipped hit testing, and touch-generated wheel delivery.
+- Focus/key dispatch -- [Slice 4](../../spec/phase-4/slice-04-focus-and-key-routing.md):
+  required for focused keyboard movement and boundary bubbling.
+- Mouse/hit testing -- [Slice 5](../../spec/phase-4/slice-05-mouse-and-hit-testing.md):
+  required for wheel routing, clipped hit testing, and touch-generated wheel delivery.
 - [ScrollIndicator](../primitives/scroll-indicator.md) -- the indicator geometry, presets,
   and placement. The static foundation owns the same proportional one-cell output until
   plan 032 step 9.4 lands the shared primitive at
-  [`ScrollIndicator`](../../spec.md#scrollindicator), then deletes that renderer so
-  ScrollView, List, and Table share one geometry owner.
+  [`ScrollIndicator`](../../spec/phase-4/slice-03-styling-and-decoration.md#scrollindicator),
+  then deletes that renderer so ScrollView, List, and Table share one geometry owner.
 - [Box](../primitives/box.md) -- the focus-appearance host and the ring that `.border`
   indicator placement rides; a bare viewport needs neither.
 - `Form`, `Outline`, and a separate `ScrollViewStyle` protocol are neither dependencies
@@ -864,8 +863,8 @@ colors, ANSI sequences, or noncanonical glyph set is introduced here.
   callback. The next accepted user movement writes from the effective value.
 - **Styling:** ScrollView consumes shared semantic complete-`Style` environment values,
   following
-  [system and custom style plumbing](../../spec.md#system-and-custom-style-plumbing). It
-  has no separate style protocol.
+  [system and custom style plumbing](../../spec/phase-4/slice-03-styling-and-decoration.md#system-and-custom-style-plumbing).
+  It has no separate style protocol.
 - **Indicator presentation (owner decision, omp2 review, 2026-10):** omp2's look stays the
   default vertically: an accent `█` thumb on a `border` `│` track. Horizontally the
   default thumb is `🬋` on `─` (owner decision, 2026-10-11). The look is one curated
@@ -882,7 +881,7 @@ colors, ANSI sequences, or noncanonical glyph set is introduced here.
 - **Reconciliation:** Unchanged ScrollView subtrees skip reconciliation and reuse cached
   measurements; this is a performance property, not a behavior or API change.
 - **Pointer drag:** Indicators are output-only in 1.0, as Slice 5's
-  [pointer cutover](../../spec.md#pointer-cutover-for-controls-fields-panes-and-viewports)
+  [pointer cutover](../../spec/phase-4/slice-05-mouse-and-hit-testing.md#pointer-cutover-for-controls-fields-panes-and-viewports)
   states. Clicks and drags return ignored, and omp2's click-to-jump on the bar is rejected
   (key F2); wheel boundary bubbling remains the only pointer-scroll contract.
 - **Unbound offset (key D4):** without an offset binding the effective offset is the
@@ -896,8 +895,7 @@ colors, ANSI sequences, or noncanonical glyph set is introduced here.
   height; a partially visible item draws its visible rows. List, Picker menus, and Form
   build on this contract rather than scrolling by whole items.
 
-This design was reviewed against the
-[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): content and
+This design was reviewed against the [Phase 4 theses](../../spec/phase-4.md): content and
 optional position are controlled, an unbound viewport stays at the origin rather than
 holding hidden state, input changes integer state synchronously, and rendering is a
 translated clipped region.

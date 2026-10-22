@@ -9,11 +9,10 @@ status: ready
 through `Binding<Bool>`; Toggle retains only ephemeral press presentation in `NodeState`.
 It presents the current value without owning or inventing application state. This is a
 widget-layer design following the controlled-widget rule in
-[Slice 7](../../spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
-Explicit focus and keyboard delivery come from
-[Slice 4](../../spec.md#slice-4-focus-and-key-routing-the-responder-system), and pointer
-delivery comes from the
-[mouse and hit-testing slice](../../spec.md#slice-5-mouse-and-hit-testing).
+[Slice 7](../../spec/phase-4/slice-07-catalog-integration.md). Explicit focus and keyboard
+delivery come from [Slice 4](../../spec/phase-4/slice-04-focus-and-key-routing.md), and
+pointer delivery comes from the
+[mouse and hit-testing slice](../../spec/phase-4/slice-05-mouse-and-hit-testing.md).
 
 The standalone default presentation is omp2's checkbox, adopted by owner decision (omp2
 review, 2026-10): `☑` when the binding is true and `☐` when it is false, followed by one
@@ -593,9 +592,9 @@ style).
 - [Text](../primitives/text.md) renders labels and applies grapheme-safe truncation.
 - [Style modifiers](../primitives/style-modifiers.md) apply the resolved complete semantic
   Styles without reducing them to foreground colors.
-- [Slice 4](../../spec.md#slice-4-focus-and-key-routing-the-responder-system) supplies the
-  focus manager, explicit `FocusID`, focusable list, and key routing.
-- [Slice 5](../../spec.md#slice-5-mouse-and-hit-testing) supplies hit testing,
+- [Slice 4](../../spec/phase-4/slice-04-focus-and-key-routing.md) supplies the focus
+  manager, explicit `FocusID`, focusable list, and key routing.
+- [Slice 5](../../spec/phase-4/slice-05-mouse-and-hit-testing.md) supplies hit testing,
   click-to-focus ordering, and same-node primary tap delivery.
 
 ## Requirements
@@ -685,15 +684,15 @@ style).
 ## Deferred beyond 1.0
 
 - **Label-less Toggle:** deferred beyond 1.0, which the Spec's
-  [1.0 surface](../../spec.md#the-10-surface) records. Unblock only when the public
-  accessibility policy defines a non-label accessible-name source and an exact initializer
-  contract.
+  [1.0 surface](../../spec/phase-4/prerequisites-and-scheduling.md#the-10-surface)
+  records. Unblock only when the public accessibility policy defines a non-label
+  accessible-name source and an exact initializer contract.
 - **Switch-style presentation:** deferred beyond 1.0, as above. Unblock only when a
   proposed `ToggleStyle` proves a switch can preserve the checkbox keyboard, pointer,
   focus, and disabled contract through fixtures and interaction tables.
 - **Custom `ToggleStyle` representation:** concrete configuration, type-erasure, and
   environment key signatures for app-defined styles are deferred to the
-  [Slice 7 catalog integration contract](../../spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
+  [Slice 7 catalog integration contract](../../spec/phase-4/slice-07-catalog-integration.md).
   Unblock only when that contract names the custom style representation without weakening
   Toggle's required `Binding<Bool>` initializer. The built-in `.checkbox`, `.circle`, and
   `.text` styles do not wait for it.
@@ -703,13 +702,11 @@ style).
 None. Each item under Deferred beyond 1.0 names its exact target: the Spec's 1.0 surface
 or the Slice 7 style contract.
 
-Reviewed against the
-[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): a Toggle is a
-value whose label and style are configuration; the on/off value is the app's
-`Binding<Bool>`, written once per valid activation; its only retained state is the
-`isPressed` NodeState of its own node, and it reads focus and the Form row context from
-the environment; and its pointer needs reach the session as `TerminalRequirements`, never
-as mode changes.
+Reviewed against the [Phase 4 theses](../../spec/phase-4.md): a Toggle is a value whose
+label and style are configuration; the on/off value is the app's `Binding<Bool>`, written
+once per valid activation; its only retained state is the `isPressed` NodeState of its own
+node, and it reads focus and the Form row context from the environment; and its pointer
+needs reach the session as `TerminalRequirements`, never as mode changes.
 
 ## Inspiration
 

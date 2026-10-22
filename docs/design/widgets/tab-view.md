@@ -20,10 +20,9 @@ narrow.
 
 The wireframes below are the accepted Tessera states, drawn from omp2's rendering with its
 theme roles renamed to Tessera roles. This widget follows the controlled-widget rule in
-[Slice 7](../../spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets),
-takes its focus and key delivery from
-[Slice 4](../../spec.md#slice-4-focus-and-key-routing-the-responder-system), and its
-pointer delivery from [Slice 5](../../spec.md#slice-5-mouse-and-hit-testing).
+[Slice 7](../../spec/phase-4/slice-07-catalog-integration.md), takes its focus and key
+delivery from [Slice 4](../../spec/phase-4/slice-04-focus-and-key-routing.md), and its
+pointer delivery from [Slice 5](../../spec/phase-4/slice-05-mouse-and-hit-testing.md).
 
 ## Prior art
 
@@ -579,10 +578,9 @@ Schema: [README](../../design.md#requirements-list).
 - Below 24 columns the truncation order in the sizing table applies (owner decision,
   2026-10-10), and the result follows from it (states: under the minimum, 12x6).
 
-Reviewed against the
-[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): the selection is
-the app's binding, the view holds no NodeState, focus stays with the graph, and the bar's
-wrap and collapse are deterministic integer-cell layout.
+Reviewed against the [Phase 4 theses](../../spec/phase-4.md): the selection is the app's
+binding, the view holds no NodeState, focus stays with the graph, and the bar's wrap and
+collapse are deterministic integer-cell layout.
 
 ## Open questions
 

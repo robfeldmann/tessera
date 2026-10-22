@@ -19,8 +19,8 @@ never creates Button-specific content insets; a padded Button label therefore co
 - Apple SwiftUI
   [View.padding](<https://developer.apple.com/documentation/swiftui/view/padding(_:)>) —
   copy a composable modifier that changes layout rather than its child's content model.
-- Tessera [Slice 2](../../spec.md#slice-2-the-layout-protocol-and-stack-containers) —
-  `padding` is one public layout modifier; parent-frame clipping remains normative there.
+- Tessera [Slice 2](../../spec/phase-4/slice-02-layout-protocol-and-stacks.md) — `padding`
+  is one public layout modifier; parent-frame clipping remains normative there.
 - omp2 has no padding component. Its counterparts are the `pad`, `pad-x`, and `pad-y`
   attributes
   ([vocab/lib.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/vocab/src/lib.rs#L25-L30));
@@ -83,7 +83,7 @@ the excess.
 Placement offsets the child's absolute origin by `(leading, top)`. Padding's own final
 frame, rather than the child's intrinsic bounds, is the region inherited by later
 rendering and hit-testing clipping. This follows the
-[Slice 2 placement contract](../../spec.md#slice-2-the-layout-protocol-and-stack-containers).
+[Slice 2 placement contract](../../spec/phase-4/slice-02-layout-protocol-and-stacks.md).
 
 ## Environment
 
@@ -111,13 +111,13 @@ reduced-color terminals preserve the same integer geometry and clipping.
 ## Decisions
 
 `EdgeInsets` rejects a negative edge with `precondition` before layout, as fixed by
-[catalog layout decisions](../../spec.md#catalog-layout-decisions). Padding never clamps
-an invalid inset, so no negative proposal or inverted frame can arise.
+[catalog layout decisions](../../spec/phase-4/slice-02-layout-protocol-and-stacks.md#catalog-layout-decisions).
+Padding never clamps an invalid inset, so no negative proposal or inverted frame can
+arise.
 
-Reviewed against the
-[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): Padding is a
-value-type modifier lowered to one wrapper node, its insets are deterministic integer
-geometry that `dump()` shows, it holds no state, and it touches no terminal capability.
+Reviewed against the [Phase 4 theses](../../spec/phase-4.md): Padding is a value-type
+modifier lowered to one wrapper node, its insets are deterministic integer geometry that
+`dump()` shows, it holds no state, and it touches no terminal capability.
 
 ## Inspiration
 

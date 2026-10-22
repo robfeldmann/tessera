@@ -415,8 +415,9 @@ under-minimum, over-maximum.
 - [Text](../primitives/text.md) (`ready`): value and label wrapping, and the one-row
   budget's mark.
 - [ViewThatFits](../primitives/view-that-fits.md) (`ready`): the inline or stacked choice
-  (key G10; [Spec](../../spec.md#flow-layout-and-viewthatfits)). Plan 032 step 14.1 builds
-  it, before LabeledContent lands.
+  (key G10;
+  [Spec](../../spec/phase-4/slice-06-grid-table-and-fitting.md#flow-layout-and-viewthatfits)).
+  Plan 032 step 14.1 builds it, before LabeledContent lands.
 - [Linear stacks](../primitives/stacks.md) (`ready`): the one-column `spacing:` between
   the label and the value, and the stacked column (key B4).
 
@@ -462,10 +463,9 @@ under-minimum, over-maximum.
 - Below 8 columns: words break between grapheme clusters; nothing is truncated or dropped
   (owner decision, 2026-10-18).
 
-This design was reviewed against the
-[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): LabeledContent is
-a stateless composition of two app-supplied views, its styling comes from roles in the
-environment, and both arrangements are deterministic integer layout.
+This design was reviewed against the [Phase 4 theses](../../spec/phase-4.md):
+LabeledContent is a stateless composition of two app-supplied views, its styling comes
+from roles in the environment, and both arrangements are deterministic integer layout.
 
 ## Open questions
 

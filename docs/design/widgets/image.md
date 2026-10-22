@@ -9,11 +9,11 @@ status: specified
 asynchronously, fits the image to the requested box with its aspect ratio kept, and draws
 half-block text cells where the terminal has no image protocol. Where the terminal
 supports the graphics protocol, the image is sent as pixels instead; that path builds on
-the [Kitty graphics substrate](../../spec.md#slice-7-kitty-graphics-protocol).
+the [Kitty graphics substrate](../../spec/phase-3/slice-07-kitty-graphics-protocol.md).
 
 This widget follows the controlled-widget rule in
-[Slice 7](../../spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
-The application owns the source path. Image owns the decoded bitmap and its load phase.
+[Slice 7](../../spec/phase-4/slice-07-catalog-integration.md). The application owns the
+source path. Image owns the decoded bitmap and its load phase.
 
 Owner decision, omp2 review, 2026-10: Image moves to 1.0 and is adopted as omp2 draws it,
 so the wireframes below redraw omp2's output with Tessera's role names. Sub-cell rasters
@@ -462,8 +462,9 @@ The placeholder is a `░` fill drawn by Image, not a border, so it takes no ent
 - [Text](../primitives/text.md): half-block and ASCII cells, and the `Loading…`
   placeholder text and the wrapping `Boxed` label.
 - [Label](../primitives/label.md#icon-catalog): the optional `image` icon.
-- Kitty graphics substrate: [Slice 7](../../spec.md#slice-7-kitty-graphics-protocol). The
-  protocol path sends pixels instead of half-block cells when the terminal supports it.
+- Kitty graphics substrate:
+  [Slice 7](../../spec/phase-3/slice-07-kitty-graphics-protocol.md). The protocol path
+  sends pixels instead of half-block cells when the terminal supports it.
 
 ## Requirements
 
@@ -534,22 +535,24 @@ Below 8 by 4 the drawn width floors at one cell, per Sizing.
 
 - **Protocol tiers (key M5).** omp2 has `Cells`, `Sixel`, `KittyDirect`,
   `KittyPlaceholders` and `Iterm2`. The Spec's
-  [Kitty graphics slice](../../spec.md#slice-7-kitty-graphics-protocol) now settles which
-  protocols exist: the Kitty graphics protocol with direct transmission is the only
-  first-class one, and Sixel, iTerm2 inline images and Kitty Unicode placeholders are its
-  non-goals. So Tessera's tiers can only be Kitty placement or half-block cells. Still
-  undecided: how the Kitty tier sizes its box from the cell pixel size, how a placement
-  clips inside a ScrollView, how the tier appears in snapshot tests, and what opts into
-  emission (the Spec's risk register makes blind emission an app opt-in). Blocks `ready`.
+  [Kitty graphics slice](../../spec/phase-3/slice-07-kitty-graphics-protocol.md) now
+  settles which protocols exist: the Kitty graphics protocol with direct transmission is
+  the only first-class one, and Sixel, iTerm2 inline images and Kitty Unicode placeholders
+  are its non-goals. So Tessera's tiers can only be Kitty placement or half-block cells.
+  Still undecided: how the Kitty tier sizes its box from the cell pixel size, how a
+  placement clips inside a ScrollView, how the tier appears in snapshot tests, and what
+  opts into emission (the Spec's risk register makes blind emission an app opt-in). Blocks
+  `ready`.
 - **Loading inside a view.** Image reads and decodes its path off the UI thread and
   installs the bitmap when the decode returns. That puts file input and a background
   loader inside a view, and the load phase would change outside event handling, which the
   README's runtime ownership invariant forbids
   ([state model table](../../design.md#state-model-table)); the Spec puts async work in
   the app's own machinery
-  ([handler modifiers](../../spec.md#handler-modifiers-and-respondercontext)). Should
-  Image keep its loader, or should the app supply decoded pixels or encoded image data as
-  a plain parameter (key D2) with the load phase in the app's model? Blocks `ready`.
+  ([handler modifiers](../../spec/phase-4/slice-04-focus-and-key-routing.md#handler-modifiers-and-respondercontext)).
+  Should Image keep its loader, or should the app supply decoded pixels or encoded image
+  data as a plain parameter (key D2) with the load phase in the app's model? Blocks
+  `ready`.
 
 ## Inspiration
 

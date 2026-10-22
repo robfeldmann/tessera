@@ -31,7 +31,7 @@ capability with an explicitly documented coexistence policy.
   ([input.rs#L1889-L1892](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/input.rs#L1889-L1892)),
   which is rejected for 1.0 (key C11): no widget copies, and copy policy belongs to this
   doc. A copy writes through the Spec's policy-gated
-  [OSC 52 clipboard](../../spec.md#slice-9-osc-52-clipboard).
+  [OSC 52 clipboard](../../spec/phase-3/slice-09-osc-52-clipboard.md).
 - Ratatui Paragraph: `~/Developer/ratatui/ratatui/main/ratatui-widgets/src/paragraph.rs` —
   retain its stateless rendering boundary as a negative example: rendered terminal cells
   do not retain enough source information to reconstruct semantic selection after layout.
@@ -41,9 +41,9 @@ capability with an explicitly documented coexistence policy.
   coordinates for application layout or text offsets.
 - Tessera [Text](text.md) — preserve immutable, pointer-free text values; selection must
   compose without adding business or ephemeral state to `Text` nodes.
-- Tessera [Slice 5](../../spec.md#slice-5-mouse-and-hit-testing) — build on clipped,
-  ordered hit testing and responder routing rather than adding terminal authority to
-  views.
+- Tessera [Slice 5](../../spec/phase-4/slice-05-mouse-and-hit-testing.md) — build on
+  clipped, ordered hit testing and responder routing rather than adding terminal authority
+  to views.
 
 ## Anatomy
 
@@ -60,9 +60,9 @@ The candidate system has five conceptual regions rather than settled visible chr
    and requests policy-gated clipboard output.
 
 Wireframes and callout coordinates are deferred to plan 032 step 11.3, which decides
-whether [Slice 5](../../spec.md#slice-5-mouse-and-hit-testing) adopts this contract, as a
-modifier, scope container, environment facility, or view-layer service, or records its
-deferral.
+whether [Slice 5](../../spec/phase-4/slice-05-mouse-and-hit-testing.md) adopts this
+contract, as a modifier, scope container, environment facility, or view-layer service, or
+records its deferral.
 
 ## Variants
 
@@ -95,18 +95,18 @@ output.
 ## Degradation
 
 Selection must remain geometrically correct without color and must not depend on
-[OSC 52](../../spec.md#slice-9-osc-52-clipboard) availability. When clipboard output is
-unavailable or denied by session policy, the selected semantic range and its visible
-highlight remain valid; the copy action reports or ignores denial according to the future
-responder contract. ASCII-only presentation must use an accepted shared token rather than
-altering selected text.
+[OSC 52](../../spec/phase-3/slice-09-osc-52-clipboard.md) availability. When clipboard
+output is unavailable or denied by session policy, the selected semantic range and its
+visible highlight remain valid; the copy action reports or ignores denial according to the
+future responder contract. ASCII-only presentation must use an accepted shared token
+rather than altering selected text.
 
 ## Open questions
 
 Every question below is deferred to plan 032 step 11.3, which answers it in the Slice 5
 contract or records the deferral in the Spec
-([Slice 5](../../spec.md#slice-5-mouse-and-hit-testing);
-[the 1.0 surface](../../spec.md#the-10-surface)).
+([Slice 5](../../spec/phase-4/slice-05-mouse-and-hit-testing.md);
+[the 1.0 surface](../../spec/phase-4/prerequisites-and-scheduling.md#the-10-surface)).
 
 - What public type represents a semantic selection range, and is it always controlled by a
   binding?

@@ -654,20 +654,19 @@ Reference the [degradation ladder](../tokens.md#degradation-ladder).
   slot and nothing is added: no marker, glyph, or word (owner decision, 2026-10-18).
 - Below the floor: labels truncate at the tail (see [Sizing](#sizing)).
 
-Reviewed against the
-[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): nodes, selection,
-and expansion are app data and bindings, the scroll offset is the only NodeState, focus
-stays with the graph, and rows are deterministic integer-cell output built only for the
+Reviewed against the [Phase 4 theses](../../spec/phase-4.md): nodes, selection, and
+expansion are app data and bindings, the scroll offset is the only NodeState, focus stays
+with the graph, and rows are deterministic integer-cell output built only for the
 viewport.
 
 ## Open questions
 
 - **Row hover (key F4).** omp2's `Tree` tints the row under the pointer, and List and
   Table take a default row hover (owner decision, 2026-10-19;
-  [Slice 5](../../spec.md#slice-5-mouse-and-hit-testing)), but Picker's radio group and
-  TabView draw none (owner decisions, 2026-10-10). Outline draws none and requests no
-  pointer motion. The owner decides whether Outline rows take `hover` as List's do;
-  deferred to plan 032 step 14.3, which builds Outline.
+  [Slice 5](../../spec/phase-4/slice-05-mouse-and-hit-testing.md)), but Picker's radio
+  group and TabView draw none (owner decisions, 2026-10-10). Outline draws none and
+  requests no pointer motion. The owner decides whether Outline rows take `hover` as
+  List's do; deferred to plan 032 step 14.3, which builds Outline.
 - **Guides modifier (key K6).** The guides state reads a border set from the environment,
   set by a modifier the way `.tableStyle(_:)` is set on a Table (key B1), but the modifier
   has no name yet. omp2 spells it as the `guides` attribute, whose bare flag means the

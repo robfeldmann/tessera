@@ -12,10 +12,9 @@ initializer or a style protocol. The application owns the options and the select
 through a binding; MultiPicker only derives which supplied options are checked and renders
 them. It retains no business data and never invents a selection. This is a widget-layer
 design following the controlled-widget rule in
-[Slice 7](../../spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets),
-with explicit focus supplied by
-[Slice 4](../../spec.md#slice-4-focus-and-key-routing-the-responder-system) and pointer
-delivery supplied by [Slice 5](../../spec.md#slice-5-mouse-and-hit-testing).
+[Slice 7](../../spec/phase-4/slice-07-catalog-integration.md), with explicit focus
+supplied by [Slice 4](../../spec/phase-4/slice-04-focus-and-key-routing.md) and pointer
+delivery supplied by [Slice 5](../../spec/phase-4/slice-05-mouse-and-hit-testing.md).
 
 The 1.0 presentations are the menu and the radio group. Each is chosen through
 `multiPickerStyle` and shares the same binding, focus, and enabled rules. Menu rows,
@@ -665,10 +664,10 @@ single-row values (owner decision, 2026-10-18). `labelsHidden` (environment, set
 - [`List`](list.md) -- supplies the row chrome for the menu's option list.
 - [`Style modifiers`](../primitives/style-modifiers.md) -- ready; resolve and apply the
   inherited complete semantic Styles.
-- [Focus manager and responder context](../../spec.md#slice-4-focus-and-key-routing-the-responder-system)
+- [Focus manager and responder context](../../spec/phase-4/slice-04-focus-and-key-routing.md)
   -- supplies app-installed `FocusID` routing and focusable-list participation.
-- [Mouse hit testing](../../spec.md#slice-5-mouse-and-hit-testing) -- supplies chip and
-  row hit testing and click-to-focus ordering.
+- [Mouse hit testing](../../spec/phase-4/slice-05-mouse-and-hit-testing.md) -- supplies
+  chip and row hit testing and click-to-focus ordering.
 - [`ViewThatFits`](../primitives/view-that-fits.md) -- chooses the radio group's title
   layout and the menu's description layout, as in Picker (key G10).
 - [Flow](../primitives/flow.md) -- wraps the radio group's chips onto more rows (key G6).
@@ -800,11 +799,10 @@ or writes the binding.
 ## Open questions
 
 - **Deferred:** per-option disabled state, as in Picker, to
-  [Slice 7](../../spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
+  [Slice 7](../../spec/phase-4/slice-07-catalog-integration.md).
 
-Reviewed against the
-[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): a MultiPicker is a
-value whose title, options, and row closure are configuration; the chosen set is the app's
+Reviewed against the [Phase 4 theses](../../spec/phase-4.md): a MultiPicker is a value
+whose title, options, and row closure are configuration; the chosen set is the app's
 binding, written once per toggle or committed draft; its retained state is the cursor,
 editing, draft, scroll, and open NodeState of its own node, each with a reset rule, while
 its layouts are derived; and its pointer needs reach the session as

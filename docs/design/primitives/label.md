@@ -530,8 +530,7 @@ under-minimum, over-maximum.
 
 ## Open questions
 
-- Resolved: reviewed against the
-  [Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module). Label is a
+- Resolved: reviewed against the [Phase 4 theses](../../spec/phase-4.md). Label is a
   stateless value composed from Text and catalog tokens, its charset and roles resolve
   from the environment, and it reads no clock and handles no input.
 - Deferred to plan 032 step 9.1 (key I5): the initializer of an inline icon run and how a

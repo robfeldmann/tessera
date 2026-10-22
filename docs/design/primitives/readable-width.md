@@ -180,12 +180,11 @@ than the readable width it has no effect.
   Frame does not. Its layout is Frame's max-only rule, so Frame's `ready` contract is
   unchanged.
 
-Reviewed against the
-[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): the modifier is a
-value description that reads `readableWidth` through the
-[environment](../../spec.md#environment) and lowers to Frame's max-only wrapper node, so
-`dump()` shows its capped proposal and size; the cap is an app-set environment value, not
-state; and it touches no terminal capability.
+Reviewed against the [Phase 4 theses](../../spec/phase-4.md): the modifier is a value
+description that reads `readableWidth` through the
+[environment](../../spec/phase-4/slice-01-tesseracore.md#environment) and lowers to
+Frame's max-only wrapper node, so `dump()` shows its capped proposal and size; the cap is
+an app-set environment value, not state; and it touches no terminal capability.
 
 ## Inspiration
 

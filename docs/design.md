@@ -13,12 +13,12 @@ Phase 4 of [the spec](spec.md) builds. The spec stays the constitution — archi
 controlled-widget rule, `NodeState` discipline, the layout protocol — while this catalog
 owns per-component detail: appearance, interaction tables, state models, and requirements.
 Never restate a spec rule here; link to it, for example
-[Slice 7](spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
+[Slice 7](spec/phase-4/slice-07-catalog-integration.md).
 
 The catalog's core trick: a terminal UI's medium is a character grid, so a wireframe drawn
 at exact dimensions is simultaneously the full-fidelity design and a candidate golden
-fixture for the [snapshot harness](spec.md#slice-1-the-snapshot-harness). Everything below
-exists to keep wireframes fixture-grade and behavior tables test-grade.
+fixture for the [snapshot harness](spec/phase-2/slice-01-the-snapshot-harness.md).
+Everything below exists to keep wireframes fixture-grade and behavior tables test-grade.
 
 ## Layout
 
@@ -52,13 +52,13 @@ it uses. `app` is reserved for runnable integration designs.
 
 Promotion gates:
 
-| Status        | Gate                                                                                                                                                                                                                                                                                 |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `sketch`      | Doc exists from the template. Overview written; at least one prior-art citation. Legal to be wrong everywhere else.                                                                                                                                                                  |
-| `wireframed`  | Anatomy wireframe with callouts. Widgets additionally show `mobile` and `min` states. All wireframe blocks pass `scripts/check-wireframes.py`.                                                                                                                                       |
-| `specified`   | Every schema table complete and schema-valid. Requirements written as test-name sentences, each traced to a table row or wireframe state. Degradation documented. Open questions explicit.                                                                                           |
-| `ready`       | All primitive dependencies are `ready` or `implemented`. Open questions resolved, or explicitly deferred to an exact `docs/spec.md` anchor / issue. Reviewed against the [Phase 4 theses](spec.md#phase-4--view-layer-the-tessera-module). Eligible to become an `docs/plans/` plan. |
-| `implemented` | Code merged. Durable content migrated to a DocC extension file (see Graduation). Wireframes landed as snapshot fixtures. The catalog doc shrinks to a stub pointing at both.                                                                                                         |
+| Status        | Gate                                                                                                                                                                                                                                                  |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sketch`      | Doc exists from the template. Overview written; at least one prior-art citation. Legal to be wrong everywhere else.                                                                                                                                   |
+| `wireframed`  | Anatomy wireframe with callouts. Widgets additionally show `mobile` and `min` states. All wireframe blocks pass `scripts/check-wireframes.py`.                                                                                                        |
+| `specified`   | Every schema table complete and schema-valid. Requirements written as test-name sentences, each traced to a table row or wireframe state. Degradation documented. Open questions explicit.                                                            |
+| `ready`       | All primitive dependencies are `ready` or `implemented`. Open questions resolved, or explicitly deferred to an exact `docs/spec.md` anchor / issue. Reviewed against the [Phase 4 theses](spec/phase-4.md). Eligible to become an `docs/plans/` plan. |
+| `implemented` | Code merged. Durable content migrated to a DocC extension file (see Graduation). Wireframes landed as snapshot fixtures. The catalog doc shrinks to a stub pointing at both.                                                                          |
 
 Partial ideas are first-class: dropping one paragraph into a `sketch` doc, or one line
 into `inbox.md`, is always legal. Only promotion costs effort.
@@ -177,9 +177,9 @@ allowed in a plain `text` fence, labeled `(annotated copy -- not a fixture)`. It
 non-normative; the tagged wireframe stays the truth.
 
 Style overlays (color, bold) use the spec's
-[styled-grid convention](spec.md#snapshot-representations): a `text` fence with a
-character grid and an aligned attribute grid plus a legend. The catalog fixes that
-convention in [Styled grids](#styled-grids), and the checker lints it.
+[styled-grid convention](spec/phase-2/slice-01-the-snapshot-harness.md#snapshot-representations):
+a `text` fence with a character grid and an aligned attribute grid plus a legend. The
+catalog fixes that convention in [Styled grids](#styled-grids), and the checker lints it.
 
 ### Styled grids
 
@@ -258,8 +258,8 @@ Columns: `Key | Precondition | Effect | Consumed`
 - `Effect`: imperative; must name which state-model row changes and through what
   (`moves selection via binding`, `mutates NodeState offset`).
 - `Consumed`: `yes`, `no`, or `conditional (...)`. Default is `no`; the
-  [routing rule](spec.md#phase-4--view-layer-the-tessera-module) is that the graph never
-  consumes input unless a handler says so, so every `yes` is a deliberate claim.
+  [routing rule](spec/phase-4.md) is that the graph never consumes input unless a handler
+  says so, so every `yes` is a deliberate claim.
 
 Example:
 
@@ -298,14 +298,13 @@ Columns: `State | Owner | Type | Reset or clamp rule`
   - `derived` -- recomputed during layout or render, never stored.
 - `Reset or clamp rule`: what happens when the app mutates the binding underneath the
   widget. Every `NodeState` and `derived` row must answer this; "clamps on every update"
-  is the
-  [Slice 7 baseline](spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
+  is the [Slice 7 baseline](spec/phase-4/slice-07-catalog-integration.md).
 - Choose the owner by the Spec's four homes for widget state
-  ([state model](spec.md#state-model-bring-your-own)): data the user produces or the app
-  reads is a `Binding`; display data the app supplies is an initializer parameter,
-  recorded as `Binding` (app-owned) in this column; position and interaction in flight
-  (cursor, unbound scroll offset, pressed or open flag, uncommitted draft) is `NodeState`;
-  focus, hover, the clock, and environment values are graph-owned, so they appear as
+  ([state model](spec/phase-4/state-model.md)): data the user produces or the app reads is
+  a `Binding`; display data the app supplies is an initializer parameter, recorded as
+  `Binding` (app-owned) in this column; position and interaction in flight (cursor,
+  unbound scroll offset, pressed or open flag, uncommitted draft) is `NodeState`; focus,
+  hover, the clock, and environment values are graph-owned, so they appear as
   `Environment` or `derived` and are never stored.
 
 Runtime ownership invariant: every `NodeState` row has exactly one live storage owner. A
@@ -329,8 +328,8 @@ Columns: `Proposal | Result | Rule`
 - `Proposal`: `WxH` with `nil` allowed per axis (`nil` means unconstrained: report the
   ideal). Mandatory rows: `nil x nil`, a tight fit, under-minimum, over-maximum.
 - `Result`: exact integers. The spec's layout testing posture is
-  [tolerance-free](spec.md#testing-posture-tessera-native-oracles); if a result needs a
-  tolerance, the rule is wrong.
+  [tolerance-free](spec/phase-4/testing-posture.md); if a result needs a tolerance, the
+  rule is wrong.
 - `Rule`: one sentence naming the sizing behavior that produced the number.
 
 Example:

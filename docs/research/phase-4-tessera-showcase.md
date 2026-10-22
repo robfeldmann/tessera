@@ -11,8 +11,9 @@ description: Phase 4 Tessera Showcase
 per-component demos assembled later into an intro app, and `design/showcase.md` was
 removed (it is in git history and in the `archive/phase4` tag). NavigationSplitView left
 1.0, and `Form` and `Outline` moved into it; see
-[the 1.0 surface](../spec.md#the-10-surface) and plan 032. The record below is kept for
-its history; its links to `design/showcase.md` are now plain text.
+[the 1.0 surface](../spec/phase-4/prerequisites-and-scheduling.md#the-10-surface) and
+plan 032. The record below is kept for its history; its links to `design/showcase.md` are
+now plain text.
 
 ## Accepted decisions
 
@@ -24,14 +25,14 @@ its history; its links to `design/showcase.md` are now plain text.
 - **Diagnostics boundary:** the Inspector is presentation over the Spec-defined immutable
   completed-pass snapshot; it does not mutate the graph or trigger a pass. See the
   diagnostics presentation in `design/showcase.md` and the
-  [normative Slice 1 contract](../spec.md#slice-1-tesseracore--view-viewgraph-reconciliation-text).
+  [normative Slice 1 contract](../spec/phase-4/slice-01-tesseracore.md).
 - **Responsive policy:** `120x24` is a provisional Showcase fixture; compact roles replace
   rather than squeeze panes, critical content scrolls, and the app model survives a resize
   guard. See the responsive policy in `design/showcase.md`.
 - **Seven-slice delivery:** the Showcase lands in dependency order, with each cutover
   deleting its temporary scaffold; progressive SplitView reaches final negotiation before
   NavigationSplitView composes it. See "How the Showcase grows" in `design/showcase.md`
-  and the [Phase 4 slice plan](../spec.md#phase-4--view-layer-the-tessera-module).
+  and the [Phase 4 slice plan](../spec/phase-4.md).
 
 ## Open reconciliation questions (resolve during Phase 4 planning)
 

@@ -17,8 +17,8 @@ style nor input routing.
   copy explicit rectangle intersection as the only clipping mechanism.
 - Apple SwiftUI [ZStack](https://developer.apple.com/documentation/swiftui/zstack) — copy
   overlay composition and explicit alignment. Reject implicit modal/input behavior.
-- Tessera [Slice 2](../../spec.md#slice-2-the-layout-protocol-and-stack-containers) — owns
-  the public initializer, `.topLeading` default, and frame clipping contract.
+- Tessera [Slice 2](../../spec/phase-4/slice-02-layout-protocol-and-stacks.md) — owns the
+  public initializer, `.topLeading` default, and frame clipping contract.
 - omp2 has no in-flow ZStack. Its layers are viewport-anchored overlays
   ([overlay.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/overlay.rs#L1-L6))
   that `Ui::show_overlay` stacks above the document by an explicit `z`, later overlays on
@@ -71,7 +71,7 @@ Text.
 
 `dump()` records this zero-based `paintOrder` field for each placed child; it does not
 invent a separate z-index value. This durable schema is fixed by
-[catalog layout decisions](../../spec.md#catalog-layout-decisions).
+[catalog layout decisions](../../spec/phase-4/slice-02-layout-protocol-and-stacks.md#catalog-layout-decisions).
 
 ## Sizing
 
@@ -81,7 +81,7 @@ proposal does not make ZStack report a negative size: Text children lay out agai
 narrow width (`Text("BBBB")` at 2x1 is one budget row, `B…`, per
 [Text](text.md#row-budget)), while a non-text child that keeps its fixed extent is clipped
 by the
-[Slice 2 placement contract](../../spec.md#slice-2-the-layout-protocol-and-stack-containers)
+[Slice 2 placement contract](../../spec/phase-4/slice-02-layout-protocol-and-stacks.md)
 when its parent assigns a smaller frame.
 
 | Proposal                                                  | Result | Rule                                                                                       |
@@ -124,13 +124,12 @@ preserve its integer bounds, source-order overwriting, alignment, and clipping.
 
 Source order is the only overlay ordering: `dump()` records lexical `paintOrder`, ZStack
 has no distinct z-index (key H1), and
-[Slice 5](../../spec.md#slice-5-mouse-and-hit-testing) hit testing visits its children
-topmost first. The exact diagnostics schema is
-[catalog layout decisions](../../spec.md#catalog-layout-decisions); no ZStack decision
-remains open.
+[Slice 5](../../spec/phase-4/slice-05-mouse-and-hit-testing.md) hit testing visits its
+children topmost first. The exact diagnostics schema is
+[catalog layout decisions](../../spec/phase-4/slice-02-layout-protocol-and-stacks.md#catalog-layout-decisions);
+no ZStack decision remains open.
 
-Reviewed against the
-[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): ZStack is a value
+Reviewed against the [Phase 4 theses](../../spec/phase-4.md): ZStack is a value
 description lowered to one layout node, its common bounds and paint order are
 deterministic and shown by `dump()`, it holds no state, and it touches no terminal
 capability.

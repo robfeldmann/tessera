@@ -11,9 +11,9 @@ structure and forwards everything else -- its rows keep their own bindings, focu
 input untouched, and Section itself owns no data, selection, or expansion state. A header
 is a noninteractive label; supplying `isExpanded: Binding<Bool>` makes it collapsible,
 with the app owning that bit per the
-[Slice 7](../../spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets)
-controlled-only rule. In 1.0 Section is legal only inside List; Form revisits standalone
-use post-1.0. There is no footer in 1.0.
+[Slice 7](../../spec/phase-4/slice-07-catalog-integration.md) controlled-only rule. In 1.0
+Section is legal only inside List; Form revisits standalone use post-1.0. There is no
+footer in 1.0.
 
 The API takes the [translation key](../translation-key.md)'s forms: the header is a
 promoted `@ViewBuilder header:` slot with a `String` convenience (key A7), and expansion
@@ -278,15 +278,15 @@ An empty section is header + 0 rows (height 1); a headerless section is rows onl
 - Below `min` (8x2): tail-truncated header, rows breaking between graphemes, never a
   layout failure.
 
-This design was reviewed against the
-[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): Section is a value
-that describes structure, expansion is the app's binding, it holds no `NodeState`, and its
-contribution to the host List's rows is recomputed on every update.
+This design was reviewed against the [Phase 4 theses](../../spec/phase-4.md): Section is a
+value that describes structure, expansion is the app's binding, it holds no `NodeState`,
+and its contribution to the host List's rows is recomputed on every update.
 
 ## Open questions
 
 None open. Two questions are deferred past 1.0, which the
-[1.0 surface](../../spec.md#the-10-surface) records for every catalog deferral:
+[1.0 surface](../../spec/phase-4/prerequisites-and-scheduling.md#the-10-surface) records
+for every catalog deferral:
 
 - Footer: Section has no footer in 1.0. Whether a footer slot returns, and whether it
   reserves space when empty, belongs to standalone Section use with Form after 1.0.

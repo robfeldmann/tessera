@@ -45,9 +45,9 @@ lands on a token, tokens.md owns the token.
 Most omp2 components keep their data inside themselves and hand it out through `UiEvent`s
 and `value()`. Tessera widgets are controlled, and the D rows place each omp2 state field
 by the Spec's four homes for widget state: app-owned `Binding`, initializer parameter,
-`NodeState`, and graph-owned ([state model](../spec.md#state-model-bring-your-own)). The
-Spec owns those rules; [State model table](../design.md#state-model-table) says how a
-catalog doc records them.
+`NodeState`, and graph-owned ([state model](../spec/phase-4/state-model.md)). The Spec
+owns those rules; [State model table](../design.md#state-model-table) says how a catalog
+doc records them.
 
 ## Key
 
@@ -205,8 +205,9 @@ form.
   Views are typed Swift values, so string attributes, CSS colour syntax, and late tag
   resolution have no counterpart.
 - **A6.** `CustomElement` and the `ElementFactory` registry for unknown tags. Third
-  parties conform to `View` or `LeafView` ([leaf seam](../spec.md#the-leaf-seam)); there
-  is no tag registry to extend.
+  parties conform to `View` or `LeafView`
+  ([leaf seam](../spec/phase-4/slice-01-tesseracore.md#the-leaf-seam)); there is no tag
+  registry to extend.
 - **A7.** Parent-owned records (`option`, `segment`, `tab`, `node`, `field`, `step`, `tr`,
   `td`) and promoted children such as Boxed's title. Tessera uses app data plus a row
   closure, or a typed child view in the builder. A data record (an option's value, label,
@@ -216,7 +217,7 @@ form.
   `header:`) with a `String` convenience.
 - **A8.** `set_text`, `update_component`, `set_prop`, `set_visible`, `invalidate`. Views
   are redeclared from app state on every update
-  ([state model](../spec.md#state-model-bring-your-own)); nothing is addressed by id.
+  ([state model](../spec/phase-4/state-model.md)); nothing is addressed by id.
 - **A9.** Visibility conditioned on another component's value. The condition reads app
   state, which the app already holds through its bindings.
 - **A10.** `Component::value` and `Ui::values` collect a JSON map. Every user-produced
@@ -514,8 +515,8 @@ form.
   key is a deliberate row; unlisted keys bubble.
 - **E4.** Unhandled Tab, Enter, and arrows move focus, and Esc becomes `Cancel`. The graph
   never interprets an unhandled key: no implicit Tab handling
-  ([focus model](../spec.md#focus-model)). The app, or the Phase 5 runtime as a default
-  policy, adds `.onKey(.tab)`.
+  ([focus model](../spec/phase-4/slice-04-focus-and-key-routing.md#focus-model)). The app,
+  or the Phase 5 runtime as a default policy, adds `.onKey(.tab)`.
 - **E5.** A chord table resolving chords to semantic keys such as `WordLeft`, `Copy`, and
   `Paste`. Widgets match normalized `Key` and `Modifiers` chords in their Key tables;
   rebinding belongs to apps.
@@ -529,9 +530,9 @@ form.
   responder chain's declared keys; no view writes hint text by hand.
 - **E9.** A modal overlay takes the keys, and Esc dismisses it. Tessera plans a focus
   scope that traps traversal inside an overlay and restores focus on dismissal
-  ([focus scopes](../spec.md#focus-appearance-focus-scopes-and-declared-key-bindings)). No
-  catalog doc owns the focus scope yet; see Open questions. Viewport-anchored modal layers
-  are H1.
+  ([focus scopes](../spec/phase-4/slice-04-focus-and-key-routing.md#focus-appearance-focus-scopes-and-declared-key-bindings)).
+  No catalog doc owns the focus scope yet; see Open questions. Viewport-anchored modal
+  layers are H1.
 
 [e1]:
   https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/component.rs#L114-L132
@@ -561,8 +562,8 @@ form.
   a chip, segment, or tab, `Press` is the whole control, and `Sub` is a menu row in a host
   row. `Wheel` is F7, `Zone` C12, `TreeAction` C10, `Scrollbar` F2.
 - **F2.** A click or drag jumps the thumb. Indicators are output-only
-  ([ScrollIndicator](../spec.md#scrollindicator)); a drag on one returns `.ignored`
-  ([ScrollView](widgets/scroll-view.md#mouse-table)).
+  ([ScrollIndicator](../spec/phase-4/slice-03-styling-and-decoration.md#scrollindicator));
+  a drag on one returns `.ignored` ([ScrollView](widgets/scroll-view.md#mouse-table)).
 - **F3.** `Click`, `RightClick`, `MiddleClick`, `Move`, `Drag`, `Release`, and the wheel.
   Mouse tables name `click`, `double-click`, `drag`, `wheel-*`, and `move`. Right and
   middle clicks have no catalog use: context menus are deferred ([List](widgets/list.md)).
@@ -575,7 +576,7 @@ form.
   tracks no modality; focus appearance and hover are independent.
 - **F6.** `Mouse::Click` focuses and activates its target. A click activates through the
   same binding or action path as the keyboard
-  ([pointer cutover](../spec.md#pointer-cutover-for-controls-fields-panes-and-viewports)).
+  ([pointer cutover](../spec/phase-4/slice-05-mouse-and-hit-testing.md#pointer-cutover-for-controls-fields-panes-and-viewports)).
 - **F7.** Scroll viewports first, then list cursors. Tessera moves the innermost
   scrollable offset, which bubbles at a boundary. List, Table, and Outline scroll without
   moving the selection; a doc may route the wheel to its cursor, as Picker's menu does.
@@ -601,8 +602,8 @@ form.
 
 - **G1.** `measure` returns `(min, nat)` widths, then `height(width)`. One proposal-based
   question: the ideal answers `nil`, the minimum answers zero
-  ([Flex allocation](../spec.md#flex-allocation-normative)), and height for a width is a
-  proposal of that width with a `nil` height.
+  ([Flex allocation](../spec/phase-4/slice-02-5-flex-and-splitview-negotiation.md#flex-allocation-normative)),
+  and height for a width is a proposal of that width with a `nil` height.
 - **G2.** `place(ctx, content)`. Placement is integer cells, and `dump()` shows every
   frame.
 - **G3.** `Cached` adds border and padding insets; `paints_border` and `paints_background`
@@ -623,7 +624,8 @@ form.
 - **G7.** Rows stretch children by default, and `stretch_in_row` opts a child in. Stack
   children keep their measured cross-axis extent
   ([Linear stacks](primitives/stacks.md#variants)). Divider, omp2's `stretch_in_row` user,
-  fills its stack's cross axis itself ([Divider](../spec.md#divider)).
+  fills its stack's cross axis itself
+  ([Divider](../spec/phase-4/slice-02-layout-protocol-and-stacks.md#divider)).
 - **G8.** Tessera's form is `FlexConstraint.percentage(_:)`. Resolved against a finite
   proposal only.
 - **G9.** `grid_measure` and `solve_columns`, shared by tables and grids. One allocator;
@@ -843,7 +845,7 @@ form.
 - **L3.** A periodic glyph cycle with `at(now)` and `next_change`. Tessera derives the
   index as `(now / interval) mod count`. Recomputed each render, never stored.
 - **L4.** `anim`, `ease`, and `spin` on any component. General animation is not Phase 4
-  ([performance posture](../spec.md#phase-4-performance-posture)); the spinner is the
+  ([performance posture](../spec/phase-4/performance-posture.md)); the spinner is the
   catalog's only animation ([spinners](tokens.md#spinners)).
 - **L5.** A brightness crest sweeping across text. No catalog doc defines one yet; see
   Open questions.
@@ -1198,9 +1200,9 @@ Design choices in this key that need the owner's confirmation:
 - **Hover ownership (F4).** The key follows omp2: hover is graph-owned and derived at
   render. [Button](widgets/button.md#state-model), [Form](widgets/form.md#state-model),
   and [List](widgets/list.md#state-model) now derive it from the graph.
-  [Slice 5](../spec.md#slice-5-mouse-and-hit-testing) does not yet expose the hovered
-  point to rendering the way the environment exposes `isFocused`; that is deferred to plan
-  032 step 11.2. Awaiting owner confirmation.
+  [Slice 5](../spec/phase-4/slice-05-mouse-and-hit-testing.md) does not yet expose the
+  hovered point to rendering the way the environment exposes `isFocused`; that is deferred
+  to plan 032 step 11.2. Awaiting owner confirmation.
 - **Uncommitted drafts (D8).** Picker's and MultiPicker's custom-row draft is NodeState.
   That reads the README's "never data" rule as "never committed data". Catalog status:
   [Picker](widgets/picker.md) and [MultiPicker](widgets/multi-picker.md) keep the draft in
@@ -1227,8 +1229,8 @@ Design choices in this key that need the owner's confirmation:
 - **Two-step confirmation (C13).** [Button](widgets/button.md) rejects arming, but the
   omp2 review listed two-step confirmation among the 1.0 modifiers.
 - **Focus scope (E9).** The Spec describes the focus scope
-  ([focus scopes](../spec.md#focus-appearance-focus-scopes-and-declared-key-bindings)) and
-  plan 032 step 10.2 builds it, but no catalog doc owns it.
+  ([focus scopes](../spec/phase-4/slice-04-focus-and-key-routing.md#focus-appearance-focus-scopes-and-declared-key-bindings))
+  and plan 032 step 10.2 builds it, but no catalog doc owns it.
 - **Title argument label (B5).** Box's `String` form keeps the labelled `title:` that B5
   names, while Section, Picker, and Toggle take an unlabelled `_ title:`. Should Box match
   them? A taste question raised while applying the key.
@@ -1236,29 +1238,36 @@ Design choices in this key that need the owner's confirmation:
   character-flow wrapping (I3), cross-axis stretch as a row default (G7), and dashed boxes
   (K4).
 
-[s-view]: ../spec.md#the-view-protocol-and-builders
-[s-leaf]: ../spec.md#the-leaf-seam
-[s-identity]: ../spec.md#identity-model
-[s-invalidation]: ../spec.md#invalidation-semantics-graph-wide-defined-here
-[s-env]: ../spec.md#environment
-[s-state]: ../spec.md#state-model-bring-your-own
-[s-style]: ../spec.md#style-chains-and-inheritance
-[s-plumbing]: ../spec.md#system-and-custom-style-plumbing
-[s-decoration]: ../spec.md#decoration
-[s-region]: ../spec.md#renderregion
-[s-scrollview]: ../spec.md#scrollview-viewport-foundation
-[s-focus]: ../spec.md#focus-model
-[s-route]: ../spec.md#event-routing-normative
-[s-handlers]: ../spec.md#handler-modifiers-and-respondercontext
-[s-focus-scope]: ../spec.md#focus-appearance-focus-scopes-and-declared-key-bindings
-[s-flags4]: ../spec.md#things-to-flag-3
-[s-s5]: ../spec.md#slice-5-mouse-and-hit-testing
-[s-cutover]: ../spec.md#pointer-cutover-for-controls-fields-panes-and-viewports
-[s-layout]: ../spec.md#the-protocol
-[s-fit]: ../spec.md#flow-layout-and-viewthatfits
-[s-s6]: ../spec.md#slice-6-grid-table-and-fitting
-[s-width]: ../spec.md#the-width-aware-buffer
-[s-motion]: ../spec.md#motion-views-and-the-tick-requirement
+[s-view]: ../spec/phase-4/slice-01-tesseracore.md#the-view-protocol-and-builders
+[s-leaf]: ../spec/phase-4/slice-01-tesseracore.md#the-leaf-seam
+[s-identity]: ../spec/phase-4/identity-model.md
+[s-invalidation]:
+  ../spec/phase-4/slice-02-layout-protocol-and-stacks.md#invalidation-semantics-graph-wide-defined-here
+[s-env]: ../spec/phase-4/slice-01-tesseracore.md#environment
+[s-state]: ../spec/phase-4/state-model.md
+[s-style]: ../spec/phase-4/slice-03-styling-and-decoration.md#style-chains-and-inheritance
+[s-plumbing]:
+  ../spec/phase-4/slice-03-styling-and-decoration.md#system-and-custom-style-plumbing
+[s-decoration]: ../spec/phase-4/slice-03-styling-and-decoration.md#decoration
+[s-region]: ../spec/phase-4/slice-01-tesseracore.md#renderregion
+[s-scrollview]:
+  ../spec/phase-4/slice-02-layout-protocol-and-stacks.md#scrollview-viewport-foundation
+[s-focus]: ../spec/phase-4/slice-04-focus-and-key-routing.md#focus-model
+[s-route]: ../spec/phase-4/slice-04-focus-and-key-routing.md#event-routing-normative
+[s-handlers]:
+  ../spec/phase-4/slice-04-focus-and-key-routing.md#handler-modifiers-and-respondercontext
+[s-focus-scope]:
+  ../spec/phase-4/slice-04-focus-and-key-routing.md#focus-appearance-focus-scopes-and-declared-key-bindings
+[s-flags4]: ../spec/phase-4/slice-04-focus-and-key-routing.md#things-to-flag
+[s-s5]: ../spec/phase-4/slice-05-mouse-and-hit-testing.md
+[s-cutover]:
+  ../spec/phase-4/slice-05-mouse-and-hit-testing.md#pointer-cutover-for-controls-fields-panes-and-viewports
+[s-layout]: ../spec/phase-4/slice-02-layout-protocol-and-stacks.md#the-protocol
+[s-fit]: ../spec/phase-4/slice-06-grid-table-and-fitting.md#flow-layout-and-viewthatfits
+[s-s6]: ../spec/phase-4/slice-06-grid-table-and-fitting.md
+[s-width]:
+  ../spec/phase-2/slice-04-width-aware-buffer-and-renderer.md#the-width-aware-buffer
+[s-motion]: ../spec/phase-4/motion-views-and-the-tick-requirement.md
 [readme-state]: ../design.md#state-model-table
 [readme-key]: ../design.md#key-table
 [readme-mouse]: ../design.md#mouse-table

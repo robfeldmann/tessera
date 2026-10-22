@@ -605,11 +605,9 @@ the selected axis rather than a wrapper struct, so a parent supplies its already
 metrics with no extra type. These spellings are the committed contract; the geometry,
 normalization, and floor equation above do not depend on the choice.
 
-Reviewed against the
-[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): the primitive is
-output-only rendered data, appearance comes from shared tokens and complete semantic
-`Style` roles, and its thumb geometry is deterministic integer-cell output shared by every
-parent.
+Reviewed against the [Phase 4 theses](../../spec/phase-4.md): the primitive is output-only
+rendered data, appearance comes from shared tokens and complete semantic `Style` roles,
+and its thumb geometry is deterministic integer-cell output shared by every parent.
 
 Owner decision, omp2 review, 2026-10: the earlier rejection of configurable indicator
 styles is withdrawn, so that the look can be chosen per use while omp2's look stays the
@@ -650,11 +648,11 @@ environment spelling that was the doc's last open question.
 
 Owner decision, 2026-10-10: a custom presentation surface beyond the curated presets (an
 environment protocol with a resolved configuration, or a closure-style environment value)
-stays deferred to [Slice 3](../../spec.md#slice-3-styling-text-wrapping-and-decoration).
-Any such surface must receive complete semantic `Style` roles and resolved geometry, never
-raw colors or control state, and must not change the normalized geometry or input-free
-nature. Indicators stay output-only in 1.0: Slice 5's
-[pointer cutover](../../spec.md#pointer-cutover-for-controls-fields-panes-and-viewports)
+stays deferred to [Slice 3](../../spec/phase-4/slice-03-styling-and-decoration.md). Any
+such surface must receive complete semantic `Style` roles and resolved geometry, never raw
+colors or control state, and must not change the normalized geometry or input-free nature.
+Indicators stay output-only in 1.0: Slice 5's
+[pointer cutover](../../spec/phase-4/slice-05-mouse-and-hit-testing.md#pointer-cutover-for-controls-fields-panes-and-viewports)
 has clicks and drags on them return `.ignored`, and omp2's click-to-jump is rejected (key
 F2). Any later hit target layered over an indicator must retain this primitive's
 input-free API and reuse its resolved geometry rather than reimplementing thumb math.
@@ -666,8 +664,8 @@ input-free API and reuse its resolved geometry rather than reimplementing thumb 
   key G4 lets no view write outside its own, so Box paints the thumb cells after its
   descendants, as it paints delegated focus. The graph has no channel yet that carries
   child metrics up to an ancestor; step 9.4 adds one to the
-  [`ScrollIndicator`](../../spec.md#scrollindicator) contract without giving the indicator
-  any input.
+  [`ScrollIndicator`](../../spec/phase-4/slice-03-styling-and-decoration.md#scrollindicator)
+  contract without giving the indicator any input.
 
 ## Inspiration
 

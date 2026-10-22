@@ -7,8 +7,8 @@ status: wireframed
 
 > **Post-1.0.** Owner decision, omp2 review, 2026-10: NavigationSplitView moves out of 1.0
 > and stays in the catalog until it is scheduled
-> ([Spec](../../spec.md#navigationsplitview-is-post-10)). Apps compose multi-column
-> layouts from nested [SplitViews](split-view.md) for 1.0.
+> ([Spec](../../spec/phase-4/slice-06-grid-table-and-fitting.md#navigationsplitview-is-post-10)).
+> Apps compose multi-column layouts from nested [SplitViews](split-view.md) for 1.0.
 
 `NavigationSplitView` is a controlled semantic container for **sidebar**, **content**, and
 optional **inspector** columns. It owns exactly the coordination every multi-pane app
@@ -433,30 +433,30 @@ semantic styles remain complete `Style` values -- `primary`, `secondary`, `accen
 - [Text](../primitives/text.md) -- labels and safe clipping. Ready.
 - [List](list.md) -- the sidebar child and the inactive-selection dimming story. Ready.
 - Delegated focus appearance
-  ([Slice 4](../../spec.md#slice-4-focus-and-key-routing-the-responder-system)) -- lands
-  in plan 032 step 10.2; the app-side mechanism for emphasizing a focused column without
-  container chrome.
+  ([Slice 4](../../spec/phase-4/slice-04-focus-and-key-routing.md)) -- lands in plan 032
+  step 10.2; the app-side mechanism for emphasizing a focused column without container
+  chrome.
 - Button -- no longer a container dependency: toggles are app affordances the app composes
   wherever it wants them.
 
 ## Slice availability and progressive sequence
 
-1. [Slice 2](../../spec.md#slice-2-the-layout-protocol-and-stack-containers) supplies
+1. [Slice 2](../../spec/phase-4/slice-02-layout-protocol-and-stacks.md) supplies
    placement, clipping, and static regular geometry.
-2. [Phase 2.5](../../spec.md#phase-25-flex-and-final-splitview-negotiation) supplies final
-   negotiated SplitView panes and the responsive tier thresholds.
-3. [Slice 4](../../spec.md#slice-4-focus-and-key-routing-the-responder-system) supplies
-   focus traversal, removal-clears-focus behavior, and delegated focus appearance for
-   app-hosted column emphasis.
-4. [Slice 5](../../spec.md#slice-5-mouse-and-hit-testing) supplies click-to-focus inside
-   columns; divider drag remains `SplitView`.
-5. [Slice 6](../../spec.md#slice-6-grid-table-and-fitting) records this container as
-   post-1.0
-   ([NavigationSplitView is post-1.0](../../spec.md#navigationsplitview-is-post-10)); once
-   scheduled, it composes regular, standard, and compact generic column children through
-   those established contracts.
-6. [Slice 7](../../spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets)
-   supplies the controlled `List` for a sidebar column.
+2. [Phase 2.5](../../spec/phase-4/slice-02-5-flex-and-splitview-negotiation.md) supplies
+   final negotiated SplitView panes and the responsive tier thresholds.
+3. [Slice 4](../../spec/phase-4/slice-04-focus-and-key-routing.md) supplies focus
+   traversal, removal-clears-focus behavior, and delegated focus appearance for app-hosted
+   column emphasis.
+4. [Slice 5](../../spec/phase-4/slice-05-mouse-and-hit-testing.md) supplies click-to-focus
+   inside columns; divider drag remains `SplitView`.
+5. [Slice 6](../../spec/phase-4/slice-06-grid-table-and-fitting.md) records this container
+   as post-1.0
+   ([NavigationSplitView is post-1.0](../../spec/phase-4/slice-06-grid-table-and-fitting.md#navigationsplitview-is-post-10));
+   once scheduled, it composes regular, standard, and compact generic column children
+   through those established contracts.
+6. [Slice 7](../../spec/phase-4/slice-07-catalog-integration.md) supplies the controlled
+   `List` for a sidebar column.
 
 Before these land, app-supplied columns may be static content only. They must not
 substitute a private navigator, animation shim, source browser, or layout solver.

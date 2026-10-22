@@ -13,20 +13,18 @@ wraps (owner decision, 2026-10-18; see Narrow). The app owns every number and st
 value, total, label, current-value label, and spinner style come from the initializer or
 modifiers, redeclared on every update (key D2). The view stores none of them. The
 indeterminate form is a
-[motion view](../../spec.md#motion-views-and-the-tick-requirement): it derives its frame
-from a clock the environment supplies (key L1), so it keeps no timer, and it declares a
-tick requirement at its frame set's interval (key L2; see State model). Gauge is post-1.0
-(owner decision, 2026-10-10); its threshold tones and tick markers are not part of this
-doc.
+[motion view](../../spec/phase-4/motion-views-and-the-tick-requirement.md): it derives its
+frame from a clock the environment supplies (key L1), so it keeps no timer, and it
+declares a tick requirement at its frame set's interval (key L2; see State model). Gauge
+is post-1.0 (owner decision, 2026-10-10); its threshold tones and tick markers are not
+part of this doc.
 
 The determinate and indeterminate forms share one doc because they share a row, a label,
 and the same width rules. Decisions attributed to "owner decision, omp2 review, 2026-10"
 are the owner's answers on the reviewed omp2 components.
 
-Standard
-[Slice 7](../../spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets)
-controlled-widget rule applies: the app owns the binding; the view derives its
-presentation.
+Standard [Slice 7](../../spec/phase-4/slice-07-catalog-integration.md) controlled-widget
+rule applies: the app owns the binding; the view derives its presentation.
 
 ## Prior art
 
@@ -514,7 +512,7 @@ writes none of them.
 
 The view stores no state, so it has no `NodeState` row and no responder. Plan 032 step
 16.1 settles the Swift spellings of the clock value and the tick requirement
-([motion views](../../spec.md#motion-views-and-the-tick-requirement)).
+([motion views](../../spec/phase-4/motion-views-and-the-tick-requirement.md)).
 
 ## Key table
 
@@ -632,9 +630,8 @@ Tokens consumed, each defined in [tokens.md](../tokens.md).
   keeps its 9-cell floor. Under a fixed one-row height below 9 columns the row draws the
   bar and percent only; the view reports its 9x1 minimum rather than hiding the percent.
 
-This design was reviewed against the
-[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): every number and
-string is an app-owned value redeclared on each update, the spinner frame is a pure
+This design was reviewed against the [Phase 4 theses](../../spec/phase-4.md): every number
+and string is an app-owned value redeclared on each update, the spinner frame is a pure
 function of the environment's clock, the tick requirement is declared for the graph to
 aggregate rather than scheduled by the view, and the row is deterministic integer-cell
 output with no responder.

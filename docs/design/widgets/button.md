@@ -192,8 +192,8 @@ C  bg=accent
   ancestor wins. There is no public `.automatic`.
 - Closed set: `.filled`, `.tinted`, and `.plain` are the only emphasis styles in 1.0. An
   app-supplied `ButtonStyle` protocol is deferred with Toggle's `ToggleStyle` to the
-  [Slice 7](../../spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets)
-  style contract (owner decision, 2026-10-10).
+  [Slice 7](../../spec/phase-4/slice-07-catalog-integration.md) style contract (owner
+  decision, 2026-10-10).
 
 Colour roles: the roles `primary`, `secondary`, `accent`, `focus`, `disabled`, and
 `destructive` are defined in [tokens.md](../tokens.md#roles). `contrast` is `on(R)` inside
@@ -693,14 +693,14 @@ label.
   needed for default textual labels, composed label padding, and grapheme-safe overflow
   behavior; Text itself arrives in Slice 1 and its wrapping/truncation features in
   Slice 3.
-- [`Border` decoration and `Style`](../../spec.md#slice-3-styling-text-wrapping-and-decoration)
+- [`Border` decoration and `Style`](../../spec/phase-4/slice-03-styling-and-decoration.md)
   — needed for `.box`, the focus border treatment, and the semantic Styles; available with
   Slice 3.
-- [Focus manager and responder context](../../spec.md#slice-4-focus-and-key-routing-the-responder-system)
+- [Focus manager and responder context](../../spec/phase-4/slice-04-focus-and-key-routing.md)
   — needed for explicit focus and Enter/Space routing; available with Slice 4.
-- [Mouse hit testing](../../spec.md#slice-5-mouse-and-hit-testing) — needed for primary
-  same-node activation, click-to-focus, hover, and touch-width hit geometry; available
-  with Slice 5.
+- [Mouse hit testing](../../spec/phase-4/slice-05-mouse-and-hit-testing.md) — needed for
+  primary same-node activation, click-to-focus, hover, and touch-width hit geometry;
+  available with Slice 5.
 
 `Form` and `Outline` are not Button dependencies. Source browsing or source-mapping
 affordances are explicitly post-1.0 and are not implied by a Button label or action.
@@ -835,7 +835,7 @@ No decision from the 2026-10-10 review lab remains open; those are recorded inli
 owner decisions. The items below are what the spec still leaves open, each deferred to an
 exact place.
 
-- **Touch normalization (deferred to [Phase 5](../../spec.md#phase-5--runtime--polish),
+- **Touch normalization (deferred to [Phase 5](../../spec/phase-5-runtime-and-polish.md),
   owner decision, 2026-10-10):** the final platform input adapter may expose touch as a
   primary click or as a distinct contact event. The Button invariant is already fixed: the
   whole allocated frame is hit-tested and activation requires press and release on this
@@ -843,21 +843,20 @@ exact place.
   backend.
 - **Reading hover at render (key F4, deferred to plan 032 step 11.2):** the graph owns the
   hover target and Button derives `isHovered` from it.
-  [Slice 5](../../spec.md#slice-5-mouse-and-hit-testing) gives `onHover` handlers enter
-  and exit, but does not yet expose the hover target to rendering the way the environment
-  exposes `isFocused`. Step 11.2, which lands hover state, chooses that read. Button's
-  hover look and its motion request do not depend on the choice.
+  [Slice 5](../../spec/phase-4/slice-05-mouse-and-hit-testing.md) gives `onHover` handlers
+  enter and exit, but does not yet expose the hover target to rendering the way the
+  environment exposes `isFocused`. Step 11.2, which lands hover state, chooses that read.
+  Button's hover look and its motion request do not depend on the choice.
 - **Environment key signatures (deferred to plan 032 steps 9.1 and 13.1):** the role keys
   land with the style environment in step 9.1, where [tokens.md](../tokens.md) maps each
   token family onto one key; the key and type-erasure signatures behind `.buttonStyle(_:)`
   and `.buttonBorderShape(_:)` land with Button in step 13.1. The public spellings above
   are fixed.
 
-Reviewed against the
-[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): a Button is a
-value whose label, role, and action closure are immutable configuration; its only retained
-state is the `isPressed` NodeState of its own node, and it reads focus and hover from the
-graph; the app owns every effect of the action; and its pointer and motion needs reach the
+Reviewed against the [Phase 4 theses](../../spec/phase-4.md): a Button is a value whose
+label, role, and action closure are immutable configuration; its only retained state is
+the `isPressed` NodeState of its own node, and it reads focus and hover from the graph;
+the app owns every effect of the action; and its pointer and motion needs reach the
 session as `TerminalRequirements`, never as mode changes.
 
 ## Inspiration

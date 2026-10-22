@@ -14,10 +14,9 @@ affordances for bounded arithmetic without privately retaining or silently norma
 numeric value.
 
 This widget follows the controlled-widget rule in
-[Slice 7](../../spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
-Its explicit focus and key delivery come from
-[Slice 4](../../spec.md#slice-4-focus-and-key-routing-the-responder-system), and its
-pointer delivery from [Slice 5](../../spec.md#slice-5-mouse-and-hit-testing).
+[Slice 7](../../spec/phase-4/slice-07-catalog-integration.md). Its explicit focus and key
+delivery come from [Slice 4](../../spec/phase-4/slice-04-focus-and-key-routing.md), and
+its pointer delivery from [Slice 5](../../spec/phase-4/slice-05-mouse-and-hit-testing.md).
 
 ## Prior art
 
@@ -95,11 +94,11 @@ then map the selected quarter deterministically to the existing
 `FlexConstraint.ratio(Int, Int)` representation.
 
 > Deferred: `StepperStyle` and custom chrome wait on the
-> [Slice 7](../../spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets)
-> style contract, as Button's and Toggle's custom styles do. The `.compact` presentation
-> is post-1.0 (owner decision, 2026-10-10), which the Spec's
-> [1.0 surface](../../spec.md#the-10-surface) records. Both must preserve this stepping
-> and focus contract.
+> [Slice 7](../../spec/phase-4/slice-07-catalog-integration.md) style contract, as
+> Button's and Toggle's custom styles do. The `.compact` presentation is post-1.0 (owner
+> decision, 2026-10-10), which the Spec's
+> [1.0 surface](../../spec/phase-4/prerequisites-and-scheduling.md#the-10-surface)
+> records. Both must preserve this stepping and focus contract.
 
 ## Anatomy
 
@@ -448,7 +447,8 @@ state. The closed range must have `minimum <= maximum`, and `step` must satisfy
 
 A click on the value slot or either separator has no Stepper activation handler and is
 unconsumed. A valid affordance click establishes explicit focus before it writes the one
-clamped step, as required by [Slice 5](../../spec.md#slice-5-mouse-and-hit-testing).
+clamped step, as required by
+[Slice 5](../../spec/phase-4/slice-05-mouse-and-hit-testing.md).
 
 ## Sizing
 
@@ -562,14 +562,12 @@ row's label wraps or marks its last visible row first.
 
 No question is open.
 
-Reviewed against the
-[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): a Stepper is a
-value whose range, stride, and format are immutable configuration checked before node
-creation; the number is the app's `Binding<Value>`, written only by a user step and never
-normalized on reconciliation; its only retained state is the `pressed affordance`
-NodeState of its own node, with its display and arrow availability derived on every
-update; and its pointer needs reach the session as `TerminalRequirements`, never as mode
-changes.
+Reviewed against the [Phase 4 theses](../../spec/phase-4.md): a Stepper is a value whose
+range, stride, and format are immutable configuration checked before node creation; the
+number is the app's `Binding<Value>`, written only by a user step and never normalized on
+reconciliation; its only retained state is the `pressed affordance` NodeState of its own
+node, with its display and arrow availability derived on every update; and its pointer
+needs reach the session as `TerminalRequirements`, never as mode changes.
 
 ## Inspiration
 

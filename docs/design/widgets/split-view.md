@@ -741,8 +741,8 @@ The table is fixture-specific so every result is exact:
   pane content and the split's ASCII fallback; SplitView never cuts a grapheme itself.
 
 System and custom styling use the shared complete-`Style` environment merge fixed by
-[system and custom style plumbing](../../spec.md#system-and-custom-style-plumbing). The
-focused divider is the exception: it overlays only the focus foreground and boldness,
+[system and custom style plumbing](../../spec/phase-4/slice-03-styling-and-decoration.md#system-and-custom-style-plumbing).
+The focused divider is the exception: it overlays only the focus foreground and boldness,
 leaving its background transparent. This replaces the accent color the divider used before
 (owner decision, omp2 review, 2026-10). SplitView does not introduce a parallel
 `SplitViewStyle` protocol or expose pane business state to styling.
@@ -884,7 +884,7 @@ responsibilities of this low-level adjacency widget.
   divider draws the `heavy` line and overlays only the bold focus foreground, leaving its
   background transparent; it does not define a separate style protocol. Custom application
   styling uses the same environment merge fixed by
-  [system and custom style plumbing](../../spec.md#system-and-custom-style-plumbing).
+  [system and custom style plumbing](../../spec/phase-4/slice-03-styling-and-decoration.md#system-and-custom-style-plumbing).
 - **Programmatic expansion focus:** A saved descendant is restored only while focus is
   nil. Expansion never steals a newer focus selection.
 - **Pane removal during drag:** Removing either stable pane cancels the drag. SplitView
@@ -910,8 +910,7 @@ responsibilities of this low-level adjacency widget.
   stop keeps key E1's explicit, caller-composed ID. Collapse restoration covers a hidden
   pane only: a removed focused node still clears focus, as key E1 requires.
 
-This design was reviewed against the
-[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): pane data is
+This design was reviewed against the [Phase 4 theses](../../spec/phase-4.md): pane data is
 controlled, drag state is ephemeral and identity-bound, input is routed explicitly, and
 all geometry is deterministic integer-cell output.
 

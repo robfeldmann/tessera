@@ -223,10 +223,9 @@ order are identical at every capability tier in the
 - [Grid](grid.md) and Table consume this constraint vocabulary and solver in plan 032 step
   14.4; they do not own separate allocators (key G9).
 
-This contract was reviewed against the
-[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): views remain
-values, allocation is deterministic integer geometry, child state is not retained, and
-clipping remains explicit in the graph.
+This contract was reviewed against the [Phase 4 theses](../../spec/phase-4.md): views
+remain values, allocation is deterministic integer geometry, child state is not retained,
+and clipping remains explicit in the graph.
 
 ## Inspiration
 

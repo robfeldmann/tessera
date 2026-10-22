@@ -12,8 +12,8 @@ Format: `- YYYY-MM-DD -- thought`
 ## Entries
 
 - 2026-07-06 -- Table's column-width distribution is the same constraint problem as Grid's
-  ([Slice 6](../spec.md#slice-6-grid-table-and-fitting)). Design the solver once; Table
-  should be at least `wireframed` before Grid's API freezes.
+  ([Slice 6](../spec/phase-4/slice-06-grid-table-and-fitting.md)). Design the solver once;
+  Table should be at least `wireframed` before Grid's API freezes.
 - 2026-07-06 -- SplitView is the right second widget exemplar: it uniquely exercises
   divider drag, min-size negotiation, and collapse (Slice 5 hit testing), none of which
   Table touches.

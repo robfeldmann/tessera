@@ -483,7 +483,11 @@ Findings from the 2026-10-19 review were applied; two were adjusted:
 
 ## References
 
-- Investigations 036–041; `docs/spec.md:7382-7441, 7545-7551, 8417-8419, 8440-8448`;
+- Investigations 036–041; the spec's
+  [Slice 1: TesseraCore](../spec/phase-4/slice-01-tesseracore.md) (what it proves,
+  `RuntimeNode` and `ViewGraph`),
+  [Slice 4: focus and key routing](../spec/phase-4/slice-04-focus-and-key-routing.md#things-to-flag),
+  and [Slice 5: mouse and hit testing](../spec/phase-4/slice-05-mouse-and-hit-testing.md);
   `docs/design.md:60-67, 115-143, 240-245, 272-282, 314-315`;
   `docs/design/tokens.md:14-26`; plan 032 `:481-488, 501-543`; Lattice
   `docs/design/devtools.md` (Principles, `lattice dev` family, Decisions 2–3); Tern

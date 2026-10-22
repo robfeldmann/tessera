@@ -12,8 +12,8 @@ its height with an overflow footer that counts the hidden lines. It is display-o
 [Markdown](markdown.md) draws its fenced code blocks through it.
 
 This widget follows the controlled-widget rule in
-[Slice 7](../../spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
-The application owns the source text. CodeView owns only the rendered rows.
+[Slice 7](../../spec/phase-4/slice-07-catalog-integration.md). The application owns the
+source text. CodeView owns only the rendered rows.
 
 Owner decision, omp2 review, 2026-10: the code view (omp2 `Pre`) is adopted for 1.0 as
 omp2 draws it, with syntax highlighting. Owner decision, 2026-10-10: 1.0 ships no grammar.
@@ -440,9 +440,8 @@ remain. With no highlighter installed, or no `path`, the source draws plain. Bel
 minimum the block clips at the proposed size (see [Sizing](#sizing)); lines still never
 wrap and the cut carries no mark.
 
-This design was reviewed against the
-[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): the source, path
-and tokens are app-owned values redeclared on every update; the highlighter is an
+This design was reviewed against the [Phase 4 theses](../../spec/phase-4.md): the source,
+path and tokens are app-owned values redeclared on every update; the highlighter is an
 app-installed environment value behind a synchronous protocol, so Tessera ships no grammar
 and owns no business state; rows are recomputed each pass and clipped in integer cells;
 and the view takes no input.

@@ -483,8 +483,8 @@ Callouts (48x4, 0-based):
 ## Key table
 
 `Tab` and `Esc` deliberately bubble: focus traversal and dismissal are app policies under
-[Slice 4](../../spec.md#slice-4-focus-and-key-routing-the-responder-system) (key E4). Each
-consumed key below is a deliberate row and every unlisted key bubbles (key E3). Rows match
+[Slice 4](../../spec/phase-4/slice-04-focus-and-key-routing.md) (key E4). Each consumed
+key below is a deliberate row and every unlisted key bubbles (key E3). Rows match
 normalized `Key` and `Modifiers` chords; rebinding belongs to apps (key E5), and there is
 no undo or yank (key D6). Word-wise movement uses Unicode word segmentation at legal
 grapheme boundaries; no byte or Unicode-scalar cursor fallback is permitted.
@@ -511,7 +511,7 @@ grapheme boundaries; no byte or Unicode-scalar cursor fallback is permitted.
 ## Paste-input contract
 
 Paste reaches the focused field like a key (key E7). The existing
-[bracketed-paste `InputEvent.paste(String)` event](../../spec.md#slice-1-bracketed-paste-mode)
+[bracketed-paste `InputEvent.paste(String)` event](../../spec/phase-3/slice-01-bracketed-paste-mode.md)
 is handled only while `focused and effective enabled`. Slice 7 normalizes each `\r\n`
 pair, standalone `\r`, and standalone `\n` in that payload to one U+0020 space, then
 inserts the resulting grapheme clusters at `cursor grapheme offset` through `text`'s
@@ -593,7 +593,7 @@ left with zero rows is absent (owner decision, 2026-10-18).
 - Slice 5 hit testing and mouse dispatch (plan 032 step 11.1) -- the click-to-caret
   dependency only; it exposes no public TextField pointer behavior.
 - `Binding` and `NodeState` -- controlled text and disposable cursor/reveal storage from
-  [Slice 7](../../spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
+  [Slice 7](../../spec/phase-4/slice-07-catalog-integration.md).
 
 ## Progressive slice availability
 
@@ -602,10 +602,10 @@ left with zero rows is absent (owner decision, 2026-10-18).
 2. Plan 032 step 11.1 (Slice 5) supplies the click-to-caret dependency only; it does not
    expose TextField pointer behavior.
 3. Plan 032 step 13.4 ships the whole controlled TextField on the shared text editing core
-   ([Spec](../../spec.md#controls-and-focused-viewport-interaction)): hardware cursor,
-   Binding edits, grapheme cursor/selection/reveal, paste/newline normalization, submit,
-   and deterministic buffer/cursor fixtures. Custom `TextFieldStyle` is deferred with
-   Toggle and Button (owner decision, 2026-10-10).
+   ([Spec](../../spec/phase-4/slice-04-focus-and-key-routing.md#controls-and-focused-viewport-interaction)):
+   hardware cursor, Binding edits, grapheme cursor/selection/reveal, paste/newline
+   normalization, submit, and deterministic buffer/cursor fixtures. Custom
+   `TextFieldStyle` is deferred with Toggle and Button (owner decision, 2026-10-10).
 4. The character counter is the TextField demo step (plan 032 step 13.4) (owner decision,
    2026-10-10).
 5. Secure entry, edit history, and clipboard work are deferred until post-1.0 (see
@@ -694,9 +694,8 @@ text at every capability level; its `secondary` and `error` colours follow the
   only (see [Paste-input contract](#paste-input-contract)), and copy policy belongs to
   [Text selection](../primitives/text-selection.md) (key C11).
 
-This design was reviewed against the
-[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): the text is the
-app's binding and the field keeps no copy; the caret, anchor, and reveal are NodeState
+This design was reviewed against the [Phase 4 theses](../../spec/phase-4.md): the text is
+the app's binding and the field keeps no copy; the caret, anchor, and reveal are NodeState
 with one owner, clamped on every update; keys, paste, and clicks change state
 synchronously through documented rows; and the field requests the hardware cursor from the
 session instead of writing it.

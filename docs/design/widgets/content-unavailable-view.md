@@ -14,8 +14,7 @@ centre anything itself (owner decisions, 2026-10-18). It covers three states: em
 search with no results, and error. Loading is not a case: a loading region is a centred
 [ProgressView](progress-view.md), as in SwiftUI (owner decision, omp2 review, 2026-10).
 The app owns every string, icon, and action; the view stores nothing and is controlled.
-See
-[Slice 7](../../spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
+See [Slice 7](../../spec/phase-4/slice-07-catalog-integration.md).
 
 ## Prior art
 
@@ -494,11 +493,11 @@ What changes at `NO_COLOR`, 16-color, ascii-only, and below `min`. Reference the
   up rows first, then the icon, then actions after the first (owner decisions, 2026-10-10
   and 2026-10-18).
 
-This design was reviewed against the
-[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): every string, icon
-and action is an app-owned value redeclared on every update; the view stores nothing, owns
-no keys or pointer regions, and leaves activation to its Buttons; and the centred column
-is deterministic integer-cell layout through stacks, Frame and the readable-width cap.
+This design was reviewed against the [Phase 4 theses](../../spec/phase-4.md): every
+string, icon and action is an app-owned value redeclared on every update; the view stores
+nothing, owns no keys or pointer regions, and leaves activation to its Buttons; and the
+centred column is deterministic integer-cell layout through stacks, Frame and the
+readable-width cap.
 
 ## Open questions
 

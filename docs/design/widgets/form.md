@@ -34,10 +34,9 @@ and 2026-10-18).
 
 The wireframes below are the accepted Tessera states, drawn from omp2's rendering with its
 theme roles renamed to Tessera roles. This widget follows the controlled-widget rule in
-[Slice 7](../../spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets),
-takes its focus and key delivery from
-[Slice 4](../../spec.md#slice-4-focus-and-key-routing-the-responder-system), and its
-pointer delivery from [Slice 5](../../spec.md#slice-5-mouse-and-hit-testing).
+[Slice 7](../../spec/phase-4/slice-07-catalog-integration.md), takes its focus and key
+delivery from [Slice 4](../../spec/phase-4/slice-04-focus-and-key-routing.md), and its
+pointer delivery from [Slice 5](../../spec/phase-4/slice-05-mouse-and-hit-testing.md).
 
 ## Prior art
 
@@ -1319,7 +1318,7 @@ Schema: [README](../../design.md#state-model-table).
 | scroll offset    | NodeState   | rows above the viewport, `Int`                                                    | Clamped to content rows minus window rows on every render. Field heights vary: a stacked field is two or more rows, a wrapped value or validation message adds rows, an open dropdown adds its rows. A field partly in view draws its visible rows at the edge, with no mark. Chase changes the offset by the fewest rows that show the whole field; a field taller than the window top-aligns. One owner: the Form's NodeState (key D4). |
 | open dropdown    | NodeState   | field index, `Int?`                                                               | Set when Picker's menu opens in a select or multi row (Enter, Space, or a click on the closed row). Cleared when it closes: Esc, Enter, a click outside, or focus loss. Focus loss closes without committing, as Esc does. The Form stores only the host row; Picker holds the list cursor and selection. (key D7)                                                                                                                        |
 | editing          | NodeState   | `Bool`                                                                            | Set by Enter, Space, or a click on a text row. Cleared by Enter or Esc, and by focus loss (key D7).                                                                                                                                                                                                                                                                                                                                       |
-| hovered row      | derived     | row index, `Int?`                                                                 | Derived at render from the graph-owned hover point (key F4); never stored in NodeState or a binding. The graph clears it on focus loss and when motion tracking stops ([Slice 5](../../spec.md#slice-5-mouse-and-hit-testing)). The row paints the `hover` role and no value changes. The Form requests move input for this hover (owner decision, 2026-10-10).                                                                           |
+| hovered row      | derived     | row index, `Int?`                                                                 | Derived at render from the graph-owned hover point (key F4); never stored in NodeState or a binding. The graph clears it on focus loss and when motion tracking stops ([Slice 5](../../spec/phase-4/slice-05-mouse-and-hit-testing.md)). The row paints the `hover` role and no value changes. The Form requests move input for this hover (owner decision, 2026-10-10).                                                                  |
 | validation rules | Environment | `required` `Bool` and `pattern` `Regex?`, each with an optional message `String?` | Configuration, not state: set by the app's `.required(_:)` and `.pattern(_:message:)` modifiers on a field (key M1), as `.characterLimit(_:)` configures [TextField](text-field.md), and read on every render. The Form never stores them.                                                                                                                                                                                                |
 | validation       | derived     | first failing message, `String?`                                                  | Computed on every render; required is checked before pattern. The app's message, or the default built from the label when omitted (Validation; owner decision, 2026-10-18). The message wraps under the value, so a failing field is taller while it shows (owner decision, 2026-10-18).                                                                                                                                                  |
 | layout           | derived     | label width, stacked flag, value width, content rows, window                      | Recomputed at the proposed size on every layout; `ViewThatFits` sets the stacked flag when a value or label does not fit side by side. Each field, with any validation message rows, is measured at its width with a nil height, and re-measured on width change. Never stored.                                                                                                                                                           |
@@ -1377,7 +1376,7 @@ Regions: `row` (anatomy callout 11), `scrollbar` (anatomy callout 10), and `wind
 | ---------- | ------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
 | click      | row           | row index < field count        | Sets the cursor to that row, closes a dropdown open on a different row without committing (Picker's click-outside rule), and activates the row as Enter does. Click-to-focus runs first (key F6).   | yes                                                       |
 | click      | open dropdown | a dropdown is open on any row  | Handled by Picker's menu (see [Picker](picker.md#menu-collapsed-in-a-host-row)); Form takes no action.                                                                                              | conditional (Picker's mouse rules)                        |
-| click      | scrollbar     | always                         | None: the indicator is output-only (key F2; [ScrollIndicator](../../spec.md#scrollindicator)); the click returns `.ignored`.                                                                        | no                                                        |
+| click      | scrollbar     | always                         | None: the indicator is output-only (key F2; [ScrollIndicator](../../spec/phase-4/slice-03-styling-and-decoration.md#scrollindicator)); the click returns `.ignored`.                                | no                                                        |
 | drag       | scrollbar     | always                         | None: the indicator is output-only, so a drag on it returns `.ignored` (key F2).                                                                                                                    | no                                                        |
 | wheel-up   | window        | no open list under the pointer | Scrolls the viewport up one row without moving the cursor.                                                                                                                                          | conditional (yes if the viewport moved; no at the top)    |
 | wheel-down | window        | no open list under the pointer | Scrolls the viewport down one row without moving the cursor.                                                                                                                                        | conditional (yes if the viewport moved; no at the bottom) |
@@ -1458,8 +1457,9 @@ Tokens consumed: [roles](../tokens.md#roles); focus, fill and hue rules are in
 
 - [ViewThatFits](../primitives/view-that-fits.md) (`ready`): the side-by-side or stacked
   choice, as `ViewThatFits(in: .horizontal)` over the side-by-side and stacked
-  arrangements (key G10; [Spec](../../spec.md#flow-layout-and-viewthatfits)). Plan 032
-  step 14.1 builds it, before Form lands.
+  arrangements (key G10;
+  [Spec](../../spec/phase-4/slice-06-grid-table-and-fitting.md#flow-layout-and-viewthatfits)).
+  Plan 032 step 14.1 builds it, before Form lands.
 - [Stepper](stepper.md): the number row's `◂ 4 ▸` presentation and steps. The Form shows
   the arrows on every number row, as Stepper does (owner decision, 2026-10-10).
 - [Picker](picker.md): enum rows use its inline cycling. Select rows are Picker's `.menu`
@@ -1620,11 +1620,11 @@ Schema: [README](../../design.md#requirements-list).
   indented to the value column (owner decision, 2026-10-18). ASCII keeps the `~` mark
   where a mark is drawn.
 
-This design was reviewed against the
-[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): every field value
-is the app's binding and the Form keeps no copy; the cursor, scroll offset, open dropdown,
-and editing flag are NodeState with one owner; hover is derived from the graph; and the
-side-by-side or stacked choice is deterministic integer layout through `ViewThatFits`.
+This design was reviewed against the [Phase 4 theses](../../spec/phase-4.md): every field
+value is the app's binding and the Form keeps no copy; the cursor, scroll offset, open
+dropdown, and editing flag are NodeState with one owner; hover is derived from the graph;
+and the side-by-side or stacked choice is deterministic integer layout through
+`ViewThatFits`.
 
 ## Open questions
 

@@ -501,10 +501,11 @@ classification (Phase 4) no longer gates capture.
 - Includes replacing the Phase 4 slice list with the order of Phases 8-17, removing the
   Showcase (Prerequisites and scheduling, Slice 7, and the Phase 4 definition of done),
   and updating the 1.0 surface from `design/omp2-assessment.md`.
-- Also update Spec's Text API (`docs/spec.md#text-grows-up` still shows `wrapped(_:)` and
-  `truncation(_:)` with `.none` and `.clip` defaults) to the 2026-10-18 wrap rules: word
-  wrapping by default, `.lineLimit(Int?)`, and `.truncationMode(_:)` (see
-  `docs/design/primitives/text.md`).
+- Also update Spec's Text API
+  ([Text grows up](../spec/phase-4/slice-03-styling-and-decoration.md#text-grows-up) still
+  shows `wrapped(_:)` and `truncation(_:)` with `.none` and `.clip` defaults) to the
+  2026-10-18 wrap rules: word wrapping by default, `.lineLimit(Int?)`, and
+  `.truncationMode(_:)` (see `docs/design/primitives/text.md`).
 - Also add the step 5.3 terminal contracts to the Spec (owner decisions, 2026-10-19):
   - Phase 3 capability probe: OSC 10/11/4 colour queries join the DA1-terminated round
     with a 1 s timeout; the first frame waits; late replies repaint; mode 2031

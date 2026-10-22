@@ -167,8 +167,7 @@ None. Consumers: [Callout](../widgets/callout.md), [Markdown](../widgets/markdow
 
 ## Open questions
 
-- Resolved: reviewed against the
-  [Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module). The leading rail
+- Resolved: reviewed against the [Phase 4 theses](../../spec/phase-4.md). The leading rail
   is a unary layout wrapper plus a render decoration, like Border; its glyph and role come
   from tokens and the environment, and its geometry is deterministic integer-cell output.
 

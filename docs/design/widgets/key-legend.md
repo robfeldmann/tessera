@@ -32,7 +32,7 @@ ships in 1.0 as an option. ASCII spells the keys out.
 ## API
 
 Swift in SwiftUI vocabulary. The declarations come from
-[declared key bindings](../../spec.md#focus-appearance-focus-scopes-and-declared-key-bindings):
+[declared key bindings](../../spec/phase-4/slice-04-focus-and-key-routing.md#focus-appearance-focus-scopes-and-declared-key-bindings):
 responders declare the keys their handlers consume (key E3), each with a short
 description. Plan 032 step 10.3 settles the Swift spellings of the declaration and of
 `legendPriority(_:)`.
@@ -259,7 +259,7 @@ S  fg=border
 
 None. The legend takes no focus and consumes no keys. It reads the bindings the focused
 responders already declare, per
-[declared key bindings](../../spec.md#focus-appearance-focus-scopes-and-declared-key-bindings).
+[declared key bindings](../../spec/phase-4/slice-04-focus-and-key-routing.md#focus-appearance-focus-scopes-and-declared-key-bindings).
 
 ## Mouse table
 
@@ -305,7 +305,7 @@ under-minimum, over-maximum.
 - [Style modifiers](../primitives/style-modifiers.md) for the bold key and the keycap
   fill.
 - The focus and key routing that supplies the bindings, from
-  [declared key bindings](../../spec.md#focus-appearance-focus-scopes-and-declared-key-bindings)
+  [declared key bindings](../../spec/phase-4/slice-04-focus-and-key-routing.md#focus-appearance-focus-scopes-and-declared-key-bindings)
   (Slice 4; plan 032 step 10.3).
 
 ## Requirements
@@ -350,9 +350,8 @@ under-minimum, over-maximum.
 - Below the floor (20 columns): entries drop whole, lowest priority first. Below 20 cells
   the legend draws nothing (owner decision, 2026-10-10).
 
-This design was reviewed against the
-[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): the legend is a
-value description that derives its entries from graph-owned focus and the responders'
+This design was reviewed against the [Phase 4 theses](../../spec/phase-4.md): the legend
+is a value description that derives its entries from graph-owned focus and the responders'
 declarations at render, stores nothing, and takes no input; a declaration installs no
 behaviour, so the graph still routes without interpreting keys; and the row is
 deterministic integer-cell output.

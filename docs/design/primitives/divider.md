@@ -307,10 +307,11 @@ Requirements (traced to the crossing wireframe; gated on the buffer merge seam):
 
 ## Decisions
 
-Divider follows the normative [Slice 2 orientation contract](../../spec.md#divider): an
-enclosing stack publishes `stackAxis`, and Divider renders across that stack's cross axis.
-A bare Divider falls back to horizontal, matching its `1x1` unconstrained measurement. No
-public orientation argument is added.
+Divider follows the normative
+[Slice 2 orientation contract](../../spec/phase-4/slice-02-layout-protocol-and-stacks.md#divider):
+an enclosing stack publishes `stackAxis`, and Divider renders across that stack's cross
+axis. A bare Divider falls back to horizontal, matching its `1x1` unconstrained
+measurement. No public orientation argument is added.
 
 Divider carries an optional `Text` label docked leading, centred, or trailing (owner
 decision, omp2 review, 2026-10). The label adds placement and tail truncation only; it
@@ -324,10 +325,9 @@ Divider, so the label stays a `String` or `Text` rather than key B11's
 itself (key G7), and its glyphs are omp2's rules (key K7); dashes exist only as divider
 glyphs, never as a box (key K4).
 
-This contract was reviewed against the
-[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): orientation is
-declarative layout context, appearance comes from shared tokens, and geometry remains
-deterministic integer-cell output.
+This contract was reviewed against the [Phase 4 theses](../../spec/phase-4.md):
+orientation is declarative layout context, appearance comes from shared tokens, and
+geometry remains deterministic integer-cell output.
 
 ## Open questions
 

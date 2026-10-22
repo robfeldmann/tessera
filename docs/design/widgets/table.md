@@ -6,16 +6,16 @@ status: ready
 # Table
 
 A columnar, selectable, scrollable data view: List's structured sibling. Controlled
-throughout, per
-[Slice 7](../../spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets):
-the app supplies immutable data, selection, and sort order; selection and sort order use
-bindings, while Table derives rows from its data input on every update. Table owns only
-view state in `NodeState` (keys D3, D4): a scroll offset, a cursor row (multi-select), and
-a header cursor (keyboard sorting; owner decision, 2026-10-10). Table renders chrome
-(header, rule, selection, scrollbar, and the optional frame of a table style) but never
-invents data, selection, or ordering. Its integration lands in
-[Slice 6](../../spec.md#slice-6-grid-table-and-fitting) (plan 032 step 14.4), which takes
-the styles, row stripes, sorting by column identity, and default row hover from this doc.
+throughout, per [Slice 7](../../spec/phase-4/slice-07-catalog-integration.md): the app
+supplies immutable data, selection, and sort order; selection and sort order use bindings,
+while Table derives rows from its data input on every update. Table owns only view state
+in `NodeState` (keys D3, D4): a scroll offset, a cursor row (multi-select), and a header
+cursor (keyboard sorting; owner decision, 2026-10-10). Table renders chrome (header, rule,
+selection, scrollbar, and the optional frame of a table style) but never invents data,
+selection, or ordering. Its integration lands in
+[Slice 6](../../spec/phase-4/slice-06-grid-table-and-fitting.md) (plan 032 step 14.4),
+which takes the styles, row stripes, sorting by column identity, and default row hover
+from this doc.
 
 Provisional API shape (vocabulary, not a commitment):
 
@@ -867,9 +867,9 @@ Style chrome adds to the content size and is part of the ideal:
 Column width policy (baseline, owner decision, 2026-10-10): each `TableColumn` declares a
 [Flex](../primitives/flex.md) constraint as its `width`, or none for its content width,
 and Flex's one resolver allocates the columns once across all rows; Table adds no
-allocator of its own ([Slice 6](../../spec.md#slice-6-grid-table-and-fitting); key G9).
-Columns also carry a drop priority for narrow viewports (mobile state); drop priority
-stays in v1 (owner decision, 2026-10-10).
+allocator of its own ([Slice 6](../../spec/phase-4/slice-06-grid-table-and-fitting.md);
+key G9). Columns also carry a drop priority for narrow viewports (mobile state); drop
+priority stays in v1 (owner decision, 2026-10-10).
 
 ## Environment
 
@@ -889,7 +889,7 @@ stays in v1 (owner decision, 2026-10-10).
 - `hover` -- 12% row fill ([fill roles](../tokens.md#fill-roles)); slots and NO_COLOR draw
   an underline on the row label instead; `.rowHover(.disabled)` is the placeholder opt-out
   spelling (owner decision, 2026-10-19). Pointer motion requests cite Spec Slice 5
-  ([Slice 5](../../spec.md#slice-5-mouse-and-hit-testing)).
+  ([Slice 5](../../spec/phase-4/slice-05-mouse-and-hit-testing.md)).
 - member mark glyph `●` (ASCII `*`) and sort mark glyphs `↑`, `↓` (ASCII `^`, `v`) --
   glyphs per [Marks](../tokens.md#marks)
 - track `border`, thumb `accent` for the output-only ScrollIndicator, `standard` preset by
@@ -1023,7 +1023,7 @@ stays in v1 (owner decision, 2026-10-10).
 - `hover and stripes coexist: a hovered striped row shows hover over its stripe` (Styles:
   Striped)
 - `rows request pointer motion only while the table is live in the graph` (state model:
-  hovered row; [Slice 5](../../spec.md#slice-5-mouse-and-hit-testing))
+  hovered row; [Slice 5](../../spec/phase-4/slice-05-mouse-and-hit-testing.md))
 - `.rowHover(.disabled) removes the hover fill and the motion request` (state model: hover
   enabled)
 - `move event sets the hovered row without changing selection or scroll offset` (mouse
@@ -1060,12 +1060,11 @@ stays in v1 (owner decision, 2026-10-10).
 - Hover: slots, NO_COLOR and 16-colour draw no hover fill; the row label is underlined
   (owner decision, 2026-10-19).
 
-This design was reviewed against the
-[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): data, selection,
-and sort order are the app's; the scroll offset and the two cursors are NodeState with one
-owner; hover is derived from the graph and its motion request is a declared requirement
-the session arbitrates; and columns, rows, and the indicator are integer geometry
-recomputed on every pass by Flex's one resolver.
+This design was reviewed against the [Phase 4 theses](../../spec/phase-4.md): data,
+selection, and sort order are the app's; the scroll offset and the two cursors are
+NodeState with one owner; hover is derived from the graph and its motion request is a
+declared requirement the session arbitrates; and columns, rows, and the indicator are
+integer geometry recomputed on every pass by Flex's one resolver.
 
 ## Open questions
 
@@ -1075,12 +1074,14 @@ recomputed on every pass by Flex's one resolver.
   or vanish, and no use case is named yet. Deferred under the owner decision of 2026-10-10
   to defer any multi-select part that proves too complex to specify, which makes it
   post-1.0: the Spec counts each deferral a catalog doc records as post-1.0
-  ([the 1.0 surface](../../spec.md#the-10-surface)). Multi-select itself is designed in
+  ([the 1.0 surface](../../spec/phase-4/prerequisites-and-scheduling.md#the-10-surface)).
+  Multi-select itself is designed in
   [Multi-select and keyboard sorting](#multi-select-and-keyboard-sorting).
 - Row hover opt-out spelling: `.rowHover(.disabled)` is a placeholder name (owner
-  decision, 2026-10-19), and [Slice 5](../../spec.md#slice-5-mouse-and-hit-testing) leaves
-  the final name to Table and List. The owner picks it; deferred to plan 032 step 14.4,
-  and List records the same question for step 14.2.
+  decision, 2026-10-19), and
+  [Slice 5](../../spec/phase-4/slice-05-mouse-and-hit-testing.md) leaves the final name to
+  Table and List. The owner picks it; deferred to plan 032 step 14.4, and List records the
+  same question for step 14.2.
 - Column gap (key B4): omp2 separates columns with a `gap`, two cells by default, which
   key B4 makes a `spacing:` parameter. Table has none: plain width is the sum of the
   column widths (see [Sizing](#sizing)), so the blank cells between columns in the

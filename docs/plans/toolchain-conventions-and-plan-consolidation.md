@@ -747,9 +747,9 @@ Phase 5 format with a slug name, ready for the return to feature work.
   (`Sources/TesseraCore/Diagnostics/GraphStatistics.swift:51`); the role and label hook
   (033 G.1) lands before the first control (032 Step 13.1); the environment clock is a
   `Clock` the harness can advance, so `wait`, `settle`, and motion are testable (032 Step
-  16.1; the spec's Phase 5 open question on injected clocks, `docs/spec.md:8759-8762`
-  today, leaves the mechanism open, and the clock seam in spike commit `30e4bbf` only
-  feeds pass durations).
+  16.1; the spec's [Phase 5](../spec/phase-5-runtime-and-polish.md) open question on
+  injected clocks today, leaves the mechanism open, and the clock seam in spike commit
+  `30e4bbf` only feeds pass durations).
 - Dependencies to carry: plan 034 Step 10.1 before the first demo on stacks; plan 034 Step
   10.3 before demos live in `Examples/`; the seams patch from Step 3.3.
 - Acceptance: one plan, in `docs/plans/` and listed in `docs/plans.md`, following the

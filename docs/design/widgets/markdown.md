@@ -13,8 +13,8 @@ drawn by the [code view](code-view.md). Pipe tables are drawn by the [Table](tab
 renderer in its `grid` style, so the catalog has one table renderer.
 
 This widget follows the controlled-widget rule in
-[Slice 7](../../spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
-The application owns the source string. Markdown owns only the rendered layout.
+[Slice 7](../../spec/phase-4/slice-07-catalog-integration.md). The application owns the
+source string. Markdown owns only the rendered layout.
 
 Owner decision, omp2 review, 2026-10: Markdown is adopted for 1.0 as omp2 draws it, except
 math typesetting, which stays out of 1.0
@@ -581,7 +581,7 @@ Further roles, each defined in tokens.md:
 - [Text](../primitives/text.md): inline runs, as
   [styled runs](../primitives/text.md#styled-runs) (`Text + Text`, key I1). Plan 032 step
   9.1 lands them before Markdown
-  ([landing map](../../spec.md#phase-4-implementation-order-and-component-landing-map)).
+  ([landing map](../../spec/phase-4/architecture.md#phase-4-implementation-order-and-component-landing-map)).
 - [Readable width](../primitives/readable-width.md): the prose blocks' maximum width.
 - [Leading rail](../primitives/leading-rail.md): block quote rails, one per level.
 - [Table](table.md): pipe tables, `grid` style.
@@ -666,9 +666,8 @@ A terminal without OSC 8 support ignores the hyperlink sequence, and the link te
 draws in `accent` underline with its destination in parentheses, so no information is
 lost.
 
-This design was reviewed against the
-[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): the source is an
-app-owned value redeclared on every update and re-rendered in full, Markdown stores
+This design was reviewed against the [Phase 4 theses](../../spec/phase-4.md): the source
+is an app-owned value redeclared on every update and re-rendered in full, Markdown stores
 nothing and takes no input, links reach the terminal as OSC 8 style attributes through the
 render pass rather than as raw writes, and blocks lay out in deterministic integer cells
 through Text, Table and CodeView.
