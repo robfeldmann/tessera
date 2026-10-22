@@ -49,9 +49,10 @@ import TesseraTerminalCore
 
   /// Owns the process's SIGWINCH Dispatch source for one size-change stream.
   ///
-  /// `DispatchSourceSignal` does not conform to `Sendable`, but the source never escapes
-  /// this class. The type is `Sendable` because of a lifecycle invariant the compiler
-  /// cannot see: the source is configured once in `init`, then receives exactly one
+  /// `DispatchSourceSignal` does not conform to `Sendable` in swift-corelibs-libdispatch
+  /// (Linux), though Apple's Dispatch marks it so; the source never escapes this class.
+  /// The vouch below rests on a lifecycle invariant the compiler cannot see: the source is
+  /// configured once in `init`, then receives exactly one
   /// `resume()` (from `sizeChanges`) and exactly one `cancel()` (from the stream's
   /// `onTermination`). The event handler runs on Dispatch's default queue and only spawns
   /// a `Task` that queries the size and yields into the continuation. The continuation is
@@ -62,7 +63,7 @@ import TesseraTerminalCore
   /// while Dispatch, which still observes ignored signals, delivers it to the source. The
   /// disposition is process-wide and is never restored: restoring the previous one can
   /// race with another source that also sets it.
-  private final class ResizeSignalSource: Sendable {
+  private final class ResizeSignalSource: @unchecked Sendable {
     private let source: any DispatchSourceSignal
 
     init(
