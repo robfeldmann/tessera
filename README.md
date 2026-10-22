@@ -166,11 +166,12 @@ emitted through a scoped raw-payload escape hatch — no forking required.
 
 ## Requirements and supported platforms
 
-- Swift 6.3 or later
+- Swift 6.3 or later (`swift-tools-version: 6.3`); the baseline toolchain is Swift 6.3.3
+  (Xcode 26.6), and Swift 6.4 (Xcode 27) is also tested
 - macOS, Linux, and Windows. Current testing covers:
-  - macOS 26.5.2
-  - Ubuntu 24.04 (project Linux VM)
-  - Windows 11 ARM64 25H2 (project Windows VM)
+  - macOS 26.6 (CI) and macOS 27 (local, Xcode 27.1)
+  - Ubuntu 24.04 (project Linux VM and CI)
+  - Windows 11 ARM64 25H2 (project Windows VM and CI)
 
 The supported/tested OS-version range widens as the view layer matures. Contributions that
 validate other OS versions are welcome.

@@ -59,8 +59,9 @@ reasons in the public trust file.
 
 ## Prerequisites
 
-- Swift 6.3 or later
-- Xcode 26 or later (macOS development and DocC validation)
+- Swift 6.3.3 (`.swift-version`), the baseline toolchain every lane must pass: Xcode 26.6
+  on macOS, the swift.org release on Linux and Windows. Swift 6.4 (Xcode 27) is a second
+  supported lane; see [Toolchain lanes](#toolchain-lanes).
 - [`just`](https://github.com/casey/just),
   [swift-format](https://github.com/apple/swift-format), and
   [SwiftLint](https://github.com/realm/SwiftLint) for the quality gate
@@ -69,6 +70,41 @@ reasons in the public trust file.
 
 SwiftLint and DocC validation are macOS/Linux-native; run quality checks and `xcrun docc`
 there or in CI, not on Windows.
+
+## Toolchain lanes
+
+Two toolchains are supported, and both must pass:
+
+| Lane      | macOS                          | Linux and Windows     | Where it runs                                                |
+| --------- | ------------------------------ | --------------------- | ------------------------------------------------------------ |
+| Baseline  | Xcode 26.6 (`swiftlang-6.3.3`) | swift.org Swift 6.3.3 | Required CI checks, DocC, Pages, the Lima and Windows VMs    |
+| Swift 6.4 | Xcode 27.1 (`swiftlang-6.4`)   | swift.org Swift 6.4.1 | CI (`ubuntu-latest / swift-6.4.1`; `xcode-27`, non-required) |
+
+`.swift-version` names the baseline (6.3.3). The floor for consumers stays
+`swift-tools-version: 6.3` and macOS 26; code must compile on both lanes without raising
+either, and any API that needs the macOS 27 SDK goes behind `#available` at a leaf seam.
+
+Select a toolchain locally:
+
+- macOS: the active Xcode is whatever `xcode-select -p` says. To build with the baseline
+  while Xcode 27 is active, set `DEVELOPER_DIR` for the command or the shell:
+
+  ```sh
+  DEVELOPER_DIR=/Applications/Xcode-26.6.0.app/Contents/Developer just core test
+  ```
+
+  (Adjust the path to where Xcode 26.6 is installed; `xcodes` installs it as
+  `Xcode-26.6.0.app`.) CI selects `/Applications/Xcode_26.6.app` on the `macos-26` image
+  through `.github/actions/setup-swift`, whose `xcode` input is the one place to change.
+
+- Lima: `just linux test` uses the baseline from `.swift-version`;
+  `TESSERA_LINUX_SWIFT_VERSION=6.4.1 just linux test` runs the same suite on Swift 6.4.1,
+  installing it with swiftly on first use (both toolchains stay installed).
+- Windows: the Frost toolchain image and the UTM VM carry the baseline only
+  (`just windows-frost provision-toolchain` reads `.swift-version`). There is no Windows
+  6.4 lane yet.
+- Linux cross-compilation (`just linux build`) picks the Static Linux SDK that matches the
+  active compiler from `scripts/config/swift-sdks.json`, falling back to the baseline.
 
 ## Setup
 

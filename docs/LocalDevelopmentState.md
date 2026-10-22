@@ -14,6 +14,14 @@ just core doctor
 This prints the active checkout, the pinned Ghostty VT revision, the Ghostty VT cache
 path, the Lima VM name and mount, and the Windows Frost image paths.
 
+## Toolchains
+
+`.swift-version` (6.3.3) is the baseline every lane must pass; Swift 6.4 is a second lane.
+On macOS the baseline is Xcode 26.6, selected with `DEVELOPER_DIR` when another Xcode is
+active; the Lima VM keeps both toolchains under swiftly and `TESSERA_LINUX_SWIFT_VERSION`
+picks one per run; the Windows VMs carry the baseline only. See
+[Toolchain lanes](../CONTRIBUTING.md#toolchain-lanes).
+
 ## Ghostty VT
 
 `TesseraTerminalSnapshotSupport` links against Ghostty's `libghostty-vt` on macOS and

@@ -353,6 +353,26 @@ Xcode 27 pass too, and CI guards both, without raising the floor.
 - Acceptance: a pull request runs green on every lane, and a deliberate 6.4-only construct
   fails the baseline leg, then is reverted.
 
+#### Done (2026-10-22)
+
+- `ci.yml`: the `test` matrix is an `include` list with five legs: `macos-26`,
+  `ubuntu-latest`, and `windows-latest` (baseline; their job names are unchanged because
+  the `main` ruleset requires `test (macos-26)`, `test (ubuntu-latest)`, and
+  `test (windows-latest)` by name), `ubuntu-latest / swift-6.4.1` (required), and
+  `xcode-27` (Xcode 27.1 on the preview label, `continue-on-error`, so it reports without
+  failing the run). Each leg passes `xcode` or `swift-version` to the setup action, and
+  the SwiftPM cache key carries the toolchain label, so the lanes never share a `.build`.
+  DocC and Pages stay on the baseline.
+- Lima: `scripts/linux-test.sh` runs `swiftly run +<version> swift test`, where the
+  version is `TESSERA_LINUX_SWIFT_VERSION` or `.swift-version`, installing the toolchain
+  on first use; the guest keeps 6.3.3 as its swiftly default. Verified:
+  `TESSERA_LINUX_SWIFT_VERSION=6.4.1 just linux test` printed
+  `Swift version 6.4.1 (swift-6.4.1-RELEASE)` and passed 627 tests (56s), then plain
+  `just linux test` printed 6.3.3 and passed 627 tests (7s, warm). Frost and the UTM guest
+  stay on the baseline.
+- CI evidence (the green run and the deliberate baseline failure) is recorded on the
+  Progress line once the pull request runs have finished.
+
 ### Step 2.4 — Toolchain documentation
 
 - Files: `CONTRIBUTING.md`, `README.md`, `docs/ProjectStatus.md` (its tested-configuration
@@ -361,6 +381,17 @@ Xcode 27 pass too, and CI guards both, without raising the floor.
   covered).
 - Acceptance: the docs name the baseline and the 6.4 lane, and how to select each locally
   and in the VMs.
+
+#### Done (2026-10-22)
+
+- `CONTRIBUTING.md` gained a "Toolchain lanes" section (the lane table, `DEVELOPER_DIR`
+  for local macOS, `TESSERA_LINUX_SWIFT_VERSION` for Lima, Windows baseline only, SDK
+  selection) and its prerequisites name 6.3.3; `README.md` and `docs/ProjectStatus.md`
+  (the tested-configuration table now lists toolchains per platform, with the `xcode-27`
+  leg marked non-required) name both lanes; `docs/LocalDevelopmentState.md` has a
+  "Toolchains" section; `CHANGELOG.md` has a Changed entry; plan 034's Overview, Step 1.1,
+  Step 8.1, finding C-15, Not covered, and References say "baseline toolchain" (6.3.3) and
+  the 6.4 lane instead of "pinned" 6.3.2.
 
 ## Phase 3 — Port plan 033 and its spikes to main
 

@@ -78,9 +78,10 @@ a test that fails before the change, then move on to the blocking-I/O redesign, 
 lifetime and probe-policy decisions that need owner sign-off, vouch cleanup, and test
 determinism. Neither review built or ran the package, so Step 1.1 records the baseline
 before anything changes, and every Windows and C-shim step stays unverified until it has
-been built or stressed on its platform. The repository pins Swift 6.3.2 (`.swift-version`)
-with `swift-tools-version: 6.3`, but the compiler checks in the review used Swift 6.4, so
-each compiler-dependent step must be rechecked on the pinned toolchain.
+been built or stressed on its platform. The repository's baseline toolchain is Swift 6.3.3
+(`.swift-version`, Xcode 26.6) with `swift-tools-version: 6.3`, and Swift 6.4 (Xcode 27.1)
+is a second supported lane (plan 035 Phase 2); the compiler checks in the review used
+Swift 6.4, so each compiler-dependent step must be rechecked on the baseline toolchain.
 
 Phase 10, Steps 9.7 and 9.8, and additions to Steps 3.2 and 8.3 come from two repository
 review notes (2026-10-17 and 2026-10-20), re-checked against `28c34b8` on 2026-10-21; see
@@ -98,9 +99,10 @@ regression tests need, with no behavior change.
 
 - File: none (commands only).
 - Run `swift build`, then `swift test --filter TesseraTerminalIOTests` and
-  `swift test --filter TesseraTerminalTests`, on the pinned toolchain (`.swift-version`,
-  6.3.2). The package needs remote dependencies and a prebuilt `CGhosttyVT` library, so
-  the first run may need setup beyond the repo defaults.
+  `swift test --filter TesseraTerminalTests`, on the baseline toolchain (`.swift-version`,
+  6.3.3; Xcode 26.6 on macOS) and on the Swift 6.4 lane (Xcode 27.1). The package needs
+  remote dependencies and a prebuilt `CGhosttyVT` library, so the first run may need setup
+  beyond the repo defaults.
 - Record which tests already fail, so later failures can be attributed.
 - When this plan runs inside plan 035, Step 1.1 of plan 035 has already recorded the full
   check matrix, and its Phase 2 has set the toolchain lanes. Then run the two filters
@@ -441,9 +443,9 @@ removed or stated in writing.
 - Change: delete `@unchecked` from `PlatformCleanupRegistration` and from
   `ResizeSignalSource`, so the compiler checks their fields.
 - Caveat: the compile checks used Swift 6.4 on extracted shapes. Typecheck the real files
-  on the pinned 6.3.2 toolchain.
-- Acceptance: `swift build` on the pinned toolchain and
-  `swift test --filter TesseraTerminalIOTests` pass.
+  on the baseline 6.3.3 toolchain as well as on 6.4.
+- Acceptance: `swift build` on both lanes and `swift test --filter TesseraTerminalIOTests`
+  pass.
 
 ### Step 8.2 — Document the `ResizeSignalSource` invariant and the SIGWINCH disposition
 
@@ -912,7 +914,7 @@ C-17).
   invariant on `ResizeSignalSource`; that stays (Step 8.2), whether or not the attribute
   is removed.
 - Cost/risk: none.
-- Confidence: high for the shapes; medium for the real files until the pinned toolchain
+- Confidence: high for the shapes; medium for the real files until the baseline toolchain
   builds them.
 
 ### C-14 — Sixteen `@unchecked` vouch sites, none with a written invariant (impact: low)
@@ -1074,8 +1076,9 @@ The reports' citations were re-read against the current source. Corrections:
 - Vague report, Not covered: `cleanup.c:266-271` → `:261-272`.
 - Vague report, settings: the upcoming-feature loop is `Package.swift:597-610`, with the
   feature lines at 603-607. Both confirmed.
-- Both reports: the compiler was Swift 6.4, but the repo pins 6.3.2 (`.swift-version`).
-  This is a toolchain caveat, not a citation error.
+- Both reports: the compiler was Swift 6.4, while the repo's baseline is 6.3.3
+  (`.swift-version`, since plan 035 Step 2.1; 6.3.2 at review time). This is a toolchain
+  caveat, not a citation error.
 
 All other cited lines were re-read and match the current source.
 
@@ -1145,11 +1148,13 @@ All other cited lines were re-read and match the current source.
   prebuilt `CGhosttyVT` library. Every compiler claim came from extracted shapes; every
   runtime claim came from models that copy the control flow. Step 1.1 is the first real
   check.
-- Toolchain: the compiler checks used Swift 6.4 (`swiftlang-6.4.0.34.1`). The repo pins
-  Swift 6.3.2 (`.swift-version`), with `swift-tools-version: 6.3` (`Package.swift:1`). The
-  `withTaskCancellationShield` availability claim (macOS 27, SE-0504) comes from one
-  reviewer's compile against the macOS 27 SDK. It was rechecked neither here nor on the
-  pinned toolchain. Plan 035 Phase 2 settles the toolchain lanes before this plan runs.
+- Toolchain: the compiler checks used Swift 6.4 (`swiftlang-6.4.0.34.1`). The repo's
+  baseline is Swift 6.3.3 (`.swift-version`, Xcode 26.6; 6.3.2 at review time), with
+  `swift-tools-version: 6.3` (`Package.swift:1`), and Swift 6.4 (Xcode 27.1) is the second
+  lane. The `withTaskCancellationShield` availability claim (macOS 27, SE-0504) comes from
+  one reviewer's compile against the macOS 27 SDK. It was rechecked neither here nor on
+  the baseline toolchain. Plan 035 Phase 2 settled the toolchain lanes before this plan
+  runs.
 - Windows: `WindowsInputLoop.swift`, `WindowsConsole.swift`, `WindowsConsoleMode.swift`,
   the Windows branches of `CleanupRegistry.swift` and `TerminalDevice+Live.swift`,
   `WindowsInputLoopTests.swift`, and `WindowsConsoleModeTests.swift` were read only. C-07,
@@ -1180,7 +1185,7 @@ All other cited lines were re-read and match the current source.
 
 - `Package.swift:13` (macOS 26 floor); `Package.swift:1` (tools version 6.3);
   `Package.swift:603-607` (experimental and upcoming features).
-- `.swift-version` (6.3.2).
+- `.swift-version` (6.3.3, the baseline; 6.3.2 at review time).
 - Repo conventions in `AGENTS.md`: Swift Testing names in backticks, platform divergence
   confined to leaf seams, and Markdown validation with `pnpx markdownlint-cli`.
 - Plan 032, `.agents/plans/032-omp2-reference-gallery-and-phase-4-redesign.md`, for the
