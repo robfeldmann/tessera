@@ -115,6 +115,15 @@ public actor TerminalSession {
   private var lastDrawnBuffer: Buffer?
   private let modeLifecycle: ModeLifecycle?
   private let modeTransitionGate = ModeLifecycleTransitionGate()
+
+  /// The number of mode setters queued behind the one in flight on this session's gate;
+  /// a test seam for ordering tests on the queued state.
+  package var queuedModeSetterCount: Int {
+    get async {
+      await modeTransitionGate.waiterCount
+    }
+  }
+
   private let probeCoordinator: ActiveCapabilityProbeCoordinator
   private let probeImageID: KittyImageID
   private let probeSleep: ActiveCapabilityProbeCoordinator.Sleep

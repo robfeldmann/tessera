@@ -6,6 +6,12 @@ package actor ModeLifecycleTransitionGate {
   private var nextWaiterID: UInt64 = 0
   private var waiters: [(id: UInt64, continuation: CheckedContinuation<Bool, Never>)] = []
 
+  /// The number of callers queued behind the current holder; a test seam, as on
+  /// `AsyncEventBuffer`.
+  package var waiterCount: Int {
+    waiters.count
+  }
+
   package init() {}
 
   package func acquire() async -> Bool {
@@ -104,6 +110,14 @@ public actor ModeLifecycle {
   private let io: PlatformIO
   private let kittyKeyboardFlags: KittyKeyboardFlags
   private let transitionGate = ModeLifecycleTransitionGate()
+
+  /// The number of transitions queued behind the one in flight; a test seam.
+  package var queuedTransitionCount: Int {
+    get async {
+      await transitionGate.waiterCount
+    }
+  }
+
   private var acquisitionStack: [Mode] = []
   private var modes: Set<Mode> = []
   private var possiblyActiveModes: Set<Mode> = []
