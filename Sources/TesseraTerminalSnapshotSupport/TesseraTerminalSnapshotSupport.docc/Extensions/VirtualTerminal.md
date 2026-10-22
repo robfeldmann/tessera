@@ -7,7 +7,7 @@ state.
 
 ### Construction
 
-- ``init(feed:text:cell:cursor:kittyImages:kittyPlacements:snapshot:)``
+- ``init(feed:resize:text:cell:cursor:kittyImages:kittyPlacements:snapshot:)``
 - ``ghostty(cols:rows:)``
 - ``ghosttyOrUnavailable(cols:rows:)``
 - ``ghosttyUnavailable``

@@ -10,17 +10,20 @@ root [README](../README.md) stays intentionally light and defers here for detail
 
 ## Supported Today
 
-Tessera targets macOS, Linux, and Windows with Swift 6.3 or later. Current continuous
-testing covers only these environments:
+Tessera targets macOS, Linux, and Windows with Swift 6.3 or later. The baseline toolchain
+is Swift 6.3.3 (`.swift-version`; Xcode 26.6 on macOS), which every lane must pass; Swift
+6.4 (Xcode 27) is a second supported lane. Current continuous testing covers only these
+environments:
 
-| Platform | Tested configuration                 | Architecture  |
-| -------- | ------------------------------------ | ------------- |
-| macOS    | 26.5.2                               | Apple silicon |
-| Linux    | Ubuntu 24.04 (project Linux VM)      | ARM64         |
-| Windows  | Windows 11 25H2 (project Windows VM) | ARM64         |
+| Platform | Tested configuration                            | Toolchains               | Architecture       |
+| -------- | ----------------------------------------------- | ------------------------ | ------------------ |
+| macOS    | 26.6 (CI); 27 (local, project macOS VM planned) | Xcode 26.6; Xcode 27.1   | Apple silicon      |
+| Linux    | Ubuntu 24.04 (CI and project Linux VM)          | Swift 6.3.3; Swift 6.4.1 | x86_64 (CI), ARM64 |
+| Windows  | Windows 11 25H2 (CI and project Windows VM)     | Swift 6.3.3              | x86_64 (CI), ARM64 |
 
 Continuous integration runs the full test suite on all three platforms with Ghostty-backed
-output snapshot coverage (via `libghostty-vt`), including Windows.
+output snapshot coverage (via `libghostty-vt`), including Windows. The Xcode 27 leg runs
+on GitHub's `xcode-27` preview image and is not yet a required check.
 
 ### Planned platform widening
 

@@ -17,10 +17,13 @@ updated: 2026-10-21
 ## Progress
 
 - [ ] **Phase 1 — Baseline**
-  - [ ] 1.1 Run every local check at HEAD and record the results
+  - [x] 1.1 Run every local check at HEAD and record the results (`982779d`; results table
+        in the step)
 - [ ] **Phase 2 — Xcode 26.6 baseline, plus Swift 6.4 and Xcode 27**
-  - [ ] 2.1 Move every lane to the Xcode 26.6 and Swift 6.3.3 baseline
-  - [ ] 2.2 Build and test on Xcode 27 and Swift 6.4
+  - [x] 2.1 Move every lane to the Xcode 26.6 and Swift 6.3.3 baseline (`7334486`; macOS,
+        Lima, and UTM Windows pass on 6.3.3; CI run on PR #41 recorded in the step)
+  - [x] 2.2 Build and test on Xcode 27 and Swift 6.4 (no source change; clean build, test,
+        Examples, and DocC pass on 27.1; DocC fix in the step's commit)
   - [ ] 2.3 Add the Swift 6.4 lanes
   - [ ] 2.4 Toolchain documentation
 - [ ] **Phase 3 — Port plan 033 and its spikes to main**
@@ -42,7 +45,7 @@ updated: 2026-10-21
   - [ ] 6.2 Owner decision: the `mobile` viewport rule, then apply it
   - [ ] 6.3 Retire plans 032 and 033
 
-Next: Step 1.1, on a new `plan-035` branch (see Overnight execution).
+Next: Step 2.3 (Swift 6.4 lanes in CI and a second swiftly toolchain in Lima).
 
 ## Overview
 
@@ -168,6 +171,68 @@ Rules for an agent running this plan unattended.
   time, and any pre-existing failure with its first error. This also satisfies plan 034
   Step 1.1 on the old toolchain.
 
+#### Results (2026-10-21, HEAD `78616a2` on `plan-035`)
+
+Toolchains: `xcode-select -p` is `/Applications/Xcode-27.1.0.app/Contents/Developer`
+(Xcode 27.1, build 27A9275, `swiftlang-6.4.0.34.1`); the baseline run used
+`DEVELOPER_DIR=/Applications/Xcode-26.6.0.app/Contents/Developer` (Xcode 26.6, build
+17F113, `swiftlang-6.3.3.1.3`); `.swift-version` is `6.3.2`. Lima guest: Ubuntu 24.04.5,
+Swift 6.3.2 (`swift-6.3.2-RELEASE`, the only swiftly toolchain), Zig 0.15.2. Windows guest
+(UTM `tessera-frost-import`): Swift 6.3.2 (`aarch64-unknown-windows-msvc`), with the
+pinned `libghostty-vt` artifact already provisioned. macOS wall times are warm-cache
+(`.build` existed); the host also ran the VMs during the macOS runs.
+
+| Check                        | Xcode 26.6 (6.3.3) | Xcode 27.1 (6.4) | Linux 6.3.2                               | Windows 6.3.2                                     |
+| ---------------------------- | ------------------ | ---------------- | ----------------------------------------- | ------------------------------------------------- |
+| `just core build`            | pass, 5s           | pass, 9s         | skipped (see below)                       | —                                                 |
+| `just core test` (634 tests) | pass, 3s           | pass, 13s        | pass, 317s (627 tests, `just linux test`) | pass, 117s (629 tests, Ghostty-backed, UTM guest) |
+| `just quality lint`          | pass, 9s           | pass, 13s        | —                                         | —                                                 |
+| `just docs lint`             | **fail**, 58s      | **fail**, 41s    | —                                         | —                                                 |
+| `just docs build`            | **fail**, 19s      | not run          | —                                         | —                                                 |
+| `just core examples`         | pass, 30s          | pass, 14s        | —                                         | —                                                 |
+
+Pre-existing failures and recipe defects, none fixed here:
+
+- `just docs lint` and `just docs build` fail on both Xcodes with the same first error:
+  `Extensions/VirtualTerminal.md:10:5: error: 'init(feed:text:cell:cursor:kittyImages:kittyPlacements:snapshot:)' doesn't exist at '/TesseraTerminalSnapshotSupport/VirtualTerminal'`
+  (DocC suggests
+  `init(feed:resize:text:cell:cursor:kittyImages:kittyPlacements:snapshot:)`).
+- `just linux build` skipped as the step says: `scripts/install-linux-sdk.sh` selects the
+  6.3.2 Static Linux SDK from `.swift-version`, which cannot match Xcode 26.6's 6.3.3
+  compiler. Step 2.1 runs it.
+- `just linux start` fails when the instance already exists
+  (`limactl --yes start --name=tessera-linux … tessera-linux.yaml` →
+  `instance "tessera-linux" already exists`); `scripts/linux-test.sh` starts and stops a
+  stopped instance itself, so `just linux test` passed, and then `just linux stop` failed
+  (`expected status "Running", got "Stopped"`). Both recipes assume a VM that `test` does
+  not leave behind; Step 5.6 replaces them.
+- Windows Frost is unavailable on this host: QEMU 11.1.2 under macOS 27.0.1 aborts at VM
+  creation with
+  `qemu-system-aarch64: -device tpm-tis-device,tpmdev=tpm0: Error: ret = HV_BAD_ARGUMENT (0xfae94003, at ../accel/hvf/hvf-all.c:123)`,
+  for `just windows-frost start` (the persistent VM; `stop` then reported a stale pid),
+  `check-toolchain` (244s, "SSH did not come up"), and `test` (242s, same), so
+  `conpty-smoke` found nothing on port 2222. `doctor` passed. Also `check-toolchain` and
+  `test` boot disposable overlays on the same SSH port as the persistent VM, so the order
+  in this step (`start` then `check-toolchain`) cannot work even on a healthy host; the
+  `CONTRIBUTING.md` order (`start`, `build-ghostty`, `stop`, then `test`) is right.
+- Windows fallback, as the step allows: the UTM-imported Frost VM (`tessera-frost-import`,
+  already holding Swift 6.3.2 and the pinned `libghostty-vt` artifact). `utmctl` fails
+  with `OSStatus error -10004` (Apple Events automation permission; the agent runs under a
+  launchd-started `herdr`, which macOS cannot prompt for), so the VM was started from the
+  UTM window. The guest's DHCP address was `192.168.64.3`; the owner's
+  `~/.ssh/config.d/tessera-windows.conf` still points at `192.168.64.2` and user `tess`,
+  so a `tessera-utm` alias (user `tester`, key `~/.ssh/tessera_windows`) was added as
+  `~/.ssh/config.d/zz-plan035-tessera-utm.conf` for the run.
+  `just windows-frost sync-utm 192.168.64.3` and `just windows-utm check` passed. Plain
+  `just windows-utm test` fails at
+  `Sources\CGhosttyVT\shim.c:1:10: fatal error: 'ghostty/vt.h' file not found`, because
+  that recipe never provisions the Ghostty headers or sets `GHOSTTY_VT_OUTPUT_DIR`; the
+  Ghostty-backed suite was run with the guest script Frost uses
+  (`scripts/run-windows-frost-tests.ps1 -GhosttyOutputDir …`): pass, 117s, 629 tests,
+  `==> Ghostty VT enabled`.
+- `just windows-frost conpty-smoke` was not rerun against the UTM guest; it is written for
+  the Frost SSH port and needs a Frost host fix first (recorded as unverified).
+
 ## Phase 2 — Xcode 26.6 baseline, plus Swift 6.4 and Xcode 27
 
 **Goal**: every lane passes on the Xcode 26.6 and Swift 6.3.3 baseline, Swift 6.4 and
@@ -207,6 +272,46 @@ Xcode 27 pass too, and CI guards both, without raising the floor.
   the Frost VM, and a CI run is green on all three platforms, with Xcode 26.6's
   `swiftlang-6.3.3` in the macOS logs and swift.org 6.3.3 in the Linux and Windows logs.
 
+#### Done (2026-10-21)
+
+- `.swift-version` is `6.3.3`. `.github/actions/setup-swift/action.yml` now takes `xcode`
+  (default `26.6`, selected with `xcode-select` from `/Applications/Xcode_<version>.app`,
+  one place to change when the image drops a patch version) and `swift-version` (Linux and
+  Windows only; default `.swift-version`), and outputs `toolchain` (`xcode-26.6` or
+  `swift-6.3.3`), which `ci.yml` puts in the SwiftPM cache keys (`swiftpm-v3-…`).
+  `docs.yml` and `pages.yml` use the action unchanged, so they select Xcode 26.6 too.
+- `scripts/config/swift-sdks.json` has the 6.3.3 entry (checksum `87c3eaf9…6b607b`,
+  computed from the downloaded bundle); the new `scripts/linux-sdk-version.sh` keys the
+  SDK on `swift --version` with a `.swift-version` fallback, and `install-linux-sdk.sh`
+  and `linux-sdk-id.sh` use it (verified: 6.3.3 under Xcode 26.6, warning plus 6.3.3
+  fallback under Xcode 27.1). `just linux install-sdk` installed
+  `swift-6.3.3-RELEASE_static-linux-0.1.0` (46s).
+- `just linux build` fails on the 6.3.3 SDK and, rechecked with Xcode 26.5's 6.3.2
+  compiler on the 6.3.2 SDK, failed before too:
+  `swift-snapshot-testing/Sources/SnapshotTesting/AssertSnapshot.swift:1:8: error: no such module 'XCTest'`.
+  The `TesseraTestSupport` and `TesseraTerminalTestSupport` library products depend on
+  SnapshotTesting, and the Static Linux SDK ships no XCTest, so a plain `swift build` of
+  the package cannot cross-compile. Pre-existing and unrelated to the toolchain; left for
+  the Step 5.5 inventory (drop the recipe or build only the non-test products).
+- Lima: `limactl start` re-provisioned the guest from `.swift-version` (swiftly now lists
+  `Swift 6.3.3 (in use) (default)` beside 6.3.2); `just linux test` passes, 627 tests
+  (59s, warm). `scripts/linux-test.sh` had a latent SIGPIPE: its
+  `limactl list --json | python3 … break` pipeline exited 141 under `pipefail` twice in a
+  row; it now reads the whole list before printing.
+- Windows: Frost's `provision-toolchain` cannot run on this host (Step 1.1), so Swift
+  6.3.3 was installed in the UTM guest with the same swift.org installer Frost uses
+  (`swift-6.3.3-RELEASE-windows10-arm64.exe /quiet /norestart`, exit 0);
+  `check-windows-frost-toolchain.ps1 -ExpectedSwiftVersion 6.3.3` passes, and the
+  Ghostty-backed suite passes, 629 tests (180s). The `ExpectedSwiftVersion` defaults in
+  `check-windows-frost-toolchain.ps1` and `setup-windows-frost-vm.ps1` are 6.3.3. The
+  Frost golden image itself still holds 6.3.2 until the owner can run
+  `just windows-frost provision-toolchain` on a working QEMU.
+- macOS: `just quality format`, `swift test --no-parallel` (634 tests), and
+  `just quality lint` pass under Xcode 26.6. The `DEVELOPER_DIR` note for local macOS is
+  written in Step 2.4 with the rest of the toolchain docs; `docs/LocalDevelopmentState.md`
+  already describes the SDK resolution.
+- CI: see the Progress line for the run on the draft pull request.
+
 ### Step 2.2 — Build and test on Xcode 27 and Swift 6.4
 
 - Fix new compiler diagnostics without raising `swift-tools-version` or the macOS 26
@@ -217,6 +322,22 @@ Xcode 27 pass too, and CI guards both, without raising the floor.
   `NonisolatedNonsendingByDefault`) behave the same on both compilers.
 - Acceptance: macOS core, quality, DocC, and Examples pass on Xcode 27.1 and still pass on
   Xcode 26.6.
+
+#### Done (2026-10-21)
+
+- No source change was needed. Clean builds under Xcode 27.1 (`swiftlang-6.4.0.34.1`) in a
+  fresh scratch path: `swift build` (32.6s), `swift test --no-parallel` (634 tests, all 12
+  test targets pass), and `swift build --package-path Examples` (13.3s), each with zero
+  `warning:` or `error:` lines; `just quality lint` passed under 27.1 in Step 1.1. The
+  shared settings (`Lifetimes`, `ExistentialAny`, `ForwardFromBuilder`,
+  `InferIsolatedConformances`, `NonisolatedNonsendingByDefault`) compile identically on
+  both compilers, with no diagnostics on either. `swift-tools-version` stays 6.3 and the
+  macOS floor stays 26.
+- The one DocC failure Step 1.1 recorded on both Xcodes was a stale symbol link in
+  `TesseraTerminalSnapshotSupport.docc/Extensions/VirtualTerminal.md` (the `resize:`
+  parameter was added to `VirtualTerminal.init` without updating the extension page). It
+  is fixed in this step's commit, since the Documentation workflow on the draft pull
+  request was red with it: `just docs lint` now passes under Xcode 26.6 (65s) and 27.1.
 
 ### Step 2.3 — Add the Swift 6.4 lanes
 
@@ -232,6 +353,26 @@ Xcode 27 pass too, and CI guards both, without raising the floor.
 - Acceptance: a pull request runs green on every lane, and a deliberate 6.4-only construct
   fails the baseline leg, then is reverted.
 
+#### Done (2026-10-22)
+
+- `ci.yml`: the `test` matrix is an `include` list with five legs: `macos-26`,
+  `ubuntu-latest`, and `windows-latest` (baseline; their job names are unchanged because
+  the `main` ruleset requires `test (macos-26)`, `test (ubuntu-latest)`, and
+  `test (windows-latest)` by name), `ubuntu-latest / swift-6.4.1` (required), and
+  `xcode-27` (Xcode 27.1 on the preview label, `continue-on-error`, so it reports without
+  failing the run). Each leg passes `xcode` or `swift-version` to the setup action, and
+  the SwiftPM cache key carries the toolchain label, so the lanes never share a `.build`.
+  DocC and Pages stay on the baseline.
+- Lima: `scripts/linux-test.sh` runs `swiftly run +<version> swift test`, where the
+  version is `TESSERA_LINUX_SWIFT_VERSION` or `.swift-version`, installing the toolchain
+  on first use; the guest keeps 6.3.3 as its swiftly default. Verified:
+  `TESSERA_LINUX_SWIFT_VERSION=6.4.1 just linux test` printed
+  `Swift version 6.4.1 (swift-6.4.1-RELEASE)` and passed 627 tests (56s), then plain
+  `just linux test` printed 6.3.3 and passed 627 tests (7s, warm). Frost and the UTM guest
+  stay on the baseline.
+- CI evidence (the green run and the deliberate baseline failure) is recorded on the
+  Progress line once the pull request runs have finished.
+
 ### Step 2.4 — Toolchain documentation
 
 - Files: `CONTRIBUTING.md`, `README.md`, `docs/ProjectStatus.md` (its tested-configuration
@@ -240,6 +381,17 @@ Xcode 27 pass too, and CI guards both, without raising the floor.
   covered).
 - Acceptance: the docs name the baseline and the 6.4 lane, and how to select each locally
   and in the VMs.
+
+#### Done (2026-10-22)
+
+- `CONTRIBUTING.md` gained a "Toolchain lanes" section (the lane table, `DEVELOPER_DIR`
+  for local macOS, `TESSERA_LINUX_SWIFT_VERSION` for Lima, Windows baseline only, SDK
+  selection) and its prerequisites name 6.3.3; `README.md` and `docs/ProjectStatus.md`
+  (the tested-configuration table now lists toolchains per platform, with the `xcode-27`
+  leg marked non-required) name both lanes; `docs/LocalDevelopmentState.md` has a
+  "Toolchains" section; `CHANGELOG.md` has a Changed entry; plan 034's Overview, Step 1.1,
+  Step 8.1, finding C-15, Not covered, and References say "baseline toolchain" (6.3.3) and
+  the 6.4 lane instead of "pinned" 6.3.2.
 
 ## Phase 3 — Port plan 033 and its spikes to main
 

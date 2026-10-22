@@ -14,6 +14,14 @@ just core doctor
 This prints the active checkout, the pinned Ghostty VT revision, the Ghostty VT cache
 path, the Lima VM name and mount, and the Windows Frost image paths.
 
+## Toolchains
+
+`.swift-version` (6.3.3) is the baseline every lane must pass; Swift 6.4 is a second lane.
+On macOS the baseline is Xcode 26.6, selected with `DEVELOPER_DIR` when another Xcode is
+active; the Lima VM keeps both toolchains under swiftly and `TESSERA_LINUX_SWIFT_VERSION`
+picks one per run; the Windows VMs carry the baseline only. See
+[Toolchain lanes](../CONTRIBUTING.md#toolchain-lanes).
+
 ## Ghostty VT
 
 `TesseraTerminalSnapshotSupport` links against Ghostty's `libghostty-vt` on macOS and
@@ -64,8 +72,11 @@ There are two Linux paths:
    the active Swift toolchain, not into this repository.
 2. `just linux test` uses a Lima VM so tests run on an actual Linux userspace.
 
-The Static Linux SDK metadata lives in `scripts/config/swift-sdks.json` and is keyed by
-`.swift-version`. Updating Swift means updating both files together.
+The Static Linux SDK metadata lives in `scripts/config/swift-sdks.json`, keyed by Swift
+version. `scripts/linux-sdk-version.sh` picks the entry that matches the active compiler
+(`swift --version`), because the SDK must match the compiler that uses it, and falls back
+to `.swift-version` when the active compiler has no entry. Updating the baseline Swift
+means adding an entry here and updating `.swift-version` together.
 
 The default Lima VM name is:
 

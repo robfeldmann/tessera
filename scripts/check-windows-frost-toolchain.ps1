@@ -4,7 +4,7 @@ Verify a Frost Tessera toolchain Windows image.
 
 [CmdletBinding()]
 param(
-    [string]$ExpectedSwiftVersion = "6.3.2",
+    [string]$ExpectedSwiftVersion = "6.3.3",
     [string]$ExpectedWindowsSDK = "10.0.26100.0"
 )
 

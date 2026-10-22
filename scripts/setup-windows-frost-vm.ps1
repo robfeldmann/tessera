@@ -12,7 +12,7 @@ should reboot the VM, wait for SSH, and rerun this script until it reports compl
 
 [CmdletBinding()]
 param(
-    [string]$ExpectedSwiftVersion = "6.3.2",
+    [string]$ExpectedSwiftVersion = "6.3.3",
 
     # Public key content to install for unattended SSH access. If this is omitted and
     # AuthorizedKeyPath exists, the key is read from that path.
