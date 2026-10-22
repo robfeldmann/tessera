@@ -17,6 +17,7 @@ One plan per piece of work, in order. This page is rendered from each plan's fro
 1. [Tooling orchestration and Lefthook migration](plans/tooling-orchestration-and-lefthook.md): Unify formatter ownership, deterministic quality gates, hook management, and CI around repository-managed commands.
 2. [Developer tooling for agents and humans](plans/developer-tooling.md): A headless harness, a scenario language, semantic queries over the view graph, deterministic text/grid/SVG shots, invariant and cost checks, "why" traces, and a catalog review view, built on plan 032's Phase 8 demo runner and landing one capability per Phase 4 phase so agents can build, debug, and evaluate Tessera apps unattended.
 3. [Build the Phase 4 view layer with the tooling that proves it](plans/phase-4-view-layer-and-developer-tooling.md): Build the Phase 4 view layer from the omp2-reviewed catalog and the developer tooling that drives, pictures, and checks it, in one slice order where each component lands with its demo, its scenario, and the harness capability it needs.
+4. [Make UTM the one Windows lane and retire Frost](plans/windows-on-utm.md): Retire the Frost QEMU workflow and make the UTM guest the one scripted, rebuildable Windows lane, driven by scripts/vm.py like the macOS and Linux guests.
 
 ## Done
 
