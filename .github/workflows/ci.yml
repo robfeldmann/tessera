@@ -224,7 +224,7 @@ jobs:
           # Exact-only: a script or pinned-revision change must rebuild rather than
           # relabeling a restored stale install under the new key.
           # prettier-ignore
-          key: libghostty-vt-v3-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
+          key: libghostty-vt-v4-${{ runner.os }}-${{ runner.arch }}-zig-0.17.0-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
 
       - name: Build libghostty-vt
         if: needs.ci-gate.outputs.vouch-only != 'true' && runner.os != 'Windows'
@@ -250,7 +250,7 @@ jobs:
             ~/AppData/Local/tessera/libghostty-vt
             !~/AppData/Local/tessera/libghostty-vt/source
           # prettier-ignore
-          key: libghostty-vt-v3-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
+          key: libghostty-vt-v4-${{ runner.os }}-${{ runner.arch }}-zig-0.17.0-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
 
       - name: Build
         if: needs.ci-gate.outputs.vouch-only != 'true'
@@ -339,7 +339,7 @@ jobs:
             !~/.cache/tessera/libghostty-vt/source
             !~/.cache/tessera/libghostty-vt/cmake
           # prettier-ignore
-          key: libghostty-vt-v3-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
+          key: libghostty-vt-v4-${{ runner.os }}-${{ runner.arch }}-zig-0.17.0-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
 
       - name: Build libghostty-vt
         if: needs.ci-gate.outputs.vouch-only != 'true'

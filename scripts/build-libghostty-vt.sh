@@ -19,7 +19,7 @@ and materializes the generated headers into the workspace (gitignored):
   Sources/CGhosttyVT/include/ghostty/
 
 Prerequisites:
-  - Zig 0.15.x on PATH
+  - Zig 0.17.x on PATH (`mise install` provides it)
   - CMake
   - Ninja
   - git
@@ -102,7 +102,7 @@ install_dir="$output_root/$revision/$platform-$arch"
 source_dir="${GHOSTTY_VT_SOURCE_DIR:-$output_root/source/$revision}"
 build_dir="${GHOSTTY_VT_BUILD_DIR:-$output_root/cmake/$revision/$platform-$arch}"
 build_mode="${GHOSTTY_VT_BUILD_MODE:-Release}"
-expected_zig="${GHOSTTY_VT_ZIG_VERSION:-0.15}"
+expected_zig="${GHOSTTY_VT_ZIG_VERSION:-0.17}"
 zig_build_flags=""
 if [[ "$platform" == "linux" ]]; then
   # GitHub-hosted runners may restore this cache on a different x86_64 CPU model.
@@ -150,14 +150,8 @@ zig_executable="${ZIG_EXECUTABLE:-}"
 if [[ -z "$zig_executable" ]] && command -v zig >/dev/null 2>&1; then
   zig_executable="$(command -v zig)"
 fi
-if [[ -z "$zig_executable" ]] && command -v brew >/dev/null 2>&1; then
-  brew_zig_prefix="$(brew --prefix zig@0.15 2>/dev/null || true)"
-  if [[ -n "$brew_zig_prefix" && -x "$brew_zig_prefix/bin/zig" ]]; then
-    zig_executable="$brew_zig_prefix/bin/zig"
-  fi
-fi
 if [[ -z "$zig_executable" || ! -x "$zig_executable" ]]; then
-  echo "error: required tool not found: zig 0.15.x" >&2
+  echo "error: required tool not found: zig $expected_zig.x (run \`mise install\`)" >&2
   exit 1
 fi
 export PATH="$(dirname "$zig_executable"):$PATH"
@@ -165,6 +159,13 @@ export PATH="$(dirname "$zig_executable"):$PATH"
 zig_version="$($zig_executable version)"
 if [[ "$zig_version" != "$expected_zig"* ]]; then
   echo "warning: expected Zig $expected_zig.x, found $zig_version" >&2
+fi
+
+if [[ "$platform" == "macos" && -z "${SDKROOT:-}" ]]; then
+  # Without SDKROOT, the compiler can fall back to the Command Line Tools SDK even when
+  # DEVELOPER_DIR selects an Xcode, and an older Xcode's linker rejects a newer CLT SDK
+  # ("tapi error: malformed file"), failing CMake's compiler check.
+  export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
 fi
 
 mkdir -p "$output_root/source" "$build_dir"

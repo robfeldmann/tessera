@@ -20,6 +20,8 @@ Update the pinned revision when Tessera needs a Ghostty VT bug fix, API change, 
    echo <commit-sha> > scripts/ghostty-vt-version.txt
    ```
 
+   If the candidate's `build.zig.zon` sets a different `minimum_zig_version`, move every Zig consumer to it in the same change: `zig` in `mise.toml` (then `mise install` to update `mise.lock`), `zig_version` in `scripts/config/lima/tessera-linux.yaml`, the `GHOSTTY_VT_ZIG_VERSION` defaults in `scripts/build-libghostty-vt.sh` and `scripts/build-libghostty-vt.ps1`, and the `zig-<version>` part of the `libghostty-vt-v<N>-…` cache keys in `.github/workflows/ci.yml`, `docs.yml`, and `pages.yml`. An existing Lima instance keeps the provisioning script it was created with, so update its copy too (`limactl edit --set '.provision[1].script |= sub("<old>"; "<new>")' tessera-linux`) or recreate it; the next `limactl start` installs the new Zig.
+
 3. Rebuild from source:
 
    ```sh
@@ -62,7 +64,7 @@ Update the pinned revision when Tessera needs a Ghostty VT bug fix, API change, 
 
 `scripts/build-libghostty-vt.ps1` is the Windows counterpart of the bash build script. It installs the pinned artifact under `%GHOSTTY_VT_OUTPUT_DIR%` (default `%LOCALAPPDATA%\tessera\libghostty-vt`) `\<revision>\windows-<arch>\` and materializes the same gitignored header directory.
 
-Zig's Windows package fetcher cannot reach `https://deps.files.ghostty.org` (`TlsInitializationFailed`), so the script prefetches every dependency in the pinned checkout's `build.zig.zon.json` with `curl.exe` and hands the local archives to `zig fetch`, verifying each resulting cache key against the manifest. It installs Zig 0.15.x from `ziglang.org` when missing (`winget` is unreliable in the Frost guest).
+Zig fetches the pinned checkout's dependencies itself during `zig build`. On Windows that needs Zig 0.17 or later: Zig 0.15 could not reach `https://deps.files.ghostty.org` there (`TlsInitializationFailed`). Do not seed the cache with `zig fetch <archive>`: Zig 0.17.0 stores such an archive with its top-level directory unstripped, and `zig build` then rejects the package with a hash mismatch. The script installs the Zig named by `GHOSTTY_VT_ZIG_VERSION` (default: the same version `mise.toml` pins) from `ziglang.org` when no `zig` of that version is on `PATH` (`winget` is unreliable in the Frost guest).
 
 On Windows, `CGhosttyVT` is part of the package graph as on every other platform, and it links the static `ghostty-vt-static.lib` plus `ntdll` (no runtime DLL discovery). Sources gate on `#if canImport(CGhosttyVT)`. Both hosted Windows CI and local Frost test runs (`mise run windows-frost:test`) build the Ghostty-backed suites; Frost provisions the artifact from the host cache populated by `mise run windows-frost:build-ghostty`, while hosted CI builds it with `scripts/build-libghostty-vt.ps1` behind an Actions cache.
 

@@ -86,7 +86,7 @@ jobs:
             !~/.cache/tessera/libghostty-vt/cmake
           # Exact-only to match CI and prevent a stale native install from being relabeled.
           # prettier-ignore
-          key: libghostty-vt-v3-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
+          key: libghostty-vt-v4-${{ runner.os }}-${{ runner.arch }}-zig-0.17.0-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
 
       - name: Validate docs
         if: needs.docs-gate.outputs.vouch-only != 'true'

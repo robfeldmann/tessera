@@ -14,10 +14,9 @@ It also materializes the generated headers into the workspace (gitignored):
 
   Sources\CGhosttyVT\include\ghostty\
 
-Zig's Windows package fetcher fails against https://deps.files.ghostty.org
-(TlsInitializationFailed), so this script prefetches every dependency listed in
-the pinned checkout's build.zig.zon.json with curl.exe and hands the local files
-to `zig fetch`, which produces identical content-addressed cache keys.
+Zig fetches the dependencies itself during `zig build`. That needs Zig 0.17 or
+later on Windows: Zig 0.15 could not reach https://deps.files.ghostty.org there
+(TlsInitializationFailed).
 
 .PARAMETER Force
 Rebuild even when the pinned artifact already exists.
@@ -26,7 +25,7 @@ Environment:
   GHOSTTY_VT_REVISION_FILE  Revision file path
   GHOSTTY_VT_OUTPUT_DIR     Output root (default: %LOCALAPPDATA%\tessera\libghostty-vt)
   GHOSTTY_VT_SOURCE_DIR     Source checkout path
-  GHOSTTY_VT_ZIG_VERSION    Zig version to install when missing (default: 0.15.2)
+  GHOSTTY_VT_ZIG_VERSION    Zig version to install when missing (default: 0.17.0)
   ZIG_EXECUTABLE            Zig executable path when `zig` is not on PATH
   ZIG_GLOBAL_CACHE_DIR      Zig global cache (default: %LOCALAPPDATA%\zig)
 #>
@@ -114,15 +113,16 @@ foreach ($tool in @("git", "curl.exe")) {
     }
 }
 
+$zigVersion = if ($env:GHOSTTY_VT_ZIG_VERSION) { $env:GHOSTTY_VT_ZIG_VERSION } else { "0.17.0" }
+
 function Resolve-Zig {
     if ($env:ZIG_EXECUTABLE) {
         return $env:ZIG_EXECUTABLE
     }
     $onPath = Get-Command zig -ErrorAction SilentlyContinue
-    if ($onPath -and ((& $onPath.Source version) -like "0.15*")) {
+    if ($onPath -and ((& $onPath.Source version) -eq $zigVersion)) {
         return $onPath.Source
     }
-    $zigVersion = if ($env:GHOSTTY_VT_ZIG_VERSION) { $env:GHOSTTY_VT_ZIG_VERSION } else { "0.15.2" }
     $zigName = "zig-$zigArch-windows-$zigVersion"
     $zigRoot = Join-Path $env:LOCALAPPDATA "Programs\zig"
     $zigExe = Join-Path $zigRoot "$zigName\zig.exe"
@@ -147,8 +147,8 @@ function Resolve-Zig {
 $zig = Resolve-Zig
 $zigVersionOutput = & $zig version
 Write-Step "using Zig $zigVersionOutput ($zig)"
-if ($zigVersionOutput -notlike "0.15*") {
-    Write-Warning "expected Zig 0.15.x, found $zigVersionOutput"
+if ($zigVersionOutput -ne $zigVersion) {
+    Write-Warning "expected Zig $zigVersion, found $zigVersionOutput"
 }
 
 # ── Source checkout ─────────────────────────────────────────────────────────
@@ -168,95 +168,6 @@ $actualRevision = (git -C $sourceDir rev-parse HEAD).Trim()
 if ($actualRevision -ne $revision) {
     throw "checkout mismatch: expected $revision, got $actualRevision"
 }
-
-# ── Dependency prefetch ─────────────────────────────────────────────────────
-#
-# Mirrors upstream nix/build-support/fetch-zig-cache.sh: `zig build --fetch`
-# misses transitive dependencies (ziglang/zig#20976), and Zig's own downloader
-# fails with TlsInitializationFailed on Windows. build.zig.zon.json maps every
-# transitive dependency's Zig cache key to its URL, so download with curl.exe
-# and let `zig fetch <local-file>` unpack, hash, and verify each one.
-
-$zonJsonPath = Join-Path $sourceDir "build.zig.zon.json"
-if (-not (Test-Path $zonJsonPath)) {
-    throw "missing $zonJsonPath; cannot prefetch dependencies"
-}
-$zonJson = Get-Content -Path $zonJsonPath -Raw | ConvertFrom-Json
-$cachePackages = Join-Path $env:ZIG_GLOBAL_CACHE_DIR "p"
-$fetchTemp = Join-Path $env:TEMP "tessera-ghostty-prefetch"
-New-Item -ItemType Directory -Force -Path $fetchTemp | Out-Null
-
-function Invoke-ZigFetch {
-    param(
-        [string]$LocalPath,
-        [string]$ExpectedKey
-    )
-    $fetched = (& $zig fetch $LocalPath) -join "`n"
-    if ($LASTEXITCODE -ne 0) {
-        throw "zig fetch failed for ${LocalPath}: $fetched"
-    }
-    $fetchedKey = $fetched.Trim()
-    if ($fetchedKey -ne $ExpectedKey) {
-        throw "cache key mismatch for ${LocalPath}: expected $ExpectedKey, got $fetchedKey"
-    }
-}
-
-foreach ($property in $zonJson.PSObject.Properties) {
-    $expectedKey = $property.Name
-    $dependency = $property.Value
-    if (Test-Path (Join-Path $cachePackages $expectedKey)) {
-        continue
-    }
-    $url = $dependency.url
-    Write-Step "prefetching $($dependency.name) ($expectedKey)"
-    if ($url -like "git+https://*") {
-        # Zig would fetch this over its broken TLS path. A source archive of the
-        # same commit has identical manifest-filtered contents, so it hashes to
-        # the same cache key. Fall back to a real clone if that ever diverges.
-        if ($url -notmatch '^git\+(https://[^#]+)#([0-9a-f]{40})$') {
-            throw "unparseable git dependency url: $url"
-        }
-        $repoUrl = $Matches[1]
-        $commit = $Matches[2]
-        $archivePath = Join-Path $fetchTemp "$($dependency.name)-$commit.tar.gz"
-        & curl.exe -fL --retry 3 -o $archivePath "$repoUrl/archive/$commit.tar.gz"
-        if ($LASTEXITCODE -ne 0) {
-            throw "curl failed for $repoUrl/archive/$commit.tar.gz"
-        }
-        try {
-            Invoke-ZigFetch -LocalPath $archivePath -ExpectedKey $expectedKey
-        } catch {
-            Write-Warning "archive fetch diverged ($_); falling back to git clone"
-            $clonePath = Join-Path $fetchTemp "$($dependency.name)-$commit"
-            if (Test-Path $clonePath) {
-                Remove-Item -Recurse -Force $clonePath
-            }
-            git clone -q $repoUrl $clonePath
-            git -C $clonePath checkout -q $commit
-            Invoke-ZigFetch -LocalPath $clonePath -ExpectedKey $expectedKey
-        }
-    } else {
-        $fileName = ([Uri]$url).Segments[-1]
-        $archivePath = Join-Path $fetchTemp $fileName
-        & curl.exe -fL --retry 3 -o $archivePath $url
-        if ($LASTEXITCODE -ne 0) {
-            throw "curl failed for $url"
-        }
-        Invoke-ZigFetch -LocalPath $archivePath -ExpectedKey $expectedKey
-    }
-}
-
-# Post-condition: every manifest entry must now be cached.
-$missing = @(
-    $zonJson.PSObject.Properties |
-        Where-Object { -not (Test-Path (Join-Path $cachePackages $_.Name)) } |
-        ForEach-Object { $_.Name }
-)
-if ($missing.Count -gt 0) {
-    throw "dependencies missing from Zig cache after prefetch: $($missing -join ', ')"
-}
-Remove-Item -Recurse -Force $fetchTemp -ErrorAction SilentlyContinue
-Write-Step "all $($zonJson.PSObject.Properties.Name.Count) dependencies cached"
 
 # ── Build ───────────────────────────────────────────────────────────────────
 
