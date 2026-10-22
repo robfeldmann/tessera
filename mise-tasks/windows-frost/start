@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Start the persistent Frost Windows VM"
-#USAGE arg "[args]..." help="Arguments passed to the script" var=#true
-set -euo pipefail
-cd "$MISE_PROJECT_ROOT"
-scripts/windows-frost-start.sh "$@"

@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Open an SSH session or run a command in the Frost Windows VM"
-#USAGE arg "[args]..." help="Arguments passed to the script" var=#true
-set -euo pipefail
-cd "$MISE_PROJECT_ROOT"
-scripts/windows-frost-ssh.sh "$@"

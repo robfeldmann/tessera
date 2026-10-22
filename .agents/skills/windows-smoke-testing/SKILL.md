@@ -1,24 +1,24 @@
 ---
 name: windows-smoke-testing
-description: Smoke test Tessera example apps and terminal behavior on the UTM Windows Frost VM. Use when changing Windows terminal I/O, render output, protocol demos, or example apps.
+description: Smoke test Tessera example apps and terminal behavior on the UTM Windows guest. Use when changing Windows terminal I/O, render output, protocol demos, or example apps.
 version: 0.1.0
 ---
 
 # Windows Smoke Testing
 
-Use the UTM Windows Frost VM to prove example apps work against a real Windows console, not only stubbed syscalls.
+Use the UTM Windows guest to prove example apps work against a real Windows console, not only stubbed syscalls.
 
 ## Prerequisites
 
-- UTM Windows Frost VM is booted.
+- The guest is created and provisioned (`mise run vm:windows-provision`; [Windows VM with UTM](../../../docs/guides/windows-vm.md)). Any `mise run vm:windows-*` task below starts it when it is stopped.
 - Source tree is the macOS checkout.
 - Use `pnpm`/`pnpx` for Node tooling if needed; use SwiftPM directly inside Windows.
-- Prefer `SSHPASS` in the environment for SSH automation; do not paste passwords into transcripts unless the user already asked for that credential.
+- SSH uses the generated key and config (`~/.config/tessera/vm-ssh.config`); there is no password to paste.
 
-Find the VM IP:
+Find the VM IP when you need it (the tasks below resolve it themselves):
 
 ```sh
-utmctl ip-address tessera-frost-import
+mise run vm:windows-ip
 ```
 
 Fallback inside the Windows guest:
@@ -34,17 +34,15 @@ Get-NetIPAddress -AddressFamily IPv4 |
 From macOS:
 
 ```sh
-mise run windows-frost:sync-utm <vm-ip>
+mise run vm:windows-push
 ```
 
-This replaces `C:\Users\tester\tessera` in the Windows guest. If sync fails because an example executable is locked, stop the stale process and sync again:
+This makes `C:\Users\tester\tessera` in the Windows guest match the working tree (removed files disappear; `.build` stays). If the push fails because an example executable is locked, stop the stale process and push again:
 
 ```sh
-sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-  -o PreferredAuthentications=password -o PubkeyAuthentication=no \
-  tester@<vm-ip> "taskkill /IM <ExampleName>.exe /F"
+mise run vm:windows-ssh -- taskkill /IM <ExampleName>.exe /F
 
-mise run windows-frost:sync-utm <vm-ip>
+mise run vm:windows-push
 ```
 
 ## Build an Example on Windows
@@ -52,10 +50,7 @@ mise run windows-frost:sync-utm <vm-ip>
 Use SwiftPM directly; `mise` and `fzf` are not required in the Windows guest.
 
 ```sh
-sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-  -o PreferredAuthentications=password -o PubkeyAuthentication=no \
-  tester@<vm-ip> \
-  "powershell -NoProfile -Command \"cd C:\\Users\\tester\\tessera; swift build --package-path .\\Examples --product <ProductName>\""
+mise run vm:windows-ssh -- powershell -NoProfile -Command "cd C:\Users\tester\tessera; swift build --package-path .\Examples --product <ProductName>"
 ```
 
 Run manually in the UTM GUI for visual confirmation:
@@ -75,7 +70,7 @@ C:\Users\tester\tessera\Examples\.build\aarch64-unknown-windows-msvc\debug\<Prod
 
 For scripted smoke tests, drive an interactive SSH PTY from an `eval` cell or another real program, not a fragile shell one-liner. Pattern:
 
-1. Start `ssh -tt tester@<vm-ip>` running the built `.exe`.
+1. Start `mise run vm:windows-ssh -- ...` (or `ssh -tt -F ~/.config/tessera/vm-ssh.config tessera-windows-11 ...`) running the built `.exe`; `mise run vm:windows-conpty-smoke` shows the pattern for a real ConPTY.
 2. Wait for initial render.
 3. Write bytes to stdin with short sleeps between semantic inputs.
 4. Send `q` or the app's documented quit key.
@@ -127,10 +122,10 @@ For non-trivial Windows terminal changes:
    swift build --package-path Examples --product <ProductName>
    ```
 
-2. Sync to UTM Windows Frost:
+2. Push to the UTM Windows guest:
 
    ```sh
-   mise run windows-frost:sync-utm <vm-ip>
+   mise run vm:windows-push
    ```
 
 3. Build the affected example on Windows.

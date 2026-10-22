@@ -62,7 +62,7 @@ Select a toolchain locally:
 
 - macOS VMs: `tessera-macos-26` carries Xcode 26.6 and `tessera-macos-27` carries Xcode 27.1, so `mise run vm:macos-check` runs the baseline or the 6.4 lane on a clean system ([Tessera VMs](docs/guides/vms.md)).
 - Lima: `mise run vm:linux-test` uses the baseline from `.swift-version`; `TESSERA_LINUX_SWIFT_VERSION=6.4.1 mise run vm:linux-test` runs the same suite on Swift 6.4.1, installing it with swiftly on first use (both toolchains stay installed).
-- Windows: the Frost toolchain image and the UTM VM carry the baseline only (`mise run windows-frost:provision-toolchain` reads `.swift-version`). There is no Windows 6.4 lane yet.
+- Windows: the UTM guest carries the baseline only (`mise run vm:windows-provision` installs the Swift release named by `.swift-version`). There is no Windows 6.4 lane yet.
 - Linux cross-compilation (`mise run linux:build`) picks the Static Linux SDK that matches the active compiler from `scripts/config/swift-sdks.json`, falling back to the baseline.
 
 ## Setup
@@ -81,14 +81,13 @@ npm ci                     # pinned Prettier (YAML and JSON)
 mise run setup:hooks       # hk: staged quality gate and Conventional Commit checks
 ```
 
-Run tasks with `mise run <task>` (`mise tasks` lists them, grouped as `core:`, `quality:`, `docs:`, `ci:`, `linux:`, `vm:`, `windows-frost:`, `windows-utm:`, and `setup:`), or [activate mise](https://mise.jdx.dev/getting-started.html#activate-mise) in your shell so the tools are on `PATH` and your shell completes every task and its arguments.
+Run tasks with `mise run <task>` (`mise tasks` lists them, grouped as `core:`, `quality:`, `docs:`, `ci:`, `linux:`, `vm:`, and `setup:`), or [activate mise](https://mise.jdx.dev/getting-started.html#activate-mise) in your shell so the tools are on `PATH` and your shell completes every task and its arguments.
 
 Optional platform tooling for cross-platform testing:
 
 - [Tart](https://tart.run/) (from `mise install`) — macOS VMs with a clean Xcode, driven by the `vm:macos-*` tasks.
 - [Lima](https://lima-vm.io/) — Docker-free Linux test runs, driven by the `vm:linux-*` tasks.
-- [UTM](https://mac.getutm.app/) — Windows GUI VM on Apple silicon.
-- [QEMU](https://www.qemu.org/), swtpm, and sshpass — scripted Windows VM runs with Frost.
+- [UTM](https://mac.getutm.app/) — the Windows 11 ARM64 VM, driven by the `vm:windows-*` tasks.
 
 ## The development loop
 
@@ -207,19 +206,15 @@ The older names (`linux:start`, `linux:test`, `linux:stop`, `linux:shell`, `linu
 
 ### Windows
 
-Windows on Apple silicon has two supported workflows — see the guides for first-time setup, SSH configuration, GUI validation, and troubleshooting:
-
-- **Scripted (recommended):** [Windows VM with Frost](docs/guides/windows-frost-vm.md).
-- **Manual desktop:** [Manual Windows VM with UTM](docs/guides/windows-vm.md).
-
-The normal Frost loop builds the pinned Windows `libghostty-vt` artifact once per pin, then runs the Ghostty-backed suites against disposable overlays:
+Windows on Apple silicon runs in a [UTM](https://mac.getutm.app/) guest driven by the `vm:windows-*` tasks; [Windows VM with UTM](docs/guides/windows-vm.md) covers first-time setup from an ISO or an existing bundle, snapshots, SSH, and troubleshooting. After setup the loop is:
 
 ```sh
-mise run windows-frost:start
-mise run windows-frost:build-ghostty   # re-run after bumping scripts/ghostty-vt-version.txt
-mise run windows-frost:stop
-mise run windows-frost:test            # add `-- --filter WindowsInputLoopTests` to focus
+mise run vm:windows-push                # deliver the working tree to the guest
+mise run vm:windows-test                # add `-- --filter WindowsInputLoopTests` to focus
+mise run vm:windows-stop --quit         # shut the guest down and quit UTM
 ```
+
+`vm:windows-test` builds the pinned Windows `libghostty-vt` artifact in the guest once per pin before running the Ghostty-backed suites.
 
 For manual GUI validation, run a Tessera demo in each host you support — Windows Terminal (PowerShell), PowerShell in classic conhost, and `cmd.exe` — and verify arrow keys, `q` clean exit, `Ctrl-C` cleanup, resize-driven redraw, and terminal restoration (prompt returns with normal echo, a visible cursor, and the primary screen active).
 

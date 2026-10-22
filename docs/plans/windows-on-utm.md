@@ -1,7 +1,8 @@
 ---
 type: plan
-stage: proposed
+stage: done
 created: 2026-10-22
+completed: 2026-10-22
 order: 37
 description: Retire the Frost QEMU workflow and make the UTM guest the one scripted, rebuildable Windows lane, driven by scripts/vm.py like the macOS and Linux guests.
 ---
@@ -12,13 +13,13 @@ Goal: Tessera has one Windows path, a UTM guest named `tessera-windows-11` that 
 
 ## Progress
 
-- [ ] 1 Drive UTM from `vm.py` without the two known traps
-- [ ] 2 One provisioning script for a Windows guest
-- [ ] 3 Sync, build libghostty-vt in the guest, test, and a known state
-- [ ] 4 Retire Frost
-- [ ] 5 Docs and the guide
+- [x] 1 Drive UTM from `vm.py` without the two known traps — with UTM quit beforehand: `mise run vm:windows-start` 7.9 s to `started`, frontmost app `com.mitchellh.ghostty` before and after; `vm:windows-ip` 192.168.64.3; `vm:windows-ssh -- swift --version` prints 6.3.3; `vm:windows-stop --quit` leaves no UTM process; `windows-ip` afterwards still prints the address from the lease file; `vm:status` shows the UTM row.
+- [x] 2 One provisioning script for a Windows guest — `scripts/provision-windows-vm.ps1` replaces both setup scripts; `vm:windows-provision` on `tessera-frost-import` pass 1 added the `tessera-vm` key and Zig 0.15.2 (47 s), pass 2 made no changes (8.6 s) and `vm:windows-ssh -- swift --version` prints 6.3.3; `vm:windows-create --disk base-win11.qcow2` (Frost's July base image, APFS clone in 0.1 s) booted as `tessera-windows-11-fresh` and UTM listed it on launch; from that first-boot state (sshd up, no key, expired password unlocked once at the console) `vm:windows-provision` converged in 16.5 min wall time over three passes and two reboots (Git, Visual Studio 11.4 min, Swift 6.3.3, Zig 0.15.2, UTM guest tools), after which `swift --version` prints 6.3.3 and `utmctl ip-address` answers.
+- [x] 3 Sync, build libghostty-vt in the guest, test, and a known state — `vm:windows-push` (809 paths) then `vm:windows-test`: `==> Ghostty VT enabled`, `Test run with 651 tests in 6 suites passed`; on the freshly provisioned clone the same pair built libghostty-vt from scratch (Zig 0.15.2 from the provisioned path, 36 dependencies prefetched) and passed the 651 tests in 5.3 min; `vm:windows-test -- --filter PlatformHandlesTests` passes 4 tests; `vm:windows-snapshot provisioned` 0.16 s (48 GB APFS clone), a stray directory in the guest, `vm:windows-restore provisioned` 0.8 s and `Test-Path` says `False`; `vm:windows-conpty-smoke` prints the red/green/blue escapes through ConPTY from a non-tty shell.
+- [x] 4 Retire Frost — the Frost scripts, `setup-windows-vm.ps1`, `windows-utm-test.sh`, `scripts/config/frost/`, `mise-tasks/windows-frost/`, `mise-tasks/windows-utm/` (aliases `windows-utm:sync`, `windows-utm:test`, `windows:test` on the `vm/windows-*` tasks), the Frost guide, and the Brewfile lines are gone; `scripts/dev-state.sh` prints the UTM bundles and snapshots; `git grep -il frost` outside plans, research, CHANGELOG, log, and the hubs finds only the leftover-state paragraph in the guide and the sample file list in `docs/design/widgets/table.md`; `mise run quality:lint` passes; `brew bundle check` complains only about the optional `lgit-cli` uv tool, which it did before.
+- [x] 5 Docs and the guide — `docs/guides/windows-vm.md` rewritten around the tasks with the troubleshooting section (both `utmctl` traps, TCC under herdr, password expiry); `vms.md` has the three-guest table; `guides.md`, `local-development-state.md`, `updating-ghostty-vt.md`, `CONTRIBUTING.md`, `README.md`, `project-status.md`, the `windows-smoke-testing` skill, `CHANGELOG.md`, and `docs/log.md` updated; `mise run quality:format`, `quality:lint`, `swift test` (host), and `iwe schema validate` pass. The UTM-activation finding stays in the guide's troubleshooting; it shaped no architecture decision.
 
-Next: the owner reads this plan; then Slice 1.
+Next: nothing; the plan is done. The owner's host has one guest, `tessera-windows-11` (imported from the clone the provisioner built from first boot), with a `provisioned` snapshot; `tessera-frost-import`, the clone, and `~/.local/state/tessera/windows-frost/` (94 GB) are deleted.
 
 ## Approach
 
@@ -72,30 +73,40 @@ Delivers: a contributor with UTM and a Windows ISO reaches `vm:windows-test` fro
 
 ## Acceptance
 
-- [ ] `mise run vm:status` lists the macOS, Linux, and Windows guests; `vm:windows-start` works with UTM.app not running, without `--hide`, within 10 s.
-- [ ] `vm:windows-provision` is idempotent and converges a fresh Windows install on the repository's Swift and Zig versions; `vm:windows-test` passes the Ghostty-backed suite (651 tests at `6d180f0`), and a snapshot restores the provisioned state.
-- [ ] No Frost script, task, guide, or Homebrew dependency remains; `git grep -i frost` finds only history.
-- [ ] `docs/guides/windows-vm.md` is the one Windows guide and names the two `utmctl` traps.
+- [x] `mise run vm:status` lists the macOS, Linux, and Windows guests; `vm:windows-start` works with UTM.app not running, without `--hide`, within 10 s. — Slice 1 evidence: 7.9 s from UTM quit to `started`.
+- [x] `vm:windows-provision` is idempotent and converges a fresh Windows install on the repository's Swift and Zig versions; `vm:windows-test` passes the Ghostty-backed suite (651 tests at `6d180f0`), and a snapshot restores the provisioned state. — Slices 2 and 3 evidence: 8.6 s no-op pass, 16.5 min from first boot, 651 tests passed, restore in 0.8 s.
+- [x] No Frost script, task, guide, or Homebrew dependency remains; `git grep -i frost` finds only history. — Slice 4 evidence (plus the guide's leftover-state paragraph, which names the directory to delete).
+- [x] `docs/guides/windows-vm.md` is the one Windows guide and names the two `utmctl` traps. — its Troubleshooting section.
 
 ## Decisions
 
 - 2026-10-22 Retire Frost instead of patching QEMU: its distinctive value was disposability, which a qcow2 snapshot of the UTM guest restores more cheaply, and its QEMU dependency is what broke on macOS 27 while UTM's bundled QEMU boots the same Windows-with-TPM configuration. (owner, after plan 035's outcome)
 - 2026-10-22 `windows-create` may stop at an imported bundle or a documented click-through install; unattended installation is not required for this plan. (proposed; the owner confirms on review)
+- 2026-10-22 Snapshots are APFS clones of the stopped guest's `Data/` under `~/.local/share/vms/utm/<vm>/snapshots/<name>/`, not qcow2-internal snapshots: UTM's `qemu-img.framework` is a dylib with no CLI, so `qemu-img snapshot` would have needed Homebrew QEMU back, and clonefile is instant and dependency-free. (implementer)
+- 2026-10-22 `windows-create` also takes `--disk <image.qcow2>` (the template `scripts/config/utm/windows-11-arm64.plist` around a disk with Windows installed): it is ten lines on top of `--import`, and it is how a Frost base image or any prepared disk becomes a guest without the installer. (implementer)
+- 2026-10-22 `windows-stop` shuts down over SSH (`shutdown /s /f /t 0`) when SSH answers and falls back to `utmctl stop --request`: Windows ignored the ACPI request once in a while (a 180 s wait with the guest still `started`) and never the command. (implementer)
 
 ## Discoveries
 
 - `utmctl start` and `stop` need UTM.app to have been activated once since launch; a never-activated launch (by the Apple Event, `open -g`, `open -gj`, the URL scheme) hangs for two minutes with `-1712` while `list` and `status` work, and hidden or windowless UTM works once it was active — reproduced seven ways on 2026-10-22. `open -a UTM` followed by `open -b <previous frontmost bundle id>` (from `lsappinfo front`) launches and activates it with a one-second focus flash and no Apple Events; quitting UTM after `windows-stop` keeps it from running between sessions.
 - `--hide` emits `-10004` twice per command and does nothing harmful (UTM #5509); plan 035 misread it as a permission failure.
 - TCC attributes an omp session's requests to `com.robfeldmann.herdr` (the `dev.mise.herdr-server` LaunchAgent's binary), not to Ghostty or omp; Automation grants are per responsible app, so herdr needs its own grant for each target app, made once.
+- `lsappinfo info com.utmapp.UTM` reports `(hidden)` for a never-activated UTM as well as one the user hid, and no state once it was activated; `vm.py` activates UTM whenever it is absent or hidden (an `open -a` plus `open -b <previous front app>`, measured at 1.1 s round trip), which costs a focus flash in the user-hid case and nothing else. `utmctl stop` defaults to `--force` (a power-off event); `--request` is the graceful path.
+- Windows expires local account passwords after 42 days (`net accounts`: maximum password age 42); sshd then refuses the password (`Permission denied`) and only a console sign-in can set a new one. Frost's `base-win11.qcow2` from July hit this on first boot, and the existing guest's password (last set 2026-10-21) would have expired on 2026-12-02; `provision-windows-vm.ps1` now sets `PasswordNeverExpires`.
+- The Windows OpenSSH session has the full administrator token, and `$env:SSH_CONNECTION` is set, so the provisioning script tells a console run (register a logon task, reboot) from an SSH run (exit 100, the host reboots and reruns) without a flag. Installing over SSH worked for every component, the Visual Studio bootstrapper and the Swift installer included (Progress 2's fresh-state run).
+- `vm.py` must run on the system Python 3.9 as well as mise's 3.15 (`bash -lc python3` picks the former): no `tomllib`; the Zig pin is read from `mise.toml` with a regex.
+- Windows OpenSSH gives PowerShell no console, so PowerShell serializes its error, warning, information, and progress streams to stderr as CLIXML (`#< CLIXML` then one `<Objs>` blob), which doubles every `Write-Host` and buries real errors; `vm.py` relays guest stderr through a decoder that prints the error and warning records as text and drops the rest. Merging streams inside PowerShell (`*>&1`) is no alternative: with `$ErrorActionPreference = "Stop"` it turns a native command's first stderr line (`swift.exe : [0/1] Planning build`) into a terminating error.
 - Frost's failure is `qemu-system-aarch64 -accel hvf … -device tpm-tis-device`: `hv_vm_unmap` of the 20 KiB (not 16 KiB-aligned) TPM TIS MMIO window returns `HV_BAD_ARGUMENT` on macOS 27.0.1 with QEMU 11.1.2; the same VM without the TPM starts. The path is unchanged in QEMU master.
+- PR #43's CI fails on `plan-035` for a reason that predates it: since `044f074` switched the macOS runners from Homebrew's `zig@0.15` to mise's upstream Zig 0.15.2, a from-scratch libghostty-vt build on `macos-26` fails to link (`undefined symbol: _abort` and the rest of libSystem), but `plan-035`'s own runs never build from scratch because they restore a `libghostty-vt-v3` cache that PR #41 created with Homebrew's Zig at 03:48, and a cache saved on `refs/pull/41/merge` is invisible to PR #43 (the Linux and Windows jobs were cancelled by fail-fast, not failed). The same branch merged with `plan-035-zig` (Zig 0.17.0) passed every CI job from an empty cache (`workflow_dispatch` run 39804122498 on `windows-on-utm-on-zig`; the one cancelled job was a 20-minute `apt` timeout and passed on re-run), so the rebase over #42 is what makes #43 green.
+- On `tessera-windows-11`'s first `vm:windows-test` under the Zig 0.17.0 / `f54340ad` pin, `scripts/build-libghostty-vt.ps1` installed Zig 0.17.0 and its cold `zig build` exited 1 without printing a reason; the same command run by hand over SSH fetched four lazy dependencies and succeeded, and a rebuild from a removed artifact then passed with the Zig cache warm. One occurrence, so recorded as an observation: a first build after a pin bump may need one rerun.
 
 ## Outcome
 
-Not started.
+Shipped on branch `windows-on-utm` (PR #43, draft against `plan-035`): `scripts/vm.py` gained the `windows` family (`create`, `provision`, `start`, `stop`, `ip`, `ssh`, `push`, `test`, `conpty-smoke`, `snapshot`, `restore`, `delete`) with `mise-tasks/vm/windows-*` wrappers; `scripts/provision-windows-vm.ps1` is the one guest provisioner, `scripts/run-windows-tests.ps1` the one guest test runner, and `scripts/config/utm/windows-11-arm64.plist` the bundle template; Frost's scripts, tasks, guide, and Homebrew dependencies are gone and `docs/guides/windows-vm.md` is the one Windows guide. Verified on the owner's guest (`tessera-frost-import`) and on a clone of Frost's base image provisioned from first boot; that clone, imported as `tessera-windows-11` with a `provisioned` snapshot, is now the owner's one guest, and the old guest and Frost's state directory are deleted. Not done: unattended installation from an ISO (Decision 2). To remember: UTM must be activated once per launch before `utmctl start` works, Windows expires local passwords after 42 days, and UTM's `qemu-img` is a dylib, so snapshots are APFS clones.
 
 ## References
 
 - Plan 035, [Toolchain, repository conventions, and plan consolidation](toolchain-conventions-and-plan-consolidation.md): Step 1.1 (the Frost failure), Step 5.6 (`vm.py` and the Tart and Lima tasks), the Outcome's loose ends.
-- [VMs guide](../guides/vms.md), [Manual Windows VM with UTM](../guides/windows-vm.md), [Windows VM with Frost](../guides/windows-frost-vm.md) (to be retired).
+- [VMs guide](../guides/vms.md), [Windows VM with UTM](../guides/windows-vm.md); the Frost guide (`docs/guides/windows-frost-vm.md`) was deleted by Slice 4 and lives in Git history.
 - [Toolchain lanes](../architecture/toolchain-lanes.md).
 - UTM issue 5509 (`--hide` and `-10004`); QEMU `accel/hvf/hvf-all.c` (`hvf_set_phys_mem`, the unmap path).

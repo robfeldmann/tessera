@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Print planned Frost VM operations without applying changes"
-set -euo pipefail
-cd "$MISE_PROJECT_ROOT"
-scripts/windows-frost.sh dry-run

@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Verify the Swift toolchain inside the Frost Windows VM"
-set -euo pipefail
-cd "$MISE_PROJECT_ROOT"
-scripts/windows-frost-check-toolchain.sh

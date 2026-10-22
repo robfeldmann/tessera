@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Show Frost Windows VM helper usage"
-set -euo pipefail
-cd "$MISE_PROJECT_ROOT"
-scripts/windows-frost.sh help

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#MISE description="Run the Windows test suite in the UTM guest with Ghostty VT enabled; pass swift test arguments after the task name"
+#MISE alias=["windows:test", "windows-utm:test"]
+#USAGE arg "[args]..." help="Extra swift test arguments, for example --filter PlatformHandlesTests" var=#true
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+exec python3 scripts/vm.py windows-test "$@"

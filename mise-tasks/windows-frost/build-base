@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Build the reusable Frost Windows base image"
-#USAGE arg "[args]..." help="Arguments passed to the script" var=#true
-set -euo pipefail
-cd "$MISE_PROJECT_ROOT"
-scripts/windows-frost-build-base.sh "$@"

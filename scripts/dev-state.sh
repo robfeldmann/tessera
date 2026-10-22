@@ -97,16 +97,25 @@ for line in sys.stdin:
   fi
 }
 
-print_windows_frost_state() {
-  # shellcheck source=scripts/windows-frost-env.sh
-  source "$repo_root/scripts/windows-frost-env.sh"
+print_windows_state() {
+  local utm_documents="$HOME/Library/Containers/com.utmapp.UTM/Data/Documents"
+  local snapshots="$HOME/.local/share/vms/utm"
 
-  printf '\nWindows Frost\n'
-  printf '  Frost checkout: %s (%s)\n' "$TESSERA_FROST_ROOT" "$(status_icon "$TESSERA_FROST_ROOT")"
-  printf '  Frost state root: %s (%s)\n' "$TESSERA_FROST_WORK" "$(status_icon "$TESSERA_FROST_WORK")"
-  printf '  base golden: %s (%s)\n' "$TESSERA_FROST_BASE_GOLDEN" "$(status_icon "$TESSERA_FROST_BASE_GOLDEN")"
-  printf '  toolchain golden: %s (%s)\n' "$TESSERA_FROST_TOOLCHAIN_GOLDEN" "$(status_icon "$TESSERA_FROST_TOOLCHAIN_GOLDEN")"
-  printf '  source archive: %s (%s)\n' "$TESSERA_FROST_WORK/source/tessera-source.tar.gz" "$(status_icon "$TESSERA_FROST_WORK/source/tessera-source.tar.gz")"
+  printf '\nWindows (UTM)\n'
+  printf '  UTM.app: /Applications/UTM.app (%s)\n' "$(status_icon /Applications/UTM.app)"
+  local found=0 bundle name
+  for bundle in "$utm_documents"/tessera-*.utm; do
+    [[ -f "$bundle/config.plist" ]] || continue
+    found=1
+    name="$(basename "$bundle" .utm)"
+    printf '  guest: %s (%s)\n' "$name" "$bundle"
+    if [[ -d "$snapshots/$name/snapshots" ]]; then
+      printf '  snapshots: %s\n' "$(ls "$snapshots/$name/snapshots" | tr '\n' ' ')"
+    fi
+  done
+  if [[ "$found" == 0 ]]; then
+    printf '  guest: none (docs/guides/windows-vm.md: `mise run vm:windows-create`)\n'
+  fi
 }
 
 TESSERA_DEV_STATE_VM="${TESSERA_LINUX_VM_NAME:-tessera-linux}"
@@ -116,4 +125,4 @@ printf 'Tessera local development state\n'
 printf 'repo: %s\n\n' "$repo_root"
 print_ghostty_state
 print_linux_state
-print_windows_frost_state
+print_windows_state

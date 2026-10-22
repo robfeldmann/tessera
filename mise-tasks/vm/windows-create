@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+#MISE description="Add a UTM Windows VM: --import copies a .utm bundle, --disk wraps a qcow2 disk in scripts/config/utm/windows-11-arm64.plist"
+#USAGE flag "--name <name>" help="Name for the new VM (default: tessera-windows-11)"
+#USAGE flag "--import <bundle>" help="An existing .utm bundle to copy"
+#USAGE flag "--disk <image>" help="A qcow2 disk image with Windows installed"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+exec python3 scripts/vm.py windows-create "$@"

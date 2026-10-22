@@ -40,6 +40,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Changed Ghostty VT integration to use a shared XDG cache, build-materialized local headers, a committed static-aware umbrella header, and `canImport(CGhosttyVT)` availability checks; Linux Lima now supports per-worktree VM names and setup examples use POSIX shell syntax.
 - Hardened public-fork automation with immutable action pins, read-only validation, edited-PR checks, credential-free caches, restricted Actions permissions, protected required checks, and npm Dependabot coverage.
 - Changed DocC transformations and local previews to support the `/tessera` GitHub Pages project-site path, and serialized production deployment runs without cancelling an active deployment.
+- Changed the Windows lane to a UTM guest driven by `scripts/vm.py` (`mise run vm:windows-*`: create or import, provision, snapshot, push, test, ssh), like the macOS (Tart) and Linux (Lima) guests; `windows-utm:sync` and `windows-utm:test` remain as aliases for one release.
+
+### Removed
+- Removed the Frost Windows workflow (its scripts, `windows-frost:` tasks, guide, and the Homebrew `qemu`, `swtpm`, and `sshpass` dependencies); QEMU's Apple hypervisor backend aborts on the TPM device on macOS 27, and snapshots of the UTM guest replace Frost's disposable overlays.
 
 ### Fixed
 - Fixed Windows terminal input shutdown so queued resize notifications drain before the event stream finishes, and fixed text snapshots to omit wide-cell continuation placeholders.

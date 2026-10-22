@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+#MISE description="Shut the UTM Windows guest down; --force powers it off, --quit quits UTM.app afterwards"
+#USAGE flag "--name <name>" help="UTM virtual machine"
+#USAGE flag "--force" help="Power off instead of asking the guest to shut down"
+#USAGE flag "--quit" help="Quit UTM.app once the guest is stopped"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+exec python3 scripts/vm.py windows-stop "$@"

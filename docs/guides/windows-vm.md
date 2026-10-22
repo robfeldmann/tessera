@@ -1,269 +1,225 @@
 ---
 type: guide
-description: "Manual Windows VM with UTM"
+description: "Windows VM with UTM: create or import the Windows 11 ARM64 guest, provision it, snapshot it, push the working tree, and run the tests"
 ---
 
-# Manual Windows VM with UTM
+# Windows VM with UTM
 
 Metadata:
 
-- Last verified: 2026-06-14
-- Host macOS: 26.5.1 (25F80)
-- UTM: 4.7.5
-- Guest OS: Windows 11 ARM64, 25H2 English multi-edition ISO
-- Guest architecture: ARM64 / aarch64
+- Last verified: 2026-10-22
+- Host macOS: 27.0.1
+- UTM: 5.0.8
+- Guest OS: Windows 11 ARM64 (aarch64)
 - Swift: follows `.swift-version`, target `aarch64-unknown-windows-msvc`
-- Recommended VM name: `tessera-windows`
-- Recommended Windows user: `tess`
+- Default VM name: `tessera-windows-11`
+- Guest user: `tester`
 
-This guide walks through creating a Windows 11 ARM64 VM manually in [UTM](https://mac.getutm.app/). If you already know your way around Windows VM setup, you can jump to [Quick setup for experienced contributors](#quick-setup-for-experienced-contributors). Use this manual path if you want maximum control over the Windows desktop VM or if the scripted Frost workflow in `docs/guides/windows-frost-vm.md` does not fit your setup.
-
-For the recommended repeatable test workflow, start with `docs/guides/windows-frost-vm.md`. For a hand-managed Windows desktop VM, continue here.
-
-The goal is a VM you can reach with SSH, then drive from macOS with:
+Tessera's Windows lane is a [UTM](https://mac.getutm.app/) guest driven by `scripts/vm.py` through the `vm:windows-*` mise tasks, the same way the macOS (Tart) and Linux (Lima) guests are driven ([Tessera VMs](vms.md)). The path through this guide runs from an ISO or an existing UTM bundle to a passing test run:
 
 ```sh
-export TESSERA_WINDOWS_VM_SSH=tessera-windows
-mise run windows-utm:check
-mise run windows-utm:test
+mise run vm:windows-create --import <bundle.utm>    # or --disk <image.qcow2>, or UTM's wizard
+mise run vm:windows-provision                       # toolchain, OpenSSH, key, guest tools
+mise run vm:windows-stop
+mise run vm:windows-snapshot provisioned            # a known-good state to return to
+mise run vm:windows-push                            # deliver the working tree
+mise run vm:windows-test                            # swift test --no-parallel in the guest
+mise run vm:windows-stop --quit                     # nothing runs between sessions
 ```
 
-Fish users can use `set -x TESSERA_WINDOWS_VM_SSH tessera-windows` instead of `export`.
-
-## Quick setup for experienced contributors
-
-If you already know how to install Windows in UTM:
-
-1. Create a Windows 11 ARM64 VM named `tessera-windows`.
-2. Install UTM Guest Tools.
-3. Create a Windows user with a real password.
-4. Copy or clone Tessera into the guest.
-5. Run `scripts/setup-windows-vm.ps1` from elevated PowerShell.
-6. Configure SSH key auth from macOS.
-7. Run:
-
-   ```sh
-   export TESSERA_WINDOWS_VM_SSH=tessera-windows
-   mise run windows-utm:check
-   mise run windows-utm:test
-   ```
-
-The rest of this guide explains those steps in detail.
+Every task takes `--name <vm>` to pick a guest; see [Selecting a guest](#selecting-a-guest).
 
 ## Prerequisites
 
-Install the macOS tools from the project `Brewfile` using [Homebrew](https://brew.sh/):
+- An Apple silicon Mac and `brew bundle install` from the repository root, which installs UTM (`/Applications/UTM.app`).
+- A source for the guest, one of:
+  - a Windows 11 ARM64 ISO (from <https://www.microsoft.com/software-download/windows11arm64>, **Windows 11 (multi-edition ISO for Arm64)**; verify it with `shasum -a 256`, because Microsoft's PowerShell instructions do not apply on macOS),
+  - an existing UTM bundle (`*.utm`) of a Windows 11 ARM64 guest, or
+  - a qcow2 disk image with Windows 11 ARM64 already installed.
+- Tens of GB of free disk space. UTM keeps the guest in its documents folder, `~/Library/Containers/com.utmapp.UTM/Data/Documents/`.
+
+## Create or import the guest
+
+UTM discovers bundles only when it launches, so `windows-create` quits UTM first when no guest is running and refuses to continue when one is. Both import paths use APFS clones when the source is on the same volume, which makes them instant and shares blocks until the copies diverge.
+
+### From an existing bundle
 
 ```sh
-cd /path/to/tessera
-brew bundle install
+mise run vm:windows-create --import ~/path/to/existing.utm
 ```
 
-This includes [UTM](https://mac.getutm.app/), which runs the Windows VM.
+This copies the bundle into UTM's documents folder as `tessera-windows-11.utm` with a fresh UUID and MAC address, so the copy and the original can run side by side. Pass `--name <vm>` to choose another name; start it with `tessera-` so that the single-bundle default and the generated SSH config find the guest.
 
-You also need enough disk space for the Windows VM. UTM stores the VM as a local bundle on your Mac.
-
-## 1. Download the Windows 11 ARM64 ISO
-
-1. Open <https://www.microsoft.com/software-download/windows11arm64>.
-2. In the download dropdown, select **Windows 11 (multi-edition ISO for Arm64)**.
-3. Click **Download Now**.
-4. For product language, select **English (United States)**.
-5. Click **Confirm**.
-6. Click the second **Download Now** button that appears after confirmation.
-
-The downloaded file used while writing this guide was:
-
-```text
-~/Downloads/Win11_25H2_English_Arm64_v2.iso
-```
-
-Microsoft shows Windows PowerShell verification instructions. On macOS, verify the ISO with `shasum` instead:
+### From a disk image
 
 ```sh
-shasum -a 256 ~/Downloads/Win11_25H2_English_Arm64_v2.iso
+mise run vm:windows-create --disk ~/path/to/windows.qcow2
 ```
 
-For the English 64-bit ISO above, the expected SHA-256 was:
+This wraps a qcow2 disk that already has Windows installed in the template `scripts/config/utm/windows-11-arm64.plist`: aarch64 `virt` machine, 4 CPUs, 8 GiB of memory, an NVMe disk, virtio network on the shared network, a TPM, UEFI, and virtio-ramfb display.
 
-```text
-638aa2c88e94385b00f4f178d071e3df0b7d9e335577a83bd533b7f2eb65adf0
-```
+### From an ISO
 
-The verified ISO was 7.4 GB.
+A new install from a Windows ISO stays in UTM's own wizard, clicked through once:
 
-## 2. Create the UTM VM
+1. Open UTM and choose **Create a New Virtual Machine**, then **Virtualize**, then **Windows**.
+2. Memory **8192 MB**, CPU cores **4**, a boot ISO image pointing at the Windows ARM64 ISO, and **Install drivers and SPICE tools** enabled if UTM offers it.
+3. Storage **80 GB**, no shared directory, and the name **tessera-windows-11**.
+4. Save, start the VM, and install Windows (Windows 11 Pro if offered). During reboots, when `Press any key to boot...` appears again, press nothing so the VM boots from its disk.
+5. Create a local user named **tester** with a real password. Windows OpenSSH rejects blank passwords.
+6. Quit UTM so the new bundle is on disk in its final state, then continue with the first boot.
 
-1. Open UTM.
-2. Click **Create a New Virtual Machine**.
-3. Choose **Virtualize**.
-4. Choose **Windows**.
-5. If UTM asks for hardware before the ISO picker, use:
-   - Memory: **8192 MB**
-   - CPU cores: **4**
-6. For **Boot ISO Image**, choose the Windows ARM64 ISO from `~/Downloads`.
-7. Leave **Install drivers and SPICE tools** enabled if UTM shows that option.
-8. Storage: **80 GB**.
-9. Shared directory: leave unset for now.
-10. Name: **tessera-windows**.
-11. Save and start the VM.
+If the first boot lands in `UEFI Interactive Shell`, type `exit` at the `Shell>` prompt, pick the USB hard drive entry that carries the installer ISO in Boot Manager, and press Enter when `Press any key to boot...` appears.
 
-### If the VM boots to the UEFI shell
+## First boot: the one manual step
 
-The first boot may land at `UEFI Interactive Shell v2.2` instead of Windows Setup. If so:
-
-1. At the `Shell>` prompt, type:
-
-   ```text
-   exit
-   ```
-
-2. In Boot Manager, select:
-
-   ```text
-   UEFI QEMU QEMU USB HARDDRIVE 1-0000:00:04.0-4.1
-   ```
-
-3. When `Press any key to boot...` appears, press Enter quickly.
-
-That should start Windows Setup. If the exact USB entry differs, choose the USB hard drive entry that corresponds to the installer ISO.
-
-## 3. Install Windows
-
-In Windows Setup:
-
-1. Select language/region/keyboard defaults.
-2. Choose **Windows 11 Pro** if available.
-3. Accept the license terms.
-4. Select the unallocated virtual disk and continue.
-5. Let Windows copy files and reboot.
-
-During reboots, if `Press any key to boot...` appears again, do **not** press anything. Let the VM continue booting from the virtual disk.
-
-During first-boot setup:
-
-1. Select country/region.
-2. Select keyboard layout.
-3. Skip adding a second keyboard layout unless you need one.
-4. Let Windows check for updates.
-5. When asked for a user name, use **tess**.
-6. Set a real password. Do not leave the password blank if you want SSH to work.
-
-A blank password may work for desktop login, but Windows OpenSSH rejects blank-password SSH login. If you already created a blank password, set one later from Administrator PowerShell:
+A freshly installed guest has no SSH server, so Windows needs one manual step. `mise run vm:windows-provision` starts the guest and, when SSH does not answer, stops and prints this command. Run it in the guest, in a PowerShell opened as Administrator:
 
 ```powershell
-net user tess *
+Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0; Set-Service sshd -StartupType Automatic; Start-Service sshd
 ```
 
-## 4. Install UTM Guest Tools
+Enabling OpenSSH can look stuck for a few minutes; wait for it. A guest that already runs SSH skips this step.
 
-After Windows reaches the desktop, UTM Guest Tools should appear automatically if the VM was created with driver/SPICE tools enabled.
-
-Run the installer and accept the defaults. During the walkthrough, this completed without extra interaction and noticeably improved the VM display resolution.
-
-If Windows prompts to turn on clipboard history, that is optional.
-
-## 5. Bootstrap Git and clone Tessera
-
-Open Windows PowerShell and verify basic networking:
-
-```powershell
-winget --version
-hostname
-Test-NetConnection github.com -Port 443
-```
-
-Install Git:
-
-```powershell
-winget install --id Git.Git -e --accept-source-agreements --accept-package-agreements
-```
-
-Close PowerShell and open a new PowerShell window so `git` is on `PATH`, then verify:
-
-```powershell
-git --version
-```
-
-Clone Tessera. Use either the upstream repository URL or your fork URL:
-
-```powershell
-cd $HOME
-git clone <tessera-repository-url> tessera
-cd tessera
-git status
-```
-
-If you prefer GitHub CLI, authenticate first:
-
-```powershell
-winget install --id GitHub.cli -e --accept-source-agreements --accept-package-agreements
-gh auth login
-cd $HOME
-gh repo clone <owner>/tessera tessera
-cd tessera
-```
-
-## 6. Run the Windows provisioning script
-
-Open **Windows PowerShell as Administrator** and run:
-
-```powershell
-cd $HOME\tessera
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
-.\scripts\setup-windows-vm.ps1
-```
-
-The script installs or verifies:
-
-- Git
-- Visual Studio 2022 Community with the C++ workload and Windows 11 SDK
-- Swift matching `.swift-version`
-- OpenSSH Server
-
-Visual Studio installation usually leaves a reboot pending. The script detects this, registers a one-time resume task, and reboots after a 10-second warning. Sign back in as the same user and setup continues automatically — no need to relaunch the script by hand. Pass `-NoAutoReboot` if you would rather reboot yourself and rerun the script manually.
-
-The script also refreshes its own `PATH` after installing Git and Swift, so a single run no longer requires closing and reopening PowerShell for those tools to resolve.
-
-Enabling OpenSSH can appear silent for a few minutes. Wait before interrupting it.
-
-A successful run ends with Swift version output and SSH connection details. The Swift version should match `.swift-version`, and the target should be `aarch64-unknown-windows-msvc`:
-
-```text
-Swift version <version>
-Target: aarch64-unknown-windows-msvc
-Build config: +assertions
-OpenSSH Server is running. From macOS, connect with one of:
-  ssh tess@<vm-ip>
-```
-
-## 7. Verify SSH reachability from macOS
-
-You can ask UTM for the VM IP address:
+## Provision
 
 ```sh
-mise run windows-utm:ip
+mise run vm:windows-provision
 ```
 
-Or directly:
+On the first run the task asks for `tester`'s password: the copy of the provisioning script and its first run each prompt until the host key `~/.ssh/tessera-vm` (generated on first use) is installed. After that, SSH uses the key.
+
+The script, `scripts/provision-windows-vm.ps1`, converges the guest on the toolchain the checkout names:
+
+- OpenSSH Server, with the firewall rule and the host key in `C:\ProgramData\ssh\administrators_authorized_keys`.
+- `PasswordNeverExpires` for the account (see [Troubleshooting](#troubleshooting)).
+- Developer Mode, so symlinks need no elevation.
+- Git 2.54 (the arm64 installer).
+- Visual Studio 2022 Community with the Desktop C++ workload and the Windows 11 SDK 26100.
+- The Swift toolchain named by `.swift-version` (the swift.org ARM64 installer).
+- Zig at the version `mise.toml` pins, under `%LOCALAPPDATA%\Programs\zig\zig-aarch64-windows-<version>\`, where `scripts/build-libghostty-vt.ps1` looks for it.
+- The UTM guest tools, from an ISO (downloaded from getutm.app) that the script mounts in the guest.
+
+Every step checks before it installs, so provisioning is idempotent: rerun it after `.swift-version` or the pinned Zig changes, and a run with nothing to do makes no changes (about 9 seconds). Visual Studio usually leaves a reboot pending. Over SSH the script then exits with code 100 and `vm.py` reboots the guest and runs it again, up to five passes. Run from a console by hand, the script registers a one-time logon task and reboots itself instead.
+
+The guest's log is `C:\ProgramData\Tessera\Provision\provision-windows-vm.log`. A successful run ends with `vm: <name> is provisioned (Swift <version>, Zig <version>)`.
+
+## Snapshot after provisioning
+
+Provisioning is the slow part (Visual Studio dominates it), so keep the result:
 
 ```sh
-utmctl ip-address tessera-windows
+mise run vm:windows-stop
+mise run vm:windows-snapshot provisioned     # no name lists the snapshots
 ```
 
-From macOS, first check that port 22 is reachable:
+A snapshot clones the stopped guest's `Data/` folder (disk, firmware variables, TPM state) to `~/.local/share/vms/utm/<vm>/snapshots/<name>/` with APFS clonefile, so it is instant and shares its blocks until the guest diverges. UTM's bundled `qemu-img` is a library, not a command, so qcow2-internal snapshots are not used.
+
+To put the guest back to a snapshot:
 
 ```sh
-nc -vz <vm-ip> 22
+mise run vm:windows-stop
+mise run vm:windows-restore provisioned
 ```
 
-Then test password SSH:
+Both tasks refuse to run while the guest is started. This is how the lane stays disposable: a run that leaves the guest in a bad state costs one `windows-restore`, not a reinstall. A snapshot is never overwritten, so after provisioning again with a new toolchain, take a new one under a new name.
+
+## Push and test
 
 ```sh
-ssh -o PreferredAuthentications=password -o PubkeyAuthentication=no tess@<vm-ip> swift --version
+mise run vm:windows-push
+mise run vm:windows-test
+mise run vm:windows-test -- --filter WindowsInputLoopTests
 ```
 
-If `nc` times out, check the Windows network profile and OpenSSH firewall rule from an Administrator PowerShell:
+`vm:windows-push` starts the guest when it is stopped, then delivers what `git ls-files --cached --others --exclude-standard` lists as a tar.gz over `scp` into `C:\Users\tester\tessera`. That checkout is a Git index of the last delivery, so files you removed on the host disappear in the guest, while ignored paths such as `.build` stay and keep builds incremental. Edits made in the guest are overwritten by the next push.
+
+`vm:windows-test` runs `scripts/run-windows-tests.ps1` in the guest. It builds libghostty-vt for the revision in `scripts/ghostty-vt-version.txt` with `scripts/build-libghostty-vt.ps1` (skipped when `C:\Users\tester\AppData\Local\tessera\libghostty-vt\<revision>\windows-arm64` already exists), points `GHOSTTY_VT_OUTPUT_DIR` at it, then runs `swift test --no-parallel` with the arguments after `--`. The task exits with Swift's status. The output includes `==> Ghostty VT enabled` when the Ghostty-backed suites are built. `vm:windows-test` does not push; run `vm:windows-push` first. `windows:test` and `windows-utm:test` remain as aliases, and `windows-utm:sync` for `vm:windows-push`.
+
+## ConPTY smoke
+
+```sh
+mise run vm:windows-conpty-smoke
+```
+
+This prints ANSI-colored lines and a cursor save and restore through a real ConPTY (`ssh -tt`, wrapped in `script` when stdin is not a terminal), which shows whether escape sequences survive the round trip. For GUI validation, open the guest in UTM and run a demo in Windows Terminal, PowerShell in classic conhost, and `cmd.exe` ([CONTRIBUTING](../../CONTRIBUTING.md#windows)).
+
+## SSH and IP
+
+```sh
+mise run vm:windows-ip                       # the guest's IPv4 address
+mise run vm:windows-ssh                      # a shell
+mise run vm:windows-ssh -- swift --version   # or one command
+```
+
+`vm:windows-ssh` starts the guest, waits for SSH, and opens a shell or runs the command. `vm:windows-ip` asks `utmctl ip-address` while UTM runs and the guest is started (this needs the guest tools), and otherwise reads the guest's lease from `/var/db/dhcpd_leases` by the MAC address in the bundle's `config.plist`, which also works while UTM is quit.
+
+The tasks write `~/.config/tessera/vm-ssh.config` with a `Host <vm>` entry for each UTM guest (user `tester`, the key `~/.ssh/tessera-vm`, and `~/.ssh/tessera_windows` too when that file exists). The entry's `ProxyCommand` resolves the address through `vm.py windows-ip` on every connection, so plain `ssh` and `scp` work from any shell without knowing the address:
+
+```sh
+ssh -F ~/.config/tessera/vm-ssh.config tessera-windows-11
+```
+
+Nothing edits `~/.ssh/config`; add an `Include` line for the generated file yourself if you want the alias everywhere. Host keys are recorded per guest in `~/.config/tessera/vm-known-hosts`.
+
+## Start and stop
+
+```sh
+mise run vm:windows-start
+mise run vm:windows-stop                     # shutdown over SSH, else a UTM stop request
+mise run vm:windows-stop --force             # power off
+mise run vm:windows-stop --quit              # shut down, then quit UTM.app
+```
+
+`vm:windows-start` launches UTM.app when needed, activates it once and hands focus back to the app you were using (about a second), and returns when `utmctl status` says `started` (about 8 seconds). The push, test, ssh, and smoke tasks start the guest themselves and leave it running. End a session with `vm:windows-stop --quit` so nothing keeps running between sessions. `mise run vm:windows-delete` removes the stopped guest's bundle, and `mise run vm:status` lists the Tart, Lima, and UTM guests; with UTM quit it reads the bundles instead of launching it.
+
+## Selecting a guest
+
+A task picks its guest in this order:
+
+1. `--name <vm>`, for example `mise run vm:windows-stop --name tessera-windows-11-fresh`. `vm:windows-ssh` and `vm:windows-test` pass everything after the task name to the guest, but a leading `--name <vm>` is still taken: `mise run vm:windows-test --name tessera-windows-11-fresh -- --filter WindowsInputLoopTests`.
+2. `TESSERA_WINDOWS_VM_NAME`, for example `TESSERA_WINDOWS_VM_NAME=tessera-windows-11-fresh mise run vm:windows-test`.
+3. `tessera-windows-11`, or when no bundle has that name and exactly one `tessera-*.utm` bundle exists in UTM's documents folder, that bundle, so a guest imported under another name needs no flag.
+
+With several `tessera-*` bundles and none named `tessera-windows-11`, name the guest you mean.
+
+## Leftover state from the previous workflow
+
+Tessera's earlier Windows workflow kept disk images under `~/.local/state/tessera/windows-frost/`. Nothing reads that directory any more; delete it by hand when you no longer need those images.
+
+## Troubleshooting
+
+### `utmctl start` hangs for two minutes and fails with `OSStatus -1712`
+
+UTM answers Apple Events only after it has been activated once since it launched. A launch nobody activated (the Apple Event from `utmctl` itself, `open -g`, `open -gj`, the `utm://` URL scheme) never is, so every `utmctl start` and `stop` afterwards hangs. `vm.py` activates UTM itself with `open -a UTM` and then returns focus to the previous app; do not launch UTM with `open -g` before the tasks. When it happens anyway, run `mise run vm:windows-stop --quit` and retry.
+
+### `utmctl --hide` prints `OSStatus -10004` twice
+
+It is harmless noise (UTM issue 5509), and the tasks never pass `--hide`.
+
+### macOS asks whether to let the terminal control UTM
+
+`utmctl` talks to UTM through Apple Events, which macOS gates with an Automation grant for the responsible app. Grants are per responsible app, not per terminal: when an agent runs under herdr, macOS attributes the request to `com.robfeldmann.herdr`, so herdr needs its own Automation grant for UTM. Approve it once under System Settings, Privacy and Security, Automation.
+
+### SSH refuses the password after a few weeks
+
+Windows expires local passwords after 42 days, after which sshd rejects the password and only a console sign-in can set a new one. `windows-provision` sets `PasswordNeverExpires`, but a guest provisioned before that, or a base image that ages while stored, needs one console sign-in in UTM to set a new password, then `mise run vm:windows-provision` once more.
+
+### `windows-stop` does not stop the guest
+
+Windows now and then ignores UTM's ACPI shutdown request, which is why `windows-stop` runs `shutdown /s /f /t 0` over SSH when SSH answers. If the guest is wedged, use `mise run vm:windows-stop --force`.
+
+### UTM does not show the new bundle
+
+UTM scans its documents folder only when it launches. `windows-create` quits UTM for that reason; if you copy a bundle there by hand, quit and reopen UTM.
+
+### `no address for <vm>`
+
+The guest has not booted on this host yet, or its DHCP lease expired and UTM is quit. Start it with `mise run vm:windows-start`; once the guest tools run in the guest, `utmctl ip-address` answers too.
+
+### Port 22 is unreachable
+
+From an administrator PowerShell in the guest:
 
 ```powershell
 Get-NetConnectionProfile
@@ -272,157 +228,4 @@ Get-NetTCPConnection -LocalPort 22 -State Listen
 Get-NetFirewallRule -Name OpenSSH-Server-In-TCP | Format-List Name,Enabled,Direction,Action,Profile
 ```
 
-If the network category is `Public`, make sure the SSH firewall rule applies to all profiles:
-
-```powershell
-Set-NetFirewallRule -Name OpenSSH-Server-In-TCP -Profile Any
-```
-
-The provisioning script should do this automatically, but the command is useful for troubleshooting.
-
-## 8. Configure SSH key authentication
-
-The `just` recipes use non-interactive SSH, so password prompts are not enough. Configure key-based auth.
-
-On macOS, generate a dedicated key:
-
-```sh
-ssh-keygen -t ed25519 -f ~/.ssh/tessera_windows -N "" -C "tessera-windows"
-ssh-add --apple-use-keychain ~/.ssh/tessera_windows
-```
-
-The fastest path is the helper recipe, which uses password SSH for this one-time step and installs the key into the administrators key file with the correct ACLs:
-
-```sh
-mise run windows-utm:install-ssh-key
-```
-
-It defaults to `~/.ssh/tessera_windows.pub`; override with `TESSERA_WINDOWS_VM_PUBKEY`.
-
-To do it by hand instead, copy the public key into the Windows VM:
-
-```sh
-scp -o PreferredAuthentications=password -o PubkeyAuthentication=no ~/.ssh/tessera_windows.pub tess@<vm-ip>:'C:/Users/tess/tessera_windows.pub'
-```
-
-For a Windows administrator account, install the key into the administrators key file. In **Windows PowerShell as Administrator**, run these as separate commands:
-
-```powershell
-New-Item -ItemType Directory -Force C:\ProgramData\ssh | Out-Null
-Get-Content $HOME\tessera_windows.pub | Add-Content -Path C:\ProgramData\ssh\administrators_authorized_keys
-icacls C:\ProgramData\ssh\administrators_authorized_keys /inheritance:r /grant Administrators:F /grant SYSTEM:F
-```
-
-On macOS, add an SSH config entry:
-
-```sshconfig
-Host tessera-windows
-  HostName <vm-ip>
-  User tess
-  IdentityFile ~/.ssh/tessera_windows
-  IdentitiesOnly yes
-  PreferredAuthentications publickey
-```
-
-Test key auth:
-
-```sh
-ssh tessera-windows swift --version
-```
-
-It should not ask for a password.
-
-## 9. Run from macOS with Just
-
-Start the VM, if needed:
-
-```sh
-mise run windows-utm:start
-```
-
-Set the VM SSH target:
-
-```sh
-export TESSERA_WINDOWS_VM_SSH=tessera-windows
-```
-
-Fish users can run:
-
-```fish
-set -x TESSERA_WINDOWS_VM_SSH tessera-windows
-```
-
-Verify the VM:
-
-```sh
-mise run windows-utm:check
-```
-
-Run the Windows test loop:
-
-```sh
-mise run windows-utm:test
-```
-
-For focused iteration, pass SwiftPM test arguments after `--`. The recipe keeps the Windows default (`--no-parallel`) and appends your filter:
-
-```sh
-mise run windows-utm:test -- --filter WindowsConsoleModeTests
-```
-
-A successful run means macOS can reach the VM, Swift is available in Windows, and the Windows build/test command runs inside the guest. If tests fail, treat the output as a normal Windows build or test failure rather than a VM setup failure.
-
-## UTM CLI helpers
-
-The project includes `just` recipes around UTM's `utmctl` CLI. They fail with a clear message if UTM is not installed.
-
-```sh
-mise run windows-utm:start
-mise run windows-utm:status
-mise run windows-utm:ip
-mise run windows-utm:stop
-```
-
-By default these target a VM named `tessera-windows`. Override the name with:
-
-```sh
-export TESSERA_WINDOWS_VM_NAME=my-windows-vm
-```
-
-You can also push the current local provisioning script into the guest after UTM Guest Tools are installed:
-
-```sh
-mise run windows-utm:push-setup-script
-```
-
-By default, that writes to:
-
-```text
-C:\Windows\Temp\setup-windows-vm.ps1
-```
-
-Override with:
-
-```sh
-export TESSERA_WINDOWS_VM_SETUP_PATH='C:\Users\<user>\Downloads\setup-windows-vm.ps1'
-```
-
-## Notes for local development
-
-The Windows VM should have its own checkout and its own `.build` directory. Do not build from a macOS shared folder or share `.build` between macOS and Windows.
-
-For active development, edit on macOS and push the current branch straight into the guest checkout over SSH, without going through GitHub:
-
-```sh
-mise run windows-utm:sync
-mise run windows-utm:test
-```
-
-Focused tests work after syncing too:
-
-```sh
-mise run windows-utm:sync
-mise run windows-utm:test -- --filter WindowsConsoleModeTests
-```
-
-`mise run windows-utm:sync` configures `receive.denyCurrentBranch=updateInstead` on the guest repo and force-pushes (with lease) your current branch, updating the guest working tree in place. The guest tree must be clean for the push to apply, so commit or stash guest-side changes first. This keeps `.build` and other platform-specific artifacts entirely on the guest. You can still use normal Git operations inside the Windows checkout when preferred.
+When the network category is `Public`, make the rule apply to every profile with `Set-NetFirewallRule -Name OpenSSH-Server-In-TCP -Profile Any`. `windows-provision` does this already.
