@@ -9,8 +9,7 @@ One plan per piece of work, in order. This page is rendered from each plan's fro
 
 ## Next
 
-1. [Tooling orchestration and Lefthook migration](plans/tooling-orchestration-and-lefthook.md): Unify formatter ownership, deterministic quality gates, hook management, and CI around repository-managed commands.
-2. [Build the Phase 4 view layer with the tooling that proves it](plans/phase-4-view-layer-and-developer-tooling.md): Build the Phase 4 view layer from the omp2-reviewed catalog and the developer tooling that drives, pictures, and checks it, in one slice order where each component lands with its demo, its scenario, and the harness capability it needs.
+1. [Build the Phase 4 view layer with the tooling that proves it](plans/phase-4-view-layer-and-developer-tooling.md): Build the Phase 4 view layer from the omp2-reviewed catalog and the developer tooling that drives, pictures, and checks it, in one slice order where each component lands with its demo, its scenario, and the harness capability it needs.
 
 ## Done
 
@@ -43,6 +42,7 @@ One plan per piece of work, in order. This page is rendered from each plan's fro
 - 2026-07-11 [Phase 3 Modern Terminal Protocols](plans/phase-3-modern-terminal-protocols.md): Coordinate the twelve Phase 3 protocol slices so parser, lifecycle, renderer, live session policy, tests, and the example app evolve consistently.
 - 2026-07-11 [Phase 3 Slice 12 Runtime Protocol Control](plans/phase-3-runtime-protocol-control.md): Reconcile active protocol evidence and make selected rendering policies and terminal modes adjustable during a live application session.
 - 2026-07-20 [Tessera open-source readiness](plans/open-source-readiness.md): Prepare Tessera for a deliberate public GitHub launch with Apache-2.0 licensing, community governance, release notes, and post-launch static DocC hosting.
+- 2026-10-22 [Tooling orchestration and Lefthook migration](plans/tooling-orchestration-and-lefthook.md): Unify formatter ownership, deterministic quality gates, hook management, and CI around repository-managed commands.
 - 2026-10-22 [Terminal I/O concurrency review fixes](plans/terminal-io-concurrency-review-fixes.md): Fix the concurrency and isolation findings from a review of TesseraTerminal and TesseraTerminalIO: cancellation-safe teardown, serialized terminal output, blocking I/O off the cooperative pool, session and stream lifetimes, vouch cleanup, and deterministic terminal tests. Also the bug punchlist from the 2026-10-17 and 2026-10-20 repository review notes: nested view lists in layout containers, the parallel suite, error-type conformances, and CI coverage of the Examples package.
 - 2026-10-22 [Toolchain, repository conventions, and plan consolidation](plans/toolchain-conventions-and-plan-consolidation.md): Baseline every local check, make Xcode 26.6 and Swift 6.3.3 the baseline on every lane while adding Swift 6.4 and Xcode 27 support, port plan 033 and its spikes to main, run plan 034, adopt the owner's newer repository conventions (unwrapped prose with rumdl, an IWE docs workspace with slug-named plans and a split spec, mise and hk in place of just and Lefthook, Tessera-owned Tart and Lima VMs, and a current Zig and libghostty-vt), then merge plans 032 and 033 into one plan.
 - 2026-10-22 [Make UTM the one Windows lane and retire Frost](plans/windows-on-utm.md): Retire the Frost QEMU workflow and make the UTM guest the one scripted, rebuildable Windows lane, driven by scripts/vm.py like the macOS and Linux guests.
@@ -87,7 +87,7 @@ Plans written before the docs workspace were numbered (`.agents/plans/NNN-slug.m
 | 026 | [Phase 3 Slice 10 Cursor Styling](plans/phase-3-slice-10-cursor-styling.md) | done |
 | 027 | [Phase 3 Slice 11 Underline Extensions](plans/phase-3-slice-11-underline-extensions.md) | done |
 | 028 | [Phase 3 Slice 12 Runtime Protocol Control](plans/phase-3-runtime-protocol-control.md) | done |
-| 029 | [Tooling orchestration and Lefthook migration](plans/tooling-orchestration-and-lefthook.md) | planned |
+| 029 | [Tooling orchestration and Lefthook migration](plans/tooling-orchestration-and-lefthook.md) | done |
 | 030 | [Phase 4 View Layer and Tessera Showcase](plans/phase-4-view-layer-and-showcase.md) | cancelled |
 | 031 | [Tessera open-source readiness](plans/open-source-readiness.md) | done |
 | 032 | [Phase 4 view layer, redesigned from the omp2 reference](plans/omp2-reference-gallery-and-phase-4-redesign.md) | cancelled |
