@@ -7,24 +7,12 @@ description: "Executable architecture boundaries"
 
 The import boundary is an executable requirement, not a comment.
 
-1. **Source import boundary test.** A Swift Testing architecture test scans every declared
-   view-layer source root: `Sources/TesseraCore`, `Sources/TesseraLayout`,
-   `Sources/TesseraWidgets`, and `Sources/Tessera`. It rejects imports of
-   `TesseraTerminalIO`, `CTesseraTerminalPlatform`, `SwiftUI`, `AppKit`, and `UIKit`,
-   reports every offending file and line, imports only `Foundation` and `Testing`, and
-   lives with the unit tests so `swift test --filter ImportBoundary` can run it directly.
-2. **Package graph boundary check.** The separately unit-tested Python script
-   `scripts/check-package-boundaries.py` receives `swift package describe --type json` on
-   standard input and rejects view-layer direct dependency edges outside the frozen graph.
-   `just quality lint` runs it; `swift test` does not invoke SwiftPM recursively. The
-   source test catches actual leaks, while the graph check catches a manifest being
-   broadened before the leak is used.
+1. **Source import boundary test.** A Swift Testing architecture test scans every declared view-layer source root: `Sources/TesseraCore`, `Sources/TesseraLayout`, `Sources/TesseraWidgets`, and `Sources/Tessera`. It rejects imports of `TesseraTerminalIO`, `CTesseraTerminalPlatform`, `SwiftUI`, `AppKit`, and `UIKit`, reports every offending file and line, imports only `Foundation` and `Testing`, and lives with the unit tests so `swift test --filter ImportBoundary` can run it directly.
+2. **Package graph boundary check.** The separately unit-tested Python script `scripts/check-package-boundaries.py` receives `swift package describe --type json` on standard input and rejects view-layer direct dependency edges outside the frozen graph. `just quality lint` runs it; `swift test` does not invoke SwiftPM recursively. The source test catches actual leaks, while the graph check catches a manifest being broadened before the leak is used.
 
-Both checks enforce the same ownership rule: views declare terminal requirements, but only
-the session owns terminal capabilities.
+Both checks enforce the same ownership rule: views declare terminal requirements, but only the session owns terminal capabilities.
 
-The source test shape should stay close to this, with helper details kept small enough to
-audit in one screen:
+The source test shape should stay close to this, with helper details kept small enough to audit in one screen:
 
 ```swift
 import Foundation
@@ -140,10 +128,7 @@ private let importKinds: Set<String> = [
 ]
 ```
 
-The package graph checker is the separately unit-tested Python script
-`scripts/check-package-boundaries.py`. It reads the `swift package describe --type json`
-document from standard input, validates the declared view targets, and permits only these
-direct edges:
+The package graph checker is the separately unit-tested Python script `scripts/check-package-boundaries.py`. It reads the `swift package describe --type json` document from standard input, validates the declared view targets, and permits only these direct edges:
 
 ```text
 TesseraCore    -> TesseraTerminalCore, TesseraTerminalBuffer, TesseraTerminalInput
@@ -152,9 +137,7 @@ TesseraWidgets -> TesseraCore, TesseraLayout
 Tessera        -> TesseraCore, TesseraLayout, TesseraWidgets, TesseraTerminal
 ```
 
-It fails for every other direct dependency from those targets, including terminal IO,
-platform shims, rendering/ANSI implementation targets, or reverse view-layer edges. Its
-unit tests use JSON fixtures and call the checker directly; they never invoke SwiftPM.
+It fails for every other direct dependency from those targets, including terminal IO, platform shims, rendering/ANSI implementation targets, or reverse view-layer edges. Its unit tests use JSON fixtures and call the checker directly; they never invoke SwiftPM.
 
 `just quality lint` runs the unit tests and then the live manifest check:
 

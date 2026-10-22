@@ -1,7 +1,6 @@
 # ``TerminalSession``
 
-A scoped, actor-isolated live terminal session for producing frames, receiving input,
-managing terminal protocol policy, and performing clipboard writes.
+A scoped, actor-isolated live terminal session for producing frames, receiving input, managing terminal protocol policy, and performing clipboard writes.
 
 ## Topics
 
@@ -9,8 +8,7 @@ managing terminal protocol policy, and performing clipboard writes.
 
 - ``withApplicationTerminal(configuration:_:)``
 
-Once the scoped body returns, the session is closed: every call that would write to the
-terminal throws ``TerminalSessionError/closed``.
+Once the scoped body returns, the session is closed: every call that would write to the terminal throws ``TerminalSessionError/closed``.
 
 ### Drawing
 

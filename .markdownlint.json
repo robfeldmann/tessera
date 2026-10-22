@@ -10,6 +10,7 @@
     "allowed_elements": ["br", "img", "a"]
   },
   "MD041": false,
+  "MD060": false,
   "default": true,
   "extends": "markdownlint/style/prettier"
 }

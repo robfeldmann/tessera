@@ -5,10 +5,7 @@ description: "Phase 2: Real terminal foundation"
 
 # Phase 2: Real terminal foundation
 
-Snapshot harness, ANSI encoder, damage-tracking renderer, mode lifecycle, signal handling,
-real PlatformIO with `AsyncStream`, Windows support, width handling, and the _legacy_
-input parser (just escape sequences for arrow keys, function keys, basic stuff — no Kitty,
-no mouse, no paste yet).
+Snapshot harness, ANSI encoder, damage-tracking renderer, mode lifecycle, signal handling, real PlatformIO with `AsyncStream`, Windows support, width handling, and the _legacy_ input parser (just escape sequences for arrow keys, function keys, basic stuff — no Kitty, no mouse, no paste yet).
 
 ## Sections
 

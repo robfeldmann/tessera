@@ -4,9 +4,7 @@ stage: done
 created: 2026-06-03
 completed: 2026-06-03
 order: 2
-description:
-  Move detailed ownership/isolation rules from the top thesis into their relevant spec
-  phases and slices.
+description: Move detailed ownership/isolation rules from the top thesis into their relevant spec phases and slices.
 ---
 
 # Redistribute Ownership and Isolation Material
@@ -29,22 +27,16 @@ description:
 
 ## Overview
 
-The ownership/isolation material currently captures the right architectural decisions but
-is too detailed near the top of the spec. This plan keeps the top section as a concise
-project thesis and redistributes concrete API rules to the phases where they are designed
-or implemented. The goal is a document that reads naturally phase-by-phase while
-preserving the safety model.
+The ownership/isolation material currently captures the right architectural decisions but is too detailed near the top of the spec. This plan keeps the top section as a concise project thesis and redistributes concrete API rules to the phases where they are designed or implemented. The goal is a document that reads naturally phase-by-phase while preserving the safety model.
 
 ## Phase 1 — Keep thesis concise
 
-**Goal**: Make the top section state the project value and architectural lens, without
-front-loading Phase 4/5 API details.
+**Goal**: Make the top section state the project value and architectural lens, without front-loading Phase 4/5 API details.
 
 ### Step 1.1 — Shrink top ownership/isolation section
 
 - File: `docs/spec.md`
-- Replace the long top section with concise thesis prose, the SQLite analogy, and a short
-  map of how later phases apply the thesis.
+- Replace the long top section with concise thesis prose, the SQLite analogy, and a short map of how later phases apply the thesis.
 - Acceptance: The top section no longer defines detailed Phase 4/5 APIs.
 
 ## Phase 2 — Move terminal substrate details
@@ -54,22 +46,19 @@ front-loading Phase 4/5 API details.
 ### Step 2.1 — Session/raw-handle/output visibility
 
 - File: `docs/spec.md`
-- Move `TerminalSession`, `TerminalOutput`, `PlatformHandles`, raw-handle privacy, public
-  write prohibition, and configuration-scoped application entry into Phase 2 Slice 3.
+- Move `TerminalSession`, `TerminalOutput`, `PlatformHandles`, raw-handle privacy, public write prohibition, and configuration-scoped application entry into Phase 2 Slice 3.
 - Acceptance: Phase 2 Slice 3 owns low-level terminal capability visibility.
 
 ### Step 2.2 — Render transaction/frame rules
 
 - File: `docs/spec.md`
-- Move borrowed `Frame`, synchronous render body, renderer actor state, and
-  `invalidateRendererState()` rules into Phase 2 Slice 4.
+- Move borrowed `Frame`, synchronous render body, renderer actor state, and `invalidateRendererState()` rules into Phase 2 Slice 4.
 - Acceptance: Phase 2 Slice 4 owns render transaction safety.
 
 ### Step 2.3 — Input backpressure
 
 - File: `docs/spec.md`
-- Move semantic/coalesced/noisy input policy into Phase 2 Slice 5 and/or Phase 3 protocol
-  slices where paste, mouse, focus, and resize are discussed.
+- Move semantic/coalesced/noisy input policy into Phase 2 Slice 5 and/or Phase 3 protocol slices where paste, mouse, focus, and resize are discussed.
 - Acceptance: Input policies are near parser/protocol design.
 
 ## Phase 3 — Move view/runtime details
@@ -79,15 +68,13 @@ front-loading Phase 4/5 API details.
 ### Step 3.1 — View-layer rules
 
 - File: `docs/spec.md`
-- Move `View`, `ViewContext`, `ResponderContext`, `TerminalRequirements`, display/layout
-  invalidation, and non-`Sendable` view/widget policy into Phase 4.
+- Move `View`, `ViewContext`, `ResponderContext`, `TerminalRequirements`, display/layout invalidation, and non-`Sendable` view/widget policy into Phase 4.
 - Acceptance: Phase 4 owns view and widget isolation details.
 
 ### Step 3.2 — Runtime/test rules
 
 - File: `docs/spec.md`
-- Move optional `@MainActor` runtime, stepping/drain, injected clocks, Point-Free testing
-  tools, and terminal snapshots into Phase 5.
+- Move optional `@MainActor` runtime, stepping/drain, injected clocks, Point-Free testing tools, and terminal snapshots into Phase 5.
 - Acceptance: Phase 5 owns runtime and deterministic testing details.
 
 ### Step 3.3 — Package layout and SPI
@@ -104,8 +91,7 @@ front-loading Phase 4/5 API details.
 
 - File: `docs/spec.md`
 - Search for duplicated definitions and stale references caused by moving content.
-- Acceptance: ownership concepts are not repeated unnecessarily and no stale API names
-  remain.
+- Acceptance: ownership concepts are not repeated unnecessarily and no stale API names remain.
 
 ### Step 4.2 — Validate Markdown
 

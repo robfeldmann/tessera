@@ -4,9 +4,7 @@ stage: done
 created: 2026-06-03
 completed: 2026-06-03
 order: 3
-description:
-  Establish a Docker-free local loop for macOS builds, Linux cross-builds, and optional
-  Linux test execution.
+description: Establish a Docker-free local loop for macOS builds, Linux cross-builds, and optional Linux test execution.
 ---
 
 # Local Linux Dev Loop
@@ -29,11 +27,7 @@ description:
 
 ## Overview
 
-Phase 0 needs a development loop that is fast locally and representative enough before
-GitHub Actions. The lightest Docker-free path is to keep normal development native on
-macOS, add a Swift SDK based Linux cross-build for quick compatibility checks, and use an
-on-demand lightweight Linux VM only when Linux test execution is needed. This avoids
-committing to a heavier virtualization workflow while leaving room to add one later.
+Phase 0 needs a development loop that is fast locally and representative enough before GitHub Actions. The lightest Docker-free path is to keep normal development native on macOS, add a Swift SDK based Linux cross-build for quick compatibility checks, and use an on-demand lightweight Linux VM only when Linux test execution is needed. This avoids committing to a heavier virtualization workflow while leaving room to add one later.
 
 ## Phase 1 — Document the local loop
 
@@ -42,20 +36,16 @@ committing to a heavier virtualization workflow while leaving room to add one la
 ### Step 1.1 — Add recommended macOS and Linux commands
 
 - File: `CONTRIBUTING.md` or `README.md`
-- Document native `just core build`, `just core test`, `just quality lint`, and DocC
-  commands.
-- Document Linux cross-build setup using an installed Swift SDK bundle and
-  `swift build --swift-sdk ...`.
-- Acceptance: A contributor can tell which commands to run for macOS and Linux build
-  checks.
+- Document native `just core build`, `just core test`, `just quality lint`, and DocC commands.
+- Document Linux cross-build setup using an installed Swift SDK bundle and `swift build --swift-sdk ...`.
+- Acceptance: A contributor can tell which commands to run for macOS and Linux build checks.
 
 ### Step 1.2 — Add optional Linux VM workflow
 
 - File: `CONTRIBUTING.md` or `README.md`
 - Document the optional VM path for running `swift test` on Linux without Docker.
 - Prefer a just-in-time VM tool such as Lima/UTM over manually maintained machines.
-- Acceptance: A contributor can bring up Linux, install Swift, run tests, and tear the
-  environment down.
+- Acceptance: A contributor can bring up Linux, install Swift, run tests, and tear the environment down.
 
 ## Phase 2 — Add versioned Linux tooling
 
@@ -70,15 +60,13 @@ committing to a heavier virtualization workflow while leaving room to add one la
 ### Step 2.2 — Add Linux SDK helper scripts
 
 - Files: `scripts/install-linux-sdk.sh`, `scripts/linux-sdk-id.sh`
-- Add bash scripts that read `.swift-version` and `scripts/config/swift-sdks.json` with
-  `jq`.
+- Add bash scripts that read `.swift-version` and `scripts/config/swift-sdks.json` with `jq`.
 - Acceptance: Scripts fail clearly when metadata is missing or `jq` is unavailable.
 
 ### Step 2.3 — Add Just recipes
 
 - File: `Justfile`
-- Add recipes for installing the Swift toolchain, installing the Linux SDK, printing the
-  configured SDK id, Linux cross-builds, and optional Lima test runs.
+- Add recipes for installing the Swift toolchain, installing the Linux SDK, printing the configured SDK id, Linux cross-builds, and optional Lima test runs.
 - Acceptance: Recipes delegate version-specific details to the scripts/config.
 
 ### Step 2.4 — Update contributing docs to use Just recipes
@@ -90,10 +78,8 @@ committing to a heavier virtualization workflow while leaving room to add one la
 ### Step 2.5 — Add provisioned Lima config
 
 - Files: `scripts/config/lima/tessera-linux.yaml`, `Justfile`, `CONTRIBUTING.md`
-- Add a Lima config that mounts the repository and installs Swift from `.swift-version`
-  using Swiftly.
-- Acceptance: `just linux start` creates a VM ready to run `swift test` without manual
-  setup.
+- Add a Lima config that mounts the repository and installs Swift from `.swift-version` using Swiftly.
+- Acceptance: `just linux start` creates a VM ready to run `swift test` without manual setup.
 
 ## Phase 3 — Validate
 
@@ -115,8 +101,7 @@ committing to a heavier virtualization workflow while leaving room to add one la
 
 - Files: none
 - Bring up the optional Linux VM and run tests inside it.
-- Acceptance: `swift test` passes inside Linux, or this remains explicitly documented as
-  deferred.
+- Acceptance: `swift test` passes inside Linux, or this remains explicitly documented as deferred.
 
 ## References
 

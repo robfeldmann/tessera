@@ -16,15 +16,9 @@ Metadata:
 - Recommended VM name: `tessera-windows`
 - Recommended Windows user: `tess`
 
-This guide walks through creating a Windows 11 ARM64 VM manually in
-[UTM](https://mac.getutm.app/). If you already know your way around Windows VM setup, you
-can jump to
-[Quick setup for experienced contributors](#quick-setup-for-experienced-contributors). Use
-this manual path if you want maximum control over the Windows desktop VM or if the
-scripted Frost workflow in `docs/guides/windows-frost-vm.md` does not fit your setup.
+This guide walks through creating a Windows 11 ARM64 VM manually in [UTM](https://mac.getutm.app/). If you already know your way around Windows VM setup, you can jump to [Quick setup for experienced contributors](#quick-setup-for-experienced-contributors). Use this manual path if you want maximum control over the Windows desktop VM or if the scripted Frost workflow in `docs/guides/windows-frost-vm.md` does not fit your setup.
 
-For the recommended repeatable test workflow, start with
-`docs/guides/windows-frost-vm.md`. For a hand-managed Windows desktop VM, continue here.
+For the recommended repeatable test workflow, start with `docs/guides/windows-frost-vm.md`. For a hand-managed Windows desktop VM, continue here.
 
 The goal is a VM you can reach with SSH, then drive from macOS with:
 
@@ -67,8 +61,7 @@ brew bundle install
 
 This includes [UTM](https://mac.getutm.app/), which runs the Windows VM.
 
-You also need enough disk space for the Windows VM. UTM stores the VM as a local bundle on
-your Mac.
+You also need enough disk space for the Windows VM. UTM stores the VM as a local bundle on your Mac.
 
 ## 1. Download the Windows 11 ARM64 ISO
 
@@ -85,8 +78,7 @@ The downloaded file used while writing this guide was:
 ~/Downloads/Win11_25H2_English_Arm64_v2.iso
 ```
 
-Microsoft shows Windows PowerShell verification instructions. On macOS, verify the ISO
-with `shasum` instead:
+Microsoft shows Windows PowerShell verification instructions. On macOS, verify the ISO with `shasum` instead:
 
 ```sh
 shasum -a 256 ~/Downloads/Win11_25H2_English_Arm64_v2.iso
@@ -134,8 +126,7 @@ The first boot may land at `UEFI Interactive Shell v2.2` instead of Windows Setu
 
 3. When `Press any key to boot...` appears, press Enter quickly.
 
-That should start Windows Setup. If the exact USB entry differs, choose the USB hard drive
-entry that corresponds to the installer ISO.
+That should start Windows Setup. If the exact USB entry differs, choose the USB hard drive entry that corresponds to the installer ISO.
 
 ## 3. Install Windows
 
@@ -147,8 +138,7 @@ In Windows Setup:
 4. Select the unallocated virtual disk and continue.
 5. Let Windows copy files and reboot.
 
-During reboots, if `Press any key to boot...` appears again, do **not** press anything.
-Let the VM continue booting from the virtual disk.
+During reboots, if `Press any key to boot...` appears again, do **not** press anything. Let the VM continue booting from the virtual disk.
 
 During first-boot setup:
 
@@ -159,9 +149,7 @@ During first-boot setup:
 5. When asked for a user name, use **tess**.
 6. Set a real password. Do not leave the password blank if you want SSH to work.
 
-A blank password may work for desktop login, but Windows OpenSSH rejects blank-password
-SSH login. If you already created a blank password, set one later from Administrator
-PowerShell:
+A blank password may work for desktop login, but Windows OpenSSH rejects blank-password SSH login. If you already created a blank password, set one later from Administrator PowerShell:
 
 ```powershell
 net user tess *
@@ -169,11 +157,9 @@ net user tess *
 
 ## 4. Install UTM Guest Tools
 
-After Windows reaches the desktop, UTM Guest Tools should appear automatically if the VM
-was created with driver/SPICE tools enabled.
+After Windows reaches the desktop, UTM Guest Tools should appear automatically if the VM was created with driver/SPICE tools enabled.
 
-Run the installer and accept the defaults. During the walkthrough, this completed without
-extra interaction and noticeably improved the VM display resolution.
+Run the installer and accept the defaults. During the walkthrough, this completed without extra interaction and noticeably improved the VM display resolution.
 
 If Windows prompts to turn on clipboard history, that is optional.
 
@@ -235,19 +221,13 @@ The script installs or verifies:
 - Swift matching `.swift-version`
 - OpenSSH Server
 
-Visual Studio installation usually leaves a reboot pending. The script detects this,
-registers a one-time resume task, and reboots after a 10-second warning. Sign back in as
-the same user and setup continues automatically — no need to relaunch the script by hand.
-Pass `-NoAutoReboot` if you would rather reboot yourself and rerun the script manually.
+Visual Studio installation usually leaves a reboot pending. The script detects this, registers a one-time resume task, and reboots after a 10-second warning. Sign back in as the same user and setup continues automatically — no need to relaunch the script by hand. Pass `-NoAutoReboot` if you would rather reboot yourself and rerun the script manually.
 
-The script also refreshes its own `PATH` after installing Git and Swift, so a single run
-no longer requires closing and reopening PowerShell for those tools to resolve.
+The script also refreshes its own `PATH` after installing Git and Swift, so a single run no longer requires closing and reopening PowerShell for those tools to resolve.
 
 Enabling OpenSSH can appear silent for a few minutes. Wait before interrupting it.
 
-A successful run ends with Swift version output and SSH connection details. The Swift
-version should match `.swift-version`, and the target should be
-`aarch64-unknown-windows-msvc`:
+A successful run ends with Swift version output and SSH connection details. The Swift version should match `.swift-version`, and the target should be `aarch64-unknown-windows-msvc`:
 
 ```text
 Swift version <version>
@@ -283,8 +263,7 @@ Then test password SSH:
 ssh -o PreferredAuthentications=password -o PubkeyAuthentication=no tess@<vm-ip> swift --version
 ```
 
-If `nc` times out, check the Windows network profile and OpenSSH firewall rule from an
-Administrator PowerShell:
+If `nc` times out, check the Windows network profile and OpenSSH firewall rule from an Administrator PowerShell:
 
 ```powershell
 Get-NetConnectionProfile
@@ -293,20 +272,17 @@ Get-NetTCPConnection -LocalPort 22 -State Listen
 Get-NetFirewallRule -Name OpenSSH-Server-In-TCP | Format-List Name,Enabled,Direction,Action,Profile
 ```
 
-If the network category is `Public`, make sure the SSH firewall rule applies to all
-profiles:
+If the network category is `Public`, make sure the SSH firewall rule applies to all profiles:
 
 ```powershell
 Set-NetFirewallRule -Name OpenSSH-Server-In-TCP -Profile Any
 ```
 
-The provisioning script should do this automatically, but the command is useful for
-troubleshooting.
+The provisioning script should do this automatically, but the command is useful for troubleshooting.
 
 ## 8. Configure SSH key authentication
 
-The `just` recipes use non-interactive SSH, so password prompts are not enough. Configure
-key-based auth.
+The `just` recipes use non-interactive SSH, so password prompts are not enough. Configure key-based auth.
 
 On macOS, generate a dedicated key:
 
@@ -315,8 +291,7 @@ ssh-keygen -t ed25519 -f ~/.ssh/tessera_windows -N "" -C "tessera-windows"
 ssh-add --apple-use-keychain ~/.ssh/tessera_windows
 ```
 
-The fastest path is the helper recipe, which uses password SSH for this one-time step and
-installs the key into the administrators key file with the correct ACLs:
+The fastest path is the helper recipe, which uses password SSH for this one-time step and installs the key into the administrators key file with the correct ACLs:
 
 ```sh
 just windows-utm install-ssh-key
@@ -330,8 +305,7 @@ To do it by hand instead, copy the public key into the Windows VM:
 scp -o PreferredAuthentications=password -o PubkeyAuthentication=no ~/.ssh/tessera_windows.pub tess@<vm-ip>:'C:/Users/tess/tessera_windows.pub'
 ```
 
-For a Windows administrator account, install the key into the administrators key file. In
-**Windows PowerShell as Administrator**, run these as separate commands:
+For a Windows administrator account, install the key into the administrators key file. In **Windows PowerShell as Administrator**, run these as separate commands:
 
 ```powershell
 New-Item -ItemType Directory -Force C:\ProgramData\ssh | Out-Null
@@ -390,21 +364,17 @@ Run the Windows test loop:
 just windows-utm test
 ```
 
-For focused iteration, pass SwiftPM test arguments after `--`. The recipe keeps the
-Windows default (`--no-parallel`) and appends your filter:
+For focused iteration, pass SwiftPM test arguments after `--`. The recipe keeps the Windows default (`--no-parallel`) and appends your filter:
 
 ```sh
 just windows-utm test -- --filter WindowsConsoleModeTests
 ```
 
-A successful run means macOS can reach the VM, Swift is available in Windows, and the
-Windows build/test command runs inside the guest. If tests fail, treat the output as a
-normal Windows build or test failure rather than a VM setup failure.
+A successful run means macOS can reach the VM, Swift is available in Windows, and the Windows build/test command runs inside the guest. If tests fail, treat the output as a normal Windows build or test failure rather than a VM setup failure.
 
 ## UTM CLI helpers
 
-The project includes `just` recipes around UTM's `utmctl` CLI. They fail with a clear
-message if UTM is not installed.
+The project includes `just` recipes around UTM's `utmctl` CLI. They fail with a clear message if UTM is not installed.
 
 ```sh
 just windows-utm start
@@ -419,8 +389,7 @@ By default these target a VM named `tessera-windows`. Override the name with:
 export TESSERA_WINDOWS_VM_NAME=my-windows-vm
 ```
 
-You can also push the current local provisioning script into the guest after UTM Guest
-Tools are installed:
+You can also push the current local provisioning script into the guest after UTM Guest Tools are installed:
 
 ```sh
 just windows-utm push-setup-script
@@ -440,11 +409,9 @@ export TESSERA_WINDOWS_VM_SETUP_PATH='C:\Users\<user>\Downloads\setup-windows-vm
 
 ## Notes for local development
 
-The Windows VM should have its own checkout and its own `.build` directory. Do not build
-from a macOS shared folder or share `.build` between macOS and Windows.
+The Windows VM should have its own checkout and its own `.build` directory. Do not build from a macOS shared folder or share `.build` between macOS and Windows.
 
-For active development, edit on macOS and push the current branch straight into the guest
-checkout over SSH, without going through GitHub:
+For active development, edit on macOS and push the current branch straight into the guest checkout over SSH, without going through GitHub:
 
 ```sh
 just windows-utm sync
@@ -458,8 +425,4 @@ just windows-utm sync
 just windows-utm test -- --filter WindowsConsoleModeTests
 ```
 
-`just windows-utm sync` configures `receive.denyCurrentBranch=updateInstead` on the guest
-repo and force-pushes (with lease) your current branch, updating the guest working tree in
-place. The guest tree must be clean for the push to apply, so commit or stash guest-side
-changes first. This keeps `.build` and other platform-specific artifacts entirely on the
-guest. You can still use normal Git operations inside the Windows checkout when preferred.
+`just windows-utm sync` configures `receive.denyCurrentBranch=updateInstead` on the guest repo and force-pushes (with lease) your current branch, updating the guest working tree in place. The guest tree must be clean for the push to apply, so commit or stash guest-side changes first. This keeps `.build` and other platform-specific artifacts entirely on the guest. You can still use normal Git operations inside the Windows checkout when preferred.

@@ -4,8 +4,7 @@ stage: done
 created: 2026-06-03
 completed: 2026-06-04
 order: 4
-description:
-  Add minimal GitHub Actions workflows for Swift build/test matrix and DocC validation.
+description: Add minimal GitHub Actions workflows for Swift build/test matrix and DocC validation.
 ---
 
 # GitHub Actions Phase 0
@@ -33,29 +32,18 @@ description:
 
 ## Notes
 
-- Initial workflows share `.github/actions/setup-swift`, which reads `.swift-version` and
-  passes that value to `SwiftyLab/setup-swift@latest`.
+- Initial workflows share `.github/actions/setup-swift`, which reads `.swift-version` and passes that value to `SwiftyLab/setup-swift@latest`.
 - First pushed CI run succeeded on macOS, Ubuntu, and Windows. Windows was slow but green.
-- No SwiftPM or `.build` cache was added for the baseline workflow. Add caching only after
-  observing slow CI runs.
-- DocC archive artifact upload is deferred; the first documentation workflow only
-  validates warnings-as-errors.
+- No SwiftPM or `.build` cache was added for the baseline workflow. Add caching only after observing slow CI runs.
+- DocC archive artifact upload is deferred; the first documentation workflow only validates warnings-as-errors.
 - `test-linux-vm` remains local-only and is not part of GitHub CI.
-- GitHub recognized the Dependabot config and completed initial checks for Swift and
-  GitHub Actions ecosystems.
-- CI validates Conventional Commit subjects on pushes and PR titles on pull requests using
-  `scripts/conventional_commits.py`.
-- `just ci` is intentionally CI-safe: it runs build/test only. Full local checks use
-  `just check`, and `just quality lint` no longer mutates files.
+- GitHub recognized the Dependabot config and completed initial checks for Swift and GitHub Actions ecosystems.
+- CI validates Conventional Commit subjects on pushes and PR titles on pull requests using `scripts/conventional_commits.py`.
+- `just ci` is intentionally CI-safe: it runs build/test only. Full local checks use `just check`, and `just quality lint` no longer mutates files.
 
 ## Overview
 
-Phase 0 needs GitHub Actions proving `swift build` and `swift test` pass on macOS, Ubuntu,
-and Windows. The first workflow should be deliberately small to keep private-repo minutes
-and debugging cost low. Use Herdr's CI structure as inspiration: read-only permissions,
-concurrency cancellation, `fail-fast: false`, explicit checkout settings, and a single
-project command where possible. Add documentation validation separately so cross-platform
-build/test failures are easy to diagnose.
+Phase 0 needs GitHub Actions proving `swift build` and `swift test` pass on macOS, Ubuntu, and Windows. The first workflow should be deliberately small to keep private-repo minutes and debugging cost low. Use Herdr's CI structure as inspiration: read-only permissions, concurrency cancellation, `fail-fast: false`, explicit checkout settings, and a single project command where possible. Add documentation validation separately so cross-platform build/test failures are easy to diagnose.
 
 ## Phase 1 — Confirm constraints and repo settings
 
@@ -71,10 +59,8 @@ build/test failures are easy to diagnose.
 ### Step 1.2 — Confirm Swift availability on GitHub-hosted runners
 
 - Files: none
-- Confirm which Swift version is available on `macos-latest`, `ubuntu-latest`, and
-  `windows-latest`, or decide which setup action/toolchain installer to use.
-- Acceptance: The workflow has a clear Swift 6.3.2 setup path for each OS or documents any
-  temporary mismatch.
+- Confirm which Swift version is available on `macos-latest`, `ubuntu-latest`, and `windows-latest`, or decide which setup action/toolchain installer to use.
+- Acceptance: The workflow has a clear Swift 6.3.2 setup path for each OS or documents any temporary mismatch.
 
 ## Phase 2 — Add minimal CI workflow
 
@@ -98,18 +84,14 @@ build/test failures are easy to diagnose.
 ### Step 2.3 — Add workflow ergonomics and safety settings
 
 - File: `.github/workflows/ci.yml`
-- Add `permissions: contents: read`, concurrency cancellation, `fail-fast: false`, job
-  timeouts, `just` installation, and checkout with `persist-credentials: false`, inspired
-  by Herdr.
-- Acceptance: Repeated pushes cancel stale jobs and the workflow follows least-privilege
-  defaults.
+- Add `permissions: contents: read`, concurrency cancellation, `fail-fast: false`, job timeouts, `just` installation, and checkout with `persist-credentials: false`, inspired by Herdr.
+- Acceptance: Repeated pushes cancel stale jobs and the workflow follows least-privilege defaults.
 
 ### Step 2.4 — Add Conventional Commit validation
 
 - Files: `.github/workflows/ci.yml`, `scripts/conventional_commits.py`
 - Add a first CI job that validates commit subjects on push and PR titles on pull request.
-- Acceptance: Non-conventional commit subjects or PR titles fail quickly before the matrix
-  jobs complete.
+- Acceptance: Non-conventional commit subjects or PR titles fail quickly before the matrix jobs complete.
 
 ## Phase 3 — Add documentation workflow
 
@@ -118,8 +100,7 @@ build/test failures are easy to diagnose.
 ### Step 3.1 — Add DocC validation job
 
 - File: `.github/workflows/docs.yml` or `.github/workflows/ci.yml`
-- Run DocC warnings-as-errors checks for `Tessera` and `TesseraTerminal`, likely on macOS
-  only unless Linux support is confirmed.
+- Run DocC warnings-as-errors checks for `Tessera` and `TesseraTerminal`, likely on macOS only unless Linux support is confirmed.
 - Acceptance: DocC validation passes in GitHub Actions.
 
 ### Step 3.2 — Optionally add DocC archive generation artifact
@@ -143,8 +124,7 @@ build/test failures are easy to diagnose.
 
 - File: `.github/dependabot.yml`
 - Confirm GitHub recognizes the config after it lands on the default branch.
-- If SwiftPM ecosystem support is noisy or ineffective, keep GitHub Actions updates and
-  defer SwiftPM updates.
+- If SwiftPM ecosystem support is noisy or ineffective, keep GitHub Actions updates and defer SwiftPM updates.
 - Acceptance: Dependabot either opens expected PRs or its behavior is understood.
 
 ## Phase 5 — Validate and update Phase 0 checklist
@@ -160,8 +140,7 @@ build/test failures are easy to diagnose.
 ### Step 5.2 — Fix Windows/Linux/macOS portability issues
 
 - Files: as needed
-- Address issues exposed by the CI matrix, especially Windows availability and package
-  dependency compatibility.
+- Address issues exposed by the CI matrix, especially Windows availability and package dependency compatibility.
 - Acceptance: `swift build` and `swift test` pass on macOS, Ubuntu, and Windows in CI.
 
 ### Step 5.3 — Update `docs/spec.md` Phase 0 checklist
@@ -175,7 +154,5 @@ build/test failures are easy to diagnose.
 
 - `docs/spec.md` Phase 0
 - `docs/plans/local-linux-dev-loop.md`
-- Herdr CI inspiration:
-  `https://github.com/ogulcancelik/herdr/blob/master/.github/workflows/ci.yml`
-- Herdr Dependabot inspiration:
-  `https://github.com/ogulcancelik/herdr/blob/master/.github/dependabot.yml`
+- Herdr CI inspiration: `https://github.com/ogulcancelik/herdr/blob/master/.github/workflows/ci.yml`
+- Herdr Dependabot inspiration: `https://github.com/ogulcancelik/herdr/blob/master/.github/dependabot.yml`

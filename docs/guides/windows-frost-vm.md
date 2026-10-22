@@ -13,33 +13,21 @@ Metadata:
 - Swift: follows `.swift-version`
 - Recommended Windows user: `tester`
 
-This guide walks through the recommended scripted Windows VM workflow for Tessera on an
-Apple Silicon Mac; if you already know your way around VMs and command-line tools, you can
-jump to
-[Quick setup for experienced contributors](#quick-setup-for-experienced-contributors). It
-uses [Frost](https://github.com/solcreek/frost) to build a Windows 11 ARM64 image, boot
-throwaway test VMs, run commands over SSH, and optionally import the same image into
-[UTM](https://mac.getutm.app/) for manual GUI checks.
+This guide walks through the recommended scripted Windows VM workflow for Tessera on an Apple Silicon Mac; if you already know your way around VMs and command-line tools, you can jump to [Quick setup for experienced contributors](#quick-setup-for-experienced-contributors). It uses [Frost](https://github.com/solcreek/frost) to build a Windows 11 ARM64 image, boot throwaway test VMs, run commands over SSH, and optionally import the same image into [UTM](https://mac.getutm.app/) for manual GUI checks.
 
-If you prefer to create and manage a Windows VM by hand, use the manual UTM guide in
-`docs/guides/windows-vm.md` instead.
+If you prefer to create and manage a Windows VM by hand, use the manual UTM guide in `docs/guides/windows-vm.md` instead.
 
 ## What this workflow gives you
 
 Frost creates a repeatable Windows test environment from files you download locally:
 
 1. A **base Windows golden image** with Windows, VirtIO networking, and OpenSSH.
-2. A **Tessera toolchain golden image** with Git, Visual Studio C++ tools, Windows SDK,
-   Swift, SSH key auth, Developer Mode, and PowerShell defaults.
+2. A **Tessera toolchain golden image** with Git, Visual Studio C++ tools, Windows SDK, Swift, SSH key auth, Developer Mode, and PowerShell defaults.
 3. A **disposable test VM** for repeatable `swift test` runs.
 4. A **persistent SSH VM** for interactive terminal work and retained SwiftPM build cache.
 5. An optional **UTM GUI VM** for PowerShell/Windows Terminal visual validation.
 
-The VM images are local build artifacts under `~/.local/state/tessera/windows-frost/` (the
-default `TESSERA_FROST_WORK`) and are not checked into Git. That directory is Frost state,
-not another Tessera checkout; the `source/` subdirectory only holds the latest archive
-copied into a guest. See [Local development state](local-development-state.md) for the
-branch/worktree model.
+The VM images are local build artifacts under `~/.local/state/tessera/windows-frost/` (the default `TESSERA_FROST_WORK`) and are not checked into Git. That directory is Frost state, not another Tessera checkout; the `source/` subdirectory only holds the latest archive copied into a guest. See [Local development state](local-development-state.md) for the branch/worktree model.
 
 ## Quick setup for experienced contributors
 
@@ -80,10 +68,7 @@ Use the longer tutorial below if any of those terms or files are unfamiliar.
 
 ## Machine-local config (skip the env prefixes)
 
-Rather than prefixing commands with `env TESSERA_FROST_…=…`, set the machine-specific
-paths once in a gitignored `.windows-frost.env` at the repo root.
-`scripts/windows-frost-env.sh` sources it automatically, so every `just windows-frost …`
-recipe picks them up:
+Rather than prefixing commands with `env TESSERA_FROST_…=…`, set the machine-specific paths once in a gitignored `.windows-frost.env` at the repo root. `scripts/windows-frost-env.sh` sources it automatically, so every `just windows-frost …` recipe picks them up:
 
 ```sh
 cp scripts/config/frost/windows-frost.env.example .windows-frost.env
@@ -94,18 +79,11 @@ Recommended keys:
 
 - `TESSERA_FROST_ROOT` — your Frost checkout, if not `~/Developer/frost`.
 - `TESSERA_FROST_WINDOWS_ISO`, `TESSERA_FROST_VIRTIO_ISO` — your downloaded ISO paths.
-- `TESSERA_FROST_WORK` — optional. Defaults to
-  `${XDG_STATE_HOME:-~/.local/state}/tessera/windows-frost`, deliberately outside the repo
-  so `just core clean` (which removes `.build`) cannot delete the multi-GB golden disks,
-  and so every worktree shares one build.
-- `TESSERA_FROST_SSH_KEY` and `TESSERA_FROST_PUBKEY` — optional. Default to
-  `~/.ssh/tessera_windows` and `~/.ssh/tessera_windows.pub`.
-- `TESSERA_FROST_PASS` — required only when bootstrapping a base image without the private
-  key. Set it only in ignored local configuration or the invoking environment. Never
-  record its value in source, documentation, plans, or shell history.
+- `TESSERA_FROST_WORK` — optional. Defaults to `${XDG_STATE_HOME:-~/.local/state}/tessera/windows-frost`, deliberately outside the repo so `just core clean` (which removes `.build`) cannot delete the multi-GB golden disks, and so every worktree shares one build.
+- `TESSERA_FROST_SSH_KEY` and `TESSERA_FROST_PUBKEY` — optional. Default to `~/.ssh/tessera_windows` and `~/.ssh/tessera_windows.pub`.
+- `TESSERA_FROST_PASS` — required only when bootstrapping a base image without the private key. Set it only in ignored local configuration or the invoking environment. Never record its value in source, documentation, plans, or shell history.
 
-With this file in place you can drop the `env …` prefixes from the commands above and
-below. An explicit `env VAR=… just …` still overrides the file for one-off runs.
+With this file in place you can drop the `env …` prefixes from the commands above and below. An explicit `env VAR=… just …` still overrides the file for one-off runs.
 
 ## 1. Install macOS prerequisites
 
@@ -116,9 +94,7 @@ cd /path/to/tessera
 brew bundle install
 ```
 
-This installs the VM tools used by this workflow, including [QEMU](https://www.qemu.org/),
-[`swtpm`](https://github.com/stefanberger/swtpm), `sshpass`,
-[UTM](https://mac.getutm.app/), and [`just`](https://github.com/casey/just).
+This installs the VM tools used by this workflow, including [QEMU](https://www.qemu.org/), [`swtpm`](https://github.com/stefanberger/swtpm), `sshpass`, [UTM](https://mac.getutm.app/), and [`just`](https://github.com/casey/just).
 
 Check that the host tools are available:
 
@@ -130,8 +106,7 @@ If Frost has not been cloned yet, this check will report that separately.
 
 ## 2. Clone Frost
 
-Keep Frost outside the Tessera repository while this integration uses wrapper scripts. The
-default path expected by the scripts is:
+Keep Frost outside the Tessera repository while this integration uses wrapper scripts. The default path expected by the scripts is:
 
 ```text
 ~/Developer/frost
@@ -144,9 +119,7 @@ mkdir -p ~/Developer
 git clone https://github.com/solcreek/frost ~/Developer/frost
 ```
 
-If you keep Frost somewhere else, set `TESSERA_FROST_ROOT` in the machine-local config
-file (see [Machine-local config](#machine-local-config-skip-the-env-prefixes)) or pass it
-per command:
+If you keep Frost somewhere else, set `TESSERA_FROST_ROOT` in the machine-local config file (see [Machine-local config](#machine-local-config-skip-the-env-prefixes)) or pass it per command:
 
 ```sh
 env TESSERA_FROST_ROOT=/path/to/frost just windows-frost doctor
@@ -173,11 +146,9 @@ Save it somewhere easy to reference, for example:
 
 ### VirtIO Windows driver ISO
 
-Frost needs VirtIO drivers so the Windows guest can use QEMU's virtual network device
-during provisioning.
+Frost needs VirtIO drivers so the Windows guest can use QEMU's virtual network device during provisioning.
 
-Download a `virtio-win-*.iso` that includes ARM64 `NetKVM` drivers. One source is Fedora's
-VirtIO Windows driver downloads:
+Download a `virtio-win-*.iso` that includes ARM64 `NetKVM` drivers. One source is Fedora's VirtIO Windows driver downloads:
 
 ```text
 https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/
@@ -191,8 +162,7 @@ Save it somewhere easy to reference, for example:
 
 ## 4. Build the base Windows image
 
-The first build creates a base Windows image. It can take a while because Windows is being
-installed unattended.
+The first build creates a base Windows image. It can take a while because Windows is being installed unattended.
 
 Run:
 
@@ -222,8 +192,7 @@ This boots a disposable VM, runs `whoami`, prints guest output, and shuts the VM
 
 ## 5. Build the Tessera toolchain image
 
-The base image only has Windows, networking, and OpenSSH. The next step creates a
-Tessera-specific image with the build tools.
+The base image only has Windows, networking, and OpenSSH. The next step creates a Tessera-specific image with the build tools.
 
 Run:
 
@@ -242,8 +211,7 @@ This installs or configures:
 - Git `core.symlinks=true`.
 - PowerShell profiles that start in the user's home directory.
 
-Visual Studio may require a reboot during provisioning. The host script handles this by
-rebooting the guest, waiting for SSH, and continuing.
+Visual Studio may require a reboot during provisioning. The host script handles this by rebooting the guest, waiting for SSH, and continuing.
 
 If you need to rebuild the toolchain image later:
 
@@ -257,24 +225,15 @@ Verify the toolchain image:
 just windows-frost check-toolchain
 ```
 
-This checks Git, Swift, Visual Studio, Windows SDK, and the configured SSH authentication
-path.
+This checks Git, Swift, Visual Studio, Windows SDK, and the configured SSH authentication path.
 
 ### Frost SSH authentication
 
-Frost recipes use key authentication whenever `TESSERA_FROST_SSH_KEY` exists. The default
-key path is `~/.ssh/tessera_windows`; `provision-toolchain` installs the matching public
-key from `TESSERA_FROST_PUBKEY` into the toolchain image.
+Frost recipes use key authentication whenever `TESSERA_FROST_SSH_KEY` exists. The default key path is `~/.ssh/tessera_windows`; `provision-toolchain` installs the matching public key from `TESSERA_FROST_PUBKEY` into the toolchain image.
 
-When the private key is absent, host scripts use password authentication only when
-`TESSERA_FROST_PASS` is supplied through ignored local configuration or the invoking
-environment. Missing it fails closed before an SSH connection. Password-mode SSH disables
-public-key attempts so an `ssh-agent` loaded with many unrelated keys cannot exhaust the
-Windows OpenSSH server's authentication-attempt limit before the password prompt.
+When the private key is absent, host scripts use password authentication only when `TESSERA_FROST_PASS` is supplied through ignored local configuration or the invoking environment. Missing it fails closed before an SSH connection. Password-mode SSH disables public-key attempts so an `ssh-agent` loaded with many unrelated keys cannot exhaust the Windows OpenSSH server's authentication-attempt limit before the password prompt.
 
-The provisioning step may still use password authentication because the key is not
-available inside the base guest until provisioning installs it. Rebuild the base image
-with key authentication before using it for normal work.
+The provisioning step may still use password authentication because the key is not available inside the base guest until provisioning installs it. Rebuild the base image with key authentication before using it for normal work.
 
 ## 6. Daily workflow: repeatable Windows test run
 
@@ -301,8 +260,7 @@ What happens:
 5. Guest output streams back to your macOS terminal.
 6. The VM shuts down and the disposable overlay is deleted.
 
-The sync is a one-way Mac → Windows snapshot. The macOS checkout is the source of truth.
-Edits made inside the disposable Windows VM are not copied back.
+The sync is a one-way Mac → Windows snapshot. The macOS checkout is the source of truth. Edits made inside the disposable Windows VM are not copied back.
 
 ## 7. Daily workflow: persistent interactive SSH VM
 
@@ -331,9 +289,7 @@ The persistent overlay lives under:
 ~/.local/state/tessera/windows-frost/persistent/dev.qcow2
 ```
 
-For a quick ConPTY smoke check without opening an interactive shell, use the command
-below. ConPTY is Windows' pseudo-console layer; it is what Windows OpenSSH uses to provide
-an interactive terminal session for full-screen terminal apps.
+For a quick ConPTY smoke check without opening an interactive shell, use the command below. ConPTY is Windows' pseudo-console layer; it is what Windows OpenSSH uses to provide an interactive terminal session for full-screen terminal apps.
 
 ```sh
 just windows-frost start
@@ -343,8 +299,7 @@ just windows-frost stop
 
 ## 8. Optional GUI workflow with UTM
 
-Use UTM when you need to see Windows desktop behavior directly, such as PowerShell,
-Windows Terminal, window resizing, or clipboard behavior.
+Use UTM when you need to see Windows desktop behavior directly, such as PowerShell, Windows Terminal, window resizing, or clipboard behavior.
 
 ### Create or update the UTM GUI VM
 
@@ -354,12 +309,9 @@ The current workflow uses a UTM VM named:
 tessera-frost-import
 ```
 
-Most contributors do not need this VM unless they want GUI validation. There is not yet a
-single `just` recipe that creates or refreshes the UTM GUI VM end-to-end. Recreate it with
-the following tested workflow.
+Most contributors do not need this VM unless they want GUI validation. There is not yet a single `just` recipe that creates or refreshes the UTM GUI VM end-to-end. Recreate it with the following tested workflow.
 
-First, materialize the toolchain overlay into a standalone disk. UTM must not import the
-overlay directly because it depends on the Frost base disk:
+First, materialize the toolchain overlay into a standalone disk. UTM must not import the overlay directly because it depends on the Frost base disk:
 
 ```sh
 source scripts/windows-frost-env.sh
@@ -372,27 +324,19 @@ qemu-img convert -p -O qcow2 \
 Then create the stopped UTM VM:
 
 1. Click **Create a New Virtual Machine**, choose **Virtualize**, then choose **Other**.
-2. Set architecture to **ARM64 / aarch64**, memory to **8192 MB**, and CPU cores to **4**.
-   Do not attach a boot ISO. Create a small temporary disk only if the wizard requires it.
+2. Set architecture to **ARM64 / aarch64**, memory to **8192 MB**, and CPU cores to **4**. Do not attach a boot ISO. Create a small temporary disk only if the wizard requires it.
 3. Name the VM `tessera-frost-import`, save it, and open its settings without starting it.
-4. Under **Drives**, delete the temporary disk. Add a non-removable **NVMe** disk by
-   importing `$TESSERA_FROST_WORK/utm/tessera-frost-import.qcow2`, and make it the first
-   boot disk.
-5. Leave UTM's shared-network default enabled. Under **QEMU**, enable **TPM 2.0 Device**.
-   In **Maintenance**, select **Reset UEFI Variables** and **Preload Secure Boot Keys**.
+4. Under **Drives**, delete the temporary disk. Add a non-removable **NVMe** disk by importing `$TESSERA_FROST_WORK/utm/tessera-frost-import.qcow2`, and make it the first boot disk.
+5. Leave UTM's shared-network default enabled. Under **QEMU**, enable **TPM 2.0 Device**. In **Maintenance**, select **Reset UEFI Variables** and **Preload Secure Boot Keys**.
 6. Start the VM.
 
-Do **not** copy `TESSERA_FROST_TOOLCHAIN_VARS` into the UTM bundle. UTM needs UEFI
-variables generated by its own firmware build; copying Frost variables leaves the VM at
-the UEFI `Start boot option` screen.
+Do **not** copy `TESSERA_FROST_TOOLCHAIN_VARS` into the UTM bundle. UTM needs UEFI variables generated by its own firmware build; copying Frost variables leaves the VM at the UEFI `Start boot option` screen.
 
-The image uses the locally configured Frost account. Set or rotate its credential through
-the VM and ignored local configuration; never record the credential in this repository.
+The image uses the locally configured Frost account. Set or rotate its credential through the VM and ignored local configuration; never record the credential in this repository.
 
 ### Install or repair UTM guest tools
 
-UTM guest tools are needed for dynamic resolution, clipboard sync, WebDAV sharing, and
-QEMU guest-agent operations.
+UTM guest tools are needed for dynamic resolution, clipboard sync, WebDAV sharing, and QEMU guest-agent operations.
 
 With the GUI VM running and reachable over SSH, install or repair the tools:
 
@@ -409,9 +353,7 @@ Then reboot the Windows guest from inside Windows. After reboot, verify:
 
 ### Sync source into the GUI VM
 
-The GUI VM is a toolchain image. It does not automatically contain your current source
-changes. To copy your macOS working tree into it, first find the VM's IPv4 address inside
-Windows:
+The GUI VM is a toolchain image. It does not automatically contain your current source changes. To copy your macOS working tree into it, first find the VM's IPv4 address inside Windows:
 
 ```powershell
 Get-NetIPAddress -AddressFamily IPv4 |
@@ -431,15 +373,11 @@ This copies the current working tree into:
 C:\Users\tester\tessera
 ```
 
-This is a one-way Mac → Windows snapshot, not a two-way or real-time sync. Running the
-sync again replaces the Windows copy. Do not make important edits inside the Windows copy
-unless you manually copy them back.
+This is a one-way Mac → Windows snapshot, not a two-way or real-time sync. Running the sync again replaces the Windows copy. Do not make important edits inside the Windows copy unless you manually copy them back.
 
-The sync does not copy `.git`, so the destination is a source tree rather than a Git
-checkout. That is expected.
+The sync does not copy `.git`, so the destination is a source tree rather than a Git checkout. That is expected.
 
-If SSH reports that the host key changed, the VM probably reused an IP address from a
-previous Windows VM. Remove the stale key and retry:
+If SSH reports that the host key changed, the VM probably reused an IP address from a previous Windows VM. Remove the stale key and retry:
 
 ```sh
 ssh-keygen -R <vm-ip>
@@ -513,5 +451,4 @@ Run the GUI configuration helper:
 just windows-frost configure-gui <vm-ip>
 ```
 
-This enables Developer Mode and Git symlink support. You may need to delete `.build` and
-rerun the build if a previous checkout failed halfway through.
+This enables Developer Mode and Git symlink support. You may need to delete `.build` and rerun the build if a previous checkout failed halfway through.

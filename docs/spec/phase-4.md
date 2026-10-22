@@ -5,38 +5,16 @@ description: "Phase 4 — View layer (the Tessera module)"
 
 # Phase 4 — View layer (the `Tessera` module)
 
-Phase 4 builds the declarative view layer on top of the Phase 2–3 terminal substrate. It
-is the largest phase: seven slices of technical contract plus Phase 2.5, built in the
-order that [Prerequisites and scheduling](phase-4/prerequisites-and-scheduling.md) sets.
-The API should read like SwiftUI to a Swift developer — `body`, result builders, modifier
-chains, environment — while the machinery underneath stays a plain, inspectable system you
-can dump, step, and unit test.
+Phase 4 builds the declarative view layer on top of the Phase 2–3 terminal substrate. It is the largest phase: seven slices of technical contract plus Phase 2.5, built in the order that [Prerequisites and scheduling](phase-4/prerequisites-and-scheduling.md) sets. The API should read like SwiftUI to a Swift developer — `body`, result builders, modifier chains, environment — while the machinery underneath stays a plain, inspectable system you can dump, step, and unit test.
 
 The design thesis is **declarative at the edge, explicit in the core**:
 
-1. **Views are cheap value descriptions.** A `View` is a value type whose only job is to
-   describe UI for the current state. Evaluating `body` allocates no terminal resources
-   and has no side effects.
-2. **Views lower into an explicit runtime tree.** A `ViewGraph` owns a tree of
-   `RuntimeNode`s produced by a documented reconciliation algorithm. Identity rules are
-   written down, the tree is dumpable (`graph.dump()`), and every pass — update, layout,
-   render, event routing — is a synchronous, separately testable function over that tree.
-   There is no attribute graph, no hidden dependency tracking, no magic.
-3. **State management is the app's job.** Composite views have no `@State`. Tessera never
-   owns business state; it consumes snapshots of it. The graph re-evaluates the root when
-   the app says so. This is what makes the layer equally comfortable under TCA,
-   `@Observable`, reducers, actors, or a plain `while` loop.
-4. **Terminal authority stays in the session.** Views declare requirements
-   (`TerminalRequirements`) and render into borrowed regions; they never see file
-   descriptors, mode toggles, or raw writers. The graph aggregates requirements and the
-   session/`ModeLifecycle` arbitrates, exactly as the ownership thesis demands.
+1. **Views are cheap value descriptions.** A `View` is a value type whose only job is to describe UI for the current state. Evaluating `body` allocates no terminal resources and has no side effects.
+2. **Views lower into an explicit runtime tree.** A `ViewGraph` owns a tree of `RuntimeNode`s produced by a documented reconciliation algorithm. Identity rules are written down, the tree is dumpable (`graph.dump()`), and every pass — update, layout, render, event routing — is a synchronous, separately testable function over that tree. There is no attribute graph, no hidden dependency tracking, no magic.
+3. **State management is the app's job.** Composite views have no `@State`. Tessera never owns business state; it consumes snapshots of it. The graph re-evaluates the root when the app says so. This is what makes the layer equally comfortable under TCA, `@Observable`, reducers, actors, or a plain `while` loop.
+4. **Terminal authority stays in the session.** Views declare requirements (`TerminalRequirements`) and render into borrowed regions; they never see file descriptors, mode toggles, or raw writers. The graph aggregates requirements and the session/`ModeLifecycle` arbitrates, exactly as the ownership thesis demands.
 
-The load-bearing concurrency rule carries over from the provisional design: **views render
-into a borrowed region; views do not own terminal capabilities.** Views, nodes, and the
-`ViewGraph` are non-`Sendable` and live in one isolation domain (the caller's in Phase 4;
-the optional `@MainActor` runtime in Phase 5). Rendering is synchronous while a region is
-held — no suspension points inside a render pass. Do not make `View: Sendable` to silence
-diagnostics; non-sendability is a feature here.
+The load-bearing concurrency rule carries over from the provisional design: **views render into a borrowed region; views do not own terminal capabilities.** Views, nodes, and the `ViewGraph` are non-`Sendable` and live in one isolation domain (the caller's in Phase 4; the optional `@MainActor` runtime in Phase 5). Rendering is synchronous while a region is held — no suspension points inside a render pass. Do not make `View: Sendable` to silence diagnostics; non-sendability is a feature here.
 
 ## Sections
 

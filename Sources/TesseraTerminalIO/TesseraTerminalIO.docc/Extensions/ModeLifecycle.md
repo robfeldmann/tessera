@@ -1,7 +1,6 @@
 # ``ModeLifecycle``
 
-Coordinates acquisition and symmetric release of terminal modes for terminal-session
-infrastructure.
+Coordinates acquisition and symmetric release of terminal modes for terminal-session infrastructure.
 
 ## Topics
 

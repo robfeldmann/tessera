@@ -5,9 +5,7 @@ status: sketch
 
 # WidgetName
 
-One-paragraph overview: what it is, what it is for, and the one-sentence version of its
-state story (what the app owns vs what is ephemeral). Widgets are controlled; see
-[Slice 7](../../spec/phase-4/slice-07-catalog-integration.md).
+One-paragraph overview: what it is, what it is for, and the one-sentence version of its state story (what the app owns vs what is ephemeral). Widgets are controlled; see [Slice 7](../../spec/phase-4/slice-07-catalog-integration.md).
 
 ## Prior art
 
@@ -18,9 +16,7 @@ Cite concrete sources with paths or links, and say what to copy and what to reje
 
 ## Anatomy
 
-One wireframe at a natural component size, followed by callouts. Callout region names are
-the vocabulary for the mouse table. Schemas and conventions:
-[README](../../design.md#wireframe-conventions).
+One wireframe at a natural component size, followed by callouts. Callout region names are the vocabulary for the mouse table. Schemas and conventions: [README](../../design.md#wireframe-conventions).
 
 ```wireframe 10x3
 ┌────────┐
@@ -35,8 +31,7 @@ Callouts (10x3, 0-based):
 
 ## States
 
-Required to reach `wireframed`: `mobile` (40x16) and `min` (declare the floor).
-Recommended: empty, focused vs unfocused, overflow, degraded (ascii/no-color).
+Required to reach `wireframed`: `mobile` (40x16) and `min` (declare the floor). Recommended: empty, focused vs unfocused, overflow, degraded (ascii/no-color).
 
 ## State model
 
@@ -64,8 +59,7 @@ Schema: [README](../../design.md#mouse-table). Regions must be named in Anatomy 
 
 ## Sizing
 
-Schema: [README](../../design.md#sizing-table). Mandatory rows: nil x nil, tight,
-under-minimum, over-maximum.
+Schema: [README](../../design.md#sizing-table). Mandatory rows: nil x nil, tight, under-minimum, over-maximum.
 
 | Proposal  | Result | Rule |
 | --------- | ------ | ---- |
@@ -77,20 +71,17 @@ Tokens consumed, each defined in [tokens.md](../tokens.md).
 
 ## Primitive dependencies
 
-Link every primitive this widget composes; note missing ones -- the `ready` gate requires
-them to exist.
+Link every primitive this widget composes; note missing ones -- the `ready` gate requires them to exist.
 
 ## Requirements
 
-Backticked sentence-style test names, each traced to a table row or wireframe state.
-Schema: [README](../../design.md#requirements-list).
+Backticked sentence-style test names, each traced to a table row or wireframe state. Schema: [README](../../design.md#requirements-list).
 
 - `TODO` (trace)
 
 ## Degradation
 
-What changes at `NO_COLOR`, 16-color, ascii-only, and below `min`. Reference the
-[degradation ladder](../tokens.md#degradation-ladder).
+What changes at `NO_COLOR`, 16-color, ascii-only, and below `min`. Reference the [degradation ladder](../tokens.md#degradation-ladder).
 
 ## Open questions
 

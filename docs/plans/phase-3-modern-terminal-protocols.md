@@ -4,9 +4,7 @@ stage: done
 created: 2026-07-02
 completed: 2026-07-11
 order: 15
-description:
-  Coordinate the twelve Phase 3 protocol slices so parser, lifecycle, renderer, live
-  session policy, tests, and the example app evolve consistently.
+description: Coordinate the twelve Phase 3 protocol slices so parser, lifecycle, renderer, live session policy, tests, and the example app evolve consistently.
 ---
 
 # Phase 3 Modern Terminal Protocols
@@ -37,11 +35,7 @@ description:
 
 ## Overview
 
-This is the coordination plan for `docs/spec.md` Phase 3. Phase 3 keeps the work inside
-`TesseraTerminal`: modern terminal protocols are added to input parsing, terminal mode
-lifecycle, rendering, configuration, tests, and examples. It does not introduce `View`,
-layout, widgets, shortcut routing, hit testing, or UI/business-state runtime management;
-terminal-session policy and mode state remain Phase 3 substrate responsibilities.
+This is the coordination plan for `docs/spec.md` Phase 3. Phase 3 keeps the work inside `TesseraTerminal`: modern terminal protocols are added to input parsing, terminal mode lifecycle, rendering, configuration, tests, and examples. It does not introduce `View`, layout, widgets, shortcut routing, hit testing, or UI/business-state runtime management; terminal-session policy and mode state remain Phase 3 substrate responsibilities.
 
 The executable slice plans are separate review units:
 
@@ -58,28 +52,13 @@ The executable slice plans are separate review units:
 - `027-phase-3-slice-11-underline-extensions.md`
 - `028-phase-3-runtime-protocol-control.md` (Slice 12)
 
-Implement them in numeric order. The order matters because each slice proves a contract
-that later slices reuse: bracketed paste establishes parser-mode isolation, focus proves
-small CSI event decoding, mouse expands event payloads, Kitty keyboard changes keyboard
-semantics, hyperlinks exercise output-side metadata, capabilities settle evidence, Kitty
-graphics builds on all of it, color degradation makes rendering capability-aware, OSC 52
-adds the first policy-gated session side effect, cursor and underline styling add live
-output policy, and Slice 12 runtime protocol control makes evidence and effective modes
-authoritative before views declare terminal requirements.
+Implement them in numeric order. The order matters because each slice proves a contract that later slices reuse: bracketed paste establishes parser-mode isolation, focus proves small CSI event decoding, mouse expands event payloads, Kitty keyboard changes keyboard semantics, hyperlinks exercise output-side metadata, capabilities settle evidence, Kitty graphics builds on all of it, color degradation makes rendering capability-aware, OSC 52 adds the first policy-gated session side effect, cursor and underline styling add live output policy, and Slice 12 runtime protocol control makes evidence and effective modes authoritative before views declare terminal requirements.
 
 ## Implementation prompts
 
-Use these prompts one slice at a time. The umbrella plan is a shared contract; the active
-slice plan is the executable checklist. After finishing one slice, stop for review and
-feedback before starting the next slice.
+Use these prompts one slice at a time. The umbrella plan is a shared contract; the active slice plan is the executable checklist. After finishing one slice, stop for review and feedback before starting the next slice.
 
-Validation is two-staged. While implementing a slice, run only the focused commands the
-slice plan lists (`swift test --filter ...`, targeted builds) to iterate quickly. Before
-stopping to hand the slice off for review, run the full gate and make it pass: the
-complete `swift test` suite and `just quality lint` (strict formatting and linting,
-including Markdown). A slice is not ready for review until the full suite and strict lint
-are green, so the focused-only guidance in each slice plan applies during development, not
-at handoff.
+Validation is two-staged. While implementing a slice, run only the focused commands the slice plan lists (`swift test --filter ...`, targeted builds) to iterate quickly. Before stopping to hand the slice off for review, run the full gate and make it pass: the complete `swift test` suite and `just quality lint` (strict formatting and linting, including Markdown). A slice is not ready for review until the full suite and strict lint are green, so the focused-only guidance in each slice plan applies during development, not at handoff.
 
 ### Slice 1 prompt — Bracketed paste
 
@@ -498,75 +477,51 @@ work, including Step 5.3, is complete.
 
 ### Input parser and event model
 
-- Extend the existing `Sources/TesseraTerminalInput` types. Do not create parallel
-  protocol-specific parsers.
-- `InputParser.feed(_:)`, `feed(contentsOf:)`, `flushPendingEscape()`, and `flush()`
-  remain the parser surface.
+- Extend the existing `Sources/TesseraTerminalInput` types. Do not create parallel protocol-specific parsers.
+- `InputParser.feed(_:)`, `feed(contentsOf:)`, `flushPendingEscape()`, and `flush()` remain the parser surface.
 - `InputEvent.unknown([UInt8])` remains the lossless malformed-input escape hatch.
-- Bracketed paste is a parser mode. While inside paste, ANSI-looking bytes are payload
-  unless they match the exact bracketed-paste end marker.
-- Focus, mouse, Kitty keyboard, and APC graphics reports are recognized only in normal
-  parser mode.
+- Bracketed paste is a parser mode. While inside paste, ANSI-looking bytes are payload unless they match the exact bracketed-paste end marker.
+- Focus, mouse, Kitty keyboard, and APC graphics reports are recognized only in normal parser mode.
 - Byte splitting is part of every parser contract. Each protocol gets byte-by-byte tests.
-- Parser protocol modes must avoid hot-path heap churn. Use bounded marker state and
-  private buffers for large payload modes; do not reintroduce `bytes.flatMap { feed($0) }`
-  or per-byte event-array allocation in `feed(contentsOf:)`.
-- `PlatformIO` remains the single raw-byte-to-`InputEvent` pipeline. Empty byte chunks
-  keep their current meaning: input-idle notifications for bare-Escape disambiguation.
+- Parser protocol modes must avoid hot-path heap churn. Use bounded marker state and private buffers for large payload modes; do not reintroduce `bytes.flatMap { feed($0) }` or per-byte event-array allocation in `feed(contentsOf:)`.
+- `PlatformIO` remains the single raw-byte-to-`InputEvent` pipeline. Empty byte chunks keep their current meaning: input-idle notifications for bare-Escape disambiguation.
 
 ### ANSI encoder and lifecycle
 
-- Extend `Sources/TesseraTerminalANSI/ControlSequence.swift`; do not scatter literal
-  escape strings through lifecycle or renderer code.
+- Extend `Sources/TesseraTerminalANSI/ControlSequence.swift`; do not scatter literal escape strings through lifecycle or renderer code.
 - Every new `ControlSequence` case must be listed in every exhaustive encoder switch.
 - DEC private modes with symmetric set/reset use one `Bool`-parameterized case.
-- Kitty keyboard is the exception: it uses explicit push/pop cases because the protocol is
-  stack-shaped.
+- Kitty keyboard is the exception: it uses explicit push/pop cases because the protocol is stack-shaped.
 - `ModeLifecycle` owns all terminal mode enable/disable bytes.
-- `rawMode` and `altScreen` stay session-fixed. Bracketed paste, focus, mouse, and Kitty
-  keyboard are application protocol modes. Kitty graphics is not a mode: there is nothing
-  to enable, only teardown bytes.
-- Cleanup may over-disable optional protocol modes and always includes the Kitty graphics
-  delete-all sequence. It must never leave a mode enabled — or an image placed — after
-  normal or abnormal exit.
-- Lifecycle writes are non-reentrant and failure-safe. Before any mutating byte, install
-  cleanup for requested and possibly-active modes; after ambiguous I/O, retain that
-  cleanup and lifecycle belief until a successful teardown clears it. Runtime reports
-  distinguish requested policy, effective modes, and possibly-active modes.
-- `ModeLifecycle.apply(applicationModes:)` is implemented after the four input modes
-  exist, in the Kitty plan. Earlier slices shape their enable/disable helpers so `apply`
-  can reuse them.
+- `rawMode` and `altScreen` stay session-fixed. Bracketed paste, focus, mouse, and Kitty keyboard are application protocol modes. Kitty graphics is not a mode: there is nothing to enable, only teardown bytes.
+- Cleanup may over-disable optional protocol modes and always includes the Kitty graphics delete-all sequence. It must never leave a mode enabled — or an image placed — after normal or abnormal exit.
+- Lifecycle writes are non-reentrant and failure-safe. Before any mutating byte, install cleanup for requested and possibly-active modes; after ambiguous I/O, retain that cleanup and lifecycle belief until a successful teardown clears it. Runtime reports distinguish requested policy, effective modes, and possibly-active modes.
+- `ModeLifecycle.apply(applicationModes:)` is implemented after the four input modes exist, in the Kitty plan. Earlier slices shape their enable/disable helpers so `apply` can reuse them.
 
 ### Renderer and output metadata
 
 - Hyperlinks are style-like metadata on rendered cells, not raw OSC bytes inside strings.
 - OSC 8 state is independent of SGR state. `resetAttributes` does not close hyperlinks.
 - `Renderer.invalidate()` must forget any believed hyperlink state once hyperlinks exist.
-- `VirtualTerminal` is the preferred renderer verification path. Exact byte tests remain
-  for the encoder surface.
+- `VirtualTerminal` is the preferred renderer verification path. Exact byte tests remain for the encoder surface.
 
 ### Windows and platform boundaries
 
 - Phase 3 protocols are bytes-in and bytes-out through the existing `PlatformIO` seam.
 - Do not add Win32 `FOCUS_EVENT_RECORD` or `MOUSE_EVENT_RECORD` public semantics.
 - `WindowsInputLoop` continues to drain legacy console records and deliver VT byte input.
-- Snapshot-backed renderer tests should run wherever
-  `VirtualTerminal.ghosttyOrUnavailable` is available; no new platform skip convention is
-  introduced.
+- Snapshot-backed renderer tests should run wherever `VirtualTerminal.ghosttyOrUnavailable` is available; no new platform skip convention is introduced.
 
 ## Shared test strategy
 
 Tests are written close to the production code they protect:
 
 - `Tests/TesseraTerminalInputTests`: parser and event-model tests.
-- `Tests/TesseraTerminalANSITests`: exact `ControlSequence` byte tests and small
-  virtual-terminal round trips when useful.
+- `Tests/TesseraTerminalANSITests`: exact `ControlSequence` byte tests and small virtual-terminal round trips when useful.
 - `Tests/TesseraTerminalIOTests`: `ModeLifecycle`, cleanup, ordering, and dynamic apply.
-- `Tests/TesseraTerminalRenderingTests`: renderer bytes, visual equivalence, and hyperlink
-  damage behavior.
+- `Tests/TesseraTerminalRenderingTests`: renderer bytes, visual equivalence, and hyperlink damage behavior.
 - `Tests/TesseraTerminalBufferTests`: structural style/cell behavior.
-- `Tests/TesseraTerminalSnapshotSupportTests`: Ghostty bridge behavior needed by renderer
-  snapshots.
+- `Tests/TesseraTerminalSnapshotSupportTests`: Ghostty bridge behavior needed by renderer snapshots.
 - `Tests/TesseraTerminalTests`: session/configuration integration.
 
 Prefer snapshot-style tests when the value is structured and human-inspectable as a whole:
@@ -591,10 +546,8 @@ Add one evolving example executable instead of seven small apps:
 - Source: `Examples/Sources/Phase3ProtocolsDemo/Phase3ProtocolsDemo.swift`.
 - Dependencies: `ExampleSupport` and `TesseraTerminal`.
 - Validation command: `swift build --package-path Examples --product Phase3ProtocolsDemo`.
-- The app stays terminal-substrate-only. It writes directly through `Frame`, like the
-  current examples, and does not introduce a view layer.
-- Demo controls are `d/y/h/t/f/k/s/c/x`, with global `q/g/m`; handlers ignore release
-  events so a key release cannot repeat a policy change.
+- The app stays terminal-substrate-only. It writes directly through `Frame`, like the current examples, and does not introduce a view layer.
+- Demo controls are `d/y/h/t/f/k/s/c/x`, with global `q/g/m`; handlers ignore release events so a key release cannot repeat a policy change.
 
 High-level wireframe:
 
@@ -613,29 +566,17 @@ High-level wireframe:
 └────────────────────────────────────────────────────────────────────────────┘
 ```
 
-Each slice plan includes a panel-specific wireframe. The app should be useful during
-review, but it is not the primary verification mechanism; tests remain the authority.
+Each slice plan includes a panel-specific wireframe. The app should be useful during review, but it is not the primary verification mechanism; tests remain the authority.
 
 ## Cross-slice defaults and policy decisions
 
-- `TerminalApplicationConfiguration.default` enables bracketed paste and focus events once
-  those slices land.
-- Mouse tracking stays opt-in until configuration policy is settled. It changes selection
-  and scrollback behavior.
-- Kitty keyboard stays out of the default until the capability slice settles policy. The
-  parser still decodes valid Kitty reports if a terminal sends them.
-- OSC 8 rendering is enabled when style metadata asks for it. Unsupported terminals still
-  show the visible text.
-- Capability detection begins with unknown evidence and exposes evidence separately from
-  application policy. No response leaves a bounded active probe unknown rather than
-  failing startup or implying support.
-- Kitty graphics is never transmitted by default. Passive detection sends no query;
-  explicit active detection may send the KGP query, and apps still opt into image
-  transmission through session APIs. Teardown always over-cleans with delete-all.
-- Underline rendering remains `.extended` by default. Apps explicitly opt into
-  `.terminfoDatabase` compatibility; only valid declarations may project the configured
-  policy, unavailable or malformed evidence preserves it, and the runtime setter wins. No
-  terminal-brand branches are permitted.
+- `TerminalApplicationConfiguration.default` enables bracketed paste and focus events once those slices land.
+- Mouse tracking stays opt-in until configuration policy is settled. It changes selection and scrollback behavior.
+- Kitty keyboard stays out of the default until the capability slice settles policy. The parser still decodes valid Kitty reports if a terminal sends them.
+- OSC 8 rendering is enabled when style metadata asks for it. Unsupported terminals still show the visible text.
+- Capability detection begins with unknown evidence and exposes evidence separately from application policy. No response leaves a bounded active probe unknown rather than failing startup or implying support.
+- Kitty graphics is never transmitted by default. Passive detection sends no query; explicit active detection may send the KGP query, and apps still opt into image transmission through session APIs. Teardown always over-cleans with delete-all.
+- Underline rendering remains `.extended` by default. Apps explicitly opt into `.terminfoDatabase` compatibility; only valid declarations may project the configured policy, unavailable or malformed evidence preserves it, and the runtime setter wins. No terminal-brand branches are permitted.
 
 ## Integrated validation sweep
 

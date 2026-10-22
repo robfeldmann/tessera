@@ -4,9 +4,7 @@ stage: done
 created: 2026-07-02
 completed: 2026-07-07
 order: 21
-description:
-  Add conservative terminal capability reporting and configuration policy so modern
-  protocol enablement degrades gracefully.
+description: Add conservative terminal capability reporting and configuration policy so modern protocol enablement degrades gracefully.
 ---
 
 # Phase 3 Slice 6 Terminal Capability Detection
@@ -26,19 +24,13 @@ description:
 
 ## Overview
 
-This plan implements `docs/spec.md` Phase 3 Slice 6. Capabilities are advisory hints, not
-truth. A terminal that does not answer a query or advertises an unknown identity must
-still start cleanly, draw visible text, parse legacy input, and restore modes on exit.
+This plan implements `docs/spec.md` Phase 3 Slice 6. Capabilities are advisory hints, not truth. A terminal that does not answer a query or advertises an unknown identity must still start cleanly, draw visible text, parse legacy input, and restore modes on exit.
 
-Historical Slice 6 began with passive, environment-based detection. The current contract
-adds `.active` bounded protocol-native probing and runtime reconciliation, but treats both
-environment-derived identity and declarations as advisory evidence rather than proof of
-protocol support.
+Historical Slice 6 began with passive, environment-based detection. The current contract adds `.active` bounded protocol-native probing and runtime reconciliation, but treats both environment-derived identity and declarations as advisory evidence rather than proof of protocol support.
 
 ## Phase 1 — Capability model and passive detection
 
-**Goal**: Tessera can report what it knows, assumes, or does not know about the
-surrounding terminal without changing startup behavior yet.
+**Goal**: Tessera can report what it knows, assumes, or does not know about the surrounding terminal without changing startup behavior yet.
 
 ### Step 1.1 — Add terminal capability value types
 
@@ -75,11 +67,8 @@ public struct TerminalCapabilities: Equatable, Sendable {
 ```
 
 - Add small value types for `TerminalIdentity` and `ColorCapability`.
-- Prefer explicit associated values for source strings over raw environment dictionaries.
-  Public values should explain what Tessera decided, not leak process environment
-  wholesale.
-- Include static constructors for `.unknown` or `.conservativeDefault` if that makes tests
-  clearer.
+- Prefer explicit associated values for source strings over raw environment dictionaries. Public values should explain what Tessera decided, not leak process environment wholesale.
+- Include static constructors for `.unknown` or `.conservativeDefault` if that makes tests clearer.
 - Do not put raw file descriptors, handles, or query closures in public capability values.
 
 Acceptance:
@@ -92,20 +81,14 @@ Acceptance:
 - Files:
   - `Sources/TesseraTerminal/TerminalCapabilityDetector.swift`
   - `Tests/TesseraTerminalTests/TerminalCapabilityTests.swift`
-- Add a package-visible detector that accepts an explicit environment dictionary. Do not
-  read `ProcessInfo.processInfo.environment` directly inside most logic.
+- Add a package-visible detector that accepts an explicit environment dictionary. Do not read `ProcessInfo.processInfo.environment` directly inside most logic.
 - Map obvious hints:
-  - `TERM_PROGRAM=Apple_Terminal`, `iTerm.app`, `WezTerm`, `Ghostty`, or known equivalents
-    into a `TerminalIdentity` value when present
-  - `TERM` prefixes such as `xterm`, `screen`, `tmux`, `wezterm`, `foot`, `kitty`, and
-    `ghostty` into conservative identity hints
+  - `TERM_PROGRAM=Apple_Terminal`, `iTerm.app`, `WezTerm`, `Ghostty`, or known equivalents into a `TerminalIdentity` value when present
+  - `TERM` prefixes such as `xterm`, `screen`, `tmux`, `wezterm`, `foot`, `kitty`, and `ghostty` into conservative identity hints
   - `COLORTERM=truecolor` or `24bit` into true-color support
   - `NO_COLOR` into color disabled or restricted policy input
   - `TMUX` or `STY` into `isNested = true`
-- Keep protocol support conservative: environment-derived terminal identity is diagnostic
-  metadata, not support evidence. Passive detection leaves queryable protocol status
-  `.unknown` until protocol-native evidence is observed; it never marks a protocol
-  supported or unsupported merely because of a terminal name.
+- Keep protocol support conservative: environment-derived terminal identity is diagnostic metadata, not support evidence. Passive detection leaves queryable protocol status `.unknown` until protocol-native evidence is observed; it never marks a protocol supported or unsupported merely because of a terminal name.
 - Do not fail when environment variables are missing or contradictory.
 
 Add tests for:
@@ -118,8 +101,7 @@ Add tests for:
 - unknown terminal remains unknown, not unsupported
 - conflicting hints choose the safer result and document the tie-breaker in the test name
 
-Prefer snapshot-style capability dumps for whole capability structs, because reviewers
-need to inspect multiple related fields together.
+Prefer snapshot-style capability dumps for whole capability structs, because reviewers need to inspect multiple related fields together.
 
 Acceptance:
 
@@ -128,8 +110,7 @@ Acceptance:
 
 ## Phase 2 — Configuration policy and session integration
 
-**Goal**: public configuration expresses intent, session startup resolves that intent with
-capabilities, and users can inspect what Tessera enabled.
+**Goal**: public configuration expresses intent, session startup resolves that intent with capabilities, and users can inspect what Tessera enabled.
 
 ### Step 2.1 — Replace direct default mode policy with explicit protocol knobs
 
@@ -137,9 +118,7 @@ capabilities, and users can inspect what Tessera enabled.
   - `Sources/TesseraTerminal/TerminalApplicationConfiguration.swift`
   - `Tests/TesseraTerminalTests/TerminalSessionTests.swift`
   - `Examples/Sources/Phase3ProtocolsDemo/Phase3ProtocolsDemo.swift`
-- Keep the existing `modes` initializer only if it remains necessary for tests. The
-  default app configuration should stop being defined primarily as a raw set of
-  `ModeLifecycle.Mode` values.
+- Keep the existing `modes` initializer only if it remains necessary for tests. The default app configuration should stop being defined primarily as a raw set of `ModeLifecycle.Mode` values.
 - Add explicit fields:
 
 ```swift
@@ -182,15 +161,12 @@ public enum HyperlinkRenderingMode: Equatable, Sendable {
   - `keyboardProtocol: .kittyIfAvailable`
   - `hyperlinkRendering: .enabled`
   - `synchronizedOutput: .enabled`
-- `kittyRequired` may fail startup only if mode enablement fails locally. It must not fail
-  just because passive detection returns unknown unless the policy explicitly chooses that
-  behavior and tests name it.
+- `kittyRequired` may fail startup only if mode enablement fails locally. It must not fail just because passive detection returns unknown unless the policy explicitly chooses that behavior and tests name it.
 
 Acceptance:
 
 - Public configuration reads like app intent, not raw terminal byte modes.
-- Existing tests and examples are migrated to the new initializer or an explicit low-level
-  test initializer.
+- Existing tests and examples are migrated to the new initializer or an explicit low-level test initializer.
 
 ### Step 2.2 — Resolve startup modes from configuration and capabilities
 
@@ -207,20 +183,15 @@ Acceptance:
 - Include `.bracketedPaste` when `enableBracketedPaste` is true.
 - Include `.focusEvents` when `enableFocusEvents` is true.
 - Include `.mouseTracking` only when `mouseTracking == .buttonEvents`.
-- Include `.kittyKeyboard` for `.kittyIfAvailable` only after positive, protocol-native
-  Kitty keyboard evidence. Unknown, missing, or advisory identity/declaration evidence
-  leaves the requested policy pending and Kitty keyboard disabled.
+- Include `.kittyKeyboard` for `.kittyIfAvailable` only after positive, protocol-native Kitty keyboard evidence. Unknown, missing, or advisory identity/declaration evidence leaves the requested policy pending and Kitty keyboard disabled.
 - Include `.kittyKeyboard` when `keyboardProtocol == .kittyRequired`.
 - Exclude `.kittyKeyboard` when `keyboardProtocol == .legacyOnly`.
-- Keep capability detection advisory. Resolver tests should name every conservative
-  assumption.
-- Refresh cleanup bytes through `ModeLifecycle` exactly as before; config resolution must
-  not bypass lifecycle.
+- Keep capability detection advisory. Resolver tests should name every conservative assumption.
+- Refresh cleanup bytes through `ModeLifecycle` exactly as before; config resolution must not bypass lifecycle.
 
 Add tests for:
 
-- default config resolves raw, alternate screen, bracketed paste, and focus; conditional
-  Kitty keyboard remains pending until positive protocol-native evidence
+- default config resolves raw, alternate screen, bracketed paste, and focus; conditional Kitty keyboard remains pending until positive protocol-native evidence
 - mouse stays disabled by default
 - explicit mouse button events add mouse tracking
 - legacy-only keyboard excludes Kitty
@@ -251,16 +222,13 @@ public private(set) var possiblyActiveProtocolModes: Set<ModeLifecycle.Mode>
 public var protocolModeReport: TerminalProtocolModeReport { get }
 ```
 
-- `capabilities` records detected evidence; requested policy and effective/possibly-active
-  lifecycle state remain separate. If public exposure of `ModeLifecycle.Mode` is too
-  low-level, expose an equivalent typed report rather than raw bytes.
+- `capabilities` records detected evidence; requested policy and effective/possibly-active lifecycle state remain separate. If public exposure of `ModeLifecycle.Mode` is too low-level, expose an equivalent typed report rather than raw bytes.
 - The example app uses this live report for the capabilities panel.
 - Inspection is read-only to callers and does not leak raw handles or output authority.
 
 Acceptance:
 
-- Apps can inspect advisory evidence, requested policy, effective modes, and modes that
-  may require defensive cleanup.
+- Apps can inspect advisory evidence, requested policy, effective modes, and modes that may require defensive cleanup.
 - Inspection does not grant output authority.
 
 ## Phase 3 — Example app and validation
@@ -270,14 +238,12 @@ Acceptance:
 ### Step 3.1 — Add the capabilities panel to `Phase3ProtocolsDemo`
 
 - File: `Examples/Sources/Phase3ProtocolsDemo/Phase3ProtocolsDemo.swift`.
-- Add panel navigation: `1` paste, `2` focus, `3` mouse, `4` keys, `5` links, `6`
-  capabilities.
+- Add panel navigation: `1` paste, `2` focus, `3` mouse, `4` keys, `5` links, `6` capabilities.
 - Show:
   - detected identity, labeled diagnostic
   - nested terminal status
   - detected and effective color capability
-  - live protocol evidence for paste, focus, mouse, Kitty keyboard, OSC 8, and
-    synchronized output, without deriving support from identity
+  - live protocol evidence for paste, focus, mouse, Kitty keyboard, OSC 8, and synchronized output, without deriving support from identity
   - requested, effective, and possibly-active protocol modes for this session
 - Keep the display compact and stable. This panel should be usable as a manual smoke test.
 
@@ -309,8 +275,7 @@ Session state
 Acceptance:
 
 - The panel renders even when every capability is unknown.
-- The panel reports policy and capability state without performing active terminal
-  queries.
+- The panel reports policy and capability state without performing active terminal queries.
 
 ### Step 3.2 — Run narrow capability, lifecycle, session, renderer, and example checks
 
@@ -332,7 +297,6 @@ just core example Phase3ProtocolsDemo
 
 Acceptance:
 
-- Capability detection, configuration resolution, session integration, and renderer policy
-  checks pass.
+- Capability detection, configuration resolution, session integration, and renderer policy checks pass.
 - The example app has all six Phase 3 panels.
 - Startup succeeds when capabilities are unknown.

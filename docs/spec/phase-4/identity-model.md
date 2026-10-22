@@ -25,19 +25,9 @@ enum Slot: Hashable, Sendable {
 
 The rules, exhaustively:
 
-1. **Structural by default.** A view's identity is where it sits in its parent's children.
-   Reordering siblings reorders identities.
-2. **`ForEach` is always keyed.** Elements identify by `Identifiable` id or an explicit
-   `id:` key path. Moves preserve node state; there is no index-keyed `ForEach` over
-   non-identifiable data without an explicit key path.
-3. **`if`/`else` branches are distinct.** Switching branches destroys the old subtree (and
-   its `NodeState`) and builds the new one. Same as SwiftUI, but stated.
-4. **`.id(_:)` resets identity.** Changing the value tears down and rebuilds the subtree.
-   This is the explicit "reset this widget" lever. The explicit value is scoped by the
-   structural path above it; duplicate `.id("row")` values in different parents are
-   distinct, not aliased globally.
-5. **Type change is identity change.** If the view type at a slot differs from last
-   update, the old node is discarded.
-6. **Identity loss is observable.** The graph can report created/destroyed node counts per
-   update (`graph.statistics`), and `graph.dump()` prints every node's identity path, so
-   "why did my text field lose its cursor" is answerable by looking.
+1. **Structural by default.** A view's identity is where it sits in its parent's children. Reordering siblings reorders identities.
+2. **`ForEach` is always keyed.** Elements identify by `Identifiable` id or an explicit `id:` key path. Moves preserve node state; there is no index-keyed `ForEach` over non-identifiable data without an explicit key path.
+3. **`if`/`else` branches are distinct.** Switching branches destroys the old subtree (and its `NodeState`) and builds the new one. Same as SwiftUI, but stated.
+4. **`.id(_:)` resets identity.** Changing the value tears down and rebuilds the subtree. This is the explicit "reset this widget" lever. The explicit value is scoped by the structural path above it; duplicate `.id("row")` values in different parents are distinct, not aliased globally.
+5. **Type change is identity change.** If the view type at a slot differs from last update, the old node is discarded.
+6. **Identity loss is observable.** The graph can report created/destroyed node counts per update (`graph.statistics`), and `graph.dump()` prints every node's identity path, so "why did my text field lose its cursor" is answerable by looking.

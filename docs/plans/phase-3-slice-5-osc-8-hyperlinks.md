@@ -4,9 +4,7 @@ stage: done
 created: 2026-07-02
 completed: 2026-07-06
 order: 20
-description:
-  Add semantic OSC 8 hyperlink styling, encoder support, renderer state transitions,
-  hyperlink-aware snapshots, and a demo panel.
+description: Add semantic OSC 8 hyperlink styling, encoder support, renderer state transitions, hyperlink-aware snapshots, and a demo panel.
 ---
 
 # Phase 3 Slice 5 OSC 8 Hyperlinks
@@ -27,24 +25,19 @@ description:
 
 ## Overview
 
-This plan implements `docs/spec.md` Phase 3 Slice 5. OSC 8 hyperlinks are output metadata:
-visible text is still ordinary cells, while a style field tells the renderer to surround
-those cells with OSC 8 open/close sequences.
+This plan implements `docs/spec.md` Phase 3 Slice 5. OSC 8 hyperlinks are output metadata: visible text is still ordinary cells, while a style field tells the renderer to surround those cells with OSC 8 open/close sequences.
 
-Do not model hyperlinks as raw terminal payloads. Raw payloads intentionally bypass
-semantic validation and snapshot support; links are a first-class style feature.
+Do not model hyperlinks as raw terminal payloads. Raw payloads intentionally bypass semantic validation and snapshot support; links are a first-class style feature.
 
 ## Phase 1 — Hyperlink model and cell styling
 
-**Goal**: buffers can carry link metadata safely, and link metadata participates in style
-equality and damage tracking.
+**Goal**: buffers can carry link metadata safely, and link metadata participates in style equality and damage tracking.
 
 ### Step 1.1 — Add a validated `Hyperlink` value type
 
 - Files:
   - new `Sources/TesseraTerminalANSI/Hyperlink.swift`
-  - `Tests/TesseraTerminalANSITests/ANSIEncoderTests.swift` or a focused new
-    `HyperlinkTests.swift` in the same test target
+  - `Tests/TesseraTerminalANSITests/ANSIEncoderTests.swift` or a focused new `HyperlinkTests.swift` in the same test target
 - Add a public value:
 
 ```swift
@@ -54,8 +47,7 @@ public struct Hyperlink: Equatable, Hashable, Sendable {
 }
 ```
 
-- Use a throwing initializer or failable initializer. Pick one style and keep tests
-  explicit about failure cases.
+- Use a throwing initializer or failable initializer. Pick one style and keep tests explicit about failure cases.
 - Validate `uri`:
   - non-empty
   - no C0 controls
@@ -68,10 +60,8 @@ public struct Hyperlink: Equatable, Hashable, Sendable {
   - no C0 controls
   - no `DEL`
   - no semicolon, because it lives in the OSC 8 params section
-- Do not parse or restrict URL schemes in this slice. `file:`, `https:`, editor links, and
-  terminal-specific links should remain possible.
-- Add tests for accepted ordinary links, accepted ids, and every rejected control-byte
-  case.
+- Do not parse or restrict URL schemes in this slice. `file:`, `https:`, editor links, and terminal-specific links should remain possible.
+- Add tests for accepted ordinary links, accepted ids, and every rejected control-byte case.
 
 Acceptance:
 
@@ -88,23 +78,18 @@ Acceptance:
 - Add `public var hyperlink: Hyperlink?` to `Style`.
 - Update `Style.init` with default `hyperlink: nil`.
 - Ensure `Style` remains `Equatable, Sendable`.
-- Because `Cell` equality already includes style, hyperlink changes should automatically
-  dirty affected cells through `BufferDiff`. Add a test that proves a style-only hyperlink
-  change is visible in buffer or diff snapshots.
-- Update reusable buffer snapshots to include a readable link suffix for non-default
-  style, such as `link=https://example.com` or `link=id:docs`.
+- Because `Cell` equality already includes style, hyperlink changes should automatically dirty affected cells through `BufferDiff`. Add a test that proves a style-only hyperlink change is visible in buffer or diff snapshots.
+- Update reusable buffer snapshots to include a readable link suffix for non-default style, such as `link=https://example.com` or `link=id:docs`.
 - Avoid changing width, grapheme, raw payload, or opaque-cell semantics.
 
 Acceptance:
 
-- Writing text with a hyperlink-bearing style stores the same visible characters with link
-  metadata.
+- Writing text with a hyperlink-bearing style stores the same visible characters with link metadata.
 - Buffer snapshots make hyperlink metadata reviewable.
 
 ## Phase 2 — OSC 8 encoder and renderer integration
 
-**Goal**: renderer output opens, switches, and closes hyperlinks exactly where cell style
-requires, without conflating OSC 8 with SGR state.
+**Goal**: renderer output opens, switches, and closes hyperlinks exactly where cell style requires, without conflating OSC 8 with SGR state.
 
 ### Step 2.1 — Add exact OSC 8 open and close encoding
 
@@ -132,8 +117,7 @@ ESC ] 8 ; ; ESC \
 ```
 
 - If `id` exists, encode params as `id=<id>`. Keep params empty otherwise.
-- Add a helper to append OSC with ST termination; do not reuse BEL-terminated
-  `setWindowTitle` behavior unless the helper explicitly supports both terminators.
+- Add a helper to append OSC with ST termination; do not reuse BEL-terminated `setWindowTitle` behavior unless the helper explicitly supports both terminators.
 - Add exact byte tests for:
   - open without id
   - open with id
@@ -153,18 +137,15 @@ Acceptance:
   - `Tests/TesseraTerminalRenderingTests/RendererSnapshotTests.swift`
   - `Tests/TesseraTerminalRenderingTests/RendererVisualEquivalenceTests.swift`
 - Add renderer state for the currently believed hyperlink, separate from `currentStyle`.
-- Before emitting a cell, compute hyperlink transition from current hyperlink to target
-  `cell.style.hyperlink`:
+- Before emitting a cell, compute hyperlink transition from current hyperlink to target `cell.style.hyperlink`:
   - nil → link: open hyperlink
   - link A → same link A: emit nothing
   - link A → link B: close then open B
   - link → nil: close hyperlink
 - SGR changes still use existing style delta helpers.
-- End every rendered frame with `closeHyperlink` if a hyperlink is active, then reset the
-  renderer's believed hyperlink state to nil.
+- End every rendered frame with `closeHyperlink` if a hyperlink is active, then reset the renderer's believed hyperlink state to nil.
 - Full repaint and damage-diff paths must both obey the same transition helper.
-- Do not close and reopen links for every linked cell when adjacent cells share the same
-  link.
+- Do not close and reopen links for every linked cell when adjacent cells share the same link.
 
 Add renderer tests for:
 
@@ -175,8 +156,7 @@ Add renderer tests for:
 - style-only hyperlink changes repaint affected cells
 - full repaint and diff repaint end in the same visible screen state
 
-Prefer `VirtualTerminal` snapshots for final screen state and exact byte assertions only
-where the transition count or sequence order is the subject of the test.
+Prefer `VirtualTerminal` snapshots for final screen state and exact byte assertions only where the transition count or sequence order is the subject of the test.
 
 Acceptance:
 
@@ -189,12 +169,9 @@ Acceptance:
   - `Sources/TesseraTerminalRendering/Renderer.swift`
   - `Sources/TesseraTerminalRendering/BufferDiff.swift` if needed
   - `Tests/TesseraTerminalRenderingTests/RendererVisualEquivalenceTests.swift`
-- Verify `BufferDiff` sees hyperlink changes through `Cell` equality. If it does not, fix
-  the equality source instead of adding hyperlink-specific damage code.
-- `Renderer.invalidate()` must forget current hyperlink state along with cursor and style
-  state.
-- Erase-before-next-repaint paths must close any believed hyperlink before erasing or
-  resetting state.
+- Verify `BufferDiff` sees hyperlink changes through `Cell` equality. If it does not, fix the equality source instead of adding hyperlink-specific damage code.
+- `Renderer.invalidate()` must forget current hyperlink state along with cursor and style state.
+- Erase-before-next-repaint paths must close any believed hyperlink before erasing or resetting state.
 
 Add tests for:
 
@@ -210,8 +187,7 @@ Acceptance:
 
 ## Phase 3 — Snapshot support, example app, and validation
 
-**Goal**: tests can inspect link metadata semantically, and reviewers can see link output
-in the demo app.
+**Goal**: tests can inspect link metadata semantically, and reviewers can see link output in the demo app.
 
 ### Step 3.1 — Add hyperlink-aware virtual-terminal snapshots
 
@@ -221,13 +197,9 @@ in the demo app.
   - `Sources/TesseraTerminalTestSupport/VirtualTerminalSnapshotting.swift`
   - `Tests/TesseraTerminalSnapshotSupportTests/VirtualTerminalTests.swift`
   - `Tests/TesseraTerminalRenderingTests/RendererSnapshotTests.swift`
-- Add `public let hyperlinkURI: String?` or a small `RenderedHyperlink?` to
-  `RenderedCell`. Use the smaller URI field unless Ghostty exposes stable id data too.
+- Add `public let hyperlinkURI: String?` or a small `RenderedHyperlink?` to `RenderedCell`. Use the smaller URI field unless Ghostty exposes stable id data too.
 - Update `.blank`, equality, and snapshots.
-- Extend the Ghostty bridge at `currentRenderedCell()` to read hyperlink metadata if the C
-  API exposes it in the linked version. If the backing API cannot expose URI metadata,
-  keep the Swift field nil and add exact renderer byte tests for OSC 8. Do not fake
-  hyperlink metadata.
+- Extend the Ghostty bridge at `currentRenderedCell()` to read hyperlink metadata if the C API exposes it in the linked version. If the backing API cannot expose URI metadata, keep the Swift field nil and add exact renderer byte tests for OSC 8. Do not fake hyperlink metadata.
 - Add a readable snapshot helper for links, for example:
 
 ```text
@@ -238,13 +210,11 @@ AAAA  .....
 A = https://example.com/docs
 ```
 
-- Add a raw virtual-terminal smoke test that feeds OSC 8 bytes and inspects the rendered
-  hyperlink field when supported.
+- Add a raw virtual-terminal smoke test that feeds OSC 8 bytes and inspects the rendered hyperlink field when supported.
 
 Acceptance:
 
-- Snapshot tests can review hyperlink placement without reading raw escape bytes when the
-  backing terminal exposes metadata.
+- Snapshot tests can review hyperlink placement without reading raw escape bytes when the backing terminal exposes metadata.
 - Unsupported snapshot metadata is explicit in tests, not silently fabricated.
 
 ### Step 3.2 — Add the links panel to `Phase3ProtocolsDemo`
@@ -253,8 +223,7 @@ Acceptance:
 - Add panel navigation: `1` paste, `2` focus, `3` mouse, `4` keys, `5` links.
 - Render a few labeled links using `Style(hyperlink:)`.
 - Also render plain fallback text so unsupported terminals still show useful content.
-- Do not ask the example to detect click support. OSC 8 click behavior belongs to the
-  terminal emulator.
+- Do not ask the example to detect click support. OSC 8 click behavior belongs to the terminal emulator.
 
 Wireframe:
 

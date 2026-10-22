@@ -5,24 +5,14 @@ description: "Proposed module and file layout"
 
 # Proposed module and file layout
 
-This is a proposed landing shape for the package as the spec is implemented. It is not a
-promise that every file must exist on day one, and it should not prevent small files from
-being merged or split when the implementation reveals a better seam. Its purpose is to
-make ownership and dependency direction obvious before code starts accumulating.
+This is a proposed landing shape for the package as the spec is implemented. It is not a promise that every file must exist on day one, and it should not prevent small files from being merged or split when the implementation reveals a better seam. Its purpose is to make ownership and dependency direction obvious before code starts accumulating.
 
-The package should use multiple SwiftPM targets, not just folders inside two large
-modules. That keeps builds focused, lets tests run against individual layers, and lets
-SwiftPM itself enforce architectural boundaries. The public user experience should still
-be simple: most users import `TesseraTerminal` or `Tessera`, while the package internally
-keeps ANSI, buffer, input, rendering, IO, layout, widgets, and runtime separate.
+The package should use multiple SwiftPM targets, not just folders inside two large modules. That keeps builds focused, lets tests run against individual layers, and lets SwiftPM itself enforce architectural boundaries. The public user experience should still be simple: most users import `TesseraTerminal` or `Tessera`, while the package internally keeps ANSI, buffer, input, rendering, IO, layout, widgets, and runtime separate.
 
 Two rules matter more than the exact filenames:
 
-1. `TesseraTerminal`-level targets must not depend on `Tessera`-level targets. The
-   terminal substrate is the lower layer.
-2. Platform-specific code should stay behind narrow targets/files and public abstractions.
-   Most of the encoder, parser, buffer, renderer, and tests should be
-   platform-independent.
+1. `TesseraTerminal`-level targets must not depend on `Tessera`-level targets. The terminal substrate is the lower layer.
+2. Platform-specific code should stay behind narrow targets/files and public abstractions. Most of the encoder, parser, buffer, renderer, and tests should be platform-independent.
 
 Recommended product/target shape:
 
@@ -51,16 +41,7 @@ Targets:
   TesseraTerminalTestSupport
 ```
 
-The `TesseraTerminal` targets are relatively concrete because Phases 1–3 define their
-responsibilities in detail. `TesseraTerminalTestSupport` owns terminal-specific fixtures,
-in-memory sessions, virtual-terminal snapshot helpers, and renderer diagnostics without
-making live-terminal escape hatches public. `TesseraTestSupport` is the elevated testing
-surface for view graphs, layouts, and widgets. It depends on `TesseraCore`, re-exports
-`TesseraTerminalTestSupport`, and owns stable high-level snapshot strategies rather than
-placing them in individual test files. The production `Tessera` targets follow the Phase 4
-slice plan: `TesseraCore` for the view protocol, graph, environment, and responder system;
-`TesseraLayout` for the layout protocol, containers, and decoration; `TesseraWidgets` for
-the standard widget set; and `TesseraRuntime` (Phase 5) for the optional convenience loop.
+The `TesseraTerminal` targets are relatively concrete because Phases 1–3 define their responsibilities in detail. `TesseraTerminalTestSupport` owns terminal-specific fixtures, in-memory sessions, virtual-terminal snapshot helpers, and renderer diagnostics without making live-terminal escape hatches public. `TesseraTestSupport` is the elevated testing surface for view graphs, layouts, and widgets. It depends on `TesseraCore`, re-exports `TesseraTerminalTestSupport`, and owns stable high-level snapshot strategies rather than placing them in individual test files. The production `Tessera` targets follow the Phase 4 slice plan: `TesseraCore` for the view protocol, graph, environment, and responder system; `TesseraLayout` for the layout protocol, containers, and decoration; `TesseraWidgets` for the standard widget set; and `TesseraRuntime` (Phase 5) for the optional convenience loop.
 
 Swift SPI may be used sparingly when SwiftPM visibility is not expressive enough:
 
@@ -68,12 +49,9 @@ Swift SPI may be used sparingly when SwiftPM visibility is not expressive enough
 @_spi(TestSupport) public func rendererDiagnostics() -> RendererDiagnostics
 ```
 
-SPI is an explicit opt-in for diagnostics, test hooks, and narrow cross-target seams. It
-must not become a production-facing way to bypass terminal ownership, leak raw handles, or
-write arbitrary bytes to a live terminal.
+SPI is an explicit opt-in for diagnostics, test hooks, and narrow cross-target seams. It must not become a production-facing way to bypass terminal ownership, leak raw handles, or write arbitrary bytes to a live terminal.
 
-The `TesseraTerminal` and `Tessera` targets are intentionally thin public import surfaces.
-They should contain little more than re-exports:
+The `TesseraTerminal` and `Tessera` targets are intentionally thin public import surfaces. They should contain little more than re-exports:
 
 ```swift
 @_exported import TesseraTerminalCore
@@ -84,15 +62,13 @@ They should contain little more than re-exports:
 @_exported import TesseraTerminalIO
 ```
 
-Likewise, `Tessera` re-exports the view-layer targets and `TesseraTerminal` so app authors
-can usually write:
+Likewise, `Tessera` re-exports the view-layer targets and `TesseraTerminal` so app authors can usually write:
 
 ```swift
 import Tessera
 ```
 
-instead of importing a long list of implementation modules. Internal implementation code
-can still import the narrower target it actually needs.
+instead of importing a long list of implementation modules. Internal implementation code can still import the narrower target it actually needs.
 
 Proposed source layout:
 
@@ -220,11 +196,7 @@ Sources/
     List.swift
 ```
 
-Within a target, source directories group durable responsibilities rather than delivery
-stages. Prefer one primary public concept per file, keep an underscored implementation
-beside the public API it supports, and retain tightly coupled helper types together when
-splitting them would widen access or obscure an ownership boundary. New source files must
-extend this structure instead of restoring a flat target root.
+Within a target, source directories group durable responsibilities rather than delivery stages. Prefer one primary public concept per file, keep an underscored implementation beside the public API it supports, and retain tightly coupled helper types together when splitting them would widen access or obscure an ownership boundary. New source files must extend this structure instead of restoring a flat target root.
 
 Proposed test layout mirrors the targets so each layer can be built and tested directly:
 
@@ -289,33 +261,21 @@ Examples/
 
 Suggested dependency direction inside `TesseraTerminal`:
 
-- `TesseraTerminalCore` should contain tiny shared value types and helpers with no
-  dependency on terminal IO.
+- `TesseraTerminalCore` should contain tiny shared value types and helpers with no dependency on terminal IO.
 - `TesseraTerminalANSI` should be pure and depend only on core value types.
 - `TesseraTerminalBuffer` may depend on core geometry and style values, but not on IO.
-- `TesseraTerminalRendering` may depend on buffer and ANSI targets, but not on
-  platform-specific files.
-- `TesseraTerminalInput` should be pure parser/event code; it should not own file
-  descriptors or tasks.
-- `TesseraTerminalIO` owns file descriptors, console handles, lifecycle, cleanup, and
-  async streams. It may depend on ANSI and Input but should keep OS-specific code local.
-- `TesseraTerminalSnapshotSupport` may depend on ANSI, Buffer, and Rendering, but
-  production targets should not depend on snapshot helpers.
+- `TesseraTerminalRendering` may depend on buffer and ANSI targets, but not on platform-specific files.
+- `TesseraTerminalInput` should be pure parser/event code; it should not own file descriptors or tasks.
+- `TesseraTerminalIO` owns file descriptors, console handles, lifecycle, cleanup, and async streams. It may depend on ANSI and Input but should keep OS-specific code local.
+- `TesseraTerminalSnapshotSupport` may depend on ANSI, Buffer, and Rendering, but production targets should not depend on snapshot helpers.
 
 Dependency direction inside `Tessera`:
 
-- `TesseraCore` defines the `View` protocol, graph, environment, focus/responder system,
-  and `Text`. It directly depends only on `TesseraTerminalCore`, `TesseraTerminalBuffer`
-  (the borrowed `Frame`/`Buffer`/`Style` seam), and `TesseraTerminalInput`; it never
-  imports `TesseraTerminal`, `TesseraTerminalIO`, platform shims, or UI frameworks.
-- `TesseraLayout` builds only on `TesseraCore`: the `Layout` protocol, containers, styling
-  modifiers, and decoration.
-- `TesseraWidgets` builds only on `TesseraCore` + `TesseraLayout`. It starts in Slice 2
-  rather than waiting for Slice 7 so ScrollView and SplitView do not require a temporary
-  target.
+- `TesseraCore` defines the `View` protocol, graph, environment, focus/responder system, and `Text`. It directly depends only on `TesseraTerminalCore`, `TesseraTerminalBuffer` (the borrowed `Frame`/`Buffer`/`Style` seam), and `TesseraTerminalInput`; it never imports `TesseraTerminal`, `TesseraTerminalIO`, platform shims, or UI frameworks.
+- `TesseraLayout` builds only on `TesseraCore`: the `Layout` protocol, containers, styling modifiers, and decoration.
+- `TesseraWidgets` builds only on `TesseraCore` + `TesseraLayout`. It starts in Slice 2 rather than waiting for Slice 7 so ScrollView and SplitView do not require a temporary target.
 - `TesseraRuntime` (Phase 5) may depend on the whole view layer plus `TesseraTerminal`.
-- The `Tessera` target re-exports the public view-layer modules (and `TesseraTerminal`)
-  for app authors.
+- The `Tessera` target re-exports the public view-layer modules (and `TesseraTerminal`) for app authors.
 
 Prefer Swift's access control to model intent:
 
@@ -324,6 +284,4 @@ Prefer Swift's access control to model intent:
 - `internal` for details local to one target.
 - `private` / `fileprivate` for ordinary implementation hiding.
 
-This modular target structure is more ceremony in `Package.swift`, but that ceremony buys
-faster focused tests, clearer compiler-enforced boundaries, and better context control for
-future implementation work.
+This modular target structure is more ceremony in `Package.swift`, but that ceremony buys faster focused tests, clearer compiler-enforced boundaries, and better context control for future implementation work.

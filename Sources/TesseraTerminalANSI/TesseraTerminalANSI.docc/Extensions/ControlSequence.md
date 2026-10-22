@@ -1,7 +1,6 @@
 # ``ControlSequence``
 
-A semantic ANSI/VT operation. Encode one operation with ``encode(into:)``, or encode an
-ordered sequence with ``ANSIEncoder/encode(_:)``.
+A semantic ANSI/VT operation. Encode one operation with ``encode(into:)``, or encode an ordered sequence with ``ANSIEncoder/encode(_:)``.
 
 ## Topics
 

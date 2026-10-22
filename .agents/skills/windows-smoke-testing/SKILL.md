@@ -1,23 +1,19 @@
 ---
 name: windows-smoke-testing
-description:
-  Smoke test Tessera example apps and terminal behavior on the UTM Windows Frost VM. Use
-  when changing Windows terminal I/O, render output, protocol demos, or example apps.
+description: Smoke test Tessera example apps and terminal behavior on the UTM Windows Frost VM. Use when changing Windows terminal I/O, render output, protocol demos, or example apps.
 version: 0.1.0
 ---
 
 # Windows Smoke Testing
 
-Use the UTM Windows Frost VM to prove example apps work against a real Windows console,
-not only stubbed syscalls.
+Use the UTM Windows Frost VM to prove example apps work against a real Windows console, not only stubbed syscalls.
 
 ## Prerequisites
 
 - UTM Windows Frost VM is booted.
 - Source tree is the macOS checkout.
 - Use `pnpm`/`pnpx` for Node tooling if needed; use SwiftPM directly inside Windows.
-- Prefer `SSHPASS` in the environment for SSH automation; do not paste passwords into
-  transcripts unless the user already asked for that credential.
+- Prefer `SSHPASS` in the environment for SSH automation; do not paste passwords into transcripts unless the user already asked for that credential.
 
 Find the VM IP:
 
@@ -41,8 +37,7 @@ From macOS:
 just windows-frost sync-utm <vm-ip>
 ```
 
-This replaces `C:\Users\tester\tessera` in the Windows guest. If sync fails because an
-example executable is locked, stop the stale process and sync again:
+This replaces `C:\Users\tester\tessera` in the Windows guest. If sync fails because an example executable is locked, stop the stale process and sync again:
 
 ```sh
 sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
@@ -78,8 +73,7 @@ C:\Users\tester\tessera\Examples\.build\aarch64-unknown-windows-msvc\debug\<Prod
 
 ## Automated PTY Smoke Pattern
 
-For scripted smoke tests, drive an interactive SSH PTY from an `eval` cell or another real
-program, not a fragile shell one-liner. Pattern:
+For scripted smoke tests, drive an interactive SSH PTY from an `eval` cell or another real program, not a fragile shell one-liner. Pattern:
 
 1. Start `ssh -tt tester@<vm-ip>` running the built `.exe`.
 2. Wait for initial render.
@@ -87,13 +81,11 @@ program, not a fragile shell one-liner. Pattern:
 4. Send `q` or the app's documented quit key.
 5. Assert exit code `0` and inspect captured output for observable text.
 
-Keep a GUI/manual pass for visual rendering issues; byte capture cannot prove glyph cell
-alignment.
+Keep a GUI/manual pass for visual rendering issues; byte capture cannot prove glyph cell alignment.
 
 ## Choosing Smoke Coverage
 
-Choose inputs from the behavior being changed rather than from a specific executable,
-scene, or sample.
+Choose inputs from the behavior being changed rather than from a specific executable, scene, or sample.
 
 Prefer smoke scenarios that prove one externally visible contract at a time:
 
@@ -123,8 +115,7 @@ Assertions should be stable and behavior-oriented:
 - captured output contains the expected restored/cleanup marker
 - a GUI screenshot shows aligned cell rulers or expected terminal styling
 
-Keep scenario-specific names, scene numbers, and sample text in the task, test, or
-investigation that used them.
+Keep scenario-specific names, scene numbers, and sample text in the task, test, or investigation that used them.
 
 ## Validation Checklist
 

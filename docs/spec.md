@@ -6,9 +6,7 @@ description: The Tessera specification, one page per section, in reading order.
 
 # Tessera specification
 
-Tessera is the Swift counterpart to Ratatui — a cell-buffer rendering and view layer for
-terminal apps — with a compositional layout API inspired by Lip Gloss's Join/Place/Compose
-primitives. Architecture-agnostic; bring your own state management.
+Tessera is the Swift counterpart to Ratatui — a cell-buffer rendering and view layer for terminal apps — with a compositional layout API inspired by Lip Gloss's Join/Place/Compose primitives. Architecture-agnostic; bring your own state management.
 
 - A cell buffer ✓
 - A renderer with damage tracking ✓
@@ -19,35 +17,20 @@ primitives. Architecture-agnostic; bring your own state management.
 
 ## How to use this spec
 
-This spec is both a design document and an implementation plan. It is intentionally more
-verbose than a normal roadmap because future-you and future agents need enough context to
-make local changes without re-litigating terminal architecture from scratch.
+This spec is both a design document and an implementation plan. It is intentionally more verbose than a normal roadmap because future-you and future agents need enough context to make local changes without re-litigating terminal architecture from scratch.
 
 Use it selectively:
 
-- **Implementing a slice:** read the current phase intro, the current slice, and any
-  referenced prior slices. Follow the Ratatui/crossterm callouts for comparable designs.
-- **Changing a public type:** search the whole spec for that type first. Many Phase 2
-  types are intentionally extended by Phase 3 and consumed by Phase 4.
-- **Debugging behavior:** start with the slice that introduced the behavior, then read its
-  tests section and references. Avoid loading unrelated phases unless the bug crosses a
-  boundary.
-- **Planning a phase boundary:** read the whole previous phase, the next phase intro, and
-  the risk/decision notes near the end of relevant slices.
-- **Using AI assistance:** give the model the smallest relevant slice plus referenced type
-  definitions. Do not ask it to ingest the whole spec unless the task is architectural.
-- **Implementing early phases:** prefer the real public API shape as soon as it is
-  knowable. Keep behavior small and incomplete, but do not introduce placeholder,
-  temporary, or phase-named public API unless there is a specific bootstrap reason.
+- **Implementing a slice:** read the current phase intro, the current slice, and any referenced prior slices. Follow the Ratatui/crossterm callouts for comparable designs.
+- **Changing a public type:** search the whole spec for that type first. Many Phase 2 types are intentionally extended by Phase 3 and consumed by Phase 4.
+- **Debugging behavior:** start with the slice that introduced the behavior, then read its tests section and references. Avoid loading unrelated phases unless the bug crosses a boundary.
+- **Planning a phase boundary:** read the whole previous phase, the next phase intro, and the risk/decision notes near the end of relevant slices.
+- **Using AI assistance:** give the model the smallest relevant slice plus referenced type definitions. Do not ask it to ingest the whole spec unless the task is architectural.
+- **Implementing early phases:** prefer the real public API shape as soon as it is knowable. Keep behavior small and incomplete, but do not introduce placeholder, temporary, or phase-named public API unless there is a specific bootstrap reason.
 
 ## Pages
 
-The spec was one file, `docs/Spec.md`, until 2026-10-22; it is now one page per section in
-`docs/spec/`, with the three large phases split again by slice. The order below is the
-original reading order, and concatenating the pages in this order reproduces the original
-text apart from heading levels and links. Research records and completed plans written
-before the split cite `docs/Spec.md:NNNN` by line; those citations hold at the commit they
-cite and are not rewritten. Living documents link to pages and headings instead.
+The spec was one file, `docs/Spec.md`, until 2026-10-22; it is now one page per section in `docs/spec/`, with the three large phases split again by slice. The order below is the original reading order, and concatenating the pages in this order reproduces the original text apart from heading levels and links. Research records and completed plans written before the split cite `docs/Spec.md:NNNN` by line; those citations hold at the commit they cite and are not rewritten. Living documents link to pages and headings instead.
 
 - [Terminal citizenship thesis: be composable, not a compatibility ceiling](spec/terminal-citizenship-thesis.md)
 - [Ownership and isolation thesis: illegal terminal operations should be unrepresentable](spec/ownership-and-isolation-thesis.md)

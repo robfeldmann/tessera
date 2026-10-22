@@ -31,13 +31,7 @@ description: Build the Phase 1 Tessera walking skeleton.
 
 ## Overview
 
-This plan implements Phase 1 from `docs/spec.md`: a deliberately crude walking skeleton
-that proves Tessera can render a buffer to an alternate terminal screen, read raw
-keystrokes, update the screen, and exit cleanly on `q`. The work avoids Phase 2
-abstractions such as signal handling, a real ANSI encoder, diff rendering, resize
-handling, and a view protocol. The implementation should stay small and biased toward
-learning: concrete bytes, simple value types, minimal parser, direct POSIX I/O, and a tiny
-example app.
+This plan implements Phase 1 from `docs/spec.md`: a deliberately crude walking skeleton that proves Tessera can render a buffer to an alternate terminal screen, read raw keystrokes, update the screen, and exit cleanly on `q`. The work avoids Phase 2 abstractions such as signal handling, a real ANSI encoder, diff rendering, resize handling, and a view protocol. The implementation should stay small and biased toward learning: concrete bytes, simple value types, minimal parser, direct POSIX I/O, and a tiny example app.
 
 ## Phase 1 — Buffer and geometry primitives
 
@@ -46,11 +40,9 @@ example app.
 ### Step 1.1 — Replace placeholder geometry with Phase 1 terminal geometry types
 
 - File: `Sources/TesseraTerminalCore/TerminalGeometry.swift`
-- Replace `TerminalGeometry` placeholder with `TerminalSize` and `TerminalPosition`
-  structs.
+- Replace `TerminalGeometry` placeholder with `TerminalSize` and `TerminalPosition` structs.
 - Use `columns`/`rows` and `column`/`row` integer fields matching `docs/spec.md`.
-- Acceptance: `swift test --filter TesseraTerminalCoreTests` passes after updating
-  existing placeholder tests if needed.
+- Acceptance: `swift test --filter TesseraTerminalCoreTests` passes after updating existing placeholder tests if needed.
 
 ### Step 1.2 — Implement `Style`, `Cell`, and `Buffer`
 
@@ -58,16 +50,14 @@ example app.
 - Replace `Buffer` placeholder with:
   - empty `Style: Sendable, Equatable`
   - `Cell: Sendable, Equatable` with `character`, `style`, and Phase 1 `width`
-  - `Buffer: Sendable, Equatable` with `size`, flat private cells, subscript by
-    `row, column`, `clear`, and `write(_:at:style:)`
+  - `Buffer: Sendable, Equatable` with `size`, flat private cells, subscript by `row, column`, `clear`, and `write(_:at:style:)`
 - Keep width handling intentionally naive at `1` column per character.
 - Acceptance: package compiles and no view/render/input abstractions are introduced.
 
 ### Step 1.3 — Add buffer tests for init, indexing, writing, and clipping
 
 - File: `Tests/TesseraTerminalBufferTests/BufferTests.swift`
-- Cover buffer initialization with blank cells, subscript get/set, string writing at a
-  position, and clipping when text extends past the right edge or bottom.
+- Cover buffer initialization with blank cells, subscript get/set, string writing at a position, and clipping when text extends past the right edge or bottom.
 - Acceptance: `swift test --filter TesseraTerminalBufferTests` passes.
 
 ## Phase 2 — Naive render bytes
@@ -81,8 +71,7 @@ example app.
   - cursor home: `ESC [ H`
   - every cell character in row-major order
   - CR/LF between rows
-- Prefer a pure byte-producing API in this target so renderer tests do not need terminal
-  I/O; the example can pass those bytes to `PlatformIO.write`.
+- Prefer a pure byte-producing API in this target so renderer tests do not need terminal I/O; the example can pass those bytes to `PlatformIO.write`.
 - Acceptance: rendering target compiles without depending on `TesseraTerminalIO`.
 
 ### Step 2.2 — Add renderer golden-byte tests
@@ -108,8 +97,7 @@ example app.
 ### Step 3.2 — Add input parser tests
 
 - File: `Tests/TesseraTerminalInputTests/InputParserLegacyTests.swift`
-- Replace placeholder tests with coverage for quit, printable ASCII, ignored control
-  bytes, and ignored non-ASCII bytes.
+- Replace placeholder tests with coverage for quit, printable ASCII, ignored control bytes, and ignored non-ASCII bytes.
 - Acceptance: `swift test --filter TesseraTerminalInputTests` passes.
 
 ## Phase 4 — POSIX PlatformIO
@@ -121,10 +109,8 @@ example app.
 - Files:
   - `Sources/TesseraTerminalIO/PlatformIO.swift`
   - `Tests/TesseraTerminalIOTests/PlatformIOTests.swift`
-- Under `#if os(macOS) || os(Linux)`, implement terminal size with one `TIOCGWINSZ` call
-  at startup/use time and implement direct stdout writes using `write(2)`.
-- Add small injectable seams where needed so stdout byte emission and terminal-size
-  decoding can be tested without requiring an interactive TTY.
+- Under `#if os(macOS) || os(Linux)`, implement terminal size with one `TIOCGWINSZ` call at startup/use time and implement direct stdout writes using `write(2)`.
+- Add small injectable seams where needed so stdout byte emission and terminal-size decoding can be tested without requiring an interactive TTY.
 - Provide a clear unavailable/error path for unsupported platforms.
 - Avoid tests that require keyboard input or a real interactive terminal.
 - Acceptance: `swift test --filter TesseraTerminalIOTests` passes on the local platform.
@@ -136,11 +122,9 @@ example app.
   - `Tests/TesseraTerminalIOTests/PlatformIOTests.swift`
 - Save current termios, disable `ICANON` and `ECHO`, apply raw mode, restore on request.
 - Enter/exit alt screen with hardcoded `ESC [?1049 h/l` bytes.
-- Add non-interactive tests for alt-screen byte emission and any raw-mode test seams that
-  can be verified without putting CI into raw mode.
+- Add non-interactive tests for alt-screen byte emission and any raw-mode test seams that can be verified without putting CI into raw mode.
 - Preserve the Phase 1 constraint: no signal handling and no lifecycle manager.
-- Acceptance: `swift test --filter TesseraTerminalIOTests` passes in CI/non-interactive
-  shells.
+- Acceptance: `swift test --filter TesseraTerminalIOTests` passes in CI/non-interactive shells.
 
 ### Step 4.3 — Implement blocking stdin byte stream with tests
 
@@ -148,11 +132,9 @@ example app.
   - `Sources/TesseraTerminalIO/PlatformIO.swift`
   - `Tests/TesseraTerminalIOTests/PlatformIOTests.swift`
 - Expose an async byte stream backed by blocking single-byte reads from stdin in a `Task`.
-- Keep behavior minimal: no polling, no cancellation sophistication beyond what is needed
-  for clean app exit.
+- Keep behavior minimal: no polling, no cancellation sophistication beyond what is needed for clean app exit.
 - Add tests through injectable byte-read seams so CI does not block on real stdin.
-- Acceptance: `swift test --filter TesseraTerminalIOTests` passes under Swift 6
-  concurrency settings.
+- Acceptance: `swift test --filter TesseraTerminalIOTests` passes under Swift 6 concurrency settings.
 
 ## Phase 5 — HelloTessera executable
 
@@ -164,8 +146,7 @@ example app.
   - `Examples/Package.swift`
   - `Examples/Sources/HelloTessera/main.swift`
   - `Justfile`
-- Add an examples package with a `HelloTessera` executable target depending on the root
-  package's public `TesseraTerminal` product.
+- Add an examples package with a `HelloTessera` executable target depending on the root package's public `TesseraTerminal` product.
 - Add convenience recipes for building/running examples.
 - Keep `main.swift` minimal until the run loop is wired in the next step.
 - Acceptance: `swift build --package-path Examples --product HelloTessera` passes.
@@ -173,25 +154,18 @@ example app.
 ### Step 5.2 — Wire and manually verify the walking-skeleton run loop
 
 - File: `Examples/Sources/HelloTessera/main.swift`
-- Implement the loop from `docs/spec.md`: enter raw mode, enter alt screen, render
-  greeting and last key, read bytes, update on printable input, exit on `q`, and restore
-  alt screen/raw mode with `defer`.
+- Implement the loop from `docs/spec.md`: enter raw mode, enter alt screen, render greeting and last key, read bytes, update on printable input, exit on `q`, and restore alt screen/raw mode with `defer`.
 - Use direct buffer writes; do not introduce a `View` protocol.
 - Verify in the same step:
-  - `swift run --package-path Examples HelloTessera` shows
-    `Hello, Tessera. Press q to quit.`
+  - `swift run --package-path Examples HelloTessera` shows `Hello, Tessera. Press q to quit.`
   - typing letters updates the second line
   - pressing `q` exits cleanly
   - terminal returns from alt screen with prompt sane and scrollback intact
-- Acceptance: document any platform caveats in the plan progress notes or a follow-up
-  investigation if needed.
-- Verification: ran `swift run --package-path Examples HelloTessera` in a herdr pane;
-  confirmed greeting render, `a` updates `You pressed: a`, `q` exits, and prompt returns
-  sane.
+- Acceptance: document any platform caveats in the plan progress notes or a follow-up investigation if needed.
+- Verification: ran `swift run --package-path Examples HelloTessera` in a herdr pane; confirmed greeting render, `a` updates `You pressed: a`, `q` exits, and prompt returns sane.
 
 ## References
 
 - `docs/spec.md`, Phase 1: The Walking Skeleton, starting near line 266.
 - Existing scaffolding targets in `Package.swift`.
-- Local Ratatui/crossterm references listed in `AGENTS.md` if implementation details need
-  confirmation.
+- Local Ratatui/crossterm references listed in `AGENTS.md` if implementation details need confirmation.

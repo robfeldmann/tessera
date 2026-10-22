@@ -4,9 +4,7 @@ stage: done
 created: 2026-07-02
 completed: 2026-07-06
 order: 19
-description:
-  Add Kitty keyboard parsing and lifecycle support, expand key metadata, and introduce
-  dynamic application-mode reconciliation for Phase 4 requirements.
+description: Add Kitty keyboard parsing and lifecycle support, expand key metadata, and introduce dynamic application-mode reconciliation for Phase 4 requirements.
 ---
 
 # Phase 3 Slice 4 Kitty Keyboard Protocol
@@ -27,19 +25,13 @@ description:
 
 ## Overview
 
-This plan implements `docs/spec.md` Phase 3 Slice 4. Kitty keyboard is the largest input
-slice because it changes keyboard semantics rather than adding an orthogonal event type.
-It adds key event kind, richer modifiers, Kitty protocol enable/disable bytes, parser
-support for Kitty key reports, and the dynamic application-mode reconciliation that Phase
-4 view requirements will need.
+This plan implements `docs/spec.md` Phase 3 Slice 4. Kitty keyboard is the largest input slice because it changes keyboard semantics rather than adding an orthogonal event type. It adds key event kind, richer modifiers, Kitty protocol enable/disable bytes, parser support for Kitty key reports, and the dynamic application-mode reconciliation that Phase 4 view requirements will need.
 
-This plan does not remove the Phase 2 legacy parser. Legacy ESC, CSI, SS3, UTF-8, and bare
-Escape behavior remain the fallback path for terminals that do not send Kitty reports.
+This plan does not remove the Phase 2 legacy parser. Legacy ESC, CSI, SS3, UTF-8, and bare Escape behavior remain the fallback path for terminals that do not send Kitty reports.
 
 ## Phase 1 — Keyboard API expansion
 
-**Goal**: public keyboard data can represent press/repeat/release and Kitty-only modifier
-bits without breaking existing key-event consumers.
+**Goal**: public keyboard data can represent press/repeat/release and Kitty-only modifier bits without breaking existing key-event consumers.
 
 ### Step 1.1 — Add key event kind and richer modifier support
 
@@ -58,18 +50,15 @@ public enum KeyEventKind: Equatable, Sendable {
 ```
 
 - Add `public var kind: KeyEventKind` to `Key`.
-- Update `Key.init` with a default `kind: .press` so existing call sites stay source
-  compatible.
-- Preserve existing equality semantics through the new stored property. A repeated key is
-  not equal to a pressed key.
+- Update `Key.init` with a default `kind: .press` so existing call sites stay source compatible.
+- Preserve existing equality semantics through the new stored property. A repeated key is not equal to a pressed key.
 - Extend `Modifiers` with additional Kitty-capable flags:
   - `.super`
   - `.hyper`
   - `.meta`
 - Keep existing raw bits for `.shift`, `.alt`, and `.control` stable.
 - Add raw bits for new modifiers above the current bits. Do not reorder existing bits.
-- Update parser event-log formatting so key events include `kind` only when it is not the
-  default press, or include it consistently if the snapshot output is clearer.
+- Update parser event-log formatting so key events include `kind` only when it is not the default press, or include it consistently if the snapshot output is clearer.
 
 Acceptance:
 
@@ -83,8 +72,7 @@ Acceptance:
   - new `Sources/TesseraTerminalANSI/KittyKeyboardFlags.swift`
   - `Sources/TesseraTerminalANSI/ControlSequence.swift`
   - `Tests/TesseraTerminalANSITests/ANSIEncoderTests.swift`
-- Add a public `KittyKeyboardFlags: OptionSet, Equatable, Sendable` value type with the
-  protocol flags Tessera can request:
+- Add a public `KittyKeyboardFlags: OptionSet, Equatable, Sendable` value type with the protocol flags Tessera can request:
   - `disambiguateEscapeCodes` = 1
   - `reportEventTypes` = 2
   - `reportAlternateKeys` = 4
@@ -100,10 +88,8 @@ public static let tesseraDefault: Self = [
 ]
 ```
 
-- Do not enable `reportAllKeysAsEscapeCodes` by default in this plan. It changes ordinary
-  text input shape enough that capability policy should decide it later.
-- Add `case pushKittyKeyboard(KittyKeyboardFlags)` and `case popKittyKeyboard` to
-  `ControlSequence`.
+- Do not enable `reportAllKeysAsEscapeCodes` by default in this plan. It changes ordinary text input shape enough that capability policy should decide it later.
+- Add `case pushKittyKeyboard(KittyKeyboardFlags)` and `case popKittyKeyboard` to `ControlSequence`.
 - Encode push as `ESC [ > {flags} u`.
 - Encode pop as `ESC [ < u`.
 - Add exact byte tests for default flags, custom flag combinations, and pop.
@@ -115,31 +101,25 @@ Acceptance:
 
 ## Phase 2 — Kitty keyboard parsing
 
-**Goal**: valid Kitty key reports produce richer `.key` events and invalid or unsupported
-CSI reports remain lossless `.unknown` events.
+**Goal**: valid Kitty key reports produce richer `.key` events and invalid or unsupported CSI reports remain lossless `.unknown` events.
 
 ### Step 2.1 — Add colon-aware CSI parameter parsing
 
 - File: `Sources/TesseraTerminalInput/InputParser.swift`.
-- The current `csiParameterValues(_:)` parses semicolon-separated integers only. Kitty
-  reports can contain subparameters separated by `:`.
+- The current `csiParameterValues(_:)` parses semicolon-separated integers only. Kitty reports can contain subparameters separated by `:`.
 - Add a small private parser for CSI parameters that preserves:
   - full raw CSI bytes for unknown fallback
   - semicolon-separated parameters
   - colon-separated subparameters
   - missing parameter values where the protocol permits defaults
 - Keep this helper private until a public parser type is justified.
-- Keep the parameter parser single-pass over accumulated CSI bytes. Avoid substring-heavy
-  parsing or per-parameter heap churn; Kitty reports are small, but they share the parser
-  hot path with paste, mouse, and legacy keys.
-- Existing legacy key parsing may continue to use the old integer helper if that keeps the
-  diff smaller. Do not rewrite legacy parsing for style.
+- Keep the parameter parser single-pass over accumulated CSI bytes. Avoid substring-heavy parsing or per-parameter heap churn; Kitty reports are small, but they share the parser hot path with paste, mouse, and legacy keys.
+- Existing legacy key parsing may continue to use the old integer helper if that keeps the diff smaller. Do not rewrite legacy parsing for style.
 
 Acceptance:
 
 - Legacy CSI and SS3 tests pass unchanged.
-- New unit tests cover colon subparameters, empty subparameters, malformed integers, and
-  raw-byte preservation for `.unknown`.
+- New unit tests cover colon subparameters, empty subparameters, malformed integers, and raw-byte preservation for `.unknown`.
 
 ### Step 2.2 — Decode Kitty key reports without regressing legacy input
 
@@ -149,8 +129,7 @@ Acceptance:
   - `Tests/TesseraTerminalInputTests/InputParserTests.swift`
 - Decode Kitty key reports with final byte `u`.
 - Interpret the first parameter as the primary key code.
-- Interpret the second parameter as Kitty modifiers, where the wire value is offset by
-  one. Subtract one before mapping bits into `Modifiers`.
+- Interpret the second parameter as Kitty modifiers, where the wire value is offset by one. Subtract one before mapping bits into `Modifiers`.
 - Interpret event type subparameter values when present:
   - 1 = press
   - 2 = repeat
@@ -158,10 +137,8 @@ Acceptance:
 - Missing event type defaults to `.press`.
 - Map Unicode scalar key codes to `.character(Character)` when representable.
 - Map standard special keys to existing `KeyCode` values where possible.
-- Add only the extra `KeyCode` cases needed to represent tested Kitty special keys. Do not
-  add a large untested enum dump.
-- Preserve alternate-key and associated-text subparameters as non-public parser inputs for
-  now unless a concrete public use is implemented and tested in this slice.
+- Add only the extra `KeyCode` cases needed to represent tested Kitty special keys. Do not add a large untested enum dump.
+- Preserve alternate-key and associated-text subparameters as non-public parser inputs for now unless a concrete public use is implemented and tested in this slice.
 - Malformed Kitty reports emit `.unknown(rawBytes)`.
 - Kitty-looking reports inside bracketed paste remain paste payload.
 
@@ -181,8 +158,7 @@ Add parser tests for:
 - Kitty-looking sequence inside paste payload
 - legacy Phase 2 sequences still decode as before
 
-Use inline event-log snapshots for full streams and direct assertions for individual `Key`
-fields.
+Use inline event-log snapshots for full streams and direct assertions for individual `Key` fields.
 
 Acceptance:
 
@@ -191,8 +167,7 @@ Acceptance:
 
 ## Phase 3 — Lifecycle, dynamic apply, and example app
 
-**Goal**: Kitty keyboard mode can be requested safely, cleaned up reliably, and changed
-dynamically alongside the other Phase 3 application modes.
+**Goal**: Kitty keyboard mode can be requested safely, cleaned up reliably, and changed dynamically alongside the other Phase 3 application modes.
 
 ### Step 3.1 — Enable, disable, and cleanup `.kittyKeyboard`
 
@@ -200,18 +175,12 @@ dynamically alongside the other Phase 3 application modes.
   - `Sources/TesseraTerminalIO/ModeLifecycle.swift`
   - `Tests/TesseraTerminalIOTests/ModeLifecycleTests.swift`
 - Move `.kittyKeyboard` out of the unsupported path.
-- Extend `acquisitionOrder` after mouse tracking: raw mode, alternate screen, bracketed
-  paste, focus events, mouse tracking, Kitty keyboard.
-- Enable with `ControlSequence.pushKittyKeyboard(configuration.kittyKeyboardFlags)`; the
-  configuration defaults to `.tesseraDefault`, while protocol demos may request an exact
-  broader mask.
+- Extend `acquisitionOrder` after mouse tracking: raw mode, alternate screen, bracketed paste, focus events, mouse tracking, Kitty keyboard.
+- Enable with `ControlSequence.pushKittyKeyboard(configuration.kittyKeyboardFlags)`; the configuration defaults to `.tesseraDefault`, while protocol demos may request an exact broader mask.
 - Disable with `ControlSequence.popKittyKeyboard`.
-- Cleanup bytes include Kitty pop whenever the mode was requested, active, or possibly
-  active after ambiguous I/O.
-- Rollback retains the defensive Kitty pop if the push bytes may have reached the
-  terminal.
-- Keep Kitty keyboard out of `TerminalApplicationConfiguration.default` until plan 021
-  settles capability policy.
+- Cleanup bytes include Kitty pop whenever the mode was requested, active, or possibly active after ambiguous I/O.
+- Rollback retains the defensive Kitty pop if the push bytes may have reached the terminal.
+- Keep Kitty keyboard out of `TerminalApplicationConfiguration.default` until plan 021 settles capability policy.
 
 Add lifecycle tests for:
 
@@ -233,8 +202,7 @@ Acceptance:
   - `Sources/TesseraTerminal/TerminalSession.swift`
   - `Tests/TesseraTerminalIOTests/ModeLifecycleTests.swift`
   - `Tests/TesseraTerminalTests/TerminalSessionTests.swift`
-- Add a public or package-visible lifecycle method that changes only application protocol
-  modes after startup.
+- Add a public or package-visible lifecycle method that changes only application protocol modes after startup.
 - Valid application modes:
   - `.bracketedPaste`
   - `.focusEvents`
@@ -245,14 +213,9 @@ Acceptance:
   - disabling modes use reverse acquisition order
   - enabling modes use acquisition order
   - no-op apply emits no bytes
-- Install cleanup for the requested/possibly-active application modes before mutating
-  bytes. Retain it after ambiguous I/O, then refresh lifecycle-effective and
-  possibly-active state after each successful apply.
-- If a partial apply fails, preserve lifecycle belief for completed operations, mark any
-  ambiguous slot possibly active, and make a later `exit()` still safe.
-- Expose `TerminalSession.setKeyboardProtocol(_:)` as the live keyboard-policy setter. It
-  uses the same serialized lifecycle reconciler and public requested/effective/
-  possibly-active report as the other runtime application-mode setters.
+- Install cleanup for the requested/possibly-active application modes before mutating bytes. Retain it after ambiguous I/O, then refresh lifecycle-effective and possibly-active state after each successful apply.
+- If a partial apply fails, preserve lifecycle belief for completed operations, mark any ambiguous slot possibly active, and make a later `exit()` still safe.
+- Expose `TerminalSession.setKeyboardProtocol(_:)` as the live keyboard-policy setter. It uses the same serialized lifecycle reconciler and public requested/effective/ possibly-active report as the other runtime application-mode setters.
 
 Add tests for:
 
@@ -269,19 +232,15 @@ Prefer snapshot-style transcripts for byte order.
 Acceptance:
 
 - Phase 4 can request protocol-mode changes without touching raw mode or alternate screen.
-- Only raw mode and alternate screen remain session-fixed and unrepresentable through
-  dynamic apply; selected application protocol modes are controlled through session
-  setters.
+- Only raw mode and alternate screen remain session-fixed and unrepresentable through dynamic apply; selected application protocol modes are controlled through session setters.
 
 ### Step 3.3 — Add the keyboard panel to `Phase3ProtocolsDemo`
 
 - File: `Examples/Sources/Phase3ProtocolsDemo/Phase3ProtocolsDemo.swift`.
-- Run the demo with a configuration that requests `.kittyKeyboard` explicitly for this
-  panel demo. Plan 021 decides whether Kitty becomes default.
+- Run the demo with a configuration that requests `.kittyKeyboard` explicitly for this panel demo. Plan 021 decides whether Kitty becomes default.
 - Add panel navigation: `1` paste, `2` focus, `3` mouse, `4` keys.
 - Show the latest key code, modifiers, and event kind.
-- Show whether the event looked legacy or Kitty only if that distinction is observable
-  without adding public parser internals. Otherwise show the semantic key only.
+- Show whether the event looked legacy or Kitty only if that distinction is observable without adding public parser internals. Otherwise show the semantic key only.
 - Keep raw unknown events in the shared log so unsupported Kitty terminals are visible.
 
 Wireframe:

@@ -4,9 +4,7 @@ stage: done
 created: 2026-07-02
 completed: 2026-07-04
 order: 17
-description:
-  Add terminal focus gained/lost events using CSI focus tracking, sharing the Phase 3 mode
-  lifecycle and preserving bracketed-paste isolation.
+description: Add terminal focus gained/lost events using CSI focus tracking, sharing the Phase 3 mode lifecycle and preserving bracketed-paste isolation.
 ---
 
 # Phase 3 Slice 2 Focus Events
@@ -26,9 +24,7 @@ description:
 
 ## Overview
 
-This plan implements `docs/spec.md` Phase 3 Slice 2. Focus events report whether the
-terminal emulator considers the app focused. They are not view focus, widget focus, or
-shortcut routing.
+This plan implements `docs/spec.md` Phase 3 Slice 2. Focus events report whether the terminal emulator considers the app focused. They are not view focus, widget focus, or shortcut routing.
 
 Focus tracking uses:
 
@@ -37,13 +33,11 @@ Focus tracking uses:
 - focus gained: `ESC [ I`
 - focus lost: `ESC [ O`
 
-This slice depends on plan 016. Focus reports must be decoded in normal parser mode and
-preserved as literal payload when they appear inside bracketed paste.
+This slice depends on plan 016. Focus reports must be decoded in normal parser mode and preserved as literal payload when they appear inside bracketed paste.
 
 ## Phase 1 — Focus event parsing
 
-**Goal**: `InputParser` emits top-level focus events and never confuses pasted
-focus-looking bytes for terminal focus changes.
+**Goal**: `InputParser` emits top-level focus events and never confuses pasted focus-looking bytes for terminal focus changes.
 
 ### Step 1.1 — Add public focus event cases
 
@@ -52,32 +46,26 @@ focus-looking bytes for terminal focus changes.
   - `Tests/TesseraTerminalInputTests/InputParserTests.swift`
   - `Examples/Sources/Phase3ProtocolsDemo/Phase3ProtocolsDemo.swift`
 - Add `case focusGained` and `case focusLost` to `InputEvent`.
-- Keep the final public case order readable and stable: `focusGained`, `focusLost`, `key`,
-  `paste`, `resize`, `unknown`.
+- Keep the final public case order readable and stable: `focusGained`, `focusLost`, `key`, `paste`, `resize`, `unknown`.
 - Update parser test event-log formatting from plan 016 to render focus events.
-- Update the example app's event-description helper so focus events are visible in the
-  log.
+- Update the example app's event-description helper so focus events are visible in the log.
 
 Acceptance:
 
 - Existing key, paste, resize, and unknown tests still compile.
-- Event-log snapshots can show `focus gained` and `focus lost` without custom per-test
-  code.
+- Event-log snapshots can show `focus gained` and `focus lost` without custom per-test code.
 
 ### Step 1.2 — Decode focus CSI reports without breaking paste mode
 
 - File: `Sources/TesseraTerminalInput/InputParser.swift`.
 - Decode `ESC [ I` as `.focusGained` only when CSI parameters are empty.
 - Decode `ESC [ O` as `.focusLost` only when CSI parameters are empty.
-- Existing `csiCode(finalByte:params:)` returns `Key?`; this slice should either widen the
-  CSI dispatch helper to return `InputEvent?` or handle final bytes `I` and `O` inside
-  `parseCSI` before key fallback.
+- Existing `csiCode(finalByte:params:)` returns `Key?`; this slice should either widen the CSI dispatch helper to return `InputEvent?` or handle final bytes `I` and `O` inside `parseCSI` before key fallback.
 - `ESC [ I` or `ESC [ O` with parameters follows the existing unknown-sequence policy.
 - Duplicate focus events are surfaced as received. The parser does not store `isFocused`.
 - Focus-looking bytes inside `State.bracketedPaste` are payload, not focus events.
 
-- Focus reports are tiny CSI events. Do not add a new parser mode or regress the optimized
-  bracketed-paste bulk feed path while widening CSI dispatch. Add parser tests for:
+- Focus reports are tiny CSI events. Do not add a new parser mode or regress the optimized bracketed-paste bulk feed path while widening CSI dispatch. Add parser tests for:
 
 - focus gained in one feed
 - focus lost in one feed
@@ -89,8 +77,7 @@ Acceptance:
 - `ESC [ I` inside paste payload remains `.paste`
 - `ESC [ O` inside paste payload remains `.paste`
 
-Prefer inline snapshots for event streams such as key → focus lost → key. Use direct
-assertions for one focus event.
+Prefer inline snapshots for event streams such as key → focus lost → key. Use direct assertions for one focus event.
 
 Acceptance:
 
@@ -99,8 +86,7 @@ Acceptance:
 
 ## Phase 2 — Encoder and lifecycle support
 
-**Goal**: Tessera can enable focus tracking, disable it on every exit path, and include it
-in default application mode setup.
+**Goal**: Tessera can enable focus tracking, disable it on every exit path, and include it in default application mode setup.
 
 ### Step 2.1 — Add exact focus-tracking control-sequence encoding
 
@@ -125,24 +111,18 @@ Acceptance:
   - `Sources/TesseraTerminalIO/ModeLifecycle.swift`
   - `Tests/TesseraTerminalIOTests/ModeLifecycleTests.swift`
 - Move `.focusEvents` out of the unsupported path.
-- Extend `acquisitionOrder` so focus follows bracketed paste: raw mode, alternate screen,
-  bracketed paste, focus events.
-- Enable/disable through `ControlSequence.enableFocusTracking(true/false)` and `io.write`
-  plus `io.flush()`.
-- Normal teardown disables focus before bracketed paste if the reverse acquisition order
-  is used.
-- Emergency cleanup bytes include focus disable whenever focus was requested, active, or
-  possibly active after ambiguous I/O.
-- Rollback retains that defensive focus cleanup if a later mode fails after focus enable
-  bytes may have reached the terminal.
+- Extend `acquisitionOrder` so focus follows bracketed paste: raw mode, alternate screen, bracketed paste, focus events.
+- Enable/disable through `ControlSequence.enableFocusTracking(true/false)` and `io.write` plus `io.flush()`.
+- Normal teardown disables focus before bracketed paste if the reverse acquisition order is used.
+- Emergency cleanup bytes include focus disable whenever focus was requested, active, or possibly active after ambiguous I/O.
+- Rollback retains that defensive focus cleanup if a later mode fails after focus enable bytes may have reached the terminal.
 
 Add lifecycle tests for:
 
 - startup emits focus enable after bracketed-paste enable
 - teardown emits focus disable before bracketed-paste disable
 - cleanup bytes include focus disable and bracketed-paste disable
-- rollback retains defensive cleanup for every optional mode that may be active after an
-  ambiguous failure
+- rollback retains defensive cleanup for every optional mode that may be active after an ambiguous failure
 - disabled focus cleanup is idempotent
 
 Use snapshot-style lifecycle transcripts for the ordered bytes and events.
@@ -158,27 +138,22 @@ Acceptance:
   - `Sources/TesseraTerminal/TerminalApplicationConfiguration.swift`
   - `Tests/TesseraTerminalTests/TerminalSessionTests.swift`
 - Add `.focusEvents` to `TerminalApplicationConfiguration.default`.
-- Add session integration coverage proving default setup emits paste and focus enables,
-  and default teardown emits focus then paste disables.
+- Add session integration coverage proving default setup emits paste and focus enables, and default teardown emits focus then paste disables.
 
 Acceptance:
 
-- The default application terminal includes raw mode, alternate screen, bracketed paste,
-  and focus events.
-- Focus event parsing is independent from mode configuration; valid bytes still decode
-  even in parser-only tests.
+- The default application terminal includes raw mode, alternate screen, bracketed paste, and focus events.
+- Focus event parsing is independent from mode configuration; valid bytes still decode even in parser-only tests.
 
 ## Phase 3 — Example app and validation
 
-**Goal**: Reviewers can switch the demo app to a focus panel and watch terminal focus
-state change as they move between windows or tabs.
+**Goal**: Reviewers can switch the demo app to a focus panel and watch terminal focus state change as they move between windows or tabs.
 
 ### Step 3.1 — Add the focus panel to `Phase3ProtocolsDemo`
 
 - File: `Examples/Sources/Phase3ProtocolsDemo/Phase3ProtocolsDemo.swift`.
 - Add panel navigation if it does not already exist: `1` paste, `2` focus.
-- Derive focus state in the example app from `.focusGained` and `.focusLost` events. Do
-  not move focus-state storage into `InputParser`.
+- Derive focus state in the example app from `.focusGained` and `.focusLost` events. Do not move focus-state storage into `InputParser`.
 - Keep all events in the shared recent-event log.
 
 Wireframe:

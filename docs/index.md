@@ -4,8 +4,7 @@ okf_version: "0.2"
 
 # Start here
 
-- [Project status](project-status.md): what works today, the roadmap, and where each kind
-  of document lives.
+- [Project status](project-status.md): what works today, the roadmap, and where each kind of document lives.
 - [Spec](spec.md): the constitution for the library, one page per section.
 
 # Work

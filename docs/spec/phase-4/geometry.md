@@ -5,9 +5,7 @@ description: "Geometry"
 
 # Geometry
 
-These types live in `TesseraTerminalCore` (the rendering and view layers both need them;
-Phase 2 Slice 4's `writeRaw`/`markOpaque` introduce `Rect`, and Phase 4 adds `EdgeInsets`
-and any helpers it needs):
+These types live in `TesseraTerminalCore` (the rendering and view layers both need them; Phase 2 Slice 4's `writeRaw`/`markOpaque` introduce `Rect`, and Phase 4 adds `EdgeInsets` and any helpers it needs):
 
 ```swift
 public struct Rect: Sendable, Hashable {
@@ -30,5 +28,4 @@ public struct EdgeInsets: Sendable, Hashable {
 }
 ```
 
-All geometry is integer cells. There are no fractional points anywhere in the view layer;
-every rounding decision is explicit and documented at the algorithm that makes it.
+All geometry is integer cells. There are no fractional points anywhere in the view layer; every rounding decision is explicit and documented at the algorithm that makes it.
