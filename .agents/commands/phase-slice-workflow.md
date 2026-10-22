@@ -44,7 +44,7 @@ Implement the next phase or slice from `docs/spec.md`: $ARGUMENTS
   ```
 
 - Examples should use public products like `TesseraTerminal`/`Tessera`, not internal root targets, unless there is a deliberate reason.
-- Use `just core examples`, `just core examples-list`, and `just core example <Name>` for example workflows.
+- Use `mise run core:examples`, `mise run core:examples-list`, and `mise run core:example <Name>` for example workflows.
 
 ## Dependencies and concurrency
 
@@ -68,7 +68,7 @@ During implementation:
 2. Run changed-file lint while iterating:
 
    ```fish
-   just quality changed
+   mise run quality:changed
    ```
 
 3. Run Markdown lint for edited Markdown files:
@@ -82,7 +82,7 @@ During implementation:
 Before committing:
 
 ```fish
-just quality lint
+mise run quality:lint
 swift test
 ```
 

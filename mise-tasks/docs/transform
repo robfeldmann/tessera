@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+#MISE description="Transform the merged DocC archive for static hosting at /tessera"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+echo "▶ Transforming documentation for static hosting..."
+mkdir -p .build/docs
+xcrun docc process-archive \
+  transform-for-static-hosting .build/doccarchives/tessera.doccarchive \
+  --hosting-base-path "${TESSERA_DOCS_HOSTING_BASE_PATH:-/tessera}" \
+  --output-path .build/docs

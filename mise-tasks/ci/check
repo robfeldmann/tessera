@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Run the full local CI gate: core tests followed by the portable quality checks"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+mise run core:test
+mise run quality:lint

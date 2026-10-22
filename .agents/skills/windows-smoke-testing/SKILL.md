@@ -34,7 +34,7 @@ Get-NetIPAddress -AddressFamily IPv4 |
 From macOS:
 
 ```sh
-just windows-frost sync-utm <vm-ip>
+mise run windows-frost:sync-utm <vm-ip>
 ```
 
 This replaces `C:\Users\tester\tessera` in the Windows guest. If sync fails because an example executable is locked, stop the stale process and sync again:
@@ -44,12 +44,12 @@ sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
   -o PreferredAuthentications=password -o PubkeyAuthentication=no \
   tester@<vm-ip> "taskkill /IM <ExampleName>.exe /F"
 
-just windows-frost sync-utm <vm-ip>
+mise run windows-frost:sync-utm <vm-ip>
 ```
 
 ## Build an Example on Windows
 
-Use SwiftPM directly; `just` and `fzf` are not required in the Windows guest.
+Use SwiftPM directly; `mise` and `fzf` are not required in the Windows guest.
 
 ```sh
 sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
@@ -130,7 +130,7 @@ For non-trivial Windows terminal changes:
 2. Sync to UTM Windows Frost:
 
    ```sh
-   just windows-frost sync-utm <vm-ip>
+   mise run windows-frost:sync-utm <vm-ip>
    ```
 
 3. Build the affected example on Windows.
@@ -140,5 +140,5 @@ For non-trivial Windows terminal changes:
 7. Run changed-file quality before yielding:
 
    ```sh
-   just quality changed
+   mise run quality:changed
    ```

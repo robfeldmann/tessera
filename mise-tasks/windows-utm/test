@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Run the Windows test suite in the UTM VM over SSH; pass swift test arguments after the task name"
+#USAGE arg "[args]..." help="Extra swift test arguments" var=#true
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+scripts/windows-utm-test.sh "$@"

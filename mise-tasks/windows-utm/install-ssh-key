@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+#MISE description="Install the macOS SSH public key into the UTM Windows VM's administrators_authorized_keys"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+vm="${TESSERA_WINDOWS_VM_NAME:-tessera-windows}"
+if ! command -v utmctl > /dev/null 2>&1; then
+  echo "⚠️  utmctl not found — install UTM (brew install --cask utm)" >&2
+  exit 1
+fi
+user="${TESSERA_WINDOWS_VM_USER:-tess}"
+pubkey="${TESSERA_WINDOWS_VM_PUBKEY:-$HOME/.ssh/tessera_windows.pub}"
+if [[ ! -f "$pubkey" ]]; then
+  echo "⚠️  Public key not found: $pubkey" >&2
+  echo "Generate one: ssh-keygen -t ed25519 -f ~/.ssh/tessera_windows -N \"\"" >&2
+  exit 1
+fi
+ip="$(utmctl ip-address "$vm" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1)"
+if [[ -z "$ip" ]]; then
+  echo "⚠️  No IPv4 address found for $vm. Is the VM running with UTM Guest Tools installed?" >&2
+  exit 1
+fi
+key="$(cat "$pubkey")"
+echo "Installing SSH key for $user@$ip (you may be prompted for the Windows password)..."
+printf '%s\n' \
+  "\$ErrorActionPreference = 'Stop'" \
+  "\$dst = 'C:\\ProgramData\\ssh\\administrators_authorized_keys'" \
+  "\$key = '$key'" \
+  "New-Item -ItemType Directory -Force C:\\ProgramData\\ssh | Out-Null" \
+  "if (-not (Test-Path \$dst) -or -not ((Get-Content \$dst) -contains \$key)) { Add-Content -Path \$dst -Value \$key }" \
+  "icacls \$dst /inheritance:r /grant Administrators:F /grant SYSTEM:F | Out-Null" \
+  "Write-Host 'Key installed.'" \
+  | ssh -o PreferredAuthentications=password -o PubkeyAuthentication=no "$user@$ip" "powershell -NoProfile -Command -"
+echo "✅ Try: mise run windows-utm:check"

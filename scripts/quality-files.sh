@@ -27,12 +27,14 @@ quality_classify_file() {
 }
 
 quality_require_swift_tools() {
-  for tool in swift-format swiftlint; do
-    if ! command -v "$tool" >/dev/null 2>&1; then
-      echo "Missing $tool. Install the repository quality dependencies first." >&2
-      exit 1
-    fi
-  done
+  if ! command -v swiftlint >/dev/null 2>&1; then
+    echo "Missing swiftlint. Run 'mise install' first." >&2
+    exit 1
+  fi
+  if ! "$(git rev-parse --show-toplevel)/scripts/swift-format.sh" --version >/dev/null 2>&1; then
+    echo "Missing swift-format. Select an Xcode (DEVELOPER_DIR) or install swift-format." >&2
+    exit 1
+  fi
 
   if [[ ! -f .swift-format || ! -f .swiftlint.yml ]]; then
     echo "Missing .swift-format or .swiftlint.yml in the checked files." >&2
@@ -46,8 +48,8 @@ quality_require_docc() {
     exit 1
   fi
 
-  if ! command -v just >/dev/null 2>&1 || ! command -v xcrun >/dev/null 2>&1 || ! xcrun --find docc >/dev/null 2>&1; then
-    echo "DocC validation requires just and Xcode's xcrun docc toolchain." >&2
+  if ! command -v mise >/dev/null 2>&1 || ! command -v xcrun >/dev/null 2>&1 || ! xcrun --find docc >/dev/null 2>&1; then
+    echo "DocC validation requires mise and Xcode's xcrun docc toolchain." >&2
     exit 1
   fi
 }

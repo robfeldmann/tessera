@@ -99,38 +99,17 @@ jobs:
         if: needs.ci-gate.outputs.vouch-only != 'true'
         uses: ./.github/actions/setup-swift
 
-      - name: Set up Node
+      - name: Install mise tools
         if: needs.ci-gate.outputs.vouch-only != 'true'
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version-file: .node-version
-          cache: npm
+        uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
 
       - name: Install markup tools
         if: needs.ci-gate.outputs.vouch-only != 'true'
         run: npm ci
 
-      - name: Install mise tools
-        if: needs.ci-gate.outputs.vouch-only != 'true'
-        uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
-
-      - name: Install lint tools
-        if: needs.ci-gate.outputs.vouch-only != 'true'
-        run: brew install swift-format swiftlint
-
-      - name: Install just
-        if: needs.ci-gate.outputs.vouch-only != 'true'
-        uses: taiki-e/install-action@a6b2e2dcd845ddd7f509ce4f3ed3d922b80cc5d9 # v2
-        with:
-          tool: just
-
-      - name: Set up spelling tools
-        if: needs.ci-gate.outputs.vouch-only != 'true'
-        run: just setup quality-tools
-
       - name: Run portable quality gate
         if: needs.ci-gate.outputs.vouch-only != 'true'
-        run: just quality lint
+        run: mise run quality:lint
 
   test:
     name: test (${{ matrix.name }})
@@ -210,15 +189,9 @@ jobs:
             Remove-Item -LiteralPath .build -Recurse -Force
           }
 
-      - name: Set up Zig on Linux
-        if: needs.ci-gate.outputs.vouch-only != 'true' && runner.os == 'Linux'
-        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
-        with:
-          version: 0.15.2
-
-      - name: Install libghostty-vt prerequisites on macOS
-        if: needs.ci-gate.outputs.vouch-only != 'true' && runner.os == 'macOS'
-        run: brew install cmake ninja zig@0.15
+      - name: Install mise tools (zig, cmake, ninja)
+        if: needs.ci-gate.outputs.vouch-only != 'true' && runner.os != 'Windows'
+        uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
 
       - name: Install libghostty-vt prerequisites on Linux
         if: needs.ci-gate.outputs.vouch-only != 'true' && runner.os == 'Linux'
@@ -251,17 +224,11 @@ jobs:
           # Exact-only: a script or pinned-revision change must rebuild rather than
           # relabeling a restored stale install under the new key.
           # prettier-ignore
-          key: libghostty-vt-v3-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
-
-      - name: Install just
-        if: needs.ci-gate.outputs.vouch-only != 'true'
-        uses: taiki-e/install-action@a6b2e2dcd845ddd7f509ce4f3ed3d922b80cc5d9 # v2
-        with:
-          tool: just
+          key: libghostty-vt-v4-${{ runner.os }}-${{ runner.arch }}-zig-0.17.0-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
 
       - name: Build libghostty-vt
         if: needs.ci-gate.outputs.vouch-only != 'true' && runner.os != 'Windows'
-        run: just core build-libghostty-vt
+        run: mise run core:build-libghostty-vt
 
       - name: Build libghostty-vt (Windows)
         if: needs.ci-gate.outputs.vouch-only != 'true' && runner.os == 'Windows'
@@ -283,7 +250,7 @@ jobs:
             ~/AppData/Local/tessera/libghostty-vt
             !~/AppData/Local/tessera/libghostty-vt/source
           # prettier-ignore
-          key: libghostty-vt-v3-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
+          key: libghostty-vt-v4-${{ runner.os }}-${{ runner.arch }}-zig-0.17.0-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
 
       - name: Build
         if: needs.ci-gate.outputs.vouch-only != 'true'
@@ -344,11 +311,9 @@ jobs:
           restore-keys: |
             swiftpm-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.swift.outputs.toolchain }}-
 
-      - name: Set up Zig
+      - name: Install mise tools (zig, cmake, ninja)
         if: needs.ci-gate.outputs.vouch-only != 'true'
-        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
-        with:
-          version: 0.15.2
+        uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
 
       - name: Install libghostty-vt prerequisites
         if: needs.ci-gate.outputs.vouch-only != 'true'
@@ -374,11 +339,11 @@ jobs:
             !~/.cache/tessera/libghostty-vt/source
             !~/.cache/tessera/libghostty-vt/cmake
           # prettier-ignore
-          key: libghostty-vt-v3-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
+          key: libghostty-vt-v4-${{ runner.os }}-${{ runner.arch }}-zig-0.17.0-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
 
       - name: Build libghostty-vt
         if: needs.ci-gate.outputs.vouch-only != 'true'
-        run: scripts/build-libghostty-vt.sh
+        run: mise run core:build-libghostty-vt
 
       - name: Test in parallel
         if: needs.ci-gate.outputs.vouch-only != 'true'

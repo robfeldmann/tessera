@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#MISE description="Run the full Swift test suite in parallel; the suite must stay safe under it"
+#MISE depends=["core:build-libghostty-vt"]
+#USAGE arg "[args]..." help="Extra swift test arguments" var=#true
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+swift test --parallel "$@"

@@ -71,9 +71,9 @@ jobs:
         if: needs.docs-gate.outputs.vouch-only != 'true'
         uses: ./.github/actions/setup-swift
 
-      - name: Install libghostty-vt prerequisites
+      - name: Install mise tools (zig, cmake, ninja)
         if: needs.docs-gate.outputs.vouch-only != 'true'
-        run: brew install cmake ninja zig@0.15
+        uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
 
       - name: Restore libghostty-vt cache
         if: needs.docs-gate.outputs.vouch-only != 'true'
@@ -86,14 +86,8 @@ jobs:
             !~/.cache/tessera/libghostty-vt/cmake
           # Exact-only to match CI and prevent a stale native install from being relabeled.
           # prettier-ignore
-          key: libghostty-vt-v3-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
-
-      - name: Install just
-        if: needs.docs-gate.outputs.vouch-only != 'true'
-        uses: taiki-e/install-action@a6b2e2dcd845ddd7f509ce4f3ed3d922b80cc5d9 # v2
-        with:
-          tool: just
+          key: libghostty-vt-v4-${{ runner.os }}-${{ runner.arch }}-zig-0.17.0-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
 
       - name: Validate docs
         if: needs.docs-gate.outputs.vouch-only != 'true'
-        run: just docs lint
+        run: mise run docs:lint

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+#MISE description="Build the docs and serve the static output locally on port 8000"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+mise run docs:build
+rm -rf .build/docs-preview
+mkdir -p .build/docs-preview
+ln -s ../docs ".build/docs-preview${TESSERA_DOCS_HOSTING_BASE_PATH:-/tessera}"
+echo "🚀 Preview: http://localhost:8000${TESSERA_DOCS_HOSTING_BASE_PATH:-/tessera}/documentation/"
+python3 -m http.server --directory .build/docs-preview 8000

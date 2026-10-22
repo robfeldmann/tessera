@@ -142,7 +142,7 @@ printf '[4/7] sync source\n'
 
 if [[ ! -f "$GHOSTTY_HOST_ARTIFACT/lib/ghostty-vt-static.lib" ]]; then
   printf 'libghostty-vt host cache missing for pinned revision %s.\n' "$GHOSTTY_REVISION" >&2
-  printf 'Run `just windows-frost build-ghostty` (persistent VM) first.\n' >&2
+  printf 'Run `mise run windows-frost:build-ghostty` (persistent VM) first.\n' >&2
   exit 1
 fi
 printf '[4b/7] provision libghostty-vt artifact\n'

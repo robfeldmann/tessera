@@ -55,6 +55,7 @@ Start here — the DocC catalogs are the API reference and article home:
 - 📘 [**Tessera** DocC catalog](Sources/Tessera/Tessera.docc/Tessera.md) — umbrella API and module map.
 - 📗 [**TesseraTerminal** DocC catalog](Sources/TesseraTerminal/TesseraTerminal.docc/TesseraTerminal.md) — the terminal substrate, sessions, and [Modern Terminal Protocols](Sources/TesseraTerminal/TesseraTerminal.docc/Articles/Modern-Terminal-Protocols.md).
 - 🗺️ [Project status](docs/project-status.md) — maturity, roadmap, and documentation boundaries.
+- 🧭 [Project knowledge](docs/index.md) — the spec, plans, research, architecture decisions, the design catalog, and contributor guides, kept as an [IWE](https://iwe.md) workspace in `docs/`; `mise install` provides `iwe`, and `iwe find --fuzzy <terms>` from `docs/` is the fastest way in for contributors and agents alike.
 - 🛠️ [Contributing](CONTRIBUTING.md) — dev loop, quality gates, and VM guides.
 
 ## Quick start
@@ -101,7 +102,7 @@ enum TerminalGreeting {
 Want to see more from a checkout? Run the Showcase:
 
 ```sh
-just core showcase        # or: swift run --package-path Examples TesseraShowcase
+mise run core:showcase        # or: swift run --package-path Examples TesseraShowcase
 ```
 
 ## Architecture
@@ -155,21 +156,22 @@ The next body of work completes the view and application-programming layer, then
 
 ## Contributing
 
-Contributions are welcome — please read [CONTRIBUTING.md](CONTRIBUTING.md) first. The dev loop is driven by [`just`](https://github.com/casey/just):
+Contributions are welcome — please read [CONTRIBUTING.md](CONTRIBUTING.md) first. The dev loop is driven by [mise](https://mise.jdx.dev/) tasks (`mise install`, then):
 
 ```sh
-just core build       # build the package (prepares libghostty-vt)
-just core test        # full Swift test suite
-just core showcase    # run the Showcase example
-just docs preview     # build and serve DocC locally
-just quality format   # auto-apply formatting
-just quality lint     # strict format + lint gate
+mise run core:build       # build the package (prepares libghostty-vt)
+mise run core:test        # full Swift test suite
+mise run core:showcase    # run the Showcase example
+mise run docs:preview     # build and serve DocC locally
+mise run quality:format   # auto-apply formatting
+mise run quality:lint     # strict format + lint gate
 ```
 
 Cross-platform work runs in reproducible VMs:
 
-- 🐧 [Linux (Lima) test runs](CONTRIBUTING.md#linux) and `just linux …`
-- 🪟 [Windows VM with Frost](docs/guides/windows-frost-vm.md) / [manual UTM setup](docs/guides/windows-vm.md) and `just windows-frost …` / `just windows-utm …`
+- 🍎 [macOS VMs (Tart)](docs/guides/vms.md) with a clean Xcode per lane and `mise run vm:macos-…`
+- 🐧 [Linux (Lima) test runs](CONTRIBUTING.md#linux) and `mise run vm:linux-…`
+- 🪟 [Windows VM with Frost](docs/guides/windows-frost-vm.md) / [manual UTM setup](docs/guides/windows-vm.md) and `mise run windows-frost:…` / `mise run windows-utm:…`
 
 Start in the appropriate Discussion category before opening a pull request so we can agree on the problem and direction. First-time contributors then use the [Vouch Request form](https://github.com/robfeldmann/tessera/discussions/new?category=vouch-request).
 

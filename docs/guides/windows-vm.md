@@ -24,8 +24,8 @@ The goal is a VM you can reach with SSH, then drive from macOS with:
 
 ```sh
 export TESSERA_WINDOWS_VM_SSH=tessera-windows
-just windows-utm check
-just windows-utm test
+mise run windows-utm:check
+mise run windows-utm:test
 ```
 
 Fish users can use `set -x TESSERA_WINDOWS_VM_SSH tessera-windows` instead of `export`.
@@ -44,8 +44,8 @@ If you already know how to install Windows in UTM:
 
    ```sh
    export TESSERA_WINDOWS_VM_SSH=tessera-windows
-   just windows-utm check
-   just windows-utm test
+   mise run windows-utm:check
+   mise run windows-utm:test
    ```
 
 The rest of this guide explains those steps in detail.
@@ -242,7 +242,7 @@ OpenSSH Server is running. From macOS, connect with one of:
 You can ask UTM for the VM IP address:
 
 ```sh
-just windows-utm ip
+mise run windows-utm:ip
 ```
 
 Or directly:
@@ -294,7 +294,7 @@ ssh-add --apple-use-keychain ~/.ssh/tessera_windows
 The fastest path is the helper recipe, which uses password SSH for this one-time step and installs the key into the administrators key file with the correct ACLs:
 
 ```sh
-just windows-utm install-ssh-key
+mise run windows-utm:install-ssh-key
 ```
 
 It defaults to `~/.ssh/tessera_windows.pub`; override with `TESSERA_WINDOWS_VM_PUBKEY`.
@@ -337,7 +337,7 @@ It should not ask for a password.
 Start the VM, if needed:
 
 ```sh
-just windows-utm start
+mise run windows-utm:start
 ```
 
 Set the VM SSH target:
@@ -355,19 +355,19 @@ set -x TESSERA_WINDOWS_VM_SSH tessera-windows
 Verify the VM:
 
 ```sh
-just windows-utm check
+mise run windows-utm:check
 ```
 
 Run the Windows test loop:
 
 ```sh
-just windows-utm test
+mise run windows-utm:test
 ```
 
 For focused iteration, pass SwiftPM test arguments after `--`. The recipe keeps the Windows default (`--no-parallel`) and appends your filter:
 
 ```sh
-just windows-utm test -- --filter WindowsConsoleModeTests
+mise run windows-utm:test -- --filter WindowsConsoleModeTests
 ```
 
 A successful run means macOS can reach the VM, Swift is available in Windows, and the Windows build/test command runs inside the guest. If tests fail, treat the output as a normal Windows build or test failure rather than a VM setup failure.
@@ -377,10 +377,10 @@ A successful run means macOS can reach the VM, Swift is available in Windows, an
 The project includes `just` recipes around UTM's `utmctl` CLI. They fail with a clear message if UTM is not installed.
 
 ```sh
-just windows-utm start
-just windows-utm status
-just windows-utm ip
-just windows-utm stop
+mise run windows-utm:start
+mise run windows-utm:status
+mise run windows-utm:ip
+mise run windows-utm:stop
 ```
 
 By default these target a VM named `tessera-windows`. Override the name with:
@@ -392,7 +392,7 @@ export TESSERA_WINDOWS_VM_NAME=my-windows-vm
 You can also push the current local provisioning script into the guest after UTM Guest Tools are installed:
 
 ```sh
-just windows-utm push-setup-script
+mise run windows-utm:push-setup-script
 ```
 
 By default, that writes to:
@@ -414,15 +414,15 @@ The Windows VM should have its own checkout and its own `.build` directory. Do n
 For active development, edit on macOS and push the current branch straight into the guest checkout over SSH, without going through GitHub:
 
 ```sh
-just windows-utm sync
-just windows-utm test
+mise run windows-utm:sync
+mise run windows-utm:test
 ```
 
 Focused tests work after syncing too:
 
 ```sh
-just windows-utm sync
-just windows-utm test -- --filter WindowsConsoleModeTests
+mise run windows-utm:sync
+mise run windows-utm:test -- --filter WindowsConsoleModeTests
 ```
 
-`just windows-utm sync` configures `receive.denyCurrentBranch=updateInstead` on the guest repo and force-pushes (with lease) your current branch, updating the guest working tree in place. The guest tree must be clean for the push to apply, so commit or stash guest-side changes first. This keeps `.build` and other platform-specific artifacts entirely on the guest. You can still use normal Git operations inside the Windows checkout when preferred.
+`mise run windows-utm:sync` configures `receive.denyCurrentBranch=updateInstead` on the guest repo and force-pushes (with lease) your current branch, updating the guest working tree in place. The guest tree must be clean for the push to apply, so commit or stash guest-side changes first. This keeps `.build` and other platform-specific artifacts entirely on the guest. You can still use normal Git operations inside the Windows checkout when preferred.

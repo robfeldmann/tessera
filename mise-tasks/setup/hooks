@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Install the hk Git hooks (pre-commit quality gate, commit-msg Conventional Commits)"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+hk install
+echo "✅ hk hooks installed"

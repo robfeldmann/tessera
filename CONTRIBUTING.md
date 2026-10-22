@@ -34,8 +34,7 @@ Vouching only permits a contributor to present work. Every contribution still re
 ## Prerequisites
 
 - Swift 6.3.3 (`.swift-version`), the baseline toolchain every lane must pass: Xcode 26.6 on macOS, the swift.org release on Linux and Windows. Swift 6.4 (Xcode 27) is a second supported lane; see [Toolchain lanes](#toolchain-lanes).
-- [`just`](https://github.com/casey/just), [swift-format](https://github.com/apple/swift-format), and [SwiftLint](https://github.com/realm/SwiftLint) for the quality gate
-- Node.js 24.14.0 (repository-local Markdown and configuration tooling)
+- [mise](https://mise.jdx.dev/), which installs every other tool at the pinned versions in `mise.toml` (SwiftLint, rumdl, hk, codespell, Node, Python, zig, cmake, ninja, and the rest) and runs the tasks in `mise-tasks/`; swift-format comes from the selected Xcode toolchain on macOS
 - Python 3 (repository-local spelling tool and local documentation previews)
 
 SwiftLint and DocC validation are macOS/Linux-native; run quality checks and `xcrun docc` there or in CI, not on Windows.
@@ -46,8 +45,8 @@ Two toolchains are supported, and both must pass:
 
 | Lane | macOS | Linux and Windows | Where it runs |
 | --- | --- | --- | --- |
-| Baseline | Xcode 26.6 (`swiftlang-6.3.3`) | swift.org Swift 6.3.3 | Required CI checks, DocC, Pages, the Lima and Windows VMs |
-| Swift 6.4 | Xcode 27.1 (`swiftlang-6.4`) | swift.org Swift 6.4.1 | CI (`ubuntu-latest / swift-6.4.1`; `xcode-27`, non-required) |
+| Baseline | Xcode 26.6 (`swiftlang-6.3.3`) | swift.org Swift 6.3.3 | Required CI checks, DocC, Pages, the macOS 26, Lima, and Windows VMs |
+| Swift 6.4 | Xcode 27.1 (`swiftlang-6.4`) | swift.org Swift 6.4.1 | CI (`ubuntu-latest / swift-6.4.1`; `xcode-27`, non-required), the macOS 27 VM |
 
 `.swift-version` names the baseline (6.3.3). The floor for consumers stays `swift-tools-version: 6.3` and macOS 26; code must compile on both lanes without raising either, and any API that needs the macOS 27 SDK goes behind `#available` at a leaf seam.
 
@@ -56,18 +55,19 @@ Select a toolchain locally:
 - macOS: the active Xcode is whatever `xcode-select -p` says. To build with the baseline while Xcode 27 is active, set `DEVELOPER_DIR` for the command or the shell:
 
   ```sh
-  DEVELOPER_DIR=/Applications/Xcode-26.6.0.app/Contents/Developer just core test
+  DEVELOPER_DIR=/Applications/Xcode-26.6.0.app/Contents/Developer mise run core:test
   ```
 
   (Adjust the path to where Xcode 26.6 is installed; `xcodes` installs it as `Xcode-26.6.0.app`.) CI selects `/Applications/Xcode_26.6.app` on the `macos-26` image through `.github/actions/setup-swift`, whose `xcode` input is the one place to change.
 
-- Lima: `just linux test` uses the baseline from `.swift-version`; `TESSERA_LINUX_SWIFT_VERSION=6.4.1 just linux test` runs the same suite on Swift 6.4.1, installing it with swiftly on first use (both toolchains stay installed).
-- Windows: the Frost toolchain image and the UTM VM carry the baseline only (`just windows-frost provision-toolchain` reads `.swift-version`). There is no Windows 6.4 lane yet.
-- Linux cross-compilation (`just linux build`) picks the Static Linux SDK that matches the active compiler from `scripts/config/swift-sdks.json`, falling back to the baseline.
+- macOS VMs: `tessera-macos-26` carries Xcode 26.6 and `tessera-macos-27` carries Xcode 27.1, so `mise run vm:macos-check` runs the baseline or the 6.4 lane on a clean system ([Tessera VMs](docs/guides/vms.md)).
+- Lima: `mise run vm:linux-test` uses the baseline from `.swift-version`; `TESSERA_LINUX_SWIFT_VERSION=6.4.1 mise run vm:linux-test` runs the same suite on Swift 6.4.1, installing it with swiftly on first use (both toolchains stay installed).
+- Windows: the Frost toolchain image and the UTM VM carry the baseline only (`mise run windows-frost:provision-toolchain` reads `.swift-version`). There is no Windows 6.4 lane yet.
+- Linux cross-compilation (`mise run linux:build`) picks the Static Linux SDK that matches the active compiler from `scripts/config/swift-sdks.json`, falling back to the baseline.
 
 ## Setup
 
-[Homebrew](https://brew.sh/) is the recommended way to install the macOS tool set. A `Brewfile` installs everything at once:
+Install [mise](https://mise.jdx.dev/getting-started.html) first (`brew install mise`, or the installer on that page); it provides every other pinned tool. On macOS a `Brewfile` installs the host packages mise cannot (swiftly, Lima, UTM):
 
 ```sh
 brew bundle install        # or install the tools above individually and put them on PATH
@@ -76,34 +76,36 @@ brew bundle install        # or install the tools above individually and put the
 Then bootstrap the repository-local tooling and git hooks:
 
 ```sh
+mise install               # every pinned tool in mise.toml (mise.lock records the versions)
 npm ci                     # pinned Prettier (YAML and JSON)
-mise install               # rumdl (Markdown), from mise.toml
-just setup quality-tools   # pinned codespell environment
-just setup hooks           # Lefthook: non-mutating staged + Conventional Commit checks
+mise run setup:hooks       # hk: staged quality gate and Conventional Commit checks
 ```
+
+Run tasks with `mise run <task>` (`mise tasks` lists them, grouped as `core:`, `quality:`, `docs:`, `ci:`, `linux:`, `vm:`, `windows-frost:`, `windows-utm:`, and `setup:`), or [activate mise](https://mise.jdx.dev/getting-started.html#activate-mise) in your shell so the tools are on `PATH` and your shell completes every task and its arguments.
 
 Optional platform tooling for cross-platform testing:
 
-- [Lima](https://lima-vm.io/) — Docker-free Linux test runs.
+- [Tart](https://tart.run/) (from `mise install`) — macOS VMs with a clean Xcode, driven by the `vm:macos-*` tasks.
+- [Lima](https://lima-vm.io/) — Docker-free Linux test runs, driven by the `vm:linux-*` tasks.
 - [UTM](https://mac.getutm.app/) — Windows GUI VM on Apple silicon.
 - [QEMU](https://www.qemu.org/), swtpm, and sshpass — scripted Windows VM runs with Frost.
 
 ## The development loop
 
-Recipes are grouped by area; run `just` to list every module and command. The fastest inner-loop commands while editing:
+Tasks are grouped by area; run `mise tasks` to list them. The fastest inner-loop commands while editing:
 
 ```sh
-just core build            # build the package (prepares libghostty-vt first)
-just core test             # full Swift test suite (non-parallel, as CI runs it)
-just core test-parallel    # the same suite in parallel; must stay green
-just core showcase         # run the Tessera Showcase example
+mise run core:build            # build the package (prepares libghostty-vt first)
+mise run core:test             # full Swift test suite (non-parallel, as CI runs it)
+mise run core:test-parallel    # the same suite in parallel; must stay green
+mise run core:showcase         # run the Tessera Showcase example
 ```
 
 Run the narrowest relevant check first, then widen:
 
 ```sh
 swift test --filter TesseraTerminalTests   # focused tests
-just quality changed                        # strict checks on changed files only
+mise run quality:changed                        # strict checks on changed files only
 ```
 
 ### The quality gate
@@ -111,16 +113,16 @@ just quality changed                        # strict checks on changed files onl
 Before opening a PR or handing work off, run this gate in order and make every step pass — focused checks alone are not sufficient:
 
 ```sh
-just quality format        # 1. auto-apply SwiftLint --fix, swift-format, and markup formatting (mutates)
-just core test             # 2. the complete Swift test suite
-just quality lint          # 3. strict format, lint, Markdown, spelling, wireframe, and architecture checks
+mise run quality:format        # 1. auto-apply SwiftLint --fix, swift-format, and markup formatting (mutates)
+mise run core:test             # 2. the complete Swift test suite
+mise run quality:lint          # 3. strict format, lint, Markdown, spelling, wireframe, and architecture checks
 ```
 
-Steps 2 and 3 are bundled as `just ci check` if you prefer one command. On macOS, also run `just docs lint` when DocC or reference documentation changes (DocC validation is macOS-only). After editing Markdown, validate it with `npm run check:markup <path>`.
+Steps 2 and 3 are bundled as `mise run ci:check` if you prefer one command. On macOS, also run `mise run docs:lint` when DocC or reference documentation changes (DocC validation is macOS-only). After editing Markdown, validate it with `npm run check:markup <path>`.
 
-Only `just quality format` (and `just quality spelling-fix`) mutate files — review their diffs. Committing everything the formatter touches is fine, including formatter-only changes. Hooks run non-mutating checks only and never autoformat.
+Only `mise run quality:format` (and `mise run quality:spelling-fix`) mutate files — review their diffs. Committing everything the formatter touches is fine, including formatter-only changes. Hooks run non-mutating checks only and never autoformat.
 
-If a checkout or worktree behaves unexpectedly, run `just core doctor` and see [Local development state](docs/guides/local-development-state.md), which explains which artifacts are per-checkout, machine-global, or VM-local.
+If a checkout or worktree behaves unexpectedly, run `mise run core:doctor` and see [Local development state](docs/guides/local-development-state.md), which explains which artifacts are per-checkout, machine-global, or VM-local.
 
 ## Pull request workflow
 
@@ -139,27 +141,19 @@ PR titles must use Conventional Commit style.
 
 Each entry must be a concise, self-contained bullet on one physical line. The supported commit tools rebuild `Unreleased` with different valid blank-line layouts, so a file-level rumdl directive allows either layout while all other Markdown rules remain enforced.
 
-`omp commit` and [`lgit`](https://github.com/can1357/llm-git) can generate a Conventional Commit message and update the changelog. The `Brewfile` installs `lgit`; it is optional, and neither changelog formatting nor linting requires an API credential. For Tessera, set the following non-secret option in the configuration passed to `lgit`:
-
-```toml
-changelog_revise = false
-```
-
-This prevents an unrelated commit from revising established release-note wording. Use `omp commit --no-changelog` or `lgit --no-changelog` when a change is not notable or when you have already staged its entry. A dry run previews only the commit message in the supported `lgit` version; it does not exercise changelog updates.
-
 Release-note labels are `breaking-change`, `enhancement`, `bug`, `documentation`, `dependencies`, and `maintenance`. Apply `skip-release-notes` only to changes that should not appear in GitHub-generated notes. These labels control the generated GitHub release presentation; they do not add headings to the canonical changelog.
 
 ## Documentation
 
 The project's documents live in one [IWE](https://iwe.md) workspace, `docs/`, mapped by [`docs/index.md`](docs/index.md): the [spec](docs/spec.md) (one page per section), [plans](docs/plans.md), [research records](docs/research.md), [architecture decisions](docs/architecture.md), the [design catalog](docs/design.md), and [contributor guides](docs/guides.md). Each directory has a frontmatter schema in `docs/.iwe/schemas/`; `iwe schema validate` from `docs/` checks every page, and `iwe find --fuzzy <terms>` and `iwe retrieve -k <key>` search and read it. `docs/plans.md` is rendered from the plans' frontmatter by `scripts/plans.py` and the quality gate fails while it is stale, so edit a plan's `stage`, `order`, or `description` and re-run the script rather than the hub.
 
-DocC catalogs beside the sources (`Sources/*/*.docc`) stay the reference for the public API; `just docs lint` validates them. Markdown prose is one paragraph per line (no hard wrapping) with relative `.md` links and no raw HTML, because `iwe normalize` rewrites pages into that shape; Swift code keeps the formatter's 90-column width. [rumdl](https://github.com/rvben/rumdl) lints every Markdown file (`.rumdl.toml`; `mise exec -- rumdl check <path>`, or `just quality format` to apply its fixes) and no formatter rewraps prose. Prettier stays for YAML and JSON only, because nothing else in the repository formats those.
+DocC catalogs beside the sources (`Sources/*/*.docc`) stay the reference for the public API; `mise run docs:lint` validates them. Markdown prose is one paragraph per line (no hard wrapping) with relative `.md` links and no raw HTML, because `iwe normalize` rewrites pages into that shape; Swift code keeps the formatter's 90-column width. [rumdl](https://github.com/rvben/rumdl) lints every Markdown file (`.rumdl.toml`; `mise exec -- rumdl check <path>`, or `mise run quality:format` to apply its fixes) and no formatter rewraps prose. Prettier stays for YAML and JSON only, because nothing else in the repository formats those.
 
 ## Coding standards
 
 Match the surrounding code and the repository conventions:
 
-- **Formatting**: 2-space indentation, no tabs; 90-character lines (`.swift-format` wraps at that width); trailing commas in multi-line arrays and dictionaries. `just quality format` is authoritative — prefer it over hand-fixing individual findings.
+- **Formatting**: 2-space indentation, no tabs; 90-character lines (`.swift-format` wraps at that width); trailing commas in multi-line arrays and dictionaries. `mise run quality:format` is authoritative — prefer it over hand-fixing individual findings.
 - **Ordering**: imports sorted alphabetically; properties sorted alphabetically within their visibility group; protocol conformances sorted alphabetically (e.g. `Equatable, Sendable`).
 - **Naming**: follow the Swift API Design Guidelines — camelCase for values and functions, PascalCase for types.
 - **Comments and docs**: document public APIs. Comments and DocC describe enduring behavior, ownership, and invariants — never plan/phase/slice/step numbers, temporary delivery status, or future timing. Roadmap sequencing belongs in planning and spec documents only.
@@ -170,30 +164,46 @@ Match the surrounding code and the repository conventions:
 
 - Write tests with [Swift Testing](https://developer.apple.com/documentation/testing), using backticked, sentence-style function names, e.g. ``@Test func `restores modes on SIGHUP`()``.
 - Prefer snapshots for structured state a human inspects as a whole (graph dumps, layout trees, buffers, styles, rendered output). Prefer direct `#expect`/`#require` assertions for small scalar values, API-shape checks, and identity/lifetime relationships.
-- Keep tests deterministic and isolated: explicit input scripts, injected clocks, and bounded drains — never `Task.yield()` or wall-clock sleeps to "let the UI catch up." Tests must be safe under the full parallel suite: `just core test-parallel` runs it, and a non-required CI job (`test (parallel, ubuntu-latest)`) guards it.
+- Keep tests deterministic and isolated: explicit input scripts, injected clocks, and bounded drains — never `Task.yield()` or wall-clock sleeps to "let the UI catch up." Tests must be safe under the full parallel suite: `mise run core:test-parallel` runs it, and a non-required CI job (`test (parallel, ubuntu-latest)`) guards it.
 - Cover edge cases and error conditions, and test behavior and invariants rather than incidental defaults or plumbing.
 
 ## Cross-platform testing
 
-CI runs the full suite on macOS, Linux, and Windows with Ghostty-backed snapshot coverage. Locally you can validate other platforms from macOS.
+CI runs the full suite on macOS, Linux, and Windows with Ghostty-backed snapshot coverage. Locally you can validate other platforms from macOS. The macOS and Linux VMs are Tessera's own `vm:` tasks; [Tessera VMs](docs/guides/vms.md) covers where their disks live, how they are named, and the SSH setup.
+
+### macOS
+
+A macOS VM runs the check matrix on a clean macOS with only the lane's Xcode installed, which catches anything that passes only because of your host's setup. Build a base once per release (Tart pulls a Cirrus Labs vanilla image of tens of GB and installs Xcode into it), then clone a work instance from it:
+
+```sh
+mise run vm:macos-base 26 --xcode host   # copy this Mac's Xcode 26.6; --xcode xcodes downloads it with your Apple Account
+mise run vm:macos-clone 26               # tessera-macos-26
+mise run vm:macos-push tessera-macos-26  # deliver the working tree to ~/tessera in the guest
+mise run vm:macos-check tessera-macos-26 # ci:check, docs:lint, and core:examples in the guest
+mise run vm:macos-stop tessera-macos-26
+```
+
+Use `27` for the Swift 6.4 lane (macOS 27 with Xcode 27.1).
 
 ### Linux
 
 Compile-check against the Static Linux SDK without a VM (does not run tests):
 
 ```sh
-just linux install-sdk     # SDK metadata is pinned in scripts/config/swift-sdks.json
-just linux build
+mise run linux:install-sdk     # SDK metadata is pinned in scripts/config/swift-sdks.json
+mise run linux:build
 ```
 
 Run the Linux test suite in a [Lima](https://lima-vm.io/) VM (Ubuntu 24.04, no Docker):
 
 ```sh
-just linux start           # create/start the VM; set TESSERA_LINUX_VM_NAME for parallel worktrees
-just linux test            # full Linux suite from macOS
-just linux test -- --filter PlatformHandlesTests   # focused; keeps --jobs 2 --no-parallel
-just linux stop            # then `just linux delete` for a fresh environment
+mise run vm:linux-start        # create/start the VM; set TESSERA_LINUX_VM_NAME for parallel worktrees
+mise run vm:linux-test         # full Linux suite from macOS
+mise run vm:linux-test -- --filter PlatformHandlesTests   # focused; keeps --jobs 2 --no-parallel
+mise run vm:linux-stop         # then `mise run vm:linux-delete` for a fresh environment
 ```
+
+The older names (`linux:start`, `linux:test`, `linux:stop`, `linux:shell`, `linux:delete`) still run these tasks.
 
 ### Windows
 
@@ -205,10 +215,10 @@ Windows on Apple silicon has two supported workflows — see the guides for firs
 The normal Frost loop builds the pinned Windows `libghostty-vt` artifact once per pin, then runs the Ghostty-backed suites against disposable overlays:
 
 ```sh
-just windows-frost start
-just windows-frost build-ghostty   # re-run after bumping scripts/ghostty-vt-version.txt
-just windows-frost stop
-just windows-frost test            # add `-- --filter WindowsInputLoopTests` to focus
+mise run windows-frost:start
+mise run windows-frost:build-ghostty   # re-run after bumping scripts/ghostty-vt-version.txt
+mise run windows-frost:stop
+mise run windows-frost:test            # add `-- --filter WindowsInputLoopTests` to focus
 ```
 
 For manual GUI validation, run a Tessera demo in each host you support — Windows Terminal (PowerShell), PowerShell in classic conhost, and `cmd.exe` — and verify arrow keys, `q` clean exit, `Ctrl-C` cleanup, resize-driven redraw, and terminal restoration (prompt returns with normal echo, a visible cursor, and the primary screen active).
@@ -230,7 +240,7 @@ Every pull request must pass these required checks:
 - `Documentation gate`
 - `DocC validation (macOS)`
 
-The `skip-ci` label deliberately fails the two gate checks. Remove it before requesting review or merge. GitHub Actions require full commit-SHA pins and are restricted to GitHub-owned actions plus the reviewed Swift, Zig, `just`, and draft-release actions. Dependabot checks Swift, npm, and GitHub Actions dependencies monthly.
+The `skip-ci` label deliberately fails the two gate checks. Remove it before requesting review or merge. GitHub Actions require full commit-SHA pins and are restricted to GitHub-owned actions plus the reviewed `SwiftyLab/setup-swift`, `jdx/mise-action`, and draft-release actions. Dependabot checks Swift, npm, and GitHub Actions dependencies monthly.
 
 Discussions, automatic merge after requirements pass, and automatic deletion of merged head branches are enabled. Maintainers squash each pull request so `main` retains one reviewed, Conventional Commit-style subject per change.
 
@@ -267,7 +277,7 @@ For each release:
 4. If the release contains `Breaking Changes`, put reviewed migration guidance directly in that changelog section so the extracted release body and RSS/Atom entry include it.
 5. Update the README dependency example from `main` to the exact released version and add or refresh a release badge only after its destination exists.
 6. Run `python3 scripts/release_notes.py v<version>`, inspect `.build/release-notes.md`, and confirm every category and bullet exactly matches the dated changelog section.
-7. Run `just quality format`, the complete `swift test`, and `just quality lint`, in that order. Run `just docs lint` when reference documentation changed.
+7. Run `mise run quality:format`, the complete `swift test`, and `mise run quality:lint`, in that order. Run `mise run docs:lint` when reference documentation changed.
 8. Merge the finalized release changes to `main`, then create an annotated tag with `git tag -a v<version> -m "Tessera v<version>"`.
 9. Push only the tag, then immediately verify that a fresh external Swift package resolves the tagged dependency declaration shown in the README.
 10. Run the **Draft release** workflow with the existing tag. It checks out the immutable tag, regenerates `.build/release-notes.md`, and creates or updates a draft titled `Tessera v<version>`. The curated changelog text remains first; [`.github/release.yml`](.github/release.yml) controls the generated pull-request list appended beneath it.

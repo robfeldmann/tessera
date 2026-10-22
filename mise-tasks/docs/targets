@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+#MISE description="Generate DocC archives for all documented package targets"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+mise run core:build-libghostty-vt
+echo "▶ Building documentation for Tessera targets..."
+base_targets=(
+  TesseraCore
+  TesseraLayout
+  TesseraTestSupport
+  TesseraTerminalANSI
+  TesseraTerminalBuffer
+  TesseraTerminalCore
+  TesseraTerminalInput
+  TesseraTerminalIO
+  TesseraTerminalRendering
+  TesseraTerminalSnapshotSupport
+  TesseraTerminalTestSupport
+  TesseraWidgets
+)
+for target in "${base_targets[@]}"; do
+  swift package \
+    --allow-writing-to-directory .build/doccarchives/targets \
+    generate-documentation \
+    --target "$target" \
+    --disable-indexing \
+    --warnings-as-errors \
+    --enable-experimental-external-link-support \
+    --output-path ".build/doccarchives/targets/$target.doccarchive"
+done
+dependency_args=()
+for archive in .build/doccarchives/targets/TesseraTerminal*.doccarchive; do
+  if [[ "$archive" != *"/TesseraTerminal.doccarchive" ]]; then
+    dependency_args+=(--dependency "$archive")
+  fi
+done
+swift package \
+  --allow-writing-to-directory .build/doccarchives/targets \
+  generate-documentation \
+  --target TesseraTerminal \
+  --disable-indexing \
+  --warnings-as-errors \
+  --enable-experimental-external-link-support \
+  "${dependency_args[@]}" \
+  --output-path .build/doccarchives/targets/TesseraTerminal.doccarchive
+dependency_args=()
+for archive in .build/doccarchives/targets/*.doccarchive; do
+  if [[ "$archive" != *"/Tessera.doccarchive" ]]; then
+    dependency_args+=(--dependency "$archive")
+  fi
+done
+swift package \
+  --allow-writing-to-directory .build/doccarchives/targets \
+  generate-documentation \
+  --target Tessera \
+  --disable-indexing \
+  --warnings-as-errors \
+  --enable-experimental-external-link-support \
+  "${dependency_args[@]}" \
+  --output-path .build/doccarchives/targets/Tessera.doccarchive

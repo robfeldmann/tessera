@@ -42,30 +42,30 @@
 
       var terminal: GhosttyTerminal?
       try check(
-        ghostty_terminal_new(
-          nil,
-          &terminal,
-          GhosttyTerminalOptions(
-            cols: UInt16(columns),
-            rows: UInt16(rows),
-            max_scrollback: 0
-          )
-        ),
+        ghostty_terminal_new(nil, &terminal, UInt16(columns), UInt16(rows)),
         "ghostty_terminal_new"
       )
 
+      // Zero bytes disables scrollback; snapshots read the active screen only.
+      var scrollbackMaxBytes = 0
       var kittyImageStorageLimit = UInt64(64 * 1_024 * 1_024)
       do {
-        try withUnsafePointer(to: &kittyImageStorageLimit) { pointer in
-          try check(
-            ghostty_terminal_set(
-              terminal,
-              GHOSTTY_TERMINAL_OPT_KITTY_IMAGE_STORAGE_LIMIT,
-              pointer
-            ),
-            "ghostty_terminal_set kitty image storage limit"
-          )
-        }
+        try check(
+          ghostty_terminal_set(
+            terminal,
+            GHOSTTY_TERMINAL_OPT_SCROLLBACK_MAX_BYTES,
+            &scrollbackMaxBytes
+          ),
+          "ghostty_terminal_set scrollback max bytes"
+        )
+        try check(
+          ghostty_terminal_set(
+            terminal,
+            GHOSTTY_TERMINAL_OPT_KITTY_IMAGE_STORAGE_LIMIT,
+            &kittyImageStorageLimit
+          ),
+          "ghostty_terminal_set kitty image storage limit"
+        )
       } catch {
         ghostty_terminal_free(terminal)
         throw error

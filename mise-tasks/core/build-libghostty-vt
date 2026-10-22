@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Build or reuse the pinned libghostty-vt C shim dependency"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+scripts/build-libghostty-vt.sh

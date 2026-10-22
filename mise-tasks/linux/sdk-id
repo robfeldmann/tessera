@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Print the Static Linux SDK identifier for the active compiler"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+scripts/linux-sdk-id.sh

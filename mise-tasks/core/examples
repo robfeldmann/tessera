@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Build all example package executables"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+swift build --package-path Examples

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+#MISE description="Build libghostty-vt, then build and test the package and build the Examples"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+mise run core:build-libghostty-vt
+swift build
+swift build --package-path Examples
+swift test --no-parallel

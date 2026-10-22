@@ -5,17 +5,19 @@ stage: living
 
 # Plans
 
-One plan per piece of work, in order. This page is rendered from each plan's frontmatter by `scripts/plans.py`; change `stage`, `order`, `description`, or `completed` in the plan and re-run it (`just quality lint` fails while the page is stale). Read a plan's Progress list and `Next:` line before resuming it, and its Approach and Acceptance before starting it.
+One plan per piece of work, in order. This page is rendered from each plan's frontmatter by `scripts/plans.py`; change `stage`, `order`, `description`, or `completed` in the plan and re-run it (`mise run quality:lint` fails while the page is stale). Read a plan's Progress list and `Next:` line before resuming it, and its Approach and Acceptance before starting it.
 
 ## Active
 
 - [Phase 4 view layer, redesigned from the omp2 reference](plans/omp2-reference-gallery-and-phase-4-redesign.md): Use oh-my-pi's omp2 TUI as the visual and behavioral reference for Tessera's Phase 4 components (a verified prior-art inventory, a captured reference gallery with ASCII fallbacks, an owner taste review, a Rust-to-Swift translation key, and a revised catalog), then implement the view layer in dependency order with per-component demos. Replaces plan 030.
+- [Toolchain, repository conventions, and plan consolidation](plans/toolchain-conventions-and-plan-consolidation.md): Baseline every local check, make Xcode 26.6 and Swift 6.3.3 the baseline on every lane while adding Swift 6.4 and Xcode 27 support, port plan 033 and its spikes to main, run plan 034, adopt the owner's newer repository conventions (unwrapped prose with rumdl, an IWE docs workspace with slug-named plans and a split spec, mise and hk in place of just and Lefthook, Tessera-owned Tart and Lima VMs, and a current Zig and libghostty-vt), then merge plans 032 and 033 into one plan.
 
 ## Next
 
 1. [Tooling orchestration and Lefthook migration](plans/tooling-orchestration-and-lefthook.md): Unify formatter ownership, deterministic quality gates, hook management, and CI around repository-managed commands.
 2. [Developer tooling for agents and humans](plans/developer-tooling.md): A headless harness, a scenario language, semantic queries over the view graph, deterministic text/grid/SVG shots, invariant and cost checks, "why" traces, and a catalog review view, built on plan 032's Phase 8 demo runner and landing one capability per Phase 4 phase so agents can build, debug, and evaluate Tessera apps unattended.
-3. [Toolchain, repository conventions, and plan consolidation](plans/toolchain-conventions-and-plan-consolidation.md): Baseline every local check, make Xcode 26.6 and Swift 6.3.3 the baseline on every lane while adding Swift 6.4 and Xcode 27 support, port plan 033 and its spikes to main, run plan 034, adopt the owner's newer repository conventions (unwrapped prose with rumdl, an IWE docs workspace with slug-named plans and a split spec, mise and hk in place of just and Lefthook, Tessera-owned Tart and Lima VMs, and a current Zig and libghostty-vt), then merge plans 032 and 033 into one plan.
+3. [Build the Phase 4 view layer with the tooling that proves it](plans/phase-4-view-layer-and-developer-tooling.md): Build the Phase 4 view layer from the omp2-reviewed catalog and the developer tooling that drives, pictures, and checks it, in one slice order where each component lands with its demo, its scenario, and the harness capability it needs.
+4. [Make UTM the one Windows lane and retire Frost](plans/windows-on-utm.md): Retire the Frost QEMU workflow and make the UTM guest the one scripted, rebuildable Windows lane, driven by scripts/vm.py like the macOS and Linux guests.
 
 ## Done
 
@@ -94,4 +96,4 @@ Plans written before the docs workspace were numbered (`.agents/plans/NNN-slug.m
 | 032 | [Phase 4 view layer, redesigned from the omp2 reference](plans/omp2-reference-gallery-and-phase-4-redesign.md) | active |
 | 033 | [Developer tooling for agents and humans](plans/developer-tooling.md) | proposed |
 | 034 | [Terminal I/O concurrency review fixes](plans/terminal-io-concurrency-review-fixes.md) | done |
-| 035 | [Toolchain, repository conventions, and plan consolidation](plans/toolchain-conventions-and-plan-consolidation.md) | proposed |
+| 035 | [Toolchain, repository conventions, and plan consolidation](plans/toolchain-conventions-and-plan-consolidation.md) | active |

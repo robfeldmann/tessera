@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+#MISE description="Merge target DocC archives into one package documentation archive"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+echo "▶ Merging documentation archives..."
+rm -rf .build/doccarchives/tessera.doccarchive
+xcrun docc merge \
+  .build/doccarchives/targets/Tessera.doccarchive \
+  .build/doccarchives/targets/TesseraCore.doccarchive \
+  .build/doccarchives/targets/TesseraLayout.doccarchive \
+  .build/doccarchives/targets/TesseraTestSupport.doccarchive \
+  .build/doccarchives/targets/TesseraTerminal.doccarchive \
+  .build/doccarchives/targets/TesseraTerminalANSI.doccarchive \
+  .build/doccarchives/targets/TesseraTerminalBuffer.doccarchive \
+  .build/doccarchives/targets/TesseraTerminalCore.doccarchive \
+  .build/doccarchives/targets/TesseraTerminalInput.doccarchive \
+  .build/doccarchives/targets/TesseraTerminalIO.doccarchive \
+  .build/doccarchives/targets/TesseraTerminalRendering.doccarchive \
+  .build/doccarchives/targets/TesseraTerminalSnapshotSupport.doccarchive \
+  .build/doccarchives/targets/TesseraTerminalTestSupport.doccarchive \
+  .build/doccarchives/targets/TesseraWidgets.doccarchive \
+  --output-path .build/doccarchives/tessera.doccarchive \
+  --synthesized-landing-page-kind "Swift Package" \
+  --synthesized-landing-page-name Tessera

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#MISE description="Open a shell in the Lima Linux VM, or run the given command there"
+#MISE alias="linux:shell"
+#USAGE arg "[command]..." help="Command to run in the guest instead of a shell" var=#true
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+exec python3 scripts/vm.py linux-ssh "$@"

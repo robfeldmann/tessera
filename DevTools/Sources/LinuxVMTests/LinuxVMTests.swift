@@ -10,12 +10,12 @@ enum LinuxVMTests {
       .deletingLastPathComponent()
 
     let script = """
-      if command -v just >/dev/null 2>&1; then
-        exec just linux test
-      elif [ -x /opt/homebrew/bin/just ]; then
-        exec /opt/homebrew/bin/just linux test
+      if command -v mise >/dev/null 2>&1; then
+        exec mise run vm:linux-test
+      elif [ -x "$HOME/.local/bin/mise" ]; then
+        exec "$HOME/.local/bin/mise" run vm:linux-test
       else
-        echo "error: just not found. Install with: brew install just"
+        echo "error: mise not found. Install it from https://mise.jdx.dev"
         exit 1
       fi
       """

@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Verify tagged release bodies preserve the canonical changelog text exactly"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+python3 -m unittest scripts/test_release_notes.py

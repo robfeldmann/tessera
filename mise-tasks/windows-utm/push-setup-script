@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+#MISE description="Copy the Windows setup PowerShell script into the UTM VM"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+vm="${TESSERA_WINDOWS_VM_NAME:-tessera-windows}"
+if ! command -v utmctl > /dev/null 2>&1; then
+  echo "⚠️  utmctl not found — install UTM (brew install --cask utm)" >&2
+  exit 1
+fi
+path="${TESSERA_WINDOWS_VM_SETUP_PATH:-C:\\Windows\\Temp\\setup-windows-vm.ps1}"
+if [[ ! -f scripts/setup-windows-vm.ps1 ]]; then
+  echo "⚠️  scripts/setup-windows-vm.ps1 not found" >&2
+  exit 1
+fi
+output="$(utmctl file push "$vm" "$path" < scripts/setup-windows-vm.ps1 2>&1)" || { echo "$output"; exit 1; }
+if echo "$output" | grep -E "Error from event:|failed to open file" > /dev/null; then
+  echo "$output"
+  exit 1
+fi
+if [[ -n "$output" ]]; then echo "$output"; fi
+echo "✅ Pushed scripts/setup-windows-vm.ps1 to $vm:$path"

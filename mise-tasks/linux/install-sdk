@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Install the Static Linux SDK that matches the active compiler"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+scripts/install-linux-sdk.sh

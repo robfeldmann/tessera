@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Strict SwiftLint semantic gate; warnings fail"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+swiftlint lint --strict --config .swiftlint.yml

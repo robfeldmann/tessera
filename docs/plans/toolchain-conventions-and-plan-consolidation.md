@@ -1,6 +1,6 @@
 ---
 type: plan
-stage: proposed
+stage: active
 created: 2026-10-21
 order: 35
 description: Baseline every local check, make Xcode 26.6 and Swift 6.3.3 the baseline on every lane while adding Swift 6.4 and Xcode 27 support, port plan 033 and its spikes to main, run plan 034, adopt the owner's newer repository conventions (unwrapped prose with rumdl, an IWE docs workspace with slug-named plans and a split spec, mise and hk in place of just and Lefthook, Tessera-owned Tart and Lima VMs, and a current Zig and libghostty-vt), then merge plans 032 and 033 into one plan.
@@ -19,24 +19,24 @@ description: Baseline every local check, make Xcode 26.6 and Swift 6.3.3 the bas
   - [x] 2.4 Toolchain documentation (`b128c2d`)
 - [x] **Phase 3 — Port plan 033 and its spikes to main**
   - [x] 3.1 Bring the `devtools-plan` commits onto main (`788b59a`..`f82f56e`, nine cherry-picks; lint passes)
-  - [x] 3.2 Build and test each spike on the Phase 2 lanes (identity fix; all four pass on 26.6 and 27.1; commit below)
+  - [x] 3.2 Build and test each spike on the Phase 2 lanes (`bb0c541`; identity fix; all four pass on 26.6 and 27.1)
   - [x] 3.3 Save the seams spike as a patch (`spikes/Seams/30e4bbf.patch` applies to `cb8d143`; branch deletion waits for the owner)
 - [x] **Phase 4 — Plan 034 bug punchlist**
   - [x] 4.1 Run plan 034 to completion (plan 034 `complete`; commits `3fb25e9`..`087fb4c`; all-lane CI run `39732795646` green: nine jobs, including `xcode-27`, `swift-6.4.1`, the parallel suite, and DocC)
-- [ ] **Phase 5 — Repository conventions**
+- [x] **Phase 5 — Repository conventions**
   - [x] 5.1 Set the Swift line width to 90 (`34119a5` sets `.swift-format` and `CONTRIBUTING.md`; the reformat of 20 files is `be4a42a`; lint and tests pass)
   - [x] 5.2 Move project docs into an IWE workspace with slug-named plans (`de0c89b`, `ba7c11b`; `iwe schema validate` clean, links checked)
   - [x] 5.3 Split the spec into workspace pages (`50f7147`; zero-diff reconstruction, 284 anchors mapped)
-  - [x] 5.4 Unwrap prose and lint Markdown with rumdl (`4313e07`, `d6215f1`; `rumdl check .` clean on 236 files)
-  - [ ] 5.5 Replace `just` with mise and Lefthook with hk
-  - [ ] 5.6 Give Tessera its own Tart and Lima VM tasks
-  - [ ] 5.7 Update libghostty-vt and Zig
+  - [x] 5.4 Unwrap prose and lint Markdown with rumdl (`4313e07`, `d6215f1`; `rumdl check .` clean on 236 files; CI run `39735348057` green on every job)
+  - [x] 5.5 Replace `just` with mise and Lefthook with hk (`044f074`, `c49bb74`, `219ae7e`; matrix passes through the tasks; CI run `39738324893` green on every job with mise-action)
+  - [x] 5.6 Give Tessera its own Tart and Lima VM tasks (`c8dc5d6`; both macOS guests run the matrix; clean-guest proof with Zig 0.17 in the step)
+  - [x] 5.7 Update libghostty-vt and Zig (`9ece4bd` on `plan-035-zig`, draft PR #42; Ghostty `f54340ad` on Zig 0.17.0; all three lanes pass locally; CI run `39741965705` on the branch green on every job, including Windows)
 - [ ] **Phase 6 — Merge plans 032 and 033**
-  - [ ] 6.1 Write the merged plan
-  - [ ] 6.2 Owner decision: the `mobile` viewport rule, then apply it
-  - [ ] 6.3 Retire plans 032 and 033
+  - [x] 6.1 Write the merged plan (`docs/plans/phase-4-view-layer-and-developer-tooling.md`, `proposed`, order 36; `640071d`; owner review pending)
+  - [ ] 6.2 Owner decision: the `mobile` viewport rule, then apply it (blocked on the owner; see the step)
+  - [ ] 6.3 Retire plans 032 and 033 (blocked on the owner's review of 6.1; see the step)
 
-Next: Step 5.5 (mise tasks replace the just recipes; hk replaces Lefthook).
+Next: the owner. Morning review of `plan-035` commit by commit, then pull requests to `main` in phase order (the 25 local commits first), plus the draft pull requests #41 (`plan-035`) and #42 (`plan-035-zig`, Step 5.7, to fold into `plan-035` after review); Step 6.2 (the `mobile` viewport decision) and Step 6.3 (retire plans 032 and 033 after reviewing the merged plan); deleting the `devtools-plan` and `devtools-seams-spike` branches and worktrees once their contents are on `main` (Step 3.3). Everything an agent can do without the owner is done.
 
 ## Overview
 
@@ -54,7 +54,7 @@ Work happens on one integration branch, `plan-035` (owner decision, 2026-10-21);
 - Other tools: the latest versions mise can provide, locked in `mise.lock`, except where a version must match something else (Step 5.5).
 - Plans: slug filenames, no numbers, so branches cannot collide on a number. The `docs/plans.md` hub records the order, stage, and which plan is active.
 - Docs layout: the directory names of the owner's other projects where they apply, new ones where needed; a `research/` directory; the design catalog moves into `docs/`.
-- Agent commands: `.agents/commands/` moves to the most generic location omp supports that other harnesses can share (Step 5.2).
+- Agent commands: the former `.pi/prompts/` moves to the most generic location omp supports that other harnesses can share, `.agents/commands/` (Step 5.2).
 - VMs: Tessera owns its VM tasks, so anyone can contribute or test without the owner's dotfiles. macOS guests start from a Cirrus Labs vanilla image with a scripted Xcode install.
 - Swift line width: 90.
 - macOS CI compiler: Xcode 26.6's own compiler; `setup-swift` stays for Linux and Windows only.
@@ -69,7 +69,7 @@ Work happens on one integration branch, `plan-035` (owner decision, 2026-10-21);
 Rules for an agent running this plan unattended.
 
 - Branch: create `plan-035` from local `main` (which carries 25 commits not on `origin/main`) and do all work there. One commit per step, or a few for a large step, with Conventional Commit messages; commits are signed by the repository's Git configuration. Push `plan-035` after each phase and keep one draft pull request from `plan-035` to `main` open, with a Conventional Commit title, so CI runs. Never push to `main`, merge a pull request, force-push, or delete a branch or worktree.
-- Checks: the repository's pre-commit hooks do not run in this worktree (`core.hooksPath` in `../.bare/config` is `.githooks`, which does not exist, and Lefthook is not installed); only the owner's Git config hook validates Conventional Commit subjects. So run the `AGENTS.md` gate by hand before every commit: `just quality format`, the full `swift test` on the baseline toolchain (`DEVELOPER_DIR` set to Xcode 26.6), and `just quality lint`; add `just docs lint` when DocC or public API changes.
+- Checks: the repository's pre-commit hooks do not run in this worktree (`core.hooksPath` in `../.bare/config` is `.githooks`, which does not exist, and Lefthook is not installed); only the owner's Git config hook validates Conventional Commit subjects. So run the `AGENTS.md` gate by hand before every commit: `just quality format`, the full `swift test` on the baseline toolchain (`DEVELOPER_DIR` set to Xcode 26.6), and `just quality lint`; add `just docs lint` when DocC or public API changes. (From Step 5.5 on, the same gate is `mise run quality:format`, `mise run core:test`, and `mise run quality:lint`, and hk runs the staged gate on every commit.)
 - Tools: mise is installed but not activated in a plain shell; run mise-managed tools (hk, rumdl, and later the Tessera tasks) through `mise exec --` or an activated shell.
 - Handoff: after each step, check its box only with evidence on the line (a commit SHA, a command and its result) and update the `Next:` line under Progress. The run will outlast one context; the plan is the handoff.
 - Blocked steps: record what was tried and the first error in the step, leave the box unchecked, and continue with the next step that does not depend on it. Step 2.1 gates every later build step; Steps 3.1 and 3.3's patch, and plan 034's test-only steps, do not depend on each other.
@@ -305,6 +305,15 @@ Pre-existing failures and recipe defects, none fixed here:
 - Contributors: `mise install` then one setup task is the whole bootstrap; nothing depends on the owner's dotfiles.
 - Acceptance: every recipe has a mise task or a recorded reason for removal; `Justfile`, `justfiles/`, and `lefthook.yml` are gone; CI uses mise; fish completes every task and its arguments; `CONTRIBUTING.md`, `AGENTS.md`, and the docs name the new commands; the Phase 1 check matrix passes through them.
 
+#### Done (2026-10-22)
+
+- Commit `044f074`. `mise.toml` pins the tools (`mise.lock` records them for macos-arm64, linux-x64, and linux-arm64): SwiftLint 0.65.1, rumdl 0.3.0, hk 2.8.0, codespell 2.4.3 (`pipx:` through uv), Node 24.22.1, Python 3.15.1, uv 0.13.5, yamllint 1.38.0, taplo 0.10.0, jq 1.8.2, iwe 0.29.0, and, matching the pinned Ghostty, zig 0.15.2 with cmake 4.4.4 and ninja 1.13.2. Swift stays with Xcode (mise's `[env]` sets `DEVELOPER_DIR` to Xcode 26.6 wherever it is installed, falling back to `xcode-select -p`) and swiftly; swift-format comes from the selected Xcode toolchain through `scripts/swift-format.sh`, so CI and local runs format alike.
+- Every `just` recipe is a file task under `mise-tasks/<module>/<name>` (76 tasks: `core:`, `quality:`, `ci:`, `docs:`, `linux:`, `windows-frost:`, `windows-utm:`, `setup:`), each with a description and a `#USAGE` spec; variadic arguments pass through (`mise run core:test -- --filter X`), and `core:example` completes its names with a usage `complete` directive. Verified in fish with mise activated: `mise run core:<Tab>` lists tasks with descriptions, `mise run core:example <Tab>` lists the example executables, and `mise run quality:changed --<Tab>` offers `--staged`. Removed with a reason: `setup:quality-tools` and `scripts/quality-python.sh` (codespell comes from mise, no project venv); `.node-version` (`mise.toml` pins Node). `linux:build` is ported but still fails for the pre-existing reason recorded in Step 2.1 (the Static Linux SDK has no XCTest for the SnapshotTesting products); the Lima VM is the working Linux path.
+- `hk.pkl` replaces `lefthook.yml`: `pre-commit` runs `scripts/pre-commit-lint-staged.sh` on the staged tree with `stash = "git"` and never fixes; `commit-msg` runs `scripts/conventional_commits.py`; `hk check` and `hk fix` run the full gates. `core.hooksPath` was unset in `../.bare/config` (it pointed at a missing `.githooks`), `mise run setup:hooks` installed hk through Git's `hook.*` config, and the stale Lefthook stubs in `.bare/hooks` were removed; the owner's global commit-msg hook still runs beside hk's. Verified on this commit (the staged gate ran on 110 files) and with `git commit --allow-empty -m "not a conventional subject"`, which both validators refused.
+- CI: `jdx/mise-action@8418fedb…` (v5.2.2) installs the tools in the lint, test (macOS and Linux legs), parallel, DocC, and Pages jobs; the `taiki-e/install-action`, `mlugg/setup-zig`, `actions/setup-node`, and `brew install` steps are gone, and `CONTRIBUTING.md` tells the owner those two patterns can leave the allow-list. `Brewfile` keeps only what mise cannot provide (swiftly, Lima, QEMU, swtpm, sshpass, UTM, lgit).
+- Docs: 154 `just <module> <recipe>` mentions in living files became `mise run <module>:<recipe>`; `CONTRIBUTING.md` describes the bootstrap (`mise install`, `npm ci`, `mise run setup:hooks`) and the task groups; `README.md`, the guides, the skills, and the commands name the tasks; completed plans, research, and the spec keep their history.
+- Check matrix through the tasks: `mise run ci:check` (663 tests and the portable gate), `mise run docs:lint`, `mise run core:examples`, `mise run linux:test` (656 tests), and the Windows guest after `mise run windows-frost:sync-utm 192.168.64.3` (651 tests) all pass. CI needed two follow-ups: `c49bb74` (mise-action installs with `--locked`, which needs the node platform URLs and the uv dependency-graph sidecars under `.mise/locks/` in the lockfile) and `219ae7e` (yamllint dropped: its pyyaml has no Python 3.15 wheel and uv runs `--no-build`); run `39738324893` is then green on all eleven jobs.
+
 ### Step 5.6 — Give Tessera its own Tart and Lima VM tasks
 
 - Tessera ships its own VM tasks and scripts; nothing calls the owner's dotfiles. Port the useful shape of `~/.dotfiles/scripts/vm.py` and its `vm:*` tasks (create, clone, start, stop, ssh, status, delete; persistent guest checkouts), using its defaults so the owner's disks line up: `~/.local/share/vms/<manager>/`, `TART_HOME` and command-local `LIMA_HOME`, bases named `base-<os>-<version>`, and instances named `<project>-<os>[-<arch>][-<role>]`, each overridable by environment variable (`~/.dotfiles/docs/architecture/vm-storage.md`).
@@ -317,12 +326,25 @@ Pre-existing failures and recipe defects, none fixed here:
 - Windows: Frost and UTM are already self-contained; only their recipes move to mise tasks (Step 5.5).
 - Acceptance: on a machine without the owner's dotfiles (a fresh macOS guest is enough), the documented tasks create the VMs and run the Phase 1 check matrix, including macOS core tests inside the macOS 26 guest.
 
+#### Done (2026-10-22)
+
+- Commit `c8dc5d6`. `scripts/vm.py` (Python 3, stdlib) and fourteen `vm:*` tasks: `status`; `macos-base 26|27 --xcode host|xcodes`, `macos-clone`, `macos-start`, `macos-stop`, `macos-ssh`, `macos-delete` (refuses bases), `macos-push` (the tracked and untracked tree into `~/tessera` in the guest, a Git checkout whose index records the last push), `macos-check` (in the guest: `mise install`, `npm ci`, `ci:check`, `docs:lint`, `core:examples`); `linux-start`, `linux-stop`, `linux-ssh`, `linux-delete`, `linux-test`, with the old `linux:*` names as aliases. Defaults from the dotfiles, each overridable: `~/.local/share/vms/<manager>/` (`TART_HOME`, command-local `LIMA_HOME`), bases `base-macos-26.6.2-xcode-26.6` and `base-macos-27.0-xcode-27.1` (distinct from the owner's IPSW-built bases, which were not touched), instances `tessera-macos-26`, `tessera-macos-27`, `tessera-linux`. Tart comes from mise (`github:cirruslabs/tart` 2.41.1, macOS only). SSH uses a generated `~/.config/tessera/vm-ssh.config` and a dedicated key `~/.ssh/tessera-vm`; the vanilla image's password goes through `SSH_ASKPASS`, so `sshpass` is not needed. `docs/guides/vms.md` documents storage, names, both Xcode paths (the `xcodes` path needs the contributor's Apple Account and signs out afterwards), and the tasks; `CONTRIBUTING.md`, `docs/guides/local-development-state.md`, `README.md`, `DevTools/README.md`, `scripts/dev-state.sh` (reads `LIMA_HOME`), `CHANGELOG.md`, and `docs/log.md` follow.
+- Verified on this host with `TART_HOME` and `LIMA_HOME` unset: `vm:status` lists both managers; `linux:test` found the existing `tessera-linux` (re-pointed with `limactl edit` rather than recreated) and passed 656 tests; `vm:macos-base 26 --xcode host` built the base in 314s after a 724s pull of the 24 GB image (Xcode 26.6 17F113, `swiftlang-6.3.3.1.3` in the guest); `vm:macos-clone 26` and `vm:macos-push` (797 paths, 21s); `vm:macos-base 27 --xcode host` built the 27 base in 329s (Xcode 27.1, `swiftlang-6.4.0.34.1`). `vm:macos-check` on each clone passed the whole matrix (663 tests, `quality:lint`, DocC clean, Examples built; 150s on the 26 guest) once the guest had a libghostty-vt artifact; on a clean guest the Zig 0.15.2 build failed (`undefined symbol: _abort, _bzero, …`: the SDK's `libSystem.B.tbd` lists only `arm64e-macos`), which Step 5.7's Zig 0.17.0 fixes. Proof on a clean guest: with `plan-035` merged into `plan-035-zig` (`94d8975`), `vm:macos-push tessera-macos-26`, the guest's `~/.cache/tessera/libghostty-vt` removed, and `vm:macos-check tessera-macos-26` built libghostty-vt from source with Zig 0.17.0 inside the guest and passed the matrix in 187s (663 tests, `quality:lint`, DocC clean, Examples built), from a machine state with none of the owner's dotfiles. The `--xcode xcodes` path is unverified (no Apple Account); the `xcodes install` and `signout` flags were checked against xcodes 2.1.0.
+- Discoveries: copying Xcode out of a `tart run --dir` share fails with `ditto` and `cp` ("Too many levels of symbolic links", from the share's `com.apple.provenance` attribute on symlinks), so the task uses `tar --no-mac-metadata`; a host Xcode that has built projects can carry files outside its signature (`*.dependency-scan.dia` beside `SWBBuildService`), and Gatekeeper then blocks the copied bundle on a prompt no one can see (one attempt hung `xcodebuild -license` for 1.5 hours), so the task runs `codesign --verify --deep --strict` and prunes only lines reported as "file added"; the vanilla image's 50 GB disk cannot be grown headless (the recovery partition would have to go). The owner's VMs were not modified; `tessera-macos-26`, `tessera-macos-27`, and both bases are left stopped.
+
 ### Step 5.7 — Update libghostty-vt and Zig
 
 - Today (checked 2026-10-21): `scripts/ghostty-vt-version.txt` pins Ghostty `ae52f97` (2026-05-25), whose `build.zig.zon` sets `minimum_zig_version` to 0.15.2, matching the Zig 0.15.2 in `scripts/config/lima/tessera-linux.yaml:57` and the `zig@0.15` Homebrew installs in CI. Ghostty moved to Zig 0.16.0 in `e8525c0fd` (2026-07-21) and ported its build to Zig 0.17 in `aa57f1f41` (2026-10-20); its `main` now requires 0.17.0, and Zig 0.17.0 is released.
 - Target: the newest Ghostty commit whose `libghostty-vt` builds and passes on all three platforms with the newest Zig it supports. Try 0.17 first; fall back to the last 0.16 commit if the day-old 0.17 port is not stable, and record why. Five months of C API drift since `ae52f97` will likely need source changes in `Sources/TesseraTerminalSnapshotSupport/VirtualTerminal+Ghostty.swift` and `GhosttyKeyEncoder.swift`, not only snapshot updates. Work on `plan-035-zig` (see Overnight execution).
 - Follow `docs/guides/` `UpdatingGhosttyVT` (moved in Step 5.2). Consumers: the version file, the mise zig pin, the Lima provisioning, CI's Zig installs in `ci.yml`, `docs.yml`, and `pages.yml`, and the Frost artifact (`build-ghostty`).
 - Acceptance: the Phase 1 check matrix passes on every lane with the new pin; Ghostty-backed snapshot tests are unchanged, or each changed snapshot is explained by a Ghostty change.
+
+#### Done (2026-10-22), on branch `plan-035-zig`
+
+- Commit `9ece4bd` on `plan-035-zig` (rebased on `plan-035` at `6d180f0`; draft pull request #42 against `plan-035` so CI runs it; the owner folds it in). Ghostty `f54340ad77814fe319d136e5e915d6a48de8dd23` (`main`, 2026-10-21, `minimum_zig_version = "0.17.0"`) on Zig 0.17.0: the newest commit and the newest Zig, so no fallback to 0.16 was needed. Consumers updated: `scripts/ghostty-vt-version.txt`, `mise.toml` (`zig = "0.17.0"`, locked), `scripts/config/lima/tessera-linux.yaml`, `scripts/build-libghostty-vt.sh` (default 0.17; the Homebrew `zig@0.15` fallback removed, since mise provides zig; `SDKROOT` set from the selected Xcode on macOS), `scripts/build-libghostty-vt.ps1` (default 0.17.0; the curl plus `zig fetch` prefetch deleted), and the `libghostty-vt-v4-…-zig-0.17.0-…` cache keys in `ci.yml`, `docs.yml`, and `pages.yml`. `docs/guides/updating-ghostty-vt.md` lists every place a Zig move touches.
+- API drift: one change broke the build. Ghostty `03d5fa268` (2026-07-27) removed `GhosttyTerminalOptions`, so `VirtualTerminal+Ghostty.swift` creates the terminal with columns and rows and disables scrollback through `GHOSTTY_TERMINAL_OPT_SCROLLBACK_MAX_BYTES = 0` (the old `max_scrollback: 0`), beside the Kitty storage limit with the same free-on-error path. `GhosttyKeyEncoder.swift` and `Sources/CGhosttyVT/` needed nothing. No Ghostty-backed snapshot changed.
+- Check matrix with the new pin: macOS Xcode 26.6 `mise run core:test` 663 tests and `mise run core:examples`; Xcode 27.1 663 tests; Lima Swift 6.3.3 656 tests (the guest built the new artifact with Zig 0.17.0); the Windows guest 651 tests on an artifact `build-libghostty-vt.ps1 -Force` built there in 1m56s with Zig 0.17.0 installed by the script. `mise run quality:format` and `quality:lint` pass. Hosted CI on the branch (run `39741965705`, pull request #42) is green on all eleven jobs, including `test (windows-latest)`, which now relies on Zig's own dependency fetch.
+- Discoveries: Zig 0.17.0's `zig fetch <tarball>` writes a cache archive whose top-level folder is not stripped, which `zig build` then rejects (`hash mismatch … libxev-0.0.0-86vtc8QQ…`), reproduced on macOS and Windows, so the cache is no longer seeded by hand; Zig 0.17 reaches `deps.files.ghostty.org` from Windows, so the 0.15-era `TlsInitializationFailed` workaround is unnecessary; on a macOS 27 host with Xcode 26.6 selected, CMake fails without `SDKROOT` (`ld: tapi error: malformed file … MacOSX27.0.sdk … unknown architecture arm64e.x1-macos`) because `xcrun --show-sdk-path` returns the Command Line Tools SDK; an existing Lima instance keeps the provisioning script it was created with (`limactl edit`, or recreate it, to pick up a YAML change). The research record `docs/research/windows-libghostty-vt-snapshot-spike.md` and the two plans that describe the old prefetch stay as history.
 
 ## Phase 6 — Merge plans 032 and 033
 
@@ -335,16 +357,37 @@ Pre-existing failures and recipe defects, none fixed here:
 - Dependencies to carry: plan 034 Step 10.1 before the first demo on stacks; plan 034 Step 10.3 before demos live in `Examples/`; the seams patch from Step 3.3.
 - Acceptance: one plan, in `docs/plans/` and listed in `docs/plans.md`, following the dotfiles template, with a single slice order that covers every open step of both plans; the owner reviews it before work resumes.
 
+#### Done (2026-10-22)
+
+- `docs/plans/phase-4-view-layer-and-developer-tooling.md` (order 36, `proposed`), in the dotfiles template: Goal, Progress (19 slices), `Next:`, Approach, Slices, Acceptance, Decisions, Discoveries, Outcome, References. One slice order covers every open step of plan 032 (Phases 8-17) and plan 033 (A.2 onward): seams (A.2), harness target and Showcase retirement (A.3, 8.1), the demo contract and headless driver in `TesseraHarness` with per-demo viewports (8.2, B.1), scenarios and `tessera-dev` with the CI corpus (B.2, B.3; the `just dev` module is `mise-tasks/dev/*`), projection and the first demos (B.4, 8.3), styling with pictures and catalog review (9.1-9.4, C), focus with focus tooling (10.1-10.3 including the `focusChanges` wiring, D), pointer (11, E), ScrollView with scroll checks (12, G.2), Flow and `ViewThatFits` moved before the controls (14.1, Decision 2), roles and labels before the first control (G.1), controls (13), collections (14.2-14.4), SplitView (15.1), the animation path with a harness-advanceable clock (16.1, Decision 7), remaining views (16.2-16.3), optional live inspection (F), docs and the conformance gate (H), and the intro app with Phase 4 closure (17). The amendments from the 2026-10-20 review note are folded in as Decisions; plan 034's Step 10.1 and 10.3 dependencies are satisfied and noted in the Approach; the seams patch is Slice 1 with the plan 034 fan-out noted as superseding part of it.
+- Open owner decisions are listed as such (the `mobile` viewport, Slice 10's position, live inspection, roles and labels, the colour-report probe, Windows in the corpus, the coverage walk) so the owner reviews one page. `docs/plans.md` lists it under Next; `iwe schema validate` is clean.
+
 ### Step 6.2 — Owner decision: the `mobile` viewport rule, then apply it
 
 - The rule: `docs/design/tokens.md:24` and `docs/design.md:62-66` (under `docs/design/` after Step 5.2) wireframe components at 40 columns and their natural height, with 40x16 only for screen-filling compositions (owner decision, 2026-10-10). Still contradicting it: `docs/design/templates/widget.md:38` (`mobile (40x16)` required for `wireframed`), plan 032 Step 8.2 (lines 609-610, acceptance line 623), and `docs/design/widgets/stepper.md:138`. `docs/design/widgets/list.md:186` uses 40x16, which holds if List counts as screen-filling.
 - Plan 033 decision 1 recommends natural height with sizes declared per demo, a package-level nil-height probe, and an error that points height-greedy demos (`ScrollView`, `SplitView`) at a `mobileScreen` (40x16) viewport.
 - Acceptance: the decision is recorded in the merged plan, and the template, the merged plan's demo slice, and the widget docs agree with it; the wireframe check passes.
 
+#### Blocked on the owner (2026-10-22)
+
+- Nothing was applied. The merged plan lists the rule as Decision 1 with both options and the three documents that still contradict `docs/design/tokens.md` and `docs/design.md` (`docs/design/templates/widget.md`, plan 032 Step 8.2, `docs/design/widgets/stepper.md`). Once the owner decides, apply it in the template, the merged plan's Slice 3, and the widget docs, and run `mise run quality:wireframes`.
+
 ### Step 6.3 — Retire plans 032 and 033
 
 - Set both to `cancelled` with a link to the merged plan (the `superseded` status before Step 5.2), and update `docs/plans.md` and the links to them.
 - Acceptance: no open step remains only in a retired plan.
+
+#### Blocked on the owner (2026-10-22)
+
+- Waits for the owner's review of the merged plan (Step 6.1). Then: set plan 032 and plan 033 to `stage: cancelled` with a line under their H1 linking the successor (`phase-4-view-layer-and-developer-tooling.md`), set the merged plan to `planned`, run `scripts/plans.py`, and check that no open step remains only in a retired plan (the merged plan's Acceptance has that box).
+
+## Outcome (2026-10-22, overnight run)
+
+Shipped on `plan-035` (draft pull request #41) and `plan-035-zig` (#42): every step an agent could do without the owner. The baseline is Xcode 26.6 and Swift 6.3.3 on every lane with Swift 6.4 beside it, guarded by five CI legs; plan 033 and its spikes are on the branch and build on both lanes; plan 034 is complete on macOS, Linux, and Windows; the docs are an IWE workspace with slug-named plans, a split spec, one-paragraph-per-line prose linted by rumdl; `just` and Lefthook are replaced by mise tasks and hk; Tessera owns Tart and Lima tasks that build a macOS guest from a vanilla image and run the matrix in it; libghostty-vt is on current Ghostty with Zig 0.17.0; and the merged Phase 4 plan is written as `proposed`. Final lane results at `c8dc5d6` (plus `9ece4bd` for the Zig pin): macOS Xcode 26.6 663 tests, Xcode 27.1 663, Lima 656 on 6.3.3 and 6.4.1, the Windows guest 651, the macOS 26 Tart guest 663 from a clean checkout; hosted CI green on every job for both branches.
+
+Left for the owner, as the plan foresaw: review and merge; Step 6.2 (the `mobile` viewport decision) and Step 6.3 (retire plans 032 and 033 and set the merged plan `planned`); deleting `devtools-plan` and `devtools-seams-spike` with their worktrees; folding `plan-035-zig` into `plan-035`; and three loose ends this run could not close: the Frost QEMU workflow is broken on macOS 27 (`HV_BAD_ARGUMENT` from the TPM device; the UTM-imported guest served instead, with a `tessera-utm` SSH alias in `~/.ssh/config.d/zz-plan035-tessera-utm.conf` and Swift 6.3.3 installed in it), the Frost golden image still holds Swift 6.3.2 until `windows-frost:provision-toolchain` can run, and `linux:build` (the Static Linux SDK cross-build) fails for a pre-existing reason (no XCTest for the SnapshotTesting products).
+
+Things to remember: the harness's isolated worktrees do not work in this bare-repository layout, so slices ran in detached worktrees under `/tmp` and were integrated by patch; agents given relative paths edit the wrong checkout; `iwe normalize` rewrites wireframe fences and is not a gate; Prettier damages DocC pages; mise-action installs `--locked`, so `mise lock` must have run and the `.mise/locks` sidecars must be committed; and a `git commit` whose output is piped into `head` loses its hooks to SIGPIPE.
 
 ## References
 

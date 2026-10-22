@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+#MISE description="Print the manual UTM Windows VM IPv4 address"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+vm="${TESSERA_WINDOWS_VM_NAME:-tessera-windows}"
+if ! command -v utmctl > /dev/null 2>&1; then
+  echo "⚠️  utmctl not found — install UTM (brew install --cask utm)" >&2
+  exit 1
+fi
+ip="$(utmctl ip-address "$vm" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1)"
+if [[ -z "$ip" ]]; then
+  echo "⚠️  No IPv4 address found for $vm. Is the VM running with UTM Guest Tools installed?" >&2
+  exit 1
+fi
+echo "$ip"

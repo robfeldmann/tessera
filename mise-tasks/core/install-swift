@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Install the baseline Swift toolchain with swiftly (Linux and Windows)"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+swiftly install
