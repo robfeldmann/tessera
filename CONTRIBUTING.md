@@ -136,7 +136,8 @@ inner-loop commands while editing:
 
 ```sh
 just core build            # build the package (prepares libghostty-vt first)
-just core test             # full Swift test suite (non-parallel)
+just core test             # full Swift test suite (non-parallel, as CI runs it)
+just core test-parallel    # the same suite in parallel; must stay green
 just core showcase         # run the Tessera Showcase example
 ```
 
@@ -252,7 +253,8 @@ Match the surrounding code and the repository conventions:
   for small scalar values, API-shape checks, and identity/lifetime relationships.
 - Keep tests deterministic and isolated: explicit input scripts, injected clocks, and
   bounded drains — never `Task.yield()` or wall-clock sleeps to "let the UI catch up."
-  Tests must be safe under the full parallel suite.
+  Tests must be safe under the full parallel suite: `just core test-parallel` runs it, and
+  a non-required CI job (`test (parallel, ubuntu-latest)`) guards it.
 - Cover edge cases and error conditions, and test behavior and invariants rather than
   incidental defaults or plumbing.
 

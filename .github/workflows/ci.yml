@@ -302,3 +302,80 @@ jobs:
       - name: Test
         if: needs.ci-gate.outputs.vouch-only != 'true'
         run: swift test --no-parallel
+
+  test-parallel:
+    name: test (parallel, ubuntu-latest)
+    needs: ci-gate
+    if: >
+      github.event_name != 'pull_request' ||
+      !contains(github.event.pull_request.labels.*.name, 'skip-ci')
+    runs-on: ubuntu-latest
+    # Non-required: it guards the parallel-safety rule in CONTRIBUTING.md (plan 034 Step
+    # 9.8) and reports without blocking a merge.
+    continue-on-error: true
+    timeout-minutes: 20
+    steps:
+      - name: Skip for trust-only change
+        if: needs.ci-gate.outputs.vouch-only == 'true'
+        run: echo "Trust-only change; the parallel suite is not required."
+
+      - name: Checkout
+        if: needs.ci-gate.outputs.vouch-only != 'true'
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Swift
+        id: swift
+        if: needs.ci-gate.outputs.vouch-only != 'true'
+        uses: ./.github/actions/setup-swift
+
+      - name: Restore SwiftPM cache
+        if: needs.ci-gate.outputs.vouch-only != 'true'
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .build
+          # prettier-ignore
+          key: swiftpm-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.swift.outputs.toolchain }}-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            swiftpm-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.swift.outputs.toolchain }}-
+
+      - name: Set up Zig
+        if: needs.ci-gate.outputs.vouch-only != 'true'
+        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
+        with:
+          version: 0.15.2
+
+      - name: Install libghostty-vt prerequisites
+        if: needs.ci-gate.outputs.vouch-only != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            blueprint-compiler \
+            build-essential \
+            cmake \
+            gettext \
+            libadwaita-1-dev \
+            libgtk-4-dev \
+            libxml2-utils \
+            ninja-build \
+            pkg-config
+
+      - name: Restore libghostty-vt cache
+        if: needs.ci-gate.outputs.vouch-only != 'true'
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cache/tessera/libghostty-vt
+            !~/.cache/tessera/libghostty-vt/source
+            !~/.cache/tessera/libghostty-vt/cmake
+          # prettier-ignore
+          key: libghostty-vt-v3-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
+
+      - name: Build libghostty-vt
+        if: needs.ci-gate.outputs.vouch-only != 'true'
+        run: scripts/build-libghostty-vt.sh
+
+      - name: Test in parallel
+        if: needs.ci-gate.outputs.vouch-only != 'true'
+        run: swift test --parallel

@@ -27,6 +27,10 @@ clean-libghostty-vt:
 test: build-libghostty-vt
     swift test --no-parallel
 
+# Run the full Swift test suite in parallel; the suite must stay safe under it.
+test-parallel: build-libghostty-vt
+    swift test --parallel
+
 # Run the full Swift test suite with code coverage enabled.
 test-coverage: build-libghostty-vt
     swift test --no-parallel --enable-code-coverage
