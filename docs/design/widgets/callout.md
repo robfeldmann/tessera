@@ -468,9 +468,9 @@ decision, 2026-10-10).
 
 ## State model
 
-Schema: [README](../README.md#state-model-table). Every row is app-owned display data, a
-plain initializer parameter redeclared on every update (key D2). Callout stores no state:
-it has no `NodeState` row and no responder.
+Schema: [README](../../design.md#state-model-table). Every row is app-owned display data,
+a plain initializer parameter redeclared on every update (key D2). Callout stores no
+state: it has no `NodeState` row and no responder.
 
 | State   | Owner   | Type                | Reset or clamp rule                                                                                |
 | ------- | ------- | ------------------- | -------------------------------------------------------------------------------------------------- |
@@ -489,7 +489,7 @@ Not focusable: no mouse table.
 
 ## Sizing
 
-Schema: [README](../README.md#sizing-table). Mandatory rows: nil x nil, tight,
+Schema: [README](../../design.md#sizing-table). Mandatory rows: nil x nil, tight,
 under-minimum, over-maximum.
 
 | Proposal                 | Result                  | Rule                                                                                                                             |
@@ -569,7 +569,7 @@ no body cell; see Open questions.
   grapheme clusters at width minus two (see Sizing).
 
 This design was reviewed against the
-[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): Callout is a
+[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): Callout is a
 composite of Label, Badge, the leading rail and app content, not a painter (key A1); its
 title, kind, badge and body are app-owned values redeclared on every update; it stores no
 state and takes no input; colour comes from the hue roles; and its layout is deterministic

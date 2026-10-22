@@ -12,7 +12,7 @@ its height with an overflow footer that counts the hidden lines. It is display-o
 [Markdown](markdown.md) draws its fenced code blocks through it.
 
 This widget follows the controlled-widget rule in
-[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
+[Slice 7](../../spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
 The application owns the source text. CodeView owns only the rendered rows.
 
 Owner decision, omp2 review, 2026-10: the code view (omp2 `Pre`) is adopted for 1.0 as
@@ -327,7 +327,7 @@ records how the grid's earlier letters map to these roles.
 
 ## State model
 
-Schema: [README](../README.md#state-model-table).
+Schema: [README](../../design.md#state-model-table).
 
 | State           | Owner       | Type                                  | Reset or clamp rule                                                                                            |
 | --------------- | ----------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
@@ -340,22 +340,24 @@ Schema: [README](../README.md#state-model-table).
 
 ## Key table
 
-Schema: [README](../README.md#key-table). None. CodeView is display-only: it takes no
+Schema: [README](../../design.md#key-table). None. CodeView is display-only: it takes no
 focus and consumes no keys.
 
 ## Mouse table
 
-Schema: [README](../README.md#mouse-table). None. CodeView takes no pointer input in 1.0.
+Schema: [README](../../design.md#mouse-table). None. CodeView takes no pointer input in
+1.0.
 
 ## Sizing
 
-Schema: [README](../README.md#sizing-table). Width does not wrap (Wrap exception): lines
-clip at the proposed width, as the Anatomy (80 columns) and Mobile (40 columns) states
-show. Owner decision, 2026-10-10: the ideal width is the gutter plus the widest source
-line in display cells, and the ideal height is `min(rows, maxRows)`, where `rows` is the
-source line count. An under-minimum proposal clips at the proposed size. An over-maximum
-proposal fills the proposed width with blank cells and keeps the ideal height. The
-overflow footer uses one of the rows under the cap and does not change the ideal size.
+Schema: [README](../../design.md#sizing-table). Width does not wrap (Wrap exception):
+lines clip at the proposed width, as the Anatomy (80 columns) and Mobile (40 columns)
+states show. Owner decision, 2026-10-10: the ideal width is the gutter plus the widest
+source line in display cells, and the ideal height is `min(rows, maxRows)`, where `rows`
+is the source line count. An under-minimum proposal clips at the proposed size. An
+over-maximum proposal fills the proposed width with blank cells and keeps the ideal
+height. The overflow footer uses one of the rows under the cap and does not change the
+ideal size.
 
 The examples use a three-line source, `fn main() {`, `run();` indented four spaces, and
 `}`, whose widest line is 11 cells.
@@ -395,8 +397,8 @@ Environment values, not tokens: `.syntaxHighlighter(_:)` and `.codeTabWidth(_:)`
 
 ## Requirements
 
-Schema: [README](../README.md#requirements-list). Each entry traces to a callout or state
-above.
+Schema: [README](../../design.md#requirements-list). Each entry traces to a callout or
+state above.
 
 - `code view keeps spacing and line breaks verbatim` (Anatomy callout 2)
 - `code view clips long lines at the panel edge and never wraps them, whatever the height proposal`
@@ -439,8 +441,8 @@ minimum the block clips at the proposed size (see [Sizing](#sizing)); lines stil
 wrap and the cut carries no mark.
 
 This design was reviewed against the
-[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): the source,
-path and tokens are app-owned values redeclared on every update; the highlighter is an
+[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): the source, path
+and tokens are app-owned values redeclared on every update; the highlighter is an
 app-installed environment value behind a synchronous protocol, so Tessera ships no grammar
 and owns no business state; rows are recomputed each pass and clipped in integer cells;
 and the view takes no input.

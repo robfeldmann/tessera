@@ -1,7 +1,8 @@
 ---
-name: Lattice developer tooling: designed versus built
-date: 2026-10-19
+type: research
+observed: 2026-10-19
 status: resolved
+description: "Lattice developer tooling: designed versus built"
 ---
 
 # Lattice developer tooling: designed versus built

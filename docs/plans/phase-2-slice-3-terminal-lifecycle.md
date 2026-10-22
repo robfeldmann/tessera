@@ -1,12 +1,15 @@
 ---
-name: Phase 2 Slice 3 Terminal Lifecycle
+type: plan
+stage: done
+created: 2026-06-07
+completed: 2026-06-09
+order: 8
 description:
   Add scoped terminal sessions, real POSIX platform I/O, lifecycle rollback, emergency
   cleanup, and reset tooling.
-status: completed
-created: 2026-06-07
-updated: 2026-06-09
 ---
+
+# Phase 2 Slice 3 Terminal Lifecycle
 
 ## Progress
 
@@ -429,14 +432,14 @@ the scoped API is usable.
   - `swift test --filter TesseraTerminalIOTests`
   - `swift test --filter TesseraTerminal`
   - `cd Examples && swift build --target LifecycleModesDemo`
-  - `pnpx markdownlint-cli CONTRIBUTING.md .agents/plans/008-phase-2-slice-3-terminal-lifecycle.md`
+  - `pnpx markdownlint-cli CONTRIBUTING.md docs/plans/phase-2-slice-3-terminal-lifecycle.md`
   - `just quality changed`
 - Acceptance: all validation commands pass or any failures are documented with follow-up
   plan edits before review.
 
 ## References
 
-- `docs/Spec.md`, Phase 2 Slice 3, starting at line 1509.
+- `docs/spec.md`, Phase 2 Slice 3, starting at line 1509.
 - Ratatui `ratatui/src/init.rs`: `run`, `try_init`, `try_restore`, and panic hook show
   scoped setup/restoration ordering and failure behavior.
 - Ratatui `ratatui-core/src/backend.rs`: backend output, flush, size, and window-size

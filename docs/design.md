@@ -1,17 +1,24 @@
+---
+type: hub
+stage: living
+description:
+  "The design catalog: tokens, templates, and one page per primitive and widget."
+---
+
 # Tessera design catalog
 
 This directory is the design catalog for Tessera's view-layer components: the low-level
 primitives (Text, Divider, Border, ...) and the widgets (TextField, List, Table, ...) that
-Phase 4 of [the spec](../docs/Spec.md) builds. The spec stays the constitution —
-architecture, the controlled-widget rule, `NodeState` discipline, the layout protocol —
-while this catalog owns per-component detail: appearance, interaction tables, state
-models, and requirements. Never restate a spec rule here; link to it, for example
-[Slice 7](../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
+Phase 4 of [the spec](spec.md) builds. The spec stays the constitution — architecture, the
+controlled-widget rule, `NodeState` discipline, the layout protocol — while this catalog
+owns per-component detail: appearance, interaction tables, state models, and requirements.
+Never restate a spec rule here; link to it, for example
+[Slice 7](spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
 
 The catalog's core trick: a terminal UI's medium is a character grid, so a wireframe drawn
 at exact dimensions is simultaneously the full-fidelity design and a candidate golden
-fixture for the [snapshot harness](../docs/Spec.md#slice-1-the-snapshot-harness).
-Everything below exists to keep wireframes fixture-grade and behavior tables test-grade.
+fixture for the [snapshot harness](spec.md#slice-1-the-snapshot-harness). Everything below
+exists to keep wireframes fixture-grade and behavior tables test-grade.
 
 ## Layout
 
@@ -45,25 +52,25 @@ it uses. `app` is reserved for runnable integration designs.
 
 Promotion gates:
 
-| Status        | Gate                                                                                                                                                                                                                                                                                            |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sketch`      | Doc exists from the template. Overview written; at least one prior-art citation. Legal to be wrong everywhere else.                                                                                                                                                                             |
-| `wireframed`  | Anatomy wireframe with callouts. Widgets additionally show `mobile` and `min` states. All wireframe blocks pass `scripts/check-wireframes.py`.                                                                                                                                                  |
-| `specified`   | Every schema table complete and schema-valid. Requirements written as test-name sentences, each traced to a table row or wireframe state. Degradation documented. Open questions explicit.                                                                                                      |
-| `ready`       | All primitive dependencies are `ready` or `implemented`. Open questions resolved, or explicitly deferred to an exact `docs/Spec.md` anchor / issue. Reviewed against the [Phase 4 theses](../docs/Spec.md#phase-4--view-layer-the-tessera-module). Eligible to become an `.agents/plans/` plan. |
-| `implemented` | Code merged. Durable content migrated to a DocC extension file (see Graduation). Wireframes landed as snapshot fixtures. The catalog doc shrinks to a stub pointing at both.                                                                                                                    |
+| Status        | Gate                                                                                                                                                                                                                                                                                 |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `sketch`      | Doc exists from the template. Overview written; at least one prior-art citation. Legal to be wrong everywhere else.                                                                                                                                                                  |
+| `wireframed`  | Anatomy wireframe with callouts. Widgets additionally show `mobile` and `min` states. All wireframe blocks pass `scripts/check-wireframes.py`.                                                                                                                                       |
+| `specified`   | Every schema table complete and schema-valid. Requirements written as test-name sentences, each traced to a table row or wireframe state. Degradation documented. Open questions explicit.                                                                                           |
+| `ready`       | All primitive dependencies are `ready` or `implemented`. Open questions resolved, or explicitly deferred to an exact `docs/spec.md` anchor / issue. Reviewed against the [Phase 4 theses](spec.md#phase-4--view-layer-the-tessera-module). Eligible to become an `docs/plans/` plan. |
+| `implemented` | Code merged. Durable content migrated to a DocC extension file (see Graduation). Wireframes landed as snapshot fixtures. The catalog doc shrinks to a stub pointing at both.                                                                                                         |
 
 Partial ideas are first-class: dropping one paragraph into a `sketch` doc, or one line
 into `inbox.md`, is always legal. Only promotion costs effort.
 
 ## Viewports
 
-Canonical sizes live in [tokens.md](tokens.md#viewports) and are referenced by name.
-Widgets must wireframe `mobile` and `min` to pass `wireframed`; the anatomy wireframe may
-use any natural component size. A component is wireframed at its natural height: its
-`mobile` state is the component at 40 columns, not padded to a 40x16 frame (owner
-decision, 2026-10-10). Full-height `mobile` and `desktop` mockups are only required when
-the component's whole point is filling a screen.
+Canonical sizes live in [tokens.md](design/tokens.md#viewports) and are referenced by
+name. Widgets must wireframe `mobile` and `min` to pass `wireframed`; the anatomy
+wireframe may use any natural component size. A component is wireframed at its natural
+height: its `mobile` state is the component at 40 columns, not padded to a 40x16 frame
+(owner decision, 2026-10-10). Full-height `mobile` and `desktop` mockups are only required
+when the component's whole point is filling a screen.
 
 ## Wrap and truncation
 
@@ -83,12 +90,13 @@ rules hold catalog-wide:
 4. **Apps can always override** with `lineLimit` and `truncationMode`. Both flow through
    the environment to content; chrome pins its own values.
 
-[Text](primitives/text.md#wrapping) owns the mechanics,
-[ScrollView](widgets/scroll-view.md#rows-and-variable-height-content) the row-based
+[Text](design/primitives/text.md#wrapping) owns the mechanics,
+[ScrollView](design/widgets/scroll-view.md#rows-and-variable-height-content) the row-based
 scrolling that List, Picker menus, and Form build on, and
-[Readable width](primitives/readable-width.md) the prose width cap. Anatomy callouts say
-whether each text region is `content, wraps` or `chrome, one row`. A minimum width is the
-smallest width at which the component's primary content still shows every word whole.
+[Readable width](design/primitives/readable-width.md) the prose width cap. Anatomy
+callouts say whether each text region is `content, wraps` or `chrome, one row`. A minimum
+width is the smallest width at which the component's primary content still shows every
+word whole.
 
 A component may break rule 1 or 2 on purpose. Exceptions are not rules: each one is
 written in the component's own doc, beside the behavior it changes, as a blockquote that
@@ -169,7 +177,7 @@ allowed in a plain `text` fence, labeled `(annotated copy -- not a fixture)`. It
 non-normative; the tagged wireframe stays the truth.
 
 Style overlays (color, bold) use the spec's
-[styled-grid convention](../docs/Spec.md#snapshot-representations): a `text` fence with a
+[styled-grid convention](spec.md#snapshot-representations): a `text` fence with a
 character grid and an aligned attribute grid plus a legend. The catalog fixes that
 convention in [Styled grids](#styled-grids), and the checker lints it.
 
@@ -211,9 +219,9 @@ violation):
    or more space-separated tokens: `fg=ROLE` or `bg=ROLE` (at most one of each) and the
    attributes `bold`, `dim`, `italic`, `underline`, `reverse`, `strikethrough`. `ROLE` is
    a name from the backticked first column of the role tables in
-   [tokens.md](tokens.md#roles) (`primary`, `accent`, `selection.fill`, `syntax.plain`,
-   `contrast`, and so on) or `faint(R)` with `R` such a role. `solid(R)` is not a role; a
-   legend spells it `fg=contrast bg=R bold`.
+   [tokens.md](design/tokens.md#roles) (`primary`, `accent`, `selection.fill`,
+   `syntax.plain`, `contrast`, and so on) or `faint(R)` with `R` such a role. `solid(R)`
+   is not a role; a legend spells it `fg=contrast bg=R bold`.
 4. **Prose:** free text goes only in the description after the `--` divider (a space on
    each side), never in the spec. A word the grammar does not know (`tinted fill`,
    `fg=focus: cursor`, `fg=focus, bold`) is an error.
@@ -224,7 +232,7 @@ violation):
 
 - Standard relative markdown links only: `[Divider](../primitives/divider.md)`. Section
   anchors work in the same syntax, same-file and cross-file: `[gates](#status-ladder)`,
-  `[viewports](tokens.md#viewports)`. Anchors are the GitHub slug of the heading
+  `[viewports](design/tokens.md#viewports)`. Anchors are the GitHub slug of the heading
   (lowercase, spaces to hyphens, punctuation stripped), so keep catalog headings free of
   punctuation and renaming a heading means fixing inbound links.
 - Wireframes in `wireframe` fences, everything else in `text` fences, tables as pipe
@@ -250,8 +258,8 @@ Columns: `Key | Precondition | Effect | Consumed`
 - `Effect`: imperative; must name which state-model row changes and through what
   (`moves selection via binding`, `mutates NodeState offset`).
 - `Consumed`: `yes`, `no`, or `conditional (...)`. Default is `no`; the
-  [routing rule](../docs/Spec.md#phase-4--view-layer-the-tessera-module) is that the graph
-  never consumes input unless a handler says so, so every `yes` is a deliberate claim.
+  [routing rule](spec.md#phase-4--view-layer-the-tessera-module) is that the graph never
+  consumes input unless a handler says so, so every `yes` is a deliberate claim.
 
 Example:
 
@@ -286,15 +294,15 @@ Columns: `State | Owner | Type | Reset or clamp rule`
   - `NodeState` -- ephemeral; throwing it away may lose position (scroll, cursor) but
     never data. If losing it loses data, it must be a binding.
   - `Environment` -- styling or configuration read from the environment; a styling value
-    must be a token defined in [tokens.md](tokens.md).
+    must be a token defined in [tokens.md](design/tokens.md).
   - `derived` -- recomputed during layout or render, never stored.
 - `Reset or clamp rule`: what happens when the app mutates the binding underneath the
   widget. Every `NodeState` and `derived` row must answer this; "clamps on every update"
   is the
-  [Slice 7 baseline](../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
+  [Slice 7 baseline](spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
 - Choose the owner by the Spec's four homes for widget state
-  ([state model](../docs/Spec.md#state-model-bring-your-own)): data the user produces or
-  the app reads is a `Binding`; display data the app supplies is an initializer parameter,
+  ([state model](spec.md#state-model-bring-your-own)): data the user produces or the app
+  reads is a `Binding`; display data the app supplies is an initializer parameter,
   recorded as `Binding` (app-owned) in this column; position and interaction in flight
   (cursor, unbound scroll offset, pressed or open flag, uncommitted draft) is `NodeState`;
   focus, hover, the clock, and environment values are graph-owned, so they appear as
@@ -321,8 +329,8 @@ Columns: `Proposal | Result | Rule`
 - `Proposal`: `WxH` with `nil` allowed per axis (`nil` means unconstrained: report the
   ideal). Mandatory rows: `nil x nil`, a tight fit, under-minimum, over-maximum.
 - `Result`: exact integers. The spec's layout testing posture is
-  [tolerance-free](../docs/Spec.md#testing-posture-tessera-native-oracles); if a result
-  needs a tolerance, the rule is wrong.
+  [tolerance-free](spec.md#testing-posture-tessera-native-oracles); if a result needs a
+  tolerance, the rule is wrong.
 - `Rule`: one sentence naming the sizing behavior that produced the number.
 
 Example:
@@ -404,12 +412,12 @@ The gallery lists every catalog doc by slug, grouped by folder, with its status,
 each doc's wireframes. It reads the `wireframe` fences of `primitives/*.md` and
 `widgets/*.md` directly, so there is no second copy to keep in step, and a banner offers a
 reload when a doc changes. Each fence is one entry, labelled with the nearest heading, its
-`WxH` and its [viewport](tokens.md#viewports) name. A styled grid that belongs to the
-fence colours it for the theme chosen with `?theme=` (the five review themes in
+`WxH` and its [viewport](design/tokens.md#viewports) name. A styled grid that belongs to
+the fence colours it for the theme chosen with `?theme=` (the five review themes in
 `DevTools/gallery/themes.json`), and its callouts show under it. `/tokens` draws the role
-swatches of [tokens.md](tokens.md) in its three tiers beside catalog samples on every
-theme. The script needs only the standard library; `--port` and `--host` change where it
-listens.
+swatches of [tokens.md](design/tokens.md) in its three tiers beside catalog samples on
+every theme. The script needs only the standard library; `--port` and `--host` change
+where it listens.
 
 Each entry also has empty **Current** and **Previous** slots for the renders of the real
 widgets. Later they read `.build/tessera-dev/<slug>/<id-or-index>-current.svg` and
@@ -425,55 +433,55 @@ gate.
 ## Index
 
 Statuses below are the documents' own. Plan 032 step 5.2 wrote the owner's omp2 review
-decisions into these docs, and the token decisions in [tokens.md](tokens.md) are applied.
-Plan 032 step 7.1 then applied the [translation key](translation-key.md) to every doc.
-Each doc's remaining owner questions are listed in its Open questions; the Blocked on
-column names the gate that still holds it.
+decisions into these docs, and the token decisions in [tokens.md](design/tokens.md) are
+applied. Plan 032 step 7.1 then applied the [translation key](design/translation-key.md)
+to every doc. Each doc's remaining owner questions are listed in its Open questions; the
+Blocked on column names the gate that still holds it.
 
-| Component                                                     | Kind      | Status     | Blocked on                                                      |
-| ------------------------------------------------------------- | --------- | ---------- | --------------------------------------------------------------- |
-| [Background](primitives/background.md)                        | primitive | ready      | —                                                               |
-| [Badge](primitives/badge.md)                                  | primitive | ready      | —                                                               |
-| [Border](primitives/border.md)                                | primitive | ready      | —                                                               |
-| [Box](primitives/box.md)                                      | primitive | ready      | —                                                               |
-| [Button](widgets/button.md)                                   | widget    | ready      | —                                                               |
-| [Callout](widgets/callout.md)                                 | widget    | ready      | —                                                               |
-| [Code view](widgets/code-view.md)                             | widget    | ready      | —                                                               |
-| [ContentUnavailableView](widgets/content-unavailable-view.md) | widget    | ready      | —                                                               |
-| [Divider](primitives/divider.md)                              | primitive | ready      | —                                                               |
-| [Flex](primitives/flex.md)                                    | primitive | ready      | —                                                               |
-| [Flow](primitives/flow.md)                                    | primitive | ready      | —                                                               |
-| [Form](widgets/form.md)                                       | widget    | ready      | —                                                               |
-| [Frame](primitives/frame.md)                                  | primitive | ready      | —                                                               |
-| [Grid](primitives/grid.md)                                    | primitive | specified  | owner answers: extra and bare cells, row spacing, cell priority |
-| [Image](widgets/image.md)                                     | widget    | specified  | Kitty tier sizing and loader ownership (key M5, D2)             |
-| [KeyLegend](widgets/key-legend.md)                            | widget    | ready      | —                                                               |
-| [Label](primitives/label.md)                                  | primitive | ready      | —                                                               |
-| [LabeledContent](widgets/labeled-content.md)                  | widget    | ready      | —                                                               |
-| [Leading rail](primitives/leading-rail.md)                    | primitive | ready      | —                                                               |
-| [Linear stacks](primitives/stacks.md)                         | primitive | ready      | —                                                               |
-| [List](widgets/list.md)                                       | widget    | ready      | —                                                               |
-| [Markdown](widgets/markdown.md)                               | widget    | ready      | —                                                               |
-| [MultiPicker](widgets/multi-picker.md)                        | widget    | ready      | —                                                               |
-| [NavigationSplitView](widgets/navigation-split-view.md)       | widget    | wireframed | post-1.0 (owner decision, 2026-10-10)                           |
-| [Outline](widgets/outline.md)                                 | widget    | ready      | —                                                               |
-| [Overlay](primitives/overlay.md)                              | primitive | ready      | —                                                               |
-| [Padding](primitives/padding.md)                              | primitive | ready      | —                                                               |
-| [Picker](widgets/picker.md)                                   | widget    | ready      | —                                                               |
-| [ProgressView](widgets/progress-view.md)                      | widget    | specified  | shimmer question (key L5)                                       |
-| [Readable width](primitives/readable-width.md)                | primitive | ready      | —                                                               |
-| [ScrollIndicator](primitives/scroll-indicator.md)             | primitive | ready      | —                                                               |
-| [ScrollView](widgets/scroll-view.md)                          | widget    | ready      | —                                                               |
-| [Section](widgets/section.md)                                 | widget    | ready      | —                                                               |
-| [SplitView](widgets/split-view.md)                            | widget    | ready      | —                                                               |
-| [Stepper](widgets/stepper.md)                                 | widget    | ready      | —                                                               |
-| [Style modifiers](primitives/style-modifiers.md)              | primitive | ready      | —                                                               |
-| [TabView](widgets/tab-view.md)                                | widget    | ready      | —                                                               |
-| [Table](widgets/table.md)                                     | widget    | ready      | —                                                               |
-| [Text](primitives/text.md)                                    | primitive | ready      | —                                                               |
-| [Text selection](primitives/text-selection.md)                | primitive | sketch     | Slice 5 contract (plan 032 step 11.3)                           |
-| [TextField](widgets/text-field.md)                            | widget    | ready      | —                                                               |
-| [Tokens](tokens.md)                                           | tokens    | ready      | —                                                               |
-| [Toggle](widgets/toggle.md)                                   | widget    | ready      | —                                                               |
-| [ViewThatFits](primitives/view-that-fits.md)                  | primitive | ready      | —                                                               |
-| [ZStack](primitives/z-stack.md)                               | primitive | ready      | —                                                               |
+| Component                                                            | Kind      | Status     | Blocked on                                                      |
+| -------------------------------------------------------------------- | --------- | ---------- | --------------------------------------------------------------- |
+| [Background](design/primitives/background.md)                        | primitive | ready      | —                                                               |
+| [Badge](design/primitives/badge.md)                                  | primitive | ready      | —                                                               |
+| [Border](design/primitives/border.md)                                | primitive | ready      | —                                                               |
+| [Box](design/primitives/box.md)                                      | primitive | ready      | —                                                               |
+| [Button](design/widgets/button.md)                                   | widget    | ready      | —                                                               |
+| [Callout](design/widgets/callout.md)                                 | widget    | ready      | —                                                               |
+| [Code view](design/widgets/code-view.md)                             | widget    | ready      | —                                                               |
+| [ContentUnavailableView](design/widgets/content-unavailable-view.md) | widget    | ready      | —                                                               |
+| [Divider](design/primitives/divider.md)                              | primitive | ready      | —                                                               |
+| [Flex](design/primitives/flex.md)                                    | primitive | ready      | —                                                               |
+| [Flow](design/primitives/flow.md)                                    | primitive | ready      | —                                                               |
+| [Form](design/widgets/form.md)                                       | widget    | ready      | —                                                               |
+| [Frame](design/primitives/frame.md)                                  | primitive | ready      | —                                                               |
+| [Grid](design/primitives/grid.md)                                    | primitive | specified  | owner answers: extra and bare cells, row spacing, cell priority |
+| [Image](design/widgets/image.md)                                     | widget    | specified  | Kitty tier sizing and loader ownership (key M5, D2)             |
+| [KeyLegend](design/widgets/key-legend.md)                            | widget    | ready      | —                                                               |
+| [Label](design/primitives/label.md)                                  | primitive | ready      | —                                                               |
+| [LabeledContent](design/widgets/labeled-content.md)                  | widget    | ready      | —                                                               |
+| [Leading rail](design/primitives/leading-rail.md)                    | primitive | ready      | —                                                               |
+| [Linear stacks](design/primitives/stacks.md)                         | primitive | ready      | —                                                               |
+| [List](design/widgets/list.md)                                       | widget    | ready      | —                                                               |
+| [Markdown](design/widgets/markdown.md)                               | widget    | ready      | —                                                               |
+| [MultiPicker](design/widgets/multi-picker.md)                        | widget    | ready      | —                                                               |
+| [NavigationSplitView](design/widgets/navigation-split-view.md)       | widget    | wireframed | post-1.0 (owner decision, 2026-10-10)                           |
+| [Outline](design/widgets/outline.md)                                 | widget    | ready      | —                                                               |
+| [Overlay](design/primitives/overlay.md)                              | primitive | ready      | —                                                               |
+| [Padding](design/primitives/padding.md)                              | primitive | ready      | —                                                               |
+| [Picker](design/widgets/picker.md)                                   | widget    | ready      | —                                                               |
+| [ProgressView](design/widgets/progress-view.md)                      | widget    | specified  | shimmer question (key L5)                                       |
+| [Readable width](design/primitives/readable-width.md)                | primitive | ready      | —                                                               |
+| [ScrollIndicator](design/primitives/scroll-indicator.md)             | primitive | ready      | —                                                               |
+| [ScrollView](design/widgets/scroll-view.md)                          | widget    | ready      | —                                                               |
+| [Section](design/widgets/section.md)                                 | widget    | ready      | —                                                               |
+| [SplitView](design/widgets/split-view.md)                            | widget    | ready      | —                                                               |
+| [Stepper](design/widgets/stepper.md)                                 | widget    | ready      | —                                                               |
+| [Style modifiers](design/primitives/style-modifiers.md)              | primitive | ready      | —                                                               |
+| [TabView](design/widgets/tab-view.md)                                | widget    | ready      | —                                                               |
+| [Table](design/widgets/table.md)                                     | widget    | ready      | —                                                               |
+| [Text](design/primitives/text.md)                                    | primitive | ready      | —                                                               |
+| [Text selection](design/primitives/text-selection.md)                | primitive | sketch     | Slice 5 contract (plan 032 step 11.3)                           |
+| [TextField](design/widgets/text-field.md)                            | widget    | ready      | —                                                               |
+| [Tokens](design/tokens.md)                                           | tokens    | ready      | —                                                               |
+| [Toggle](design/widgets/toggle.md)                                   | widget    | ready      | —                                                               |
+| [ViewThatFits](design/primitives/view-that-fits.md)                  | primitive | ready      | —                                                               |
+| [ZStack](design/primitives/z-stack.md)                               | primitive | ready      | —                                                               |

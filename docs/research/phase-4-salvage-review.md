@@ -1,7 +1,8 @@
 ---
-name: Phase 4 salvage review of abandoned branches
-date: 2026-10-10
+type: research
+observed: 2026-10-10
 status: resolved
+description: Phase 4 salvage review of abandoned branches
 ---
 
 # Phase 4 salvage review of abandoned branches
@@ -68,8 +69,8 @@ specimen registry with `ApplicationDriver`, and about 1,800 lines of capture and
 review-bundle tooling. Core/Layout/Widgets reached 13.4k lines. Its tests do not link
 under the current toolchain because `TesseraCoreTests` imports `TesseraLayout` without
 declaring it; with that one-line fix, 230 view-layer tests pass (verified 2026-10-10). Its
-consolidated roadmap (`.agents/plans/030-phase-4-view-layer.md`, approved 2026-09-08)
-already dropped the Showcase for "small directly runnable specimens".
+consolidated roadmap (`docs/plans/030-phase-4-view-layer.md`, approved 2026-09-08) already
+dropped the Showcase for "small directly runnable specimens".
 
 ## Lessons for the restart
 
@@ -111,7 +112,7 @@ already dropped the Showcase for "small directly runnable specimens".
 
 Read each file from its tag before writing the step, and port only what survives review
 against the updated catalog doc and
-[`design/translation-key.md`](../../design/translation-key.md).
+[`docs/design/translation-key.md`](../design/translation-key.md).
 
 | Plan 032 phase          | Port from                                                                                                                                                                                                                                                                                                                                                                        |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -134,7 +135,7 @@ point for plan 032 step 5.2:
 - From `archive/phase4`: primitives Background, Border, Box, Overlay, ScrollIndicator,
   Style modifiers, Divider, and the new Grid sketch; widgets Button, Picker, Stepper,
   Toggle, List, Section, ScrollView, SplitView, Table, and NavigationSplitView;
-  `inbox.md`; `tokens.md`; and the runtime ownership invariant in `design/README.md`
+  `inbox.md`; `tokens.md`; and the runtime ownership invariant in `docs/design.md`
   (rewritten without the review loop's internal type names).
 - From `archive/phase4-review-loop`: `widgets/text-field.md`, which keeps the
   label/prompt/style direction and adds the selection state that `phase4` dropped.
@@ -151,7 +152,7 @@ notes, and its SplitView rename of `ideal` to `requestedIdeal`.
 
 ## Demo rules worth carrying forward
 
-From `archive/phase4:.agents/plans/032-view-layer-gallery.md` ("Demo quality bar"): teach
+From `archive/phase4:docs/plans/032-view-layer-gallery.md` ("Demo quality bar"): teach
 rather than dump (each key press states its lesson, then shows evidence); every displayed
 number has a truthful source; design demos against wireframes at several widths; color
 encodes association, never decoration; the shared scaffold owns the UX floor (initial

@@ -1,7 +1,8 @@
 ---
-name: Herdr Cursor and Underline Color Loss
-date: 2026-07-09
+type: research
+observed: 2026-07-09
 status: resolved
+description: Herdr Cursor and Underline Color Loss
 ---
 
 # Herdr Cursor and Underline Color Loss

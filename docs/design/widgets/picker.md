@@ -10,22 +10,23 @@ The application owns both that set and the selected value through `Binding<Selec
 Picker only derives which supplied option is selected and renders it. It retains no
 business data and never invents a selection. This is a widget-layer design following the
 controlled-widget rule in
-[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets),
+[Slice 7](../../spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets),
 with explicit focus supplied by
-[Slice 4](../../docs/Spec.md#slice-4-focus-and-key-routing-the-responder-system) and
-pointer delivery supplied by [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing).
+[Slice 4](../../spec.md#slice-4-focus-and-key-routing-the-responder-system) and pointer
+delivery supplied by [Slice 5](../../spec.md#slice-5-mouse-and-hit-testing).
 
 The 1.0 presentations are the default inline cycling row, a radio group, a segmented
 control, and a menu. Each presentation is chosen through `pickerStyle` and shares the same
 binding, focus, and enabled rules. Picker holds one value; selecting several is the
 separate [MultiPicker](multi-picker.md) type (owner decision, 2026-10-18).
 
-Text in Picker follows the [wrap and truncation rules](../README.md#wrap-and-truncation)
-(owner decision, 2026-10-18). The title, menu option labels, descriptions, and the
-collapsed value in a host row are content: they wrap and scroll in rows, and apps opt out
-with `.lineLimit(1)`. The standalone inline row's value slot, radio chips, segments, and
-markers are chrome, one row, and pin their own single-row values. Radio chips and segments
-keep their drop and truncate rules.
+Text in Picker follows the
+[wrap and truncation rules](../../design.md#wrap-and-truncation) (owner decision,
+2026-10-18). The title, menu option labels, descriptions, and the collapsed value in a
+host row are content: they wrap and scroll in rows, and apps opt out with `.lineLimit(1)`.
+The standalone inline row's value slot, radio chips, segments, and markers are chrome, one
+row, and pin their own single-row values. Radio chips and segments keep their drop and
+truncate rules.
 
 ## Prior art
 
@@ -223,7 +224,7 @@ Picker renders from `EnvironmentValues.isFocused` and handles keys only when
 
 > Deferred: custom `PickerStyle` conformance, custom chrome, and style configuration wait
 > on the
-> [Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets)
+> [Slice 7](../../spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets)
 > style contract, as Button's and Toggle's custom styles do. They must preserve the
 > implemented selection, keyboard, pointer, enabled, and focus behavior.
 
@@ -1565,9 +1566,9 @@ and `disabled` are too.
 - [`List`](list.md) -- supplies the row chrome for the menu's option list.
 - [`Style modifiers`](../primitives/style-modifiers.md) -- ready; resolve and apply the
   inherited complete semantic Styles without giving Picker its own mutable visual state.
-- [Focus manager and responder context](../../docs/Spec.md#slice-4-focus-and-key-routing-the-responder-system)
+- [Focus manager and responder context](../../spec.md#slice-4-focus-and-key-routing-the-responder-system)
   -- supplies app-installed `FocusID` routing and focusable-list participation.
-- [Mouse hit testing](../../docs/Spec.md#slice-5-mouse-and-hit-testing) -- supplies chip,
+- [Mouse hit testing](../../spec.md#slice-5-mouse-and-hit-testing) -- supplies chip,
   segment, and value-slot hit testing and click-to-focus ordering.
 - [`ScrollView`](scroll-view.md) -- supplies the row-based scrolling contract the menu's
   option list follows (cross-axis proposal, partial items, paging, reveal).
@@ -1582,7 +1583,7 @@ choice that LabeledContent's open inline rule does not change.
 
 ## Requirements
 
-Schema: [README](../README.md#requirements-list). Multi-select requirements live in
+Schema: [README](../../design.md#requirements-list). Multi-select requirements live in
 [MultiPicker](multi-picker.md#requirements).
 
 Inline cycling row:
@@ -1818,13 +1819,13 @@ only the last visible row with `truncation.mark` (`~` at the ASCII-only rung).
 
 - **Deferred beyond 1.0:** an overlay or popover presentation of the menu. Overlay layers
   are rejected for 1.0 (key H1), and the Spec's
-  [1.0 surface](../../docs/Spec.md#the-10-surface) records catalog deferrals. The menu and
-  its collapsed host row draw their option list in place, so an overlay would need a
-  transient open bit, placement, dismissal, and option-hit semantics without changing the
+  [1.0 surface](../../spec.md#the-10-surface) records catalog deferrals. The menu and its
+  collapsed host row draw their option list in place, so an overlay would need a transient
+  open bit, placement, dismissal, and option-hit semantics without changing the
   `Binding<Selection>` ownership rule.
 - **Deferred:** per-option disabled state. 1.0 treats every supplied option as selectable;
   disabled-option visibility, traversal, and placeholder policy are deferred to
-  [Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
+  [Slice 7](../../spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
 - **Resolved:** `contrast` is `on(R)`, the label colour inside `solid(R)`
   ([composite styles](../tokens.md#composite-styles)), not a free-standing role. The
   active segment and chip are `solid(accent)` (owner decision, 2026-10-19).
@@ -1833,7 +1834,7 @@ only the last visible row with `truncation.mark` (`~` at the ASCII-only rung).
   presentation, the segmented control's Left and Right included.
 
 Reviewed against the
-[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): a Picker is a
+[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): a Picker is a
 value whose title, options, and row closure are configuration; the choice is the app's
 `Binding<Selection>`, written only on a commit; its retained state is the cursor, editing,
 draft, scroll, and open NodeState of its own node, each with a reset rule, while its
@@ -1843,7 +1844,7 @@ never as mode changes.
 ## Out of scope
 
 - Fuzzy filtering of menu options is outside Picker 1.0 (owner decision, 2026-10-11; keys
-  C7, M2). It is recorded as a feature idea in [design/inbox.md](../inbox.md).
+  C7, M2). It is recorded as a feature idea in [docs/design/inbox.md](../inbox.md).
 
 ## Inspiration
 

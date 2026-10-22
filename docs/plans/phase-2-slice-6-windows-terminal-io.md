@@ -1,11 +1,14 @@
 ---
-name: Phase 2 Slice 6 Windows Terminal IO
+type: plan
+stage: done
+created: 2026-06-14
+completed: 2026-07-02
+order: 12
 description:
   Complete TesseraTerminalIO's Windows implementation and enable Windows CI for Phase 2.
-status: complete
-created: 2026-06-14
-updated: 2026-07-02
 ---
+
+# Phase 2 Slice 6 Windows Terminal IO
 
 ## Progress
 
@@ -30,7 +33,7 @@ updated: 2026-07-02
 
 ## Overview
 
-This plan implements Phase 2 Slice 6 from `docs/Spec.md`: TesseraTerminal gets a real
+This plan implements Phase 2 Slice 6 from `docs/spec.md`: TesseraTerminal gets a real
 Windows backend while preserving the existing public API shape used by `TerminalSession`.
 The durable seam remains `PlatformIO`/`PlatformHandles`/`TerminalDevice`; the scope is
 limited by putting platform-specific implementation and tests behind `#if os(Windows)`.
@@ -230,7 +233,7 @@ depends on it for local iteration.
 - Keep the die-now restore path in the C shim (consistent with the existing POSIX design,
   which deliberately walls the unsafe surface in `CTesseraTerminalPlatform`): the Windows
   branch uses `SetConsoleMode` + `WriteFile` rather than the Swift `tesseraCtrlHandler`
-  sketch in `docs/Spec.md`. Note this intentional divergence from the spec.
+  sketch in `docs/spec.md`. Note this intentional divergence from the spec.
 - `PlatformIO.installCleanup` is currently `#if os(macOS) || os(Linux)` only and pulls
   `inputFileDescriptor`/`outputFileDescriptor` (`CInt`) off `TerminalDevice`. Add a
   Windows branch that sources console `HANDLE`s + saved modes instead. The parallel
@@ -387,18 +390,18 @@ this point the Phase 0 VM exists and the whole package already compiles on Windo
 
 ### Step 5.1 — Attempt the Windows libghostty-vt build; enable snapshots or confirm the skip
 
-- Driver doc: `.agents/investigations/006-windows-libghostty-vt-snapshot-spike.md` (full
-  research, alternatives considered, and the step-by-step spike). Update its `status` to
-  `resolved` with the outcome when finished.
+- Driver doc: `docs/research/windows-libghostty-vt-snapshot-spike.md` (full research,
+  alternatives considered, and the step-by-step spike). Update its `status` to `resolved`
+  with the outcome when finished.
 - Files (on success): `scripts/ghostty-vt-version.txt` (bump approved by owner if needed),
   `scripts/build-libghostty-vt.sh` (Windows platform/arch path + `.dll`/`.lib` glob),
   `Package.swift` (re-enable the `CGhosttyVT` target + `TesseraTerminalSnapshotSupport`
   dependency on Windows — flip the Step 1.1 platform condition — plus the Windows
   `GhosttyVTPlatform`/artifact path and linker settings), the two
   `#if !os(Windows)`-guarded importers and `VirtualTerminal.testValue` (unguard for
-  Windows), `docs/UpdatingGhosttyVT.md` (document the Windows artifact path and Windows
-  re-validation, which it currently omits), plus flipping the Phase 1 Windows snapshot
-  skips to enabled and generating Windows baselines.
+  Windows), `docs/guides/updating-ghostty-vt.md` (document the Windows artifact path and
+  Windows re-validation, which it currently omits), plus flipping the Phase 1 Windows
+  snapshot skips to enabled and generating Windows baselines.
 - Prefer a direct `zig build` of the vt target that bypasses the full-app CMake/libxml2
   graph (the documented Windows blocker); bump the pinned revision to one with the
   upstream libxml2-on-Windows fix if required (re-validate macOS/Linux snapshots against
@@ -428,8 +431,8 @@ this point the Phase 0 VM exists and the whole package already compiles on Windo
   GitHub push or Ghostty-backed Windows CI run was attempted per the local-only
   instruction.
 - Superseded 2026-07-02 (later the same day): the three durable-enablement gaps named
-  above were closed by `.agents/plans/014-windows-ghostty-snapshot-enablement.md` —
-  cold-cache dependency prefetch via `scripts/build-libghostty-vt.ps1` (curl +
+  above were closed by `docs/plans/windows-ghostty-snapshot-enablement.md` — cold-cache
+  dependency prefetch via `scripts/build-libghostty-vt.ps1` (curl +
   `zig fetch <local-file>` from the pinned checkout's `build.zig.zon.json`), a
   build-materialized gitignored header directory replacing the checked-out symlink on
   every platform, and static linking of `ghostty-vt-static.lib` (plus `-lntdll`) instead
@@ -458,7 +461,7 @@ swift test
 For edited Markdown:
 
 ```fish
-pnpx markdownlint-cli CONTRIBUTING.md .agents/plans/012-phase-2-slice-6-windows-terminal-io.md
+pnpx markdownlint-cli CONTRIBUTING.md docs/plans/phase-2-slice-6-windows-terminal-io.md
 ```
 
 Windows-specific acceptance runs in two places: GitHub Actions (`windows-latest`) and the
@@ -474,10 +477,11 @@ redraw) is done by hand inside that VM's Windows Terminal and conhost, per Step 
 
 ## References
 
-- `docs/Spec.md`, Phase 2 Slice 6: Windows support and Phase 2 completion.
-- `.agents/investigations/006-windows-libghostty-vt-snapshot-spike.md` — snapshot oracle
-  research and the Windows build spike (Phase 5).
-- `docs/UpdatingGhosttyVT.md` — pinned-revision bump process (to be extended for Windows).
+- `docs/spec.md`, Phase 2 Slice 6: Windows support and Phase 2 completion.
+- `docs/research/windows-libghostty-vt-snapshot-spike.md` — snapshot oracle research and
+  the Windows build spike (Phase 5).
+- `docs/guides/updating-ghostty-vt.md` — pinned-revision bump process (to be extended for
+  Windows).
 - `Sources/TesseraTerminalIO/PlatformIO.swift`
 - `Sources/TesseraTerminalIO/TerminalDevice+Live.swift`
 - `Sources/CTesseraTerminalPlatform/cleanup.c`

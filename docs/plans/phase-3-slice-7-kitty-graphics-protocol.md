@@ -1,13 +1,16 @@
 ---
-name: Phase 3 Slice 7 Kitty Graphics Protocol
-description:
-  Add first-class Kitty Graphics Protocol (KGP) support: APC encoding and parsing,
-  per-cell pixel geometry, session-scoped image transmission, frame-scoped placement,
-  unconditional cleanup, a Ghostty snapshot harness, and a procedural-gradient demo panel.
-status: complete
+type: plan
+stage: done
 created: 2026-07-04
-updated: 2026-07-07
+completed: 2026-07-07
+order: 22
+description:
+  "Add first-class Kitty Graphics Protocol (KGP) support: APC encoding and parsing,
+  per-cell pixel geometry, session-scoped image transmission, frame-scoped placement,
+  unconditional cleanup, a Ghostty snapshot harness, and a procedural-gradient demo panel."
 ---
+
+# Phase 3 Slice 7 Kitty Graphics Protocol
 
 ## Progress
 
@@ -34,7 +37,7 @@ updated: 2026-07-07
 
 ## Overview
 
-This plan implements `docs/Spec.md` Phase 3 Slice 7. Tessera adopts the Kitty Graphics
+This plan implements `docs/spec.md` Phase 3 Slice 7. Tessera adopts the Kitty Graphics
 Protocol (KGP) as a first-class capability — new value types, an APC encoder, an APC
 parser, per-cell pixel geometry, and a `Frame`/`TerminalSession` API — rather than routing
 it through the `RawTerminalPayload` escape hatch. Sixel and iTerm2 OSC 1337 stay
@@ -1014,7 +1017,8 @@ Acceptance:
     grid position, so this is the accessor to use for screen position, not manual
     reconstruction from the other fields.
   - If any needed accessor is missing from the pinned revision, bump it per
-    `docs/UpdatingGhosttyVT.md` rather than shelling out to a raw C call from Swift.
+    `docs/guides/updating-ghostty-vt.md` rather than shelling out to a raw C call from
+    Swift.
 - Add two new `unimplemented`-defaulted endpoints to `VirtualTerminal`, following the
   exact pattern `cell`/`cursor`/`snapshot` already use (placeholder values, wired through
   both `VirtualTerminal.ghostty(cols:rows:)` and `.ghosttyUnavailable`):

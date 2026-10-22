@@ -1,166 +1,121 @@
 ---
 name: planning
 description:
-  Use when the user asks to plan, design, or scope multi-step work before implementation.
-version: 0.1.0
+  Use when the user commissions, resumes, or closes a plan in docs/plans/ ("plan X", "pick
+  up the plan", "what's next on"), or commissions an investigation whose answer is a
+  plan's Outcome. Keeps Progress and Next: current and records decisions with evidence.
+version: 0.2.0
 ---
 
 # Planning
 
-Plans are numbered markdown files in `.agents/plans/` that decompose work into phases and
-steps. They outlive chat sessions and allow resuming work from any point.
+A plan is a living document the user commissions. It exists to agree on the work before
+building it, and so a fresh session can resume from the file alone. Plans live in
+`docs/plans/<slug>.md`, inside the `docs/` IWE workspace, and `docs/plans.md` is rendered
+from their frontmatter by `scripts/plans.py` (the quality gate fails while the hub is
+stale).
 
-## File Naming
+## When
 
-`NNN-kebab-case-slug.md` where `NNN` is a zero-padded 3-digit sequence number.
+- Only when the user asks. Never start a plan on your own; findings you turn up go to the
+  current plan's Discoveries, or to a research record (`investigations` skill) when the
+  user commissions one.
+- One or two files with an obvious approach need no plan: say so and do the work.
+- A commissioned question ("find out why X crashes") is a plan whose Outcome is the
+  answer.
 
-- `001-rack-model.md` ✅
-- `rack-model.md` ❌ (no number)
-- `1-rack.md` ❌ (not zero-padded)
+## File and frontmatter
 
-Find the next number: `ls .agents/plans/ | grep -E '^[0-9]{3}-' | sort | tail -1` then
-increment.
-
-## Plan Structure
-
-Every plan MUST have:
-
-1. **YAML frontmatter** (name, description, status, dates).
-2. **Progress checklist** (flat task list of all phases and steps).
-3. **Overview** (2–6 sentences: what and why).
-4. **Phases with Steps** (each step specifies files touched, what to do, acceptance
-   criteria).
+Slug filename, no number: `docs/plans/terminal-io-concurrency-review-fixes.md`. Plans
+written before the workspace were numbered; `docs/plans.md` keeps the number-to-slug
+table, and "plan 034" in older text means the plan whose `order` is 34.
 
 ```yaml
 ---
-name: Plan Name
-description: One-line description of what this plan delivers.
-status: pending # pending | in-progress | completed | superseded
+type: plan
+stage: proposed # proposed | planned | active | done | cancelled
 created: YYYY-MM-DD
-updated: YYYY-MM-DD
+completed: YYYY-MM-DD # only when done
+order: 36 # next integer after the highest in docs/plans/
+description: One line shown beside the plan in docs/plans.md.
 ---
 ```
 
-## Progress Checklist
+`proposed` is being shaped, `planned` the user approved the outline, `active` underway,
+`done` with `completed`, or `cancelled` with a link to its successor in the body. The
+schema is `docs/.iwe/schemas/plan.yaml`; `iwe schema validate` from `docs/` checks it.
+After changing any frontmatter field, run `scripts/plans.py` to re-render the hub.
 
-A flat task list right after the frontmatter. This is what a returning agent reads first.
-
-```markdown
-## Progress
-
-- [ ] **Phase 1 — Types & scaffolding**
-  - [ ] 1.1 Add `Foo` interface and `Bar` union type
-  - [ ] 1.2 Export from `src/index.ts`
-- [ ] **Phase 2 — Business logic**
-  - [ ] 2.1 Implement `processFoo(foo)`
-  - [ ] 2.2 Implement `findBars(foo)`
-```
-
-Tick boxes (`[x]`) as work completes. A phase is checked only when all its steps are.
-
-## Phases & Steps
-
-Each **phase** is a named milestone. Each **step** is concrete and small enough for a
-single agent turn.
+## Shape
 
 ```markdown
-## Phase 1 — Types & scaffolding
+# <Outcome as a verb phrase>
 
-**Goal**: Introduce the data model without changing runtime behaviour.
-
-### Step 1.1 — Add `Foo` and `Bar` types
-
-- File: `src/types.ts`
-- Add `Foo` interface and `Bar` union type.
-- Acceptance: `npm run typecheck` passes.
-```
-
-```markdown
-## Phase 2 — Business logic
-
-**Goal**: Implement core operations over the data model.
-
-### Step 2.1 — Implement `processFoo(foo)`
-
-- File: `src/service.ts`
-- Implement `processFoo()` that validates and transforms a `Foo`.
-- Acceptance: unit tests in `src/service.test.ts` pass.
-
-### Step 2.2 — Implement `findBars(foo)`
-
-- File: `src/service.ts`
-- Implement `findBars()` that returns matching `Bar` values for a given `Foo`.
-- Acceptance: unit tests pass; `npm run typecheck` passes.
-```
-
-## How to Create a Plan
-
-1. Pick the next zero-padded number.
-2. Create `.agents/plans/NNN-slug.md` with the structure above.
-3. Status starts at `pending`.
-4. Show the user the plan before implementing — they may want to revise.
-5. Do **not** start implementation unless the user says to.
-
-## How to Execute a Plan
-
-1. **Read the entire plan** first — frontmatter, progress, all phases.
-2. Find the first unchecked step in the lowest unchecked phase.
-3. **Implement that single step**, respecting its acceptance criteria.
-4. **Update the plan**: tick the step, bump `updated`, set `status: in-progress` if
-   needed.
-5. If all steps in a phase are complete, tick the phase checkbox.
-6. After completing each phase, pause and await user review and explicit approval before
-   proceeding to the next phase.
-7. When every phase is complete, set `status: completed`. When another plan replaces this
-   one before it finishes, set `status: superseded`, add `superseded-by:` with the
-   replacing plan's file name, and leave the body as history.
-8. If a step turns out to be wrong, **edit the plan first** (add/split/remove steps), then
-   resume.
-
-## Plan Template
-
-```markdown
----
-name: <Plan name>
-description: <One-line description>
-status: pending
-created: YYYY-MM-DD
-updated: YYYY-MM-DD
----
+Goal: two to four sentences. What is true when this is done, for whom, and how you will
+see it.
 
 ## Progress
 
-- [ ] **Phase 1 — <name>**
-  - [ ] 1.1 <step>
-  - [ ] 1.2 <step>
-- [ ] **Phase 2 — <name>**
-  - [ ] 2.1 <step>
+- [x] 1 <Slice> — <evidence: SHA, command and result>
+- [ ] 2 <Slice>
+  - [x] 2.1 <Step> — <evidence>
+  - [ ] 2.2 <Step>
 
-## Overview
+Next: <the very next action, or the blocker and who owns it>
 
-<2–6 sentences: what and why.>
+## Approach
 
-## Phase 1 — <name>
+Current state, end state, patterns to follow and to avoid, the files that orient a
+newcomer, non-goals. Open questions while proposed. About 40 lines.
 
-**Goal**: <what this phase delivers>
+## Slices
 
-### Step 1.1 — <title>
+### 1 <Slice>
 
-- File: `path/to/file.ts`
-- <what to do>
-- Acceptance: <how we know it's done>
+Delivers: <observable behavior>. Verify: <exact command or scenario, and what you should
+see>.
 
-### Step 1.2 — <title>
+## Acceptance
 
-- File: `...`
-- <what to do>
-- Acceptance: <...>
+- [ ] <Behavior-level check for the whole plan>
 
-## Phase 2 — <name>
+## Decisions
 
-...
+- <YYYY-MM-DD> <Decision>, because <reason>. (<who decided it>)
 
-## References
+## Discoveries
 
-- <links to docs, related plans, etc.>
+- <Observation> — <evidence>
+
+## Outcome
+
+Written at close: what shipped, what did not, what to remember.
 ```
+
+- Progress stays first and at most two levels deep; its numbers match the Slices headings.
+  Older plans use Phases and Steps instead of Slices; keep a plan's existing shape when
+  resuming it.
+- Slices are vertical, each verifiable on its own and small enough for one session,
+  ordered so the build stays green. Name files in Approach; Slices and Acceptance speak in
+  behavior.
+- Stay under about 300 lines; a longer plan wants splitting.
+- One paragraph per line; relative `.md` links; no raw HTML (`iwe normalize` deletes it).
+
+## Build
+
+- Resume by reading the whole plan and starting at `Next:`. Do not reopen recorded
+  Decisions without new evidence.
+- Work one slice at a time. Check a box only when its evidence exists, and put the
+  evidence on the line: a SHA, a command and its result, a snapshot path.
+- Record Decisions (dated, with the reason) and Discoveries (with evidence) when they
+  happen.
+- Pause after each slice the user asked to review; otherwise keep going.
+- End every session that touched the plan by updating Progress and the `Next:` line; it is
+  the handoff.
+
+## Close
+
+When Acceptance holds, write the Outcome, set `stage: done` with `completed`, and
+re-render the hub. Promote durable decisions out of the plan into
+`docs/architecture/<slug>.md` (schema `architecture.yaml`; add it to
+`docs/architecture.md`), and add a dated line to `docs/log.md`.

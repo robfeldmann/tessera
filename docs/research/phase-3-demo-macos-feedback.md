@@ -1,7 +1,8 @@
 ---
-name: Phase 3 demo macOS feedback
-date: 2026-07-11
+type: research
+observed: 2026-07-11
 status: resolved
+description: Phase 3 demo macOS feedback
 ---
 
 # Phase 3 demo macOS feedback

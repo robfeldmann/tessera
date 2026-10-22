@@ -1,0 +1,26 @@
+$schema: https://document-schema.org/draft/2026-06/schema
+description: Living plan for one piece of work, written with the planning skill.
+maxDepth: 4
+frontmatter:
+  type: object
+  required: [type, stage, created, order, description]
+  properties:
+    type: { const: plan }
+    stage:
+      enum: [active, proposed, planned, done, cancelled]
+      description: active is underway; proposed and planned are pending.
+    created:
+      type: string
+      format: date
+    completed:
+      type: string
+      format: date
+    order:
+      type: integer
+      minimum: 1
+      description:
+        Position in the plan sequence (the old plan number for migrated plans);
+        docs/plans.md is rendered from it.
+    description:
+      type: string
+      description: One line shown beside the plan in docs/plans.md.

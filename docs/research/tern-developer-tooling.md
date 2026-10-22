@@ -1,7 +1,8 @@
 ---
-name: Tern developer tooling and Ternbook's use of it
-date: 2026-10-19
+type: research
+observed: 2026-10-19
 status: resolved
+description: Tern developer tooling and Ternbook's use of it
 ---
 
 # Tern developer tooling and Ternbook's use of it

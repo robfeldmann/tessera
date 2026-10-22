@@ -465,7 +465,7 @@ w  fg=warning bg=selection.fill
 
 ## State model
 
-Schema: [README](../README.md#state-model-table).
+Schema: [README](../../design.md#state-model-table).
 
 | State          | Owner       | Type                                                       | Reset or clamp rule                                                                                                                                                                                                                                                                            |
 | -------------- | ----------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -582,7 +582,8 @@ Tokens consumed, each defined in [tokens.md](../tokens.md) unless marked.
 
 ## Requirements
 
-Schema: [README](../README.md#requirements-list). Traced to the states and tables above.
+Schema: [README](../../design.md#requirements-list). Traced to the states and tables
+above.
 
 - `scrolls itself without a ScrollView wrapper` (Scrolled)
 - `reserves the last column for the vertical indicator when rows overflow` (Scrolled)
@@ -654,17 +655,17 @@ Reference the [degradation ladder](../tokens.md#degradation-ladder).
 - Below the floor: labels truncate at the tail (see [Sizing](#sizing)).
 
 Reviewed against the
-[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): nodes,
-selection, and expansion are app data and bindings, the scroll offset is the only
-NodeState, focus stays with the graph, and rows are deterministic integer-cell output
-built only for the viewport.
+[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): nodes, selection,
+and expansion are app data and bindings, the scroll offset is the only NodeState, focus
+stays with the graph, and rows are deterministic integer-cell output built only for the
+viewport.
 
 ## Open questions
 
 - **Row hover (key F4).** omp2's `Tree` tints the row under the pointer, and List and
   Table take a default row hover (owner decision, 2026-10-19;
-  [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing)), but Picker's radio group
-  and TabView draw none (owner decisions, 2026-10-10). Outline draws none and requests no
+  [Slice 5](../../spec.md#slice-5-mouse-and-hit-testing)), but Picker's radio group and
+  TabView draw none (owner decisions, 2026-10-10). Outline draws none and requests no
   pointer motion. The owner decides whether Outline rows take `hover` as List's do;
   deferred to plan 032 step 14.3, which builds Outline.
 - **Guides modifier (key K6).** The guides state reads a border set from the environment,

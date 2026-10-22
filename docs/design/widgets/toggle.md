@@ -9,11 +9,11 @@ status: ready
 through `Binding<Bool>`; Toggle retains only ephemeral press presentation in `NodeState`.
 It presents the current value without owning or inventing application state. This is a
 widget-layer design following the controlled-widget rule in
-[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
+[Slice 7](../../spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
 Explicit focus and keyboard delivery come from
-[Slice 4](../../docs/Spec.md#slice-4-focus-and-key-routing-the-responder-system), and
-pointer delivery comes from the
-[mouse and hit-testing slice](../../docs/Spec.md#slice-5-mouse-and-hit-testing).
+[Slice 4](../../spec.md#slice-4-focus-and-key-routing-the-responder-system), and pointer
+delivery comes from the
+[mouse and hit-testing slice](../../spec.md#slice-5-mouse-and-hit-testing).
 
 The standalone default presentation is omp2's checkbox, adopted by owner decision (omp2
 review, 2026-10): `☑` when the binding is true and `☐` when it is false, followed by one
@@ -593,9 +593,9 @@ style).
 - [Text](../primitives/text.md) renders labels and applies grapheme-safe truncation.
 - [Style modifiers](../primitives/style-modifiers.md) apply the resolved complete semantic
   Styles without reducing them to foreground colors.
-- [Slice 4](../../docs/Spec.md#slice-4-focus-and-key-routing-the-responder-system)
-  supplies the focus manager, explicit `FocusID`, focusable list, and key routing.
-- [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing) supplies hit testing,
+- [Slice 4](../../spec.md#slice-4-focus-and-key-routing-the-responder-system) supplies the
+  focus manager, explicit `FocusID`, focusable list, and key routing.
+- [Slice 5](../../spec.md#slice-5-mouse-and-hit-testing) supplies hit testing,
   click-to-focus ordering, and same-node primary tap delivery.
 
 ## Requirements
@@ -685,7 +685,7 @@ style).
 ## Deferred beyond 1.0
 
 - **Label-less Toggle:** deferred beyond 1.0, which the Spec's
-  [1.0 surface](../../docs/Spec.md#the-10-surface) records. Unblock only when the public
+  [1.0 surface](../../spec.md#the-10-surface) records. Unblock only when the public
   accessibility policy defines a non-label accessible-name source and an exact initializer
   contract.
 - **Switch-style presentation:** deferred beyond 1.0, as above. Unblock only when a
@@ -693,7 +693,7 @@ style).
   focus, and disabled contract through fixtures and interaction tables.
 - **Custom `ToggleStyle` representation:** concrete configuration, type-erasure, and
   environment key signatures for app-defined styles are deferred to the
-  [Slice 7 catalog integration contract](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
+  [Slice 7 catalog integration contract](../../spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
   Unblock only when that contract names the custom style representation without weakening
   Toggle's required `Binding<Bool>` initializer. The built-in `.checkbox`, `.circle`, and
   `.text` styles do not wait for it.
@@ -704,7 +704,7 @@ None. Each item under Deferred beyond 1.0 names its exact target: the Spec's 1.0
 or the Slice 7 style contract.
 
 Reviewed against the
-[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): a Toggle is a
+[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): a Toggle is a
 value whose label and style are configuration; the on/off value is the app's
 `Binding<Bool>`, written once per valid activation; its only retained state is the
 `isPressed` NodeState of its own node, and it reads focus and the Form row context from

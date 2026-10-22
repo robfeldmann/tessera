@@ -8,7 +8,7 @@ status: ready
 Style modifiers are stateless wrapper nodes that establish or override inherited terminal
 `Style` attributes for a subtree. They are presentation-only: they add neither geometry,
 state, focus, bindings, nor input handling. Their contract is the Slice 3
-[styling contract](../../docs/Spec.md#slice-3-styling-text-wrapping-and-decoration).
+[styling contract](../../spec.md#slice-3-styling-text-wrapping-and-decoration).
 
 ## Prior art
 
@@ -29,8 +29,8 @@ state, focus, bindings, nor input handling. Their contract is the Slice 3
 - Ratatui `Color`: `~/Developer/ratatui/ratatui/main/ratatui-core/src/style/color.rs`
   distinguishes foreground and background color channels. Tessera resolves terminal
   capability changes through its token ladder.
-- Tessera [Slice 3](../../docs/Spec.md#slice-3-styling-text-wrapping-and-decoration) owns
-  the API and inheritance precedence.
+- Tessera [Slice 3](../../spec.md#slice-3-styling-text-wrapping-and-decoration) owns the
+  API and inheritance precedence.
 
 ## Anatomy
 
@@ -149,7 +149,7 @@ extension View {
 `defaultStyle` is the sole style environment key and contains a complete buffer `Style`
 value. The buffer's `Style` is the only `Style` type; its fluent value API is coordinated
 there, not in the view layer. The Slice 3
-[merge rule](../../docs/Spec.md#slice-3-styling-text-wrapping-and-decoration) resolves per
+[merge rule](../../spec.md#slice-3-styling-text-wrapping-and-decoration) resolves per
 attribute: the nearest ancestor's explicit value wins until a view supplies that attribute
 itself. `.bold(false)` records bold as off; v1 has no sub-modifier negation. `.style(_:)`
 merges every explicit attribute supplied by its argument under that same rule.
@@ -159,12 +159,12 @@ attribute; it fills before descendants render. It is distinct from view-builder
 [background](background.md), which is the primary-child-sized layering primitive. The
 style wrapper has no hit-testing behavior; any later decorative view layer must explicitly
 set `.allowsHitTesting(false)`, with routing deferred to
-[Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing).
+[Slice 5](../../spec.md#slice-5-mouse-and-hit-testing).
 
 On a `Text`, the attribute modifiers return `Text` and set the attributes of styled runs;
 `.background(_:)` has no `Text` overload, so it stays the region fill
 ([Text styled runs](text.md#styled-runs)). `.link(URL)` is the Spec's OSC 8 attribute
-([Decoration](../../docs/Spec.md#decoration); key I7) and merges like any other attribute.
+([Decoration](../../spec.md#decoration); key I7) and merges like any other attribute.
 
 ## Sizing
 
@@ -230,10 +230,9 @@ columns of [roles](../tokens.md#roles); no modifier-specific fallback is introdu
 - Resolved: `.background(Color)` is the style wrapper's region fill, preserving the Slice
   3 overload; view-builder [background](background.md) remains the layering primitive.
 - Resolved: reviewed against the
-  [Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module). Style
-  modifiers are value wrappers that lower to ordinary nodes, styles resolve from the
-  environment with a written merge rule, and they add no state, geometry, or terminal
-  authority.
+  [Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module). Style modifiers
+  are value wrappers that lower to ordinary nodes, styles resolve from the environment
+  with a written merge rule, and they add no state, geometry, or terminal authority.
 - Deferred to plan 032 step 9.1, which lands roles and tones: the spelling that names a
   role for a subtree (`fg=accent`, key J4). Roles are environment values holding complete
   `Style`s and `.style(_:)` merges one, but no doc spells the environment key path or a

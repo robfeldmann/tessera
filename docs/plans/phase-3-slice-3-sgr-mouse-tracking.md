@@ -1,13 +1,16 @@
 ---
-name: Phase 3 Slice 3 SGR Mouse Tracking
+type: plan
+stage: done
+created: 2026-07-02
+completed: 2026-07-05
+order: 18
 description:
   Add SGR mouse tracking with semantic press, release, drag, scroll, and motion events,
   opt-in any-event hover tracking with bounded motion coalescing, mode lifecycle cleanup,
   parser coverage, and an interactive demo panel.
-status: completed
-created: 2026-07-02
-updated: 2026-07-05
 ---
+
+# Phase 3 Slice 3 SGR Mouse Tracking
 
 ## Progress
 
@@ -25,7 +28,7 @@ updated: 2026-07-05
 
 ## Overview
 
-This plan implements `docs/Spec.md` Phase 3 Slice 3. Tessera adopts SGR mouse reports, not
+This plan implements `docs/spec.md` Phase 3 Slice 3. Tessera adopts SGR mouse reports, not
 X10, VT200 byte-packed mouse reports, urxvt reports, or Win32 console mouse records. The
 app-facing event stream reports terminal coordinates, mouse event kind (press, release,
 drag, scroll, or motion), button identity, and modifiers.

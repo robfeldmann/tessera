@@ -1,0 +1,10 @@
+$schema: https://document-schema.org/draft/2026-06/schema
+description: Directory hub for the kept IWE workspace types.
+maxDepth: 4
+frontmatter:
+  type: object
+  required: [type]
+  properties:
+    type: { const: hub }
+    stage: { enum: [living] }
+    description: { type: string }

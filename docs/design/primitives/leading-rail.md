@@ -126,7 +126,7 @@ column 0 and the content in column 2):
 
 ## Sizing
 
-Schema: [README](../README.md#sizing-table). Mandatory rows: nil x nil, tight,
+Schema: [README](../../design.md#sizing-table). Mandatory rows: nil x nil, tight,
 under-minimum, over-maximum.
 
 | Proposal     | Result                                                    | Rule                                               |
@@ -168,10 +168,9 @@ None. Consumers: [Callout](../widgets/callout.md), [Markdown](../widgets/markdow
 ## Open questions
 
 - Resolved: reviewed against the
-  [Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module). The leading
-  rail is a unary layout wrapper plus a render decoration, like Border; its glyph and role
-  come from tokens and the environment, and its geometry is deterministic integer-cell
-  output.
+  [Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module). The leading rail
+  is a unary layout wrapper plus a render decoration, like Border; its glyph and role come
+  from tokens and the environment, and its geometry is deterministic integer-cell output.
 
 ## Inspiration
 

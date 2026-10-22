@@ -114,8 +114,8 @@ Behavior, in cells throughout:
 
 ## Sizing
 
-Schema: [README](../README.md#sizing-table). `p` is the 263-cell paragraph from Anatomy;
-the default `readableWidth` is 72 unless a row says otherwise.
+Schema: [README](../../design.md#sizing-table). `p` is the 263-cell paragraph from
+Anatomy; the default `readableWidth` is 72 unless a row says otherwise.
 
 | Configuration and proposal                                                    | Result | Rule                                                                                                                |
 | ----------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------- |
@@ -181,11 +181,11 @@ than the readable width it has no effect.
   unchanged.
 
 Reviewed against the
-[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): the modifier
-is a value description that reads `readableWidth` through the
-[environment](../../docs/Spec.md#environment) and lowers to Frame's max-only wrapper node,
-so `dump()` shows its capped proposal and size; the cap is an app-set environment value,
-not state; and it touches no terminal capability.
+[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): the modifier is a
+value description that reads `readableWidth` through the
+[environment](../../spec.md#environment) and lowers to Frame's max-only wrapper node, so
+`dump()` shows its capped proposal and size; the cap is an app-set environment value, not
+state; and it touches no terminal capability.
 
 ## Inspiration
 

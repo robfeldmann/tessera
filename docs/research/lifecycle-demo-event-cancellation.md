@@ -1,7 +1,8 @@
 ---
-name: Lifecycle Demo Event Cancellation
-date: 2026-06-09
+type: research
+observed: 2026-06-09
 status: resolved
+description: Lifecycle Demo Event Cancellation
 ---
 
 # Lifecycle Demo Event Cancellation

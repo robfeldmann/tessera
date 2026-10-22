@@ -1,3 +1,7 @@
+---
+kind: inbox
+---
+
 # Inbox
 
 Append-only inspiration capture. One dated line per thought; links optional. Triage
@@ -8,8 +12,8 @@ Format: `- YYYY-MM-DD -- thought`
 ## Entries
 
 - 2026-07-06 -- Table's column-width distribution is the same constraint problem as Grid's
-  ([Slice 6](../docs/Spec.md#slice-6-grid-table-and-fitting)). Design the solver once;
-  Table should be at least `wireframed` before Grid's API freezes.
+  ([Slice 6](../spec.md#slice-6-grid-table-and-fitting)). Design the solver once; Table
+  should be at least `wireframed` before Grid's API freezes.
 - 2026-07-06 -- SplitView is the right second widget exemplar: it uniquely exercises
   divider drag, min-size negotiation, and collapse (Slice 5 hit testing), none of which
   Table touches.
@@ -105,11 +109,10 @@ Format: `- YYYY-MM-DD -- thought`
   (or to a viewport wholly below the fold, as in the gallery scaffold) leaves its focus
   treatment invisible; the enclosing ScrollView should translate to reveal the focused
   bounds. Discovered in investigation
-  [034](../.agents/investigations/034-focus-appearance-host-inside-scroll-content.md);
-  natural home is [ScrollView](widgets/scroll-view.md) (reveal-on-focus-change) plus a
-  FocusManager hook exposing the focused node's bounds to enclosing viewports. SwiftUI
-  precedent: `ScrollViewReader.scrollTo(_:)` and automatic focus-driven scrolling in
-  `List`/`Form`.
+  [034](../research/focus-appearance-host-inside-scroll-content.md); natural home is
+  [ScrollView](widgets/scroll-view.md) (reveal-on-focus-change) plus a FocusManager hook
+  exposing the focused node's bounds to enclosing viewports. SwiftUI precedent:
+  `ScrollViewReader.scrollTo(_:)` and automatic focus-driven scrolling in `List`/`Form`.
 - 2026-08-26 -- Equal-column tracks: the gallery's lesson chips implement a demo-local
   `EqualColumns` layout on the public `Layout` protocol (equal integer shares of the real
   proposal, gutter, trailing remainder slack). When [Grid](primitives/grid.md) lands (plan

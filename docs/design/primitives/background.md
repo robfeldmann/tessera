@@ -11,7 +11,7 @@ clips it there, paints that layer first, and paints the primary child over it; i
 second independently sized container. Alignment uses the [ZStack](z-stack.md) vocabulary.
 This view-builder API is distinct from the style-fill
 [style modifiers](style-modifiers.md) `.background(Color)` API. Both are owned by
-[Slice 3](../../docs/Spec.md#slice-3-styling-text-wrapping-and-decoration).
+[Slice 3](../../spec.md#slice-3-styling-text-wrapping-and-decoration).
 
 ## Prior art
 
@@ -22,7 +22,7 @@ This view-builder API is distinct from the style-fill
 - Tessera [ZStack](z-stack.md) supplies the shared alignment vocabulary, explicit
   clipping, and ordered layer composition. Background reverses the visible layer order
   while keeping the primary child as the sole size owner.
-- Tessera [Slice 3](../../docs/Spec.md#slice-3-styling-text-wrapping-and-decoration)
+- Tessera [Slice 3](../../spec.md#slice-3-styling-text-wrapping-and-decoration)
   establishes the view-builder API and its relationship to style modifiers.
 - omp2 has no background component; the [translation key](../translation-key.md#coverage)
   maps its `bg`, `on`, and `bleed` attributes ([vocab][omp2-bg-attrs],
@@ -215,14 +215,14 @@ content and `Style`.
 - omp2's `bleed` has no flag: modifier order decides whether a background reaches under a
   border ring (key B5; see [Prior art](#prior-art)).
 - Reviewed against the
-  [Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): Background
-  is a wrapper node that lowers into the runtime tree, keeps the primary child as its only
+  [Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): Background is a
+  wrapper node that lowers into the runtime tree, keeps the primary child as its only
   measurement owner, holds no state, and paints into the region it is given.
 
 ## Open questions
 
 None. Exact hit-routing and dispatch precedence are deferred to
-[Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing).
+[Slice 5](../../spec.md#slice-5-mouse-and-hit-testing).
 
 ## Inspiration
 

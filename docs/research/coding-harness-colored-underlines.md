@@ -1,7 +1,8 @@
 ---
-name: Coding Harness Colored Underline Usage
-date: 2026-07-09
+type: research
+observed: 2026-07-09
 status: resolved
+description: Coding Harness Colored Underline Usage
 ---
 
 # Coding Harness Colored Underline Usage

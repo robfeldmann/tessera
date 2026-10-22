@@ -1,7 +1,8 @@
 ---
-name: Runtime state ownership audit
-date: 2026-07-22
+type: research
+observed: 2026-07-22
 status: resolved
+description: Runtime state ownership audit
 ---
 
 # Runtime state ownership audit

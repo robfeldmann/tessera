@@ -1,15 +1,15 @@
 ---
-name: Tessera open-source readiness
-
+type: plan
+stage: done
+created: 2026-07-17
+completed: 2026-07-20
+order: 31
 description:
   Prepare Tessera for a deliberate public GitHub launch with Apache-2.0 licensing,
   community governance, release notes, and post-launch static DocC hosting.
-status: complete
-created: 2026-07-17
-updated: 2026-07-20
 ---
 
-<!-- Allowed status values: planning, in-review, pending, in-progress, complete. -->
+# Tessera open-source readiness
 
 ## Progress
 
@@ -521,7 +521,7 @@ access or relying on private-repository behavior.
 rotated Frost credential in GitHub-managed pull refs, confirmed that the private
 conduct/security mailbox is monitored daily, approved the live governance settings, and
 confirmed a source-only launch with no GitHub Packages contract. See
-`.agents/investigations/025-public-release-baseline.md`.
+`docs/research/public-release-baseline.md`.
 
 ## Phase 7 — Publish static DocC on GitHub Pages after launch
 

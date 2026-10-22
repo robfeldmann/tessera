@@ -1,7 +1,8 @@
 ---
-name: Windows Frost SwiftPM Dependency Cache
-date: 2026-07-04
+type: research
+observed: 2026-07-04
 status: resolved
+description: Windows Frost SwiftPM Dependency Cache
 ---
 
 # Windows Frost SwiftPM Dependency Cache

@@ -1,7 +1,8 @@
 ---
-name: Ghostty all-keys omitted modifier parsing
-date: 2026-07-11
+type: research
+observed: 2026-07-11
 status: resolved
+description: Ghostty all-keys omitted modifier parsing
 ---
 
 # Ghostty all-keys omitted modifier parsing

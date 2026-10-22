@@ -12,7 +12,7 @@ never splits a child, never stretches or shrinks one to fill a line, and distrib
 surplus. It draws no cells, holds no state, takes no focus and handles no input. `HStack`
 never wraps ([stacks decisions](stacks.md#decisions-and-deferred-scope)); Flow is the
 wrapping row (key G6 of the [translation key](../translation-key.md);
-[fitting](../../docs/Spec.md#flow-layout-and-viewthatfits)). Flow wraps items within one
+[fitting](../../spec.md#flow-layout-and-viewthatfits)). Flow wraps items within one
 arrangement, and [ViewThatFits](view-that-fits.md) chooses between arrangements.
 
 ## Prior art
@@ -41,9 +41,9 @@ arrangement, and [ViewThatFits](view-that-fits.md) chooses between arrangements.
 - CSS [flex-wrap](https://developer.mozilla.org/en-US/docs/Web/CSS/flex-wrap) is the web's
   wrapping row. Flow keeps the wrap and start alignment and leaves grow, shrink, and
   `align-content` out.
-- Tessera [Slice 2](../../docs/Spec.md#slice-2-the-layout-protocol-and-stack-containers)
-  names a trivial flow layout as the proof that the public `Layout` protocol is enough for
-  third parties. Flow's algorithm uses only that public surface.
+- Tessera [Slice 2](../../spec.md#slice-2-the-layout-protocol-and-stack-containers) names
+  a trivial flow layout as the proof that the public `Layout` protocol is enough for third
+  parties. Flow's algorithm uses only that public surface.
 
 ## Anatomy
 
@@ -135,18 +135,18 @@ public struct Flow<Content: View>: View {
 ```
 
 Flow is a `View`, like `HStack` and `Flex`, so it can publish `stackAxis` to its items;
-its algorithm uses only the public [Layout protocol](../../docs/Spec.md#the-protocol). The
+its algorithm uses only the public [Layout protocol](../../spec.md#the-protocol). The
 items are the content's direct children, enumerated as a stack enumerates its children.
 
-| Configuration                       | Default       | Effect                                                                                                              |
-| ----------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `spacing: n`                        | 0             | `n` blank cells between adjacent items on one line; none at a line's start or end.                                  |
-| `lineSpacing: n`                    | 0             | `n` blank rows between adjacent lines; none above the first line or below the last.                                 |
-| `alignment: a`                      | `.topLeading` | `a.horizontal` places each line in Flow's width; `a.vertical` places each item in its line's height.                |
-| negative `spacing` or `lineSpacing` | --            | Rejected by `precondition` before layout ([catalog layout decisions](../../docs/Spec.md#catalog-layout-decisions)). |
-| no items                            | --            | Reports `0x0` and paints nothing.                                                                                   |
-| one item                            | --            | That item alone on one line, proposed the smaller of its ideal width and the width.                                 |
-| `.layoutPriority(_:)` on an item    | --            | Ignored: items do not compete for space. Priority on the Flow itself is read by its parent.                         |
+| Configuration                       | Default       | Effect                                                                                                         |
+| ----------------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------- |
+| `spacing: n`                        | 0             | `n` blank cells between adjacent items on one line; none at a line's start or end.                             |
+| `lineSpacing: n`                    | 0             | `n` blank rows between adjacent lines; none above the first line or below the last.                            |
+| `alignment: a`                      | `.topLeading` | `a.horizontal` places each line in Flow's width; `a.vertical` places each item in its line's height.           |
+| negative `spacing` or `lineSpacing` | --            | Rejected by `precondition` before layout ([catalog layout decisions](../../spec.md#catalog-layout-decisions)). |
+| no items                            | --            | Reports `0x0` and paints nothing.                                                                              |
+| one item                            | --            | That item alone on one line, proposed the smaller of its ideal width and the width.                            |
+| `.layoutPriority(_:)` on an item    | --            | Ignored: items do not compete for space. Priority on the Flow itself is read by its parent.                    |
 
 Defaults follow the stacks: no gap unless asked for, and top-leading placement. Sums of
 item widths, spacing and line heights saturate at `Int.max` rather than wrapping negative,
@@ -180,8 +180,8 @@ The height proposal `H` passes through to every item, as an `HStack` passes its 
 its children; it never changes where lines break. Flow is layout, not content, so it has
 no row budget of its own: when its lines need more rows than a finite `H`, it reports them
 all and its parent clips the trailing lines, as it clips a stack's trailing children
-([stack algorithm](../../docs/Spec.md#the-stack-algorithm-normative)). A Flow whose every
-line must stay reachable goes in a [ScrollView](../widgets/scroll-view.md).
+([stack algorithm](../../spec.md#the-stack-algorithm-normative)). A Flow whose every line
+must stay reachable goes in a [ScrollView](../widgets/scroll-view.md).
 
 The lines are stable under their own width. A parent that measures Flow at one width and
 then re-proposes the width Flow reported gets the same lines: every line still fits, and
@@ -318,15 +318,15 @@ segment, where it wraps.
 ## Identity and focus
 
 Every item is a structural child of the Flow with its own identity
-([identity model](../../docs/Spec.md#identity-model)). A reflow changes frames only: no
-node is created or destroyed when items move between lines, so every item's `NodeState`
-survives a resize. The focus order is the depth-first source order
-([focus model](../../docs/Spec.md#focus-model)), and Flow places items in source order,
-line by line, so focus order and reading order agree.
+([identity model](../../spec.md#identity-model)). A reflow changes frames only: no node is
+created or destroyed when items move between lines, so every item's `NodeState` survives a
+resize. The focus order is the depth-first source order
+([focus model](../../spec.md#focus-model)), and Flow places items in source order, line by
+line, so focus order and reading order agree.
 
 ## Sizing
 
-Schema: [README](../README.md#sizing-table). The tags fixture is the one in
+Schema: [README](../../design.md#sizing-table). The tags fixture is the one in
 [Anatomy](#anatomy): items of 5, 8, 3 and 6 cells with `spacing: 1`.
 
 | Proposal  | Result | Rule                                                                                                        |
@@ -374,7 +374,7 @@ height, so under a nil height that rule is one row.
 
 ## Requirements
 
-Schema: [README](../README.md#requirements-list).
+Schema: [README](../../design.md#requirements-list).
 
 - `flow lays out one line of ideal widths under a nil width` (sizing: nil x nil)
 - `flow fits every item on one line at a tight width` (sizing: 25x1)
@@ -440,10 +440,10 @@ every rung.
   layout"), and the catalog's container names without a suffix (`HStack`, `Flex`, `Grid`).
 
 This contract was reviewed against the
-[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module). Flow is a
-value, and its lines are a pure function of the proposal and the items' measured sizes.
-Its frames show in `dump()`. It retains nothing, so a reflow moves frames and never state,
-and it has no capability of its own.
+[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module). Flow is a value,
+and its lines are a pure function of the proposal and the items' measured sizes. Its
+frames show in `dump()`. It retains nothing, so a reflow moves frames and never state, and
+it has no capability of its own.
 
 ## Open questions
 

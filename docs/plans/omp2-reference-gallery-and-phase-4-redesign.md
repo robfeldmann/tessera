@@ -1,17 +1,17 @@
 ---
-name: Phase 4 view layer, redesigned from the omp2 reference
+type: plan
+stage: active
+created: 2026-10-08
+order: 32
 description:
   Use oh-my-pi's omp2 TUI as the visual and behavioral reference for Tessera's Phase 4
   components (a verified prior-art inventory, a captured reference gallery with ASCII
   fallbacks, an owner taste review, a Rust-to-Swift translation key, and a revised
   catalog), then implement the view layer in dependency order with per-component demos.
   Replaces plan 030.
-status: in-progress
-created: 2026-10-08
-updated: 2026-10-21
 ---
 
-<!-- Allowed status values: planning, in-review, pending, in-progress, complete, superseded. -->
+# Phase 4 view layer, redesigned from the omp2 reference
 
 ## Progress
 
@@ -39,7 +39,8 @@ updated: 2026-10-21
   - [x] 6.1 Map omp2 concepts to Tessera's API vocabulary
 - [x] **Phase 7 — Revise the Phase 4 catalog and plan**
   - [x] 7.1 Write or update per-component Swift design docs
-  - [x] 7.2 Amend `docs/Spec.md` Phase 4 and `design/tokens.md` after owner confirmation
+  - [x] 7.2 Amend `docs/spec.md` Phase 4 and `docs/design/tokens.md` after owner
+        confirmation
   - [x] 7.3 Sequence the implementation (replaces plan 030; Phases 8-17 below)
   - [x] 7.4 Remove the omp2 scaffolding from the working tree
 - [ ] **Phase 8 — Demo harness (replaces the Showcase)**
@@ -84,7 +85,7 @@ updated: 2026-10-21
 
 ## Overview
 
-The owner is not satisfied with the Phase 4 view layer as planned in `docs/Spec.md` and
+The owner is not satisfied with the Phase 4 view layer as planned in `docs/spec.md` and
 plan 030. This plan adopts omp2 (the Rust rewrite of oh-my-pi's TUI, crate `omp-tui`) as
 the concrete reference for how Tessera's components look and behave, while Tessera keeps
 its own architecture: an earlier review found that Tessera's `ViewGraph`, `Layout` passes,
@@ -132,29 +133,29 @@ From 2026-10-10 this plan also carries the Phase 4 implementation and replaces p
 Slices 1, 2, and 2.5 in `main` stay. Everything after them restarts in the order of Phases
 8-17, and the abandoned attempts at that work are archived as git tags and ported
 selectively, step by step, against the revised catalog
-(`.agents/investigations/036-phase-4-salvage-review.md` has the port map). The Showcase is
-abandoned: small per-component demos, which double as snapshot fixtures, test each step,
-and Phase 17 assembles them into an intro app.
+(`docs/research/phase-4-salvage-review.md` has the port map). The Showcase is abandoned:
+small per-component demos, which double as snapshot fixtures, test each step, and Phase 17
+assembles them into an intro app.
 
 ## Decision record
 
-| Area                 | Decision                                                                                                                                                                                                                                                         | Rationale                                                                                                                                                                        |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Inventory            | Keep `design/prior-art/` as frozen, cited facts about omp2 and TSP while this plan runs; never translate it                                                                                                                                                      | A Swift version is design work; mixing it into the inventory would blur what omp2 does with what Tessera should do.                                                              |
-| Repository footprint | Commit only what Tessera keeps: catalog docs and wireframes, `design/tokens.md`, `docs/Spec.md`, the assessment's decisions, and this plan. The inventory, gallery, capture program, review site, and review folder stay uncommitted and are deleted in step 7.4 | Owner decision 2026-10-10: the omp2 tooling was a means to a design, not something the repository should carry.                                                                  |
-| Reference renderer   | Capture with omp2's own `Ui::from_markup` headless render, not a terminal or libghostty                                                                                                                                                                          | omp2 paints into an in-memory `Frame`; its own tests read rows from it. This is deterministic and needs no pty.                                                                  |
-| Pinned source        | Commit `2f92f3b5aa2035d21c9f016f9ff6350795e5685a` on the `omp2` branch                                                                                                                                                                                           | Matches the inventory snapshot; captures must be reproducible.                                                                                                                   |
-| Build location       | Copy `DevTools/omp2-gallery` into a cached omp2 checkout as a workspace member and build there                                                                                                                                                                   | omp-tui inherits workspace dependencies and needs omp2's pinned nightly toolchain and `Cargo.lock`; building inside the workspace reuses all three.                              |
-| Style roles          | Recover roles by rendering a second time with a probe theme that gives every `Theme` field a unique color                                                                                                                                                        | Several stock theme fields share values (`muted` and `dim` in both appearances), so matching real colors back to roles is ambiguous.                                             |
-| Viewports            | Capture at `desktop` (80) and `mobile` (40) widths plus a per-fixture minimum; height is the natural height                                                                                                                                                      | Matches `design/tokens.md` viewports. omp2 lays out to a width and grows to its content height.                                                                                  |
-| Charsets             | Capture Ascii, Unicode, and NerdFont for every fixture                                                                                                                                                                                                           | The fallback (ASCII) versions are first-class references.                                                                                                                        |
-| No-color fallback    | The character grid is the no-color reference; there is no separate capture                                                                                                                                                                                       | omp2 has no `NO_COLOR` mode; a styled-grid snapshot's character grid is exactly what a no-color terminal shows.                                                                  |
-| Picture appearance   | SVG and ANSI use the stock dark theme on a dark page                                                                                                                                                                                                             | One appearance keeps the pilot small; light can be added as a capture option if the review needs it.                                                                             |
-| Taste adjustments    | Adjust in the design catalog as `wireframe` blocks, never in captured output                                                                                                                                                                                     | Captures are regenerated facts; wireframes are the catalog's existing fixture-grade design medium.                                                                               |
-| Implementation base  | Keep `main`'s Slices 1, 2, and 2.5; restart the rest in Phases 8-17 and port archived code only where it survives review against the updated catalog doc                                                                                                         | Owner decision 2026-10-10. The archived code works (230 tests) but was built out of order, in large batches, and before the omp2 decisions; investigation 036 lists its defects. |
-| Archived work        | `archive/phase4`, `archive/phase4-review-loop`, `archive/phase4-unicode-demo-stash`, and `archive/catalog-workbench` tags; read with `git show <tag>:<path>`                                                                                                     | Keeps old code readable for porting without branches, worktrees, or stashes.                                                                                                     |
-| Demos                | Each component lands with a small standalone demo that runs live and renders headlessly at fixed sizes; demo renders are snapshot fixtures                                                                                                                       | Textual's widget examples are both documentation and snapshot tests; demos test the implementation as it is built.                                                               |
-| Order                | Layout, styling, focus, mouse, and ScrollView before controls; collections and SplitView after; remaining 1.0 views, then the intro app                                                                                                                          | Demos need focus, scrolling, and pointer input to exercise controls honestly; both archived attempts built controls before mouse input.                                          |
+| Area                 | Decision                                                                                                                                                                                                                                                              | Rationale                                                                                                                                                                        |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Inventory            | Keep `design/prior-art/` as frozen, cited facts about omp2 and TSP while this plan runs; never translate it                                                                                                                                                           | A Swift version is design work; mixing it into the inventory would blur what omp2 does with what Tessera should do.                                                              |
+| Repository footprint | Commit only what Tessera keeps: catalog docs and wireframes, `docs/design/tokens.md`, `docs/spec.md`, the assessment's decisions, and this plan. The inventory, gallery, capture program, review site, and review folder stay uncommitted and are deleted in step 7.4 | Owner decision 2026-10-10: the omp2 tooling was a means to a design, not something the repository should carry.                                                                  |
+| Reference renderer   | Capture with omp2's own `Ui::from_markup` headless render, not a terminal or libghostty                                                                                                                                                                               | omp2 paints into an in-memory `Frame`; its own tests read rows from it. This is deterministic and needs no pty.                                                                  |
+| Pinned source        | Commit `2f92f3b5aa2035d21c9f016f9ff6350795e5685a` on the `omp2` branch                                                                                                                                                                                                | Matches the inventory snapshot; captures must be reproducible.                                                                                                                   |
+| Build location       | Copy `DevTools/omp2-gallery` into a cached omp2 checkout as a workspace member and build there                                                                                                                                                                        | omp-tui inherits workspace dependencies and needs omp2's pinned nightly toolchain and `Cargo.lock`; building inside the workspace reuses all three.                              |
+| Style roles          | Recover roles by rendering a second time with a probe theme that gives every `Theme` field a unique color                                                                                                                                                             | Several stock theme fields share values (`muted` and `dim` in both appearances), so matching real colors back to roles is ambiguous.                                             |
+| Viewports            | Capture at `desktop` (80) and `mobile` (40) widths plus a per-fixture minimum; height is the natural height                                                                                                                                                           | Matches `docs/design/tokens.md` viewports. omp2 lays out to a width and grows to its content height.                                                                             |
+| Charsets             | Capture Ascii, Unicode, and NerdFont for every fixture                                                                                                                                                                                                                | The fallback (ASCII) versions are first-class references.                                                                                                                        |
+| No-color fallback    | The character grid is the no-color reference; there is no separate capture                                                                                                                                                                                            | omp2 has no `NO_COLOR` mode; a styled-grid snapshot's character grid is exactly what a no-color terminal shows.                                                                  |
+| Picture appearance   | SVG and ANSI use the stock dark theme on a dark page                                                                                                                                                                                                                  | One appearance keeps the pilot small; light can be added as a capture option if the review needs it.                                                                             |
+| Taste adjustments    | Adjust in the design catalog as `wireframe` blocks, never in captured output                                                                                                                                                                                          | Captures are regenerated facts; wireframes are the catalog's existing fixture-grade design medium.                                                                               |
+| Implementation base  | Keep `main`'s Slices 1, 2, and 2.5; restart the rest in Phases 8-17 and port archived code only where it survives review against the updated catalog doc                                                                                                              | Owner decision 2026-10-10. The archived code works (230 tests) but was built out of order, in large batches, and before the omp2 decisions; investigation 036 lists its defects. |
+| Archived work        | `archive/phase4`, `archive/phase4-review-loop`, `archive/phase4-unicode-demo-stash`, and `archive/catalog-workbench` tags; read with `git show <tag>:<path>`                                                                                                          | Keeps old code readable for porting without branches, worktrees, or stashes.                                                                                                     |
+| Demos                | Each component lands with a small standalone demo that runs live and renders headlessly at fixed sizes; demo renders are snapshot fixtures                                                                                                                            | Textual's widget examples are both documentation and snapshot tests; demos test the implementation as it is built.                                                               |
+| Order                | Layout, styling, focus, mouse, and ScrollView before controls; collections and SplitView after; remaining 1.0 views, then the intro app                                                                                                                               | Demos need focus, scrolling, and pointer input to exercise controls honestly; both archived attempts built controls before mouse input.                                          |
 
 ## Phase 1 — Build the prior-art inventory
 
@@ -164,7 +165,7 @@ node kinds, independent of Tessera.
 ### Step 1.1 — Survey omp2 and the Tern Surface Protocol
 
 - Files: `design/prior-art/omp2-components.md`, `design/prior-art/tsp-components.md`,
-  `design/prior-art/README.md`, `design/README.md`.
+  `design/prior-art/README.md`, `docs/design.md`.
 - Done: nine parallel surveys covered omp2's model and five component groups and TSP's
   model and three kind groups.
 
@@ -313,7 +314,7 @@ classification (Phase 4) no longer gates capture.
 
 - The inventory deliberately does not classify relevance. Classify each of the 56 entries
   in `design/prior-art/omp2-components.md` as Phase 4, post-1.0, or out of scope (agent-
-  or showpiece-specific), using the Phase 4 slice map in `docs/Spec.md`, the inputs listed
+  or showpiece-specific), using the Phase 4 slice map in `docs/spec.md`, the inputs listed
   in the Overview, and the gallery. The owner confirms the classification.
 - Done: `design/omp2-assessment.md` classifies all 57 registry entries and extracts about
   30 reusable pieces. After the owner's review (hunk comments, 2026-10-08): 14 planned
@@ -336,12 +337,12 @@ classification (Phase 4) no longer gates capture.
   structured value inspector.
 - Done: the owner approved the drafts, and they were posted as Discussions #28–#39 on
   2026-10-08. The assessment's "1.0 additions" section linked each one; since step 7.4
-  deleted the assessment, `design/inbox.md` ("Filed as Discussions") links them. The value
-  inspector (#39) is an app-facing view (renamed `ValueTree` to avoid clashing with the
-  Showcase inspector), not developer infrastructure; Phase 4's own debugging tool remains
-  the Slice 1 diagnostics snapshot and the Showcase inspector.
+  deleted the assessment, `docs/design/inbox.md` ("Filed as Discussions") links them. The
+  value inspector (#39) is an app-facing view (renamed `ValueTree` to avoid clashing with
+  the Showcase inspector), not developer infrastructure; Phase 4's own debugging tool
+  remains the Slice 1 diagnostics snapshot and the Showcase inspector.
 - Acceptance: each idea is posted once, after the owner approves the drafts, and linked
-  from `design/inbox.md`.
+  from `docs/design/inbox.md`.
 
 ## Phase 5 — Owner taste review
 
@@ -386,7 +387,7 @@ classification (Phase 4) no longer gates capture.
   as "owner decision, omp2 review, 2026-10", and prior-art links point at omp2's source on
   GitHub at the pinned commit. Box and Border carry the focus rules; Table, SplitView,
   Button, and Stepper follow them. Showcase mentions are gone from the catalog (the
-  `docs/Spec.md` Slice 7 anchor stays until step 7.2). `scripts/check-wireframes.py` now
+  `docs/spec.md` Slice 7 anchor stays until step 7.2). `scripts/check-wireframes.py` now
   accepts scroll thumbs (`█▐▌`) in a box's vertical edge, which in-border indicator
   placement needs.
 - Status re-check: Border, Box, Button, Divider, Picker, ScrollIndicator, ScrollView,
@@ -408,14 +409,15 @@ classification (Phase 4) no longer gates capture.
   row, stacks labels above values below 24 columns through `ViewThatFits`, and takes its
   validation wording from the app. Picker gained multi-select (`.menu` and radio group
   only), digit 1-9 quick-select, and one-line option descriptions; the fuzzy filter stays
-  out of 1.0 (`design/inbox.md`). Left for the owner: the 13 token threads on
-  `design/tokens.md` (step 5.3 input), the ScrollIndicator preset list, and the inferences
-  listed in Form's and Picker's open questions (Form's 12-cell narrow floor and default
-  `<Label> is required` / `<Label> is invalid` wording; Picker's multi initializer shape,
-  digits past 9, and description layout). Corrected (2026-10-21): Form no longer switches
-  at a fixed column count. `ViewThatFits` keeps the side-by-side layout while every row
-  fits and stacks otherwise, so the switch point depends on the content; the anatomy
-  fixture stacks at 17 columns (`design/widgets/form.md`, "Narrow: 17 columns").
+  out of 1.0 (`docs/design/inbox.md`). Left for the owner: the 13 token threads on
+  `docs/design/tokens.md` (step 5.3 input), the ScrollIndicator preset list, and the
+  inferences listed in Form's and Picker's open questions (Form's 12-cell narrow floor and
+  default `<Label> is required` / `<Label> is invalid` wording; Picker's multi initializer
+  shape, digits past 9, and description layout). Corrected (2026-10-21): Form no longer
+  switches at a fixed column count. `ViewThatFits` keeps the side-by-side layout while
+  every row fits and stacks otherwise, so the switch point depends on the content; the
+  anatomy fixture stacks at 17 columns (`docs/design/widgets/form.md`, "Narrow: 17
+  columns").
 - Committed (2026-10-18) as `e5fe358`, scaffolding excluded.
 - Grill round (2026-10-18), applied: the owner settled the remaining non-token open
   questions (Q1-Q30). The biggest is a catalog-wide wrap rule: content word-wraps at any
@@ -437,18 +439,19 @@ classification (Phase 4) no longer gates capture.
 ### Step 5.3 — Propose token changes implied by the decisions
 
 - Tones, icon catalog and charsets, border defaults, and motion tokens for
-  `design/tokens.md`. Proposals only; confirm with the owner before editing.
-- Nothing in `design/tokens.md` is fixed: the proposals may overturn any existing row or
-  rule, including "no `success`, `warning`, or `information` roles in 1.0" (owner
+  `docs/design/tokens.md`. Proposals only; confirm with the owner before editing.
+- Nothing in `docs/design/tokens.md` is fixed: the proposals may overturn any existing row
+  or rule, including "no `success`, `warning`, or `information` roles in 1.0" (owner
   decision, 2026-10-10). Inputs: every "token pending plan 032 step 5.3" marker in the
   catalog, the remaining `focus.border` consumers, and the critic's role-grouped token
-  suggestions (posted to the owner's hunk review on `design/tokens.md`).
+  suggestions (posted to the owner's hunk review on `docs/design/tokens.md`).
 - Done (owner decisions, 2026-10-19): the policy is "terminal-native by default, derived
   shades, themes optional". Hues come from the terminal's 16 slots, shades are blended
   from the queried foreground, background and palette, light or dark is detected, and
-  attributes are the fallback. `design/tokens.md` was rewritten and every marker replaced.
-  The review site's Tokens page (`/tokens`, one page per question at `/tokens/qN`) renders
-  the roles under Miniwinter Dark/Light, Catppuccin Mocha/Latte and the xterm defaults.
+  attributes are the fallback. `docs/design/tokens.md` was rewritten and every marker
+  replaced. The review site's Tokens page (`/tokens`, one page per question at
+  `/tokens/qN`) renders the roles under Miniwinter Dark/Light, Catppuccin Mocha/Latte and
+  the xterm defaults.
 
 ## Phase 6 — Write the Rust-to-Swift translation key
 
@@ -459,14 +462,14 @@ classification (Phase 4) no longer gates capture.
   component state → `Binding` (Tessera widgets are controlled); `Charset` and `Theme` →
   environment values and semantic `Style` roles; `dom!` and markup → `@ViewBuilder`;
   `pc.wake`/`pc.now` → clock-driven views; `HitTag` → Slice 5 hit testing.
-- Done (2026-10-21, commit `da2e962`): the key is `design/translation-key.md`, listed in
-  `design/README.md`. The agent chose that location while the owner was away, not with the
-  owner as planned, so it awaits owner review. Four ownership rules decide where omp2
+- Done (2026-10-21, commit `da2e962`): the key is `docs/design/translation-key.md`, listed
+  in `docs/design.md`. The agent chose that location while the owner was away, not with
+  the owner as planned, so it awaits owner review. Four ownership rules decide where omp2
   state lives (`Binding`, initializer parameter, `NodeState`, graph-owned). One table maps
   119 concepts in 13 families: 94 to a Tessera form and 25 rejected with a reason. Per-row
-  notes carry the rules, a Theme-field table maps omp2's theme onto `design/tokens.md`
-  roles, and a coverage appendix lists each catalog doc's omp2 counterpart and the rows it
-  uses. omp2 sources are cited at the pinned commit on GitHub.
+  notes carry the rules, a Theme-field table maps omp2's theme onto
+  `docs/design/tokens.md` roles, and a coverage appendix lists each catalog doc's omp2
+  counterpart and the rows it uses. omp2 sources are cited at the pinned commit on GitHub.
 - Acceptance: every concept used by an in-scope component maps to one Tessera form, or is
   explicitly rejected with a reason.
 
@@ -474,33 +477,34 @@ classification (Phase 4) no longer gates capture.
 
 ### Step 7.1 — Write or update per-component Swift design docs
 
-- Apply the translation key to each in-scope component in `design/primitives/` and
-  `design/widgets/`, and move each through the catalog's status ladder. Prior-art
+- Apply the translation key to each in-scope component in `docs/design/primitives/` and
+  `docs/design/widgets/`, and move each through the catalog's status ladder. Prior-art
   citations point at omp2's source at the pinned commit on GitHub, never at
   `design/prior-art/` or the gallery, because those are deleted in step 7.4.
 - Done (2026-10-21, commit `c19e896`): every catalog doc names its omp2 counterpart, cites
   it at the pinned commit, applies the translation key's Tessera forms by row ID, and
   records its departures. Each doc was reviewed against the Phase 4 theses and promoted as
-  far as its gates allow. Two new primitives serve step 14.1: `design/primitives/flow.md`
-  (a greedy wrapping row) and `design/primitives/view-that-fits.md` (the first candidate
-  whose ideal size fits, else the last). Form, Picker, MultiPicker, LabeledContent,
-  ProgressView, and TabView build their arrangement choices on them. 39 of the 44
-  component docs are `ready` (the `design/README.md` index). Below `ready`: Grid
-  (`specified`, owner questions on extra and bare cells, row spacing, and cell priority),
-  ProgressView (`specified`, the shimmer and elapsed-time question, key L5), Image
-  (`specified`, Kitty tier sizing and loader ownership), Text selection (`sketch`, decided
-  in step 11.3), and NavigationSplitView (`wireframed`, post-1.0).
+  far as its gates allow. Two new primitives serve step 14.1:
+  `docs/design/primitives/flow.md` (a greedy wrapping row) and
+  `docs/design/primitives/view-that-fits.md` (the first candidate whose ideal size fits,
+  else the last). Form, Picker, MultiPicker, LabeledContent, ProgressView, and TabView
+  build their arrangement choices on them. 39 of the 44 component docs are `ready` (the
+  `docs/design.md` index). Below `ready`: Grid (`specified`, owner questions on extra and
+  bare cells, row spacing, and cell priority), ProgressView (`specified`, the shimmer and
+  elapsed-time question, key L5), Image (`specified`, Kitty tier sizing and loader
+  ownership), Text selection (`sketch`, decided in step 11.3), and NavigationSplitView
+  (`wireframed`, post-1.0).
 
-### Step 7.2 — Amend `docs/Spec.md` Phase 4 and `design/tokens.md`
+### Step 7.2 — Amend `docs/spec.md` Phase 4 and `docs/design/tokens.md`
 
 - Only after the owner confirms the specific amendments.
 - Includes replacing the Phase 4 slice list with the order of Phases 8-17, removing the
   Showcase (Prerequisites and scheduling, Slice 7, and the Phase 4 definition of done),
   and updating the 1.0 surface from `design/omp2-assessment.md`.
-- Also update Spec's Text API (`docs/Spec.md#text-grows-up` still shows `wrapped(_:)` and
+- Also update Spec's Text API (`docs/spec.md#text-grows-up` still shows `wrapped(_:)` and
   `truncation(_:)` with `.none` and `.clip` defaults) to the 2026-10-18 wrap rules: word
   wrapping by default, `.lineLimit(Int?)`, and `.truncationMode(_:)` (see
-  `design/primitives/text.md`).
+  `docs/design/primitives/text.md`).
 - Also add the step 5.3 terminal contracts to the Spec (owner decisions, 2026-10-19):
   - Phase 3 capability probe: OSC 10/11/4 colour queries join the DA1-terminated round
     with a 1 s timeout; the first frame waits; late replies repaint; mode 2031
@@ -523,14 +527,14 @@ classification (Phase 4) no longer gates capture.
   delivers each, per-component demos and the Phase 17 intro app replace the Showcase, and
   a new "The 1.0 surface" list gathers the catalog docs' decisions, with
   NavigationSplitView post-1.0. Text follows the 2026-10-18 wrap rules; Slice 3 takes its
-  role families from `design/tokens.md` with `\.colorScheme` and `\.charset`; Slice 4 adds
-  focus appearance, focus scopes, and declared key bindings; Slice 5 adds pointer capture
-  and default row hover motion tracking for Table and List; a new section covers motion
-  views and the tick requirement. Phase 3 Slice 6 gains the terminal contracts listed
-  above. A follow-up aligned the Spec's Box, background, ScrollIndicator, GridRow, and
-  Flow/ViewThatFits sections and `design/tokens.md` with the revised catalog: focus clears
-  after every layout pass, unplaced nodes are not focusable, and terminal requirements
-  count every live node, placed or not.
+  role families from `docs/design/tokens.md` with `\.colorScheme` and `\.charset`; Slice 4
+  adds focus appearance, focus scopes, and declared key bindings; Slice 5 adds pointer
+  capture and default row hover motion tracking for Table and List; a new section covers
+  motion views and the tick requirement. Phase 3 Slice 6 gains the terminal contracts
+  listed above. A follow-up aligned the Spec's Box, background, ScrollIndicator, GridRow,
+  and Flow/ViewThatFits sections and `docs/design/tokens.md` with the revised catalog:
+  focus clears after every layout pass, unplaced nodes are not focusable, and terminal
+  requirements count every live node, placed or not.
 
 ### Step 7.3 — Sequence the implementation
 
@@ -550,30 +554,30 @@ classification (Phase 4) no longer gates capture.
 >
 > Done for the review site (2026-10-20): the Tessera pages became the component gallery,
 > `scripts/gallery-serve.py` plus `DevTools/gallery/`. It reads wireframe fences straight
-> from the catalog docs, renders colours with the final `design/tokens.md` rules, keeps
-> the Tokens page, and leaves empty Current and Previous slots for plan 033's
+> from the catalog docs, renders colours with the final `docs/design/tokens.md` rules,
+> keeps the Tokens page, and leaves empty Current and Previous slots for plan 033's
 > `.build/tessera-dev/` renders. The review site, its captures, labs and feedback
 > machinery, and the capture program are deleted. A local backup branch,
 > `backup/review-site-2026-10-20`, keeps all of it, including the gitignored `.build/`
 > decision logs. Still to remove here: `design/prior-art/` and
 > `design/omp2-assessment.md`, plus the `.codespellrc` `*/omp2-gallery/captures` skip and
 > `ans` word, which exist only for `design/prior-art/omp2-gallery/`, and the four
-> prior-art lines in `design/README.md`.
+> prior-art lines in `docs/design.md`.
 
 - After 7.1-7.3 are committed, delete `design/prior-art/` and the cached checkout under
   `~/.cache/tessera/omp2/`.
 - Revert the edits made only for them: the `.codespellrc` skips for gallery captures,
   feedback, and wireframe text; the `.prettierignore` feedback entry; and the `prior-art/`
-  lines in `design/README.md`.
+  lines in `docs/design.md`.
 - Decide with the owner whether `design/omp2-assessment.md` is committed (its owner
   decisions are the durable part) or folded into the Spec and catalog and deleted.
 - Done (2026-10-21): `design/prior-art/`, `design/omp2-assessment.md`, and the cached
   checkout under `~/.cache/tessera/omp2/` are deleted; `backup/review-site-2026-10-20`
   keeps the inventory and the assessment. The agent folded the assessment's durable facts
-  into `design/inbox.md` (including the step 4.2 Discussions) and the catalog docs rather
-  than committing it, while the owner was away; that choice awaits owner review. The
-  `.codespellrc` gallery-captures skip and `ans` word and the four prior-art lines in
-  `design/README.md` are reverted. The `.prettierignore` feedback entry was already gone,
+  into `docs/design/inbox.md` (including the step 4.2 Discussions) and the catalog docs
+  rather than committing it, while the owner was away; that choice awaits owner review.
+  The `.codespellrc` gallery-captures skip and `ans` word and the four prior-art lines in
+  `docs/design.md` are reverted. The `.prettierignore` feedback entry was already gone,
   and the `.codespellrc` wireframe regex stays because the catalog keeps its wireframes.
 - Acceptance: `git status` shows none of the scaffolding, and no committed file links into
   it.
@@ -588,7 +592,7 @@ classification (Phase 4) no longer gates capture.
   known defects are in investigation 036. Never port the review bundles, committed
   captures, or Showcase code.
 - Measurement and `body` stay pure; every `NodeState` row has one owner
-  (`design/README.md`); collections key by stable IDs and fail closed on duplicates.
+  (`docs/design.md`); collections key by stable IDs and fail closed on duplicates.
 - After each phase, pause for the owner's review before starting the next.
 
 ## Phase 8 — Demo harness (replaces the Showcase)
@@ -599,7 +603,7 @@ land.
 ### Step 8.1 — Retire the Showcase example
 
 - Delete `Examples/Sources/TesseraShowcase/`, its tests, its just recipe, and its mentions
-  in `README.md`, `docs/ProjectStatus.md`, `CONTRIBUTING.md`, and the changelog's
+  in `README.md`, `docs/project-status.md`, `CONTRIBUTING.md`, and the changelog's
   unreleased notes.
 - Acceptance: nothing in the repository builds, runs, or links the Showcase.
 
@@ -607,9 +611,9 @@ land.
 
 - One executable lists and runs demos by name; each demo is a small self-contained type
   that a reader can copy. A headless driver renders any demo at fixed sizes (`desktop`
-  80x24 and `mobile` 40x16 from `design/tokens.md`) from a scripted list of input events
-  into `VirtualTerminal`, so demo renders are snapshot fixtures, as in Textual's widget
-  examples.
+  80x24 and `mobile` 40x16 from `docs/design/tokens.md`) from a scripted list of input
+  events into `VirtualTerminal`, so demo renders are snapshot fixtures, as in Textual's
+  widget examples.
 - Port from: review-loop `ApplicationDriver` and registry shape; `phase4` `DemoHost` key
   handling (`isQuitKey`) and its tests. Carry the "Demo rules" from investigation 036 into
   the harness's documentation.
@@ -633,20 +637,20 @@ focus border.
   step 5.3, and `Text + Text` styled runs measured once.
 
 > Owner review (2026-10-21): no plan phase implements the Phase 3 colour-report probe that
-> `docs/Spec.md` Phase 3 Slice 6 now specifies: the OSC 10/11/4 colour round in the
+> `docs/spec.md` Phase 3 Slice 6 now specifies: the OSC 10/11/4 colour round in the
 > DA1-terminated probe, mode 2031 theme-change notifications, the re-query on resume, and
 > `TerminalCapabilities.colorReport` (`TerminalColorReport`). The derived colour roles
 > this step resolves blend their shades from that reported foreground, background, and
-> palette (`design/tokens.md`). Owner to decide where the probe lands: a step before or
-> inside Phase 9, or a separate Phase 3 plan, with step 9.1 rendering the attribute
+> palette (`docs/design/tokens.md`). Owner to decide where the probe lands: a step before
+> or inside Phase 9, or a separate Phase 3 plan, with step 9.1 rendering the attribute
 > fallbacks until it exists.
 
 ### Step 9.2 — Wrapping and truncation
 
 - Word wrapping that breaks inside a word only when the word is wider than the line;
-  character-flow wrapping is rejected (`design/primitives/text.md`, translation key I3).
-  `.lineLimit(Int?)` and `.truncationMode(.tail/.head/.middle)` with the ellipsis keeping
-  the text's style.
+  character-flow wrapping is rejected (`docs/design/primitives/text.md`, translation key
+  I3). `.lineLimit(Int?)` and `.truncationMode(.tail/.head/.middle)` with the ellipsis
+  keeping the text's style.
 
 ### Step 9.3 — Borders, Box, background, overlay, and the focus border
 
@@ -670,7 +674,7 @@ focus border.
 ### Step 10.2 — Focus appearance and focus scopes
 
 - The focus border applied by focus-appearance hosts, and a focus scope that traps
-  traversal inside an overlay and restores focus on dismissal (`design/inbox.md`).
+  traversal inside an overlay and restores focus on dismissal (`docs/design/inbox.md`).
 
 ### Step 10.3 — KeyLegend from responder key bindings
 
@@ -695,8 +699,8 @@ focus border.
 
 ### Step 11.3 — Application-owned text selection and copy
 
-- The Spec's selection contract (`design/primitives/text-selection.md`), or an explicit
-  deferral recorded in the Spec.
+- The Spec's selection contract (`docs/design/primitives/text-selection.md`), or an
+  explicit deferral recorded in the Spec.
 - Phase acceptance: a pointer demo; scripted pointer tests cover overlap, clipping,
   capture, and requirement de-escalation.
 
@@ -706,7 +710,7 @@ focus border.
 
 - Keyboard and wheel scrolling, boundary bubbling to an enclosing viewport, and focus only
   while scrollable. Indicators stay output-only: a click or drag on one returns `.ignored`
-  (`design/primitives/scroll-indicator.md`, translation key F2). Port from `phase4`
+  (`docs/design/primitives/scroll-indicator.md`, translation key F2). Port from `phase4`
   `ScrollView.swift` and its tests.
 
 ### Step 12.2 — Reveal on focus change
@@ -722,7 +726,7 @@ Each control lands with its demo, keyboard and pointer paths, and disabled state
 
 - Button with the `.filled`, `.tinted`, and `.plain` emphases and the `.squared`,
   `.capsule`, `.rectangle`, `.brackets`, `.box`, and `.custom` shapes with their ASCII
-  ends (`design/widgets/button.md`: omp2's Pill, Tint, and Ghost become the three
+  ends (`docs/design/widgets/button.md`: omp2's Pill, Tint, and Ghost become the three
   emphases, and Soft has none); the pressed state must reach rendering (investigation 036,
   lesson 4).
 
@@ -734,14 +738,14 @@ Each control lands with its demo, keyboard and pointer paths, and disabled state
 
 > Owner review (2026-10-21): Picker's radio group wraps its chips with Flow, and
 > `ViewThatFits` chooses its title layout and its menu's description layout; MultiPicker,
-> which `docs/Spec.md` Phase 4 also places in Phase 13, does the same
-> (`design/widgets/picker.md`, `design/widgets/multi-picker.md`). Both primitives are
-> built in step 14.1, after this step. Button, Toggle, Stepper, and TextField do not use
-> them, and Form, LabeledContent, ProgressView, and TabView land in Phase 16, after step
-> 14.1. Proposal: move step 14.1 to the start of Phase 13, or into Phase 9. Phase 9 comes
-> before focus and hit testing exist, so `ViewThatFits`'s rule that unchosen candidates
-> leave focus and hit testing could only be tested once Phases 10 and 11 land. The order
-> is unchanged until the owner decides.
+> which `docs/spec.md` Phase 4 also places in Phase 13, does the same
+> (`docs/design/widgets/picker.md`, `docs/design/widgets/multi-picker.md`). Both
+> primitives are built in step 14.1, after this step. Button, Toggle, Stepper, and
+> TextField do not use them, and Form, LabeledContent, ProgressView, and TabView land in
+> Phase 16, after step 14.1. Proposal: move step 14.1 to the start of Phase 13, or into
+> Phase 9. Phase 9 comes before focus and hit testing exist, so `ViewThatFits`'s rule that
+> unchosen candidates leave focus and hit testing could only be tested once Phases 10 and
+> 11 land. The order is unchanged until the owner decides.
 
 ### Step 13.3 — Stepper
 
@@ -758,10 +762,11 @@ Each control lands with its demo, keyboard and pointer paths, and disabled state
 ### Step 14.1 — Flow layout and `ViewThatFits`
 
 - A wrapping row layout and `ViewThatFits` with layout priority (owner decision 2).
-- Catalog docs: `design/primitives/flow.md` and `design/primitives/view-that-fits.md`,
-  both `ready` since step 7.1. Form, Picker, MultiPicker, LabeledContent, ProgressView,
-  and TabView wrap or choose between arrangements with them (owner decisions, 2026-10-18).
-  See the owner review note under step 13.2 for this step's position.
+- Catalog docs: `docs/design/primitives/flow.md` and
+  `docs/design/primitives/view-that-fits.md`, both `ready` since step 7.1. Form, Picker,
+  MultiPicker, LabeledContent, ProgressView, and TabView wrap or choose between
+  arrangements with them (owner decisions, 2026-10-18). See the owner review note under
+  step 13.2 for this step's position.
 
 ### Step 14.2 — List and Section
 
@@ -799,7 +804,7 @@ Each control lands with its demo, keyboard and pointer paths, and disabled state
 
 ### Step 16.3 — TabView, Form, Markdown, code view, and Image
 
-- The remaining 1.0 views in `docs/Spec.md` ("The 1.0 surface"). This step first cited the
+- The remaining 1.0 views in `docs/spec.md` ("The 1.0 surface"). This step first cited the
   "1.0 additions" in `design/omp2-assessment.md`, which step 7.4 deleted.
 
 ## Phase 17 — Intro app and Phase 4 closure
@@ -823,9 +828,9 @@ Each control lands with its demo, keyboard and pointer paths, and disabled state
   `2f92f3b5aa2035d21c9f016f9ff6350795e5685a`; crate `crates/tui` (README "Element
   reference"; `src/markup.rs` module doc for the markup grammar; `src/debug.rs`
   `frame_text`/`frame_ansi`; `src/components/tests.rs` for headless rendering).
-- Tessera: `docs/Spec.md` (Phase 4; Slice 1 "Snapshot representations"),
-  `design/README.md` (status ladder and wireframes), `design/tokens.md` (viewports),
-  `.agents/investigations/036-phase-4-salvage-review.md` (archived work and port map), and
-  the superseded plan `.agents/plans/030-phase-4-view-layer-and-showcase.md`.
+- Tessera: `docs/spec.md` (Phase 4; Slice 1 "Snapshot representations"), `docs/design.md`
+  (status ladder and wireframes), `docs/design/tokens.md` (viewports),
+  `docs/research/phase-4-salvage-review.md` (archived work and port map), and the
+  superseded plan `docs/plans/phase-4-view-layer-and-showcase.md`.
 - Textual: `src/textual/demo/` (the demo app) and `docs/examples/widgets/` with
   `tests/snapshot_tests/test_snapshots.py` (examples that are snapshot fixtures).

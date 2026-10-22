@@ -1,7 +1,8 @@
 ---
-name: Ghostty graphics erase ordering and response feedback
-date: 2026-07-11
+type: research
+observed: 2026-07-11
 status: resolved
+description: Ghostty graphics erase ordering and response feedback
 ---
 
 # Ghostty graphics erase ordering and response feedback

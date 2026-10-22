@@ -1,18 +1,19 @@
 ---
-name: Terminal I/O concurrency review fixes
-description:
-  Fix the concurrency and isolation findings from a review of TesseraTerminal and
-  TesseraTerminalIO: cancellation-safe teardown, serialized terminal output, blocking
-  I/O off the cooperative pool, session and stream lifetimes, vouch cleanup, and
-  deterministic terminal tests. Also the bug punchlist from the 2026-10-17 and 2026-10-20
-  repository review notes: nested view lists in layout containers, the parallel suite,
-  error-type conformances, and CI coverage of the Examples package.
-status: complete
+type: plan
+stage: done
 created: 2026-10-21
-updated: 2026-10-22
+completed: 2026-10-22
+order: 34
+description:
+  "Fix the concurrency and isolation findings from a review of TesseraTerminal and
+  TesseraTerminalIO: cancellation-safe teardown, serialized terminal output, blocking I/O
+  off the cooperative pool, session and stream lifetimes, vouch cleanup, and deterministic
+  terminal tests. Also the bug punchlist from the 2026-10-17 and 2026-10-20 repository
+  review notes: nested view lists in layout containers, the parallel suite, error-type
+  conformances, and CI coverage of the Examples package."
 ---
 
-<!-- Allowed status values: planning, in-review, pending, in-progress, complete, superseded. -->
+# Terminal I/O concurrency review fixes
 
 ## Progress
 
@@ -98,9 +99,9 @@ Swift 6.4, so each compiler-dependent step must be rechecked on the baseline too
 Phase 10, Steps 9.7 and 9.8, and additions to Steps 3.2 and 8.3 come from two repository
 review notes (2026-10-17 and 2026-10-20), re-checked against `28c34b8` on 2026-10-21; see
 [Repository review findings](#repository-review-findings). Plan 035
-(`.agents/plans/035-toolchain-conventions-and-plan-consolidation.md`) runs this plan as
-its Phase 4, after its full local baseline (Step 1.1) and the Swift 6.4 and Xcode 27
-toolchain update (Phase 2).
+(`docs/plans/toolchain-conventions-and-plan-consolidation.md`) runs this plan as its Phase
+4, after its full local baseline (Step 1.1) and the Swift 6.4 and Xcode 27 toolchain
+update (Phase 2).
 
 ## Phase 1 — Baseline and test seams
 
@@ -718,9 +719,9 @@ removed or stated in writing.
   naming the task that owns the state. Do it file by file.
 - Also: add a one-line comment above the `Mutex` in
   `Sources/TesseraTerminalSnapshotSupport/VirtualTerminal+Ghostty.swift:31-32`
-  (`GhosttyTerminalState`). The `.pi/prompts/phase-slice-workflow.md` rule prefers actors
-  for test-support state (line 62), but `VirtualTerminal`'s closures are synchronous, so
-  an actor cannot back them; the comment says so.
+  (`GhosttyTerminalState`). The `.agents/commands/phase-slice-workflow.md` rule prefers
+  actors for test-support state (line 62), but `VirtualTerminal`'s closures are
+  synchronous, so an actor cannot back them; the comment says so.
 - Acceptance: `swift test` is green, each remaining `@unchecked` has a comment naming its
   invariant, and the `Mutex` has its justification.
 
@@ -907,8 +908,8 @@ removed or stated in writing.
   but every runner passes `--no-parallel`: `justfiles/core.just:28` and `:32`,
   `justfiles/ci.just:18` and `:23`, `.github/workflows/ci.yml:270`, and the Linux script
   (`CONTRIBUTING.md:242`); `CONTRIBUTING.md:103` labels `just core test` "(non-parallel)".
-  Read `.agents/investigations/024-phase-3-full-suite-hang.md` first, in case the flag
-  works around that hang.
+  Read `docs/research/phase-3-full-suite-hang.md` first, in case the flag works around
+  that hang.
 - Decision (owner, 2026-10-21): read investigation 024 first. If its hang no longer
   reproduces under `swift test --parallel` (macOS and Linux, three runs each), take (a):
   after Step 9.6, add a `just` recipe for a parallel run and a non-required CI job, and
@@ -1405,7 +1406,7 @@ Two repository review notes (2026-10-17, while mining conventions for Lattice at
 `f597ac9`; 2026-10-20, while drafting plan 033 at `31966cc`) listed places where practice
 contradicts the written rules. Each item was re-checked against `28c34b8` on 2026-10-21.
 
-- R-01, `Task.yield()` in tests despite `CONTRIBUTING.md:217-219` and `docs/Spec.md:173`,
+- R-01, `Task.yield()` in tests despite `CONTRIBUTING.md:217-219` and `docs/spec.md:173`,
   `:8403`, `:8737`: confirmed at every cited line. Steps 9.1 to 9.4 and Step 9.7.
 - R-02, `Task.yield()` in production at `PlatformIO.swift:120`: confirmed, but reachable
   only from test doubles (see Step 3.2 (e)).
@@ -1426,10 +1427,10 @@ contradicts the written rules. Each item was re-checked against `28c34b8` on 202
   Recorded in Checked and sound.
 - R-09, `mobile` viewport: natural height or 40x16: partly stale. Text-field, picker,
   multi-picker, and content-unavailable-view now say natural height, and key-legend labels
-  its 40x16 frame as screen context. Still contradictory: `design/templates/widget.md:38`,
-  plan 032 Step 8.2 (lines 609-610, acceptance line 623), and
-  `design/widgets/stepper.md:138`; `design/widgets/list.md:186` is defensible if List is
-  screen-filling. Routed to plan 035 Step 6.2.
+  its 40x16 frame as screen context. Still contradictory:
+  `docs/design/templates/widget.md:38`, plan 032 Step 8.2 (lines 609-610, acceptance line
+  623), and `docs/design/widgets/stepper.md:138`; `docs/design/widgets/list.md:186` is
+  defensible if List is screen-filling. Routed to plan 035 Step 6.2.
 - R-10, plan 032 amendments that plan 033 depends on: a plan change, not a defect.
   `focusChanges` (`GraphStatistics.swift:51`) is confirmed dead: only
   `GraphDiagnosticsSnapshotting.swift:102` reads it and nothing increments it. Routed to
@@ -1571,8 +1572,8 @@ All other cited lines were re-read and match the current source.
 - `.swift-version` (6.3.3, the baseline; 6.3.2 at review time).
 - Repo conventions in `AGENTS.md`: Swift Testing names in backticks, platform divergence
   confined to leaf seams, and Markdown validation with `pnpx markdownlint-cli`.
-- Plan 032, `.agents/plans/032-omp2-reference-gallery-and-phase-4-redesign.md`, for the
-  plan shape.
+- Plan 032, `docs/plans/omp2-reference-gallery-and-phase-4-redesign.md`, for the plan
+  shape.
 - SE-0504, Task cancellation shields:
   [proposals/0504-task-cancellation-shields.md](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0504-task-cancellation-shields.md)
 - A concurrency/isolation review on 2026-10-20, two passes over these sources at the

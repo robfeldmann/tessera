@@ -1,5 +1,8 @@
 ---
-name: Toolchain, repository conventions, and plan consolidation
+type: plan
+stage: proposed
+created: 2026-10-21
+order: 35
 description:
   Baseline every local check, make Xcode 26.6 and Swift 6.3.3 the baseline on every lane
   while adding Swift 6.4 and Xcode 27 support, port plan 033 and its spikes to main, run
@@ -7,12 +10,9 @@ description:
   IWE docs workspace with slug-named plans and a split spec, mise and hk in place of just
   and Lefthook, Tessera-owned Tart and Lima VMs, and a current Zig and libghostty-vt),
   then merge plans 032 and 033 into one plan.
-status: in-review
-created: 2026-10-21
-updated: 2026-10-21
 ---
 
-<!-- Allowed status values: planning, in-review, pending, in-progress, complete, superseded. -->
+# Toolchain, repository conventions, and plan consolidation
 
 ## Progress
 
@@ -40,9 +40,11 @@ updated: 2026-10-21
         `cb8d143`; branch deletion waits for the owner)
 - [x] **Phase 4 — Plan 034 bug punchlist**
   - [x] 4.1 Run plan 034 to completion (plan 034 `complete`; commits `3fb25e9`..`087fb4c`;
-        all-lane CI run recorded in the step)
+        all-lane CI run `39732795646` green: nine jobs, including `xcode-27`,
+        `swift-6.4.1`, the parallel suite, and DocC)
 - [ ] **Phase 5 — Repository conventions**
-  - [ ] 5.1 Set the Swift line width to 90
+  - [x] 5.1 Set the Swift line width to 90 (`34119a5` sets `.swift-format` and
+        `CONTRIBUTING.md`; the reformat of 20 files is `be4a42a`; lint and tests pass)
   - [ ] 5.2 Move project docs into an IWE workspace with slug-named plans
   - [ ] 5.3 Split the spec into workspace pages
   - [ ] 5.4 Unwrap prose and lint Markdown with rumdl
@@ -54,7 +56,7 @@ updated: 2026-10-21
   - [ ] 6.2 Owner decision: the `mobile` viewport rule, then apply it
   - [ ] 6.3 Retire plans 032 and 033
 
-Next: Step 5.1 (Swift line width 90), then Steps 5.2 to 5.4 in one pass.
+Next: Steps 5.2 to 5.4 in one pass (docs move, spec split, unwrap and rumdl).
 
 ## Overview
 
@@ -97,7 +99,7 @@ commit and opens pull requests to `main` in phase order, starting with the 25 co
   `docs/plans.md` hub records the order, stage, and which plan is active.
 - Docs layout: the directory names of the owner's other projects where they apply, new
   ones where needed; a `research/` directory; the design catalog moves into `docs/`.
-- Agent commands: `.pi/prompts/` moves to the most generic location omp supports that
+- Agent commands: `.agents/commands/` moves to the most generic location omp supports that
   other harnesses can share (Step 5.2).
 - VMs: Tessera owns its VM tasks, so anyone can contribute or test without the owner's
   dotfiles. macOS guests start from a Cirrus Labs vanilla image with a scripted Xcode
@@ -317,8 +319,8 @@ Xcode 27 pass too, and CI guards both, without raising the floor.
   `just windows-frost provision-toolchain` on a working QEMU.
 - macOS: `just quality format`, `swift test --no-parallel` (634 tests), and
   `just quality lint` pass under Xcode 26.6. The `DEVELOPER_DIR` note for local macOS is
-  written in Step 2.4 with the rest of the toolchain docs; `docs/LocalDevelopmentState.md`
-  already describes the SDK resolution.
+  written in Step 2.4 with the rest of the toolchain docs;
+  `docs/guides/local-development-state.md` already describes the SDK resolution.
 - CI: see the Progress line for the run on the draft pull request.
 
 ### Step 2.2 — Build and test on Xcode 27 and Swift 6.4
@@ -384,10 +386,10 @@ Xcode 27 pass too, and CI guards both, without raising the floor.
 
 ### Step 2.4 — Toolchain documentation
 
-- Files: `CONTRIBUTING.md`, `README.md`, `docs/ProjectStatus.md` (its tested-configuration
-  table still says macOS 26.5.2), `docs/LocalDevelopmentState.md`, `CHANGELOG.md`, and the
-  "pinned toolchain" wording in plan 034 (its Overview, Step 1.1, Step 8.1, and Not
-  covered).
+- Files: `CONTRIBUTING.md`, `README.md`, `docs/project-status.md` (its
+  tested-configuration table still says macOS 26.5.2),
+  `docs/guides/local-development-state.md`, `CHANGELOG.md`, and the "pinned toolchain"
+  wording in plan 034 (its Overview, Step 1.1, Step 8.1, and Not covered).
 - Acceptance: the docs name the baseline and the 6.4 lane, and how to select each locally
   and in the VMs.
 
@@ -395,9 +397,9 @@ Xcode 27 pass too, and CI guards both, without raising the floor.
 
 - `CONTRIBUTING.md` gained a "Toolchain lanes" section (the lane table, `DEVELOPER_DIR`
   for local macOS, `TESSERA_LINUX_SWIFT_VERSION` for Lima, Windows baseline only, SDK
-  selection) and its prerequisites name 6.3.3; `README.md` and `docs/ProjectStatus.md`
+  selection) and its prerequisites name 6.3.3; `README.md` and `docs/project-status.md`
   (the tested-configuration table now lists toolchains per platform, with the `xcode-27`
-  leg marked non-required) name both lanes; `docs/LocalDevelopmentState.md` has a
+  leg marked non-required) name both lanes; `docs/guides/local-development-state.md` has a
   "Toolchains" section; `CHANGELOG.md` has a Changed entry; plan 034's Overview, Step 1.1,
   Step 8.1, finding C-15, Not covered, and References say "baseline toolchain" (6.3.3) and
   the 6.4 lane instead of "pinned" 6.3.2.
@@ -411,7 +413,7 @@ Xcode 27 pass too, and CI guards both, without raising the floor.
 
 - Source: branch `devtools-plan` (worktree `tessera/devtools`), nine commits from
   `fdd4732` to `8ee4c59`. They only add files: investigations 037-041,
-  `.agents/plans/033-developer-tooling.md`, and `spikes/` (GraphQuery, HeadlessRunner,
+  `docs/plans/developer-tooling.md`, and `spikes/` (GraphQuery, HeadlessRunner,
   LiveSocket, SvgShot, and `Seams/README.md`), 77 files in all. Main has investigations up
   to 036 and no plan 033, so nothing collides.
 - Change: cherry-pick the nine commits onto `plan-035` now
@@ -475,10 +477,10 @@ Xcode 27 pass too, and CI guards both, without raising the floor.
 
 ### Step 4.1 — Run plan 034 to completion
 
-- Plan: `.agents/plans/034-terminal-io-concurrency-review-fixes.md`, all ten phases, with
-  every owner decision already recorded in its steps (2026-10-21). Its Step 1.1 is
-  satisfied by Step 1.1 here plus the Phase 2 lanes; run its focused filters on each lane.
-  Its compiler-dependent steps (8.1 in particular) are checked on the baseline and the 6.4
+- Plan: `docs/plans/terminal-io-concurrency-review-fixes.md`, all ten phases, with every
+  owner decision already recorded in its steps (2026-10-21). Its Step 1.1 is satisfied by
+  Step 1.1 here plus the Phase 2 lanes; run its focused filters on each lane. Its
+  compiler-dependent steps (8.1 in particular) are checked on the baseline and the 6.4
   lane. Steps it marks "unverified" (Windows and the C shim) are verified in the Frost VM
   where they can be, or recorded as still unverified.
 - Its Step 10.1 (nested view lists in layout containers) must land before the merged
@@ -541,17 +543,17 @@ order; Steps 5.2 to 5.4 belong in one pass because each touches most Markdown fi
   `proposed`, `planned`, `active`, `done` (with `completed`), `cancelled`; plans stay
   under about 300 lines; a commissioned question is a plan whose Outcome is the answer.
 - Layout:
-  - `docs/plans/` from `.agents/plans/`, slug filenames (for example
+  - `docs/plans/` from `docs/plans/`, slug filenames (for example
     `terminal-io-concurrency-review-fixes.md`).
-  - `docs/research/` from `.agents/investigations/`, slug filenames. It holds research
-    records and surveys; new commissioned questions become plans.
+  - `docs/research/` from `docs/research/`, slug filenames. It holds research records and
+    surveys; new commissioned questions become plans.
   - `docs/design/` from `design/` (the catalog, tokens, templates, and translation key).
   - `docs/architecture/` for durable decisions, as in the dotfiles, where plans promote
     their decisions when they close.
   - `docs/spec/` for the split spec (Step 5.3).
   - `docs/guides/` (new) for contributor how-tos: `WindowsFrostVM.md`, `WindowsVM.md`,
     `LocalDevelopmentState.md`, and `UpdatingGhosttyVT.md`.
-  - `docs/ProjectStatus.md` stays a public page linked from `README.md`, under a slug
+  - `docs/project-status.md` stays a public page linked from `README.md`, under a slug
     name.
   - Hub pages for each directory, plus `index.md` and `log.md`. `docs/plans.md` carries
     the order, stage, and the active plan, rendered from plan frontmatter as in the
@@ -564,8 +566,8 @@ order; Steps 5.2 to 5.4 belong in one pass because each touches most Markdown fi
   034 is complete by then (Phase 4) and moves as a completed plan. This plan and the
   merged plan (Phase 6) take the dotfiles template.
 - Agent files:
-  - `.pi/prompts/` → `.agents/commands/`, and delete `.agents/prompts/`, which holds only
-    a `.gitkeep`. omp reads non-recursive `.agents/commands/*.md` and
+  - `.agents/commands/` → `.agents/commands/`, and delete `.agents/prompts/`, which holds
+    only a `.gitkeep`. omp reads non-recursive `.agents/commands/*.md` and
     `.agent/commands/*.md` from the working directory up to the repository root, the
     harness-neutral location among its providers (omp's slash-command docs); Claude Code
     reads `.claude/commands/`, which can be a symlink to it if wanted. Convert each prompt
@@ -589,7 +591,7 @@ order; Steps 5.2 to 5.4 belong in one pass because each touches most Markdown fi
 
 ### Step 5.3 — Split the spec into workspace pages
 
-- `docs/Spec.md` is 9,133 lines under twelve `##` sections; Phase 2 (lines 714-3650),
+- `docs/spec.md` is 9,133 lines under twelve `##` sections; Phase 2 (lines 714-3650),
   Phase 3 (3651-6822), and Phase 4 (6823-8699) are each about 1,900 to 3,200 lines, and 89
   files mention `Spec.md`.
 - Recommended: a `docs/spec.md` hub that keeps the framing, "How to use this spec", and
@@ -598,7 +600,7 @@ order; Steps 5.2 to 5.4 belong in one pass because each touches most Markdown fi
   phases split again by their `###` sections into `docs/spec/phase-2/` and so on. IWE can
   then retrieve one section by key, and links point at headings instead of line numbers.
 - Living documents (open plans, skills, `AGENTS.md`, `CONTRIBUTING.md`, DocC) convert
-  `docs/Spec.md:NNNN` citations to page links. Completed plans and research keep their
+  `docs/spec.md:NNNN` citations to page links. Completed plans and research keep their
   line citations, which stay valid at the commit they cite; the hub says so.
 - "Open question for Phase N" entries stay in the spec until decided, then move to
   `docs/architecture/` like other decisions.
@@ -745,7 +747,7 @@ Phase 5 format with a slug name, ready for the return to feature work.
   (`Sources/TesseraCore/Diagnostics/GraphStatistics.swift:51`); the role and label hook
   (033 G.1) lands before the first control (032 Step 13.1); the environment clock is a
   `Clock` the harness can advance, so `wait`, `settle`, and motion are testable (032 Step
-  16.1; the spec's Phase 5 open question on injected clocks, `docs/Spec.md:8759-8762`
+  16.1; the spec's Phase 5 open question on injected clocks, `docs/spec.md:8759-8762`
   today, leaves the mechanism open, and the clock seam in spike commit `30e4bbf` only
   feeds pass durations).
 - Dependencies to carry: plan 034 Step 10.1 before the first demo on stacks; plan 034 Step
@@ -756,12 +758,13 @@ Phase 5 format with a slug name, ready for the return to feature work.
 
 ### Step 6.2 — Owner decision: the `mobile` viewport rule, then apply it
 
-- The rule: `design/tokens.md:24` and `design/README.md:62-66` (under `docs/design/` after
-  Step 5.2) wireframe components at 40 columns and their natural height, with 40x16 only
-  for screen-filling compositions (owner decision, 2026-10-10). Still contradicting it:
-  `design/templates/widget.md:38` (`mobile (40x16)` required for `wireframed`), plan 032
-  Step 8.2 (lines 609-610, acceptance line 623), and `design/widgets/stepper.md:138`.
-  `design/widgets/list.md:186` uses 40x16, which holds if List counts as screen-filling.
+- The rule: `docs/design/tokens.md:24` and `docs/design.md:62-66` (under `docs/design/`
+  after Step 5.2) wireframe components at 40 columns and their natural height, with 40x16
+  only for screen-filling compositions (owner decision, 2026-10-10). Still contradicting
+  it: `docs/design/templates/widget.md:38` (`mobile (40x16)` required for `wireframed`),
+  plan 032 Step 8.2 (lines 609-610, acceptance line 623), and
+  `docs/design/widgets/stepper.md:138`. `docs/design/widgets/list.md:186` uses 40x16,
+  which holds if List counts as screen-filling.
 - Plan 033 decision 1 recommends natural height with sizes declared per demo, a
   package-level nil-height probe, and an error that points height-greedy demos
   (`ScrollView`, `SplitView`) at a `mobileScreen` (40x16) viewport.
@@ -776,9 +779,9 @@ Phase 5 format with a slug name, ready for the return to feature work.
 
 ## References
 
-- Plan 034, `.agents/plans/034-terminal-io-concurrency-review-fixes.md`, including its
-  Repository review findings (R-01 to R-12).
-- Plan 032, `.agents/plans/032-omp2-reference-gallery-and-phase-4-redesign.md`.
+- Plan 034, `docs/plans/terminal-io-concurrency-review-fixes.md`, including its Repository
+  review findings (R-01 to R-12).
+- Plan 032, `docs/plans/omp2-reference-gallery-and-phase-4-redesign.md`.
 - Plan 033 and spikes: branch `devtools-plan` (`8ee4c59`); seams branch
   `devtools-seams-spike` (`30e4bbf`).
 - `CONTRIBUTING.md`: Cross-platform testing (lines 223-271) and Repository governance.

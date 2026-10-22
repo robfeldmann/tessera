@@ -15,7 +15,7 @@ format:
 
 # Strict portable quality gate for CI, agents, and pre-PR checks. DocC validation is macOS-only
 # and intentionally available only through `just docs lint`.
-lint: _swift-format swiftlint markdown spelling wireframes architecture release-notes vouch
+lint: _swift-format swiftlint markdown spelling wireframes architecture plans release-notes vouch
     @echo "✅ Portable lint checks passed"
 
 # Strict changed-file quality gate for pre-commit/local iteration.
@@ -36,16 +36,16 @@ markdown:
 
 # Check spelling with the project-local, pinned codespell environment.
 spelling:
-    scripts/quality-python.sh -m codespell_lib --config .codespellrc Sources Tests Examples design docs .github Package.swift README.md CONTRIBUTING.md
+    scripts/quality-python.sh -m codespell_lib --config .codespellrc Sources Tests Examples docs .github Package.swift README.md CONTRIBUTING.md
 
 # Apply spelling corrections only when a developer explicitly requests them.
 spelling-fix:
-    scripts/quality-python.sh -m codespell_lib --config .codespellrc --write-changes Sources Tests Examples design docs .github Package.swift README.md CONTRIBUTING.md
+    scripts/quality-python.sh -m codespell_lib --config .codespellrc --write-changes Sources Tests Examples docs .github Package.swift README.md CONTRIBUTING.md
 
 # Fixture-grade dimension and geometry checks for the design catalog.
 wireframes:
     python3 -m unittest scripts/test_check_wireframes.py
-    python3 scripts/check-wireframes.py design
+    python3 scripts/check-wireframes.py docs/design
 
 # Verify the manifest's view-layer target graph without invoking SwiftPM from tests.
 architecture:
@@ -53,6 +53,10 @@ architecture:
     swift package describe --type json | python3 scripts/check-package-boundaries.py
     swift build --target TesseraTerminalBuffer
     scripts/check-frame-region-ownership.sh
+
+# Verify that docs/plans.md matches the plan frontmatter it is rendered from.
+plans:
+    python3 scripts/plans.py --check
 
 # Verify tagged release bodies preserve the canonical changelog text exactly.
 release-notes:

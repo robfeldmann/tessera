@@ -70,8 +70,8 @@ Callouts (14x3, 0-based):
 
 ## Public API
 
-[Slice 6](../../docs/Spec.md#slice-6-grid-table-and-fitting) fixes the spelling;
-`GridRow`'s initializer, which the Spec elides, takes only its cells:
+[Slice 6](../../spec.md#slice-6-grid-table-and-fitting) fixes the spelling; `GridRow`'s
+initializer, which the Spec elides, takes only its cells:
 
 ```swift
 public struct Grid<Content: View>: View {
@@ -90,7 +90,7 @@ public struct GridRow<Content: View>: View {
 `columns.count` is the column count, and each `FlexConstraint` is validated at its own
 construction ([Flex](flex.md#public-vocabulary)). `spacing` must be non-negative; a
 negative value fails a `precondition` before layout, as
-[catalog layout decisions](../../docs/Spec.md#catalog-layout-decisions) fix for stacks.
+[catalog layout decisions](../../spec.md#catalog-layout-decisions) fix for stacks.
 
 ## Measurement and placement
 
@@ -133,7 +133,7 @@ Grid measures, resolves, and places in this order:
 
 ## Sizing
 
-Schema: [README](../README.md#sizing-table). The fixture is the Anatomy grid:
+Schema: [README](../../design.md#sizing-table). The fixture is the Anatomy grid:
 `[.length(6), .fill(1)]`, spacing 1, rows `Name`/`Tessera` and `State`/`ready to ship`.
 The first column's cells measure 4 and 5 cells wide, so its fixed six cells hold both; the
 second column's ideal is 13, from `ready to ship`, and its minimum is zero.
@@ -159,8 +159,8 @@ second column's ideal is 13, from `ready to ship`, and its minimum is zero.
 
 Origins are relative to the grid's origin. `dump()` records each node's proposal, size,
 frame, and `paintOrder`
-([catalog layout decisions](../../docs/Spec.md#catalog-layout-decisions)); render visits
-rows and then each row's cells in increasing `paintOrder`.
+([catalog layout decisions](../../spec.md#catalog-layout-decisions)); render visits rows
+and then each row's cells in increasing `paintOrder`.
 
 ## Environment
 
@@ -209,45 +209,44 @@ and source order are identical at every tier of the
 
 Each decision cites the written source that settles it.
 
-- **API and row grouping.** [Slice 6](../../docs/Spec.md#slice-6-grid-table-and-fitting)
-  fixes `Grid(columns:spacing:content:)` and `GridRow`: rows group cells, `columns.count`
-  makes the column count explicit, and rows keep structural or `ForEach` identity (key
-  A2). `GridRow` takes only its cells.
+- **API and row grouping.** [Slice 6](../../spec.md#slice-6-grid-table-and-fitting) fixes
+  `Grid(columns:spacing:content:)` and `GridRow`: rows group cells, `columns.count` makes
+  the column count explicit, and rows keep structural or `ForEach` identity (key A2).
+  `GridRow` takes only its cells.
 - **Spacing separates columns.** Columns resolve through Flex, whose `spacing` is
-  main-axis only ([Slice 6](../../docs/Spec.md#slice-6-grid-table-and-fitting);
+  main-axis only ([Slice 6](../../spec.md#slice-6-grid-table-and-fitting);
   [Flex](flex.md#constraint-resolution)), and omp2's grid gap also separates columns only,
   which key B4 makes `spacing:`. Rows are adjacent; whether they gain spacing is an open
   question.
 - **No alignment controls in 1.0.**
-  [Slice 6](../../docs/Spec.md#slice-6-grid-table-and-fitting)'s initializer takes none,
-  and terminal layout reads top-leading
-  ([catalog layout decisions](../../docs/Spec.md#catalog-layout-decisions)). A cell keeps
-  its measured size at its top-leading corner (key G7) and aligns its own content with
-  Spacers (key B4): `HStack { Spacer(); Text("42") }` fills its column and right-aligns
-  the number.
+  [Slice 6](../../spec.md#slice-6-grid-table-and-fitting)'s initializer takes none, and
+  terminal layout reads top-leading
+  ([catalog layout decisions](../../spec.md#catalog-layout-decisions)). A cell keeps its
+  measured size at its top-leading corner (key G7) and aligns its own content with Spacers
+  (key B4): `HStack { Spacer(); Text("42") }` fills its column and right-aligns the
+  number.
 - **Column constraints live on Grid.** omp2 reads `w`, `min`, `max`, and `grow` from each
   cell; Tessera declares one `FlexConstraint` per column in `columns:` (key B2), and
   `w=40%` is `.percentage(40)` (key G8). A cell's `.flex(_:)` value does not change its
   column.
-- **No spanning in v1** ([Slice 6](../../docs/Spec.md#slice-6-grid-table-and-fitting)).
-- **Rows are never compressed.**
-  [Slice 6](../../docs/Spec.md#slice-6-grid-table-and-fitting) defines a row's height only
-  by its cells at their resolved widths, so a height proposal does not change it; a taller
-  grid clips, or scrolls in a ScrollView (key B8).
+- **No spanning in v1** ([Slice 6](../../spec.md#slice-6-grid-table-and-fitting)).
+- **Rows are never compressed.** [Slice 6](../../spec.md#slice-6-grid-table-and-fitting)
+  defines a row's height only by its cells at their resolved widths, so a height proposal
+  does not change it; a taller grid clips, or scrolls in a ScrollView (key B8).
 - **Empty and incomplete geometry.** An empty grid reports `0x0` and paints nothing, as
   empty [stacks](stacks.md#allocation-fixtures), [Flex](flex.md#remainder-and-priority),
   and [ZStack](z-stack.md#variants) do. A missing cell has no node, each `GridRow` node
   spans the grid's width and its row's height, and `dump()` shows both
-  ([catalog layout decisions](../../docs/Spec.md#catalog-layout-decisions)).
+  ([catalog layout decisions](../../spec.md#catalog-layout-decisions)).
 - **Equal tracks come from Flex.** `.ratio(1, n)` columns give equal integer tracks with
   unused trailing slack under a finite width, by Flex's normative resolver, which answers
   the equal-column note in [inbox.md](../inbox.md) without a Grid-specific API.
 
 Reviewed against the
-[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): Grid and
-`GridRow` are value descriptions lowered to layout nodes, column resolution and row
-heights are deterministic integer math that `dump()` shows, Grid holds no state, and it
-touches no terminal capability.
+[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): Grid and `GridRow`
+are value descriptions lowered to layout nodes, column resolution and row heights are
+deterministic integer math that `dump()` shows, Grid holds no state, and it touches no
+terminal capability.
 
 ## Open questions
 
@@ -256,16 +255,15 @@ Spec, the translation key, or the catalog.
 
 1. **Extra cells.** What does a `GridRow` with more cells than `columns.count` do: leave
    the extras unplaced (a zero rect in `dump()`, as the
-   [Slice 2 placement contract](../../docs/Spec.md#the-protocol) hides an unplaced
-   subview), wrap them onto a new row, or fail? An empty `columns` array is the limit
-   case.
+   [Slice 2 placement contract](../../spec.md#the-protocol) hides an unplaced subview),
+   wrap them onto a new row, or fail? An empty `columns` array is the limit case.
 2. **Bare children.** What does a direct child of `Grid` that is not a `GridRow` do:
    become a one-cell row in the first column, span the full width as in SwiftUI (spanning,
-   which [Slice 6](../../docs/Spec.md#slice-6-grid-table-and-fitting) leaves out of v1),
-   or fail?
+   which [Slice 6](../../spec.md#slice-6-grid-table-and-fitting) leaves out of v1), or
+   fail?
 3. **GridRow outside a Grid.** Does it lay out like an `HStack`, as in SwiftUI, or is it
    an error?
-4. **Row spacing.** [Slice 6](../../docs/Spec.md#slice-6-grid-table-and-fitting) gives one
+4. **Row spacing.** [Slice 6](../../spec.md#slice-6-grid-table-and-fitting) gives one
    `spacing:`, read here as column spacing because columns resolve through Flex. Should
    rows take the same spacing, gain a separate row spacing (SwiftUI's `verticalSpacing`),
    or stay adjacent as specified here?

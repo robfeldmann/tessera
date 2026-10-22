@@ -11,7 +11,7 @@ size fits the proposal on the tested axes, or the last when none fits. It works 
 out again from the proposal on every layout pass and stores nothing. It draws no cells,
 handles no input and takes no focus; the chosen candidate does all of that. It is
 Tessera's one mechanism for changing an arrangement with the space available
-([fitting](../../docs/Spec.md#flow-layout-and-viewthatfits); key G10 of the
+([fitting](../../spec.md#flow-layout-and-viewthatfits); key G10 of the
 [translation key](../translation-key.md)). A component that switches between layouts does
 it with `ViewThatFits`, not with a rule of its own. [Flow](flow.md) is its companion:
 `ViewThatFits` chooses between arrangements, and Flow wraps items within one.
@@ -176,8 +176,8 @@ public struct ViewThatFits<Content: View>: View {
 ```
 
 `ViewThatFits` is a `View`, like `HStack` and `Flex`. Its algorithm uses only the public
-[Layout protocol](../../docs/Spec.md#the-protocol) (`Subview.sizeThatFits` and `place`),
-so a third party could write the same container.
+[Layout protocol](../../spec.md#the-protocol) (`Subview.sizeThatFits` and `place`), so a
+third party could write the same container.
 
 ## Selection rule
 
@@ -199,7 +199,7 @@ placement always agree. For an incoming proposal `P` and tested axes `A`:
 5. **Placement.** `placeSubviews` repeats steps 1 to 3 with its own proposal, places the
    chosen candidate at the top-leading corner of its bounds with that proposal, and does
    not place the others. A subview that is not placed is hidden with a zero rectangle
-   ([the protocol](../../docs/Spec.md#the-protocol)).
+   ([the protocol](../../spec.md#the-protocol)).
 
 The choice is stable under its own size. A parent that measures `ViewThatFits` at one
 proposal and then re-proposes the size it reported, as a linear stack does between its
@@ -210,7 +210,7 @@ The [allocation fixtures](#allocation-fixtures) pin this.
 ## Measurement cost and purity
 
 - Every measurement goes through `Subview.sizeThatFits`, which the graph memoizes per node
-  and proposal within a layout pass ([the protocol](../../docs/Spec.md#the-protocol)).
+  and proposal within a layout pass ([the protocol](../../spec.md#the-protocol)).
 - For one incoming proposal, `ViewThatFits` makes at most `k + 1` distinct child
   measurements, where `k` is the chosen candidate's 1-based position: `k` at `T` and one
   at `P`. Candidates after the chosen one cost nothing, and placement reruns the rule from
@@ -221,9 +221,9 @@ The [allocation fixtures](#allocation-fixtures) pin this.
 - Nesting adds only distinct proposals: an inner `ViewThatFits` receives the outer `T` and
   `P`, and makes at most its own `k + 1` measurements for each.
 - Measurement is pure. Measuring a candidate never changes its `NodeState`
-  ([runtime ownership invariant](../README.md#state-model-table)), and the choice is never
-  stored, so there is no cache to invalidate. Anything that sets `needsLayout`, a resize
-  included, reruns the rule.
+  ([runtime ownership invariant](../../design.md#state-model-table)), and the choice is
+  never stored, so there is no cache to invalidate. Anything that sets `needsLayout`, a
+  resize included, reruns the rule.
 
 ## Layout priority
 
@@ -234,7 +234,7 @@ as in [Linear stacks](stacks.md#variants), only an enclosing stack or Flex reads
 To that parent a `ViewThatFits` is flexible. Its ideal is the first candidate's ideal,
 because a nil tested axis always fits. Its minimum is the last candidate measured at zero,
 because zero fits only a candidate whose ideal is zero on that axis. The parent allocates
-by its own rules ([stack algorithm](../../docs/Spec.md#the-stack-algorithm-normative),
+by its own rules ([stack algorithm](../../spec.md#the-stack-algorithm-normative),
 [Flex remainder and priority](flex.md#remainder-and-priority)), and the `ViewThatFits`
 then chooses at its allocation. A sibling with higher priority is allocated first and so
 keeps its preferred candidate longer. That composition is priority fitting: one shared
@@ -285,13 +285,13 @@ Callouts (20x1, 0-based):
 ## Identity, state, and focus
 
 Every candidate is a structural child of the `ViewThatFits` with its own identity
-([identity model](../../docs/Spec.md#identity-model)): its position in the builder block,
-a `ForEach` element's id, or a branch. The graph builds and updates every candidate on
-every update, chosen or not, because measuring a candidate needs its node. Choosing is a
-layout decision over nodes that already exist: switching candidates creates and destroys
-no node and moves no state.
+([identity model](../../spec.md#identity-model)): its position in the builder block, a
+`ForEach` element's id, or a branch. The graph builds and updates every candidate on every
+update, chosen or not, because measuring a candidate needs its node. Choosing is a layout
+decision over nodes that already exist: switching candidates creates and destroys no node
+and moves no state.
 
-Schema: [README](../README.md#state-model-table).
+Schema: [README](../../design.md#state-model-table).
 
 | State            | Owner     | Type                              | Reset or clamp rule                                                                                                                                                                                                                                     |
 | ---------------- | --------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -316,11 +316,11 @@ How the graph's passes treat the candidates:
 | terminal requirements | contributes                          | contributes: the union covers every live node, so a switch never toggles a terminal mode |
 | `dump()`              | proposal, size, and frame            | a zero-size frame at the container's origin                                              |
 
-Focus follows the [focus model](../../docs/Spec.md#focus-model). Focus is held as a
-`FocusID`, and the focus order is the depth-first order of `.focusable` nodes after
-layout. When the focused node leaves that order, focus clears to nil, the graph records it
-in `statistics`, and no neighbour is guessed. A switch is checked after every layout pass,
-a resize included, not only after an update.
+Focus follows the [focus model](../../spec.md#focus-model). Focus is held as a `FocusID`,
+and the focus order is the depth-first order of `.focusable` nodes after layout. When the
+focused node leaves that order, focus clears to nil, the graph records it in `statistics`,
+and no neighbour is guessed. A switch is checked after every layout pass, a resize
+included, not only after an update.
 
 | Arrangement change                                                     | Focus before | Focus after                           | Rule                                                                                                    |
 | ---------------------------------------------------------------------- | ------------ | ------------------------------------- | ------------------------------------------------------------------------------------------------------- |
@@ -335,7 +335,7 @@ Only the chosen one is in the focus order, so the ID is never listed twice.
 
 ## Sizing
 
-Schema: [README](../README.md#sizing-table). The Region and Deploying fixtures are the
+Schema: [README](../../design.md#sizing-table). The Region and Deploying fixtures are the
 ones in [Anatomy](#anatomy).
 
 | Proposal             | Result | Rule                                                                                                                                        |
@@ -361,8 +361,8 @@ ones in [Anatomy](#anatomy).
 to every candidate unchanged. It publishes no `stackAxis`: a candidate sees the axis of
 the nearest enclosing stack, and a stack inside a candidate publishes its own
 ([Linear stacks](stacks.md#environment)). Every candidate counts toward the graph's
-[terminal requirements](../../docs/Spec.md#terminal-requirements-aggregation), chosen or
-not (see the passes table above).
+[terminal requirements](../../spec.md#terminal-requirements-aggregation), chosen or not
+(see the passes table above).
 
 | Value                  | Source                                 | Default | Effect                                                                      |
 | ---------------------- | -------------------------------------- | ------- | --------------------------------------------------------------------------- |
@@ -417,7 +417,7 @@ and what each reports as its ideal, which is exactly what the fit test reads.
 
 ## Requirements
 
-Schema: [README](../README.md#requirements-list).
+Schema: [README](../../design.md#requirements-list).
 
 - `view that fits chooses the first candidate whose ideal fits on the tested axes`
   (selection rule: steps 1 to 3; sizing: Region, 16x1 and Region, 15 x nil)
@@ -480,7 +480,7 @@ capability-specific rule.
 - **Ideal size is the only test.** A candidate fits when its ideal size fits on the tested
   axes, as in SwiftUI. There is no minimum-width test and no custom fit predicate, so
   every component's fitting reads the same way
-  ([fitting](../../docs/Spec.md#flow-layout-and-viewthatfits)).
+  ([fitting](../../spec.md#flow-layout-and-viewthatfits)).
 - **The last candidate is the last resort.** When none fits, the last is chosen. Consumers
   put their most compact arrangement last: Form's stacked layout, Picker's own-rows
   descriptions.
@@ -490,7 +490,7 @@ capability-specific rule.
   top-leading corner of the bounds, with the incoming proposal. `ViewThatFits` reports
   that candidate's size, so a parent rarely gives it more; an app that wants other
   placement composes `.frame(alignment:)`. Terminal UIs read top-leading
-  ([catalog layout decisions](../../docs/Spec.md#catalog-layout-decisions)).
+  ([catalog layout decisions](../../spec.md#catalog-layout-decisions)).
 - **Every candidate is a live node, and the choice is derived.** Measuring a candidate
   needs its node, so all candidates are reconciled; the choice is recomputed and never
   stored.
@@ -501,12 +501,12 @@ capability-specific rule.
   candidates never changes a terminal mode.
 
 This contract was reviewed against the
-[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module). Views stay
-values: candidates are view values, and the choice is a pure function of them and the
-proposal. The runtime tree is explicit: every candidate is a node in `dump()`, and the
-choice shows as frames. State stays the app's: `ViewThatFits` has no `NodeState` and moves
-none between candidates. Terminal authority stays in the session: it draws nothing, and
-the graph aggregates requirements as it always does.
+[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module). Views stay values:
+candidates are view values, and the choice is a pure function of them and the proposal.
+The runtime tree is explicit: every candidate is a node in `dump()`, and the choice shows
+as frames. State stays the app's: `ViewThatFits` has no `NodeState` and moves none between
+candidates. Terminal authority stays in the session: it draws nothing, and the graph
+aggregates requirements as it always does.
 
 ## Open questions
 
@@ -518,8 +518,8 @@ the graph aggregates requirements as it always does.
   2026-10-18). Should LabeledContent follow Form and stack before its value wraps, or
   should Tessera add a widest-word measurement that a candidate can report as its ideal?
   Text declares no minimum today ([Text](text.md#sizing)). Deferred to
-  [Flow layout and ViewThatFits](../../docs/Spec.md#flow-layout-and-viewthatfits) (plan
-  032 step 14.1). Either answer leaves the selection rule here unchanged: the first needs
+  [Flow layout and ViewThatFits](../../spec.md#flow-layout-and-viewthatfits) (plan 032
+  step 14.1). Either answer leaves the selection rule here unchanged: the first needs
   nothing new, and the second adds a measurement that only LabeledContent's inline
   candidate uses.
 

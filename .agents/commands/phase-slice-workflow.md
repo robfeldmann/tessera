@@ -1,13 +1,20 @@
-# Phase/Slice Implementation Workflow
+---
+description:
+  Implement the next phase or slice of the spec with the repository's planning, API, test,
+  and review conventions.
+argument-hint: [phase or slice]
+---
 
-Use this prompt when implementing the next phase or slice from `docs/Spec.md`.
+# Phase or slice implementation workflow
+
+Implement the next phase or slice from `docs/spec.md`: $ARGUMENTS
 
 ## Start by planning
 
-1. Read `AGENTS.md` and the relevant `docs/Spec.md` section.
+1. Read `AGENTS.md` and the relevant `docs/spec.md` section.
 2. Use the `planning` skill when creating or substantially revising a plan.
-3. If the work is larger than one small change, create or update a numbered plan in
-   `.agents/plans/`.
+3. If the work is larger than one small change, create or update a plan in `docs/plans/`
+   (slug filename; `docs/plans.md` is rendered from its frontmatter).
 4. Plan steps should pair production code and tests together. This makes API review easier
    because the API and its usage are visible in the same review chunk.
 5. Avoid separate "add tests later" steps unless there is a strong reason.
@@ -83,7 +90,7 @@ During implementation:
 3. Run Markdown lint for edited Markdown files:
 
    ```fish
-   pnpx markdownlint-cli <path>
+   node_modules/.bin/markdownlint-cli2 <path>
    ```
 
 4. Run targeted DocC generation when public symbols or DocC pages change.
@@ -111,4 +118,4 @@ swift test
 - Be concise and direct.
 - Explain tradeoffs when API/test design is uncertain.
 - If a decision might not scale, call that out and either document the future direction in
-  `docs/Spec.md` or update the plan so it is not forgotten.
+  `docs/spec.md` or update the plan so it is not forgotten.

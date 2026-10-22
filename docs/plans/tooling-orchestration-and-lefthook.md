@@ -1,14 +1,14 @@
 ---
-name: Tooling orchestration and Lefthook migration
+type: plan
+stage: planned
+created: 2026-07-17
+order: 29
 description:
   Unify formatter ownership, deterministic quality gates, hook management, and CI around
   repository-managed commands.
-status: pending
-created: 2026-07-17
-updated: 2026-07-17
 ---
 
-<!-- Allowed status values: planning, in-review, pending, in-progress, complete. -->
+# Tooling orchestration and Lefthook migration
 
 ## Progress
 

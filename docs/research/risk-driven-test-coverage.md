@@ -1,7 +1,8 @@
 ---
-name: Risk-Driven Test Coverage
-date: 2026-06-10
+type: research
+observed: 2026-06-10
 status: resolved
+description: Risk-Driven Test Coverage
 ---
 
 # Risk-Driven Test Coverage

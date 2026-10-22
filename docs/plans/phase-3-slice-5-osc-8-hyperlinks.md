@@ -1,12 +1,15 @@
 ---
-name: Phase 3 Slice 5 OSC 8 Hyperlinks
+type: plan
+stage: done
+created: 2026-07-02
+completed: 2026-07-06
+order: 20
 description:
   Add semantic OSC 8 hyperlink styling, encoder support, renderer state transitions,
   hyperlink-aware snapshots, and a demo panel.
-status: complete
-created: 2026-07-02
-updated: 2026-07-06
 ---
+
+# Phase 3 Slice 5 OSC 8 Hyperlinks
 
 ## Progress
 
@@ -24,7 +27,7 @@ updated: 2026-07-06
 
 ## Overview
 
-This plan implements `docs/Spec.md` Phase 3 Slice 5. OSC 8 hyperlinks are output metadata:
+This plan implements `docs/spec.md` Phase 3 Slice 5. OSC 8 hyperlinks are output metadata:
 visible text is still ordinary cells, while a style field tells the renderer to surround
 those cells with OSC 8 open/close sequences.
 

@@ -1,0 +1,9 @@
+$schema: https://document-schema.org/draft/2026-06/schema
+description: Durable system decision and rationale.
+maxDepth: 4
+frontmatter:
+  type: object
+  required: [type]
+  properties:
+    type: { const: architecture }
+    description: { type: string }

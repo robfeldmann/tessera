@@ -1,7 +1,8 @@
 ---
-name: Phase 3 runtime configurability
-date: 2026-07-09
+type: research
+observed: 2026-07-09
 status: resolved
+description: Phase 3 runtime configurability
 ---
 
 # Phase 3 runtime configurability

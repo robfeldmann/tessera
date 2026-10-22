@@ -1,12 +1,15 @@
 ---
-name: Windows Ghostty Snapshot Enablement
+type: plan
+stage: done
+created: 2026-07-02
+completed: 2026-07-02
+order: 14
 description:
   Productize the Windows libghostty-vt build path proven by the Phase 5 spike and enable
   Ghostty-backed snapshot tests on Windows behind an explicit local gate.
-status: complete
-created: 2026-07-02
-updated: 2026-07-02
 ---
+
+# Windows Ghostty Snapshot Enablement
 
 ## Progress
 
@@ -46,8 +49,8 @@ updated: 2026-07-02
 ## Overview
 
 The Phase 5 spike of plan 012 (recorded in
-`.agents/investigations/006-windows-libghostty-vt-snapshot-spike.md`) proved that the
-pinned `libghostty-vt` revision (`scripts/ghostty-vt-version.txt`,
+`docs/research/windows-libghostty-vt-snapshot-spike.md`) proved that the pinned
+`libghostty-vt` revision (`scripts/ghostty-vt-version.txt`,
 `ae52f97dcac558735cfa916ea3965f247e5c6e9e`) builds on Windows ARM64 with
 `zig build -Demit-lib-vt -Dsimd=false -Doptimize=ReleaseFast --prefix <install>`, and that
 with the artifact present the Ghostty-backed test suites pass in the Frost guest (6 + 34 +
@@ -142,7 +145,7 @@ materialization a build-script responsibility with one cross-platform convention
 ### Step 1.1 — Replace the committed `CGhosttyVT` header symlink with a build-materialized directory
 
 - Files: `Sources/CGhosttyVT/include/ghostty` (delete symlink), `.gitignore`,
-  `scripts/build-libghostty-vt.sh`, `docs/UpdatingGhosttyVT.md`.
+  `scripts/build-libghostty-vt.sh`, `docs/guides/updating-ghostty-vt.md`.
 - `git rm` the `Sources/CGhosttyVT/include/ghostty` symlink; add
   `Sources/CGhosttyVT/include/ghostty/` to `.gitignore`.
 - In `scripts/build-libghostty-vt.sh`, replace `update_workspace_header_bridge_symlink()`
@@ -153,8 +156,9 @@ materialization a build-script responsibility with one cross-platform convention
   `just core build-libghostty-vt` always leaves a valid header directory. Keep the
   cache-level `current` symlink — it is diagnostic and POSIX-only.
 - `Sources/CGhosttyVT/include/module.modulemap` (`umbrella "ghostty"`) is unchanged.
-- Update `docs/UpdatingGhosttyVT.md`: describe materialization instead of the symlink;
-  keep the "do not commit generated artifacts" rule (the directory is gitignored).
+- Update `docs/guides/updating-ghostty-vt.md`: describe materialization instead of the
+  symlink; keep the "do not commit generated artifacts" rule (the directory is
+  gitignored).
 - Windows note: `scripts/windows-frost-sync-source.sh` packages
   `git ls-files --cached --others --exclude-standard`, so after this step the tar carries
   neither symlink nor headers — the guest materializes its own copy (Phase 4).
@@ -309,9 +313,9 @@ host-cached artifact so disposable overlays stay fast; docs cover the whole loop
 
 ### Step 4.2 — Update docs and verify the full Windows snapshot suite in Frost
 
-- Files: `docs/UpdatingGhosttyVT.md`, `CONTRIBUTING.md`,
-  `.agents/investigations/006-windows-libghostty-vt-snapshot-spike.md`.
-- `docs/UpdatingGhosttyVT.md`: add the Windows path to the update process
+- Files: `docs/guides/updating-ghostty-vt.md`, `CONTRIBUTING.md`,
+  `docs/research/windows-libghostty-vt-snapshot-spike.md`.
+- `docs/guides/updating-ghostty-vt.md`: add the Windows path to the update process
   (`build-libghostty-vt.ps1`, prefetch behavior, `just windows-frost build-ghostty` after
   a pin bump); document `TESSERA_GHOSTTY_WINDOWS`.
 - `CONTRIBUTING.md`: extend the Windows Frost workflow section with the `build-ghostty` →

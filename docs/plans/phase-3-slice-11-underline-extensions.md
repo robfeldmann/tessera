@@ -1,15 +1,16 @@
 ---
-name: Phase 3 Slice 11 Underline Extensions
-description:
-  Add semantic SGR underline style variants and colored underlines: undercurl and other
-  SGR 4:x styles, underline color/reset, renderer diffing, compatibility with the legacy
-  underline bit, snapshots, exact byte tests, and documentation.
-status: complete
+type: plan
+stage: done
 created: 2026-07-07
-updated: 2026-07-09
+completed: 2026-07-09
+order: 27
+description:
+  "Add semantic SGR underline style variants and colored underlines: undercurl and other
+  SGR 4:x styles, underline color/reset, renderer diffing, compatibility with the legacy
+  underline bit, snapshots, exact byte tests, and documentation."
 ---
 
-<!-- Allowed status values: planning, in-review, pending, in-progress, complete. -->
+# Phase 3 Slice 11 Underline Extensions
 
 ## Progress
 
@@ -30,7 +31,7 @@ updated: 2026-07-09
 
 ## Overview
 
-This plan implemented `docs/Spec.md` Phase 3 Slice 11. Tessera models semantic underline
+This plan implemented `docs/spec.md` Phase 3 Slice 11. Tessera models semantic underline
 variants (`4:2` double, `4:3` curly/undercurl, `4:4` dotted, `4:5` dashed) and underline
 colors (`58` plus `59` reset) independently from two-state text attributes. The work is
 output-only: visible text remains ordinary cells and underline metadata consumes no layout
@@ -40,8 +41,8 @@ The extended preset is the default; baseline rendering is explicit.
 
 Before making code changes, future implementers must read these four sources in order:
 
-1. `.agents/plans/015-phase-3-modern-terminal-protocols.md`
-2. `docs/Spec.md`'s Phase 3 overview and the inserted `### Slice 11: Underline extensions`
+1. `docs/plans/phase-3-modern-terminal-protocols.md`
+2. `docs/spec.md`'s Phase 3 overview and the inserted `### Slice 11: Underline extensions`
    section
 3. this plan file
 4. the current implementations of `Style`, `ControlSequence`, and `StyleEncoding` listed
@@ -166,9 +167,9 @@ underline API.
 ### Step 1.1 — Read the Phase 3 protocol context before editing
 
 - Files to read before any code edit:
-  - `.agents/plans/015-phase-3-modern-terminal-protocols.md`
-  - `docs/Spec.md` Phase 3 overview plus `### Slice 11: Underline extensions`
-  - `.agents/plans/027-phase-3-slice-11-underline-extensions.md`
+  - `docs/plans/phase-3-modern-terminal-protocols.md`
+  - `docs/spec.md` Phase 3 overview plus `### Slice 11: Underline extensions`
+  - `docs/plans/phase-3-slice-11-underline-extensions.md`
   - `Sources/TesseraTerminalBuffer/Style.swift`
   - `Sources/TesseraTerminalANSI/Color.swift`
   - `Sources/TesseraTerminalANSI/ANSIColor.swift`
@@ -426,11 +427,11 @@ Acceptance:
 ### Step 3.3 — Update the Phase 3 docs and example surface
 
 - Files:
-  - `docs/Spec.md`
+  - `docs/spec.md`
   - an existing Phase 3 terminal protocol demo file if one exists in `Examples/`,
     `Sources/`, or another example target by the time this plan is executed
 - Insert the finalized `### Slice 11: Underline extensions` section after Slice 10 in
-  `docs/Spec.md` once slices 8-10 exist, or after Slice 7 if the umbrella plan still lists
+  `docs/spec.md` once slices 8-10 exist, or after Slice 7 if the umbrella plan still lists
   this as the next post-7 addition. Keep the title exactly
   `### Slice 11: Underline extensions`.
 - Update the Phase 3 demo panel, if present, to render a short, text-only matrix:
@@ -489,10 +490,9 @@ new project-wide validation command.
 
 ## References
 
-- `docs/Spec.md` Phase 3 overview and the new `### Slice 11: Underline extensions`
+- `docs/spec.md` Phase 3 overview and the new `### Slice 11: Underline extensions`
   section.
-- `.agents/plans/015-phase-3-modern-terminal-protocols.md` for the umbrella Phase 3
-  contracts.
+- `docs/plans/phase-3-modern-terminal-protocols.md` for the umbrella Phase 3 contracts.
 - Existing Tessera style/renderer files:
   - `Sources/TesseraTerminalBuffer/Style.swift`
   - `Sources/TesseraTerminalANSI/ControlSequence.swift`

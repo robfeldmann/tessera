@@ -1,7 +1,8 @@
 ---
-name: Windows libghostty-vt Snapshot Build Spike
-date: 2026-06-14
+type: research
+observed: 2026-06-14
 status: resolved
+description: Windows libghostty-vt Snapshot Build Spike
 ---
 
 # Windows libghostty-vt Snapshot Build Spike
@@ -14,8 +15,8 @@ gets the same snapshot coverage as macOS/Linux? If not easily, is there a better
 VT engine to use on Windows, and what is the fallback?
 
 This investigation backs the Phase 2 Slice 6 plan
-(`.agents/plans/012-phase-2-slice-6-windows-terminal-io.md`). The plan's default is to
-skip Windows snapshot coverage; this spike decides whether we can do better.
+(`docs/plans/phase-2-slice-6-windows-terminal-io.md`). The plan's default is to skip
+Windows snapshot coverage; this spike decides whether we can do better.
 
 ## Findings
 
@@ -127,8 +128,8 @@ documented Windows snapshot skip is the correct fallback.
 
 ## Follow-up
 
-`.agents/plans/014-windows-ghostty-snapshot-enablement.md` productized the three seams
-this spike identified: `scripts/build-libghostty-vt.ps1` prefetches the pinned checkout's
+`docs/plans/windows-ghostty-snapshot-enablement.md` productized the three seams this spike
+identified: `scripts/build-libghostty-vt.ps1` prefetches the pinned checkout's
 `build.zig.zon.json` dependencies with `curl.exe` and hands local archives to `zig fetch`
 (avoiding Zig's broken Windows TLS path), the committed header symlink was replaced by
 build-materialized gitignored headers on every platform, and Windows links

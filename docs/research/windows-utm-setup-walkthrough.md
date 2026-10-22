@@ -1,7 +1,8 @@
 ---
-name: Windows UTM setup walkthrough
-date: 2026-06-14
+type: research
+observed: 2026-06-14
 status: open
+description: Windows UTM setup walkthrough
 ---
 
 # Windows UTM setup walkthrough
@@ -283,4 +284,4 @@ OpenSSH, reached from macOS with SSH key auth, and driven with `just windows-utm
 and `just windows-utm test`. The Windows test run now reaches the expected Phase 1
 portability failure (`termios.h` missing), proving the Phase 0 workflow is good enough for
 local iteration. The resulting contributor-facing walkthrough was promoted to
-`docs/WindowsVM.md`.
+`docs/guides/windows-vm.md`.

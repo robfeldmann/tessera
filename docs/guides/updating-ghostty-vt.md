@@ -1,3 +1,8 @@
+---
+type: guide
+description: "Updating Ghostty VT"
+---
+
 # Updating Ghostty VT
 
 Tessera pins Ghostty's `libghostty-vt` source revision in

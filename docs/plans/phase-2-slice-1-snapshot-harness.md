@@ -1,11 +1,14 @@
 ---
-name: Phase 2 Slice 1 Ghostty Snapshot Harness
+type: plan
+stage: done
+created: 2026-06-05
+completed: 2026-06-06
+order: 6
 description:
   Build the Ghostty-backed virtual terminal harness for renderer snapshot coverage.
-status: completed
-created: 2026-06-05
-updated: 2026-06-06
 ---
+
+# Phase 2 Slice 1 Ghostty Snapshot Harness
 
 ## Progress
 
@@ -14,7 +17,7 @@ updated: 2026-06-06
   - [x] 1.2 Compare Ghostty integration paths and prove `feed → inspect`
   - [x] 1.3 Record the spike findings and recommendation
 - [x] **Phase 2 — Correct the slice direction and build path**
-  - [x] 2.1 Update `docs/Spec.md` based on the accepted spike result
+  - [x] 2.1 Update `docs/spec.md` based on the accepted spike result
   - [x] 2.2 Add pinned source build script and CI cache for libghostty-vt
   - [x] 2.3 Wire the selected direct libghostty-vt integration path on macOS and Linux
 - [x] **Phase 3 — Ghostty-backed inspection API**
@@ -29,7 +32,7 @@ updated: 2026-06-06
 
 ## Overview
 
-This plan implements Phase 2 Slice 1 from `docs/Spec.md`. Phase 1 validated that Ghostty
+This plan implements Phase 2 Slice 1 from `docs/spec.md`. Phase 1 validated that Ghostty
 can provide the needed `feed → inspect` terminal-state API and that Tessera should own a
 narrow direct `libghostty-vt` integration rather than use the broader `GhosttyKit` surface
 wrapper. Ghostty/libghostty-vt is itself cross-platform, including Linux; any platform
@@ -70,11 +73,11 @@ graph.
 
 ### Step 1.3 — Record the spike findings and recommendation
 
-- File: `.agents/investigations/<date>-ghostty-vt-harness-spike.md`
+- File: `docs/research/<date>-ghostty-vt-harness-spike.md`
 - Record which package/revision/build path was tried, which APIs worked, which platforms
   were actually validated, and the recommended implementation path.
 - Include a clear yes/no on whether to proceed with Ghostty for Slice 1 now.
-- Acceptance: the investigation is sufficient to update `docs/Spec.md` and the remaining
+- Acceptance: the investigation is sufficient to update `docs/spec.md` and the remaining
   plan without re-running the spike.
 
 ## Phase 2 — Correct the slice direction and build path
@@ -84,14 +87,14 @@ the accepted spike result.
 
 ### Step 2.1 — Update the spec based on the accepted spike result
 
-- File: `docs/Spec.md`
+- File: `docs/spec.md`
 - Rewrite Phase 2 Slice 1 around direct `libghostty-vt` as Tessera's rendering reference.
 - Remove the stale hand-rolled VT and `GhosttyKit`/surface-wrapper directions as active
   implementation paths.
 - Capture the testing philosophy: raw byte tests still belong at the ANSI encoder layer,
   while renderer/view tests assert Ghostty-reconstructed screen state.
-- Acceptance: `pnpx markdownlint-cli docs/Spec.md` passes.
-- Completed: `docs/Spec.md` now describes direct `libghostty-vt`, `VirtualTerminal`,
+- Acceptance: `pnpx markdownlint-cli docs/spec.md` passes.
+- Completed: `docs/spec.md` now describes direct `libghostty-vt`, `VirtualTerminal`,
   snapshot strategies, concurrency constraints, and the damage-tracking test shape.
 
 ### Step 2.2 — Add pinned source build script and CI cache for libghostty-vt
@@ -247,20 +250,20 @@ the accepted spike result.
 
 ### Step 5.1 — Document Ghostty integration limits and platform support
 
-- File: `.agents/investigations/` or the relevant docs section, depending on what is most
-  useful after implementation.
+- File: `docs/research/` or the relevant docs section, depending on what is most useful
+  after implementation.
 - Record which Ghostty package/revision/build path was chosen, which APIs are used, and
   which platforms are actually covered by snapshot tests today.
 - Acceptance: future agents can tell how to update Ghostty, build it on Linux, or debug
   any intentional platform skips.
-- Completed: recorded `.agents/investigations/003-ghostty-vt-snapshot-harness-closeout.md`
-  with the chosen revision/build path, used Ghostty APIs, macOS/Linux validation status,
-  local prerequisites, and remaining Windows scope.
+- Completed: recorded `docs/research/ghostty-vt-snapshot-harness-closeout.md` with the
+  chosen revision/build path, used Ghostty APIs, macOS/Linux validation status, local
+  prerequisites, and remaining Windows scope.
 
 ### Step 5.2 — Run slice validation and update progress
 
 - Files:
-  - `.agents/plans/006-phase-2-slice-1-snapshot-harness.md`
+  - `docs/plans/phase-2-slice-1-snapshot-harness.md`
   - changed source/test/doc files
 - Run the narrow target tests first, then `just quality changed`; run markdown lint for
   all edited Markdown.
@@ -275,8 +278,8 @@ the accepted spike result.
 
 ## References
 
-- `docs/Spec.md`, Phase 2 Slice 1: The snapshot harness.
+- `docs/spec.md`, Phase 2 Slice 1: The snapshot harness.
 - `Sources/TesseraTerminalSnapshotSupport/VirtualTerminal.swift` existing placeholder.
-- `.agents/investigations/002-ghostty-vt-harness-spike.md`.
+- `docs/research/ghostty-vt-harness-spike.md`.
 - Ghostty upstream describes `libghostty-vt` as cross-platform; wrapper/package/build
   constraints must be verified separately from Ghostty's own platform support.

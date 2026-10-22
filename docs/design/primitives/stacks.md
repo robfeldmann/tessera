@@ -12,7 +12,7 @@ child whose minimum main-axis length is `minLength`. `layoutPriority` is immutab
 configuration read by stacks, not widget state.
 
 The normative distribution algorithm remains
-[Slice 2 stack algorithm](../../docs/Spec.md#the-stack-algorithm-normative). This document
+[Slice 2 stack algorithm](../../spec.md#the-stack-algorithm-normative). This document
 fixes fixture-grade outcomes and composition expectations rather than restating that
 algorithm.
 
@@ -24,8 +24,8 @@ algorithm.
 - Apple SwiftUI [HStack](https://developer.apple.com/documentation/swiftui/hstack) and
   [Spacer](https://developer.apple.com/documentation/swiftui/spacer) — copy familiar
   composition vocabulary. Reject a platform-dependent default gap; Tessera defaults to 0.
-- Tessera [Slice 2](../../docs/Spec.md#slice-2-the-layout-protocol-and-stack-containers) —
-  owns public APIs, priority tiers, flexibility probes, rounding, and overflow policy.
+- Tessera [Slice 2](../../spec.md#slice-2-the-layout-protocol-and-stack-containers) — owns
+  public APIs, priority tiers, flexibility probes, rounding, and overflow policy.
 - omp2 `Col`
   ([col.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/col.rs#L15-L21)),
   `Row`
@@ -109,7 +109,7 @@ one-child stack has no leading or trailing spacing. `Spacer` is a child, so spac
 each side of it is still ordinary inter-child spacing. Negative spacing and negative
 `Spacer.minLength` are rejected by `precondition` before layout; neither can create an
 overlap or negative allocation. See
-[catalog layout decisions](../../docs/Spec.md#catalog-layout-decisions).
+[catalog layout decisions](../../spec.md#catalog-layout-decisions).
 
 Children keep their measured cross-axis extent: a stack places each child at the size it
 reports and positions it with `alignment`; it never stretches a child across the cross
@@ -193,10 +193,10 @@ capability mode preserves integer distribution, source order, and parent-frame c
 ## Decisions and deferred scope
 
 Negative spacing and `minLength` use the pre-layout `precondition` diagnostics in
-[catalog layout decisions](../../docs/Spec.md#catalog-layout-decisions). Baseline
-alignment is explicitly excluded from Phase 4 pending the scoped
-[deferred baseline alignment](../../docs/Spec.md#deferred-baseline-alignment) proposal; it
-must not appear as an undocumented enum case.
+[catalog layout decisions](../../spec.md#catalog-layout-decisions). Baseline alignment is
+explicitly excluded from Phase 4 pending the scoped
+[deferred baseline alignment](../../spec.md#deferred-baseline-alignment) proposal; it must
+not appear as an undocumented enum case.
 
 Two equal Spacers share the remainder by source order: the earliest Spacer takes the extra
 cell (owner decision, 2026-10-10). omp2's `<spacer>` is a `grow=1` child
@@ -206,13 +206,13 @@ toward the later one
 ([layout.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/components/layout.rs#L153-L164)),
 so the 40-column anatomy row gets gaps of 12 and 13 cells. Tessera keeps the
 earliest-Spacer rule, as the allocation fixtures above state, under the normative
-[Slice 2 stack algorithm](../../docs/Spec.md#the-stack-algorithm-normative).
+[Slice 2 stack algorithm](../../spec.md#the-stack-algorithm-normative).
 
 Flow layout (a row that wraps children onto new lines when the width runs out) is not an
 HStack mode. `HStack` never wraps and gains no `wrap` argument. omp2's `wrap` row (key G6)
 is Tessera's [flow layout](flow.md), specified in
-[Flow layout and ViewThatFits](../../docs/Spec.md#flow-layout-and-viewthatfits) and built
-in plan 032 step 14.1; it sits outside the Slice 2 stack contract.
+[Flow layout and ViewThatFits](../../spec.md#flow-layout-and-viewthatfits) and built in
+plan 032 step 14.1; it sits outside the Slice 2 stack contract.
 
 Stacks take no row cap and no press or focus behaviour. omp2's `max-rows` and its
 `... N more` footer become `.maxRows(_:)` only on views whose doc defines the footer; an
@@ -222,8 +222,8 @@ overflowing stack goes in a ScrollView (key B8). A `col` with `focus` and `id` t
 regions of its own (key F1).
 
 Reviewed against the
-[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): stacks are
-value descriptions lowered to layout nodes, allocation is deterministic integer math that
+[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): stacks are value
+descriptions lowered to layout nodes, allocation is deterministic integer math that
 `dump()` shows, they hold no state, and they touch no terminal capability.
 
 ## Inspiration

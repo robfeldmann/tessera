@@ -1,17 +1,22 @@
-# Promote a Design Catalog Doc
+---
+description: Review a design catalog page against the promotion gate for its next status.
+argument-hint: <kind>/<name> <wireframed|specified|ready>
+---
 
-Use this prompt to review a component doc in `design/` for promotion to its next status.
+# Promote a design catalog page
 
-Doc: `design/<kind>/<name>.md` -- target status: `<wireframed|specified|ready>`
+Review a component page in `docs/design/` for promotion to its next status.
+
+Page: `docs/design/$1.md` -- target status: `$2` (`wireframed`, `specified`, or `ready`)
 
 ## Steps
 
 1. Use the `design-catalog` skill. Read the promotion gate for the target status in
-   `design/README.md#status-ladder`; the gate is the checklist, verbatim.
+   `docs/design.md#status-ladder`; the gate is the checklist, verbatim.
 2. Verify mechanically first:
-   - `scripts/check-wireframes.py design/<kind>/<name>.md`
-   - `pnpx markdownlint-cli design/<kind>/<name>.md`
-3. Verify against the schemas (`design/README.md#table-schemas`):
+   - `scripts/check-wireframes.py docs/design/$1.md`
+   - `node_modules/.bin/markdownlint-cli2 docs/design/$1.md`
+3. Verify against the schemas (`docs/design.md#table-schemas`):
    - every table has exactly the schema columns and closed-vocabulary values;
    - every key/mouse precondition references only declared state-model rows;
    - every mouse Region is named in the anatomy callouts;
@@ -20,7 +25,7 @@ Doc: `design/<kind>/<name>.md` -- target status: `<wireframed|specified|ready>`
 4. For `ready` additionally: every primitive dependency is `ready` or `implemented` in the
    README index; every open question is resolved or explicitly deferred with a destination
    (Spec.md section or issue); the doc does not contradict the Phase 4 theses in
-   `docs/Spec.md`.
+   `docs/spec.md`.
 5. Report violations as a list with file/section references. Only if all gates pass:
    update the frontmatter status and the README index row.
 

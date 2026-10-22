@@ -79,7 +79,7 @@ Start here — the DocC catalogs are the API reference and article home:
   [**TesseraTerminal** DocC catalog](Sources/TesseraTerminal/TesseraTerminal.docc/TesseraTerminal.md)
   — the terminal substrate, sessions, and
   [Modern Terminal Protocols](Sources/TesseraTerminal/TesseraTerminal.docc/Articles/Modern-Terminal-Protocols.md).
-- 🗺️ [Project status](docs/ProjectStatus.md) — maturity, roadmap, and documentation
+- 🗺️ [Project status](docs/project-status.md) — maturity, roadmap, and documentation
   boundaries.
 - 🛠️ [Contributing](CONTRIBUTING.md) — dev loop, quality gates, and VM guides.
 
@@ -191,7 +191,7 @@ validate other OS versions are welcome.
 The next body of work completes the view and application-programming layer, then uses it
 to exercise the substrate in integrated applications — including the Showcase app — and to
 broaden the OS versions Tessera supports and tests. See
-[Project status](docs/ProjectStatus.md).
+[Project status](docs/project-status.md).
 
 ## Contributing
 
@@ -210,8 +210,9 @@ just quality lint     # strict format + lint gate
 Cross-platform work runs in reproducible VMs:
 
 - 🐧 [Linux (Lima) test runs](CONTRIBUTING.md#linux) and `just linux …`
-- 🪟 [Windows VM with Frost](docs/WindowsFrostVM.md) /
-  [manual UTM setup](docs/WindowsVM.md) and `just windows-frost …` / `just windows-utm …`
+- 🪟 [Windows VM with Frost](docs/guides/windows-frost-vm.md) /
+  [manual UTM setup](docs/guides/windows-vm.md) and `just windows-frost …` /
+  `just windows-utm …`
 
 Start in the appropriate Discussion category before opening a pull request so we can agree
 on the problem and direction. First-time contributors then use the

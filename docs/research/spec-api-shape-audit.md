@@ -1,14 +1,15 @@
 ---
-name: Spec API Shape Audit
-date: 2026-06-05
+type: research
+observed: 2026-06-05
 status: resolved
+description: Spec API Shape Audit
 ---
 
 # Spec API Shape Audit
 
 ## Question
 
-Does `docs/Spec.md` contradict the intent that early phases should build the real public
+Does `docs/spec.md` contradict the intent that early phases should build the real public
 API shape whenever feasible, rather than placeholder, temporary, or phase-named API?
 
 ## Findings

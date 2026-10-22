@@ -1,0 +1,10 @@
+$schema: https://document-schema.org/draft/2026-06/schema
+description:
+  One section of the Tessera specification, split from the original docs/Spec.md.
+maxDepth: 6
+frontmatter:
+  type: object
+  required: [type]
+  properties:
+    type: { const: spec }
+    description: { type: string }

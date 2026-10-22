@@ -19,8 +19,8 @@ title and adds no content padding beyond the one-cell ring.
   `~/Developer/ratatui/ratatui/main/ratatui-widgets/src/borders.rs` — reference for named
   box-drawing sets and custom glyph sets; Tessera names sets in
   [tokens.md](../tokens.md#border-sets) rather than as ad hoc codepoints.
-- Tessera [Slice 3](../../docs/Spec.md#slice-3-styling-text-wrapping-and-decoration) —
-  owns `BorderStyle`, the public modifier signature, and the one-cell-inset direction.
+- Tessera [Slice 3](../../spec.md#slice-3-styling-text-wrapping-and-decoration) — owns
+  `BorderStyle`, the public modifier signature, and the one-cell-inset direction.
 - omp2 has no Border component; the [translation key](../translation-key.md#coverage) maps
   its `border`, `bc`, `edge`, and `bleed` attributes ([vocab][omp2-border-attrs]), which
   `Cached` draws as chrome around any component ([paints_border][omp2-chrome],
@@ -140,7 +140,7 @@ Callouts (1x1, 0-based):
 ## Public API
 
 The candidate spelling, owned by
-[Slice 3](../../docs/Spec.md#slice-3-styling-text-wrapping-and-decoration):
+[Slice 3](../../spec.md#slice-3-styling-text-wrapping-and-decoration):
 
 ```swift
 public enum BorderStyle: Equatable, Sendable {
@@ -174,7 +174,7 @@ is how a caller or the focus system passes `focus`.
 
 ## Sizing
 
-Schema: [README](../README.md#sizing-table). The child measured here has a ten-by-two
+Schema: [README](../../design.md#sizing-table). The child measured here has a ten-by-two
 ideal.
 
 | Proposal  | Result                                | Rule                                                                                |
@@ -390,13 +390,13 @@ background under the ring, and `.background { … }.border()` only inside it (ke
 [Background](background.md)).
 
 Reviewed against the
-[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): Border is a
-unary layout wrapper plus a render decoration, appearance comes from shared tokens, and
-geometry is deterministic integer-cell output.
+[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): Border is a unary
+layout wrapper plus a render decoration, appearance comes from shared tokens, and geometry
+is deterministic integer-cell output.
 
 Owner decision, 2026-10-10: an interactive bordered child's decorative-versus-hit question
-is deferred to [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing). The border
-ring is decorative; hit testing follows the wrapped child's final frame and clip.
+is deferred to [Slice 5](../../spec.md#slice-5-mouse-and-hit-testing). The border ring is
+decorative; hit testing follows the wrapped child's final frame and clip.
 
 Box's ring, drawn by this modifier, is also the track for `.border` scroll-indicator
 placement (`.scrollIndicatorPlacement(.border)`): Box paints the preset's thumb glyph in

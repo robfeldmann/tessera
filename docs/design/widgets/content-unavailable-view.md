@@ -15,7 +15,7 @@ search with no results, and error. Loading is not a case: a loading region is a 
 [ProgressView](progress-view.md), as in SwiftUI (owner decision, omp2 review, 2026-10).
 The app owns every string, icon, and action; the view stores nothing and is controlled.
 See
-[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
+[Slice 7](../../spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
 
 ## Prior art
 
@@ -75,7 +75,7 @@ centred [ProgressView](progress-view.md).
 
 One wireframe at a natural component size, followed by callouts. Callout region names are
 the vocabulary for the mouse table. Schemas and conventions:
-[README](../README.md#wireframe-conventions).
+[README](../../design.md#wireframe-conventions).
 
 The empty state is shown because it uses every region. The 40-column frame is the mobile
 width, where the column is the whole proposal; the mobile state at natural height is under
@@ -385,9 +385,9 @@ P  fg=accent
 
 ## State model
 
-Schema: [README](../README.md#state-model-table). Every `Binding` row is app-owned display
-data, a plain initializer parameter redeclared on every update (key D2). The view stores
-nothing: it has no `NodeState` row and no responder of its own.
+Schema: [README](../../design.md#state-model-table). Every `Binding` row is app-owned
+display data, a plain initializer parameter redeclared on every update (key D2). The view
+stores nothing: it has no `NodeState` row and no responder of its own.
 
 | State          | Owner       | Type                   | Reset or clamp rule                                                                                            |
 | -------------- | ----------- | ---------------------- | -------------------------------------------------------------------------------------------------------------- |
@@ -399,17 +399,17 @@ nothing: it has no `NodeState` row and no responder of its own.
 
 ## Key table
 
-Schema: [README](../README.md#key-table). None. The view owns no keys; its actions are
+Schema: [README](../../design.md#key-table). None. The view owns no keys; its actions are
 Buttons with their own key tables ([Button](button.md#key-table)).
 
 ## Mouse table
 
-Schema: [README](../README.md#mouse-table). None. The view owns no pointer regions; the
+Schema: [README](../../design.md#mouse-table). None. The view owns no pointer regions; the
 action Buttons handle activation ([Button](button.md#mouse-table)).
 
 ## Sizing
 
-Schema: [README](../README.md#sizing-table). Mandatory rows: nil x nil, tight,
+Schema: [README](../../design.md#sizing-table). Mandatory rows: nil x nil, tight,
 under-minimum, over-maximum. The view fills a finite proposal and centres its content
 column in it; the column is `min(width, readableWidth)` cells wide, since
 `.readableWidth()` is a maximum only (owner decisions, 2026-10-18).
@@ -455,7 +455,7 @@ Tokens consumed, each defined in [tokens.md](../tokens.md).
 ## Requirements
 
 Backticked sentence-style test names, each traced to a table row or wireframe state.
-Schema: [README](../README.md#requirements-list).
+Schema: [README](../../design.md#requirements-list).
 
 - `empty state centres the icon, title, description, and actions in the proposal`
   (Anatomy: Empty; Sizing)
@@ -495,11 +495,10 @@ What changes at `NO_COLOR`, 16-color, ascii-only, and below `min`. Reference the
   and 2026-10-18).
 
 This design was reviewed against the
-[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): every string,
-icon and action is an app-owned value redeclared on every update; the view stores nothing,
-owns no keys or pointer regions, and leaves activation to its Buttons; and the centred
-column is deterministic integer-cell layout through stacks, Frame and the readable-width
-cap.
+[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): every string, icon
+and action is an app-owned value redeclared on every update; the view stores nothing, owns
+no keys or pointer regions, and leaves activation to its Buttons; and the centred column
+is deterministic integer-cell layout through stacks, Frame and the readable-width cap.
 
 ## Open questions
 

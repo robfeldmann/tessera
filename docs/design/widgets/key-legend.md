@@ -32,7 +32,7 @@ ships in 1.0 as an option. ASCII spells the keys out.
 ## API
 
 Swift in SwiftUI vocabulary. The declarations come from
-[declared key bindings](../../docs/Spec.md#focus-appearance-focus-scopes-and-declared-key-bindings):
+[declared key bindings](../../spec.md#focus-appearance-focus-scopes-and-declared-key-bindings):
 responders declare the keys their handlers consume (key E3), each with a short
 description. Plan 032 step 10.3 settles the Swift spellings of the declaration and of
 `legendPriority(_:)`.
@@ -259,7 +259,7 @@ S  fg=border
 
 None. The legend takes no focus and consumes no keys. It reads the bindings the focused
 responders already declare, per
-[declared key bindings](../../docs/Spec.md#focus-appearance-focus-scopes-and-declared-key-bindings).
+[declared key bindings](../../spec.md#focus-appearance-focus-scopes-and-declared-key-bindings).
 
 ## Mouse table
 
@@ -267,8 +267,8 @@ None. The legend takes no pointer input.
 
 ## State model
 
-Schema: [README](../README.md#state-model-table). Focus is graph-owned, so both rows are
-`derived` and nothing is mirrored into `NodeState` (key ownership rule 4; key E8).
+Schema: [README](../../design.md#state-model-table). Focus is graph-owned, so both rows
+are `derived` and nothing is mirrored into `NodeState` (key ownership rule 4; key E8).
 
 | State    | Owner   | Type                                                                 | Reset or clamp rule                                                                            |
 | -------- | ------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
@@ -277,7 +277,7 @@ Schema: [README](../README.md#state-model-table). Focus is graph-owned, so both 
 
 ## Sizing
 
-Schema: [README](../README.md#sizing-table). Mandatory rows: nil x nil, tight,
+Schema: [README](../../design.md#sizing-table). Mandatory rows: nil x nil, tight,
 under-minimum, over-maximum.
 
 | Proposal                 | Result | Rule                                                                                                                                    |
@@ -305,7 +305,7 @@ under-minimum, over-maximum.
 - [Style modifiers](../primitives/style-modifiers.md) for the bold key and the keycap
   fill.
 - The focus and key routing that supplies the bindings, from
-  [declared key bindings](../../docs/Spec.md#focus-appearance-focus-scopes-and-declared-key-bindings)
+  [declared key bindings](../../spec.md#focus-appearance-focus-scopes-and-declared-key-bindings)
   (Slice 4; plan 032 step 10.3).
 
 ## Requirements
@@ -351,8 +351,8 @@ under-minimum, over-maximum.
   the legend draws nothing (owner decision, 2026-10-10).
 
 This design was reviewed against the
-[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): the legend is
-a value description that derives its entries from graph-owned focus and the responders'
+[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): the legend is a
+value description that derives its entries from graph-owned focus and the responders'
 declarations at render, stores nothing, and takes no input; a declaration installs no
 behaviour, so the graph still routes without interpreting keys; and the row is
 deterministic integer-cell output.
@@ -362,7 +362,7 @@ deterministic integer-cell output.
 - **Key glyphs (deferred to plan 032 step 10.3).** The legend draws `⏎`, `⇥`, `↑↓`, `/`
   and `esc`, and ASCII spells `enter`, `tab` and `up/down`. No table yet gives the glyph
   and the ASCII spelling of the other keys in the README's
-  [key notation](../README.md#key-table) (`Home`, `End`, `PgUp`, `PgDn`, `Backspace`,
+  [key notation](../../design.md#key-table) (`Home`, `End`, `PgUp`, `PgDn`, `Backspace`,
   `Delete`, `Space`, and modifier chords), or says whether `↑↓` is one declaration or two
   merged entries. Step 10.3 settles them with the declaration's Swift spelling.
 

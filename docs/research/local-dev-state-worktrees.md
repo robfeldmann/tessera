@@ -1,7 +1,8 @@
 ---
-name: Local Development State and Worktrees
-date: 2026-06-29
+type: research
+observed: 2026-06-29
 status: resolved
+description: Local Development State and Worktrees
 ---
 
 # Local Development State and Worktrees

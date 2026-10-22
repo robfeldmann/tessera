@@ -1,22 +1,22 @@
 ---
-name: Phase 4 View Layer and Tessera Showcase
+type: plan
+stage: cancelled
+created: 2026-07-17
+order: 30
 description:
   Implement the seven-slice Tessera view layer with design-catalog readiness gates and a
   progressively executable Showcase integration app.
-status: superseded
-superseded-by: 032-omp2-reference-gallery-and-phase-4-redesign.md
-created: 2026-07-17
-updated: 2026-10-10
 ---
 
-<!-- Allowed status values: planning, in-review, pending, in-progress, complete, superseded. -->
+# Phase 4 View Layer and Tessera Showcase
 
-> **Superseded 2026-10-10 by plan 032.** Phases 0 through 2.5 (Slices 1, 2, and 2.5) are
-> done and stay in `main`. The rest of this plan, including the Showcase, was replaced:
-> plan 032 now carries the Phase 4 implementation in a new order built around
-> per-component demos. The abandoned attempts at Phases 3 onward are archived as the
-> `archive/phase4` and `archive/phase4-review-loop` tags; see
-> `.agents/investigations/036-phase-4-salvage-review.md`. This file is kept as history.
+> **Superseded 2026-10-10 by plan 032**
+> ([Phase 4 view layer, redesigned from the omp2 reference](omp2-reference-gallery-and-phase-4-redesign.md)).
+> Phases 0 through 2.5 (Slices 1, 2, and 2.5) are done and stay in `main`. The rest of
+> this plan, including the Showcase, was replaced: plan 032 now carries the Phase 4
+> implementation in a new order built around per-component demos. The abandoned attempts
+> at Phases 3 onward are archived as the `archive/phase4` and `archive/phase4-review-loop`
+> tags; see `docs/research/phase-4-salvage-review.md`. This file is kept as history.
 
 ## Progress
 
@@ -76,7 +76,7 @@ updated: 2026-10-10
 
 ## Overview
 
-Implement Phase 4 as the seven dependency-ordered slices in `docs/Spec.md`, starting from
+Implement Phase 4 as the seven dependency-ordered slices in `docs/spec.md`, starting from
 an explicit, inspectable `ViewGraph` and ending with all accepted 1.0 components composed
 in the runnable Tessera Showcase described by `design/showcase.md`. Before each slice that
 consumes a catalog component, promote its design document through the catalog ladder
@@ -112,7 +112,7 @@ stage. Prefer one primary public concept per file, keep an underscored implement
 beside the public API it supports, and retain tightly coupled helpers together when
 splitting would widen access or obscure ownership. `TesseraCore` uses `Views/`,
 `Environment/`, `Runtime/`, `Diagnostics/`, `Input/`, and `Rendering/`; future steps must
-place new Core files in the matching directory defined by `docs/Spec.md`.
+place new Core files in the matching directory defined by `docs/spec.md`.
 
 ## Phase 0 — Contract, package graph, and design-catalog readiness
 
@@ -123,7 +123,7 @@ the design-catalog process.
 ### Step 0.1 — Freeze the cross-slice contracts and dependency direction
 
 - Files: `Package.swift`, `Sources/TesseraTerminalBuffer/Frame.swift`,
-  `Sources/TesseraTerminal/TesseraTerminal.swift`, `docs/Spec.md` (Phase 4 proposed module
+  `Sources/TesseraTerminal/TesseraTerminal.swift`, `docs/spec.md` (Phase 4 proposed module
   layout), the future `Sources/TesseraCore/**`, `Sources/TesseraLayout/**`, and
   `Sources/TesseraWidgets/**` target declarations,
   `Tests/TesseraArchitectureTests/ImportBoundaryTests.swift`, new
@@ -166,10 +166,10 @@ the design-catalog process.
 
 ### Step 0.2 — Promote the first-slice catalog prerequisites to `ready`
 
-- Files: `design/README.md`, `design/tokens.md`, `design/primitives/text.md`,
-  `design/primitives/frame.md`, `design/primitives/stacks.md`,
-  `design/primitives/padding.md`, `design/primitives/z-stack.md`, and any required catalog
-  DocC links.
+- Files: `docs/design.md`, `docs/design/tokens.md`, `docs/design/primitives/text.md`,
+  `docs/design/primitives/frame.md`, `docs/design/primitives/stacks.md`,
+  `docs/design/primitives/padding.md`, `docs/design/primitives/z-stack.md`, and any
+  required catalog DocC links.
 - Apply the design-catalog gates exactly: all anatomy wireframes use `wireframe WxH`, all
   widgets eventually include canonical `mobile` and `min` states, interaction/state/
   sizing tables use the closed schemas, requirements are backticked sentence-style Swift
@@ -179,10 +179,10 @@ the design-catalog process.
   `ZStack` are already specified but still require the dependency/readiness review.
 - Do not mark a component `ready` merely because it has a wireframe. A component is
   implementation-eligible only when primitive dependencies are `ready`/`implemented` and
-  its open questions are resolved or explicitly recorded in `docs/Spec.md` or an issue.
-- Correct `design/README.md`'s stale Validation commands to name the repository-local
-  pinned gates. Acceptance: `just quality wireframes` and `npm run check:markup` pass for
-  the catalog changes, and the README index accurately reports every promotion.
+  its open questions are resolved or explicitly recorded in `docs/spec.md` or an issue.
+- Correct `docs/design.md`'s stale Validation commands to name the repository-local pinned
+  gates. Acceptance: `just quality wireframes` and `npm run check:markup` pass for the
+  catalog changes, and the README index accurately reports every promotion.
 
 ### Step 0.3 — Establish the deterministic test and Showcase fixture harness
 
@@ -219,7 +219,7 @@ local diagnostics.
   `Sources/TesseraCore/Input/EventDisposition.swift`.
 - Implement `View`, `ViewBuilder`, `TupleView`, `ConditionalView`, `Optional`,
   `EmptyView`, `ForEach`, `AnyView`, `EquatableView`, `ProposedSize`, and
-  `EventDisposition` with the public shapes in `docs/Spec.md`. Keep composites pure and
+  `EventDisposition` with the public shapes in `docs/spec.md`. Keep composites pure and
   app-state-owned; do not add `@State` or make views `Sendable`.
 - Implement `LeafView` defaults and `Text` as a grapheme-width-aware leaf using the Phase
   2 width tables. Slice 1 Text truncates at its region edge; wrapping and fluent styling
@@ -291,10 +291,10 @@ stack/viewport geometry while retaining controlled state and clipping.
 
 ### Step 2.1 — Promote layout and viewport catalog documents before coding
 
-- Files: `design/primitives/divider.md`, `design/primitives/frame.md`,
-  `design/primitives/padding.md`, `design/primitives/stacks.md`,
-  `design/primitives/z-stack.md`, `design/widgets/split-view.md`,
-  `design/widgets/scroll-view.md`, and `design/README.md`.
+- Files: `docs/design/primitives/divider.md`, `docs/design/primitives/frame.md`,
+  `docs/design/primitives/padding.md`, `docs/design/primitives/stacks.md`,
+  `docs/design/primitives/z-stack.md`, `docs/design/widgets/split-view.md`,
+  `docs/design/widgets/scroll-view.md`, and `docs/design.md`.
 - Finish the `Divider`, `SplitView`, and `ScrollView` anatomy, mobile/min states where
   applicable, key/mouse/state/sizing tables, requirements, degradation rules, and open
   question decisions. Promote each to `specified`, then `ready`, before its code lands.
@@ -346,13 +346,13 @@ work depend on the temporary static allocator.
 
 ### Step 2.5.1 — Specify Flex and final pane-sizing contracts
 
-- Files: new `design/primitives/flex.md`, `design/widgets/split-view.md`,
-  `design/showcase.md`, `design/README.md`, `docs/Spec.md`, and this plan.
+- Files: new `docs/design/primitives/flex.md`, `docs/design/widgets/split-view.md`,
+  `design/showcase.md`, `docs/design.md`, `docs/spec.md`, and this plan.
 - Promote a dedicated Flex document through the catalog ladder. Specify every normative
   `FlexConstraint` branch, over-constraint order, integer remainder rule, and the exact
   adapter from controlled SplitView pane state to minimum, requested ideal, and maximum
   extents. Preserve the existing stack-only `layoutPriority` contract in
-  `design/primitives/stacks.md`; Flex may consume that value but must not introduce a
+  `docs/design/primitives/stacks.md`; Flex may consume that value but must not introduce a
   second priority API.
 - Update the Phase 4 slice map so Flex and final SplitView negotiation land here, while
   Grid, Table, and NavigationSplitView continue to land in Phase 6. Set the Showcase
@@ -413,8 +413,9 @@ output-only overflow geometry without creating a second style system.
 
 ### Step 3.1 — Complete style/token and decoration catalog contracts
 
-- Files: `design/tokens.md`, `design/primitives/border.md`, `box.md`, `background.md`,
-  `overlay.md`, `style-modifiers.md`, `scroll-indicator.md`, and `design/README.md`.
+- Files: `docs/design/tokens.md`, `docs/design/primitives/border.md`, `box.md`,
+  `background.md`, `overlay.md`, `style-modifiers.md`, `scroll-indicator.md`, and
+  `docs/design.md`.
 - Wireframe every sketch primitive needed by this slice, including degenerate/minimum
   geometry and indicator overflow states; complete schema-valid sizing/state/requirements
   tables and promote all primitive dependencies to `ready`. Resolve capability-default
@@ -463,18 +464,18 @@ responders without giving the graph or widgets ownership of application state.
 
 ### Step 4.1 — Promote control and focus catalog documents to `ready`
 
-- Files: `design/widgets/button.md`, `design/widgets/toggle.md`,
-  `design/widgets/picker.md`, `design/widgets/stepper.md`, `design/widgets/text-field.md`,
-  `design/widgets/scroll-view.md`, `design/widgets/split-view.md`, `design/tokens.md`, and
-  `design/README.md`.
+- Files: `docs/design/widgets/button.md`, `docs/design/widgets/toggle.md`,
+  `docs/design/widgets/picker.md`, `docs/design/widgets/stepper.md`,
+  `docs/design/widgets/text-field.md`, `docs/design/widgets/scroll-view.md`,
+  `docs/design/widgets/split-view.md`, `docs/design/tokens.md`, and `docs/design.md`.
 - Button, TextField, ScrollView, and SplitView are only `wireframed` today; Toggle,
   Picker, and Stepper are `sketch`. Preserve and promote the existing Toggle contract. Add
   the required anatomy/mobile/min wireframes to every sketch control, and add the missing
   declared minimum wireframe fence to Button; its `40x16` mobile fixture already exists.
   Complete controlled-binding state models, key tables, sizing tables, degradation, prior
   art, and traceable requirements, then promote the documents through `specified` to
-  `ready` in dependency order. Add the existing but unindexed `design/tokens.md` to the
-  README index.
+  `ready` in dependency order. Add the existing but unindexed `docs/design/tokens.md` to
+  the README index.
 - Acceptance: the catalog contains no sketch/wireframed contract consumed by Slice 4;
   every visible Showcase action has a documented Button contract rather than a hidden key
   command.
@@ -527,8 +528,8 @@ leaking terminal tracking or clipboard authority into views.
 
 ### Step 5.1 — Complete pointer, selection, hit-testing, and boundary-bubbling catalog contracts
 
-- Files: `design/primitives/text.md`, `design/primitives/text-selection.md`,
-  `design/widgets/button.md`, `text-field.md`, `scroll-view.md`, `split-view.md`,
+- Files: `docs/design/primitives/text.md`, `docs/design/primitives/text-selection.md`,
+  `docs/design/widgets/button.md`, `text-field.md`, `scroll-view.md`, `split-view.md`,
   `list.md` (for future parity), and other relevant primitive documents.
 - Ensure anatomy callout region names are the exact mouse-table `Region` values; specify
   click, drag, wheel, move/hover, focus-on-tap, edge bubbling, and disabled/hit-testing
@@ -611,9 +612,9 @@ collection and responsive-navigation composition without creating competing allo
 
 ### Step 6.1 — Finish Grid, Table, and navigation catalog contracts
 
-- Files: new `design/primitives/grid.md`, `design/widgets/table.md`,
-  `design/widgets/navigation-split-view.md`, `design/widgets/split-view.md`, and
-  `design/README.md`.
+- Files: new `docs/design/primitives/grid.md`, `docs/design/widgets/table.md`,
+  `docs/design/widgets/navigation-split-view.md`, `docs/design/widgets/split-view.md`, and
+  `docs/design.md`.
 - Specify Grid rows/columns, Table column/indicator behavior, and regular/compact
   NavigationSplitView role composition against the already implemented Flex and negotiated
   SplitView contracts. NavigationSplitView must use generic role children and controlled
@@ -663,8 +664,8 @@ required, and make the Showcase the canonical Phase 4 integration proof.
 
 ### Step 7.1 — Promote List, Section, tokens, and all remaining component documents to `ready`
 
-- Files: `design/widgets/list.md`, `section.md`, `design/tokens.md`, and every component
-  document not already promoted; update `design/README.md`.
+- Files: `docs/design/widgets/list.md`, `section.md`, `docs/design/tokens.md`, and every
+  component document not already promoted; update `docs/design.md`.
 - List and Section are currently `sketch`; tokens are `sketch`; several primitives remain
   `sketch`. Complete flat grouping, selection, empty state, scrolling, section anatomy,
   system/custom styles, focus/mouse tables, min/mobile wireframes, requirements, and
@@ -705,7 +706,7 @@ required, and make the Showcase the canonical Phase 4 integration proof.
 
 - Files: `Examples/Package.swift`, all `Examples/Sources/TesseraShowcase/` files,
   `Examples/Tests/TesseraShowcaseTests/`, `design/showcase.md` only for factual fixture
-  corrections, and `.agents/investigations/020-phase-4-tessera-showcase.md` only to record
+  corrections, and `docs/research/phase-4-tessera-showcase.md` only to record
   implementation progress/decisions if its status remains the project record.
 - Compose every accepted 1.0 component: Button, Toggle, Picker, Stepper, TextField, List,
   ScrollView, Section, Table, SplitView, and NavigationSplitView, plus Text, Frame,
@@ -729,7 +730,7 @@ required, and make the Showcase the canonical Phase 4 integration proof.
 ### Step 7.5 — Delete every temporary scaffold and complete catalog graduation
 
 - Files: every implemented `design/**/*.md`, `Sources/Tessera/Tessera.docc/Extensions/`,
-  new DocC extension files per component, fixture directories, and `design/README.md`.
+  new DocC extension files per component, fixture directories, and `docs/design.md`.
 - For each implemented component, move durable overview/anatomy/tables into its DocC
   extension beginning with the symbol-link heading, retain wireframes as snapshot
   fixtures, mark the catalog document `implemented`, and shrink it to a link/stated
@@ -784,7 +785,7 @@ quality gates before handing the plan's implementation to review.
   `just quality format`, complete `swift test`, then `just quality lint`. The final lint
   command already runs the pinned markup, spelling, wireframe, and package-boundary
   checks; do not add unpinned duplicate CLI invocations.
-- Acceptance: all commands pass; the Phase 4 checklist in `docs/Spec.md` is demonstrably
+- Acceptance: all commands pass; the Phase 4 checklist in `docs/spec.md` is demonstrably
   complete, and review confirms the Showcase is canonical integration proof rather than an
   undocumented alternate API.
 
@@ -832,10 +833,11 @@ quality gates before handing the plan's implementation to review.
   distinguish graph aggregation from session capability policy and verify dynamic
   tracking-mode teardown.
 - **Layout-aware text selection is not provided by terminal-native selection.** Before
-  Slice 5 implementation, promote `design/primitives/text-selection.md` from `sketch` and
-  define application-owned semantic ranges, selection scopes, pointer capture, clipped and
-  scrolled coordinate mapping, highlights, terminal-native coexistence, and policy-gated
-  copy. Do not treat `.onMouse` or hit testing alone as a complete selection feature.
+  Slice 5 implementation, promote `docs/design/primitives/text-selection.md` from `sketch`
+  and define application-owned semantic ranges, selection scopes, pointer capture, clipped
+  and scrolled coordinate mapping, highlights, terminal-native coexistence, and
+  policy-gated copy. Do not treat `.onMouse` or hit testing alone as a complete selection
+  feature.
 - **Windows and Ghostty coverage may remain asymmetric.** Document actual build/test
   coverage and skips; do not label Phase 4 cross-platform-complete without proof.
 - **The Showcase can become a second spec.** Keep its rows and fixtures linked to catalog
@@ -845,31 +847,31 @@ quality gates before handing the plan's implementation to review.
   use `GraphStatistics` plus a 200-node/200x50 benchmark artifact before changing the
   model.
 - **The existing investigation is an open record, not an implementation.** Use
-  `.agents/investigations/020-phase-4-tessera-showcase.md` and `design/showcase.md` as the
-  accepted Showcase boundary and decision record; update only when implementation produces
-  a concrete reconciliation, never as a substitute for catalog contracts or tests.
+  `docs/research/phase-4-tessera-showcase.md` and `design/showcase.md` as the accepted
+  Showcase boundary and decision record; update only when implementation produces a
+  concrete reconciliation, never as a substitute for catalog contracts or tests.
 
 ## References
 
-- `docs/Spec.md#phase-4--view-layer-the-tessera-module`
-- `docs/Spec.md#slice-1-tesseracore--view-viewgraph-reconciliation-text`
-- `docs/Spec.md#slice-2-the-layout-protocol-and-stack-containers`
-- `docs/Spec.md#phase-25-flex-and-final-splitview-negotiation`
-- `docs/Spec.md#slice-3-styling-text-wrapping-and-decoration`
-- `docs/Spec.md#slice-4-focus-and-key-routing-the-responder-system`
-- `docs/Spec.md#slice-5-mouse-and-hit-testing`
-- `docs/Spec.md#slice-6-grid-table-and-navigationsplitview-composition`
-- `docs/Spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase`
-- `docs/Spec.md#testing-posture-tessera-native-oracles`
-- `docs/Spec.md#executable-architecture-boundaries`
-- `docs/Spec.md#proposed-module-and-file-layout`
-- `design/README.md#status-ladder`
-- `design/README.md#wireframe-conventions`
-- `design/README.md#table-schemas`
-- `design/README.md#graduation`
+- `docs/spec.md#phase-4--view-layer-the-tessera-module`
+- `docs/spec.md#slice-1-tesseracore--view-viewgraph-reconciliation-text`
+- `docs/spec.md#slice-2-the-layout-protocol-and-stack-containers`
+- `docs/spec.md#phase-25-flex-and-final-splitview-negotiation`
+- `docs/spec.md#slice-3-styling-text-wrapping-and-decoration`
+- `docs/spec.md#slice-4-focus-and-key-routing-the-responder-system`
+- `docs/spec.md#slice-5-mouse-and-hit-testing`
+- `docs/spec.md#slice-6-grid-table-and-navigationsplitview-composition`
+- `docs/spec.md#slice-7-catalog-integration--list-section-controlled-widgets-and-the-showcase`
+- `docs/spec.md#testing-posture-tessera-native-oracles`
+- `docs/spec.md#executable-architecture-boundaries`
+- `docs/spec.md#proposed-module-and-file-layout`
+- `docs/design.md#status-ladder`
+- `docs/design.md#wireframe-conventions`
+- `docs/design.md#table-schemas`
+- `docs/design.md#graduation`
 - `design/showcase.md`
-- `design/primitives/text-selection.md`
-- `.agents/investigations/020-phase-4-tessera-showcase.md`
+- `docs/design/primitives/text-selection.md`
+- `docs/research/phase-4-tessera-showcase.md`
 - `Package.swift`
 - `Examples/Package.swift`
 - `Sources/TesseraTerminalBuffer/Frame.swift`

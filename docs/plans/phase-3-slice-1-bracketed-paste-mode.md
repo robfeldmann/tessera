@@ -1,12 +1,15 @@
 ---
-name: Phase 3 Slice 1 Bracketed Paste Mode
+type: plan
+stage: done
+created: 2026-07-02
+completed: 2026-07-03
+order: 16
 description:
   Add bracketed paste as the first modern terminal protocol mode, with parser isolation,
   lifecycle cleanup, tests, and the initial Phase 3 demo app.
-status: complete
-created: 2026-07-02
-updated: 2026-07-03
 ---
+
+# Phase 3 Slice 1 Bracketed Paste Mode
 
 ## Progress
 
@@ -23,7 +26,7 @@ updated: 2026-07-03
 
 ## Overview
 
-This plan implements `docs/Spec.md` Phase 3 Slice 1. Bracketed paste lets Tessera tell the
+This plan implements `docs/spec.md` Phase 3 Slice 1. Bracketed paste lets Tessera tell the
 difference between characters typed one at a time and text pasted as one operation.
 
 The feature is intentionally small, but it establishes the Phase 3 pattern:

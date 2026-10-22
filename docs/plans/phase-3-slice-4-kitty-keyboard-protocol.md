@@ -1,12 +1,15 @@
 ---
-name: Phase 3 Slice 4 Kitty Keyboard Protocol
+type: plan
+stage: done
+created: 2026-07-02
+completed: 2026-07-06
+order: 19
 description:
   Add Kitty keyboard parsing and lifecycle support, expand key metadata, and introduce
   dynamic application-mode reconciliation for Phase 4 requirements.
-status: complete
-created: 2026-07-02
-updated: 2026-07-06
 ---
+
+# Phase 3 Slice 4 Kitty Keyboard Protocol
 
 ## Progress
 
@@ -24,7 +27,7 @@ updated: 2026-07-06
 
 ## Overview
 
-This plan implements `docs/Spec.md` Phase 3 Slice 4. Kitty keyboard is the largest input
+This plan implements `docs/spec.md` Phase 3 Slice 4. Kitty keyboard is the largest input
 slice because it changes keyboard semantics rather than adding an orthogonal event type.
 It adds key event kind, richer modifiers, Kitty protocol enable/disable bytes, parser
 support for Kitty key reports, and the dynamic application-mode reconciliation that Phase

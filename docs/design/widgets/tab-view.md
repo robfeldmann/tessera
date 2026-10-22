@@ -20,10 +20,10 @@ narrow.
 
 The wireframes below are the accepted Tessera states, drawn from omp2's rendering with its
 theme roles renamed to Tessera roles. This widget follows the controlled-widget rule in
-[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets),
+[Slice 7](../../spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets),
 takes its focus and key delivery from
-[Slice 4](../../docs/Spec.md#slice-4-focus-and-key-routing-the-responder-system), and its
-pointer delivery from [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing).
+[Slice 4](../../spec.md#slice-4-focus-and-key-routing-the-responder-system), and its
+pointer delivery from [Slice 5](../../spec.md#slice-5-mouse-and-hit-testing).
 
 ## Prior art
 
@@ -436,7 +436,7 @@ E  fg=border -- rule row
 
 ## State model
 
-Schema: [README](../README.md#state-model-table).
+Schema: [README](../../design.md#state-model-table).
 
 | State         | Owner       | Type                                  | Reset or clamp rule                                                                                                                                                                                  |
 | ------------- | ----------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -447,7 +447,7 @@ Schema: [README](../README.md#state-model-table).
 
 ## Key table
 
-Schema: [README](../README.md#key-table).
+Schema: [README](../../design.md#key-table).
 
 | Key   | Precondition | Effect                                                                                          | Consumed |
 | ----- | ------------ | ----------------------------------------------------------------------------------------------- | -------- |
@@ -459,9 +459,9 @@ keys.
 
 ## Mouse table
 
-Schema: [README](../README.md#mouse-table). Regions must be named in the anatomy callouts:
-`tab chip` (callouts 2-4), `rule` (callout 5), `pane` (callout 6), and `frame` (callout
-7).
+Schema: [README](../../design.md#mouse-table). Regions must be named in the anatomy
+callouts: `tab chip` (callouts 2-4), `rule` (callout 5), `pane` (callout 6), and `frame`
+(callout 7).
 
 | Event      | Region   | Precondition       | Effect                                                                                                                                                                                    | Consumed |
 | ---------- | -------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
@@ -476,8 +476,8 @@ Schema: [README](../README.md#mouse-table). Regions must be named in the anatomy
 
 ## Sizing
 
-Schema: [README](../README.md#sizing-table). Results derived from the formula are marked
-as such. The bar's ideal width is the 2-cell cursor gutter plus one
+Schema: [README](../../design.md#sizing-table). Results derived from the formula are
+marked as such. The bar's ideal width is the 2-cell cursor gutter plus one
 [Flow](../primitives/flow.md) line of chips, 2 cells apart; a chip is its title, its icon
 and gap where the charset draws one, and 2 cells of caps or padding. Chips are chrome and
 stay one row; the pane is content and wraps at the proposed width.
@@ -523,7 +523,7 @@ Tokens consumed (see [tokens.md](../tokens.md#roles)).
 
 ## Requirements
 
-Schema: [README](../README.md#requirements-list).
+Schema: [README](../../design.md#requirements-list).
 
 - `tab view shows only the pane for the bound selection` (state model: selection;
   anatomy).
@@ -580,9 +580,9 @@ Schema: [README](../README.md#requirements-list).
   2026-10-10), and the result follows from it (states: under the minimum, 12x6).
 
 Reviewed against the
-[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): the selection
-is the app's binding, the view holds no NodeState, focus stays with the graph, and the
-bar's wrap and collapse are deterministic integer-cell layout.
+[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): the selection is
+the app's binding, the view holds no NodeState, focus stays with the graph, and the bar's
+wrap and collapse are deterministic integer-cell layout.
 
 ## Open questions
 

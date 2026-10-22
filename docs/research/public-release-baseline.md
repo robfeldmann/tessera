@@ -1,7 +1,8 @@
 ---
-name: Public Release Baseline
-date: 2026-07-19
+type: research
+observed: 2026-07-19
 status: open
+description: Public Release Baseline
 ---
 
 # Public Release Baseline

@@ -925,7 +925,7 @@ enum Phase3ProtocolsDemo {
       frame: frame,
       label: "Docs:",
       text: "Tessera Spec",
-      uri: "https://github.com/robfeldmann/tessera/blob/main/docs/Spec.md",
+      uri: "https://github.com/robfeldmann/tessera/blob/main/docs/spec.md",
       id: "docs",
       enabled: hyperlinkRendering == .enabled,
       row: top + 5

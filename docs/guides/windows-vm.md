@@ -1,3 +1,8 @@
+---
+type: guide
+description: "Manual Windows VM with UTM"
+---
+
 # Manual Windows VM with UTM
 
 Metadata:
@@ -16,10 +21,10 @@ This guide walks through creating a Windows 11 ARM64 VM manually in
 can jump to
 [Quick setup for experienced contributors](#quick-setup-for-experienced-contributors). Use
 this manual path if you want maximum control over the Windows desktop VM or if the
-scripted Frost workflow in `docs/WindowsFrostVM.md` does not fit your setup.
+scripted Frost workflow in `docs/guides/windows-frost-vm.md` does not fit your setup.
 
-For the recommended repeatable test workflow, start with `docs/WindowsFrostVM.md`. For a
-hand-managed Windows desktop VM, continue here.
+For the recommended repeatable test workflow, start with
+`docs/guides/windows-frost-vm.md`. For a hand-managed Windows desktop VM, continue here.
 
 The goal is a VM you can reach with SSH, then drive from macOS with:
 

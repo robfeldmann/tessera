@@ -1,12 +1,15 @@
 ---
-name: Frost Windows VM Prototype
+type: plan
+stage: done
+created: 2026-06-16
+completed: 2026-06-16
+order: 13
 description:
   Prototype a Frost-based Windows 11 ARM64 VM workflow as an alternative to the UTM Phase
   0 setup.
-status: completed
-created: 2026-06-16
-updated: 2026-06-16
 ---
+
+# Frost Windows VM Prototype
 
 ## Progress
 
@@ -59,7 +62,7 @@ Tessera behavior.
 
 ### Step 0.1 — Choose the Frost checkout strategy and document local paths
 
-- Files: `docs/WindowsVM.md` or new `docs/WindowsFrostVM.md`.
+- Files: `docs/guides/windows-vm.md` or new `docs/guides/windows-frost-vm.md`.
 - Prefer an external checkout, e.g. `~/Developer/solcreek/frost`, referenced by
   `TESSERA_FROST_ROOT`, rather than cloning Frost inside this repository.
 - Do not vendor Frost or add it as a submodule in this step.
@@ -97,7 +100,7 @@ Tessera behavior.
 
 ### Step 1.2 — Document required ISO inputs and expected artifacts
 
-- Files: `docs/WindowsFrostVM.md` or `docs/WindowsVM.md`.
+- Files: `docs/guides/windows-frost-vm.md` or `docs/guides/windows-vm.md`.
 - Document the required user-provided inputs:
   - Windows 11 ARM64 ISO.
   - VirtIO driver ISO.
@@ -201,7 +204,7 @@ Tessera behavior.
 
 ### Step 4.3 — Decide disposable vs persistent overlay default
 
-- Files: `.agents/investigations/008-frost-windows-vm-workflow.md`, docs, `Justfile`.
+- Files: `docs/research/frost-windows-vm-workflow.md`, docs, `Justfile`.
 - Compare:
   - disposable overlays for clean repeatability.
   - persistent dev overlay for faster iteration via retained `.build` cache.
@@ -261,7 +264,7 @@ UTM.
 
 ### Step 6.2 — Document PowerShell/Windows Terminal manual validation steps
 
-- Files: `docs/WindowsFrostVM.md` or `docs/WindowsVM.md`.
+- Files: `docs/guides/windows-frost-vm.md` or `docs/guides/windows-vm.md`.
 - Document when to use:
   - Frost headless SSH for automated tests and quick TUI checks.
   - UTM-imported Frost image for visual PowerShell/Windows Terminal/conhost validation.
@@ -288,14 +291,14 @@ UTM.
 
 ### Step 7.1 — Record local Frost changes needed by the prototype
 
-- Files: `.agents/investigations/008-frost-windows-vm-workflow.md`, optionally a new
-  investigation if the changes are substantial.
+- Files: `docs/research/frost-windows-vm-workflow.md`, optionally a new investigation if
+  the changes are substantial.
 - Categorize changes as:
   - Tessera-specific wrapper only.
   - generic Frost feature candidate.
   - local workaround not worth upstreaming.
 - Result: no local Frost checkout changes were required. Candidate upstream items are
-  documented in `docs/WindowsFrostVM.md`.
+  documented in `docs/guides/windows-frost-vm.md`.
 - Acceptance: every local Frost change has a disposition before we rely on it long-term.
 
 ### Step 7.2 — Decide whether to upstream, vendor, or keep wrapper-only integration
@@ -360,7 +363,7 @@ Terminal app runs, not just boot/toolchain checks.
 
 ### Step 8.3 — Document manual GUI app-run workflow and remaining blockers
 
-- Files: `docs/WindowsFrostVM.md`.
+- Files: `docs/guides/windows-frost-vm.md`.
 - Document how to use `tessera-frost-import` for manual GUI runs:
   - start/open the UTM VM.
   - log in with the locally configured Frost account.
@@ -369,16 +372,16 @@ Terminal app runs, not just boot/toolchain checks.
   - run tests/examples once Windows compilation is fixed.
 - Note that Tessera example validation remains blocked until the current `termios.h`
   Windows compile failure is fixed.
-- Result: `docs/WindowsFrostVM.md` documents the UTM GUI workflow, source sync, guest
-  tools install/repair command, and remaining `termios.h` blocker.
+- Result: `docs/guides/windows-frost-vm.md` documents the UTM GUI workflow, source sync,
+  guest tools install/repair command, and remaining `termios.h` blocker.
 - Acceptance: a contributor understands when to use Frost SSH, Frost disposable tests, and
   the UTM GUI VM.
 
 ## References
 
-- `.agents/investigations/008-frost-windows-vm-workflow.md`
-- `.agents/investigations/007-windows-utm-setup-walkthrough.md`
-- `.agents/plans/012-phase-2-slice-6-windows-terminal-io.md`
-- `docs/WindowsVM.md`
+- `docs/research/frost-windows-vm-workflow.md`
+- `docs/research/windows-utm-setup-walkthrough.md`
+- `docs/plans/phase-2-slice-6-windows-terminal-io.md`
+- `docs/guides/windows-vm.md`
 - `scripts/setup-windows-vm.ps1`
 - <https://github.com/solcreek/frost>

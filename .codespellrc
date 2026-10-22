@@ -1,6 +1,7 @@
 [codespell]
 skip = .git,.build,.venv,node_modules,Packages,Sources/**/*.docc/Resources
-ignore-words-list = inout,ratatui,iterm,theses
+# `ans` and `warnin` are quoted clipped-header artifacts in plan 032 (docs/plans/).
+ignore-words-list = inout,ratatui,iterm,theses,ans,warnin
 # Wireframes and styled grids cut words on purpose (`warnin`, `tha…`) and use letter runs
 # as style codes; the legend that follows a styled grid is still checked.
 ignore-multiline-regex = ```wireframe.*?```|── chars ──.*?── legend ──

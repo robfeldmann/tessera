@@ -1,3 +1,7 @@
+---
+kind: reference
+---
+
 # omp2 to Tessera translation key
 
 Plan 032 adopted omp2, the Rust rewrite of oh-my-pi's TUI (crate `omp-tui`), as the visual
@@ -32,7 +36,7 @@ Plan 032 step 7.1 applied the key to every doc in `primitives/` and `widgets/`:
    never disagree silently.
 
 This is a reference doc, not a catalog component. It carries no status-ladder frontmatter
-and no [Index](README.md#index) row, and the gallery does not list it. Like
+and no [Index](../design.md#index) row, and the gallery does not list it. Like
 [tokens.md](tokens.md) it holds shared vocabulary, but it defines no values: where a row
 lands on a token, tokens.md owns the token.
 
@@ -41,8 +45,8 @@ lands on a token, tokens.md owns the token.
 Most omp2 components keep their data inside themselves and hand it out through `UiEvent`s
 and `value()`. Tessera widgets are controlled, and the D rows place each omp2 state field
 by the Spec's four homes for widget state: app-owned `Binding`, initializer parameter,
-`NodeState`, and graph-owned ([state model](../docs/Spec.md#state-model-bring-your-own)).
-The Spec owns those rules; [State model table](README.md#state-model-table) says how a
+`NodeState`, and graph-owned ([state model](../spec.md#state-model-bring-your-own)). The
+Spec owns those rules; [State model table](../design.md#state-model-table) says how a
 catalog doc records them.
 
 ## Key
@@ -201,8 +205,8 @@ form.
   Views are typed Swift values, so string attributes, CSS colour syntax, and late tag
   resolution have no counterpart.
 - **A6.** `CustomElement` and the `ElementFactory` registry for unknown tags. Third
-  parties conform to `View` or `LeafView` ([leaf seam](../docs/Spec.md#the-leaf-seam));
-  there is no tag registry to extend.
+  parties conform to `View` or `LeafView` ([leaf seam](../spec.md#the-leaf-seam)); there
+  is no tag registry to extend.
 - **A7.** Parent-owned records (`option`, `segment`, `tab`, `node`, `field`, `step`, `tr`,
   `td`) and promoted children such as Boxed's title. Tessera uses app data plus a row
   closure, or a typed child view in the builder. A data record (an option's value, label,
@@ -212,7 +216,7 @@ form.
   `header:`) with a `String` convenience.
 - **A8.** `set_text`, `update_component`, `set_prop`, `set_visible`, `invalidate`. Views
   are redeclared from app state on every update
-  ([state model](../docs/Spec.md#state-model-bring-your-own)); nothing is addressed by id.
+  ([state model](../spec.md#state-model-bring-your-own)); nothing is addressed by id.
 - **A9.** Visibility conditioned on another component's value. The condition reads app
   state, which the app already holds through its bindings.
 - **A10.** `Component::value` and `Ui::values` collect a JSON map. Every user-produced
@@ -441,16 +445,17 @@ form.
 - **D2.** Supplied as attributes and refreshed with `set_prop` or `set_text`: Progress's
   value, Markdown and Pre text, Img's `src`. Redeclared on every update and never copied
   into widget state. A State model table still names its owner `Binding`, meaning
-  app-owned ([README](README.md#state-model-table)).
+  app-owned ([README](../design.md#state-model-table)).
 - **D3.** Select, Tree, and Form `cursor`. A cursor that only marks a position is
-  NodeState: losing it loses position, never data ([README](README.md#state-model-table)).
-  List and Outline move their selection binding instead and keep no separate cursor.
+  NodeState: losing it loses position, never data
+  ([README](../design.md#state-model-table)). List and Outline move their selection
+  binding instead and keep no separate cursor.
 - **D4.** Scroll `off`, Tree `scroll_top`, Select and Form `scroll`, and Scroll's `chase`
   of a focused descendant. ScrollView's binding is `Binding<TerminalPosition>?`. Position,
   not data. List, Table, Outline, Form, and Picker's menu keep it in NodeState; ScrollView
   takes an optional binding. One owner per value, never both
-  ([README](README.md#state-model-table)). Following focus is reveal on focus change (plan
-  032 step 12.2).
+  ([README](../design.md#state-model-table)). Following focus is reveal on focus change
+  (plan 032 step 12.2).
 - **D5.** Input's cursor and selection. The caret, the selection anchor, and the
   horizontal reveal offset are NodeState; the text is the binding (D1).
 - **D6.** Input's undo stack (100 entries) and kill ring (60). TextField's key table has
@@ -509,8 +514,8 @@ form.
   key is a deliberate row; unlisted keys bubble.
 - **E4.** Unhandled Tab, Enter, and arrows move focus, and Esc becomes `Cancel`. The graph
   never interprets an unhandled key: no implicit Tab handling
-  ([focus model](../docs/Spec.md#focus-model)). The app, or the Phase 5 runtime as a
-  default policy, adds `.onKey(.tab)`.
+  ([focus model](../spec.md#focus-model)). The app, or the Phase 5 runtime as a default
+  policy, adds `.onKey(.tab)`.
 - **E5.** A chord table resolving chords to semantic keys such as `WordLeft`, `Copy`, and
   `Paste`. Widgets match normalized `Key` and `Modifiers` chords in their Key tables;
   rebinding belongs to apps.
@@ -524,9 +529,9 @@ form.
   responder chain's declared keys; no view writes hint text by hand.
 - **E9.** A modal overlay takes the keys, and Esc dismisses it. Tessera plans a focus
   scope that traps traversal inside an overlay and restores focus on dismissal
-  ([focus scopes](../docs/Spec.md#focus-appearance-focus-scopes-and-declared-key-bindings)).
-  No catalog doc owns the focus scope yet; see Open questions. Viewport-anchored modal
-  layers are H1.
+  ([focus scopes](../spec.md#focus-appearance-focus-scopes-and-declared-key-bindings)). No
+  catalog doc owns the focus scope yet; see Open questions. Viewport-anchored modal layers
+  are H1.
 
 [e1]:
   https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/tui/src/component.rs#L114-L132
@@ -556,7 +561,7 @@ form.
   a chip, segment, or tab, `Press` is the whole control, and `Sub` is a menu row in a host
   row. `Wheel` is F7, `Zone` C12, `TreeAction` C10, `Scrollbar` F2.
 - **F2.** A click or drag jumps the thumb. Indicators are output-only
-  ([ScrollIndicator](../docs/Spec.md#scrollindicator)); a drag on one returns `.ignored`
+  ([ScrollIndicator](../spec.md#scrollindicator)); a drag on one returns `.ignored`
   ([ScrollView](widgets/scroll-view.md#mouse-table)).
 - **F3.** `Click`, `RightClick`, `MiddleClick`, `Move`, `Drag`, `Release`, and the wheel.
   Mouse tables name `click`, `double-click`, `drag`, `wheel-*`, and `move`. Right and
@@ -570,7 +575,7 @@ form.
   tracks no modality; focus appearance and hover are independent.
 - **F6.** `Mouse::Click` focuses and activates its target. A click activates through the
   same binding or action path as the keyboard
-  ([pointer cutover](../docs/Spec.md#pointer-cutover-for-controls-fields-panes-and-viewports)).
+  ([pointer cutover](../spec.md#pointer-cutover-for-controls-fields-panes-and-viewports)).
 - **F7.** Scroll viewports first, then list cursors. Tessera moves the innermost
   scrollable offset, which bubbles at a boundary. List, Table, and Outline scroll without
   moving the selection; a doc may route the wheel to its cursor, as Picker's menu does.
@@ -596,8 +601,8 @@ form.
 
 - **G1.** `measure` returns `(min, nat)` widths, then `height(width)`. One proposal-based
   question: the ideal answers `nil`, the minimum answers zero
-  ([Flex allocation](../docs/Spec.md#flex-allocation-normative)), and height for a width
-  is a proposal of that width with a `nil` height.
+  ([Flex allocation](../spec.md#flex-allocation-normative)), and height for a width is a
+  proposal of that width with a `nil` height.
 - **G2.** `place(ctx, content)`. Placement is integer cells, and `dump()` shows every
   frame.
 - **G3.** `Cached` adds border and padding insets; `paints_border` and `paints_background`
@@ -618,7 +623,7 @@ form.
 - **G7.** Rows stretch children by default, and `stretch_in_row` opts a child in. Stack
   children keep their measured cross-axis extent
   ([Linear stacks](primitives/stacks.md#variants)). Divider, omp2's `stretch_in_row` user,
-  fills its stack's cross axis itself ([Divider](../docs/Spec.md#divider)).
+  fills its stack's cross axis itself ([Divider](../spec.md#divider)).
 - **G8.** Tessera's form is `FlexConstraint.percentage(_:)`. Resolved against a finite
   proposal only.
 - **G9.** `grid_measure` and `solve_columns`, shared by tables and grids. One allocator;
@@ -838,7 +843,7 @@ form.
 - **L3.** A periodic glyph cycle with `at(now)` and `next_change`. Tessera derives the
   index as `(now / interval) mod count`. Recomputed each render, never stored.
 - **L4.** `anim`, `ease`, and `spin` on any component. General animation is not Phase 4
-  ([performance posture](../docs/Spec.md#phase-4-performance-posture)); the spinner is the
+  ([performance posture](../spec.md#phase-4-performance-posture)); the spinner is the
   catalog's only animation ([spinners](tokens.md#spinners)).
 - **L5.** A brightness crest sweeping across text. No catalog doc defines one yet; see
   Open questions.
@@ -1193,7 +1198,7 @@ Design choices in this key that need the owner's confirmation:
 - **Hover ownership (F4).** The key follows omp2: hover is graph-owned and derived at
   render. [Button](widgets/button.md#state-model), [Form](widgets/form.md#state-model),
   and [List](widgets/list.md#state-model) now derive it from the graph.
-  [Slice 5](../docs/Spec.md#slice-5-mouse-and-hit-testing) does not yet expose the hovered
+  [Slice 5](../spec.md#slice-5-mouse-and-hit-testing) does not yet expose the hovered
   point to rendering the way the environment exposes `isFocused`; that is deferred to plan
   032 step 11.2. Awaiting owner confirmation.
 - **Uncommitted drafts (D8).** Picker's and MultiPicker's custom-row draft is NodeState.
@@ -1222,8 +1227,8 @@ Design choices in this key that need the owner's confirmation:
 - **Two-step confirmation (C13).** [Button](widgets/button.md) rejects arming, but the
   omp2 review listed two-step confirmation among the 1.0 modifiers.
 - **Focus scope (E9).** The Spec describes the focus scope
-  ([focus scopes](../docs/Spec.md#focus-appearance-focus-scopes-and-declared-key-bindings))
-  and plan 032 step 10.2 builds it, but no catalog doc owns it.
+  ([focus scopes](../spec.md#focus-appearance-focus-scopes-and-declared-key-bindings)) and
+  plan 032 step 10.2 builds it, but no catalog doc owns it.
 - **Title argument label (B5).** Box's `String` form keeps the labelled `title:` that B5
   names, while Section, Picker, and Toggle take an unlabelled `_ title:`. Should Box match
   them? A taste question raised while applying the key.
@@ -1231,33 +1236,33 @@ Design choices in this key that need the owner's confirmation:
   character-flow wrapping (I3), cross-axis stretch as a row default (G7), and dashed boxes
   (K4).
 
-[s-view]: ../docs/Spec.md#the-view-protocol-and-builders
-[s-leaf]: ../docs/Spec.md#the-leaf-seam
-[s-identity]: ../docs/Spec.md#identity-model
-[s-invalidation]: ../docs/Spec.md#invalidation-semantics-graph-wide-defined-here
-[s-env]: ../docs/Spec.md#environment
-[s-state]: ../docs/Spec.md#state-model-bring-your-own
-[s-style]: ../docs/Spec.md#style-chains-and-inheritance
-[s-plumbing]: ../docs/Spec.md#system-and-custom-style-plumbing
-[s-decoration]: ../docs/Spec.md#decoration
-[s-region]: ../docs/Spec.md#renderregion
-[s-scrollview]: ../docs/Spec.md#scrollview-viewport-foundation
-[s-focus]: ../docs/Spec.md#focus-model
-[s-route]: ../docs/Spec.md#event-routing-normative
-[s-handlers]: ../docs/Spec.md#handler-modifiers-and-respondercontext
-[s-focus-scope]: ../docs/Spec.md#focus-appearance-focus-scopes-and-declared-key-bindings
-[s-flags4]: ../docs/Spec.md#things-to-flag-3
-[s-s5]: ../docs/Spec.md#slice-5-mouse-and-hit-testing
-[s-cutover]: ../docs/Spec.md#pointer-cutover-for-controls-fields-panes-and-viewports
-[s-layout]: ../docs/Spec.md#the-protocol
-[s-fit]: ../docs/Spec.md#flow-layout-and-viewthatfits
-[s-s6]: ../docs/Spec.md#slice-6-grid-table-and-fitting
-[s-width]: ../docs/Spec.md#the-width-aware-buffer
-[s-motion]: ../docs/Spec.md#motion-views-and-the-tick-requirement
-[readme-state]: README.md#state-model-table
-[readme-key]: README.md#key-table
-[readme-mouse]: README.md#mouse-table
-[wrap]: README.md#wrap-and-truncation
+[s-view]: ../spec.md#the-view-protocol-and-builders
+[s-leaf]: ../spec.md#the-leaf-seam
+[s-identity]: ../spec.md#identity-model
+[s-invalidation]: ../spec.md#invalidation-semantics-graph-wide-defined-here
+[s-env]: ../spec.md#environment
+[s-state]: ../spec.md#state-model-bring-your-own
+[s-style]: ../spec.md#style-chains-and-inheritance
+[s-plumbing]: ../spec.md#system-and-custom-style-plumbing
+[s-decoration]: ../spec.md#decoration
+[s-region]: ../spec.md#renderregion
+[s-scrollview]: ../spec.md#scrollview-viewport-foundation
+[s-focus]: ../spec.md#focus-model
+[s-route]: ../spec.md#event-routing-normative
+[s-handlers]: ../spec.md#handler-modifiers-and-respondercontext
+[s-focus-scope]: ../spec.md#focus-appearance-focus-scopes-and-declared-key-bindings
+[s-flags4]: ../spec.md#things-to-flag-3
+[s-s5]: ../spec.md#slice-5-mouse-and-hit-testing
+[s-cutover]: ../spec.md#pointer-cutover-for-controls-fields-panes-and-viewports
+[s-layout]: ../spec.md#the-protocol
+[s-fit]: ../spec.md#flow-layout-and-viewthatfits
+[s-s6]: ../spec.md#slice-6-grid-table-and-fitting
+[s-width]: ../spec.md#the-width-aware-buffer
+[s-motion]: ../spec.md#motion-views-and-the-tick-requirement
+[readme-state]: ../design.md#state-model-table
+[readme-key]: ../design.md#key-table
+[readme-mouse]: ../design.md#mouse-table
+[wrap]: ../design.md#wrap-and-truncation
 [t-focus]: tokens.md#focus
 [t-fill]: tokens.md#fill-roles
 [t-roles]: tokens.md#roles

@@ -1,7 +1,8 @@
 ---
-name: Windows AppleDouble Source Sync Warning
-date: 2026-07-04
+type: research
+observed: 2026-07-04
 status: resolved
+description: Windows AppleDouble Source Sync Warning
 ---
 
 # Windows AppleDouble Source Sync Warning

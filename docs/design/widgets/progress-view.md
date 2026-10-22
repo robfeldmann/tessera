@@ -13,18 +13,18 @@ wraps (owner decision, 2026-10-18; see Narrow). The app owns every number and st
 value, total, label, current-value label, and spinner style come from the initializer or
 modifiers, redeclared on every update (key D2). The view stores none of them. The
 indeterminate form is a
-[motion view](../../docs/Spec.md#motion-views-and-the-tick-requirement): it derives its
-frame from a clock the environment supplies (key L1), so it keeps no timer, and it
-declares a tick requirement at its frame set's interval (key L2; see State model). Gauge
-is post-1.0 (owner decision, 2026-10-10); its threshold tones and tick markers are not
-part of this doc.
+[motion view](../../spec.md#motion-views-and-the-tick-requirement): it derives its frame
+from a clock the environment supplies (key L1), so it keeps no timer, and it declares a
+tick requirement at its frame set's interval (key L2; see State model). Gauge is post-1.0
+(owner decision, 2026-10-10); its threshold tones and tick markers are not part of this
+doc.
 
 The determinate and indeterminate forms share one doc because they share a row, a label,
 and the same width rules. Decisions attributed to "owner decision, omp2 review, 2026-10"
 are the owner's answers on the reviewed omp2 components.
 
 Standard
-[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets)
+[Slice 7](../../spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets)
 controlled-widget rule applies: the app owns the binding; the view derives its
 presentation.
 
@@ -497,9 +497,9 @@ D  fg=secondary
 
 ## State model
 
-Schema: [README](../README.md#state-model-table). The `Binding` rows are app-owned display
-data, plain initializer parameters redeclared on every update (key D2); the view writes
-none of them.
+Schema: [README](../../design.md#state-model-table). The `Binding` rows are app-owned
+display data, plain initializer parameters redeclared on every update (key D2); the view
+writes none of them.
 
 | State             | Owner       | Type                                       | Reset or clamp rule                                                                                                                                                                                            |
 | ----------------- | ----------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -514,23 +514,23 @@ none of them.
 
 The view stores no state, so it has no `NodeState` row and no responder. Plan 032 step
 16.1 settles the Swift spellings of the clock value and the tick requirement
-([motion views](../../docs/Spec.md#motion-views-and-the-tick-requirement)).
+([motion views](../../spec.md#motion-views-and-the-tick-requirement)).
 
 ## Key table
 
-Schema: [README](../README.md#key-table).
+Schema: [README](../../design.md#key-table).
 
 None. The view is not focusable and consumes no key input.
 
 ## Mouse table
 
-Schema: [README](../README.md#mouse-table).
+Schema: [README](../../design.md#mouse-table).
 
 None. The view has no pointer regions and consumes no pointer input.
 
 ## Sizing
 
-Schema: [README](../README.md#sizing-table). The determinate fixture is the
+Schema: [README](../../design.md#sizing-table). The determinate fixture is the
 `Downloading model weights` label at 62%. The height is 1 when the one-row form fits and
 grows by the label's wrapped rows in the stacked form.
 
@@ -633,8 +633,8 @@ Tokens consumed, each defined in [tokens.md](../tokens.md).
   bar and percent only; the view reports its 9x1 minimum rather than hiding the percent.
 
 This design was reviewed against the
-[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): every number
-and string is an app-owned value redeclared on each update, the spinner frame is a pure
+[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): every number and
+string is an app-owned value redeclared on each update, the spinner frame is a pure
 function of the environment's clock, the tick requirement is declared for the graph to
 aggregate rather than scheduled by the view, and the row is deterministic integer-cell
 output with no responder.

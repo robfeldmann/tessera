@@ -1,7 +1,8 @@
 ---
-name: Scroll focus conventions
-date: 2026-07-23
+type: research
+observed: 2026-07-23
 status: resolved
+description: Scroll focus conventions
 ---
 
 # Scroll focus conventions

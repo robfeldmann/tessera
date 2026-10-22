@@ -1,12 +1,15 @@
 ---
-name: Phase 2 Slice 4 Width-Aware Renderer
+type: plan
+stage: done
+created: 2026-06-10
+completed: 2026-06-13
+order: 10
 description:
   Redesign terminal buffers for display-width correctness and replace full repaint
   rendering with stateful damage-tracked rendering transactions.
-status: completed
-created: 2026-06-10
-updated: 2026-06-13
 ---
+
+# Phase 2 Slice 4 Width-Aware Renderer
 
 ## Progress
 
@@ -48,16 +51,16 @@ implementation until this plan is reviewed and explicitly approved.
 ## Context loading for implementers
 
 Before implementing any step, read this entire plan first. Then read the Phase 2 Slice 4
-section of `docs/Spec.md` ("Width-aware `Buffer` + damage-tracking renderer") and the
+section of `docs/spec.md` ("Width-aware `Buffer` + damage-tracking renderer") and the
 nearby Phase 2 intro enough to understand how Slice 4 fits after the snapshot harness,
 ANSI encoder, and terminal lifecycle work. Do not reread the whole spec for every step;
-after the first pass, use targeted searches in `docs/Spec.md`, existing source, tests, and
+after the first pass, use targeted searches in `docs/spec.md`, existing source, tests, and
 the referenced Ratatui files for the type or behavior being changed.
 
 ## Overview
 
 Phase 2 Slice 4 replaces Tessera's ASCII-only buffer and full-repaint renderer with the
-core terminal rendering model described in `docs/Spec.md`: display-width-aware cells,
+core terminal rendering model described in `docs/spec.md`: display-width-aware cells,
 explicit continuation cells, raw/opaque region policy, and a stateful damage-tracking
 renderer. The slice should preserve `TerminalSession.draw {}` ergonomics while changing
 internals from “render the whole buffer every frame” to “diff current vs previous buffer
@@ -139,7 +142,7 @@ hardware scrolling, or color quantization policy.
 6. **Implementation comments should cite the local design source.** For non-obvious rules
    (orphan cleanup, zero-width/control filtering, raw/opaque policy, VS16 trailing clears,
    SGR reset-at-end, synchronized-output no-op bracketing, resize invalidation), add a
-   concise doc or code comment naming `docs/Spec.md` Slice 4 and the relevant Ratatui
+   concise doc or code comment naming `docs/spec.md` Slice 4 and the relevant Ratatui
    reference file/function. Do not paste large spec excerpts into source.
 7. **Public mutation APIs should preserve buffer invariants.** A public mutable subscript
    can create orphan continuations or invalid raw regions. Prefer a public read-only
@@ -177,7 +180,7 @@ characters, with explicit continuation cells and deterministic write semantics.
   public writes should go through invariant-preserving APIs rather than arbitrary cell
   assignment.
 - Add doc comments on `Cell.Content`, `CellDiffPolicy`, and `Style` explaining the Slice 4
-  grid/diff policy in terms of `docs/Spec.md` and Ratatui's `CellDiffOption`.
+  grid/diff policy in terms of `docs/spec.md` and Ratatui's `CellDiffOption`.
 - Sort protocol conformances alphabetically.
 - Acceptance: `swift test --filter TesseraTerminalBufferTests` compiles far enough to show
   intentional test updates are needed, with target dependency changes checked in.
@@ -525,7 +528,7 @@ update runnable examples to exercise the real renderer.
 
 ### Step 5.3 — Document manual terminal sanity verification for interrupted renders
 
-- Files: `CONTRIBUTING.md` or `.agents/investigations/`.
+- Files: `CONTRIBUTING.md` or `docs/research/`.
 - Update the existing terminal lifecycle manual verification notes to include rendering
   interruption during a draw, synchronized output policy, post-flush-error recovery, and
   expected `tessera-reset` recovery behavior.
@@ -567,7 +570,7 @@ update runnable examples to exercise the real renderer.
 - Review public-facing docs and remove implementation-plan language such as phase/slice
   numbers, internal review notes, or references that require knowledge of Tessera's
   development process.
-- Keep internal comments that cite `docs/Spec.md` where the implementation plan explicitly
+- Keep internal comments that cite `docs/spec.md` where the implementation plan explicitly
   asks for them, but do not expose those details as public API documentation.
 - Acceptance: public API docs describe stable behavior for users, not project history.
 
@@ -597,10 +600,10 @@ update runnable examples to exercise the real renderer.
 
 ## References
 
-- `docs/Spec.md` — Phase 2, Slice 4: Width-aware `Buffer` + damage-tracking renderer.
-- `.agents/plans/006-phase-2-slice-1-snapshot-harness.md`
-- `.agents/plans/007-phase-2-slice-2-ansi-encoder.md`
-- `.agents/plans/008-phase-2-slice-3-terminal-lifecycle.md`
+- `docs/spec.md` — Phase 2, Slice 4: Width-aware `Buffer` + damage-tracking renderer.
+- `docs/plans/phase-2-slice-1-snapshot-harness.md`
+- `docs/plans/phase-2-slice-2-ansi-encoder.md`
+- `docs/plans/phase-2-slice-3-terminal-lifecycle.md`
 - Swift 6 concurrency skill:
   `~/Documents/pfw-concurrency-skill/skills/swift6-concurrency-migration/`
 - Ratatui local reference: `~/Developer/ratatui/ratatui/main/ratatui-core/src/buffer/`

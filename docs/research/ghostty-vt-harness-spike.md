@@ -1,7 +1,8 @@
 ---
-name: Ghostty VT Harness Spike
-date: 2026-06-06
+type: research
+observed: 2026-06-06
 status: resolved
+description: Ghostty VT Harness Spike
 ---
 
 # Ghostty VT Harness Spike
@@ -82,7 +83,7 @@ future libghostty-vt API changes affect only snapshot support.
 
 Next implementation steps:
 
-1. Update `docs/Spec.md` so Phase 2 Slice 1 clearly targets direct `libghostty-vt`, not a
+1. Update `docs/spec.md` so Phase 2 Slice 1 clearly targets direct `libghostty-vt`, not a
    hand-rolled VT and not the full `GhosttyKit` surface wrapper.
 2. Add package/build wiring for a narrow `CGhosttyVT`-style module.
 3. Implement `VirtualTerminal` on top of `ghostty_terminal_vt_write` and render-state

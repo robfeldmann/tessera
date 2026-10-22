@@ -1,4 +1,4 @@
-"""Colour maths and role resolution of `design/tokens.md`.
+"""Colour maths and role resolution of `docs/design/tokens.md`.
 
 `Theme` computes the blend and contrast rules ("Blend and contrast rules" in tokens.md,
 the reference algorithm) from a theme's `fg`, `bg` and 16 slots; `resolve` turns one
@@ -191,7 +191,7 @@ def load_themes(path: Path = THEMES_FILE) -> list[Theme]:
 
 # Legend specs --------------------------------------------------------------------------------
 #
-# The grammar of design/README.md, linted by scripts/check-wireframes.py:
+# The grammar of docs/design.md, linted by scripts/check-wireframes.py:
 # `L  fg=ROLE bg=ROLE attribute...[ -- description]`. The gallery reads it the same way and
 # collects what it cannot resolve in `Spec.problems` so a page can show it, never guessing.
 

@@ -4,7 +4,7 @@ Thanks for your interest in Tessera. This guide covers how to talk to the projec
 a development environment, and land a change that passes the quality gate.
 
 Tessera is pre-1.0 and not ready for production use. The view and application-programming
-layer has no stable public API yet. Read [Project status](docs/ProjectStatus.md) for
+layer has no stable public API yet. Read [Project status](docs/project-status.md) for
 supported platforms, the roadmap, and documentation boundaries before proposing work.
 
 By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
@@ -168,8 +168,8 @@ diffs. Committing everything the formatter touches is fine, including formatter-
 changes. Hooks run non-mutating checks only and never autoformat.
 
 If a checkout or worktree behaves unexpectedly, run `just core doctor` and see
-[Local development state](docs/LocalDevelopmentState.md), which explains which artifacts
-are per-checkout, machine-global, or VM-local.
+[Local development state](docs/guides/local-development-state.md), which explains which
+artifacts are per-checkout, machine-global, or VM-local.
 
 ## Pull request workflow
 
@@ -218,6 +218,24 @@ Release-note labels are `breaking-change`, `enhancement`, `bug`, `documentation`
 `dependencies`, and `maintenance`. Apply `skip-release-notes` only to changes that should
 not appear in GitHub-generated notes. These labels control the generated GitHub release
 presentation; they do not add headings to the canonical changelog.
+
+## Documentation
+
+The project's documents live in one [IWE](https://iwe.md) workspace, `docs/`, mapped by
+[`docs/index.md`](docs/index.md): the [spec](docs/spec.md) (one page per section),
+[plans](docs/plans.md), [research records](docs/research.md),
+[architecture decisions](docs/architecture.md), the [design catalog](docs/design.md), and
+[contributor guides](docs/guides.md). Each directory has a frontmatter schema in
+`docs/.iwe/schemas/`; `iwe schema validate` from `docs/` checks every page, and
+`iwe find --fuzzy <terms>` and `iwe retrieve -k <key>` search and read it. `docs/plans.md`
+is rendered from the plans' frontmatter by `scripts/plans.py` and the quality gate fails
+while it is stale, so edit a plan's `stage`, `order`, or `description` and re-run the
+script rather than the hub.
+
+DocC catalogs beside the sources (`Sources/*/*.docc`) stay the reference for the public
+API; `just docs lint` validates them. Markdown prose is one paragraph per line (no hard
+wrapping) with relative `.md` links and no raw HTML, because `iwe normalize` rewrites
+pages into that shape; Swift code keeps the formatter's 90-column width.
 
 ## Coding standards
 
@@ -286,8 +304,8 @@ just linux stop            # then `just linux delete` for a fresh environment
 Windows on Apple silicon has two supported workflows — see the guides for first-time
 setup, SSH configuration, GUI validation, and troubleshooting:
 
-- **Scripted (recommended):** [Windows VM with Frost](docs/WindowsFrostVM.md).
-- **Manual desktop:** [Manual Windows VM with UTM](docs/WindowsVM.md).
+- **Scripted (recommended):** [Windows VM with Frost](docs/guides/windows-frost-vm.md).
+- **Manual desktop:** [Manual Windows VM with UTM](docs/guides/windows-vm.md).
 
 The normal Frost loop builds the pinned Windows `libghostty-vt` artifact once per pin,
 then runs the Ghostty-backed suites against disposable overlays:

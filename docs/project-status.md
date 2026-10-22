@@ -78,8 +78,8 @@ inventory below.
   `TabView`, `Form`, Markdown, a code view, `Image`, and `ContentUnavailableView`, with a
   small animation path for spinners and elapsed time.
 
-The design catalog under [`design/`](../design/README.md) is the authoritative contract
-for each component's anatomy, state, sizing, input, and degradation.
+The [design catalog](design.md) (`docs/design/`) is the authoritative contract for each
+component's anatomy, state, sizing, input, and degradation.
 
 ## Roadmap
 
@@ -112,7 +112,7 @@ After the view layer (spec Phase 5, "Runtime + polish") the work turns to:
 
 That work will also broaden the OS versions Tessera supports and tests. The first public
 source release will follow the release gate. The complete design and implementation plan
-lives in [`docs/Spec.md`](Spec.md).
+lives in [`docs/spec.md`](spec.md).
 
 ## Documentation Boundaries
 
@@ -121,10 +121,12 @@ lives in [`docs/Spec.md`](Spec.md).
 - The package's DocC catalogs describe source APIs. They are not hosted yet: Swift Package
   Index publication is deferred, and static GitHub Pages documentation is planned. Read
   them in the checkout or generate them locally with `just docs preview`.
-- [`docs/Spec.md`](Spec.md) and the `design/` catalog are design and architecture
+- The [spec](spec.md) and the [design catalog](design.md) are design and architecture
   references, not a supported API contract.
-- [CONTRIBUTING.md](../CONTRIBUTING.md) and the `docs/` operational guides are for
-  contributors and local development.
+- [CONTRIBUTING.md](../CONTRIBUTING.md) and the [guides](guides.md) are for contributors
+  and local development; [plans](plans.md), [research](research.md), and
+  [architecture decisions](architecture.md) are the project's working memory, mapped by
+  [`docs/index.md`](index.md).
 
 ## Communication
 

@@ -1,12 +1,15 @@
 ---
-name: Phase 3 Slice 2 Focus Events
+type: plan
+stage: done
+created: 2026-07-02
+completed: 2026-07-04
+order: 17
 description:
   Add terminal focus gained/lost events using CSI focus tracking, sharing the Phase 3 mode
   lifecycle and preserving bracketed-paste isolation.
-status: complete
-created: 2026-07-02
-updated: 2026-07-04
 ---
+
+# Phase 3 Slice 2 Focus Events
 
 ## Progress
 
@@ -23,7 +26,7 @@ updated: 2026-07-04
 
 ## Overview
 
-This plan implements `docs/Spec.md` Phase 3 Slice 2. Focus events report whether the
+This plan implements `docs/spec.md` Phase 3 Slice 2. Focus events report whether the
 terminal emulator considers the app focused. They are not view focus, widget focus, or
 shortcut routing.
 

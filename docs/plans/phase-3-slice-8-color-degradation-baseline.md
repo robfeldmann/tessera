@@ -1,14 +1,15 @@
 ---
-name: Phase 3 Slice 8 Color Degradation Baseline
+type: plan
+stage: done
+created: 2026-07-07
+completed: 2026-07-08
+order: 24
 description:
   Add capability-aware color degradation so Tessera renders truecolor, 256-color, ANSI
   16-color, and no-color output safely from the same semantic styles.
-status: complete
-created: 2026-07-07
-updated: 2026-07-08
 ---
 
-<!-- Allowed status values: planning, in-review, pending, in-progress, complete. -->
+# Phase 3 Slice 8 Color Degradation Baseline
 
 ## Progress
 
@@ -30,7 +31,7 @@ updated: 2026-07-08
 
 ## Overview
 
-This plan implements `docs/Spec.md` Phase 3 Slice 8. Tessera already models semantic
+This plan implements `docs/spec.md` Phase 3 Slice 8. Tessera already models semantic
 colors as `.default`, named ANSI 16 colors, 256-color palette indexes, and 24-bit RGB
 values, and passive capability detection already reports `TerminalCapabilities.color`. The
 missing piece is the renderer policy that decides which wire color form is safe for the
@@ -43,9 +44,8 @@ resolves that semantic color against session capabilities and emits truecolor, i
 
 Before editing, the implementer must read:
 
-1. `.agents/plans/015-phase-3-modern-terminal-protocols.md` for the umbrella Phase 3
-   rules.
-2. `docs/Spec.md` Phase 3 overview (`## Phase 3: Modern terminal protocols`).
+1. `docs/plans/phase-3-modern-terminal-protocols.md` for the umbrella Phase 3 rules.
+2. `docs/spec.md` Phase 3 overview (`## Phase 3: Modern terminal protocols`).
 3. The new docs slice titled `### Slice 8: Color degradation baseline`.
 4. This plan, including the non-goals and validation commands.
 
@@ -406,10 +406,10 @@ Acceptance:
 ### Step 4.2 — Update docs slice and Phase 3 demo panel
 
 - Files:
-  - `docs/Spec.md`
+  - `docs/spec.md`
   - `Examples/Sources/Phase3ProtocolsDemo/Phase3ProtocolsDemo.swift`
 - Insert the docs section titled `### Slice 8: Color degradation baseline` after Slice 7
-  in `docs/Spec.md`. Use the draft supplied with this plan review and keep Sixel
+  in `docs/spec.md`. Use the draft supplied with this plan review and keep Sixel
   explicitly out of scope.
 - Update the Phase 3 overview slice list and table of contents if the surrounding spec
   maintains one for Phase 3 slices.
@@ -478,8 +478,8 @@ Acceptance:
 
 ## References
 
-- `docs/Spec.md` — `## Phase 3: Modern terminal protocols` and the new Slice 8 section.
-- `.agents/plans/015-phase-3-modern-terminal-protocols.md` — umbrella Phase 3 plan.
+- `docs/spec.md` — `## Phase 3: Modern terminal protocols` and the new Slice 8 section.
+- `docs/plans/phase-3-modern-terminal-protocols.md` — umbrella Phase 3 plan.
 - `Sources/TesseraTerminalANSI/Color.swift`
 - `Sources/TesseraTerminalANSI/ANSIColor.swift`
 - `Sources/TesseraTerminal/TerminalCapabilities.swift`

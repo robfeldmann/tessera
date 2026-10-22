@@ -334,7 +334,7 @@ effect only with a Nerd Font ([Nerd Font](#nerd-font)).
 
 ## Sizing
 
-Schema: [README](../README.md#sizing-table). Mandatory rows: nil x nil, tight,
+Schema: [README](../../design.md#sizing-table). Mandatory rows: nil x nil, tight,
 under-minimum, over-maximum. Badge mirrors Button's sizing rows (owner decision,
 2026-10-10). The label is `new` (5 cells) in the rows below.
 
@@ -409,13 +409,13 @@ under-minimum, over-maximum. Badge mirrors Button's sizing rows (owner decision,
 
 - Resolved: the capsule shape. Badge draws its caps from the [caps](../tokens.md#caps)
   tokens, as Button does, so it needs no `.background(.capsule, style)`.
-  [Slice 3](../../docs/Spec.md#slice-3-styling-text-wrapping-and-decoration) defines no
-  such shape, and [the 1.0 surface](../../docs/Spec.md#the-10-surface) lists none.
+  [Slice 3](../../spec.md#slice-3-styling-text-wrapping-and-decoration) defines no such
+  shape, and [the 1.0 surface](../../spec.md#the-10-surface) lists none.
 - Resolved: the shape is chosen with `.badgeShape(_:)`, an environment style modifier,
   because key B12 makes a closed set of looks one, as Button's `.buttonBorderShape(_:)`
   is.
 - Resolved: reviewed against the
-  [Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module). Badge is a
+  [Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module). Badge is a
   stateless value composed from Text and style modifiers, its tone and shape resolve from
   roles, tokens, and the environment, and its geometry is deterministic integer-cell
   output.

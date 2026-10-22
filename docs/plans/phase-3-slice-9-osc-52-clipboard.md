@@ -1,14 +1,15 @@
 ---
-name: Phase 3 Slice 9 OSC 52 Clipboard
+type: plan
+stage: done
+created: 2026-07-07
+completed: 2026-07-09
+order: 25
 description:
   Add policy-gated OSC 52 clipboard writes with semantic encoding, session integration,
   multiplexer-aware defaults, tests, docs, and demo coverage.
-status: complete
-created: 2026-07-07
-updated: 2026-07-09
 ---
 
-<!-- Allowed status values: planning, in-review, pending, in-progress, complete. -->
+# Phase 3 Slice 9 OSC 52 Clipboard
 
 ## Progress
 
@@ -26,14 +27,14 @@ updated: 2026-07-09
 
 ## Overview
 
-This plan implements `docs/Spec.md` Phase 3 Slice 9. OSC 52 clipboard writes are
+This plan implements `docs/spec.md` Phase 3 Slice 9. OSC 52 clipboard writes are
 session-scoped terminal side effects: they send base64-encoded bytes to the terminal host
 clipboard and have no visible cell footprint, no frame lifetime, and no terminal
 acknowledgement. Because clipboard writes can surprise or exfiltrate user data, Tessera
 must default to denied, require explicit application and user intent, bound payload size,
 and report denials without emitting bytes. Before editing, read
-`.agents/plans/015-phase-3-modern-terminal-protocols.md`, the Phase 3 overview in
-`docs/Spec.md`, the `docs/Spec.md` Slice 9 section, and this plan.
+`docs/plans/phase-3-modern-terminal-protocols.md`, the Phase 3 overview in `docs/spec.md`,
+the `docs/spec.md` Slice 9 section, and this plan.
 
 ## Non-goals
 
@@ -362,10 +363,10 @@ Acceptance:
 ### Step 3.2 — Update docs and `Phase3ProtocolsDemo`
 
 - Files:
-  - `docs/Spec.md` Slice 9
+  - `docs/spec.md` Slice 9
   - `Examples/Sources/Phase3ProtocolsDemo/Phase3ProtocolsDemo.swift`
   - `Tests` snapshots only if the demo has snapshot coverage
-- Keep `docs/Spec.md` aligned with the final API names chosen by the implementation. Call
+- Keep `docs/spec.md` aligned with the final API names chosen by the implementation. Call
   out:
   - safe default disabled
   - app opt-in via configuration
@@ -421,8 +422,8 @@ Acceptance:
 
 ## References
 
-- `.agents/plans/015-phase-3-modern-terminal-protocols.md` — Phase 3 shared contracts.
-- `docs/Spec.md` Phase 3 overview and new Slice 9 — user-facing protocol contract.
+- `docs/plans/phase-3-modern-terminal-protocols.md` — Phase 3 shared contracts.
+- `docs/spec.md` Phase 3 overview and new Slice 9 — user-facing protocol contract.
 - Xterm control sequences, OSC 52: `OSC 52 ; Pc ; Pd ST`, where `Pc` selects clipboard,
   primary, secondary, select, or cut buffers, and `Pd` is normally RFC 4648 base64. Xterm
   also documents `Pd = ?` query/read behavior and `allowWindowOps`; this plan

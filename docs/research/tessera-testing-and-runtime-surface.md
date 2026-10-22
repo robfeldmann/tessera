@@ -1,7 +1,8 @@
 ---
-name: Tessera Testing and Runtime Surface
-date: 2026-10-19
+type: research
+observed: 2026-10-19
 status: resolved
+description: Tessera Testing and Runtime Surface
 ---
 
 # Tessera Testing and Runtime Surface
@@ -253,7 +254,7 @@ Not deterministic or not injectable:
   (`:57`); `examples` (`:61`).
 - `justfiles/linux.just`: `start` (`:21`), `shell` (`:29`), `stop` (`:37`), `delete`
   (`:41`), `test *args` (`:45`) runs `scripts/linux-test.sh` in a Lima VM. The VM name
-  comes from `TESSERA_LINUX_VM_NAME` (`docs/LocalDevelopmentState.md:79-82`).
+  comes from `TESSERA_LINUX_VM_NAME` (`docs/guides/local-development-state.md:79-82`).
 - `justfiles/ci.just`: `check` (`:10`) is core test plus quality lint; `ci-windows`
   (`:21`).
 - `DevTools/Sources/LinuxVMTests/LinuxVMTests.swift:1-46` is a thin wrapper around

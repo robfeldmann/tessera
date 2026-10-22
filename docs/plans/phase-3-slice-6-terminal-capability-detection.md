@@ -1,12 +1,15 @@
 ---
-name: Phase 3 Slice 6 Terminal Capability Detection
+type: plan
+stage: done
+created: 2026-07-02
+completed: 2026-07-07
+order: 21
 description:
   Add conservative terminal capability reporting and configuration policy so modern
   protocol enablement degrades gracefully.
-status: complete
-created: 2026-07-02
-updated: 2026-07-07
 ---
+
+# Phase 3 Slice 6 Terminal Capability Detection
 
 ## Progress
 
@@ -23,7 +26,7 @@ updated: 2026-07-07
 
 ## Overview
 
-This plan implements `docs/Spec.md` Phase 3 Slice 6. Capabilities are advisory hints, not
+This plan implements `docs/spec.md` Phase 3 Slice 6. Capabilities are advisory hints, not
 truth. A terminal that does not answer a query or advertises an unknown identity must
 still start cleanly, draw visible text, parse legacy input, and restore modes on exit.
 

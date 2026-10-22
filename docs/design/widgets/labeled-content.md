@@ -363,7 +363,7 @@ C  fg=accent bold
 
 ## State model
 
-Schema: [README](../README.md#state-model-table). LabeledContent holds no `NodeState`.
+Schema: [README](../../design.md#state-model-table). LabeledContent holds no `NodeState`.
 
 | State             | Owner       | Type                            | Reset or clamp rule                                                                                        |
 | ----------------- | ----------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------- |
@@ -385,7 +385,7 @@ event bubbles (key F1).
 
 ## Sizing
 
-Schema: [README](../README.md#sizing-table). Mandatory rows: nil x nil, tight,
+Schema: [README](../../design.md#sizing-table). Mandatory rows: nil x nil, tight,
 under-minimum, over-maximum.
 
 | Proposal           | Result | Rule                                                                                                                                                                |
@@ -415,8 +415,8 @@ under-minimum, over-maximum.
 - [Text](../primitives/text.md) (`ready`): value and label wrapping, and the one-row
   budget's mark.
 - [ViewThatFits](../primitives/view-that-fits.md) (`ready`): the inline or stacked choice
-  (key G10; [Spec](../../docs/Spec.md#flow-layout-and-viewthatfits)). Plan 032 step 14.1
-  builds it, before LabeledContent lands.
+  (key G10; [Spec](../../spec.md#flow-layout-and-viewthatfits)). Plan 032 step 14.1 builds
+  it, before LabeledContent lands.
 - [Linear stacks](../primitives/stacks.md) (`ready`): the one-column `spacing:` between
   the label and the value, and the stacked column (key B4).
 
@@ -463,9 +463,9 @@ under-minimum, over-maximum.
   (owner decision, 2026-10-18).
 
 This design was reviewed against the
-[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module):
-LabeledContent is a stateless composition of two app-supplied views, its styling comes
-from roles in the environment, and both arrangements are deterministic integer layout.
+[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): LabeledContent is
+a stateless composition of two app-supplied views, its styling comes from roles in the
+environment, and both arrangements are deterministic integer layout.
 
 ## Open questions
 

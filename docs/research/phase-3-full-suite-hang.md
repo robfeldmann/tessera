@@ -1,7 +1,8 @@
 ---
-name: Phase 3 Full-Suite Hang
-date: 2026-07-15
+type: research
+observed: 2026-07-15
 status: resolved
+description: Phase 3 Full-Suite Hang
 ---
 
 # Phase 3 Full-Suite Hang

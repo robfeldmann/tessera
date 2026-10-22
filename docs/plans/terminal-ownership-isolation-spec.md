@@ -1,12 +1,15 @@
 ---
-name: Terminal Ownership and Isolation Spec
+type: plan
+stage: done
+created: 2026-06-03
+completed: 2026-06-03
+order: 1
 description:
   Convert ownership/isolation review notes into normative Tessera architecture and resolve
   open design questions.
-status: completed
-created: 2026-06-03
-updated: 2026-06-03
 ---
+
+# Terminal Ownership and Isolation Spec
 
 ## Progress
 
@@ -30,8 +33,8 @@ updated: 2026-06-03
   - [x] 3.9 Decide dynamic terminal mode policy
   - [x] 3.10 Decide intentionally non-Sendable types
 - [x] **Phase 4 — Final cleanup**
-  - [x] 4.1 Remove remaining audit/review wording from `docs/Spec.md`
-  - [x] 4.2 Validate Markdown with `pnpx markdownlint-cli docs/Spec.md`
+  - [x] 4.1 Remove remaining audit/review wording from `docs/spec.md`
+  - [x] 4.2 Validate Markdown with `pnpx markdownlint-cli docs/spec.md`
 
 ## Overview
 
@@ -48,14 +51,14 @@ from sounding like final public architecture.
 
 ### Step 1.1 — Mark or move review notes
 
-- File: `docs/Spec.md`
+- File: `docs/spec.md`
 - Either mark strengths/risks sections as temporary review notes or move them to an
   investigation file.
 - Acceptance: The spec no longer reads as if strengths/risks are final product guidance.
 
 ### Step 1.2 — Preserve thesis and analogy
 
-- File: `docs/Spec.md`
+- File: `docs/spec.md`
 - Keep the introductory ownership thesis and SQLite analogy in concise normative prose.
 - Acceptance: The analogy remains visible and readable without wide tables.
 
@@ -65,7 +68,7 @@ from sounding like final public architecture.
 
 ### Step 2.1 — Scoped capability rules
 
-- File: `docs/Spec.md`
+- File: `docs/spec.md`
 - Define `TerminalSession`, `Frame`, `Screen`, `EventContext`, and raw-handle ownership as
   normative scoped capabilities.
 - Acceptance: Public APIs cannot write outside transactions, leak frames, or leak raw
@@ -73,21 +76,21 @@ from sounding like final public architecture.
 
 ### Step 2.2 — Actor/global actor surfaces
 
-- File: `docs/Spec.md`
+- File: `docs/spec.md`
 - Define actor-owned surfaces such as output, renderer state, mode lifecycle, input, and
   runtime isolation.
 - Acceptance: Serialization boundaries are described as architecture, not suggestions.
 
 ### Step 2.3 — Sendability policy
 
-- File: `docs/Spec.md`
+- File: `docs/spec.md`
 - Define where `Sendable` is required and where it is intentionally avoided.
 - Acceptance: `View`/widgets/app state are not broadly required to be `Sendable` unless a
   boundary requires it.
 
 ### Step 2.4 — Deterministic testing contract
 
-- File: `docs/Spec.md`
+- File: `docs/spec.md`
 - Define explicit event/render stepping and forbid tests relying on sleeps or
   `Task.yield`.
 - Acceptance: The test model has a concrete deterministic shape.
@@ -98,14 +101,14 @@ from sounding like final public architecture.
 
 ### Step 3.1 — Primary API shape
 
-- File: `docs/Spec.md`
+- File: `docs/spec.md`
 - Decide whether immediate-mode, runtime-driven, or both is primary and which owns the
   canonical isolation model.
 - Acceptance: The spec identifies the canonical isolation entry point.
 
 ### Step 3.2 — Runtime isolation domain
 
-- File: `docs/Spec.md`
+- File: `docs/spec.md`
 - Decide between `TerminalSession` actor, `AppRuntime` actor, custom global actor, or a
   hybrid.
 - Decision: core immediate-mode APIs have no global actor requirement. The optional
@@ -116,7 +119,7 @@ from sounding like final public architecture.
 
 ### Step 3.3 — Async rendering
 
-- File: `docs/Spec.md`
+- File: `docs/spec.md`
 - Decide whether rendering must be synchronous while holding a borrowed frame.
 - Decision: render transactions and `View.render` are synchronous and non-suspending. The
   `draw` call may be async to enter the session/renderer actor, but the borrowed frame
@@ -125,7 +128,7 @@ from sounding like final public architecture.
 
 ### Step 3.4 — Effect/state mutation boundary
 
-- File: `docs/Spec.md`
+- File: `docs/spec.md`
 - Decide whether effects can access mutable state or only emit actions.
 - Decision: Tessera's optional runtime does not define `Effect`, `State`, or `Action`, and
   does not own application business-state mutation. Runtime contexts expose UI-scoped
@@ -135,7 +138,7 @@ from sounding like final public architecture.
 
 ### Step 3.5 — Render invalidation ownership
 
-- File: `docs/Spec.md`
+- File: `docs/spec.md`
 - Decide who can invalidate rendering and how invalidations are coalesced.
 - Decision: invalidation is requestable, rendering is owned. Runtime API uses
   `setNeedsDisplay()` and `setNeedsLayout()`; lower-level session/renderer API uses
@@ -145,7 +148,7 @@ from sounding like final public architecture.
 
 ### Step 3.6 — Input backpressure
 
-- File: `docs/Spec.md`
+- File: `docs/spec.md`
 - Decide buffering/coalescing/drop policy when input outpaces update/render.
 - Decision: preserve ordered semantic input, coalesce latest-value events, and bound noisy
   streams. Key/paste/focus events are not silently dropped; resize, display/layout
@@ -154,7 +157,7 @@ from sounding like final public architecture.
 
 ### Step 3.7 — Deterministic test stepping
 
-- File: `docs/Spec.md`
+- File: `docs/spec.md`
 - Decide test APIs for draining effects, stepping input, and rendering frames.
 - Decision: core tests use explicit test terminals and input sources; runtime tests use
   precise `step` and bounded `drain` APIs. Timers/animations use injected clocks such as
@@ -164,7 +167,7 @@ from sounding like final public architecture.
 
 ### Step 3.8 — Capability visibility
 
-- File: `docs/Spec.md`
+- File: `docs/spec.md`
 - Decide public/package/internal boundaries for terminal writes, buffers, handles, and
   renderer escape hatches.
 - Decision: public API exposes safe values and scoped operations, not raw authority.
@@ -177,7 +180,7 @@ from sounding like final public architecture.
 
 ### Step 3.9 — Dynamic terminal modes
 
-- File: `docs/Spec.md`
+- File: `docs/spec.md`
 - Decide whether widgets may request modes dynamically and who arbitrates conflicts.
 - Decision: views/widgets do not directly mutate terminal modes. Lifecycle modes are
   session-owned; protocol modes are controlled by application configuration and/or dynamic
@@ -187,7 +190,7 @@ from sounding like final public architecture.
 
 ### Step 3.10 — Intentionally non-Sendable types
 
-- File: `docs/Spec.md`
+- File: `docs/spec.md`
 - Decide which types should be non-`Sendable` as a feature.
 - Decision: `Sendable` is for semantic values that safely cross isolation domains. Views,
   widgets, scenes, responders, app state, dependency containers, caches, and user-provided
@@ -203,19 +206,19 @@ from sounding like final public architecture.
 
 ### Step 4.1 — Remove audit wording
 
-- File: `docs/Spec.md`
+- File: `docs/spec.md`
 - Remove or relocate leftover review phrases such as strengths, smells, suggestions, and
   before/after framing.
 - Acceptance: The ownership/isolation material reads as final spec prose.
 
 ### Step 4.2 — Validate Markdown
 
-- File: `docs/Spec.md`
-- Run `pnpx markdownlint-cli docs/Spec.md`.
+- File: `docs/spec.md`
+- Run `pnpx markdownlint-cli docs/spec.md`.
 - Acceptance: Markdownlint reports no warnings.
 
 ## References
 
-- `docs/Spec.md`
+- `docs/spec.md`
 - `.agents/skills/planning/SKILL.md`
 - Local Swift concurrency migration skill reference for SQLite ownership and testing

@@ -1,3 +1,8 @@
+---
+type: guide
+description: "Windows VM with Frost"
+---
+
 # Windows VM with Frost
 
 Metadata:
@@ -17,7 +22,7 @@ throwaway test VMs, run commands over SSH, and optionally import the same image 
 [UTM](https://mac.getutm.app/) for manual GUI checks.
 
 If you prefer to create and manage a Windows VM by hand, use the manual UTM guide in
-`docs/WindowsVM.md` instead.
+`docs/guides/windows-vm.md` instead.
 
 ## What this workflow gives you
 
@@ -33,7 +38,7 @@ Frost creates a repeatable Windows test environment from files you download loca
 The VM images are local build artifacts under `~/.local/state/tessera/windows-frost/` (the
 default `TESSERA_FROST_WORK`) and are not checked into Git. That directory is Frost state,
 not another Tessera checkout; the `source/` subdirectory only holds the latest archive
-copied into a guest. See [Local development state](LocalDevelopmentState.md) for the
+copied into a guest. See [Local development state](local-development-state.md) for the
 branch/worktree model.
 
 ## Quick setup for experienced contributors

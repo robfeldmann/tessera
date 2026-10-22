@@ -1,12 +1,15 @@
 ---
-name: Kitty Keyboard Full Coverage
+type: plan
+stage: done
+created: 2026-07-05
+completed: 2026-07-05
+order: 23
 description:
   Expand Tessera keyboard input to preserve the full Kitty keyboard protocol surface and
   verify it with table-driven parser tests plus Ghostty key-encoder oracle tests.
-status: complete
-created: 2026-07-05
-updated: 2026-07-05
 ---
+
+# Kitty Keyboard Full Coverage
 
 ## Progress
 
@@ -34,14 +37,14 @@ key event Kitty can emit. This plan makes that contract explicit: application au
 should be able to route, display, and test any keyboard event Tessera receives from the
 Kitty keyboard protocol without falling back to raw byte inspection.
 
-The raw-output escape hatch in `docs/Spec.md` lines 86-90 remains output-only. It lets an
+The raw-output escape hatch in `docs/spec.md` lines 86-90 remains output-only. It lets an
 application render terminal bytes for protocols Tessera does not yet model. It is not the
 right abstraction for keyboard input. The input-side equivalent is semantic preservation:
 when Tessera can parse that a terminal sent a key event, it should surface a `Key` value
 with enough typed metadata for application code to handle it.
 `InputEvent.unknown([UInt8])` stays reserved for malformed or non-keyboard sequences that
 Tessera cannot parse as a known input protocol. This deliberately supersedes the
-`docs/Spec.md` Slice 4 guidance to route unknown-but-well-formed reports through
+`docs/spec.md` Slice 4 guidance to route unknown-but-well-formed reports through
 `.unknown` "until the public API has a real use case"; this plan is that use case.
 
 The Ghostty-backed `VirtualTerminal` screen harness is output-oriented: bytes go in,
@@ -250,7 +253,7 @@ bit positions 0-5. Add:
 - `.capsLock` = `1 << 6`
 - `.numLock` = `1 << 7`
 
-Keep `rawValue: UInt8` (`docs/Spec.md` Slice 4: do not widen). With all eight bits named,
+Keep `rawValue: UInt8` (`docs/spec.md` Slice 4: do not widen). With all eight bits named,
 the current unmasked pass-through of the decoded byte becomes exact rather than lossy.
 
 Acceptance:
@@ -509,7 +512,7 @@ swift test --filter TesseraTerminalIOTests
 swift test --filter TesseraTerminalTests
 swift build --package-path Examples --product Phase3ProtocolsDemo
 just quality changed
-pnpx markdownlint-cli .agents/plans/023-kitty-keyboard-full-coverage.md
+pnpx markdownlint-cli docs/plans/kitty-keyboard-full-coverage.md
 ```
 
 `TesseraTerminalIOTests` is included because `PlatformIOTests` asserts parsed key events
@@ -526,7 +529,7 @@ Acceptance:
 - The four settled API decisions at the top of this plan are binding: nested
   `Keypad`/`Media`/`Modifier` taxonomy, open-range `function(Int)` documented as 1-35,
   `unidentified(Int)` as the fallback case, and flat optional Kitty metadata on `Key`.
-- This plan supersedes the `docs/Spec.md` Slice 4 instruction to keep
+- This plan supersedes the `docs/spec.md` Slice 4 instruction to keep
   unknown-but-well-formed reports in `.unknown`; semantic preservation is the contract
   now. `Key` still evolves rather than being replaced, and `Modifiers.rawValue` stays
   `UInt8`, as Spec.md requires.

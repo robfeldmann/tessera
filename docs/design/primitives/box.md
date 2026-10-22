@@ -22,8 +22,8 @@ contracts rather than introducing private layout or input machinery.
   title and chrome spacing; Tessera keeps generic [Padding](padding.md) as the
   authoritative content-inset primitive and adds only one column of chrome padding on each
   side.
-- Tessera [Slice 3](../../docs/Spec.md#slice-3-styling-text-wrapping-and-decoration) —
-  owns the public API and the default rounded-border direction.
+- Tessera [Slice 3](../../spec.md#slice-3-styling-text-wrapping-and-decoration) — owns the
+  public API and the default rounded-border direction.
 - omp2 `Boxed`, Box's counterpart in the [translation key](../translation-key.md#coverage)
   ([boxed.rs][boxed]): a bordered child stack. Its markup defaults to a `square` ring and
   `pad-x=1` with no vertical padding ([markup.rs][box-markup]), and its title is a string
@@ -139,8 +139,8 @@ Callouts (1x1, 0-based):
 ## Public API
 
 The candidate spelling;
-[Slice 3](../../docs/Spec.md#slice-3-styling-text-wrapping-and-decoration) owns it, and
-plan 032 step 9.3 lands it:
+[Slice 3](../../spec.md#slice-3-styling-text-wrapping-and-decoration) owns it, and plan
+032 step 9.3 lands it:
 
 ```swift
 public struct Box<Title: View, Content: View>: View {
@@ -191,11 +191,11 @@ for its whole subtree (owner decision, 2026-10-10).
 
 ## Sizing
 
-Schema: [README](../README.md#sizing-table). The child measured here has an eight-by-two
-ideal; chrome adds two columns on each side (one border, one padding) and one row above
-and below (the border). A title counts toward the ideal width, as Boxed's does: an
-unconstrained box is at least six cells wider than its title's ideal, so the title shows
-whole whenever the width is the box's to choose.
+Schema: [README](../../design.md#sizing-table). The child measured here has an
+eight-by-two ideal; chrome adds two columns on each side (one border, one padding) and one
+row above and below (the border). A title counts toward the ideal width, as Boxed's does:
+an unconstrained box is at least six cells wider than its title's ideal, so the title
+shows whole whenever the width is the box's to choose.
 
 | Proposal          | Result                                | Rule                                                                                               |
 | ----------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------- |
@@ -496,7 +496,7 @@ only, to match the accepted [Focus](#focus) wireframes (owner decision, omp2 rev
 [ScrollIndicator](scroll-indicator.md), and omp2's `<box>` default.
 
 Reviewed against the
-[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): Box is static
+[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): Box is static
 chrome composed from existing primitives, its title is an ordinary child view rather than
 a string attribute, appearance comes from shared tokens, and geometry is deterministic
 integer-cell output.
@@ -515,7 +515,7 @@ descendant's resolved indicator geometry reaches Box is deferred to plan 032 ste
 ([ScrollIndicator](scroll-indicator.md#open-questions)).
 
 Owner decision, 2026-10-10: Box hit testing is deferred to
-[Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing), together with whether an
+[Slice 5](../../spec.md#slice-5-mouse-and-hit-testing), together with whether an
 interactive bordered child needs a distinct decorative-versus-hit region (key F1: the
 Mouse table of an interactive view names its hit regions; Box has none).
 

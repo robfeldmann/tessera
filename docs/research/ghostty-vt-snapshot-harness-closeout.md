@@ -1,7 +1,8 @@
 ---
-name: Ghostty VT Snapshot Harness Closeout
-date: 2026-06-06
+type: research
+observed: 2026-06-06
 status: resolved
+description: Ghostty VT Snapshot Harness Closeout
 ---
 
 # Ghostty VT Snapshot Harness Closeout
@@ -46,8 +47,8 @@ use, and which platforms have been validated?
   `just linux test` builds/refreshes `libghostty-vt` before running `swift test`.
 - Local Homebrew prerequisites are listed in `Brewfile` under "Ghostty Test Harness":
   `cmake`, `ninja`, and `zig@0.15`.
-- `docs/UpdatingGhosttyVT.md` documents how to update the pinned Ghostty revision and how
-  the cache/symlink path works.
+- `docs/guides/updating-ghostty-vt.md` documents how to update the pinned Ghostty revision
+  and how the cache/symlink path works.
 
 ## Conclusion
 

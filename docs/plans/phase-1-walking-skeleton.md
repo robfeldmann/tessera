@@ -1,10 +1,13 @@
 ---
-name: Phase 1 Walking Skeleton
-description: Build the Phase 1 Tessera walking skeleton.
-status: completed
+type: plan
+stage: done
 created: 2026-06-05
-updated: 2026-06-05
+completed: 2026-06-05
+order: 5
+description: Build the Phase 1 Tessera walking skeleton.
 ---
+
+# Phase 1 Walking Skeleton
 
 ## Progress
 
@@ -28,7 +31,7 @@ updated: 2026-06-05
 
 ## Overview
 
-This plan implements Phase 1 from `docs/Spec.md`: a deliberately crude walking skeleton
+This plan implements Phase 1 from `docs/spec.md`: a deliberately crude walking skeleton
 that proves Tessera can render a buffer to an alternate terminal screen, read raw
 keystrokes, update the screen, and exit cleanly on `q`. The work avoids Phase 2
 abstractions such as signal handling, a real ANSI encoder, diff rendering, resize
@@ -45,7 +48,7 @@ example app.
 - File: `Sources/TesseraTerminalCore/TerminalGeometry.swift`
 - Replace `TerminalGeometry` placeholder with `TerminalSize` and `TerminalPosition`
   structs.
-- Use `columns`/`rows` and `column`/`row` integer fields matching `docs/Spec.md`.
+- Use `columns`/`rows` and `column`/`row` integer fields matching `docs/spec.md`.
 - Acceptance: `swift test --filter TesseraTerminalCoreTests` passes after updating
   existing placeholder tests if needed.
 
@@ -170,7 +173,7 @@ example app.
 ### Step 5.2 — Wire and manually verify the walking-skeleton run loop
 
 - File: `Examples/Sources/HelloTessera/main.swift`
-- Implement the loop from `docs/Spec.md`: enter raw mode, enter alt screen, render
+- Implement the loop from `docs/spec.md`: enter raw mode, enter alt screen, render
   greeting and last key, read bytes, update on printable input, exit on `q`, and restore
   alt screen/raw mode with `defer`.
 - Use direct buffer writes; do not introduce a `View` protocol.
@@ -188,7 +191,7 @@ example app.
 
 ## References
 
-- `docs/Spec.md`, Phase 1: The Walking Skeleton, starting near line 266.
+- `docs/spec.md`, Phase 1: The Walking Skeleton, starting near line 266.
 - Existing scaffolding targets in `Package.swift`.
 - Local Ratatui/crossterm references listed in `AGENTS.md` if implementation details need
   confirmation.

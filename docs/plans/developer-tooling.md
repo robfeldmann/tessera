@@ -1,16 +1,16 @@
 ---
-name: Developer tooling for agents and humans
+type: plan
+stage: proposed
+created: 2026-10-19
+order: 33
 description:
   A headless harness, a scenario language, semantic queries over the view graph,
   deterministic text/grid/SVG shots, invariant and cost checks, "why" traces, and a
   catalog review view, built on plan 032's Phase 8 demo runner and landing one capability
   per Phase 4 phase so agents can build, debug, and evaluate Tessera apps unattended.
-status: planning
-created: 2026-10-19
-updated: 2026-10-19
 ---
 
-<!-- Allowed status values: planning, in-review, pending, in-progress, complete, superseded. -->
+# Developer tooling for agents and humans
 
 ## Progress
 
@@ -171,7 +171,7 @@ kebab-case ids:
 - G: `scroll-offset-within-content`, `selection-visible`, `unique-collection-ids`.
 
 `NodeState` single ownership is not checkable from the projection; it stays a review rule
-backed by an `ast_grep` lint in `just quality` (design/README.md:240).
+backed by an `ast_grep` lint in `just quality` (docs/design.md:240).
 
 ### Shots and goldens
 
@@ -200,14 +200,13 @@ their events to `TESSERA_TRACE=<file>` for `tessera-dev replay FILE --app NAME` 
 
 `expect wireframe PATH N [at SEL]` compares the screen, or a node's frame region, with the
 N-th `wireframe WxH` fence in a catalog doc; the grid is pristine by rule
-(design/README.md:136-137), so the compare is cell-for-cell with a per-cell diff on
-failure. `tessera-dev conform [DOC…]` lists every fence in `ready`/`implemented` docs with
-the scenario that pins it, or `unpinned`; from Phase H the gate fails for `implemented`
-docs with unpinned fences (design/README.md:314-315). The kept review pages (plan 032 step
-7.4 amendment) become the gallery: per component, the wireframe, the current render (SVG
-from the working tree), and the previous render (SVG rendered from the committed
-`.grid.txt`), so a human reviews a regression as three pictures without any committed
-image.
+(docs/design.md:136-137), so the compare is cell-for-cell with a per-cell diff on failure.
+`tessera-dev conform [DOC…]` lists every fence in `ready`/`implemented` docs with the
+scenario that pins it, or `unpinned`; from Phase H the gate fails for `implemented` docs
+with unpinned fences (docs/design.md:314-315). The kept review pages (plan 032 step 7.4
+amendment) become the gallery: per component, the wireframe, the current render (SVG from
+the working tree), and the previous render (SVG rendered from the committed `.grid.txt`),
+so a human reviews a regression as three pictures without any committed image.
 
 ### Live inspection (Phase F, owner decision 2)
 
@@ -326,7 +325,7 @@ lines; an agent runs and reads a scenario without prose; CI gates all of it.
   lint landed on main in `39d793c`; pinning adds an `id=` to each pinned fence, and the
   gallery's slots accept `.grid.txt` as well as `.svg`. First pinned fences: Border and
   Box (plan 032 step 9.3).
-- Acceptance: `conform design/primitives` reports pinned and unpinned fences in JSON;
+- Acceptance: `conform docs/design/primitives` reports pinned and unpinned fences in JSON;
   heavy and mixed boxes rasterise correctly in the review PNG; a Phase 9 focus-border demo
   asserts `fg=focus` under `theme=probe` and reads identically in SVG and `.txt`.
 
@@ -417,7 +416,7 @@ into `spikes/` after A.3.
 
 1. **`mobile` viewport.** (a) 40x16 everywhere (plan 032 step 8.2, widget template); (b)
    40 columns at natural height, 40x16 for screen-filling compositions (tokens.md:21,
-   design/README.md:64). Spike 1: natural height reads cleanly for leaf-and-stack demos;
+   docs/design.md:64). Spike 1: natural height reads cleanly for leaf-and-stack demos;
    height-greedy views fill any proposal, and only a package-level option can propose a
    nil height. Recommendation: (b), with the package nil-height probe and two-height
    detection in B.1, `fixtures` declared per demo, and an error naming `mobileScreen`.
@@ -484,7 +483,8 @@ Findings from the 2026-10-19 review were applied; two were adjusted:
 
 ## References
 
-- Investigations 036–041; `docs/Spec.md:7382-7441, 7545-7551, 8417-8419, 8440-8448`;
-  `design/README.md:60-67, 115-143, 240-245, 272-282, 314-315`; `design/tokens.md:14-26`;
-  plan 032 `:481-488, 501-543`; Lattice `docs/design/devtools.md` (Principles,
-  `lattice dev` family, Decisions 2–3); Tern `tern help dev` as recorded in 037.
+- Investigations 036–041; `docs/spec.md:7382-7441, 7545-7551, 8417-8419, 8440-8448`;
+  `docs/design.md:60-67, 115-143, 240-245, 272-282, 314-315`;
+  `docs/design/tokens.md:14-26`; plan 032 `:481-488, 501-543`; Lattice
+  `docs/design/devtools.md` (Principles, `lattice dev` family, Decisions 2–3); Tern
+  `tern help dev` as recorded in 037.

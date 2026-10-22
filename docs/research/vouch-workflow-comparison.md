@@ -1,7 +1,8 @@
 ---
-name: Vouch Workflow Comparison
-date: 2026-07-20
+type: research
+observed: 2026-07-20
 status: resolved
+description: Vouch Workflow Comparison
 ---
 
 # Vouch Workflow Comparison

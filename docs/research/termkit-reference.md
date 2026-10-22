@@ -1,7 +1,8 @@
 ---
-name: TermKit Reference Lessons
-date: 2026-06-04
+type: research
+observed: 2026-06-04
 status: resolved
+description: TermKit Reference Lessons
 ---
 
 # TermKit Reference Lessons
@@ -9,7 +10,7 @@ status: resolved
 ## Question
 
 What can Tessera learn from the Swift TUI library checked out at
-`~/Developer/migueldeicaza/TermKit/main`, section-by-section against `docs/Spec.md`, and
+`~/Developer/migueldeicaza/TermKit/main`, section-by-section against `docs/spec.md`, and
 are there TermKit files worth keeping as reference material, especially for the
 under-specified Phase 4 view layer?
 

@@ -9,7 +9,7 @@ status: ready
 one child, reports its own resolved layout size, and places the child inside that
 rectangle using `Alignment`. It neither draws a border nor changes the child's content.
 Its final allocated frame is the clipping boundary for non-text geometry in rendering and
-in [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing) hit testing. Text is never
+in [Slice 5](../../spec.md#slice-5-mouse-and-hit-testing) hit testing. Text is never
 clipped by it: Text lays out again at the width it is given and wraps or marks its last
 visible row, per [Text](text.md#row-budget) (owner decision, 2026-10-18).
 
@@ -21,8 +21,8 @@ visible row, per [Text](text.md#row-budget) (owner decision, 2026-10-18).
 - Apple SwiftUI
   [View.frame](<https://developer.apple.com/documentation/swiftui/view/frame(width:height:alignment:)>)
   — copy fixed and min/max frame vocabulary with child alignment.
-- Tessera [Slice 2](../../docs/Spec.md#slice-2-the-layout-protocol-and-stack-containers) —
-  owns the public overloads, top-leading default, and parent-frame clipping contract.
+- Tessera [Slice 2](../../spec.md#slice-2-the-layout-protocol-and-stack-containers) — owns
+  the public overloads, top-leading default, and parent-frame clipping contract.
 - omp2 has no frame component. Its counterparts are the `w`, `h`, `min`, and `max`
   attributes
   ([vocab/lib.rs](https://github.com/can1357/oh-my-pi/blob/2f92f3b5aa2035d21c9f016f9ff6350795e5685a/crates/vocab/src/lib.rs#L33-L40)).
@@ -54,12 +54,12 @@ Callouts (8x3, 0-based):
 
 ## Variants
 
-| Configuration                                                                            | Resolved axis                                                                      | Child proposal and placement                                                                                            |
-| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `.frame(width: w, height: h, alignment: a)`                                              | Each non-nil axis is exactly that non-negative integer.                            | Fixed axes are proposed as the fixed extent; `a` places a smaller child in retained slack.                              |
-| `.frame(minWidth: minW, maxWidth: maxW, minHeight: minH, maxHeight: maxH, alignment: a)` | Each bounded axis clamps the child's extent to its declared non-negative interval. | A present maximum caps the child proposal; see [catalog layout decisions](../../docs/Spec.md#catalog-layout-decisions). |
-| Invalid bounds                                                                           | Rejected before layout.                                                            | Every extent is non-negative; a supplied `min` is no greater than its supplied `max`.                                   |
-| Omitted axis                                                                             | Child's measured axis.                                                             | Frame does not invent stretch on that axis.                                                                             |
+| Configuration                                                                            | Resolved axis                                                                      | Child proposal and placement                                                                                       |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `.frame(width: w, height: h, alignment: a)`                                              | Each non-nil axis is exactly that non-negative integer.                            | Fixed axes are proposed as the fixed extent; `a` places a smaller child in retained slack.                         |
+| `.frame(minWidth: minW, maxWidth: maxW, minHeight: minH, maxHeight: maxH, alignment: a)` | Each bounded axis clamps the child's extent to its declared non-negative interval. | A present maximum caps the child proposal; see [catalog layout decisions](../../spec.md#catalog-layout-decisions). |
+| Invalid bounds                                                                           | Rejected before layout.                                                            | Every extent is non-negative; a supplied `min` is no greater than its supplied `max`.                              |
+| Omitted axis                                                                             | Child's measured axis.                                                             | Frame does not invent stretch on that axis.                                                                        |
 
 `Alignment` defaults to `.topLeading`; `.top`, `.center`, `.bottomTrailing`, and the other
 public enum cases select the corresponding integer offset. When slack is odd, leading/top
@@ -82,7 +82,7 @@ cells and reports width ten.
 For `Text("Go").frame(width: 8, height: 3)`, the child is intrinsically `2x1`; a fixed
 frame reports its fixed dimensions even when the incoming proposal is narrower. Bounded
 frames use the validation and proposal rules in
-[catalog layout decisions](../../docs/Spec.md#catalog-layout-decisions).
+[catalog layout decisions](../../spec.md#catalog-layout-decisions).
 
 | Proposal                                                           | Result | Rule                                                                                                                                            |
 | ------------------------------------------------------------------ | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -142,12 +142,12 @@ alignment, and clipping remain unchanged in ASCII-only and no-color modes.
 ## Decisions
 
 Frame validation and bounded-axis proposal rules are fixed in
-[catalog layout decisions](../../docs/Spec.md#catalog-layout-decisions): invalid bounds
-trap before layout, and a max-only axis sends a finite capped proposal to its child. No
+[catalog layout decisions](../../spec.md#catalog-layout-decisions): invalid bounds trap
+before layout, and a max-only axis sends a finite capped proposal to its child. No
 Frame-specific decision remains open.
 
 Reviewed against the
-[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): Frame is a
+[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): Frame is a
 value-type modifier lowered to one wrapper node, its sizing and alignment are
 deterministic integer math that `dump()` shows, it holds no state, and it touches no
 terminal capability.

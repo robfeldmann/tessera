@@ -11,7 +11,7 @@ and shared overflow geometry. The app owns the data (`RandomAccessCollection` of
 `Identifiable` elements), the selection (`Binding<Data.Element.ID?>`), and every section's
 expansion (`Binding<Bool>` on the Section); List owns only an ephemeral scroll offset in
 `NodeState`, per
-[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
+[Slice 7](../../spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
 List renders chrome (selection gutter, section spacing, scrollbar) but never invents data,
 selection, or expansion.
 
@@ -328,7 +328,7 @@ states, composed beside or instead of the List.
 | row line limit        | Environment | `Int?` (`lineLimit`)                    | default nil, so rows wrap; `.lineLimit(1)` on a row or on the List restores single-line rows; chrome (headers, badges) pins its own value                                                                                                                                                                                                                                           |
 | header styling        | Environment | `secondary`                             | Section header default; see [Section](section.md)                                                                                                                                                                                                                                                                                                                                   |
 | selection style       | Environment | `selection.*` tokens                    | active vs inactive chosen by focus                                                                                                                                                                                                                                                                                                                                                  |
-| hovered row           | derived     | `Int?` (row index under the pointer)    | derived at render from the graph-owned hover point (key F4); the graph clears it on focus loss and when motion tracking stops ([Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing)); never stored in NodeState or a binding; nil while hover enabled is false; a selected row keeps `selection.fill` under the pointer                                                      |
+| hovered row           | derived     | `Int?` (row index under the pointer)    | derived at render from the graph-owned hover point (key F4); the graph clears it on focus loss and when motion tracking stops ([Slice 5](../../spec.md#slice-5-mouse-and-hit-testing)); never stored in NodeState or a binding; nil while hover enabled is false; a selected row keeps `selection.fill` under the pointer                                                           |
 | hover enabled         | Environment | `Bool`                                  | on by default, and List requests motion tracking while it is live in the graph; `.rowHover(.disabled)` removes the hover fill and the request (owner decision, 2026-10-19); the spelling is a placeholder (see Open questions)                                                                                                                                                      |
 
 The "selection ID vanished" rule is Slice 7's mandatory "app mutated data under the
@@ -450,10 +450,10 @@ rule, not the numbers, is normative.
   lands in plan 032 step 9.2, before List in step 14.2.
 - [ScrollView](scroll-view.md#rows-and-variable-height-content) (a widget) -- the
   row-based offset, partial-item, paging, and reveal contract List follows.
-- [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing) mouse routing (plan 032
-  Phase 11) -- row hit testing (position to row ID), wheel routing, and the motion request
-  for row hover come from the framework contract, never a private rect map (the gap
-  Ratatui cannot close; issue #273). Row hover lands with List in step 14.2.
+- [Slice 5](../../spec.md#slice-5-mouse-and-hit-testing) mouse routing (plan 032 Phase 11)
+  -- row hit testing (position to row ID), wheel routing, and the motion request for row
+  hover come from the framework contract, never a private rect map (the gap Ratatui cannot
+  close; issue #273). Row hover lands with List in step 14.2.
 
 ## Requirements
 
@@ -519,7 +519,7 @@ rule, not the numbers, is normative.
 - `row under the pointer takes the hover fill; a selected row keeps selection.fill under the pointer`
   (Anatomy callout 9; state model: hovered row)
 - `rows request pointer motion only while the list is live in the graph` (state model:
-  hover enabled; [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing))
+  hover enabled; [Slice 5](../../spec.md#slice-5-mouse-and-hit-testing))
 - `.rowHover(.disabled) removes the hover fill and the motion request` (state model: hover
   enabled; Environment: hover)
 - `pointer motion moves the derived hovered row without changing selection or scroll offset`
@@ -544,10 +544,9 @@ rule, not the numbers, is normative.
 ## Scope decisions
 
 - Selection styling: `listSelectionStyle` is deferred to the
-  [Slice 3](../../docs/Spec.md#slice-3-styling-text-wrapping-and-decoration)
-  style/environment contract. v1 consumes the `selection.*` tokens directly with no
-  parallel style protocol (ScrollView precedent); List keeps its selection tokens (owner
-  decision, 2026-10-10).
+  [Slice 3](../../spec.md#slice-3-styling-text-wrapping-and-decoration) style/environment
+  contract. v1 consumes the `selection.*` tokens directly with no parallel style protocol
+  (ScrollView precedent); List keeps its selection tokens (owner decision, 2026-10-10).
 - Multi-select `Binding<Set<ID>>` is out of v1, shared with
   [Table](table.md#open-questions). Revisit after both ship single-select with identical
   semantics (owner decision, 2026-10-10).
@@ -555,10 +554,10 @@ rule, not the numbers, is normative.
   `.lineLimit(1)` as the opt-out on a row or the whole List. Offsets, thumb, and paging
   count rows per ScrollView's contract; selection covers every row of the item.
 - Context menus are post-1.0, as key F3 records; the
-  [1.0 surface](../../docs/Spec.md#the-10-surface) counts each catalog deferral as
-  post-1.0. They need a secondary-click event in the catalog's
-  [mouse-event vocabulary](../README.md#mouse-table) plus Slice 5 routing; the target API
-  shape is SwiftUI's `contextMenu(forSelectionType:menu:primaryAction:)`, whose menu
+  [1.0 surface](../../spec.md#the-10-surface) counts each catalog deferral as post-1.0.
+  They need a secondary-click event in the catalog's
+  [mouse-event vocabulary](../../design.md#mouse-table) plus Slice 5 routing; the target
+  API shape is SwiftUI's `contextMenu(forSelectionType:menu:primaryAction:)`, whose menu
   closure receives the selection so empty-space and on-row menus differ.
 - Bulk expand and collapse chords (Shift-Left/Right) are post-1.0 until a use case
   appears. A 1.0 app binds its own chord with `.onKey` on the List and writes the
@@ -567,17 +566,17 @@ rule, not the numbers, is normative.
   G11).
 
 This design was reviewed against the
-[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): data,
-selection, and expansion are the app's bindings; the scroll offset is NodeState with one
-owner; hover is derived from the graph, never stored; and rows, heights, and the indicator
-are recomputed integer geometry on every pass.
+[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): data, selection,
+and expansion are the app's bindings; the scroll offset is NodeState with one owner; hover
+is derived from the graph, never stored; and rows, heights, and the indicator are
+recomputed integer geometry on every pass.
 
 ## Open questions
 
 - Row hover opt-out spelling: `.rowHover(.disabled)` is a placeholder name (owner
-  decision, 2026-10-19), and [Slice 5](../../docs/Spec.md#slice-5-mouse-and-hit-testing)
-  leaves the final name to Table and List. The owner picks it; deferred to plan 032 step
-  14.2, and Table records the same question for step 14.4.
+  decision, 2026-10-19), and [Slice 5](../../spec.md#slice-5-mouse-and-hit-testing) leaves
+  the final name to Table and List. The owner picks it; deferred to plan 032 step 14.2,
+  and Table records the same question for step 14.4.
 
 ## Inspiration
 

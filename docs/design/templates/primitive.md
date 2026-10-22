@@ -16,7 +16,7 @@ Concrete sources with paths or links; what to copy, what to reject.
 ## Anatomy
 
 One or more wireframes with callouts. Conventions:
-[README](../README.md#wireframe-conventions).
+[README](../../design.md#wireframe-conventions).
 
 ```wireframe 8x1
 ────────
@@ -33,7 +33,7 @@ Style variants, keyed to [tokens.md](../tokens.md) glyph tables.
 
 ## Sizing
 
-Schema: [README](../README.md#sizing-table). Mandatory rows: nil x nil, tight,
+Schema: [README](../../design.md#sizing-table). Mandatory rows: nil x nil, tight,
 under-minimum, over-maximum.
 
 | Proposal  | Result | Rule |
@@ -47,7 +47,7 @@ Tokens consumed, each defined in [tokens.md](../tokens.md).
 ## Requirements
 
 Backticked sentence-style test names, each traced. Schema:
-[README](../README.md#requirements-list).
+[README](../../design.md#requirements-list).
 
 - `TODO` (trace)
 

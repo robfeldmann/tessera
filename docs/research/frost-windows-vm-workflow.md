@@ -1,7 +1,8 @@
 ---
-name: Frost Windows VM workflow
-date: 2026-06-16
+type: research
+observed: 2026-06-16
 status: resolved
+description: Frost Windows VM workflow
 ---
 
 # Frost Windows VM workflow
@@ -28,8 +29,8 @@ interactively running Tessera on Windows 11 ARM64?
   <https://forums.swift.org/t/upcoming-changes-to-windows-swift-sdks/81313>.
 - Windows OpenSSH PTY reference checked:
   <https://github.com/PowerShell/Win32-OpenSSH/wiki/TTY-PTY-support-in-Windows-OpenSSH>.
-- Project context checked: `.agents/plans/012-phase-2-slice-6-windows-terminal-io.md`,
-  `docs/WindowsVM.md`, `.agents/investigations/007-windows-utm-setup-walkthrough.md`,
+- Project context checked: `docs/plans/phase-2-slice-6-windows-terminal-io.md`,
+  `docs/guides/windows-vm.md`, `docs/research/windows-utm-setup-walkthrough.md`,
   `Justfile`, and `scripts/setup-windows-vm.ps1`.
 - Local UTM VM config inspected at
   `~/Library/Containers/com.utmapp.UTM/Data/Documents/tessera-windows.utm/config.plist` to

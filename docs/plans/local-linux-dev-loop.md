@@ -1,12 +1,15 @@
 ---
-name: Local Linux Dev Loop
+type: plan
+stage: done
+created: 2026-06-03
+completed: 2026-06-03
+order: 3
 description:
   Establish a Docker-free local loop for macOS builds, Linux cross-builds, and optional
   Linux test execution.
-status: completed
-created: 2026-06-03
-updated: 2026-06-03
 ---
+
+# Local Linux Dev Loop
 
 ## Progress
 
@@ -117,6 +120,6 @@ committing to a heavier virtualization workflow while leaving room to add one la
 
 ## References
 
-- `docs/Spec.md` Phase 0
+- `docs/spec.md` Phase 0
 - `Justfile`
 - `Package.swift`

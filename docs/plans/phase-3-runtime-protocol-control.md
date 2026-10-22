@@ -1,14 +1,15 @@
 ---
-name: Phase 3 Slice 12 Runtime Protocol Control
+type: plan
+stage: done
+created: 2026-07-09
+completed: 2026-07-11
+order: 28
 description:
   Reconcile active protocol evidence and make selected rendering policies and terminal
   modes adjustable during a live application session.
-status: complete
-created: 2026-07-09
-updated: 2026-07-11
 ---
 
-<!-- Allowed status values: planning, in-review, pending, in-progress, complete. -->
+# Phase 3 Slice 12 Runtime Protocol Control
 
 ## Progress
 
@@ -508,20 +509,20 @@ before umbrella Phase 4 begins.
 ### Step 5.2 — Update the specification and affected plans
 
 - Files:
-  - `docs/Spec.md`
-  - `.agents/plans/015-phase-3-modern-terminal-protocols.md`
-  - `.agents/plans/017-phase-3-slice-2-focus-events.md`
-  - `.agents/plans/018-phase-3-slice-3-sgr-mouse-tracking.md`
-  - `.agents/plans/019-phase-3-slice-4-kitty-keyboard-protocol.md`
-  - `.agents/plans/020-phase-3-slice-5-osc-8-hyperlinks.md`
-  - `.agents/plans/021-phase-3-slice-6-terminal-capability-detection.md`
-  - `.agents/plans/022-phase-3-slice-7-kitty-graphics-protocol.md`
-  - `.agents/plans/024-phase-3-slice-8-color-degradation-baseline.md`
-  - `.agents/plans/026-phase-3-slice-10-cursor-styling.md`
-  - `.agents/plans/027-phase-3-slice-11-underline-extensions.md`
-  - `.agents/investigations/015-apple-terminal-underline-corruption.md`
-  - `.agents/investigations/016-phase-3-runtime-configurability.md`
-- Add the finalized Slice 12 TOC entry and section to `docs/Spec.md`. Cover lifecycle
+  - `docs/spec.md`
+  - `docs/plans/phase-3-modern-terminal-protocols.md`
+  - `docs/plans/phase-3-slice-2-focus-events.md`
+  - `docs/plans/phase-3-slice-3-sgr-mouse-tracking.md`
+  - `docs/plans/phase-3-slice-4-kitty-keyboard-protocol.md`
+  - `docs/plans/phase-3-slice-5-osc-8-hyperlinks.md`
+  - `docs/plans/phase-3-slice-6-terminal-capability-detection.md`
+  - `docs/plans/phase-3-slice-7-kitty-graphics-protocol.md`
+  - `docs/plans/phase-3-slice-8-color-degradation-baseline.md`
+  - `docs/plans/phase-3-slice-10-cursor-styling.md`
+  - `docs/plans/phase-3-slice-11-underline-extensions.md`
+  - `docs/research/apple-terminal-underline-corruption.md`
+  - `docs/research/phase-3-runtime-configurability.md`
+- Add the finalized Slice 12 TOC entry and section to `docs/spec.md`. Cover lifecycle
   ambiguity, cleanup retention, single-generation probes, evidence/policy/effective state,
   app-mode precedence, draw commit points, runtime APIs, demo controls, errors, and
   deliberate exclusions.
@@ -550,7 +551,7 @@ before umbrella Phase 4 begins.
   swift test --filter TesseraTerminalTests
   swift test --package-path Examples --filter Phase3ProtocolsDemoSupportTests
   swift build --package-path Examples --product Phase3ProtocolsDemo
-  pnpx markdownlint-cli docs/Spec.md .agents/plans/015-phase-3-modern-terminal-protocols.md .agents/plans/028-phase-3-runtime-protocol-control.md
+  pnpx markdownlint-cli docs/spec.md docs/plans/phase-3-modern-terminal-protocols.md docs/plans/phase-3-runtime-protocol-control.md
   ```
 
 - Before review, run the repository gate in the required order:
@@ -568,19 +569,19 @@ before umbrella Phase 4 begins.
 
 ## References
 
-- `docs/Spec.md` Phase 3 overview and Slices 3–11
-- `.agents/plans/015-phase-3-modern-terminal-protocols.md`
-- `.agents/plans/017-phase-3-slice-2-focus-events.md`
-- `.agents/plans/018-phase-3-slice-3-sgr-mouse-tracking.md`
-- `.agents/plans/019-phase-3-slice-4-kitty-keyboard-protocol.md`
-- `.agents/plans/020-phase-3-slice-5-osc-8-hyperlinks.md`
-- `.agents/plans/021-phase-3-slice-6-terminal-capability-detection.md`
-- `.agents/plans/022-phase-3-slice-7-kitty-graphics-protocol.md`
-- `.agents/plans/024-phase-3-slice-8-color-degradation-baseline.md`
-- `.agents/plans/026-phase-3-slice-10-cursor-styling.md`
-- `.agents/plans/027-phase-3-slice-11-underline-extensions.md`
-- `.agents/investigations/015-apple-terminal-underline-corruption.md`
-- `.agents/investigations/016-phase-3-runtime-configurability.md`
+- `docs/spec.md` Phase 3 overview and Slices 3–11
+- `docs/plans/phase-3-modern-terminal-protocols.md`
+- `docs/plans/phase-3-slice-2-focus-events.md`
+- `docs/plans/phase-3-slice-3-sgr-mouse-tracking.md`
+- `docs/plans/phase-3-slice-4-kitty-keyboard-protocol.md`
+- `docs/plans/phase-3-slice-5-osc-8-hyperlinks.md`
+- `docs/plans/phase-3-slice-6-terminal-capability-detection.md`
+- `docs/plans/phase-3-slice-7-kitty-graphics-protocol.md`
+- `docs/plans/phase-3-slice-8-color-degradation-baseline.md`
+- `docs/plans/phase-3-slice-10-cursor-styling.md`
+- `docs/plans/phase-3-slice-11-underline-extensions.md`
+- `docs/research/apple-terminal-underline-corruption.md`
+- `docs/research/phase-3-runtime-configurability.md`
 - `Sources/TesseraTerminal/TerminalApplicationConfiguration.swift`
 - `Sources/TesseraTerminal/TerminalCapabilities.swift`
 - `Sources/TesseraTerminal/TerminalSession.swift`

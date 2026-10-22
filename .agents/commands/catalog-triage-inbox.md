@@ -1,6 +1,12 @@
-# Triage the Design Catalog Inbox
+---
+description:
+  Triage every entry in the design catalog inbox into a component page, a new sketch, the
+  spec, or deletion.
+---
 
-Use this prompt to process `design/inbox.md`.
+# Triage the design catalog inbox
+
+Process every entry in `docs/design/inbox.md`.
 
 ## Steps
 
@@ -12,13 +18,13 @@ Use this prompt to process `design/inbox.md`.
      `catalog-new-component` prompt flow (template copy + prior art + index row) and move
      the entry into its Inspiration section.
    - **Escalate**: the entry challenges an architectural rule -- it belongs in
-     `docs/Spec.md` discussion or an issue, not the catalog. Note the destination, move it
+     `docs/spec.md` discussion or an issue, not the catalog. Note the destination, move it
      there, delete from inbox.
    - **Kill**: no longer interesting -- delete, optionally with a one-line tombstone in
      the relevant doc's Open questions if the rejection is informative.
 3. Never leave an entry both in the inbox and in a doc; the inbox holds only untriaged
    thoughts.
 4. Validate touched files:
-   `pnpx markdownlint-cli design/ && prettier --check "design/**/*.md"`.
+   `node_modules/.bin/markdownlint-cli2 docs/design.md "docs/design/**/*.md"`.
 
 Report a short table: entry, decision, destination.

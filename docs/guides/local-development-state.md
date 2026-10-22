@@ -1,3 +1,8 @@
+---
+type: guide
+description: "Local Development State"
+---
+
 # Local Development State
 
 Tessera uses three different kinds of local state. Keeping them separate makes multiple
@@ -20,7 +25,7 @@ path, the Lima VM name and mount, and the Windows Frost image paths.
 On macOS the baseline is Xcode 26.6, selected with `DEVELOPER_DIR` when another Xcode is
 active; the Lima VM keeps both toolchains under swiftly and `TESSERA_LINUX_SWIFT_VERSION`
 picks one per run; the Windows VMs carry the baseline only. See
-[Toolchain lanes](../CONTRIBUTING.md#toolchain-lanes).
+[Toolchain lanes](../../CONTRIBUTING.md#toolchain-lanes).
 
 ## Ghostty VT
 

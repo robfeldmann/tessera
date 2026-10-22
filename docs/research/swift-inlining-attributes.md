@@ -1,7 +1,8 @@
 ---
-name: Swift Inlining Attributes
-date: 2026-07-03
+type: research
+observed: 2026-07-03
 status: resolved
+description: Swift Inlining Attributes
 ---
 
 # Swift Inlining Attributes

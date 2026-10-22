@@ -1,12 +1,15 @@
 ---
-name: Phase 2 Slice 2 ANSI Encoder
+type: plan
+stage: done
+created: 2026-06-07
+completed: 2026-06-07
+order: 7
 description:
   Implement the pure semantic ANSI control-sequence encoder with exact byte fixtures and
   Ghostty round-trip coverage.
-status: completed
-created: 2026-06-07
-updated: 2026-06-07
 ---
+
+# Phase 2 Slice 2 ANSI Encoder
 
 ## Progress
 
@@ -289,7 +292,7 @@ make the sequence catalog discoverable.
 
 ## References
 
-- `docs/Spec.md`, Phase 2 Slice 2, lines 1048–1508.
+- `docs/spec.md`, Phase 2 Slice 2, lines 1048–1508.
 - `~/Developer/ratatui/ratatui/main/ratatui-core/src/backend.rs` — `Backend` contract.
 - `~/Developer/ratatui/ratatui/main/ratatui-crossterm/src/lib.rs` — draw loop, color
   conversion, modifier diff.

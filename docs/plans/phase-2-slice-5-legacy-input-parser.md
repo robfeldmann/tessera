@@ -1,12 +1,15 @@
 ---
-name: Phase 2 Slice 5 Legacy Input Parser
+type: plan
+stage: done
+created: 2026-06-13
+completed: 2026-06-13
+order: 11
 description:
   Replace the walking-skeleton byte parser with durable semantic terminal input events, a
   stateful legacy escape-sequence parser, and session event streams.
-status: completed
-created: 2026-06-13
-updated: 2026-06-13
 ---
+
+# Phase 2 Slice 5 Legacy Input Parser
 
 ## Progress
 
@@ -38,7 +41,7 @@ implementation until this plan is reviewed and explicitly approved.
 ## Context loading for implementers
 
 Before implementing any step, read this entire plan first. Then read the Phase 2 Slice 5
-section of `docs/Spec.md` ("Legacy input parser") and enough nearby Phase 2 context to
+section of `docs/spec.md` ("Legacy input parser") and enough nearby Phase 2 context to
 understand how the walking skeleton, ANSI encoder, terminal lifecycle, and renderer feed
 into this slice. Prefer existing source and tests before rereading broad spec sections.
 Use direct assertions for parser/API behavior; snapshots are not expected for this slice.
@@ -215,7 +218,7 @@ per-byte pipeline.
 ### Step 4.2 — Add frame-driven cursor visibility and update the spec
 
 - Files:
-  - `docs/Spec.md`
+  - `docs/spec.md`
   - `Sources/TesseraTerminal/Frame.swift`
   - `Sources/TesseraTerminal/TerminalSession.swift`
   - `Tests/TesseraTerminalTests/TerminalSessionTests.swift`
@@ -228,12 +231,12 @@ per-byte pipeline.
   encoded, and ensure normal teardown emits show-cursor bytes before leaving the session.
 - Keep `InputInspector` cursor-free by not requesting a cursor position.
 - Acceptance: focused `TesseraTerminalTests` cursor tests pass; `InputInspector` builds;
-  Markdown lint for `docs/Spec.md` passes.
+  Markdown lint for `docs/spec.md` passes.
 
 ### Step 4.3 — Run slice validation and update this plan
 
 - Files:
-  - `.agents/plans/011-phase-2-slice-5-legacy-input-parser.md`
+  - `docs/plans/phase-2-slice-5-legacy-input-parser.md`
 - Run focused test targets first, then `just quality changed`, `just quality lint`, and
   `swift test`.
 - Run `just core examples` or equivalent example validation required by the repository.
@@ -243,7 +246,7 @@ per-byte pipeline.
 
 ## References
 
-- `docs/Spec.md` — Phase 2 Slice 5: Legacy input parser.
+- `docs/spec.md` — Phase 2 Slice 5: Legacy input parser.
 - Crossterm parser references named in the spec:
   `~/.local/share/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/crossterm-0.29.0/src/event/sys/unix/parse.rs`.
 - Existing walking-skeleton input code: `Sources/TesseraTerminalInput/`,

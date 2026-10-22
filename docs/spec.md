@@ -5343,7 +5343,7 @@ hard-coding or fragile startup behavior?”
 
 Amendment (owner decisions, 2026-10-19), not yet implemented: the active generation also
 asks the terminal for its own colors, so the view layer can derive shades from the user's
-palette instead of fixed values. [design/tokens.md](../design/tokens.md#probe) owns the
+palette instead of fixed values. [docs/design/tokens.md](design/tokens.md#probe) owns the
 full probe contract and the color arithmetic that consumes it; this section is the
 terminal-substrate half.
 
@@ -5385,7 +5385,7 @@ The color round is the one exception to [Slice 12](#slice-12-runtime-protocol-co
 single cached generation: notifications and resume re-run it, while DECRQM, Kitty
 keyboard, and Kitty graphics evidence stays cached. Until it is implemented, every color
 input is unknown and the view layer's roles resolve in the `slots` tier of
-[design/tokens.md](../design/tokens.md#tiers).
+[docs/design/tokens.md](design/tokens.md#tiers).
 
 #### Protocol enablement policy
 
@@ -5397,10 +5397,10 @@ Suggested policy:
   Downsample app-requested colors at the renderer/style-resolution layer before calling
   the encoder: truecolor → 256 → 16 → monochrome as needed.
 - Color scheme: `\.colorScheme` is `.dark` or `.light`, decided from the reported
-  background's luminance ([rule](../design/tokens.md#colour-scheme)). An unknown
-  background counts as dark unless `COLORFGBG` says light (a numeric background slot of 7
-  or 15); terminals that stay silent are overwhelmingly dark. The capability still records
-  the background as unknown, so a later reply replaces the assumption.
+  background's luminance ([rule](design/tokens.md#colour-scheme)). An unknown background
+  counts as dark unless `COLORFGBG` says light (a numeric background slot of 7 or 15);
+  terminals that stay silent are overwhelmingly dark. The capability still records the
+  background as unknown, so a later reply replaces the assumption.
 - Glyph charset: `\.charset` defaults to `.unicode`, drops to `.ascii` when the locale
   codeset is not UTF-8, honours the generic `NERDFONT` variable (`0` caps at `.unicode`
   over app policy; `1` selects `.nerdFont` for automatic mode), may be set explicitly by
@@ -5409,7 +5409,7 @@ Suggested policy:
   Protocol is deferred as that query: Ghostty's `q` coverage query reports registered
   glyphs only, so it answers no for the symbols Ghostty bundles; kitty and WezTerm do not
   implement it; and the specification is still moving. The full `NERDFONT` grammar and
-  resolution order are in [design/tokens.md](../design/tokens.md#charset).
+  resolution order are in [docs/design/tokens.md](design/tokens.md#charset).
 - Synchronized output: `TerminalApplicationConfiguration.synchronizedOutput` already
   exists as `SynchronizedOutputPolicy` (`.disabled`/`.enabled`, default `.enabled`, and
   `TerminalSession.draw` already wraps frames in DEC 2026). If detection warrants it, add
@@ -5975,7 +5975,7 @@ encoder bytes into `VirtualTerminal`, then assert Ghostty actually decoded the i
 placement; re-place the same `(i, p)` pair and assert it moved rather than duplicated;
 delete and assert it's gone; write an unrelated frame and assert the `.opaque` region is
 untouched. If the pinned libghostty-vt revision's C surface is missing an accessor a test
-needs, bump the pin per `docs/UpdatingGhosttyVT.md` rather than shelling out to a
+needs, bump the pin per `docs/guides/updating-ghostty-vt.md` rather than shelling out to a
 different revision ad hoc.
 
 #### Platform notes
@@ -6195,8 +6195,8 @@ Tests for this slice should cover:
 Sixel, iTerm2 image escape sequences, and dithering are explicitly out of scope for this
 slice. Palette querying, theme detection, and active color probes belong to Slice 6's
 [terminal color reports](#terminal-color-reports), and contrast correction to the view
-layer's role resolution ([design/tokens.md](../design/tokens.md#hue-guard)); this slice's
-downsampler stays the emission-boundary policy.
+layer's role resolution ([docs/design/tokens.md](design/tokens.md#hue-guard)); this
+slice's downsampler stays the emission-boundary policy.
 
 #### End of Slice 8
 
@@ -6912,21 +6912,21 @@ Phase 4 deliberately starts only after the substrate it renders into exists:
   transmission, placement, and pixel geometry).
 - **Derived color roles** read Phase 3 Slice 6's
   [terminal color reports](#terminal-color-reports). Without them every role resolves in
-  the `slots` tier of [design/tokens.md](../design/tokens.md#tiers), so the reports
+  the `slots` tier of [docs/design/tokens.md](design/tokens.md#tiers), so the reports
   improve Phase 4 styling but do not gate it.
 
 Slices 1 and 2 and Phase 2.5 are implemented. The rest of Phase 4 does not land slice by
 slice: it follows Phases 8–17 of
-[plan 032](../.agents/plans/032-omp2-reference-gallery-and-phase-4-redesign.md), which put
-layout, styling, focus, mouse, and ScrollView before the controls, then collections and
-SplitView, then the remaining 1.0 views and the intro app. The slice sections below stay
-the technical contracts; each names the plan phases that deliver it, and the
+[plan 032](plans/omp2-reference-gallery-and-phase-4-redesign.md), which put layout,
+styling, focus, mouse, and ScrollView before the controls, then collections and SplitView,
+then the remaining 1.0 views and the intro app. The slice sections below stay the
+technical contracts; each names the plan phases that deliver it, and the
 [landing map](#phase-4-implementation-order-and-component-landing-map) lists them in
 order.
 
 Each component lands with its tests and a small standalone demo that runs live and renders
 headlessly at the `desktop` (80x24) and `mobile` (40x16) sizes of
-[design/tokens.md](../design/tokens.md#viewports); demo renders are snapshot fixtures.
+[docs/design/tokens.md](design/tokens.md#viewports); demo renders are snapshot fixtures.
 Plan 032 Phase 17 composes the demos into an intro app that adds navigation, not component
 behavior. A step may use the smallest temporary scaffold needed to demonstrate its
 foundation, but deletes that scaffold at the later cutover that replaces it: Phase 2.5
@@ -6938,46 +6938,43 @@ behavior attached to pane geometry.
 Each catalog doc owns its component's contract and records what is in 1.0; this list
 gathers those decisions.
 
-- **Layout and decoration:** [`Text`](../design/primitives/text.md), the
-  [stacks](../design/primitives/stacks.md) and `Spacer`,
-  [`frame`](../design/primitives/frame.md), [`padding`](../design/primitives/padding.md),
-  [`ZStack`](../design/primitives/z-stack.md), [`Flex`](../design/primitives/flex.md),
-  [`Grid`](../design/primitives/grid.md), [`Flow`](../design/primitives/flow.md),
-  [`ViewThatFits`](../design/primitives/view-that-fits.md),
-  [`Divider`](../design/primitives/divider.md), [borders](../design/primitives/border.md),
-  [`Box`](../design/primitives/box.md),
-  [`background`](../design/primitives/background.md),
-  [`overlay`](../design/primitives/overlay.md), the
-  [style modifiers](../design/primitives/style-modifiers.md),
-  [`ScrollIndicator`](../design/primitives/scroll-indicator.md), the
-  [leading rail](../design/primitives/leading-rail.md), and
-  [readable width](../design/primitives/readable-width.md).
-- **Controls:** [`Button`](../design/widgets/button.md),
-  [`Toggle`](../design/widgets/toggle.md), [`Picker`](../design/widgets/picker.md),
-  [`MultiPicker`](../design/widgets/multi-picker.md),
-  [`Stepper`](../design/widgets/stepper.md), and
-  [`TextField`](../design/widgets/text-field.md).
-- **Containers and collections:** [`ScrollView`](../design/widgets/scroll-view.md),
-  [`SplitView`](../design/widgets/split-view.md), [`List`](../design/widgets/list.md),
-  [`Section`](../design/widgets/section.md), [`Outline`](../design/widgets/outline.md)
-  (including path mode), [`Table`](../design/widgets/table.md),
-  [`TabView`](../design/widgets/tab-view.md), and [`Form`](../design/widgets/form.md).
-- **Status and content:** [`ProgressView`](../design/widgets/progress-view.md)
-  (determinate and indeterminate), [`Callout`](../design/widgets/callout.md),
-  [`LabeledContent`](../design/widgets/labeled-content.md),
-  [`Label`](../design/primitives/label.md) with the icon catalog,
-  [`Badge`](../design/primitives/badge.md),
-  [`KeyLegend`](../design/widgets/key-legend.md),
-  [`ContentUnavailableView`](../design/widgets/content-unavailable-view.md),
-  [`Markdown`](../design/widgets/markdown.md),
-  [`CodeView`](../design/widgets/code-view.md), and [`Image`](../design/widgets/image.md).
+- **Layout and decoration:** [`Text`](design/primitives/text.md), the
+  [stacks](design/primitives/stacks.md) and `Spacer`,
+  [`frame`](design/primitives/frame.md), [`padding`](design/primitives/padding.md),
+  [`ZStack`](design/primitives/z-stack.md), [`Flex`](design/primitives/flex.md),
+  [`Grid`](design/primitives/grid.md), [`Flow`](design/primitives/flow.md),
+  [`ViewThatFits`](design/primitives/view-that-fits.md),
+  [`Divider`](design/primitives/divider.md), [borders](design/primitives/border.md),
+  [`Box`](design/primitives/box.md), [`background`](design/primitives/background.md),
+  [`overlay`](design/primitives/overlay.md), the
+  [style modifiers](design/primitives/style-modifiers.md),
+  [`ScrollIndicator`](design/primitives/scroll-indicator.md), the
+  [leading rail](design/primitives/leading-rail.md), and
+  [readable width](design/primitives/readable-width.md).
+- **Controls:** [`Button`](design/widgets/button.md),
+  [`Toggle`](design/widgets/toggle.md), [`Picker`](design/widgets/picker.md),
+  [`MultiPicker`](design/widgets/multi-picker.md), [`Stepper`](design/widgets/stepper.md),
+  and [`TextField`](design/widgets/text-field.md).
+- **Containers and collections:** [`ScrollView`](design/widgets/scroll-view.md),
+  [`SplitView`](design/widgets/split-view.md), [`List`](design/widgets/list.md),
+  [`Section`](design/widgets/section.md), [`Outline`](design/widgets/outline.md)
+  (including path mode), [`Table`](design/widgets/table.md),
+  [`TabView`](design/widgets/tab-view.md), and [`Form`](design/widgets/form.md).
+- **Status and content:** [`ProgressView`](design/widgets/progress-view.md) (determinate
+  and indeterminate), [`Callout`](design/widgets/callout.md),
+  [`LabeledContent`](design/widgets/labeled-content.md),
+  [`Label`](design/primitives/label.md) with the icon catalog,
+  [`Badge`](design/primitives/badge.md), [`KeyLegend`](design/widgets/key-legend.md),
+  [`ContentUnavailableView`](design/widgets/content-unavailable-view.md),
+  [`Markdown`](design/widgets/markdown.md), [`CodeView`](design/widgets/code-view.md), and
+  [`Image`](design/widgets/image.md).
 
-[`NavigationSplitView`](../design/widgets/navigation-split-view.md) is post-1.0 (owner
+[`NavigationSplitView`](design/widgets/navigation-split-view.md) is post-1.0 (owner
 decision, 2026-10-09): 1.0 apps compose multi-column layouts from nested `SplitView`s.
 Source browsing and mapping are post-1.0 too, as is each deferral a catalog doc records
 (for example secure text entry and Stepper's `.compact` style). Application-owned text
 selection is decided in plan 032 step 11.3: Slice 5 either adopts its
-[catalog contract](../design/primitives/text-selection.md) or records its deferral.
+[catalog contract](design/primitives/text-selection.md) or records its deferral.
 
 ### Architecture: three layers, four passes
 
@@ -7028,9 +7025,9 @@ buffer diff; cleverness is opt-in later and always observable via diagnostics.
 
 The catalog owns component contracts; this map records the order in which their
 integration lands. Rows 8–17 are the phases of
-[plan 032](../.agents/plans/032-omp2-reference-gallery-and-phase-4-redesign.md), run in
-sequence with an owner review after each; a step starts from a `ready` catalog doc, or
-finishes the doc first.
+[plan 032](plans/omp2-reference-gallery-and-phase-4-redesign.md), run in sequence with an
+owner review after each; a step starts from a `ready` catalog doc, or finishes the doc
+first.
 
 | Step      | Lands                                                                                                                                                                          | Contract                   |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------- |
@@ -7050,10 +7047,10 @@ finishes the doc first.
 
 Three dependencies cut across the order. Form, the description layouts of Picker and
 MultiPicker, and ProgressView's label placement choose between arrangements with
-[`ViewThatFits`](../design/primitives/view-that-fits.md), which lands in step 14.1
-although Picker is scheduled earlier, in step 13.2. Markdown needs the `Text + Text`
-styled runs of step 9.1. List and Table reuse the ScrollIndicator geometry of step 9.4 and
-the interactive ScrollView of Phase 12.
+[`ViewThatFits`](design/primitives/view-that-fits.md), which lands in step 14.1 although
+Picker is scheduled earlier, in step 13.2. Markdown needs the `Text + Text` styled runs of
+step 9.1. List and Table reuse the ScrollIndicator geometry of step 9.4 and the
+interactive ScrollView of Phase 12.
 
 ### Testing posture: Tessera-native oracles
 
@@ -7355,7 +7352,7 @@ The rules, exhaustively:
   state.
 - **Every piece of widget state has exactly one of four homes.** A catalog doc's State
   model table names the home for each row
-  ([State model table](../design/README.md#state-model-table)):
+  ([State model table](design.md#state-model-table)):
   1. **App-owned `Binding`.** Data the user produces, or that the app must read or persist
      (text, a checked value, a selection, expansion, an active tab, pane sizes, a sort
      order), is an app-owned `Binding` that the initializer takes. The widget writes it
@@ -7841,23 +7838,23 @@ never redistribute below a child's reported minimum.
 
 #### `Divider`
 
-[`Divider`](../design/primitives/divider.md) lands with stack layout. It reads the
+[`Divider`](design/primitives/divider.md) lands with stack layout. It reads the
 `stackAxis` environment established by its enclosing stack and occupies the cross axis:
 horizontal in a `VStack`, vertical in an `HStack`. Its component appearance and sizing
 contract remain in the catalog; Slice 3 supplies its final style/decorative integration.
 
 #### Static controlled `SplitView` pane geometry
 
-The first [`SplitView`](../design/widgets/split-view.md) is a static, controlled pane
-layout: the app supplies the pane state through bindings, and layout derives fixed pane
-frames from it. It establishes divider placement and clipping only; it has no keyboard or
-pointer manipulation yet. This intentionally narrow geometry foundation is replaced, not
-extended by parallel code paths, by Phase 2.5's multi-pane min/ideal/max negotiation.
+The first [`SplitView`](design/widgets/split-view.md) is a static, controlled pane layout:
+the app supplies the pane state through bindings, and layout derives fixed pane frames
+from it. It establishes divider placement and clipping only; it has no keyboard or pointer
+manipulation yet. This intentionally narrow geometry foundation is replaced, not extended
+by parallel code paths, by Phase 2.5's multi-pane min/ideal/max negotiation.
 
 #### `ScrollView` viewport foundation
 
-The first [`ScrollView`](../design/widgets/scroll-view.md) measures content at its ideal
-on each scrollable axis by proposing `nil` there, renders through a translated and clipped
+The first [`ScrollView`](design/widgets/scroll-view.md) measures content at its ideal on
+each scrollable axis by proposing `nil` there, renders through a translated and clipped
 `RenderRegion`, and clamps a programmatic offset to content bounds on every layout. It
 shows static overflow only: it reserves no trailing or bottom edge unless that axis
 actually overflows. Keyboard, wheel, and pointer input with boundary bubbling arrive in
@@ -7885,12 +7882,12 @@ static controlled foundation.
 #### Definition of done for slice 2
 
 1. `Layout`, `Subviews`, `LayoutValueKey` are public; stacks, `Spacer`, `frame`,
-   `padding`, `layoutPriority`, `id`, and [`Divider`](../design/primitives/divider.md)
-   ship; Slice 1's interim stacking rule is deleted.
+   `padding`, `layoutPriority`, `id`, and [`Divider`](design/primitives/divider.md) ship;
+   Slice 1's interim stacking rule is deleted.
 2. The stack distribution algorithm matches the normative steps, with table tests.
-3. Static controlled [`SplitView`](../design/widgets/split-view.md) pane geometry and the
-   [`ScrollView`](../design/widgets/scroll-view.md) viewport foundation meet their
-   documented measurement, clipping, clamping, and non-reserved-overflow rules.
+3. Static controlled [`SplitView`](design/widgets/split-view.md) pane geometry and the
+   [`ScrollView`](design/widgets/scroll-view.md) viewport foundation meet their documented
+   measurement, clipping, clamping, and non-reserved-overflow rules.
 4. `dump()` includes proposal, size, and absolute frame per node.
 5. A third-party-style custom layout works using only public API.
 
@@ -7969,7 +7966,7 @@ equal-tier remainder cells come from later source children first. Fixed/relative
 allocations and exhausted floors do not become negative. Any unresolved deficit remains in
 the reported main-axis extent and the graph clips trailing children. Flex has no outer
 spacing for zero or one child. Cross size is the largest child cross extent. These rules
-are owned by [`Flex`](../design/primitives/flex.md); Grid and Table later delegate to the
+are owned by [`Flex`](design/primitives/flex.md); Grid and Table later delegate to the
 same resolver.
 
 `.layoutPriority(_:)` remains the one priority API. Flex reads `Subview.priority` exactly
@@ -8029,7 +8026,7 @@ focus border (9.3), and `ScrollIndicator` (9.4).
 lone `\r` remains literal source text. Slice 3 exposes `TruncationMode.tail` (the
 default), `.head`, `.middle`, and `.clip`; every marker replaces only whole extended
 grapheme clusters. Plan 032 step 9.1 lands styled runs (`Text + Text`, measured once as
-one leaf), which Markdown needs. [Text](../design/primitives/text.md#styled-runs) defines
+one leaf), which Markdown needs. [Text](design/primitives/text.md#styled-runs) defines
 them; step 9.1 settles only that doc's open questions, the `+` spelling and inline icon
 runs. Localized interpolation and formatted values are out of Phase 4 1.0 and require a
 separate post-1.0 text-composition proposal; `Text` stays an immutable value and never
@@ -8067,7 +8064,7 @@ sets the attribute off, which is sufficient and simpler.
 
 System styles and custom styles are both public. The environment selects a complete
 `Style` value through the same merge path; it does not introduce a parallel widget-style
-type. Every role in the [catalog tokens](../design/tokens.md#roles) — the text roles
+type. Every role in the [catalog tokens](design/tokens.md#roles) — the text roles
 (`primary`, `secondary`, `border`, `disabled`, `focus`), the hue roles (`accent`, `info`,
 `success`, `warning`, `error`, `destructive`), and the fill and syntax roles — is a
 complete `Style` value, never a color alias. Their token semantics, color tiers, and
@@ -8111,9 +8108,9 @@ layout. Both modifiers flow through the environment to content; chrome pins its 
 `.lineLimit(1)`. There is no wrapping-mode API: `.lineLimit(1)` replaces the old no-wrap
 mode, and character wrapping is dropped. Text owns the cut: given a rectangle smaller than
 it measured, it lays out again at that size, so overflow ends in the mark instead of a
-silent clip. [Text](../design/primitives/text.md#wrapping) owns the full rules, and the
-catalog's [wrap and truncation rules](../design/README.md#wrap-and-truncation) apply them
-to every component.
+silent clip. [Text](design/primitives/text.md#wrapping) owns the full rules, and the
+catalog's [wrap and truncation rules](design.md#wrap-and-truncation) apply them to every
+component.
 
 `sizeThatFits` and `render` must agree exactly — property-test this (measure, then render
 into exactly that size, assert no clipping occurred).
@@ -8158,29 +8155,29 @@ extension Box where Title == EmptyView {
 unary layout wrapper plus a render decoration, the model case for "modifiers are just
 nodes." `overlay`/`background` are ZStack-equivalent wrappers sized by the primary child;
 the background layer is proposed the primary's final bounds and painted first
-([Background](../design/primitives/background.md)), while `.background(_:)` with a `Color`
+([Background](design/primitives/background.md)), while `.background(_:)` with a `Color`
 stays the style fill of [Style chains](#style-chains-and-inheritance). Box's title is an
 ordinary child view with its own identity, so it can carry styled runs, a badge, or a
-motion view ([Box](../design/primitives/box.md)). The Slice 2
-[`Divider`](../design/primitives/divider.md) receives this same style and decoration
-plumbing without changing its stack-derived geometry.
+motion view ([Box](design/primitives/box.md)). The Slice 2
+[`Divider`](design/primitives/divider.md) receives this same style and decoration plumbing
+without changing its stack-derived geometry.
 
 `.link(URL)` (OSC 8, Phase 3 Slice 5) joins the chain here if that slice has landed — it
 is an environment-merged `Style` attribute like any other.
 
 The focus border is a border style, not a new mechanism: the rules of
-[Border](../design/primitives/border.md#focus-border) switch a focused view's ring to the
+[Border](design/primitives/border.md#focus-border) switch a focused view's ring to the
 heavy set in the `focus` role, and the nearest bordered ancestor of the focused view tints
 its ring at normal weight. Plan 032 step 9.3 lands the style; focus-appearance hosts apply
 it once focus exists (step 10.2).
 
 #### `ScrollIndicator`
 
-[`ScrollIndicator`](../design/primitives/scroll-indicator.md) is shared output-only
-overflow geometry: it derives an indicator track and thumb from a viewport, content size,
-and clamped offset, but owns neither input nor scrolling state. `ScrollView` consumes it
-now; `List` and `Table` consume the same representation when they land. It reserves a
-trailing or bottom edge only for an overflowing axis.
+[`ScrollIndicator`](design/primitives/scroll-indicator.md) is shared output-only overflow
+geometry: it derives an indicator track and thumb from a viewport, content size, and
+clamped offset, but owns neither input nor scrolling state. `ScrollView` consumes it now;
+`List` and `Table` consume the same representation when they land. It reserves a trailing
+or bottom edge only for an overflowing axis.
 
 Two environment values select its look and placement. Each has its own modifier, and the
 nearest ancestor wins, as with Text's `lineLimit` and `truncationMode`:
@@ -8202,12 +8199,12 @@ extension View {
 ```
 
 Under `.reserved` the parent reserves the trailing column or bottom row. Under `.border`
-it reserves nothing: the ring of the nearest bordered [`Box`](../design/primitives/box.md)
-is the track, and Box paints the thumb cells after its descendants, as it paints delegated
+it reserves nothing: the ring of the nearest bordered [`Box`](design/primitives/box.md) is
+the track, and Box paints the thumb cells after its descendants, as it paints delegated
 focus, because no view writes outside its own region. Without a bordered Box ancestor,
 `.border` falls back to `.reserved`. Plan 032 step 9.4 settles the channel that carries
 the parent's resolved indicator geometry up to that Box, without giving the indicator any
-input ([ScrollIndicator](../design/primitives/scroll-indicator.md#decisions)).
+input ([ScrollIndicator](design/primitives/scroll-indicator.md#decisions)).
 
 #### Tests
 
@@ -8225,9 +8222,9 @@ input ([ScrollIndicator](../design/primitives/scroll-indicator.md#decisions)).
    ship, with `\.colorScheme` and `\.charset` in the environment.
 2. Wrapping/truncation measurement and rendering agree, property-tested with wide and
    combining graphemes.
-3. Borders, `Box`, [`Divider`](../design/primitives/divider.md), `overlay`, and
-   `background` snapshot-test including degenerate sizes.
-4. [`ScrollIndicator`](../design/primitives/scroll-indicator.md) produces output-only
+3. Borders, `Box`, [`Divider`](design/primitives/divider.md), `overlay`, and `background`
+   snapshot-test including degenerate sizes.
+4. [`ScrollIndicator`](design/primitives/scroll-indicator.md) produces output-only
    overflow geometry reused by ScrollView and ready for List/Table parity.
 
 #### Things to flag
@@ -8337,12 +8334,12 @@ Focus appearance is delegated: a focus-appearance host, such as a bordered conta
 control that paints its own focus cue, applies the Slice 3 focus border while focus is on
 it or within it. A focus scope traps traversal inside an overlay: `focusAdvance` cycles
 within the scope while it is presented, and dismissing the overlay restores focus to where
-it was ([design/inbox.md](../design/inbox.md)).
+it was ([docs/design/inbox.md](design/inbox.md)).
 
 Responders declare the keys they handle, each with a short description. A declaration
 describes a handler that exists; it installs no behavior and remaps no key, so the graph
-still routes without interpreting. [`KeyLegend`](../design/widgets/key-legend.md) renders
-the focused responder chain's declared bindings, `plain` by default with `keycaps` as an
+still routes without interpreting. [`KeyLegend`](design/widgets/key-legend.md) renders the
+focused responder chain's declared bindings, `plain` by default with `keycaps` as an
 option, and drops whole entries by priority when narrow. Plan 032 step 10.3 settles the
 Swift spellings.
 
@@ -8371,25 +8368,25 @@ concrete.
 
 #### Controls and focused viewport interaction
 
-[`Button`](../design/widgets/button.md), `Toggle`, `Picker`, `MultiPicker`, and `Stepper`
-are controlled responders (plan 032 Phase 13): their catalog-owned contracts receive
-current values through `Binding` and report a user action by writing that binding or
-invoking their documented action. The graph supplies focus and routing only; it never
-manufactures a model value or interprets an unhandled key.
+[`Button`](design/widgets/button.md), `Toggle`, `Picker`, `MultiPicker`, and `Stepper` are
+controlled responders (plan 032 Phase 13): their catalog-owned contracts receive current
+values through `Binding` and report a user action by writing that binding or invoking
+their documented action. The graph supplies focus and routing only; it never manufactures
+a model value or interprets an unhandled key.
 
-[`TextField`](../design/widgets/text-field.md) lands whole in plan 032 step 13.4, on a
-shared text editing core (grapheme-safe cursor, selection, and reveal). It participates in
+[`TextField`](design/widgets/text-field.md) lands whole in plan 032 step 13.4, on a shared
+text editing core (grapheme-safe cursor, selection, and reveal). It participates in
 document-order focus, receives focused key and paste routing, and requests redraw through
 `ResponderContext`; its controlled editing contract is in Slice 7. This preserves the rule
 that `NodeState` contains only ephemeral UI state.
 
-The Slice 2 [`ScrollView`](../design/widgets/scroll-view.md) viewport gains keyboard
-movement in plan 032 Phase 12. Focused movement changes its controlled offset (or its
-ephemeral offset where the catalog permits one) and clamps it to content bounds; the
-viewport takes focus only while it can scroll, and moving focus into hidden content
-scrolls that content into view. The [`SplitView`](../design/widgets/split-view.md) divider
-gains focused keyboard resize in plan 032 Phase 15, writing its controlled pane state
-through Phase 2.5's final negotiation.
+The Slice 2 [`ScrollView`](design/widgets/scroll-view.md) viewport gains keyboard movement
+in plan 032 Phase 12. Focused movement changes its controlled offset (or its ephemeral
+offset where the catalog permits one) and clamps it to content bounds; the viewport takes
+focus only while it can scroll, and moving focus into hidden content scrolls that content
+into view. The [`SplitView`](design/widgets/split-view.md) divider gains focused keyboard
+resize in plan 032 Phase 15, writing its controlled pane state through Phase 2.5's final
+negotiation.
 
 #### Tests
 
@@ -8473,9 +8470,9 @@ in Phase 14, and SplitView in Phase 15.
   requests motion directly) sets `terminalRequirements.wantsMouseMotion`. Table and List
   request motion tracking for their default row hover while they are live in the graph
   ([terminal requirements](#terminal-requirements-aggregation)); `.rowHover(.disabled)`, a
-  placeholder spelling that [Table](../design/widgets/table.md) and
-  [List](../design/widgets/list.md) settle, removes both the hover fill and the request.
-  The session maps these onto Phase 3's `MouseTracking`: `wantsMouseMotion` →
+  placeholder spelling that [Table](design/widgets/table.md) and
+  [List](design/widgets/list.md) settle, removes both the hover fill and the request. The
+  session maps these onto Phase 3's `MouseTracking`: `wantsMouseMotion` →
   `.mouseTracking(.anyEvent)`; `wantsMouse` alone → `.mouseTracking(.buttonEvents)`;
   neither → mouse tracking disabled. This extends the existing dynamic-disable behavior
   below to two escalating tiers instead of one on/off switch.
@@ -8483,7 +8480,7 @@ in Phase 14, and SplitView in Phase 15.
   no mouse-leave signal, so a stuck "hovered" view is otherwise unavoidable once the
   pointer or focus moves away without a trailing event to notice.
 - Text selection: plan 032 step 11.3 records here either the application-owned selection
-  and copy contract ([Text selection](../design/primitives/text-selection.md)) or its
+  and copy contract ([Text selection](design/primitives/text-selection.md)) or its
   explicit deferral.
 - Tests: hit-test tables over constructed layouts (overlapping ZStack children, clipped
   overflow, disabled subtrees); scroll-event routing; click-to-focus; pointer capture
@@ -8495,13 +8492,13 @@ in Phase 14, and SplitView in Phase 15.
 
 Control clicks activate the focused responder through the same controlled binding/action
 path as keyboard activation (plan 032 Phase 13).
-[`TextField`](../design/widgets/text-field.md) gains the click-to-caret substrate: hit
+[`TextField`](design/widgets/text-field.md) gains the click-to-caret substrate: hit
 testing maps the visible grapheme-cell position to its ephemeral caret state without
-capturing the bound text. The [`SplitView`](../design/widgets/split-view.md) divider gains
+capturing the bound text. The [`SplitView`](design/widgets/split-view.md) divider gains
 pointer drag in plan 032 Phase 15; the drag holds pointer capture and writes the
 controlled pane state through Phase 2.5's final negotiation.
 
-[`ScrollView`](../design/widgets/scroll-view.md) gains pointer input in plan 032 Phase 12.
+[`ScrollView`](design/widgets/scroll-view.md) gains pointer input in plan 032 Phase 12.
 Wheel events first attempt to change the clamped local offset; when the requested movement
 reaches a boundary, the viewport returns `.ignored` so the event bubbles to an eligible
 ancestor. This makes nested viewport boundaries explicit rather than silently swallowing
@@ -8548,44 +8545,43 @@ APIs.
 
 #### Flow layout and `ViewThatFits`
 
-[`Flow`](../design/primitives/flow.md) places its children left to right in source order
-and starts a new line when the next child would pass the proposed width; each child keeps
-its ideal width, capped at the line width, and is never split or stretched. Picker's radio
-chips wrap this way and never clip.
-[`ViewThatFits`](../design/primitives/view-that-fits.md) holds candidate arrangements in
-order of preference and shows the first whose ideal size fits the proposal on its tested
-axes, or the last when none fits; it never places the others. Layout priority is read by
-the parent, never among candidates or Flow items: `.layoutPriority(_:)` on a candidate or
-an item does nothing, while priority on the `ViewThatFits` or the `Flow` itself decides,
-through the enclosing stack or Flex allocation, which one keeps its preferred arrangement
-longer. Priority fitting is therefore one shared mechanism rather than per-component
-rules. Form's stacked layout, the description layouts of Picker and MultiPicker,
-LabeledContent's stacked form, and ProgressView's label placement all choose through
-`ViewThatFits`. `HStack` never wraps, so the stack contract stays unchanged.
+[`Flow`](design/primitives/flow.md) places its children left to right in source order and
+starts a new line when the next child would pass the proposed width; each child keeps its
+ideal width, capped at the line width, and is never split or stretched. Picker's radio
+chips wrap this way and never clip. [`ViewThatFits`](design/primitives/view-that-fits.md)
+holds candidate arrangements in order of preference and shows the first whose ideal size
+fits the proposal on its tested axes, or the last when none fits; it never places the
+others. Layout priority is read by the parent, never among candidates or Flow items:
+`.layoutPriority(_:)` on a candidate or an item does nothing, while priority on the
+`ViewThatFits` or the `Flow` itself decides, through the enclosing stack or Flex
+allocation, which one keeps its preferred arrangement longer. Priority fitting is
+therefore one shared mechanism rather than per-component rules. Form's stacked layout, the
+description layouts of Picker and MultiPicker, LabeledContent's stacked form, and
+ProgressView's label placement all choose through `ViewThatFits`. `HStack` never wraps, so
+the stack contract stays unchanged.
 
 #### Table
 
-[`Table`](../design/widgets/table.md) resolves its columns through the Phase 2.5
+[`Table`](design/widgets/table.md) resolves its columns through the Phase 2.5
 `FlexConstraint` representation rather than creating a competing solver. It consumes
-[`ScrollIndicator`](../design/primitives/scroll-indicator.md) output with the same
-overflow geometry as ScrollView, establishing indicator parity. Its styles (`.plain` by
-default, `.bordered`, and `.grid`), `.alternatingRowBackgrounds()`, sorting by column
-identity rather than title, and default row hover are catalog contract.
+[`ScrollIndicator`](design/primitives/scroll-indicator.md) output with the same overflow
+geometry as ScrollView, establishing indicator parity. Its styles (`.plain` by default,
+`.bordered`, and `.grid`), `.alternatingRowBackgrounds()`, sorting by column identity
+rather than title, and default row hover are catalog contract.
 
 #### NavigationSplitView is post-1.0
 
-[`NavigationSplitView`](../design/widgets/navigation-split-view.md) moved out of 1.0
-(owner decision, 2026-10-09); 1.0 apps compose multi-column layouts from nested
-`SplitView`s. Its composition contract (generic role children, controlled visibility, and
-a responsive role policy over final SplitView negotiation) stays in the catalog until it
-is scheduled.
+[`NavigationSplitView`](design/widgets/navigation-split-view.md) moved out of 1.0 (owner
+decision, 2026-10-09); 1.0 apps compose multi-column layouts from nested `SplitView`s. Its
+composition contract (generic role children, controlled visibility, and a responsive role
+policy over final SplitView negotiation) stays in the catalog until it is scheduled.
 
 #### Definition of done for slice 6
 
 1. Grid snapshot tests cover resolved columns, row heights, spacing, clipping, and paint
    order while proving the shared Flex solver is the only allocator.
-2. [`Table`](../design/widgets/table.md) reuses the Flex representation for its column
-   solver and has ScrollIndicator parity with ScrollView.
+2. [`Table`](design/widgets/table.md) reuses the Flex representation for its column solver
+   and has ScrollIndicator parity with ScrollView.
 3. `Flow` and `ViewThatFits` meet their catalog contracts, and the components that choose
    between arrangements do so only through `ViewThatFits`.
 
@@ -8596,14 +8592,14 @@ is scheduled.
 This slice completes catalog integration rather than introducing another widget subsystem.
 Plan 032 delivers it with the components: the controls and TextField in Phase 13, and
 List, Section, and Outline in steps 14.2 and 14.3.
-[`List` and `Section`](../design/widgets/list.md) compose their catalog-owned selection,
+[`List` and `Section`](design/widgets/list.md) compose their catalog-owned selection,
 section, and overflow contracts into the graph, and
-[`Outline`](../design/widgets/outline.md), including its path mode, does the same with
-controlled selection and expansion; [`ScrollView`](../design/widgets/scroll-view.md) uses
-the same completed viewport and indicator behavior. Final system and custom control styles
+[`Outline`](design/widgets/outline.md), including its path mode, does the same with
+controlled selection and expansion; [`ScrollView`](design/widgets/scroll-view.md) uses the
+same completed viewport and indicator behavior. Final system and custom control styles
 apply the Slice 3 complete semantic `Style` roles consistently across the public controls.
 
-[`TextField`](../design/widgets/text-field.md) completes its public controlled contract.
+[`TextField`](design/widgets/text-field.md) completes its public controlled contract.
 Edits write through `Binding`; `NodeState` holds only the grapheme-safe cursor and reveal
 offset, clamps both on every bound-value update, and never retains the controlled text.
 Focused paste and dictation commits write through the binding, and submit routes through
@@ -8650,13 +8646,13 @@ selection out of range, and session-effective requirements are mandatory cases.
 Phase 4 has one motion path, delivered by plan 032 step 16.1. A motion view derives its
 frame from a clock environment value, an instant that the app or the Phase 5 runtime
 supplies, and stores no timer and no state: the indeterminate
-[`ProgressView`](../design/widgets/progress-view.md) spinner draws frame
+[`ProgressView`](design/widgets/progress-view.md) spinner draws frame
 `(now / interval) mod frames.count`. Each motion view declares a tick requirement with its
 frame interval, and the graph aggregates it over live nodes like `TerminalRequirements`,
 so whoever drives the graph knows whether, and how often, to redraw. Tests set the clock
 and sample frames; nothing sleeps. Step 16.1 settles the Swift spellings of the clock
 value and the tick requirement. Tessera has no reduced-motion setting in 1.0
-([spinners](../design/tokens.md#spinners)).
+([spinners](design/tokens.md#spinners)).
 
 ### Phase 4 performance posture
 

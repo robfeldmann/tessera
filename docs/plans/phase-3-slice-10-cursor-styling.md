@@ -1,12 +1,15 @@
 ---
-name: Phase 3 Slice 10 Cursor Styling
+type: plan
+stage: done
+created: 2026-07-07
+completed: 2026-07-09
+order: 26
 description:
   Add first-class session-scoped cursor shape and cursor color policy using DECSCUSR and
   OSC 12/112, with deterministic enter/apply/restore behavior and cleanup.
-status: complete
-created: 2026-07-07
-updated: 2026-07-09
 ---
+
+# Phase 3 Slice 10 Cursor Styling
 
 ## Progress
 
@@ -31,7 +34,7 @@ updated: 2026-07-09
 
 ## Overview
 
-This plan implements `docs/Spec.md` Phase 3 Slice 10 after the docs slice has been merged.
+This plan implements `docs/spec.md` Phase 3 Slice 10 after the docs slice has been merged.
 Tessera should model cursor styling as application/session policy, not as arbitrary raw
 terminal bytes in a frame. The app explicitly enables cursor styling for the session; once
 enabled, live application or future view-layer focus changes use
@@ -42,8 +45,8 @@ abnormal-exit cleanup only after an app explicitly opts in.
 
 Read before editing:
 
-1. `.agents/plans/015-phase-3-modern-terminal-protocols.md`
-2. `docs/Spec.md` Phase 3 overview and `### Slice 10: Cursor styling`
+1. `docs/plans/phase-3-modern-terminal-protocols.md`
+2. `docs/spec.md` Phase 3 overview and `### Slice 10: Cursor styling`
 3. This plan
 4. Existing cursor/lifecycle code in `Sources/TesseraTerminal/Frame.swift`,
    `Sources/TesseraTerminal/TerminalSession.swift`,
@@ -435,7 +438,7 @@ commands verify the slice.
 
 ## Acceptance Criteria
 
-- `docs/Spec.md` contains `### Slice 10: Cursor styling` before implementation starts, and
+- `docs/spec.md` contains `### Slice 10: Cursor styling` before implementation starts, and
   implementers have read the umbrella plan, Phase 3 overview, the slice, and this plan.
 - Cursor styling is represented by public semantic APIs (`CursorShape`, `CursorColor`,
   `CursorStyle`, and `ControlSequence` cases), not raw writes.
@@ -455,8 +458,8 @@ commands verify the slice.
 
 ## References
 
-- `docs/Spec.md` Phase 3 overview and Slice 10 cursor styling section.
-- `.agents/plans/015-phase-3-modern-terminal-protocols.md` umbrella plan.
+- `docs/spec.md` Phase 3 overview and Slice 10 cursor styling section.
+- `docs/plans/phase-3-modern-terminal-protocols.md` umbrella plan.
 - Existing Tessera code: `Sources/TesseraTerminal/Frame.swift`,
   `Sources/TesseraTerminal/TerminalSession.swift`,
   `Sources/TesseraTerminal/TerminalApplicationConfiguration.swift`,

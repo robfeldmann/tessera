@@ -1,12 +1,15 @@
 ---
-name: Phase 3 Modern Terminal Protocols
+type: plan
+stage: done
+created: 2026-07-02
+completed: 2026-07-11
+order: 15
 description:
   Coordinate the twelve Phase 3 protocol slices so parser, lifecycle, renderer, live
   session policy, tests, and the example app evolve consistently.
-status: complete
-created: 2026-07-02
-updated: 2026-07-11
 ---
+
+# Phase 3 Modern Terminal Protocols
 
 ## Progress
 
@@ -34,7 +37,7 @@ updated: 2026-07-11
 
 ## Overview
 
-This is the coordination plan for `docs/Spec.md` Phase 3. Phase 3 keeps the work inside
+This is the coordination plan for `docs/spec.md` Phase 3. Phase 3 keeps the work inside
 `TesseraTerminal`: modern terminal protocols are added to input parsing, terminal mode
 lifecycle, rendering, configuration, tests, and examples. It does not introduce `View`,
 layout, widgets, shortcut routing, hit testing, or UI/business-state runtime management;
@@ -81,12 +84,12 @@ at handoff.
 ### Slice 1 prompt — Bracketed paste
 
 ```text
-Implement .agents/plans/016-phase-3-slice-1-bracketed-paste-mode.md.
+Implement docs/plans/phase-3-slice-1-bracketed-paste-mode.md.
 
 Before editing, read these fully:
-- .agents/plans/015-phase-3-modern-terminal-protocols.md
-- docs/Spec.md lines 3644-4009, covering the Phase 3 overview and Slice 1
-- .agents/plans/016-phase-3-slice-1-bracketed-paste-mode.md
+- docs/plans/phase-3-modern-terminal-protocols.md
+- docs/spec.md lines 3644-4009, covering the Phase 3 overview and Slice 1
+- docs/plans/phase-3-slice-1-bracketed-paste-mode.md
 
 Treat plan 015 as the shared contract. Execute only plan 016. Do not implement focus
 events, mouse tracking, Kitty keyboard, hyperlinks, capability detection, or Phase 4 view
@@ -103,13 +106,13 @@ and wait for review.
 ### Slice 2 prompt — Focus events
 
 ```text
-Implement .agents/plans/017-phase-3-slice-2-focus-events.md.
+Implement docs/plans/phase-3-slice-2-focus-events.md.
 
 Before editing, read these fully:
-- .agents/plans/015-phase-3-modern-terminal-protocols.md
-- docs/Spec.md lines 3644-3826, covering the Phase 3 overview
-- docs/Spec.md lines 4010-4198, covering Slice 2
-- .agents/plans/017-phase-3-slice-2-focus-events.md
+- docs/plans/phase-3-modern-terminal-protocols.md
+- docs/spec.md lines 3644-3826, covering the Phase 3 overview
+- docs/spec.md lines 4010-4198, covering Slice 2
+- docs/plans/phase-3-slice-2-focus-events.md
 
 Treat plan 015 as the shared contract and the completed Slice 1 code as source of truth.
 Execute only plan 017. Do not implement mouse tracking, Kitty keyboard, hyperlinks,
@@ -126,13 +129,13 @@ and wait for review.
 ### Slice 3 prompt — SGR mouse tracking
 
 ```text
-Implement .agents/plans/018-phase-3-slice-3-sgr-mouse-tracking.md.
+Implement docs/plans/phase-3-slice-3-sgr-mouse-tracking.md.
 
 Before editing, read these fully:
-- .agents/plans/015-phase-3-modern-terminal-protocols.md
-- docs/Spec.md lines 3644-3826, covering the Phase 3 overview
-- docs/Spec.md lines 4199-4645, covering Slice 3
-- .agents/plans/018-phase-3-slice-3-sgr-mouse-tracking.md
+- docs/plans/phase-3-modern-terminal-protocols.md
+- docs/spec.md lines 3644-3826, covering the Phase 3 overview
+- docs/spec.md lines 4199-4645, covering Slice 3
+- docs/plans/phase-3-slice-3-sgr-mouse-tracking.md
 
 Treat plan 015 as the shared contract and completed prior slice code as source of truth.
 Execute only plan 018. Do not implement Kitty keyboard, hyperlinks, capability detection,
@@ -149,13 +152,13 @@ and wait for review.
 ### Slice 4 prompt — Kitty keyboard protocol
 
 ```text
-Implement .agents/plans/019-phase-3-slice-4-kitty-keyboard-protocol.md.
+Implement docs/plans/phase-3-slice-4-kitty-keyboard-protocol.md.
 
 Before editing, read these fully:
-- .agents/plans/015-phase-3-modern-terminal-protocols.md
-- docs/Spec.md lines 3644-3826, covering the Phase 3 overview
-- docs/Spec.md lines 4646-4903, covering Slice 4
-- .agents/plans/019-phase-3-slice-4-kitty-keyboard-protocol.md
+- docs/plans/phase-3-modern-terminal-protocols.md
+- docs/spec.md lines 3644-3826, covering the Phase 3 overview
+- docs/spec.md lines 4646-4903, covering Slice 4
+- docs/plans/phase-3-slice-4-kitty-keyboard-protocol.md
 
 Treat plan 015 as the shared contract and completed prior slice code as source of truth.
 Execute only plan 019. Do not implement OSC 8 hyperlinks, capability detection, or Phase 4
@@ -173,13 +176,13 @@ and wait for review.
 ### Slice 5 prompt — OSC 8 hyperlinks
 
 ```text
-Implement .agents/plans/020-phase-3-slice-5-osc-8-hyperlinks.md.
+Implement docs/plans/phase-3-slice-5-osc-8-hyperlinks.md.
 
 Before editing, read these fully:
-- .agents/plans/015-phase-3-modern-terminal-protocols.md
-- docs/Spec.md lines 3644-3826, covering the Phase 3 overview
-- docs/Spec.md lines 4904-5151, covering Slice 5
-- .agents/plans/020-phase-3-slice-5-osc-8-hyperlinks.md
+- docs/plans/phase-3-modern-terminal-protocols.md
+- docs/spec.md lines 3644-3826, covering the Phase 3 overview
+- docs/spec.md lines 4904-5151, covering Slice 5
+- docs/plans/phase-3-slice-5-osc-8-hyperlinks.md
 
 Treat plan 015 as the shared contract and completed prior slice code as source of truth.
 Execute only plan 020. Do not implement terminal capability detection or Phase 4 view-layer
@@ -196,13 +199,13 @@ and wait for review.
 ### Slice 6 prompt — Terminal capability detection
 
 ```text
-Implement .agents/plans/021-phase-3-slice-6-terminal-capability-detection.md.
+Implement docs/plans/phase-3-slice-6-terminal-capability-detection.md.
 
 Before editing, read these fully:
-- .agents/plans/015-phase-3-modern-terminal-protocols.md
-- docs/Spec.md lines 3644-3826, covering the Phase 3 overview
-- docs/Spec.md lines 5152-5490, covering Slice 6
-- .agents/plans/021-phase-3-slice-6-terminal-capability-detection.md
+- docs/plans/phase-3-modern-terminal-protocols.md
+- docs/spec.md lines 3644-3826, covering the Phase 3 overview
+- docs/spec.md lines 5152-5490, covering Slice 6
+- docs/plans/phase-3-slice-6-terminal-capability-detection.md
 
 Treat plan 015 as the shared contract and completed prior slice code as source of truth.
 Execute only plan 021. Do not implement Phase 4 view-layer work.
@@ -218,13 +221,13 @@ and wait for review.
 ### Slice 7 prompt — Kitty graphics
 
 ```text
-Implement .agents/plans/022-phase-3-slice-7-kitty-graphics-protocol.md.
+Implement docs/plans/phase-3-slice-7-kitty-graphics-protocol.md.
 
 Before editing, read these fully:
-- .agents/plans/015-phase-3-modern-terminal-protocols.md
-- docs/Spec.md lines 3644-3826, covering the Phase 3 overview
-- docs/Spec.md lines 5491-6029, covering Slice 7
-- .agents/plans/022-phase-3-slice-7-kitty-graphics-protocol.md
+- docs/plans/phase-3-modern-terminal-protocols.md
+- docs/spec.md lines 3644-3826, covering the Phase 3 overview
+- docs/spec.md lines 5491-6029, covering Slice 7
+- docs/plans/phase-3-slice-7-kitty-graphics-protocol.md
 - Sources/CGhosttyVT/include/ghostty/vt/kitty_graphics.h, before the harness step
 
 Treat plan 015 as the shared contract and completed prior slice code as source of truth.
@@ -247,10 +250,10 @@ Refactor Phase 3 capability detection so production protocol support decisions a
 protocol-native, and not inferred from hard-coded terminal names.
 
 Before editing, read these fully:
-- .agents/plans/015-phase-3-modern-terminal-protocols.md
-- docs/Spec.md lines 3644-3826, covering the Phase 3 overview
-- docs/Spec.md lines 5152-5490, covering Slice 6
-- docs/Spec.md lines 5491-6029, covering Slice 7
+- docs/plans/phase-3-modern-terminal-protocols.md
+- docs/spec.md lines 3644-3826, covering the Phase 3 overview
+- docs/spec.md lines 5152-5490, covering Slice 6
+- docs/spec.md lines 5491-6029, covering Slice 7
 - Sources/TesseraTerminal/TerminalCapabilityDetector.swift
 - Sources/TesseraTerminal/TerminalApplicationConfiguration.swift
 - Sources/TesseraTerminal/TerminalSession.swift
@@ -313,7 +316,7 @@ Update tests close to the code they protect:
 - Phase3ProtocolsDemo-focused tests or smoke checks proving panel 6 displays active probe
   state and panel 7 gates image output on the KGP probe.
 
-Update docs/Spec.md so Slice 6 and Slice 7 describe the active, non-hard-coded detection
+Update docs/spec.md so Slice 6 and Slice 7 describe the active, non-hard-coded detection
 model. Remove outdated language saying capability detection is passive or terminal-name
 based.
 
@@ -329,7 +332,7 @@ Acceptance criteria:
   and do not display hard-coded confidence from terminal identity.
 - Unit tests cover parser responses, session/config resolution, and the no-hard-coded-name
   contract.
-- docs/Spec.md matches the implemented behavior.
+- docs/spec.md matches the implemented behavior.
 - Run:
   swift test --filter TesseraTerminalInputTests
   swift test --filter TesseraTerminalIOTests
@@ -344,13 +347,13 @@ and wait for review.
 ### Slice 8 prompt — Color degradation baseline
 
 ```text
-Implement .agents/plans/024-phase-3-slice-8-color-degradation-baseline.md.
+Implement docs/plans/phase-3-slice-8-color-degradation-baseline.md.
 
 Before editing, read these fully:
-- .agents/plans/015-phase-3-modern-terminal-protocols.md
-- docs/Spec.md lines 3644 through the end of Slice 8, covering the Phase 3 overview and
+- docs/plans/phase-3-modern-terminal-protocols.md
+- docs/spec.md lines 3644 through the end of Slice 8, covering the Phase 3 overview and
   color degradation baseline
-- .agents/plans/024-phase-3-slice-8-color-degradation-baseline.md
+- docs/plans/phase-3-slice-8-color-degradation-baseline.md
 
 Treat plan 015 as the shared contract and completed prior slices as source of truth.
 Execute only plan 024. Do not implement OSC 52 clipboard, cursor styling, underline
@@ -367,13 +370,13 @@ and wait for review.
 ### Slice 9 prompt — OSC 52 clipboard
 
 ```text
-Implement .agents/plans/025-phase-3-slice-9-osc-52-clipboard.md.
+Implement docs/plans/phase-3-slice-9-osc-52-clipboard.md.
 
 Before editing, read these fully:
-- .agents/plans/015-phase-3-modern-terminal-protocols.md
-- docs/Spec.md lines 3644 through the end of Slice 9, covering the Phase 3 overview and
+- docs/plans/phase-3-modern-terminal-protocols.md
+- docs/spec.md lines 3644 through the end of Slice 9, covering the Phase 3 overview and
   OSC 52 clipboard
-- .agents/plans/025-phase-3-slice-9-osc-52-clipboard.md
+- docs/plans/phase-3-slice-9-osc-52-clipboard.md
 
 Treat plan 015 as the shared contract and completed prior slices as source of truth.
 Execute only plan 025. Do not implement cursor styling, underline extensions, clipboard
@@ -390,13 +393,13 @@ and wait for review.
 ### Slice 10 prompt — Cursor styling
 
 ```text
-Implement .agents/plans/026-phase-3-slice-10-cursor-styling.md.
+Implement docs/plans/phase-3-slice-10-cursor-styling.md.
 
 Before editing, read these fully:
-- .agents/plans/015-phase-3-modern-terminal-protocols.md
-- docs/Spec.md lines 3644 through the end of Slice 10, covering the Phase 3 overview and
+- docs/plans/phase-3-modern-terminal-protocols.md
+- docs/spec.md lines 3644 through the end of Slice 10, covering the Phase 3 overview and
   cursor styling
-- .agents/plans/026-phase-3-slice-10-cursor-styling.md
+- docs/plans/phase-3-slice-10-cursor-styling.md
 
 Treat plan 015 as the shared contract and completed prior slices as source of truth.
 Execute only plan 026. Do not implement underline extensions, OSC 52 clipboard reads,
@@ -415,13 +418,13 @@ and wait for review.
 ### Slice 11 prompt — Underline extensions
 
 ```text
-Implement .agents/plans/027-phase-3-slice-11-underline-extensions.md.
+Implement docs/plans/phase-3-slice-11-underline-extensions.md.
 
 Before editing, read these fully:
-- .agents/plans/015-phase-3-modern-terminal-protocols.md
-- docs/Spec.md lines 3644 through the end of Slice 11, covering the Phase 3 overview and
+- docs/plans/phase-3-modern-terminal-protocols.md
+- docs/spec.md lines 3644 through the end of Slice 11, covering the Phase 3 overview and
   underline extensions
-- .agents/plans/027-phase-3-slice-11-underline-extensions.md
+- docs/plans/phase-3-slice-11-underline-extensions.md
 
 Treat plan 015 as the shared contract and completed prior slices as source of truth.
 Execute only plan 027. Do not implement Sixel, cursor styling beyond any completed slice,
@@ -440,14 +443,14 @@ and wait for review.
 ### Step 3.9 / Slice 12 prompt — Runtime protocol control and capability reconciliation
 
 ```text
-Implement .agents/plans/028-phase-3-runtime-protocol-control.md.
+Implement docs/plans/phase-3-runtime-protocol-control.md.
 
 Before editing, read these fully:
-- .agents/plans/015-phase-3-modern-terminal-protocols.md
-- docs/Spec.md Phase 3 overview and Slices 3 through 11
-- .agents/plans/028-phase-3-runtime-protocol-control.md
-- .agents/investigations/015-apple-terminal-underline-corruption.md
-- .agents/investigations/016-phase-3-runtime-configurability.md
+- docs/plans/phase-3-modern-terminal-protocols.md
+- docs/spec.md Phase 3 overview and Slices 3 through 11
+- docs/plans/phase-3-runtime-protocol-control.md
+- docs/research/apple-terminal-underline-corruption.md
+- docs/research/phase-3-runtime-configurability.md
 - Sources/TesseraTerminal/TerminalApplicationConfiguration.swift
 - Sources/TesseraTerminal/TerminalSession.swift
 - Sources/TesseraTerminalIO/ModeLifecycle.swift
@@ -483,7 +486,7 @@ and may project valid declaration evidence only; absent, malformed, or unknown d
 must not silently downgrade the modern default. `TerminalSession.setUnderlineRendering(_:)`
 is the runtime override and wins over startup compatibility projection. Renderer policy
 changes repaint when terminal-cell metadata can become stale. Update
-`Phase3ProtocolsDemo`, `docs/Spec.md`, and every affected prior record. Do not run Step
+`Phase3ProtocolsDemo`, `docs/spec.md`, and every affected prior record. Do not run Step
 5.3 validation commands as part of this documentation-only phase.
 
 When Step 5.2 is complete, report changed records and any focused verification to the

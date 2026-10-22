@@ -1,9 +1,9 @@
 # Developer tooling spikes
 
-Time-boxed spikes for plan 033 (`.agents/plans/033-developer-tooling.md`). Each is a
-standalone SwiftPM package that depends on the root package by path (`../..`) and uses
-public API only, so anything it could not reach is itself a finding. Nothing in the root
-package imports these; plan 033 step A.3 migrates the useful code by copy.
+Time-boxed spikes for plan 033 (`docs/plans/developer-tooling.md`). Each is a standalone
+SwiftPM package that depends on the root package by path (`../..`) and uses public API
+only, so anything it could not reach is itself a finding. Nothing in the root package
+imports these; plan 033 step A.3 migrates the useful code by copy.
 
 | Spike                             | Question                                                                               | Verdict |
 | --------------------------------- | -------------------------------------------------------------------------------------- | ------- |

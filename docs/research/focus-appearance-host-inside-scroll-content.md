@@ -1,7 +1,8 @@
 ---
-name: Focus appearance host resolves into scrolled content
-date: 2026-08-25
+type: research
+observed: 2026-08-25
 status: resolved
+description: Focus appearance host resolves into scrolled content
 ---
 
 # Focus appearance host resolves into scrolled content

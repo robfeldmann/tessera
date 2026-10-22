@@ -1,7 +1,8 @@
 ---
-name: TUI Devtools Prior Art
-date: 2026-10-19
+type: research
+observed: 2026-10-19
 status: resolved
+description: TUI Devtools Prior Art
 ---
 
 # TUI Devtools Prior Art
@@ -32,7 +33,7 @@ The strongest transferable combination is (2) + (3): a deterministic headless ru
 VT-accurate screen, and a read-only inspection surface keyed by stable identity. Tessera
 has (2) (`VirtualTerminal.ghostty`, snapshot strategies). It has no live inspection
 surface and no element addressing. The Phase 4 Showcase inspector is specified as a
-read-only snapshot consumer (`docs/Spec.md:7437-7441`), the natural seam for one.
+read-only snapshot consumer (`docs/spec.md:7437-7441`), the natural seam for one.
 
 ## Method and scope
 
@@ -250,16 +251,16 @@ Web: `playwright.dev/docs/locators`, `/actionability`, `/trace-viewer-intro`,
   links-grid variant in the DocC (`Terminal-Snapshot-Strategies`).
 - Usage: `Tests/TesseraTerminalRenderingTests/RendererSnapshotTests.swift:25` (text),
   `:53` (styled, `trim: .none`), `:77` (debug dump).
-- History: `.agents/investigations/003-ghostty-vt-snapshot-harness-closeout.md`
-  (libghostty-vt pin, `ghostty_render_state_*` use, macOS and Lima Linux validation).
-- Spec guidance: `docs/Spec.md:546-548` prefers focused regions, semantic state, or golden
+- History: `docs/research/ghostty-vt-snapshot-harness-closeout.md` (libghostty-vt pin,
+  `ghostty_render_state_*` use, macOS and Lima Linux validation).
+- Spec guidance: `docs/spec.md:546-548` prefers focused regions, semantic state, or golden
   fixtures over full-screen byte snapshots. `:1432-1469` compares to Ratatui's
   `TestBackend`; `:1500-1502` plans ~60 golden-byte tests plus VT round-trips;
   `:7521-7522` plans reconciler `dump()` goldens and `statistics`.
 
 **Inspection.**
 
-- `docs/Spec.md:7437-7441`: the Showcase inspector reads an immutable snapshot only; it
+- `docs/spec.md:7437-7441`: the Showcase inspector reads an immutable snapshot only; it
   cannot mutate the graph, retain a `RenderRegion`, change focus, or trigger a pass.
   `:7550-7551` forbids serialization, persistence, logging, telemetry, and remote
   transport. A live socket would be a new decision against this contract.
@@ -310,7 +311,7 @@ mine._
 1. **Build the live inspection surface as a read-only, request-scoped protocol.** oh-my-pi
    routes injected input through the normal pipeline (`tui.ts:1277`) and exposes
    `text`/`tree`/`values` over NDJSON (`debug-server.ts:208`). Tessera's Spec forbids
-   mutation and remote transport for the inspector (`docs/Spec.md:7437-7441`,
+   mutation and remote transport for the inspector (`docs/spec.md:7437-7441`,
    `:7550-7551`). A compatible design reads only the immutable snapshot and sends input
    through the existing session. Lifting the remote-transport prohibition is an owner
    decision.
@@ -322,7 +323,7 @@ mine._
    hook.** oh-my-pi's `debugId`/`debugKind`/`debugState`/`describe?` (`tui.ts:239-263`)
    let an agent address "the Submit button" rather than row 12; Textual's `DOMQuery` does
    the same with selectors. Tessera's reconciler already has identity paths
-   (`docs/Spec.md:7521-7522`), so exposing them with requirement and geometry fields
+   (`docs/spec.md:7521-7522`), so exposing them with requirement and geometry fields
    (`:7437-7441`) is the cheapest route to element addressing.
 4. **Adopt locators that re-resolve per action and auto-wait for screen idle.** Playwright
    (actionability, auto-retrying `expect`) and tui-test (`getByText` anchors, `match nth`,
@@ -338,7 +339,7 @@ mine._
 6. **Add a per-event state-change diff.** No surveyed TUI does this. TCA prints action
    plus `customDump` diff (`DebugReducer.swift:16`). A Tessera op reporting which
    element's state, focus, or geometry changed per input event, sourced from the
-   reconciler's `statistics` and `dump()` (`docs/Spec.md:7521-7522`), would answer "why
+   reconciler's `statistics` and `dump()` (`docs/spec.md:7521-7522`), would answer "why
    did this redraw" and "why did focus move" without a debugger. Keep it DEBUG-only.
 7. **Use an injected clock and a fixed frame horizon for every devtools-driven run.**
    oh-my-pi's `VirtualRenderScheduler` with `FRAME_HORIZON_MS=40`
@@ -360,7 +361,8 @@ Pitfalls:
 
 - **Non-portable transport.** oh-my-pi's protocol is a Bun unix socket and `shot` needs a
   native canvas. Tessera validates on macOS, a Linux Lima VM, and Windows
-  (`docs/WindowsFrostVM.md`). Any socket needs a Windows story or a per-platform gate.
+  (`docs/guides/windows-frost-vm.md`). Any socket needs a Windows story or a per-platform
+  gate.
 - **Pickled, version-coupled transport.** textual-dev pickles Rich segments over the
   websocket (`textual_dev/client.py`). Use a versioned, plain-data schema.
 - **Cache keyed too narrowly.** Textual's `_doc.py` cache uses only the file hash when
@@ -370,10 +372,10 @@ Pitfalls:
   default all miss color changes. The styled grid exists for this; never let the text
   strategy be the only one on styling work.
 - **Full-screen baselines churn.** Textual's baseline set changes with any shared style.
-  Prefer region-scoped or semantic snapshots, as `docs/Spec.md:546-548` already directs.
+  Prefer region-scoped or semantic snapshots, as `docs/spec.md:546-548` already directs.
 - **Escape churn in byte goldens.** teatest goldens change when byte output changes even
   when the screen does not. Keep byte goldens at the encoder layer
-  (`docs/Spec.md:1500-1502`) and assert screen state at the screen layer.
+  (`docs/spec.md:1500-1502`) and assert screen state at the screen layer.
 - **Live mutation in the inspector.** Flutter's inspector edits apply live. The Spec
-  forbids mutation (`docs/Spec.md:7437-7441`); keep that, and if live edits are ever
+  forbids mutation (`docs/spec.md:7437-7441`); keep that, and if live edits are ever
   wanted, make them a separate, explicit, reversible op.

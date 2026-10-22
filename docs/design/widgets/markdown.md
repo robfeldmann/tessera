@@ -13,7 +13,7 @@ drawn by the [code view](code-view.md). Pipe tables are drawn by the [Table](tab
 renderer in its `grid` style, so the catalog has one table renderer.
 
 This widget follows the controlled-widget rule in
-[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
+[Slice 7](../../spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
 The application owns the source string. Markdown owns only the rendered layout.
 
 Owner decision, omp2 review, 2026-10: Markdown is adopted for 1.0 as omp2 draws it, except
@@ -68,8 +68,8 @@ tables drop columns, so a 72-cell cap would hide content on a wide terminal. Eve
 stays leading-aligned in the body, so prose and code share a left edge, and code and
 tables may extend to the full available width.
 
-Wrap rules ([README](../README.md#wrap-and-truncation)): paragraph, heading, list item and
-quote text is content and word-wraps at the column width; a word wider than the column
+Wrap rules ([README](../../design.md#wrap-and-truncation)): paragraph, heading, list item
+and quote text is content and word-wraps at the column width; a word wider than the column
 breaks between grapheme clusters. Fenced code is the one exception, below. Pipe tables
 follow [Table](table.md): cells are single-line by default.
 
@@ -500,7 +500,7 @@ C  fg=warning bg=surface
 
 ## State model
 
-Schema: [README](../README.md#state-model-table).
+Schema: [README](../../design.md#state-model-table).
 
 | State           | Owner       | Type                 | Reset or clamp rule                                                                                                    |
 | --------------- | ----------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------- |
@@ -514,20 +514,20 @@ re-renders in full. omp2's `reveal` and `partial` props are post-1.0 (key L6).
 
 ## Key table
 
-Schema: [README](../README.md#key-table). None. Markdown is display-only and takes no
+Schema: [README](../../design.md#key-table). None. Markdown is display-only and takes no
 keys: links are OSC 8 only in 1.0, so the terminal opens them (owner decision,
 2026-10-18). In-app activation is post-1.0; see
 [discussion #40](https://github.com/robfeldmann/tessera/discussions/40).
 
 ## Mouse table
 
-Schema: [README](../README.md#mouse-table). None. Markdown takes no pointer input in 1.0;
-a click on link text is the terminal's OSC 8 handling, not Tessera's (owner decision,
+Schema: [README](../../design.md#mouse-table). None. Markdown takes no pointer input in
+1.0; a click on link text is the terminal's OSC 8 handling, not Tessera's (owner decision,
 2026-10-18).
 
 ## Sizing
 
-Schema: [README](../README.md#sizing-table). Prose blocks (paragraphs, headings, list
+Schema: [README](../../design.md#sizing-table). Prose blocks (paragraphs, headings, list
 items, quotes) sit under a `.readableWidth()` maximum: their width is
 `min(proposal, readableWidth)`. Fenced code and pipe tables are not capped and may extend
 to the proposal (owner decision, 2026-10-18). Markdown's width is its widest block, and
@@ -581,7 +581,7 @@ Further roles, each defined in tokens.md:
 - [Text](../primitives/text.md): inline runs, as
   [styled runs](../primitives/text.md#styled-runs) (`Text + Text`, key I1). Plan 032 step
   9.1 lands them before Markdown
-  ([landing map](../../docs/Spec.md#phase-4-implementation-order-and-component-landing-map)).
+  ([landing map](../../spec.md#phase-4-implementation-order-and-component-landing-map)).
 - [Readable width](../primitives/readable-width.md): the prose blocks' maximum width.
 - [Leading rail](../primitives/leading-rail.md): block quote rails, one per level.
 - [Table](table.md): pipe tables, `grid` style.
@@ -589,8 +589,8 @@ Further roles, each defined in tokens.md:
 
 ## Requirements
 
-Schema: [README](../README.md#requirements-list). Each entry traces to a callout or state
-above.
+Schema: [README](../../design.md#requirements-list). Each entry traces to a callout or
+state above.
 
 - `markdown renders a level one heading in accent bold underline` (Anatomy callout 1)
 - `markdown renders strong and emphasis runs in primary bold and primary italic` (Anatomy
@@ -667,8 +667,8 @@ draws in `accent` underline with its destination in parentheses, so no informati
 lost.
 
 This design was reviewed against the
-[Phase 4 theses](../../docs/Spec.md#phase-4--view-layer-the-tessera-module): the source is
-an app-owned value redeclared on every update and re-rendered in full, Markdown stores
+[Phase 4 theses](../../spec.md#phase-4--view-layer-the-tessera-module): the source is an
+app-owned value redeclared on every update and re-rendered in full, Markdown stores
 nothing and takes no input, links reach the terminal as OSC 8 style attributes through the
 render pass rather than as raw writes, and blocks lay out in deterministic integer cells
 through Text, Table and CodeView.

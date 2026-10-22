@@ -1,7 +1,7 @@
 """Reads the design catalog: one `Doc` per component doc, one `Wireframe` per
 ```` ```wireframe WxH[ id=NAME] ```` fence in document order.
 
-The catalog (`design/primitives/*.md`, `design/widgets/*.md`) is the only source of
+The catalog (`docs/design/primitives/*.md`, `docs/design/widgets/*.md`) is the only source of
 wireframes. A wireframe's identity is `(doc slug, key)`: `key` is the fence's `id` when it
 has one and its 0-based position among the doc's wireframe fences otherwise. A styled grid
 is a `text` fence that starts with `── chars ──`; it belongs to the nearest preceding
@@ -26,7 +26,7 @@ from pathlib import Path
 from .colors import parse_spec, split_description
 
 REPO = Path(__file__).resolve().parents[2]
-DESIGN = REPO / "design"
+DESIGN = REPO / "docs" / "design"
 GROUPS = (("primitives", "Primitives"), ("widgets", "Widgets"))
 
 FENCE = re.compile(r"^(`{3,}|~{3,})\s*(\S*)\s*(.*)$")

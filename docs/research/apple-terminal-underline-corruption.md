@@ -1,7 +1,8 @@
 ---
-name: Apple Terminal Underline Extension Corruption
-date: 2026-07-09
+type: research
+observed: 2026-07-09
 status: resolved
+description: Apple Terminal Underline Extension Corruption
 ---
 
 # Apple Terminal Underline Extension Corruption

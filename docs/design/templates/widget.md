@@ -7,7 +7,7 @@ status: sketch
 
 One-paragraph overview: what it is, what it is for, and the one-sentence version of its
 state story (what the app owns vs what is ephemeral). Widgets are controlled; see
-[Slice 7](../../docs/Spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
+[Slice 7](../../spec.md#slice-7-catalog-integration--list-section-and-controlled-widgets).
 
 ## Prior art
 
@@ -20,7 +20,7 @@ Cite concrete sources with paths or links, and say what to copy and what to reje
 
 One wireframe at a natural component size, followed by callouts. Callout region names are
 the vocabulary for the mouse table. Schemas and conventions:
-[README](../README.md#wireframe-conventions).
+[README](../../design.md#wireframe-conventions).
 
 ```wireframe 10x3
 ┌────────┐
@@ -40,7 +40,7 @@ Recommended: empty, focused vs unfocused, overflow, degraded (ascii/no-color).
 
 ## State model
 
-Schema: [README](../README.md#state-model-table).
+Schema: [README](../../design.md#state-model-table).
 
 | State | Owner | Type | Reset or clamp rule |
 | ----- | ----- | ---- | ------------------- |
@@ -48,7 +48,7 @@ Schema: [README](../README.md#state-model-table).
 
 ## Key table
 
-Schema: [README](../README.md#key-table).
+Schema: [README](../../design.md#key-table).
 
 | Key  | Precondition | Effect | Consumed |
 | ---- | ------------ | ------ | -------- |
@@ -56,7 +56,7 @@ Schema: [README](../README.md#key-table).
 
 ## Mouse table
 
-Schema: [README](../README.md#mouse-table). Regions must be named in Anatomy callouts.
+Schema: [README](../../design.md#mouse-table). Regions must be named in Anatomy callouts.
 
 | Event | Region | Precondition | Effect | Consumed |
 | ----- | ------ | ------------ | ------ | -------- |
@@ -64,7 +64,7 @@ Schema: [README](../README.md#mouse-table). Regions must be named in Anatomy cal
 
 ## Sizing
 
-Schema: [README](../README.md#sizing-table). Mandatory rows: nil x nil, tight,
+Schema: [README](../../design.md#sizing-table). Mandatory rows: nil x nil, tight,
 under-minimum, over-maximum.
 
 | Proposal  | Result | Rule |
@@ -83,7 +83,7 @@ them to exist.
 ## Requirements
 
 Backticked sentence-style test names, each traced to a table row or wireframe state.
-Schema: [README](../README.md#requirements-list).
+Schema: [README](../../design.md#requirements-list).
 
 - `TODO` (trace)
 

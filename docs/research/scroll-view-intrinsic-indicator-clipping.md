@@ -1,7 +1,8 @@
 ---
-name: ScrollView intrinsic indicator clipping
-date: 2026-08-26
+type: research
+observed: 2026-08-26
 status: resolved
+description: ScrollView intrinsic indicator clipping
 ---
 
 # ScrollView intrinsic indicator clipping

@@ -1,11 +1,14 @@
 ---
-name: GitHub Actions Phase 0
+type: plan
+stage: done
+created: 2026-06-03
+completed: 2026-06-04
+order: 4
 description:
   Add minimal GitHub Actions workflows for Swift build/test matrix and DocC validation.
-status: completed
-created: 2026-06-03
-updated: 2026-06-04
 ---
+
+# GitHub Actions Phase 0
 
 ## Progress
 
@@ -26,7 +29,7 @@ updated: 2026-06-04
 - [x] **Phase 5 — Validate and update Phase 0 checklist**
   - [x] 5.1 Push to private GitHub repo and inspect failures
   - [x] 5.2 Fix Windows/Linux/macOS portability issues
-  - [x] 5.3 Update `docs/Spec.md` Phase 0 checklist
+  - [x] 5.3 Update `docs/spec.md` Phase 0 checklist
 
 ## Notes
 
@@ -161,17 +164,17 @@ build/test failures are easy to diagnose.
   dependency compatibility.
 - Acceptance: `swift build` and `swift test` pass on macOS, Ubuntu, and Windows in CI.
 
-### Step 5.3 — Update `docs/Spec.md` Phase 0 checklist
+### Step 5.3 — Update `docs/spec.md` Phase 0 checklist
 
-- File: `docs/Spec.md`
+- File: `docs/spec.md`
 - Mark the GitHub Actions matrix item complete once CI passes.
 - Leave `DESIGN.md` untouched unless that item is also addressed.
 - Acceptance: Phase 0 checklist accurately reflects completed CI work.
 
 ## References
 
-- `docs/Spec.md` Phase 0
-- `.agents/plans/003-local-linux-dev-loop.md`
+- `docs/spec.md` Phase 0
+- `docs/plans/local-linux-dev-loop.md`
 - Herdr CI inspiration:
   `https://github.com/ogulcancelik/herdr/blob/master/.github/workflows/ci.yml`
 - Herdr Dependabot inspiration:

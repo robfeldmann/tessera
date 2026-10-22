@@ -1,12 +1,15 @@
 ---
-name: Risk-Driven Test Coverage
+type: plan
+stage: done
+created: 2026-06-10
+completed: 2026-06-10
+order: 9
 description:
   Improve coverage for terminal lifecycle, live POSIX I/O, ANSI encoding, and
   cancellation-sensitive code.
-status: completed
-created: 2026-06-10
-updated: 2026-06-10
 ---
+
+# Risk-Driven Test Coverage
 
 ## Progress
 
@@ -73,7 +76,7 @@ future work can compare like-for-like numbers.
 
 ### Step 1.2 — Document the current baseline and target scope
 
-- Files: `.agents/investigations/` or a short docs note if preferred.
+- Files: `docs/research/` or a short docs note if preferred.
 - Record the 2026-06-10 baseline, exclusions, commands used, and target thresholds.
 - Include the highest-risk uncovered files: `TerminalDevice+Live.swift`,
   `TerminalResizeRegistry.swift`, `POSIXSyscalls.swift`, `PlatformHandles.swift`, and
@@ -267,7 +270,7 @@ clear follow-up guidance.
 
 ### Step 6.2 — Record final gaps and intentional exclusions
 
-- Files: `.agents/investigations/` or the baseline note from Phase 1.
+- Files: `docs/research/` or the baseline note from Phase 1.
 - Record final production coverage, per-module coverage, files still below target, and why
   any remaining low-coverage paths are intentionally untested or require manual
   verification.
@@ -276,7 +279,7 @@ clear follow-up guidance.
 
 ## References
 
-- `.agents/plans/008-phase-2-slice-3-terminal-lifecycle.md`
-- `.agents/investigations/004-lifecycle-demo-event-cancellation.md`
+- `docs/plans/phase-2-slice-3-terminal-lifecycle.md`
+- `docs/research/lifecycle-demo-event-cancellation.md`
 - Current coverage command: `swift test --enable-code-coverage`
 - Coverage JSON path command: `swift test --show-codecov-path`
