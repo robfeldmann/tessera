@@ -64,8 +64,11 @@ There are two Linux paths:
    the active Swift toolchain, not into this repository.
 2. `just linux test` uses a Lima VM so tests run on an actual Linux userspace.
 
-The Static Linux SDK metadata lives in `scripts/config/swift-sdks.json` and is keyed by
-`.swift-version`. Updating Swift means updating both files together.
+The Static Linux SDK metadata lives in `scripts/config/swift-sdks.json`, keyed by Swift
+version. `scripts/linux-sdk-version.sh` picks the entry that matches the active compiler
+(`swift --version`), because the SDK must match the compiler that uses it, and falls back
+to `.swift-version` when the active compiler has no entry. Updating the baseline Swift
+means adding an entry here and updating `.swift-version` together.
 
 The default Lima VM name is:
 

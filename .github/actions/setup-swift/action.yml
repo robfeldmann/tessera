@@ -1,5 +1,29 @@
 name: Set up Swift
-description: Read .swift-version and install the matching Swift toolchain.
+description: >-
+  Select the Swift toolchain for a job. On macOS the toolchain is an Xcode on the runner
+  image (Xcode 26.6 by default, the project baseline); on Linux and Windows it is the
+  swift.org release named by .swift-version unless `swift-version` overrides it.
+
+inputs:
+  xcode:
+    description: >-
+      Xcode version to select on macOS, as it appears in /Applications/Xcode_<version>.app
+      on the runner image. Ignored on Linux and Windows.
+    required: false
+    default: "26.6"
+  swift-version:
+    description: >-
+      swift.org release to install on Linux and Windows. Defaults to .swift-version.
+      Ignored on macOS, which uses the selected Xcode's compiler.
+    required: false
+    default: ""
+
+outputs:
+  toolchain:
+    description: >-
+      Cache-key label for the selected toolchain: `xcode-<version>` on macOS,
+      `swift-<version>` elsewhere.
+    value: ${{ steps.label.outputs.toolchain }}
 
 runs:
   using: composite
@@ -7,12 +31,48 @@ runs:
     - name: Read Swift version
       id: swift-version
       shell: bash
-      run: echo "version=$(tr -d '[:space:]' < .swift-version)" >> "$GITHUB_OUTPUT"
+      env:
+        OVERRIDE: ${{ inputs.swift-version }}
+      run: |
+        if [[ -n "$OVERRIDE" ]]; then
+          echo "version=$OVERRIDE" >> "$GITHUB_OUTPUT"
+        else
+          echo "version=$(tr -d '[:space:]' < .swift-version)" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Select Xcode
+      if: runner.os == 'macOS'
+      shell: bash
+      env:
+        XCODE: ${{ inputs.xcode }}
+      run: |
+        app="/Applications/Xcode_${XCODE}.app"
+        if [[ ! -d "$app" ]]; then
+          echo "::error::$app is not on this runner image; installed Xcodes:"
+          ls -d /Applications/Xcode*.app
+          exit 1
+        fi
+        sudo xcode-select -s "$app/Contents/Developer"
+        xcodebuild -version
 
     - name: Set up Swift
+      if: runner.os != 'macOS'
       uses: SwiftyLab/setup-swift@38f54a76b70d989321de9dc7c840618c08cf56e9 # v1.14.0
       with:
         swift-version: ${{ steps.swift-version.outputs.version }}
+
+    - name: Label toolchain
+      id: label
+      shell: bash
+      env:
+        XCODE: ${{ inputs.xcode }}
+        SWIFT: ${{ steps.swift-version.outputs.version }}
+      run: |
+        if [[ "$RUNNER_OS" == "macOS" ]]; then
+          echo "toolchain=xcode-${XCODE}" >> "$GITHUB_OUTPUT"
+        else
+          echo "toolchain=swift-${SWIFT}" >> "$GITHUB_OUTPUT"
+        fi
 
     - name: Show Swift version
       shell: bash

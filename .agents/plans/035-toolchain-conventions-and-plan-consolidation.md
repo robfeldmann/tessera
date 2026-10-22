@@ -17,8 +17,8 @@ updated: 2026-10-21
 ## Progress
 
 - [ ] **Phase 1 — Baseline**
-  - [x] 1.1 Run every local check at HEAD and record the results (results table in the
-        step; commit below)
+  - [x] 1.1 Run every local check at HEAD and record the results (`982779d`; results table
+        in the step)
 - [ ] **Phase 2 — Xcode 26.6 baseline, plus Swift 6.4 and Xcode 27**
   - [ ] 2.1 Move every lane to the Xcode 26.6 and Swift 6.3.3 baseline
   - [ ] 2.2 Build and test on Xcode 27 and Swift 6.4
@@ -270,6 +270,46 @@ Xcode 27 pass too, and CI guards both, without raising the floor.
 - Acceptance: the Phase 1 check matrix passes on 6.3.3 on macOS, in the Lima VM, and in
   the Frost VM, and a CI run is green on all three platforms, with Xcode 26.6's
   `swiftlang-6.3.3` in the macOS logs and swift.org 6.3.3 in the Linux and Windows logs.
+
+#### Done (2026-10-21)
+
+- `.swift-version` is `6.3.3`. `.github/actions/setup-swift/action.yml` now takes `xcode`
+  (default `26.6`, selected with `xcode-select` from `/Applications/Xcode_<version>.app`,
+  one place to change when the image drops a patch version) and `swift-version` (Linux and
+  Windows only; default `.swift-version`), and outputs `toolchain` (`xcode-26.6` or
+  `swift-6.3.3`), which `ci.yml` puts in the SwiftPM cache keys (`swiftpm-v3-…`).
+  `docs.yml` and `pages.yml` use the action unchanged, so they select Xcode 26.6 too.
+- `scripts/config/swift-sdks.json` has the 6.3.3 entry (checksum `87c3eaf9…6b607b`,
+  computed from the downloaded bundle); the new `scripts/linux-sdk-version.sh` keys the
+  SDK on `swift --version` with a `.swift-version` fallback, and `install-linux-sdk.sh`
+  and `linux-sdk-id.sh` use it (verified: 6.3.3 under Xcode 26.6, warning plus 6.3.3
+  fallback under Xcode 27.1). `just linux install-sdk` installed
+  `swift-6.3.3-RELEASE_static-linux-0.1.0` (46s).
+- `just linux build` fails on the 6.3.3 SDK and, rechecked with Xcode 26.5's 6.3.2
+  compiler on the 6.3.2 SDK, failed before too:
+  `swift-snapshot-testing/Sources/SnapshotTesting/AssertSnapshot.swift:1:8: error: no such module 'XCTest'`.
+  The `TesseraTestSupport` and `TesseraTerminalTestSupport` library products depend on
+  SnapshotTesting, and the Static Linux SDK ships no XCTest, so a plain `swift build` of
+  the package cannot cross-compile. Pre-existing and unrelated to the toolchain; left for
+  the Step 5.5 inventory (drop the recipe or build only the non-test products).
+- Lima: `limactl start` re-provisioned the guest from `.swift-version` (swiftly now lists
+  `Swift 6.3.3 (in use) (default)` beside 6.3.2); `just linux test` passes, 627 tests
+  (59s, warm). `scripts/linux-test.sh` had a latent SIGPIPE: its
+  `limactl list --json | python3 … break` pipeline exited 141 under `pipefail` twice in a
+  row; it now reads the whole list before printing.
+- Windows: Frost's `provision-toolchain` cannot run on this host (Step 1.1), so Swift
+  6.3.3 was installed in the UTM guest with the same swift.org installer Frost uses
+  (`swift-6.3.3-RELEASE-windows10-arm64.exe /quiet /norestart`, exit 0);
+  `check-windows-frost-toolchain.ps1 -ExpectedSwiftVersion 6.3.3` passes, and the
+  Ghostty-backed suite passes, 629 tests (180s). The `ExpectedSwiftVersion` defaults in
+  `check-windows-frost-toolchain.ps1` and `setup-windows-frost-vm.ps1` are 6.3.3. The
+  Frost golden image itself still holds 6.3.2 until the owner can run
+  `just windows-frost provision-toolchain` on a working QEMU.
+- macOS: `just quality format`, `swift test --no-parallel` (634 tests), and
+  `just quality lint` pass under Xcode 26.6. The `DEVELOPER_DIR` note for local macOS is
+  written in Step 2.4 with the rest of the toolchain docs; `docs/LocalDevelopmentState.md`
+  already describes the SDK resolution.
+- CI: see the Progress line for the run on the draft pull request.
 
 ### Step 2.2 — Build and test on Xcode 27 and Swift 6.4
 

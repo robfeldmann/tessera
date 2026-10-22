@@ -15,30 +15,22 @@ if ! command -v limactl &> /dev/null; then
   exit 1
 fi
 
+# Read the whole list before printing: `break`ing early closed the pipe while limactl
+# was still writing, and `pipefail` turned that SIGPIPE (exit 141) into a failure.
 status="$(
   limactl list --json \
     | python3 -c 'import json, os, sys
 name = os.environ["TESSERA_LINUX_VM_NAME"]
-for line in sys.stdin:
-    entry = json.loads(line)
-    if entry["name"] == name:
-        print(entry["status"])
-        break
-else:
-    print("")'
+entries = [json.loads(line) for line in sys.stdin if line.strip()]
+print(next((entry["status"] for entry in entries if entry["name"] == name), ""))'
 )"
 
 project_dir="$(
   limactl list --json \
     | python3 -c 'import json, os, sys
 name = os.environ["TESSERA_LINUX_VM_NAME"]
-for line in sys.stdin:
-    entry = json.loads(line)
-    if entry["name"] == name:
-        print(entry.get("param", {}).get("ProjectDir", ""))
-        break
-else:
-    print("")'
+entries = [json.loads(line) for line in sys.stdin if line.strip()]
+print(next((entry.get("param", {}).get("ProjectDir", "") for entry in entries if entry["name"] == name), ""))'
 )"
 
 started_vm=0

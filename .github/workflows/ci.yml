@@ -154,6 +154,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Swift
+        id: swift
         if: needs.ci-gate.outputs.vouch-only != 'true'
         uses: ./.github/actions/setup-swift
 
@@ -164,9 +165,9 @@ jobs:
         with:
           path: .build
           # prettier-ignore
-          key: swiftpm-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version', 'Package.resolved') }}
+          key: swiftpm-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.swift.outputs.toolchain }}-${{ hashFiles('Package.resolved') }}
           restore-keys: |
-            swiftpm-v2-${{ runner.os }}-${{ runner.arch }}-
+            swiftpm-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.swift.outputs.toolchain }}-
 
       - name: Remove restored Windows build tree
         if: needs.ci-gate.outputs.vouch-only != 'true' && runner.os == 'Windows'
@@ -263,7 +264,7 @@ jobs:
         with:
           path: .build
           # prettier-ignore
-          key: swiftpm-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.swift-version', 'Package.resolved') }}
+          key: swiftpm-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.swift.outputs.toolchain }}-${{ hashFiles('Package.resolved') }}
 
       - name: Test
         if: needs.ci-gate.outputs.vouch-only != 'true'
