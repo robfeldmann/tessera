@@ -24,7 +24,7 @@ let package = Package(
 package.dependencies.append(
   .package(
     url: "https://github.com/pointfreeco/swift-snapshot-testing",
-    exact: "1.18.9"
+    exact: "1.19.3"
   )
 )
 
