@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Print local development environment state and dependency diagnostics"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+scripts/dev-state.sh

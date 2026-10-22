@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Print the Frost Windows VM environment configuration"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+scripts/windows-frost.sh env

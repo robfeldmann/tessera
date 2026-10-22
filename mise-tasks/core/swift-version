@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Print the baseline Swift toolchain version named by .swift-version"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+cat .swift-version

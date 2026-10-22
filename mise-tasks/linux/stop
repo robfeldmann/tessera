@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+#MISE description="Stop the Lima Linux VM"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+linux_vm_name="${TESSERA_LINUX_VM_NAME:-tessera-linux}"
+if ! command -v limactl > /dev/null 2>&1; then
+  echo "⚠️  limactl not found — install Lima (brew install lima)" >&2
+  exit 1
+fi
+limactl stop "$linux_vm_name"

@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Verify contributor trust parsing and fork-gate behavior"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+node --test .github/scripts/vouch-gate.test.cjs

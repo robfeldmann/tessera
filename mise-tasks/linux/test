@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Run the Linux test suite in the Lima VM; pass swift test arguments after the task name"
+#USAGE arg "[args]..." help="Extra swift test arguments, for example --filter PlatformHandlesTests" var=#true
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+scripts/linux-test.sh "$@"

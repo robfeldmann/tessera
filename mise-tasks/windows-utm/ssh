@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+#MISE description="Open an SSH session in the UTM Windows VM"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+host="${TESSERA_WINDOWS_VM_SSH:-}"
+if [[ -z "$host" ]]; then
+  echo "⚠️  TESSERA_WINDOWS_VM_SSH is not set" >&2
+  echo "Set it to your Windows VM SSH target; see docs/guides/windows-vm.md." >&2
+  exit 1
+fi
+ssh "$host"

@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+#MISE description="Build the static documentation site into .build/docs"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+mise run docs:clean
+mise run docs:targets
+mise run docs:merge
+mise run docs:transform
+echo "✅ Documentation generated in .build/docs"

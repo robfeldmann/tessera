@@ -1,0 +1,44 @@
+amends "package://github.com/jdx/hk/releases/download/v2.8.0/hk@2.8.0#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v2.8.0/hk@2.8.0#/Builtins.pkl"
+
+// Repository hooks (plan 035 Step 5.5, replacing Lefthook). `mise run setup:hooks` installs
+// them. The pre-commit hook runs the changed-file quality gate on the staged tree and
+// never rewrites staged content; the commit-msg hook validates Conventional Commit
+// subjects (the owner's global Git hook does the same, so a commit is checked twice and
+// refused once). `hk check` and `hk fix` run the full gates on demand.
+
+local full = new Mapping<String, Step | Group> {
+    ["quality"] {
+        check = "mise run quality:lint"
+        fix = "mise run quality:format && mise run quality:lint"
+    }
+}
+
+local staged = new Mapping<String, Step | Group> {
+    ["staged-quality"] {
+        check = "scripts/pre-commit-lint-staged.sh"
+    }
+}
+
+hooks {
+    ["check"] {
+        steps = full
+    }
+    ["fix"] {
+        fix = true
+        steps = full
+    }
+    ["pre-commit"] {
+        // Never rewrite a commit's staged content. Run `hk fix` first.
+        fix = false
+        stash = "git"
+        steps = staged
+    }
+    ["commit-msg"] {
+        steps {
+            ["conventional-commits"] {
+                check = "python3 scripts/conventional_commits.py --message-file {{ commit_msg_file }}"
+            }
+        }
+    }
+}

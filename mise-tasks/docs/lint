@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+#MISE description="macOS-only DocC gate: build every archive with warnings as errors and merge them"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+mise run docs:clean
+mise run docs:targets
+mise run docs:merge
+echo "✅ Documentation is clean"

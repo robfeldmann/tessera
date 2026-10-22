@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Run a quick Windows ConPTY smoke test in the Frost VM"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+scripts/windows-frost-conpty-smoke.sh

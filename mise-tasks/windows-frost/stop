@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Stop the persistent Frost Windows VM"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+scripts/windows-frost-stop.sh

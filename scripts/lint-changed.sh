@@ -50,7 +50,7 @@ done
 if [[ ${#swift_files[@]} -gt 0 ]]; then
   echo "▶ Linting changed Swift files"
   quality_require_swift_tools
-  swift-format lint --configuration .swift-format "${swift_files[@]}"
+  scripts/swift-format.sh lint --configuration .swift-format "${swift_files[@]}"
   swiftlint lint --strict --config .swiftlint.yml "${swift_files[@]}"
 fi
 
@@ -61,13 +61,13 @@ fi
 
 if [[ ${#spelling_files[@]} -gt 0 ]]; then
   echo "▶ Checking spelling in changed files"
-  scripts/quality-python.sh -m codespell_lib --config .codespellrc "${spelling_files[@]}"
+  codespell --config .codespellrc "${spelling_files[@]}"
 fi
 
 if [[ ${#docc_files[@]} -gt 0 ]]; then
   echo "▶ Validating DocC documentation (macOS-only)"
   quality_require_docc
-  just docs lint
+  mise run docs:lint
 fi
 
 echo "✅ Changed-file lint passed"

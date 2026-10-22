@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Remove SwiftPM build artifacts"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+rm -rf .build

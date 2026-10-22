@@ -40,7 +40,7 @@ scripts/check-wireframes.py docs/design/
 mise exec -- rumdl check docs/design.md docs/design
 ```
 
-Both also run in `just quality lint` (the `wireframes` and `markdown` recipes). Pages carry the `kind`/`status` frontmatter of `docs/.iwe/schemas/design.yaml`; `iwe schema validate` from `docs/` checks it. One paragraph per line outside wireframes; no raw HTML.
+Both also run in `mise run quality:lint` (the `wireframes` and `markdown` recipes). Pages carry the `kind`/`status` frontmatter of `docs/.iwe/schemas/design.yaml`; `iwe schema validate` from `docs/` checks it. One paragraph per line outside wireframes; no raw HTML.
 
 ## Graduation
 

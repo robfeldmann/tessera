@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="List executable products in the Examples package"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+swift package --package-path Examples describe --type json | python3 -c 'import json, sys; package = json.load(sys.stdin); print("\n".join(sorted(product["name"] for product in package["products"] if "executable" in product["type"])))'

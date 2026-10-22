@@ -1,5 +1,40 @@
-# Repository tools, pinned to the versions mise.lock records; `mise install` provides
-# them and `mise exec -- <tool>` runs one without activating mise in the shell.
-# Plan 035 Step 5.5 moves the just recipes here as mise tasks.
+# Repository tools, tasks, and environment. `mise install` provides every tool below at
+# the versions mise.lock records; `mise run <task>` (or an activated shell) runs the tasks
+# in mise-tasks/ (`mise tasks` lists them). Tool versions are the latest mise can provide
+# and move with `mise upgrade`, except where a comment names what a version must match.
+min_version = "2026.10.0"
+
+[settings]
+lockfile = true
+lockfile_platforms = ["macos-arm64", "linux-x64", "linux-arm64"]
+pipx.uvx = true
+
 [tools]
+# Swift itself stays with Xcode on macOS (DEVELOPER_DIR below) and swiftly on Linux and
+# Windows, both reading .swift-version. swift-format comes from the selected Xcode
+# toolchain on macOS (scripts/swift-format.sh), so formatting matches the baseline.
+swiftlint = "0.65.1"
 rumdl = "0.3.0"
+hk = "2.8.0"
+"pipx:codespell" = "2.4.3"
+node = "24.22.1"
+python = "3.15.1"
+uv = "0.13.5"
+yamllint = "1.38.0"
+"aqua:tamasfe/taplo" = "0.10.0"
+jq = "1.8.2"
+"github:iwe-org/iwe" = { version = "0.29.0", version_prefix = "iwe-v" }
+# libghostty-vt's build: zig must match what the pinned Ghostty revision requires
+# (scripts/ghostty-vt-version.txt; 0.15.2 for ae52f97). cmake and ninja are its build
+# drivers.
+zig = "0.15.2"
+cmake = "4.4.4"
+ninja = "1.13.2"
+
+[env]
+# The baseline toolchain on macOS is Xcode 26.6 (docs/architecture/toolchain-lanes.md):
+# the xcodes install name, then GitHub's runner-image name, then whatever is selected.
+DEVELOPER_DIR = "{% if os() == 'macos' %}{% if '/Applications/Xcode-26.6.0.app' is dir %}/Applications/Xcode-26.6.0.app/Contents/Developer{% elif '/Applications/Xcode_26.6.app' is dir %}/Applications/Xcode_26.6.app/Contents/Developer{% else %}{{ exec(command='xcode-select -p') }}{% endif %}{% endif %}"
+
+[task_config]
+includes = ["mise-tasks"]

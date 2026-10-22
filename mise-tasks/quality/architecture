@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+#MISE description="Verify the manifest's view-layer target graph and frame-region ownership"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+python3 -m unittest scripts/test_check_package_boundaries.py
+swift package describe --type json | python3 scripts/check-package-boundaries.py
+swift build --target TesseraTerminalBuffer
+scripts/check-frame-region-ownership.sh

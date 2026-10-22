@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+#MISE description="Apply every formatter in one order: SwiftLint corrections, swift-format, Prettier (YAML, JSON), rumdl (Markdown)"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+swiftlint lint --fix --quiet --config .swiftlint.yml
+scripts/swift-format.sh format --configuration .swift-format -i -r Sources Tests Package.swift Examples/Sources Examples/Package.swift
+npm run format:markup
+echo "✅ Formatting completed"

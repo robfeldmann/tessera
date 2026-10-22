@@ -33,7 +33,7 @@ done
 
 if [[ ${#swift_files[@]} -gt 0 ]]; then
   quality_require_swift_tools
-  swift-format lint --configuration .swift-format "${swift_files[@]}"
+  "$repo_root/scripts/swift-format.sh" lint --configuration .swift-format "${swift_files[@]}"
   swiftlint lint --strict --config .swiftlint.yml "${swift_files[@]}"
 fi
 
@@ -42,5 +42,5 @@ if [[ ${#markdown_files[@]} -gt 0 ]]; then
 fi
 
 if [[ ${#spelling_files[@]} -gt 0 ]]; then
-  TESSERA_REPO_ROOT="$repo_root" "$repo_root/scripts/quality-python.sh" -m codespell_lib --config .codespellrc "${spelling_files[@]}"
+  codespell --config .codespellrc "${spelling_files[@]}"
 fi

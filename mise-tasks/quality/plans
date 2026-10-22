@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Verify that docs/plans.md matches the plan frontmatter it is rendered from"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+python3 scripts/plans.py --check

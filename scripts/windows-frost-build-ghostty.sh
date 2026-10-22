@@ -12,11 +12,11 @@ usage() {
 usage: scripts/windows-frost-build-ghostty.sh [--force]
 
 Build the pinned libghostty-vt revision inside the persistent Frost Windows VM
-(started with `just windows-frost start`) and cache the artifact on the host at:
+(started with `mise run windows-frost:start`) and cache the artifact on the host at:
 
   $TESSERA_FROST_WORK/libghostty-vt/<revision>/windows-arm64
 
-`just windows-frost test` provisions test guests from that host cache. Re-run
+`mise run windows-frost:test` provisions test guests from that host cache. Re-run
 this after bumping scripts/ghostty-vt-version.txt. Skips the guest build when
 the host cache for the pinned revision already exists unless --force is given.
 EOF
@@ -66,7 +66,7 @@ run_guest() {
 
 printf '[1/4] check persistent VM\n'
 if ! run_guest "exit 0" > /dev/null 2>&1; then
-  printf 'persistent Frost VM is not reachable; run `just windows-frost start` first.\n' >&2
+  printf 'persistent Frost VM is not reachable; run `mise run windows-frost:start` first.\n' >&2
   exit 1
 fi
 

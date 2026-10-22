@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Apply spelling corrections with the pinned codespell"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+codespell --config .codespellrc --write-changes Sources Tests Examples docs .github Package.swift README.md CONTRIBUTING.md

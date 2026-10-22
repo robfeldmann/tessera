@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Run the Tessera Showcase example directly"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+swift run --package-path Examples TesseraShowcase

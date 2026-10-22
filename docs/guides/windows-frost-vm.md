@@ -56,19 +56,19 @@ Then build and verify:
 env \
   TESSERA_FROST_WINDOWS_ISO=~/Downloads/Win11_ARM64.iso \
   TESSERA_FROST_VIRTIO_ISO=~/Downloads/virtio-win.iso \
-  just windows-frost build-base
+  mise run windows-frost:build-base
 
-just windows-frost check-base
-just windows-frost provision-toolchain
-just windows-frost check-toolchain
-just windows-frost test
+mise run windows-frost:check-base
+mise run windows-frost:provision-toolchain
+mise run windows-frost:check-toolchain
+mise run windows-frost:test
 ```
 
 Use the longer tutorial below if any of those terms or files are unfamiliar.
 
 ## Machine-local config (skip the env prefixes)
 
-Rather than prefixing commands with `env TESSERA_FROST_…=…`, set the machine-specific paths once in a gitignored `.windows-frost.env` at the repo root. `scripts/windows-frost-env.sh` sources it automatically, so every `just windows-frost …` recipe picks them up:
+Rather than prefixing commands with `env TESSERA_FROST_…=…`, set the machine-specific paths once in a gitignored `.windows-frost.env` at the repo root. `scripts/windows-frost-env.sh` sources it automatically, so every `mise run windows-frost:…` recipe picks them up:
 
 ```sh
 cp scripts/config/frost/windows-frost.env.example .windows-frost.env
@@ -79,11 +79,11 @@ Recommended keys:
 
 - `TESSERA_FROST_ROOT` — your Frost checkout, if not `~/Developer/frost`.
 - `TESSERA_FROST_WINDOWS_ISO`, `TESSERA_FROST_VIRTIO_ISO` — your downloaded ISO paths.
-- `TESSERA_FROST_WORK` — optional. Defaults to `${XDG_STATE_HOME:-~/.local/state}/tessera/windows-frost`, deliberately outside the repo so `just core clean` (which removes `.build`) cannot delete the multi-GB golden disks, and so every worktree shares one build.
+- `TESSERA_FROST_WORK` — optional. Defaults to `${XDG_STATE_HOME:-~/.local/state}/tessera/windows-frost`, deliberately outside the repo so `mise run core:clean` (which removes `.build`) cannot delete the multi-GB golden disks, and so every worktree shares one build.
 - `TESSERA_FROST_SSH_KEY` and `TESSERA_FROST_PUBKEY` — optional. Default to `~/.ssh/tessera_windows` and `~/.ssh/tessera_windows.pub`.
 - `TESSERA_FROST_PASS` — required only when bootstrapping a base image without the private key. Set it only in ignored local configuration or the invoking environment. Never record its value in source, documentation, plans, or shell history.
 
-With this file in place you can drop the `env …` prefixes from the commands above and below. An explicit `env VAR=… just …` still overrides the file for one-off runs.
+With this file in place you can drop the `env …` prefixes from the commands above and below. An explicit `env VAR=… mise run …` still overrides the file for one-off runs.
 
 ## 1. Install macOS prerequisites
 
@@ -94,12 +94,12 @@ cd /path/to/tessera
 brew bundle install
 ```
 
-This installs the VM tools used by this workflow, including [QEMU](https://www.qemu.org/), [`swtpm`](https://github.com/stefanberger/swtpm), `sshpass`, [UTM](https://mac.getutm.app/), and [`just`](https://github.com/casey/just).
+This installs the VM tools used by this workflow, including [QEMU](https://www.qemu.org/), [`swtpm`](https://github.com/stefanberger/swtpm), `sshpass`, and [UTM](https://mac.getutm.app/); `mise install` provides the rest of the repository's tools.
 
 Check that the host tools are available:
 
 ```sh
-just windows-frost doctor
+mise run windows-frost:doctor
 ```
 
 If Frost has not been cloned yet, this check will report that separately.
@@ -122,7 +122,7 @@ git clone https://github.com/solcreek/frost ~/Developer/frost
 If you keep Frost somewhere else, set `TESSERA_FROST_ROOT` in the machine-local config file (see [Machine-local config](#machine-local-config-skip-the-env-prefixes)) or pass it per command:
 
 ```sh
-env TESSERA_FROST_ROOT=/path/to/frost just windows-frost doctor
+env TESSERA_FROST_ROOT=/path/to/frost mise run windows-frost:doctor
 ```
 
 You do not need to set a permanent shell variable unless you want to.
@@ -170,7 +170,7 @@ Run:
 env \
   TESSERA_FROST_WINDOWS_ISO=~/Downloads/Win11_ARM64.iso \
   TESSERA_FROST_VIRTIO_ISO=~/Downloads/virtio-win.iso \
-  just windows-frost build-base
+  mise run windows-frost:build-base
 ```
 
 If you need to rebuild the base image later:
@@ -179,13 +179,13 @@ If you need to rebuild the base image later:
 env \
   TESSERA_FROST_WINDOWS_ISO=~/Downloads/Win11_ARM64.iso \
   TESSERA_FROST_VIRTIO_ISO=~/Downloads/virtio-win.iso \
-  just windows-frost build-base --force
+  mise run windows-frost:build-base --force
 ```
 
 Verify the base image boots and accepts SSH:
 
 ```sh
-just windows-frost check-base
+mise run windows-frost:check-base
 ```
 
 This boots a disposable VM, runs `whoami`, prints guest output, and shuts the VM down.
@@ -197,7 +197,7 @@ The base image only has Windows, networking, and OpenSSH. The next step creates 
 Run:
 
 ```sh
-just windows-frost provision-toolchain
+mise run windows-frost:provision-toolchain
 ```
 
 This installs or configures:
@@ -216,13 +216,13 @@ Visual Studio may require a reboot during provisioning. The host script handles 
 If you need to rebuild the toolchain image later:
 
 ```sh
-just windows-frost provision-toolchain --force
+mise run windows-frost:provision-toolchain --force
 ```
 
 Verify the toolchain image:
 
 ```sh
-just windows-frost check-toolchain
+mise run windows-frost:check-toolchain
 ```
 
 This checks Git, Swift, Visual Studio, Windows SDK, and the configured SSH authentication path.
@@ -240,13 +240,13 @@ The provisioning step may still use password authentication because the key is n
 Use this when you want a repeatable Windows check from macOS:
 
 ```sh
-just windows-frost test
+mise run windows-frost:test
 ```
 
 For focused iteration, pass SwiftPM test arguments after `--`:
 
 ```sh
-just windows-frost test -- --filter WindowsInputLoopTests
+mise run windows-frost:test -- --filter WindowsInputLoopTests
 ```
 
 The recipe keeps the Windows default (`--no-parallel`) and appends your forwarded args.
@@ -267,20 +267,20 @@ The sync is a one-way Mac → Windows snapshot. The macOS checkout is the source
 Use the persistent VM when you want an interactive Windows shell and retained build cache:
 
 ```sh
-just windows-frost start
-just windows-frost ssh
+mise run windows-frost:start
+mise run windows-frost:ssh
 ```
 
 Inside the SSH session you can run normal Windows commands. When finished:
 
 ```sh
-just windows-frost stop
+mise run windows-frost:stop
 ```
 
 Reset the persistent overlay back to the Tessera toolchain image with:
 
 ```sh
-just windows-frost start --reset
+mise run windows-frost:start --reset
 ```
 
 The persistent overlay lives under:
@@ -292,9 +292,9 @@ The persistent overlay lives under:
 For a quick ConPTY smoke check without opening an interactive shell, use the command below. ConPTY is Windows' pseudo-console layer; it is what Windows OpenSSH uses to provide an interactive terminal session for full-screen terminal apps.
 
 ```sh
-just windows-frost start
-just windows-frost conpty-smoke
-just windows-frost stop
+mise run windows-frost:start
+mise run windows-frost:conpty-smoke
+mise run windows-frost:stop
 ```
 
 ## 8. Optional GUI workflow with UTM
@@ -341,7 +341,7 @@ UTM guest tools are needed for dynamic resolution, clipboard sync, WebDAV sharin
 With the GUI VM running and reachable over SSH, install or repair the tools:
 
 ```sh
-just windows-frost install-utm-tools <vm-ip>
+mise run windows-frost:install-utm-tools <vm-ip>
 ```
 
 Then reboot the Windows guest from inside Windows. After reboot, verify:
@@ -364,7 +364,7 @@ Get-NetIPAddress -AddressFamily IPv4 |
 Then run from macOS:
 
 ```sh
-just windows-frost sync-utm <vm-ip>
+mise run windows-frost:sync-utm <vm-ip>
 ```
 
 This copies the current working tree into:
@@ -392,7 +392,7 @@ swift test --no-parallel
 
 ## Troubleshooting
 
-### `just windows-frost doctor` cannot find Frost
+### `mise run windows-frost:doctor` cannot find Frost
 
 Clone Frost to the default location:
 
@@ -404,7 +404,7 @@ git clone https://github.com/solcreek/frost ~/Developer/frost
 Or pass your custom path:
 
 ```sh
-env TESSERA_FROST_ROOT=/path/to/frost just windows-frost doctor
+env TESSERA_FROST_ROOT=/path/to/frost mise run windows-frost:doctor
 ```
 
 ### Base image already exists
@@ -412,7 +412,7 @@ env TESSERA_FROST_ROOT=/path/to/frost just windows-frost doctor
 Rebuild with `--force`:
 
 ```sh
-just windows-frost build-base --force
+mise run windows-frost:build-base --force
 ```
 
 ### Toolchain image already exists
@@ -420,7 +420,7 @@ just windows-frost build-base --force
 Rebuild with `--force`:
 
 ```sh
-just windows-frost provision-toolchain --force
+mise run windows-frost:provision-toolchain --force
 ```
 
 ### SSH says the remote host key changed
@@ -438,7 +438,7 @@ The sync helpers use a temporary known-hosts file so they can tolerate this case
 Run the GUI configuration helper:
 
 ```sh
-just windows-frost configure-gui <vm-ip>
+mise run windows-frost:configure-gui <vm-ip>
 ```
 
 Then close and reopen PowerShell.
@@ -448,7 +448,7 @@ Then close and reopen PowerShell.
 Run the GUI configuration helper:
 
 ```sh
-just windows-frost configure-gui <vm-ip>
+mise run windows-frost:configure-gui <vm-ip>
 ```
 
 This enables Developer Mode and Git symlink support. You may need to delete `.build` and rerun the build if a previous checkout failed halfway through.

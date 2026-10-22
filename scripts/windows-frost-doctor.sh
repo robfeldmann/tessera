@@ -94,7 +94,7 @@ check_utm_vm_ip() {
 
     if [[ -n "$first_ipv4" ]]; then
       ok "UTM VM IPv4 ($vm_name): $first_ipv4"
-      info "Sync GUI VM source with: just windows-frost sync-utm $first_ipv4"
+      info "Sync GUI VM source with: mise run windows-frost:sync-utm $first_ipv4"
     else
       info "utmctl returned no IPv4 address for $vm_name"
       printf '%s\n' "$ip_output"
@@ -133,7 +133,7 @@ if [[ "$failures" -gt 0 ]]; then
   printf 'Set machine-local paths in a gitignored .windows-frost.env at the repo root\n' >&2
   printf '(copy scripts/config/frost/windows-frost.env.example), or pass them per\n' >&2
   printf 'command, e.g.:\n' >&2
-  printf '  env TESSERA_FROST_ROOT=/path/to/frost just windows-frost doctor\n' >&2
+  printf '  env TESSERA_FROST_ROOT=/path/to/frost mise run windows-frost:doctor\n' >&2
   exit 1
 fi
 

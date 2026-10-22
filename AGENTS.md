@@ -15,11 +15,11 @@
 - Sort protocol conformances alphabetically, e.g. `Equatable, Sendable`.
 - Confine platform divergence (`#if os(...)`) to leaf seams: a single syscall/import shim, small typed platform values, or whole-file `sources:` splits in `Package.swift`. Keep shared logic and call sites platform-free instead of wrapping file bodies in `#if`.
 - After code changes, run the narrowest relevant validation first, e.g. `swift test --filter <TargetOrTestName>` or `swift build`.
-- During iteration, run focused checks (`swift test --filter ...`, `just quality changed`).
+- During iteration, run focused checks (`swift test --filter ...`, `mise run quality:changed`).
 - Before handing work off for review or committing, run this gate in order and make every step pass. It is required, not optional — never hand off or commit on the strength of focused checks alone:
-  1. `just quality format` to auto-apply formatting fixes (swift-format, SwiftLint `--fix`, Prettier for YAML and JSON, `rumdl check --fix` for Markdown). Prefer this over hand-fixing individual lint findings. It is repo-wide and mutating; committing everything it touches is fine, including formatter-only changes unrelated to your work.
+  1. `mise run quality:format` to auto-apply formatting fixes (swift-format, SwiftLint `--fix`, Prettier for YAML and JSON, `rumdl check --fix` for Markdown). Prefer this over hand-fixing individual lint findings. It is repo-wide and mutating; committing everything it touches is fine, including formatter-only changes unrelated to your work.
   2. The complete `swift test` suite.
-  3. `just quality lint` (strict formatting and linting, including Markdown).
+  3. `mise run quality:lint` (strict formatting and linting, including Markdown).
 - Pull request titles must use conventional commit style.
 - After editing Markdown, validate with rumdl (pinned in `mise.toml`):
 

@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Strict quality gate on changed files only, for local iteration"
+#USAGE flag "--staged" help="Check staged files instead of the working tree"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+scripts/lint-changed.sh "$@"

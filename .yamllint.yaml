@@ -1,0 +1,20 @@
+extends: default
+
+rules:
+  line-length: disable
+  document-start: disable
+  truthy:
+    check-keys: false
+  # IWE schemas use inline enum mappings, matching their documented style.
+  braces:
+    max-spaces-inside: 1
+  # Prettier formats the YAML and writes one space before an inline comment.
+  comments:
+    min-spaces-from-content: 1
+
+ignore: |
+  .build/
+  .git/
+  node_modules/
+  spikes/*/.build/
+  Examples/.build/

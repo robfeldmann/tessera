@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Check Frost Windows VM host prerequisites and configuration"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+scripts/windows-frost-doctor.sh

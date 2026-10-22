@@ -82,7 +82,7 @@ That work will also broaden the OS versions Tessera supports and tests. The firs
 ## Documentation Boundaries
 
 - The root [README](../README.md) is the starting point for installation, product choice, and project maturity.
-- The package's DocC catalogs describe source APIs. They are not hosted yet: Swift Package Index publication is deferred, and static GitHub Pages documentation is planned. Read them in the checkout or generate them locally with `just docs preview`.
+- The package's DocC catalogs describe source APIs. They are not hosted yet: Swift Package Index publication is deferred, and static GitHub Pages documentation is planned. Read them in the checkout or generate them locally with `mise run docs:preview`.
 - The [spec](spec.md) and the [design catalog](design.md) are design and architecture references, not a supported API contract.
 - [CONTRIBUTING.md](../CONTRIBUTING.md) and the [guides](guides.md) are for contributors and local development; [plans](plans.md), [research](research.md), and [architecture decisions](architecture.md) are the project's working memory, mapped by [`docs/index.md`](index.md).
 

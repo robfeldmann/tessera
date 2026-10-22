@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#MISE description="Markup gate: rumdl for Markdown, Prettier for YAML and JSON, yamllint, taplo"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+npm run check:markup
+yamllint --strict .
+taplo fmt --check mise.toml .rumdl.toml

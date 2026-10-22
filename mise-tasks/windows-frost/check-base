@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Verify that the Frost Windows base image is available"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+scripts/windows-frost.sh check-base

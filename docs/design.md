@@ -253,7 +253,7 @@ This migration step is part of the component's implementation definition of done
 ## Validation
 
 ```fish
-just quality wireframes
+mise run quality:wireframes
 npm run check:markup
 ```
 

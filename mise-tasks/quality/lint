@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Strict portable quality gate: formatting, SwiftLint, Markdown, spelling, wireframes, architecture, plans hub, release notes, vouch"
+#MISE depends=["quality:swift-format", "quality:swiftlint", "quality:markdown", "quality:spelling", "quality:wireframes", "quality:architecture", "quality:plans", "quality:release-notes", "quality:vouch"]
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+echo "✅ Portable lint checks passed"

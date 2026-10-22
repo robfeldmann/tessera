@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Remove generated documentation output and archives"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+rm -rf .build/docs .build/doccarchives
+mkdir -p .build/doccarchives/targets

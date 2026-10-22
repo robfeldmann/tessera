@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Run the strict full-repository quality gate"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+mise run quality:lint

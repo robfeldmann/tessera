@@ -5,7 +5,7 @@ stage: living
 
 # Plans
 
-One plan per piece of work, in order. This page is rendered from each plan's frontmatter by `scripts/plans.py`; change `stage`, `order`, `description`, or `completed` in the plan and re-run it (`just quality lint` fails while the page is stale). Read a plan's Progress list and `Next:` line before resuming it, and its Approach and Acceptance before starting it.
+One plan per piece of work, in order. This page is rendered from each plan's frontmatter by `scripts/plans.py`; change `stage`, `order`, `description`, or `completed` in the plan and re-run it (`mise run quality:lint` fails while the page is stale). Read a plan's Progress list and `Next:` line before resuming it, and its Approach and Acceptance before starting it.
 
 ## Active
 

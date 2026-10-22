@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+#MISE description="Create or start the Lima Linux VM for the current checkout"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+linux_vm_name="${TESSERA_LINUX_VM_NAME:-tessera-linux}"
+if ! command -v limactl > /dev/null 2>&1; then
+  echo "⚠️  limactl not found — install Lima (brew install lima)" >&2
+  exit 1
+fi
+if limactl list --json 2>/dev/null | grep -q "\"name\":\"$linux_vm_name\""; then
+  limactl start "$linux_vm_name"
+else
+  limactl --yes start --name="$linux_vm_name" --mount-only "$PWD:w" --param ProjectDir="$PWD" scripts/config/lima/tessera-linux.yaml
+fi

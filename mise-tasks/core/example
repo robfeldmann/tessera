@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+#MISE description="Run an example executable from the Examples package"
+#USAGE arg "[name]" help="Executable product in Examples; prompts when omitted"
+#USAGE complete "name" run="mise run core:examples-list"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+example="${usage_name:-}"
+if [[ -z "$example" ]]; then
+  if [[ -t 0 ]] && [[ "$(mise run core:examples-list | wc -l | tr -d ' ')" == "1" ]]; then
+    example="$(mise run core:examples-list)"
+  elif [[ -t 0 ]] && command -v fzf > /dev/null 2>&1; then
+    example="$(mise run core:examples-list | fzf --prompt='Example> ')"
+  else
+    echo "Available examples:"
+    mise run core:examples-list | sed 's/^/  /'
+    echo "Run: mise run core:example <name>"
+    exit 1
+  fi
+fi
+swift run --package-path Examples "$example"

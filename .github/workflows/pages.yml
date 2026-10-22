@@ -29,8 +29,11 @@ jobs:
       - name: Set up Swift
         uses: ./.github/actions/setup-swift
 
-      - name: Install documentation build prerequisites
-        run: brew install cmake gnu-tar ninja zig@0.15
+      - name: Install mise tools (zig, cmake, ninja)
+        uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
+
+      - name: Install gnu-tar
+        run: brew install gnu-tar
 
       - name: Restore libghostty-vt cache
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
@@ -44,13 +47,8 @@ jobs:
           # prettier-ignore
           key: libghostty-vt-v3-${{ runner.os }}-${{ runner.arch }}-zig-0.15.2-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
 
-      - name: Install just
-        uses: taiki-e/install-action@a6b2e2dcd845ddd7f509ce4f3ed3d922b80cc5d9 # v2
-        with:
-          tool: just
-
       - name: Build static docs
-        run: just docs build
+        run: mise run docs:build
 
       - name: Archive Pages artifact
         run: |
