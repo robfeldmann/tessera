@@ -7,7 +7,7 @@ description:
   deterministic terminal tests. Also the bug punchlist from the 2026-10-17 and 2026-10-20
   repository review notes: nested view lists in layout containers, the parallel suite,
   error-type conformances, and CI coverage of the Examples package.
-status: in-progress
+status: complete
 created: 2026-10-21
 updated: 2026-10-22
 ---
@@ -16,56 +16,66 @@ updated: 2026-10-22
 
 ## Progress
 
-- [ ] **Phase 1 — Baseline and test seams**
+- [x] **Phase 1 — Baseline and test seams**
   - [x] 1.1 Record a baseline build and test run at HEAD (satisfied by plan 035 Step 1.1
         and Phase 2; see the step)
   - [x] 1.2 Add package-internal waiter observables for the gates and the buffer
         (`3fb25e9`)
-- [ ] **Phase 2 — Cancellation-safe teardown**
-  - [ ] 2.1 Regression tests for cancelled and returning bodies
-  - [ ] 2.2 Run lifecycle teardown in an uncancelled task
-- [ ] **Phase 3 — Serialized terminal output**
-  - [ ] 3.1 Regression tests for overlapping flushes and discards
-  - [ ] 3.2 Make `PlatformIO.flush` a single drain owner
-  - [ ] 3.3 Serialize `draw` with its own gate
-- [ ] **Phase 4 — Closed session lifecycle**
-  - [ ] 4.1 Use after teardown throws (decided 2026-10-21)
-  - [ ] 4.2 Close `ModeLifecycle` after a successful exit
-  - [ ] 4.3 Close `TerminalSession` after its scoped teardown
-- [ ] **Phase 5 — Blocking I/O off the cooperative pool**
-  - [ ] 5.1 Move the POSIX input read off the actor onto a dedicated thread
-  - [ ] 5.2 Bound the POSIX write wait by slices that check cancellation
-  - [ ] 5.3 Move the Windows input wait off the cooperative pool (unverified platform)
-- [ ] **Phase 6 — Stream, observer, and descriptor lifetimes**
-  - [ ] 6.1 Stop leaking cancelled waiter IDs in `AsyncEventBuffer`
-  - [ ] 6.2 Guard the POSIX cancel descriptor against the actor's close
-  - [ ] 6.3 Finish the input pump when the session is gone (skipped: Step 6.4 replaces it)
-  - [ ] 6.4 Start the input pump after construction (decided 2026-10-21)
-  - [ ] 6.5 Buffering policy for input and size streams (decided 2026-10-21)
-  - [ ] 6.6 Create one size subscription and fan it out
-  - [ ] 6.7 Fix the Windows input-loop restart race (unverified platform)
-- [ ] **Phase 7 — Active probe retry policy**
-  - [ ] 7.1 Probe retry policy (decided 2026-10-21)
-  - [ ] 7.2 Retry after cancellation or emit failure
-- [ ] **Phase 8 — Vouches, invariants, and process globals**
-  - [ ] 8.1 Remove the two unneeded `@unchecked Sendable` attributes
-  - [ ] 8.2 Document the `ResizeSignalSource` invariant and the SIGWINCH disposition
-  - [ ] 8.3 Replace or justify the test-helper vouches
-  - [ ] 8.4 Descriptor ownership: borrowed standard descriptors (decided 2026-10-21)
-  - [ ] 8.5 Stop freeing retired cleanup states in the C shim (unverified)
-- [ ] **Phase 9 — Deterministic terminal tests**
-  - [ ] 9.1 Order the queued-setter test on an observable
-  - [ ] 9.2 Replace waiter-count spins with a bounded waiting helper
-  - [ ] 9.3 Order the lifecycle-serialization tests on the gate
-  - [ ] 9.4 Remove the bounded yield loops in the input and resize tests
-  - [ ] 9.5 Remove the real 60-second sleep from the probe test
-  - [ ] 9.6 Narrow `.serialized` to suites that reach a process global
-  - [ ] 9.7 Order the remaining yield-before-cancel tests on observables
-  - [ ] 9.8 Exercise the suite in parallel, or drop the promise (decided 2026-10-21)
-- [ ] **Phase 10 — Repository review punchlist**
-  - [ ] 10.1 Flatten nested view lists into layout containers
-  - [ ] 10.2 Give `VirtualTerminalError` the standard error conformances
-  - [ ] 10.3 Build the Examples package in CI
+- [x] **Phase 2 — Cancellation-safe teardown**
+  - [x] 2.1 Regression tests for cancelled and returning bodies (`c60ab94`)
+  - [x] 2.2 Run lifecycle teardown in an uncancelled task (`c60ab94`)
+- [x] **Phase 3 — Serialized terminal output**
+  - [x] 3.1 Regression tests for overlapping flushes and discards (`e8054a8`)
+  - [x] 3.2 Make `PlatformIO.flush` a single drain owner (`e8054a8`)
+  - [x] 3.3 Serialize `draw` with its own gate (`c60ab94`)
+- [x] **Phase 4 — Closed session lifecycle**
+  - [x] 4.1 Use after teardown throws (decided 2026-10-21; CHANGELOG in `426bf29`)
+  - [x] 4.2 Close `ModeLifecycle` after a successful exit (`e8054a8`)
+  - [x] 4.3 Close `TerminalSession` after its scoped teardown (`c60ab94`)
+- [x] **Phase 5 — Blocking I/O off the cooperative pool**
+  - [x] 5.1 Move the POSIX input read off the actor onto a dedicated thread (`ba5f83b`)
+  - [x] 5.2 Bound the POSIX write wait by slices that check cancellation (`ba5f83b`)
+  - [x] 5.3 Move the Windows input wait off the cooperative pool (`087fb4c`; verified in
+        the Windows guest)
+- [x] **Phase 6 — Stream, observer, and descriptor lifetimes**
+  - [x] 6.1 Stop leaking cancelled waiter IDs in `AsyncEventBuffer` (`c60ab94`)
+  - [x] 6.2 Guard the POSIX cancel descriptor against the actor's close (`ba5f83b`)
+  - [x] 6.3 Finish the input pump when the session is gone (skipped: Step 6.4 replaces it)
+  - [x] 6.4 Start the input pump after construction (decided 2026-10-21; `c60ab94`)
+  - [x] 6.5 Buffering policy for input and size streams (decided 2026-10-21; `c60ab94`,
+        `e8054a8`)
+  - [x] 6.6 Create one size subscription and fan it out (`e8054a8`)
+  - [x] 6.7 Fix the Windows input-loop restart race (`087fb4c`; verified in the Windows
+        guest)
+- [x] **Phase 7 — Active probe retry policy**
+  - [x] 7.1 Probe retry policy (decided 2026-10-21; doc comments in `c60ab94`)
+  - [x] 7.2 Retry after cancellation or emit failure (`c60ab94`)
+- [x] **Phase 8 — Vouches, invariants, and process globals**
+  - [x] 8.1 Remove the two unneeded `@unchecked Sendable` attributes (`3b3325f`; one stays
+        for Linux, `a580721`)
+  - [x] 8.2 Document the `ResizeSignalSource` invariant and the SIGWINCH disposition
+        (`3b3325f`)
+  - [x] 8.3 Replace or justify the test-helper vouches (`3b3325f`, `14d6475`)
+  - [x] 8.4 Descriptor ownership: borrowed standard descriptors (decided 2026-10-21;
+        `3b3325f`)
+  - [x] 8.5 Stop freeing retired cleanup states in the C shim (`3b3325f`; code-reviewed,
+        not stress-tested)
+- [x] **Phase 9 — Deterministic terminal tests**
+  - [x] 9.1 Order the queued-setter test on an observable (`c60ab94`)
+  - [x] 9.2 Replace waiter-count spins with a bounded waiting helper (`c60ab94`)
+  - [x] 9.3 Order the lifecycle-serialization tests on the gate (`e8054a8`)
+  - [x] 9.4 Remove the bounded yield loops in the input and resize tests (`ba5f83b`)
+  - [x] 9.5 Remove the real 60-second sleep from the probe test (`c60ab94`)
+  - [x] 9.6 Narrow `.serialized` to suites that reach a process global (`14d6475`)
+  - [x] 9.7 Order the remaining yield-before-cancel tests on observables (`c60ab94`)
+  - [x] 9.8 Exercise the suite in parallel, or drop the promise (decided 2026-10-21;
+        branch (a), `7d653bf`)
+- [x] **Phase 10 — Repository review punchlist**
+  - [x] 10.1 Flatten nested view lists into layout containers (`f4172e8`)
+  - [x] 10.2 Give `VirtualTerminalError` the standard error conformances (`9f80898`)
+  - [x] 10.3 Build the Examples package in CI (`9f80898`; probe `2b4f0f0` failed
+        `test (ubuntu-latest)` at `Build Examples` on run `39727980664`, reverted in
+        `a38fe04`)
 
 ## Overview
 
@@ -439,6 +449,18 @@ indefinitely, and cancellation takes effect within one wait slice.
 - Acceptance: the Windows build and `WindowsInputLoopTests` pass on a Windows host. This
   is not verifiable on macOS, so the step stays unverified until then.
 
+#### Done (2026-10-22)
+
+- Commit `087fb4c`. `run` is a synchronous function on a dedicated Foundation `Thread`
+  (`tessera.windows-input`) that checks `Thread.current.isCancelled`, yields `.bytes` and
+  `.size` events into an internal `AsyncStream<Event>` in console-record order, and always
+  finishes it on exit; a task on the actor fans the events out. Verified in the Windows
+  guest (Windows 11 ARM64, Swift 6.3.3): focused `WindowsInputLoopTests` 9 tests pass; the
+  full guest suite passes (see the Progress line for the count). Baseline note: against
+  the old source, `platform io drains windows resize before the shared input loop closes`
+  failed once with `event → nil` and passed otherwise (a pre-existing race); it passed on
+  every run of the new code.
+
 ## Phase 6 — Stream, observer, and descriptor lifetimes
 
 **Goal**: waiters, observers, descriptors, and buffers are released or bounded on every
@@ -582,6 +604,18 @@ path.
   finished by the old run.
 - Acceptance: a test in `WindowsInputLoopTests` cancels, re-registers, and asserts that
   the new stream receives bytes. Unverified until a Windows build exists.
+
+#### Done (2026-10-22)
+
+- Commit `087fb4c`. Each registration records the generation it joined; `cancelIfUnused`
+  cancels the thread, clears `readerThread`, and bumps `generation`, so a later registrant
+  gets a fresh run; a run dispatches and finishes only its own generation's registrations
+  and clears `readerThread` only if it is still current.
+  `package var registeredStreamCount` is the test seam (not in the plan; needed to order
+  cancellation and re-registration). Test
+  `windows input loop serves a stream registered after the previous run was cancelled`.
+  Fails-before is partial: against the old source the focused run printed `RECEIVED nil`
+  once, passed once, and hung otherwise; the new code passes every run.
 
 ## Phase 7 — Active probe retry policy
 
@@ -995,6 +1029,19 @@ are fixed, each behind a test or a CI step that would have caught it.
   root `Build` step on every `test` leg, and `just ci build-test` runs it. The CI proof (a
   deliberate `Examples/` compile error failing the run, then reverted) is recorded on the
   Progress line.
+
+## Outcome (2026-10-22)
+
+All ten phases landed on `plan-035` between `3fb25e9` and `087fb4c`, each step with its
+evidence above. Final lane results on the integrated tree: macOS Xcode 26.6 663 tests
+(`swift test --no-parallel`, and 3/3 under `--parallel`); Xcode 27.1 663 tests; Lima Swift
+6.3.3 and 6.4.1 656 tests each (and 3/3 under `--parallel`); the Windows guest on Swift
+6.3.3 651 tests, Ghostty-backed, including the new Windows input-loop test.
+`just docs lint` passes. Still unverified: the C shim's retained-state ring (code review
+only, Step 8.5) and the `VirtualTerminalError` fallback branch when `CGhosttyVT` cannot be
+imported (Step 10.2). Discoveries for the merged plan: a `SplitView` pane whose content is
+a nested multi-view list now places only the first view (Step 10.1), and
+`SplitView { ForEach }` fails at pane-count validation before layout.
 
 ## Findings
 
