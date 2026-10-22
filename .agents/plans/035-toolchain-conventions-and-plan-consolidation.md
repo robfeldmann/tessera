@@ -20,8 +20,10 @@ updated: 2026-10-21
   - [x] 1.1 Run every local check at HEAD and record the results (`982779d`; results table
         in the step)
 - [ ] **Phase 2 — Xcode 26.6 baseline, plus Swift 6.4 and Xcode 27**
-  - [ ] 2.1 Move every lane to the Xcode 26.6 and Swift 6.3.3 baseline
-  - [ ] 2.2 Build and test on Xcode 27 and Swift 6.4
+  - [x] 2.1 Move every lane to the Xcode 26.6 and Swift 6.3.3 baseline (`7334486`; macOS,
+        Lima, and UTM Windows pass on 6.3.3; CI run on PR #41 recorded in the step)
+  - [x] 2.2 Build and test on Xcode 27 and Swift 6.4 (no source change; clean build, test,
+        Examples, and DocC pass on 27.1; DocC fix in the step's commit)
   - [ ] 2.3 Add the Swift 6.4 lanes
   - [ ] 2.4 Toolchain documentation
 - [ ] **Phase 3 — Port plan 033 and its spikes to main**
@@ -43,8 +45,7 @@ updated: 2026-10-21
   - [ ] 6.2 Owner decision: the `mobile` viewport rule, then apply it
   - [ ] 6.3 Retire plans 032 and 033
 
-Next: Step 2.1 (`.swift-version` 6.3.3, CI setup action, SDK entry, Lima and Frost
-provisioning).
+Next: Step 2.3 (Swift 6.4 lanes in CI and a second swiftly toolchain in Lima).
 
 ## Overview
 
@@ -321,6 +322,22 @@ Xcode 27 pass too, and CI guards both, without raising the floor.
   `NonisolatedNonsendingByDefault`) behave the same on both compilers.
 - Acceptance: macOS core, quality, DocC, and Examples pass on Xcode 27.1 and still pass on
   Xcode 26.6.
+
+#### Done (2026-10-21)
+
+- No source change was needed. Clean builds under Xcode 27.1 (`swiftlang-6.4.0.34.1`) in a
+  fresh scratch path: `swift build` (32.6s), `swift test --no-parallel` (634 tests, all 12
+  test targets pass), and `swift build --package-path Examples` (13.3s), each with zero
+  `warning:` or `error:` lines; `just quality lint` passed under 27.1 in Step 1.1. The
+  shared settings (`Lifetimes`, `ExistentialAny`, `ForwardFromBuilder`,
+  `InferIsolatedConformances`, `NonisolatedNonsendingByDefault`) compile identically on
+  both compilers, with no diagnostics on either. `swift-tools-version` stays 6.3 and the
+  macOS floor stays 26.
+- The one DocC failure Step 1.1 recorded on both Xcodes was a stale symbol link in
+  `TesseraTerminalSnapshotSupport.docc/Extensions/VirtualTerminal.md` (the `resize:`
+  parameter was added to `VirtualTerminal.init` without updating the extension page). It
+  is fixed in this step's commit, since the Documentation workflow on the draft pull
+  request was red with it: `just docs lint` now passes under Xcode 26.6 (65s) and 27.1.
 
 ### Step 2.3 — Add the Swift 6.4 lanes
 
