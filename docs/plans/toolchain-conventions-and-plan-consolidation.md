@@ -28,13 +28,13 @@ description: Baseline every local check, make Xcode 26.6 and Swift 6.3.3 the bas
   - [x] 5.2 Move project docs into an IWE workspace with slug-named plans (`de0c89b`, `ba7c11b`; `iwe schema validate` clean, links checked)
   - [x] 5.3 Split the spec into workspace pages (`50f7147`; zero-diff reconstruction, 284 anchors mapped)
   - [x] 5.4 Unwrap prose and lint Markdown with rumdl (`4313e07`, `d6215f1`; `rumdl check .` clean on 236 files; CI run `39735348057` green on every job)
-  - [x] 5.5 Replace `just` with mise and Lefthook with hk (`044f074`; matrix passes through the tasks; CI run below)
+  - [x] 5.5 Replace `just` with mise and Lefthook with hk (`044f074`, `c49bb74`, `219ae7e`; matrix passes through the tasks; CI run `39738324893` green on every job with mise-action)
   - [ ] 5.6 Give Tessera its own Tart and Lima VM tasks
   - [ ] 5.7 Update libghostty-vt and Zig
 - [ ] **Phase 6 — Merge plans 032 and 033**
-  - [x] 6.1 Write the merged plan (`docs/plans/phase-4-view-layer-and-developer-tooling.md`, `proposed`, order 36; commit below; owner review pending)
-  - [ ] 6.2 Owner decision: the `mobile` viewport rule, then apply it
-  - [ ] 6.3 Retire plans 032 and 033
+  - [x] 6.1 Write the merged plan (`docs/plans/phase-4-view-layer-and-developer-tooling.md`, `proposed`, order 36; `640071d`; owner review pending)
+  - [ ] 6.2 Owner decision: the `mobile` viewport rule, then apply it (blocked on the owner; see the step)
+  - [ ] 6.3 Retire plans 032 and 033 (blocked on the owner's review of 6.1; see the step)
 
 Next: Step 5.6 (Tessera-owned Tart and Lima VM tasks), then Step 5.7 on `plan-035-zig`.
 
@@ -312,7 +312,7 @@ Pre-existing failures and recipe defects, none fixed here:
 - `hk.pkl` replaces `lefthook.yml`: `pre-commit` runs `scripts/pre-commit-lint-staged.sh` on the staged tree with `stash = "git"` and never fixes; `commit-msg` runs `scripts/conventional_commits.py`; `hk check` and `hk fix` run the full gates. `core.hooksPath` was unset in `../.bare/config` (it pointed at a missing `.githooks`), `mise run setup:hooks` installed hk through Git's `hook.*` config, and the stale Lefthook stubs in `.bare/hooks` were removed; the owner's global commit-msg hook still runs beside hk's. Verified on this commit (the staged gate ran on 110 files) and with `git commit --allow-empty -m "not a conventional subject"`, which both validators refused.
 - CI: `jdx/mise-action@8418fedb…` (v5.2.2) installs the tools in the lint, test (macOS and Linux legs), parallel, DocC, and Pages jobs; the `taiki-e/install-action`, `mlugg/setup-zig`, `actions/setup-node`, and `brew install` steps are gone, and `CONTRIBUTING.md` tells the owner those two patterns can leave the allow-list. `Brewfile` keeps only what mise cannot provide (swiftly, Lima, QEMU, swtpm, sshpass, UTM, lgit).
 - Docs: 154 `just <module> <recipe>` mentions in living files became `mise run <module>:<recipe>`; `CONTRIBUTING.md` describes the bootstrap (`mise install`, `npm ci`, `mise run setup:hooks`) and the task groups; `README.md`, the guides, the skills, and the commands name the tasks; completed plans, research, and the spec keep their history.
-- Check matrix through the tasks: `mise run ci:check` (663 tests and the portable gate), `mise run docs:lint`, `mise run core:examples`, `mise run linux:test` (656 tests), and the Windows guest after `mise run windows-frost:sync-utm 192.168.64.3` (651 tests) all pass; the CI run on the push is recorded on the Progress line.
+- Check matrix through the tasks: `mise run ci:check` (663 tests and the portable gate), `mise run docs:lint`, `mise run core:examples`, `mise run linux:test` (656 tests), and the Windows guest after `mise run windows-frost:sync-utm 192.168.64.3` (651 tests) all pass. CI needed two follow-ups: `c49bb74` (mise-action installs with `--locked`, which needs the node platform URLs and the uv dependency-graph sidecars under `.mise/locks/` in the lockfile) and `219ae7e` (yamllint dropped: its pyyaml has no Python 3.15 wheel and uv runs `--no-build`); run `39738324893` is then green on all eleven jobs.
 
 ### Step 5.6 — Give Tessera its own Tart and Lima VM tasks
 
@@ -355,10 +355,18 @@ Pre-existing failures and recipe defects, none fixed here:
 - Plan 033 decision 1 recommends natural height with sizes declared per demo, a package-level nil-height probe, and an error that points height-greedy demos (`ScrollView`, `SplitView`) at a `mobileScreen` (40x16) viewport.
 - Acceptance: the decision is recorded in the merged plan, and the template, the merged plan's demo slice, and the widget docs agree with it; the wireframe check passes.
 
+#### Blocked on the owner (2026-10-22)
+
+- Nothing was applied. The merged plan lists the rule as Decision 1 with both options and the three documents that still contradict `docs/design/tokens.md` and `docs/design.md` (`docs/design/templates/widget.md`, plan 032 Step 8.2, `docs/design/widgets/stepper.md`). Once the owner decides, apply it in the template, the merged plan's Slice 3, and the widget docs, and run `mise run quality:wireframes`.
+
 ### Step 6.3 — Retire plans 032 and 033
 
 - Set both to `cancelled` with a link to the merged plan (the `superseded` status before Step 5.2), and update `docs/plans.md` and the links to them.
 - Acceptance: no open step remains only in a retired plan.
+
+#### Blocked on the owner (2026-10-22)
+
+- Waits for the owner's review of the merged plan (Step 6.1). Then: set plan 032 and plan 033 to `stage: cancelled` with a line under their H1 linking the successor (`phase-4-view-layer-and-developer-tooling.md`), set the merged plan to `planned`, run `scripts/plans.py`, and check that no open step remains only in a retired plan (the merged plan's Acceptance has that box).
 
 ## References
 
