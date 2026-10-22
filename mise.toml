@@ -32,6 +32,14 @@ zig = "0.15.2"
 cmake = "4.4.4"
 ninja = "1.13.2"
 
+# The macOS VM tasks (scripts/vm.py, docs/guides/vms.md). Tart ships a signed tart.app
+# whose embedded profile grants the virtualization entitlement, so mise runs the binary
+# from inside the bundle. Lima stays in the Brewfile.
+[tools."github:cirruslabs/tart"]
+version = "2.41.1"
+bin_path = "tart.app/Contents/MacOS"
+os = ["macos"]
+
 [env]
 # The baseline toolchain on macOS is Xcode 26.6 (docs/architecture/toolchain-lanes.md):
 # the xcodes install name, then GitHub's runner-image name, then whatever is selected.

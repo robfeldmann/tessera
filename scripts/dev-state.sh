@@ -61,7 +61,8 @@ print_linux_state() {
 
   if command -v limactl >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
     local vm_summary
-    vm_summary="$(limactl list --json 2>/dev/null | python3 -c 'import json, os, sys
+    # The VM tasks keep Lima's disks here (scripts/vm.py) unless LIMA_HOME is set.
+    vm_summary="$(LIMA_HOME="${LIMA_HOME:-$HOME/.local/share/vms/lima}" limactl list --json 2>/dev/null | python3 -c 'import json, os, sys
 name = os.environ["TESSERA_DEV_STATE_VM"]
 for line in sys.stdin:
     item = json.loads(line)

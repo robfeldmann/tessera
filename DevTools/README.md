@@ -7,14 +7,14 @@ This package contains development-only utilities for working on Tessera. It is i
 `Linux VM Tests` is a small executable wrapper around the canonical Linux validation command:
 
 ```fish
-mise run linux:test
+mise run vm:linux-test
 ```
 
 Use it from Xcode when you want a visible reminder or one-click way to run the Linux test suite. It is intentionally not part of the normal `Tessera` test plan because it may start a Lima VM, requires local Linux tooling, and takes longer than the macOS unit tests.
 
-The executable delegates to `mise run linux:test`, which:
+The executable delegates to `mise run vm:linux-test`, which:
 
-- starts the `tessera-linux` Lima VM without prompting when needed;
+- starts the `tessera-linux` Lima VM without prompting when needed (see [Tessera VMs](../docs/guides/vms.md));
 - runs the Linux build of `libghostty-vt`;
 - runs `swift test --jobs 2` inside the VM;
 - stops the VM afterward only if the command started it.
@@ -26,7 +26,7 @@ If the VM is already running, it is left running.
 For day-to-day terminal use, prefer:
 
 ```fish
-mise run linux:test
+mise run vm:linux-test
 ```
 
 From Xcode, open `Tessera.xcworkspace`, select the `Linux VM Tests` scheme, and run it. Failures are reported as executable failures in Xcode rather than as structured Test Navigator entries, so the CLI remains the best place for detailed Linux debugging.

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#MISE description="Delete a macOS work instance (bases are refused)"
+#USAGE arg "<name>" help="Tart instance, for example tessera-macos-26"
+#USAGE complete "name" run="python3 scripts/vm.py macos-names"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+exec python3 scripts/vm.py macos-delete "$@"

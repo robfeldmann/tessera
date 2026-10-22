@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+#MISE description="Clone the tessera-macos-<version> work instance from its base (left stopped)"
+#USAGE arg "<version>" help="macOS major version: 26 (Xcode 26.6, the baseline) or 27 (Xcode 27.1, the Swift 6.4 lane)" {
+#USAGE   choices "26" "27"
+#USAGE }
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+exec python3 scripts/vm.py macos-clone "$@"

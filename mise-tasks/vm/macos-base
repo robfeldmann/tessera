@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+#MISE description="Build a macOS base from a Cirrus Labs vanilla image with Xcode installed (tens of GB; once per release)"
+#USAGE arg "<version>" help="macOS major version: 26 (Xcode 26.6, the baseline) or 27 (Xcode 27.1, the Swift 6.4 lane)" {
+#USAGE   choices "26" "27"
+#USAGE }
+#USAGE flag "--xcode <source>" default="host" help="host copies this Mac's Xcode over a read-only share; xcodes downloads it in the guest with your Apple Account" {
+#USAGE   choices "host" "xcodes"
+#USAGE }
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+exec python3 scripts/vm.py macos-base "$@"

@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Delete the Lima Linux VM"
+#MISE alias="linux:delete"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+exec python3 scripts/vm.py linux-delete "$@"
