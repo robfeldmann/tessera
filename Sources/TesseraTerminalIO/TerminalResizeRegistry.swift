@@ -47,12 +47,22 @@ import TesseraTerminalCore
     }
   }
 
-  /// Sendable wrapper around a Dispatch signal source.
+  /// Owns the process's SIGWINCH Dispatch source for one size-change stream.
   ///
-  /// `DispatchSourceSignal` is thread-safe but does not currently conform to `Sendable`.
-  /// This wrapper keeps the source private and exposes only `resume()` and `cancel()`,
-  /// which are safe to call from the stream termination closure.
-  private final class ResizeSignalSource: @unchecked Sendable {
+  /// `DispatchSourceSignal` does not conform to `Sendable`, but the source never escapes
+  /// this class. The type is `Sendable` because of a lifecycle invariant the compiler
+  /// cannot see: the source is configured once in `init`, then receives exactly one
+  /// `resume()` (from `sizeChanges`) and exactly one `cancel()` (from the stream's
+  /// `onTermination`). The event handler runs on Dispatch's default queue and only spawns
+  /// a `Task` that queries the size and yields into the continuation. The continuation is
+  /// finished solely from the cancel handler, so the stream ends after the source stops
+  /// delivering events.
+  ///
+  /// `init` sets `signal(SIGWINCH, SIG_IGN)` so no default action runs for the signal
+  /// while Dispatch, which still observes ignored signals, delivers it to the source. The
+  /// disposition is process-wide and is never restored: restoring the previous one can
+  /// race with another source that also sets it.
+  private final class ResizeSignalSource: Sendable {
     private let source: any DispatchSourceSignal
 
     init(

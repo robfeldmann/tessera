@@ -29,6 +29,7 @@
   }
 
   private final class GhosttyTerminalState: Sendable {
+    // A `Mutex`, not an actor: `VirtualTerminal`'s closures are synchronous.
     private let handles: Mutex<GhosttyTerminalHandles>
 
     init(columns: Int, rows: Int) throws {

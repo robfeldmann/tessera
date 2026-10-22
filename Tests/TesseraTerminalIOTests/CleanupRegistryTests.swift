@@ -98,6 +98,38 @@ import Testing
     }
 
     @Test
+    func
+      `cleanup registry performs only the latest state after repeated installs and clears`()
+      async throws
+    {
+      try await CleanupRegistryTestIsolation.withExclusiveAccess {
+        let pipe = try FileDescriptorPipe()
+        defer {
+          CleanupRegistry.clear()
+          pipe.closeAll()
+        }
+
+        // More replacements than the C shim's retired-state ring holds, so evictions run.
+        for index in 0..<40 {
+          CleanupRegistry.install(
+            inputFileDescriptor: -1,
+            outputFileDescriptor: pipe.writeDescriptor,
+            teardownBytes: [UInt8(index)],
+            savedTermios: nil
+          )
+          if index.isMultiple(of: 7) {
+            CleanupRegistry.clear()
+          }
+        }
+
+        CleanupRegistry.performEmergencyCleanupForTesting()
+        pipe.closeWriteDescriptor()
+
+        expectNoDifference(try pipe.readAll(), [39])
+      }
+    }
+
+    @Test
     func `querying installed handlers is side-effect free`() async {
       await CleanupRegistryTestIsolation.withExclusiveAccess {
         // Regression: the query previously used `atomic_flag_test_and_set`, so merely

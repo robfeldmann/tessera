@@ -1,10 +1,14 @@
 #if os(macOS) || os(Linux)
   /// POSIX terminal handles for standard input and output.
-  package struct PlatformHandles: ~Copyable {
+  ///
+  /// The descriptors are borrowed from the process for its whole lifetime and are never
+  /// closed by this type, so copies (including the raw values captured by the live
+  /// device's closures) cannot outlive them.
+  package struct PlatformHandles {
     package let stdin: FileDescriptor
     package let stdout: FileDescriptor
 
-    package init(stdin: consuming FileDescriptor, stdout: consuming FileDescriptor) {
+    package init(stdin: FileDescriptor, stdout: FileDescriptor) {
       self.stdin = stdin
       self.stdout = stdout
     }
@@ -54,7 +58,10 @@
   }
 #elseif os(Windows)
   /// Windows terminal handles for standard input and output consoles.
-  package struct PlatformHandles: ~Copyable {
+  ///
+  /// The handles are borrowed from the process for its whole lifetime and are never closed
+  /// by this type.
+  package struct PlatformHandles {
     package let inputHandle: UInt
     package let outputHandle: UInt
 
@@ -123,7 +130,7 @@
   }
 #else
   /// Unsupported-platform placeholder handles.
-  package struct PlatformHandles: ~Copyable {
+  package enum PlatformHandles {
     package static func standard() throws -> Self {
       throw PlatformIOError.unsupportedPlatform
     }

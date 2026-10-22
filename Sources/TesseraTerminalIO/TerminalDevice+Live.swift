@@ -34,7 +34,7 @@ extension TerminalDevice {
     )
   }
 
-  package static func live(handles: consuming PlatformHandles) -> Self {
+  package static func live(handles: PlatformHandles) -> Self {
     #if os(macOS) || os(Linux)
       let mode = LiveTerminalMode()
       let stdin = handles.stdin.rawValue
@@ -181,6 +181,10 @@ extension TerminalDevice {
     )
   }
 
+  /// Writes once, waiting for the terminal to accept bytes when it would block.
+  ///
+  /// Throws `CancellationError` when the calling task is cancelled during that wait. The
+  /// caller keeps the bytes that were not written.
   private func writeOnce(
     _ bytes: ArraySlice<UInt8>,
     to fileDescriptor: CInt

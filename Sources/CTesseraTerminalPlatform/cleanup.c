@@ -21,6 +21,32 @@ struct tessera_cleanup_state {
 static _Atomic(struct tessera_cleanup_state *) current_state = NULL;
 static _Atomic(int) handlers_installed = 0;
 
+// A control handler or the `atexit` path may have loaded a state pointer just before
+// `install` or `clear` replaced it, so replaced states are never freed immediately.
+// They are parked in a fixed ring and only the oldest is freed once the ring wraps,
+// which requires a handler to stay suspended across `TESSERA_RETIRED_CAPACITY` further
+// replacements. The ring is touched only by `install` and `clear`, never by handlers.
+#define TESSERA_RETIRED_CAPACITY 16
+
+static _Atomic(struct tessera_cleanup_state *) retired_states[TESSERA_RETIRED_CAPACITY];
+static _Atomic(size_t) retired_cursor = 0;
+
+static void free_state(struct tessera_cleanup_state *state) {
+  if (state != NULL) {
+    free(state->teardown_bytes);
+    free(state);
+  }
+}
+
+static void retire_state(struct tessera_cleanup_state *state) {
+  if (state == NULL) {
+    return;
+  }
+
+  size_t slot = atomic_fetch_add(&retired_cursor, 1) % TESSERA_RETIRED_CAPACITY;
+  free_state(atomic_exchange(&retired_states[slot], state));
+}
+
 static void write_all_best_effort(HANDLE handle, const unsigned char *bytes, size_t count) {
   size_t offset = 0;
 
@@ -65,19 +91,11 @@ void tessera_cleanup_install_windows(
     state->teardown_bytes = NULL;
   }
 
-  struct tessera_cleanup_state *previous = atomic_exchange(&current_state, state);
-  if (previous != NULL) {
-    free(previous->teardown_bytes);
-    free(previous);
-  }
+  retire_state(atomic_exchange(&current_state, state));
 }
 
 void tessera_cleanup_clear(void) {
-  struct tessera_cleanup_state *state = atomic_exchange(&current_state, NULL);
-  if (state != NULL) {
-    free(state->teardown_bytes);
-    free(state);
-  }
+  retire_state(atomic_exchange(&current_state, NULL));
 }
 
 void tessera_cleanup_perform(void) {
@@ -156,6 +174,32 @@ struct tessera_cleanup_state {
 static _Atomic(struct tessera_cleanup_state *) current_state = NULL;
 static _Atomic(int) handlers_installed = 0;
 
+// A signal handler or the `atexit` path may have loaded a state pointer just before
+// `install` or `clear` replaced it, so replaced states are never freed immediately.
+// They are parked in a fixed ring and only the oldest is freed once the ring wraps,
+// which requires a handler to stay suspended across `TESSERA_RETIRED_CAPACITY` further
+// replacements. The ring is touched only by `install` and `clear`, never by handlers.
+#define TESSERA_RETIRED_CAPACITY 16
+
+static _Atomic(struct tessera_cleanup_state *) retired_states[TESSERA_RETIRED_CAPACITY];
+static _Atomic(size_t) retired_cursor = 0;
+
+static void free_state(struct tessera_cleanup_state *state) {
+  if (state != NULL) {
+    free(state->teardown_bytes);
+    free(state);
+  }
+}
+
+static void retire_state(struct tessera_cleanup_state *state) {
+  if (state == NULL) {
+    return;
+  }
+
+  size_t slot = atomic_fetch_add(&retired_cursor, 1) % TESSERA_RETIRED_CAPACITY;
+  free_state(atomic_exchange(&retired_states[slot], state));
+}
+
 static void write_all_best_effort(int fd, const unsigned char *bytes, size_t count) {
   size_t offset = 0;
 
@@ -200,19 +244,11 @@ void tessera_cleanup_install(
     state->teardown_bytes = NULL;
   }
 
-  struct tessera_cleanup_state *previous = atomic_exchange(&current_state, state);
-  if (previous != NULL) {
-    free(previous->teardown_bytes);
-    free(previous);
-  }
+  retire_state(atomic_exchange(&current_state, state));
 }
 
 void tessera_cleanup_clear(void) {
-  struct tessera_cleanup_state *state = atomic_exchange(&current_state, NULL);
-  if (state != NULL) {
-    free(state->teardown_bytes);
-    free(state);
-  }
+  retire_state(atomic_exchange(&current_state, NULL));
 }
 
 void tessera_cleanup_perform(void) {
