@@ -32,7 +32,7 @@ description: Baseline every local check, make Xcode 26.6 and Swift 6.3.3 the bas
   - [ ] 5.6 Give Tessera its own Tart and Lima VM tasks
   - [ ] 5.7 Update libghostty-vt and Zig
 - [ ] **Phase 6 — Merge plans 032 and 033**
-  - [ ] 6.1 Write the merged plan
+  - [x] 6.1 Write the merged plan (`docs/plans/phase-4-view-layer-and-developer-tooling.md`, `proposed`, order 36; commit below; owner review pending)
   - [ ] 6.2 Owner decision: the `mobile` viewport rule, then apply it
   - [ ] 6.3 Retire plans 032 and 033
 
@@ -343,6 +343,11 @@ Pre-existing failures and recipe defects, none fixed here:
 - Fold in the amendments plan 033 needs from plan 032, from the 2026-10-20 review note (finding R-10 in plan 034): the headless driver lives in the harness library (`TesseraHarness`, root-package test support) and each demo declares its viewports (032 Step 8.2); each acceptance in 032 Phases 10-14 gains "and its scenario corpus passes under `tessera-dev run`"; 032 Step 10.1 wires the dead `focusChanges` counter (`Sources/TesseraCore/Diagnostics/GraphStatistics.swift:51`); the role and label hook (033 G.1) lands before the first control (032 Step 13.1); the environment clock is a `Clock` the harness can advance, so `wait`, `settle`, and motion are testable (032 Step 16.1; the spec's [Phase 5](../spec/phase-5-runtime-and-polish.md) open question on injected clocks today, leaves the mechanism open, and the clock seam in spike commit `30e4bbf` only feeds pass durations).
 - Dependencies to carry: plan 034 Step 10.1 before the first demo on stacks; plan 034 Step 10.3 before demos live in `Examples/`; the seams patch from Step 3.3.
 - Acceptance: one plan, in `docs/plans/` and listed in `docs/plans.md`, following the dotfiles template, with a single slice order that covers every open step of both plans; the owner reviews it before work resumes.
+
+#### Done (2026-10-22)
+
+- `docs/plans/phase-4-view-layer-and-developer-tooling.md` (order 36, `proposed`), in the dotfiles template: Goal, Progress (19 slices), `Next:`, Approach, Slices, Acceptance, Decisions, Discoveries, Outcome, References. One slice order covers every open step of plan 032 (Phases 8-17) and plan 033 (A.2 onward): seams (A.2), harness target and Showcase retirement (A.3, 8.1), the demo contract and headless driver in `TesseraHarness` with per-demo viewports (8.2, B.1), scenarios and `tessera-dev` with the CI corpus (B.2, B.3; the `just dev` module is `mise-tasks/dev/*`), projection and the first demos (B.4, 8.3), styling with pictures and catalog review (9.1-9.4, C), focus with focus tooling (10.1-10.3 including the `focusChanges` wiring, D), pointer (11, E), ScrollView with scroll checks (12, G.2), Flow and `ViewThatFits` moved before the controls (14.1, Decision 2), roles and labels before the first control (G.1), controls (13), collections (14.2-14.4), SplitView (15.1), the animation path with a harness-advanceable clock (16.1, Decision 7), remaining views (16.2-16.3), optional live inspection (F), docs and the conformance gate (H), and the intro app with Phase 4 closure (17). The amendments from the 2026-10-20 review note are folded in as Decisions; plan 034's Step 10.1 and 10.3 dependencies are satisfied and noted in the Approach; the seams patch is Slice 1 with the plan 034 fan-out noted as superseding part of it.
+- Open owner decisions are listed as such (the `mobile` viewport, Slice 10's position, live inspection, roles and labels, the colour-report probe, Windows in the corpus, the coverage walk) so the owner reviews one page. `docs/plans.md` lists it under Next; `iwe schema validate` is clean.
 
 ### Step 6.2 — Owner decision: the `mobile` viewport rule, then apply it
 
