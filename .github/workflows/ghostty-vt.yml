@@ -266,19 +266,24 @@ jobs:
             dist/checksum.txt
           if-no-files-found: error
 
+      # The repository allows only GitHub-owned and a few listed actions, so publish with
+      # the runner's gh. A re-run replaces the assets of the release it already created.
       - name: Publish the prerelease
         if: needs.check-tag.outputs.publish == 'true'
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: libghostty-vt ${{ github.ref_name }}
-          body: >-
-            libghostty-vt built from the Ghostty revision pinned in
-            scripts/ghostty-vt-version.txt, as an SE-0482 static-library artifact bundle
-            for Package.swift's GhosttyVTLibrary binary target. Built by
-            .github/workflows/ghostty-vt.yml; not a Tessera release.
-          prerelease: true
-          make_latest: false
-          files: |
-            dist/GhosttyVTLibrary.artifactbundle.zip
-            dist/checksum.txt
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          assets=(dist/GhosttyVTLibrary.artifactbundle.zip dist/checksum.txt)
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${assets[@]}" --clobber
+          else
+            gh release create "$TAG" "${assets[@]}" \
+              --verify-tag \
+              --prerelease \
+              --latest=false \
+              --title "libghostty-vt $TAG" \
+              --notes "libghostty-vt built from the Ghostty revision pinned in \`scripts/ghostty-vt-version.txt\`, as an SE-0482 static-library artifact bundle for the \`GhosttyVTLibrary\` binary target in \`Package.swift\`. Built by \`.github/workflows/ghostty-vt.yml\`; not a Tessera release."
+          fi
+          gh release view "$TAG" --json url,isPrerelease,assets --jq '{url, isPrerelease, assets: [.assets[].name]}'
