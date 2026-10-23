@@ -21,7 +21,7 @@ The library-only bundle under a source C target is the layout that built by vers
 
 ## Consequences
 
-- A `ghostty-vt-*` tag and its zip are permanent once any commit of `Package.swift` references them: rebuilding the zip changes its bytes and breaks every consumer that pins its checksum. The workflow refuses to replace a published zip; the `replace-assets` dispatch input exists only for a release that nothing references yet.
+- A `ghostty-vt-*` tag and its zip are permanent once any commit of `Package.swift` references them: rebuilding the zip changes its bytes and breaks every consumer that pins its checksum. The workflow refuses to replace a published zip; the `replace-assets` dispatch input exists only for a release that nothing references yet. Republishing a pin takes a new `ghostty-vt-<prefix>-r<N>` tag and a new URL in `Package.swift`.
 - Ghostty's `LICENSE` covers Ghostty's own code only. The archives also contain Highway, simdutf, Wuffs, uucode (with Unicode data and a UTF-8 decoder), and Zig's standard library and compiler-rt, and binary redistribution of each requires its notice, so their licenses ship in the bundle and are listed in `THIRD_PARTY_NOTICES.md`. The dual-licensed ones are redistributed under their BSD or MIT option.
 - SwiftPM needs `unzip` on Linux to unpack the bundle.
 - The musl variants cannot be audited by `swift package experimental-audit-binary-artifact`, which only checks the host's triple; the `static Linux SDK` job links both and runs the x86_64 one instead.
