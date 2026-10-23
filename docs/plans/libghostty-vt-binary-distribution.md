@@ -1,7 +1,8 @@
 ---
 type: plan
-stage: active
+stage: done
 created: 2026-10-22
+completed: 2026-10-23
 order: 38
 description: Ship libghostty-vt as a prebuilt SE-0482 static-library artifact bundle that Tessera's CI builds once per Ghostty pin, so apps can depend on Tessera by version and no build or test job runs Zig.
 ---
@@ -17,9 +18,9 @@ Goal: an app that depends on Tessera by version links libghostty-vt on macOS, Li
 - [x] 3 Switch the package to the published bundle — `8c84fc9`; `grep -c unsafeFlags Package.swift` is 0. With each machine's `libghostty-vt` cache renamed to `libghostty-vt.moved-aside` and no `zig` on `PATH`, a fresh clone of `8c84fc9` downloaded the bundle and passed `swift test`: macOS Xcode 26.6 (662 tests) and 27.1 (662, in per-module runs); Lima 6.3.3 and 6.4.1 (655 each, no ghostty library in `ldd`); UTM Windows 6.3.3 (650, `swift test` exit 0 in 2 min 59 s). The musl variants link in the Lima guest: the Slice 5 fixture's `VersionConsumer` built with `--swift-sdk aarch64-swift-linux-musl` and `x86_64-swift-linux-musl`, and the static aarch64 binary printed the round trip (`row 0: "hello…"`, `cell(1,0): r indexed(1)`, `cursor: column 3, row 1`). `mise run linux:build` itself does not run on this host (Discoveries).
 - [x] 4 Stop building Zig in test, docs, and VM jobs — `52859e3`. CI run 39896242655 was green on every leg; its full `gh run view --log` (21,593 lines) has no `zig build`, and its only four `zig` lines are the `lint` job's `mise-action` installing the toolchain mise pins (no `test` job mentions Zig). The Documentation run 39896242640 was green too. Windows `test` wall time: 7 min 36 s to 9 min 54 s on the last three `main` runs with a warm Ghostty cache, 15 min 22 s on this branch's cold-cache run (39893033207), and 10 min 34 s after (Swift builds the package three times without a SwiftPM cache, about 9 minutes of it), so the saving is the cold Zig build on every pin or script change, not the warm case. With the guests' Ghostty caches moved aside, `mise run vm:linux-test` passed 655 tests and `mise run vm:windows-test` 650, neither building Ghostty.
 - [x] 5 Consume Tessera by version in CI — `5d26163`. CI run 39897419416: `version consumer` green on `macos-26`, `ubuntu-latest`, and `windows-latest`, each asserting no `zig` on `PATH` and printing `row 0: "hello               "`, `row 1: "red                 "`, `cell(1,0): r indexed(1)`, `cursor: column 3, row 1`, then `Test run with 1 test … passed`. Probe `15bddd4` set the checksum to zeros: run 39898377799 failed every `version consumer` leg with `checksum of downloaded artifact of binary target 'GhosttyVTLibrary' (0876a356…) does not match checksum specified by the manifest`; `8b1b418` reverted it and run 39898712912 was green on every job.
-- [ ] 6 Docs, decision record, and closure
+- [x] 6 Docs, decision record, and closure — `1c08400`: [Updating Ghostty VT](../guides/updating-ghostty-vt.md) rewritten around the new flow; `CONTRIBUTING.md`, `README.md`, `DevTools/README.md`, [Local development state](../guides/local-development-state.md), and [Windows VM](../guides/windows-vm.md) no longer say a build needs Zig; [libghostty-vt distribution](../architecture/libghostty-vt-distribution.md) written and listed in `docs/architecture.md`; plan 036 records Decision 9 (ii) as implemented; changelog note added. `mise run quality:format`, the full `swift test` (Xcode 26.6, 662 tests), `mise run quality:lint`, and `mise run docs:lint` passed; CI run 39899555329 (12 jobs), Documentation run 39899555321, and Ghostty VT bundle run 39899555342 were green on every job.
 
-Next: Slice 6. Commit the docs, decision record, and closure, then confirm CI is green on that commit.
+Next: none; the plan is done. Reviewing and merging pull request #57 is the owner's, along with the open items in Outcome.
 
 ## Approach
 

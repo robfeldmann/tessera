@@ -7,10 +7,6 @@ stage: living
 
 One plan per piece of work, in order. This page is rendered from each plan's frontmatter by `scripts/plans.py`; change `stage`, `order`, `description`, or `completed` in the plan and re-run it (`mise run quality:lint` fails while the page is stale). Read a plan's Progress list and `Next:` line before resuming it, and its Approach and Acceptance before starting it.
 
-## Active
-
-- [Ship libghostty-vt as a prebuilt binary](plans/libghostty-vt-binary-distribution.md): Ship libghostty-vt as a prebuilt SE-0482 static-library artifact bundle that Tessera's CI builds once per Ghostty pin, so apps can depend on Tessera by version and no build or test job runs Zig.
-
 ## Next
 
 1. [Build the Phase 4 view layer with the tooling that proves it](plans/phase-4-view-layer-and-developer-tooling.md): Build the Phase 4 view layer from the omp2-reviewed catalog and the developer tooling that drives, pictures, and checks it, in one slice order where each component lands with its demo, its scenario, and the harness capability it needs.
@@ -50,6 +46,7 @@ One plan per piece of work, in order. This page is rendered from each plan's fro
 - 2026-10-22 [Terminal I/O concurrency review fixes](plans/terminal-io-concurrency-review-fixes.md): Fix the concurrency and isolation findings from a review of TesseraTerminal and TesseraTerminalIO: cancellation-safe teardown, serialized terminal output, blocking I/O off the cooperative pool, session and stream lifetimes, vouch cleanup, and deterministic terminal tests. Also the bug punchlist from the 2026-10-17 and 2026-10-20 repository review notes: nested view lists in layout containers, the parallel suite, error-type conformances, and CI coverage of the Examples package.
 - 2026-10-22 [Toolchain, repository conventions, and plan consolidation](plans/toolchain-conventions-and-plan-consolidation.md): Baseline every local check, make Xcode 26.6 and Swift 6.3.3 the baseline on every lane while adding Swift 6.4 and Xcode 27 support, port plan 033 and its spikes to main, run plan 034, adopt the owner's newer repository conventions (unwrapped prose with rumdl, an IWE docs workspace with slug-named plans and a split spec, mise and hk in place of just and Lefthook, Tessera-owned Tart and Lima VMs, and a current Zig and libghostty-vt), then merge plans 032 and 033 into one plan.
 - 2026-10-22 [Make UTM the one Windows lane and retire Frost](plans/windows-on-utm.md): Retire the Frost QEMU workflow and make the UTM guest the one scripted, rebuildable Windows lane, driven by scripts/vm.py like the macOS and Linux guests.
+- 2026-10-23 [Ship libghostty-vt as a prebuilt binary](plans/libghostty-vt-binary-distribution.md): Ship libghostty-vt as a prebuilt SE-0482 static-library artifact bundle that Tessera's CI builds once per Ghostty pin, so apps can depend on Tessera by version and no build or test job runs Zig.
 
 ## Cancelled
 
