@@ -151,16 +151,18 @@
       let loop = WindowsInputLoop(inputHandle: 0x10, system: state.system)
 
       // The first consumer parks its run inside the next wait, then goes away, so the run is
-      // cancelled while the new consumer has not registered yet.
+      // cancelled while the new consumer has not registered yet. The consumer stays
+      // registered until the wait has parked: releasing it earlier lets the cancellation
+      // reach the run before its next wait, and the run would exit without parking.
       let first = Task {
         var iterator = loop.bytes().makeAsyncIterator()
         let chunk = await iterator.next()
         state.holdNextWait()
-        return chunk
+        let parked = await state.waitUntilHeld()
+        return (chunk, parked)
       }
-      let idle = await first.value
+      let (idle, parked) = await first.value
       expectNoDifference(idle, [])
-      let parked = await state.waitUntilHeld()
       #expect(parked)
       // The last consumer is unregistered, so the run has been cancelled.
       let unregistered = await loop.waitForRegisteredStreamCount(0)
