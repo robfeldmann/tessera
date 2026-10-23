@@ -56,7 +56,7 @@ $revisionFile = if ($env:GHOSTTY_VT_REVISION_FILE) {
 } else {
     Join-Path $RepoRoot "scripts\ghostty-vt-version.txt"
 }
-$revision = (Get-Content -Path $revisionFile -Raw).Trim()
+$revision = (Get-Content -LiteralPath $revisionFile | Out-String).Trim()
 if (-not $revision) {
     throw "empty revision in $revisionFile"
 }
@@ -112,6 +112,9 @@ function Test-CommittedHeaders {
     if (-not (Test-Path -LiteralPath $committed)) {
         throw "the committed Ghostty headers are missing: $committed"
     }
+    # Absolute paths: the .NET file reads below ignore PowerShell's location.
+    $pinned = (Resolve-Path -LiteralPath $pinned).Path
+    $committed = (Resolve-Path -LiteralPath $committed).Path
     $names = @(& $relative $pinned) + @(& $relative $committed) | Sort-Object -Unique
     $differences = foreach ($name in $names) {
         $left = Join-Path $pinned $name
@@ -120,8 +123,8 @@ function Test-CommittedHeaders {
             "only committed: $name"
         } elseif (-not (Test-Path -LiteralPath $right)) {
             "missing from the commit: $name"
-        } elseif (((Get-Content -LiteralPath $left -Raw) -replace "`r`n", "`n") -cne
-            ((Get-Content -LiteralPath $right -Raw) -replace "`r`n", "`n")) {
+        } elseif (([System.IO.File]::ReadAllText($left) -replace "`r`n", "`n") -cne
+            ([System.IO.File]::ReadAllText($right) -replace "`r`n", "`n")) {
             "differs: $name"
         }
     }

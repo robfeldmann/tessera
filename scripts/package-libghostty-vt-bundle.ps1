@@ -67,7 +67,7 @@ $revisionFile = if ($env:GHOSTTY_VT_REVISION_FILE) {
 } else {
     Join-Path $RepoRoot "scripts\ghostty-vt-version.txt"
 }
-$revision = (Get-Content -Path $revisionFile -Raw).Trim()
+$revision = (Get-Content -LiteralPath $revisionFile | Out-String).Trim()
 $outputRoot = if ($env:GHOSTTY_VT_OUTPUT_DIR) {
     $env:GHOSTTY_VT_OUTPUT_DIR
 } else {
