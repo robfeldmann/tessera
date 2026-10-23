@@ -177,7 +177,8 @@ package.targets.append(
 
 // libghostty-vt for the Ghostty revision in scripts/ghostty-vt-version.txt, as an SE-0482
 // static-library artifact bundle. .github/workflows/ghostty-vt.yml builds it and publishes
-// it as the ghostty-vt-<revision prefix> prerelease. After a pin bump,
+// it as the ghostty-vt-<revision prefix> prerelease, or ghostty-vt-<revision prefix>-r<N>
+// when a pin's bundle is republished (a published zip never changes). After a pin bump,
 // TESSERA_GHOSTTY_VT_BUNDLE=local selects the bundle that
 // scripts/package-libghostty-vt-bundle.sh writes until the new release exists; see
 // docs/guides/updating-ghostty-vt.md.
