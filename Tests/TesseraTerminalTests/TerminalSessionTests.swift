@@ -1,5 +1,6 @@
 import CustomDump
 import TesseraTerminalANSI
+import TesseraTerminalBuffer
 import TesseraTerminalCore
 import TesseraTerminalInput
 import TesseraTerminalTestSupport
@@ -2568,6 +2569,261 @@ func `draw propagates flush errors`() async throws {
     try await session.draw { frame in
       frame.write("x", at: TerminalPosition(column: 0, row: 0))
     }
+  }
+}
+
+@Test
+func `last drawn frame holds the buffer, cursor, and count of each flushed frame`()
+  async throws
+{
+  let size = TerminalSize(columns: 3, rows: 1)
+  let device = InMemoryTerminalDevice(size: size)
+  let session = await makeSession(device, synchronizedOutput: .disabled)
+  #expect(await session.lastDrawn == nil)
+
+  try await session.draw { frame in
+    frame.write("abc", at: TerminalPosition(column: 0, row: 0))
+    frame.setCursorPosition(TerminalPosition(column: 2, row: 0))
+  }
+  var firstBuffer = Buffer(size: size)
+  firstBuffer.write("abc", at: TerminalPosition(column: 0, row: 0))
+  #expect(
+    await session.lastDrawn
+      == DrawnFrame(
+        buffer: firstBuffer,
+        cursor: TerminalPosition(column: 2, row: 0),
+        sequence: 1
+      )
+  )
+
+  try await session.draw { frame in
+    frame.write("axc", at: TerminalPosition(column: 0, row: 0))
+  }
+  await session.invalidateRenderer()
+  var secondBuffer = Buffer(size: size)
+  secondBuffer.write("axc", at: TerminalPosition(column: 0, row: 0))
+  #expect(
+    await session.lastDrawn == DrawnFrame(buffer: secondBuffer, cursor: nil, sequence: 2)
+  )
+}
+
+@Test
+func `a failed flush leaves the last drawn frame unchanged`() async throws {
+  let size = TerminalSize(columns: 1, rows: 1)
+  let device = FailOnceTerminalDevice(size: size)
+  let session = TerminalSession(
+    io: PlatformIO(terminalDevice: await device.terminalDevice))
+
+  await #expect(throws: PlatformIOError.writeFailed(errno: .ioError)) {
+    try await session.draw { frame in
+      frame.write("x", at: TerminalPosition(column: 0, row: 0))
+    }
+  }
+  #expect(await session.lastDrawn == nil)
+
+  try await session.draw { frame in
+    frame.write("y", at: TerminalPosition(column: 0, row: 0))
+  }
+  var buffer = Buffer(size: size)
+  buffer.write("y", at: TerminalPosition(column: 0, row: 0))
+  #expect(
+    await session.lastDrawn == DrawnFrame(buffer: buffer, cursor: nil, sequence: 1)
+  )
+}
+
+@Test
+func `output tap receives each draw's bytes until it is cleared`() async throws {
+  let session = InMemoryTerminalSession(size: TerminalSize(columns: 3, rows: 1))
+  let (tapped, tap) = AsyncStream.makeStream(of: [UInt8].self)
+
+  let flushedWhileTapped = try await session.withApplicationTerminal { terminal in
+    terminal.outputTap = { tap.yield($0) }
+    try await terminal.draw { frame in
+      frame.write("abc", at: TerminalPosition(column: 0, row: 0))
+    }
+    try await terminal.draw { frame in
+      frame.write("axc", at: TerminalPosition(column: 0, row: 0))
+    }
+    let flushed = await session.events.filter(\.isFlush).map(\.flushBytes)
+
+    terminal.outputTap = nil
+    try await terminal.draw { frame in
+      frame.write("xyz", at: TerminalPosition(column: 0, row: 0))
+    }
+    return flushed
+  }
+  tap.finish()
+  var tappedBytes: [[UInt8]] = []
+  for await bytes in tapped {
+    tappedBytes.append(bytes)
+  }
+
+  #expect(flushedWhileTapped.count == 2)
+  expectNoDifference(tappedBytes, flushedWhileTapped)
+}
+
+@Test
+func `session size reads the terminal's current size`() async throws {
+  let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
+  let session = await makeSession(device)
+  #expect(try await session.size == TerminalSize(columns: 4, rows: 2))
+
+  await device.resize(to: TerminalSize(columns: 6, rows: 3))
+
+  #expect(try await session.size == TerminalSize(columns: 6, rows: 3))
+}
+
+@Test
+func `resize delivered mid-session produces a second draw at the new size`() async throws
+{
+  let initialSize = TerminalSize(columns: 4, rows: 2)
+  let resizedSize = TerminalSize(columns: 6, rows: 3)
+  let device = InMemoryTerminalDevice(
+    size: initialSize,
+    cellPixelSize: nil,
+    inputBytes: [],
+    keepsInputOpen: true
+  )
+  let session = InMemoryTerminalSession(device: device)
+
+  let (drawnSizes, event, sizeChange, lastDrawn) =
+    try await session.withApplicationTerminal { terminal in
+      var sizeChanges = terminal.sizeChanges.makeAsyncIterator()
+      let first = try await terminal.draw { frame in
+        frame.write("a", at: TerminalPosition(column: 0, row: 0))
+        return frame.size
+      }
+
+      await device.deliverResize(to: resizedSize)
+      let event = try await terminal.nextEvent()
+      let sizeChange = await sizeChanges.next()
+
+      let second = try await terminal.draw { frame in
+        frame.write("b", at: TerminalPosition(column: 5, row: 2))
+        return frame.size
+      }
+      let lastDrawn = terminal.lastDrawn
+      await device.closeInput()
+      return ([first, second], event, sizeChange, lastDrawn)
+    }
+
+  #expect(drawnSizes == [initialSize, resizedSize])
+  #expect(event == .resize(resizedSize))
+  #expect(sizeChange == resizedSize)
+  #expect(lastDrawn?.buffer.size == resizedSize)
+  #expect(lastDrawn?.sequence == 2)
+  #expect(await device.events.filter(\.isFlush).count >= 2)
+}
+
+@Test
+func `closed input ends the event stream of an open device`() async throws {
+  let device = InMemoryTerminalDevice(
+    size: TerminalSize(columns: 4, rows: 2),
+    cellPixelSize: nil,
+    inputBytes: [],
+    keepsInputOpen: true
+  )
+  let session = InMemoryTerminalSession(device: device)
+
+  await #expect(throws: PlatformIOError.inputClosed) {
+    try await session.withApplicationTerminal { terminal in
+      await device.closeInput()
+      _ = try await terminal.nextEvent()
+    }
+  }
+}
+
+@Test
+func `an open device keeps its input bytes ahead of later input and resizes`()
+  async throws
+{
+  let device = InMemoryTerminalDevice(
+    size: TerminalSize(columns: 4, rows: 2),
+    cellPixelSize: nil,
+    inputBytes: Array("x".utf8),
+    keepsInputOpen: true
+  )
+  let session = InMemoryTerminalSession(device: device)
+  let resizedSize = TerminalSize(columns: 5, rows: 3)
+
+  let events = try await session.withApplicationTerminal { terminal in
+    let first = try await terminal.nextEvent()
+    await device.deliverResize(to: resizedSize)
+    let second = try await terminal.nextEvent()
+    await device.closeInput()
+    return [first, second]
+  }
+
+  #expect(events == [.key(Key(code: .character("x"))), .resize(resizedSize)])
+}
+
+@Test
+func `injected probe image ID reaches the active Kitty graphics query`() async throws {
+  let device = KeyboardProbeResponseTerminalDevice(
+    size: TerminalSize(columns: 4, rows: 2))
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+  let configuration = TerminalApplicationConfiguration(capabilityDetection: .active)
+
+  try await TerminalSession.withApplicationTerminal(
+    configuration: configuration,
+    io: io,
+    environment: [:],
+    probeImageID: KittyImageID(rawValue: 4_242),
+    probeSleep: probeSleepThatNeverElapses
+  ) { _ in }
+
+  let flushes = await device.events.map(\.flushBytes)
+  let query = Array("\u{1B}_Gi=4242,s=1,v=1,a=q,t=d,f=24;AAAA\u{1B}\\\u{1B}[c".utf8)
+  #expect(flushes.contains(query))
+}
+
+@Test
+func `injected probe sleep stands in for the probe timeout`() async throws {
+  let device = InMemoryTerminalDevice(
+    size: TerminalSize(columns: 4, rows: 2),
+    cellPixelSize: nil,
+    inputBytes: [],
+    keepsInputOpen: true
+  )
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+  let configuration = TerminalApplicationConfiguration(
+    activeProbeTimeout: .seconds(3_600),
+    capabilityDetection: .active
+  )
+  let sleeps = ProbeSleepRecorder()
+  let recordingSleep: ActiveCapabilityProbeCoordinator.Sleep = { duration in
+    await sleeps.record(duration)
+  }
+
+  try await TerminalSession.withApplicationTerminal(
+    configuration: configuration,
+    io: io,
+    environment: [:],
+    probeSleep: recordingSleep
+  ) { _ in }
+
+  // The open device answers nothing, so the private-mode round and the keyboard round each
+  // wait on the timeout; an unanswered keyboard round skips the graphics round. A closed
+  // device would end every round at once, without reading the sleep.
+  let durations = await sleeps.durations
+  expectNoDifference(durations, [.seconds(3_600), .seconds(3_600)])
+  await device.closeInput()
+}
+
+/// Stands in for a probe sleep that never elapses: a round ends only by a reply, so a test
+/// never waits on a clock.
+private func probeSleepThatNeverElapses(_ duration: Duration) async throws {
+  let (stream, continuation) = AsyncStream<Void>.makeStream()
+  for await _ in stream {}
+  continuation.finish()
+  try Task.checkCancellation()
+}
+
+private actor ProbeSleepRecorder {
+  private(set) var durations: [Duration] = []
+
+  func record(_ duration: Duration) {
+    durations.append(duration)
   }
 }
 

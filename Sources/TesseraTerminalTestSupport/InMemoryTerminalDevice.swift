@@ -21,7 +21,11 @@ public enum InMemoryTerminalDeviceEvent: Equatable, Sendable {
 
 /// An in-memory terminal device for deterministic terminal I/O tests.
 public actor InMemoryTerminalDevice {
+  private var inputContinuations: [AsyncStream<[UInt8]>.Continuation] = []
+  private var isInputClosed = false
+  private let keepsInputOpen: Bool
   private var recordedEvents: [InMemoryTerminalDeviceEvent] = []
+  private var sizeContinuations: [AsyncStream<TerminalSize>.Continuation] = []
   private var storedBytes: [UInt8] = []
   private var storedInputBytes: [UInt8]
   private var storedCellPixelSize: CellPixelSize?
@@ -38,17 +42,25 @@ public actor InMemoryTerminalDevice {
   }
 
   /// A terminal device seam backed by this actor's in-memory state.
+  ///
+  /// A device that keeps its input open registers one byte stream and one size-change
+  /// stream with each read of this property, before the seam is returned, so a resize
+  /// delivered afterwards reaches the stream even if the reader subscribes later. Each
+  /// call of the seam's `bytes` or `sizeChanges` then returns that same single-reader
+  /// stream.
   package var terminalDevice: TerminalDevice {
     let inputBytes = storedInputBytes
+    let openStreams = keepsInputOpen ? makeOpenStreams(inputBytes: inputBytes) : nil
 
     return TerminalDevice(
       bytes: {
-        AsyncStream { continuation in
-          if !inputBytes.isEmpty {
-            continuation.yield(inputBytes)
+        openStreams?.bytes
+          ?? AsyncStream { continuation in
+            if !inputBytes.isEmpty {
+              continuation.yield(inputBytes)
+            }
+            continuation.finish()
           }
-          continuation.finish()
-        }
       },
       cellPixelSize: { await self.storedCellPixelSize },
       enterAltScreen: { await self.enterAltScreen() },
@@ -56,6 +68,9 @@ public actor InMemoryTerminalDevice {
       exitAltScreen: { await self.exitAltScreen() },
       exitRawMode: { await self.exitRawMode() },
       size: { await self.storedSize },
+      sizeChanges: {
+        openStreams?.sizeChanges ?? AsyncStream { $0.finish() }
+      },
       write: { try await self.write($0) }
     )
   }
@@ -66,6 +81,24 @@ public actor InMemoryTerminalDevice {
     cellPixelSize: CellPixelSize? = nil,
     inputBytes: [UInt8] = []
   ) {
+    self.init(
+      size: size,
+      cellPixelSize: cellPixelSize,
+      inputBytes: inputBytes,
+      keepsInputOpen: false
+    )
+  }
+
+  /// Creates a device whose input and size-change streams stay open until `closeInput()`.
+  ///
+  /// An open device can deliver `.resize` mid-session through `deliverResize(to:)`.
+  package init(
+    size: TerminalSize,
+    cellPixelSize: CellPixelSize?,
+    inputBytes: [UInt8],
+    keepsInputOpen: Bool
+  ) {
+    self.keepsInputOpen = keepsInputOpen
     self.storedInputBytes = inputBytes
     self.storedCellPixelSize = cellPixelSize
     self.storedSize = size
@@ -74,6 +107,45 @@ public actor InMemoryTerminalDevice {
   /// Changes the size reported by the device without emitting a resize event.
   public func resize(to size: TerminalSize) {
     self.storedSize = size
+  }
+
+  /// Finishes the input and size-change streams of an open device.
+  package func closeInput() {
+    isInputClosed = true
+    for continuation in inputContinuations {
+      continuation.finish()
+    }
+    inputContinuations = []
+    for continuation in sizeContinuations {
+      continuation.finish()
+    }
+    sizeContinuations = []
+  }
+
+  /// Reports a new size and emits it on the size-change streams of an open device.
+  package func deliverResize(to size: TerminalSize) {
+    storedSize = size
+    for continuation in sizeContinuations {
+      continuation.yield(size)
+    }
+  }
+
+  private func makeOpenStreams(
+    inputBytes: [UInt8]
+  ) -> (bytes: AsyncStream<[UInt8]>, sizeChanges: AsyncStream<TerminalSize>) {
+    let bytes = AsyncStream.makeStream(of: [UInt8].self)
+    let sizeChanges = AsyncStream.makeStream(of: TerminalSize.self)
+    if !inputBytes.isEmpty {
+      bytes.continuation.yield(inputBytes)
+    }
+    if isInputClosed {
+      bytes.continuation.finish()
+      sizeChanges.continuation.finish()
+    } else {
+      inputContinuations.append(bytes.continuation)
+      sizeContinuations.append(sizeChanges.continuation)
+    }
+    return (bytes.stream, sizeChanges.stream)
   }
 
   private func enterAltScreen() {

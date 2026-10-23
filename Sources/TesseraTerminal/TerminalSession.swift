@@ -5,6 +5,14 @@ import TesseraTerminalIO
 import TesseraTerminalInput
 import TesseraTerminalRendering
 
+func randomProbeImageID() -> KittyImageID {
+  KittyImageID(rawValue: UInt32.random(in: 1...UInt32.max))
+}
+
+func continuousClockSleep(_ duration: Duration) async throws {
+  try await ContinuousClock().sleep(for: duration)
+}
+
 func shouldCoalesceInputEvents(
   _ buffered: InputEvent,
   _ incoming: InputEvent
@@ -71,6 +79,21 @@ public enum TerminalSessionError: Error, Equatable, Sendable {
   case closed
 }
 
+/// The frame a ``TerminalSession`` last flushed to the terminal.
+///
+/// A harness seam: it carries what the terminal shows, so a mirror can read it without
+/// replaying output bytes.
+package struct DrawnFrame: Equatable, Sendable {
+  /// The cells the frame painted.
+  package let buffer: Buffer
+
+  /// The cursor position the frame requested, or `nil` when the cursor was hidden.
+  package let cursor: TerminalPosition?
+
+  /// The count of frames the session has flushed, starting at 1.
+  package let sequence: Int
+}
+
 /// A scoped live-terminal capability for Tessera applications.
 ///
 /// The session is closed when its `withApplicationTerminal` scope ends. After that, draw,
@@ -124,6 +147,23 @@ public actor TerminalSession {
   package var queuedModeSetterCount: Int {
     get async {
       await modeTransitionGate.waiterCount
+    }
+  }
+
+  /// The frame the terminal last received; a test and harness seam.
+  ///
+  /// A draw sets it once its flush succeeds, so a failed flush leaves the previous frame.
+  /// ``invalidateRenderer()`` does not clear it: the terminal still shows that frame.
+  package private(set) var lastDrawn: DrawnFrame?
+
+  /// Receives the encoded bytes of each draw just before they are written, in write order;
+  /// a test and harness seam.
+  package var outputTap: (@Sendable ([UInt8]) -> Void)?
+
+  /// The terminal's current size; a test and harness seam.
+  package var size: TerminalSize {
+    get async throws {
+      try await io.size()
     }
   }
 
@@ -250,11 +290,8 @@ public actor TerminalSession {
     keyboardProtocol: KeyboardProtocolMode = .legacyOnly,
     kittyKeyboardFlags: KittyKeyboardFlags = .tesseraDefault,
     activeProbeTimeout: Duration = .milliseconds(250),
-    probeImageID: KittyImageID = KittyImageID(
-      rawValue: UInt32.random(in: 1...UInt32.max)),
-    probeSleep: @escaping ActiveCapabilityProbeCoordinator.Sleep = { duration in
-      try await ContinuousClock().sleep(for: duration)
-    },
+    probeImageID: KittyImageID = randomProbeImageID(),
+    probeSleep: @escaping ActiveCapabilityProbeCoordinator.Sleep = continuousClockSleep,
     modeLifecycle: ModeLifecycle? = nil
   ) {
     let inputEvents = AsyncEventBuffer<InputEvent>(coalescing: shouldCoalesceInputEvents)
@@ -365,6 +402,8 @@ public actor TerminalSession {
     configuration: TerminalApplicationConfiguration,
     io: PlatformIO,
     environment: [String: String] = TerminalCapabilityDetector.currentEnvironment(),
+    probeImageID: KittyImageID = randomProbeImageID(),
+    probeSleep: @escaping ActiveCapabilityProbeCoordinator.Sleep = continuousClockSleep,
     _ body: (isolated TerminalSession) async throws -> sending R
   ) async throws -> sending R {
     let resolution = configuration.resolve(environment: environment)
@@ -398,6 +437,8 @@ public actor TerminalSession {
         keyboardProtocol: resolution.keyboardProtocol,
         kittyKeyboardFlags: resolution.kittyKeyboardFlags,
         activeProbeTimeout: resolution.activeProbeTimeout,
+        probeImageID: probeImageID,
+        probeSleep: probeSleep,
         modeLifecycle: lifecycle
       )
       session = constructedSession
@@ -717,10 +758,16 @@ public actor TerminalSession {
     if synchronizedOutput == .enabled {
       ControlSequence.exitSynchronizedOutput.encode(into: &bytes)
     }
+    outputTap?(bytes)
     await io.write(bytes)
     do {
       try await io.flush()
       lastDrawnBuffer = buffer
+      lastDrawn = DrawnFrame(
+        buffer: buffer,
+        cursor: cursorStorage.pointee,
+        sequence: (lastDrawn?.sequence ?? 0) + 1
+      )
       return result
     } catch {
       // A failed flush may have written a prefix of the frame, so the next successful draw
