@@ -18,6 +18,7 @@ func `probe coordinator runs graphics after unsupported keyboard evidence`() asy
   let evidence = try await coordinator.reconcile(
     privateModes: modes,
     kittyImageID: imageID,
+    colorScope: .all,
     timeout: .seconds(1),
     sleep: { _ in
       Issue.record("completed probe round unexpectedly reached its timeout")
@@ -31,6 +32,8 @@ func `probe coordinator runs graphics after unsupported keyboard evidence`() asy
           )
         }
       } else if bytes == kittyKeyboardProbeBytes {
+        await coordinator.observe(.primaryDeviceAttributes([1, 2]))
+      } else if bytes == colorProbeBytes {
         await coordinator.observe(.primaryDeviceAttributes([1, 2]))
       } else {
         await coordinator.observe(
@@ -53,6 +56,7 @@ func `probe coordinator runs graphics after unsupported keyboard evidence`() asy
       privateModeProbeBytes(modes),
       kittyKeyboardProbeBytes,
       kittyGraphicsProbeBytes(imageID),
+      colorProbeBytes,
     ])
   expectNoDifference(evidence.kittyKeyboard, .unsupported)
   expectNoDifference(evidence.kittyGraphics, .supported)
@@ -73,6 +77,7 @@ func `keyboard timeout skips graphics probe and resolves partial evidence`() asy
   let evidence = try await coordinator.reconcile(
     privateModes: modes,
     kittyImageID: imageID,
+    colorScope: .all,
     timeout: .milliseconds(250),
     sleep: { _ in },
     emit: { bytes in
@@ -86,6 +91,7 @@ func `keyboard timeout skips graphics probe and resolves partial evidence`() asy
     [
       privateModeProbeBytes(modes),
       kittyKeyboardProbeBytes,
+      colorProbeBytes,
     ])
   #expect(!emissions.contains(kittyGraphicsProbeBytes(imageID)))
   expectNoDifference(evidence, ActiveCapabilityProbeEvidence())
@@ -101,6 +107,7 @@ func `late DA1 after keyboard timeout is ignored`() async throws {
   let evidence = try await coordinator.reconcile(
     privateModes: modes,
     kittyImageID: imageID,
+    colorScope: .all,
     timeout: .milliseconds(250),
     sleep: { _ in },
     emit: { bytes in
@@ -132,6 +139,7 @@ func `input closure resumes a probe and rejects an overlapping generation`() asy
     try await coordinator.reconcile(
       privateModes: [2_004],
       kittyImageID: KittyImageID(rawValue: 7),
+      colorScope: .all,
       timeout: .seconds(60),
       sleep: { _ in
         try await suspendUntilCancelled()
@@ -147,6 +155,7 @@ func `input closure resumes a probe and rejects an overlapping generation`() asy
     try await coordinator.reconcile(
       privateModes: [2_004],
       kittyImageID: KittyImageID(rawValue: 8),
+      colorScope: .all,
       timeout: .zero,
       sleep: { _ in },
       emit: { _ in }
@@ -158,7 +167,7 @@ func `input closure resumes a probe and rejects an overlapping generation`() asy
 
   expectNoDifference(evidence, ActiveCapabilityProbeEvidence())
   let emissionCount = await recorder.count
-  expectNoDifference(emissionCount, 2)
+  expectNoDifference(emissionCount, 3)
 }
 
 @Test
@@ -173,6 +182,7 @@ func `failed emit returns the probe generation to idle so a later reconcile retr
     try await coordinator.reconcile(
       privateModes: [2_004],
       kittyImageID: KittyImageID(rawValue: 7),
+      colorScope: .all,
       timeout: .seconds(1),
       sleep: { _ in },
       emit: { bytes in
@@ -189,6 +199,7 @@ func `failed emit returns the probe generation to idle so a later reconcile retr
   let evidence = try await coordinator.reconcile(
     privateModes: [2_004],
     kittyImageID: KittyImageID(rawValue: 7),
+    colorScope: .all,
     timeout: .milliseconds(250),
     sleep: { _ in },
     emit: { bytes in
@@ -203,6 +214,7 @@ func `failed emit returns the probe generation to idle so a later reconcile retr
       privateModeProbeBytes([2_004]),
       privateModeProbeBytes([2_004]),
       kittyKeyboardProbeBytes,
+      colorProbeBytes,
     ])
   expectNoDifference(evidence, ActiveCapabilityProbeEvidence())
   let cachedAfterRetry = await coordinator.cachedEvidence()
@@ -221,6 +233,7 @@ func `cancelled probe discards partial evidence and a later reconcile retries`()
     try await coordinator.reconcile(
       privateModes: modes,
       kittyImageID: KittyImageID(rawValue: 7),
+      colorScope: .all,
       timeout: .seconds(60),
       sleep: { _ in
         try await suspendUntilCancelled()
@@ -249,6 +262,7 @@ func `cancelled probe discards partial evidence and a later reconcile retries`()
   let evidence = try await coordinator.reconcile(
     privateModes: modes,
     kittyImageID: KittyImageID(rawValue: 7),
+    colorScope: .all,
     timeout: .milliseconds(250),
     sleep: { _ in },
     emit: { bytes in
@@ -264,6 +278,7 @@ func `cancelled probe discards partial evidence and a later reconcile retries`()
       kittyKeyboardProbeBytes,
       privateModeProbeBytes(modes),
       kittyKeyboardProbeBytes,
+      colorProbeBytes,
     ])
   expectNoDifference(evidence, ActiveCapabilityProbeEvidence())
 }
@@ -397,6 +412,154 @@ func `required Kitty policy wins when active evidence remains unknown`() async t
   #expect(flushes.contains(kittyKeyboardPopBytes))
 }
 
+@Test
+func `colour query bytes are encoded exactly`() {
+  expectNoDifference(
+    ActiveCapabilityProbeCoordinator.colorQueryBytes(scope: .all),
+    colorProbeBytes
+  )
+  expectNoDifference(
+    ActiveCapabilityProbeCoordinator.colorQueryBytes(scope: .backgroundOnly),
+    Array("\u{1B}]11;?\u{1B}\\\u{1B}[c".utf8)
+  )
+}
+
+@Test(.timeLimit(.minutes(1)))
+func `colour re-runs queue behind the round in flight and coalesce`() async throws {
+  let coordinator = ActiveCapabilityProbeCoordinator()
+  let recorder = ProbeEmissionRecorder()
+  _ = try await coordinator.reconcile(
+    privateModes: [],
+    kittyImageID: KittyImageID(rawValue: 7),
+    colorScope: .all,
+    timeout: .zero,
+    sleep: { _ in },
+    emit: { await recorder.append($0) }
+  )
+  let generationEmissions = await recorder.count
+
+  func rerun() -> Task<Void, any Error> {
+    Task {
+      try await coordinator.rerunColorRound(
+        scope: .all,
+        timeout: .seconds(60),
+        sleep: { _ in try await suspendUntilCancelled() },
+        emit: { await recorder.append($0) }
+      )
+    }
+  }
+
+  let first = rerun()
+  await recorder.waitForCount(generationEmissions + 1)
+  let requests = [rerun(), rerun(), rerun()]
+  await coordinator.observe(.primaryDeviceAttributes([1, 2]))
+  try await first.value
+  await recorder.waitForCount(generationEmissions + 2)
+  await coordinator.observe(.primaryDeviceAttributes([1, 2]))
+  for request in requests {
+    try await request.value
+  }
+
+  let emissions = await recorder.values.suffix(2)
+  expectNoDifference(Array(emissions), [colorProbeBytes, colorProbeBytes])
+  let count = await recorder.count
+  expectNoDifference(count, generationEmissions + 2)
+}
+
+@Test(.timeLimit(.minutes(1)))
+func `colour re-run during the generation waits for the generation's own color round`()
+  async throws
+{
+  let coordinator = ActiveCapabilityProbeCoordinator()
+  let recorder = ProbeEmissionRecorder()
+  let modes = [2_004]
+  let generation = Task {
+    try await coordinator.reconcile(
+      privateModes: modes,
+      kittyImageID: KittyImageID(rawValue: 7),
+      colorScope: .all,
+      timeout: .seconds(60),
+      sleep: { _ in try await suspendUntilCancelled() },
+      emit: { await recorder.append($0) }
+    )
+  }
+  func rerun() -> Task<Void, any Error> {
+    Task {
+      try await coordinator.rerunColorRound(
+        scope: .all,
+        timeout: .seconds(60),
+        sleep: { _ in try await suspendUntilCancelled() },
+        emit: { await recorder.append($0) }
+      )
+    }
+  }
+
+  // Before the generation's color round has asked, its own query covers the request.
+  await recorder.waitForCount(1)
+  try await rerun().value
+  let beforeColorRound = await recorder.count
+  expectNoDifference(beforeColorRound, 1)
+
+  await coordinator.observe(
+    .privateModeStatus(PrivateModeStatus(mode: modes[0], state: .set))
+  )
+  await recorder.waitForCount(2)
+  await coordinator.observe(.primaryDeviceAttributes([1, 2]))
+  await recorder.waitForCount(3)
+  await coordinator.observe(.primaryDeviceAttributes([1, 2]))
+  await recorder.waitForCount(4)
+  let generationColorRoundEmissions = await recorder.values.suffix(1)
+  expectNoDifference(Array(generationColorRoundEmissions), [colorProbeBytes])
+
+  // Once it has asked, a later request waits for it, then asks again.
+  let afterAsking = rerun()
+  await coordinator.observe(.primaryDeviceAttributes([1, 2]))
+  _ = try await generation.value
+  await recorder.waitForCount(5)
+  await coordinator.observe(.primaryDeviceAttributes([1, 2]))
+  try await afterAsking.value
+
+  let emissions = await recorder.values.suffix(2)
+  expectNoDifference(Array(emissions), [colorProbeBytes, colorProbeBytes])
+  let count = await recorder.count
+  expectNoDifference(count, 5)
+}
+
+@Test
+func `colour re-run does nothing without a resolved generation or after close`()
+  async throws
+{
+  let coordinator = ActiveCapabilityProbeCoordinator()
+  let recorder = ProbeEmissionRecorder()
+  func rerun() async throws {
+    try await coordinator.rerunColorRound(
+      scope: .all,
+      timeout: .zero,
+      sleep: { _ in },
+      emit: { await recorder.append($0) }
+    )
+  }
+
+  try await rerun()
+  _ = try await coordinator.reconcile(
+    privateModes: [],
+    kittyImageID: KittyImageID(rawValue: 7),
+    colorScope: .all,
+    timeout: .zero,
+    sleep: { _ in },
+    emit: { await recorder.append($0) }
+  )
+  let afterGeneration = await recorder.count
+  try await rerun()
+  let afterRerun = await recorder.count
+  await coordinator.close()
+  try await rerun()
+  let afterClose = await recorder.count
+
+  expectNoDifference(afterRerun, afterGeneration + 1)
+  expectNoDifference(afterClose, afterRerun)
+}
+
 /// Suspends until the surrounding task is cancelled, then throws `CancellationError`.
 /// Stands in for a sleep that never elapses, so tests never wait on a clock.
 private func suspendUntilCancelled() async throws {
@@ -474,6 +637,8 @@ private actor ResponsiveProbeTerminalDevice {
       }
     } else if bytes.containsSubsequence(Array(",a=q,".utf8)) {
       inputContinuation.yield(Array("\u{1B}[?1;2c".utf8))
+    } else if bytes == colorProbeBytes {
+      inputContinuation.yield(Array("\u{1B}[?1;2c".utf8))
     }
 
     return bytes.count
@@ -513,6 +678,13 @@ private func makeProbeSession(_ device: InMemoryTerminalDevice) async -> Termina
 
 private let activePrivateModeProbeModes = [2_004, 1_004, 1_002, 1_003, 1_006, 2_026]
 private let kittyKeyboardProbeBytes = Array("\u{1B}[?u\u{1B}[c".utf8)
+
+/// One color round, spelled out: `OSC 10 ; ? ST`, `OSC 11 ; ? ST`, `OSC 4 ; n ; ? ST` for
+/// each slot 0 through 15, then the round's single DA1.
+private let colorProbeBytes = Array(
+  ("\u{1B}]10;?\u{1B}\\" + "\u{1B}]11;?\u{1B}\\"
+    + (0...15).map { "\u{1B}]4;\($0);?\u{1B}\\" }.joined() + "\u{1B}[c").utf8
+)
 private let kittyKeyboardPushBytes = Array("\u{1B}[>7u".utf8)
 private let kittyKeyboardPopBytes = Array("\u{1B}[<u".utf8)
 

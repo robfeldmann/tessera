@@ -1338,6 +1338,12 @@ private func eventLog(_ events: [InputEvent]) -> String {
 
 private func eventLogLine(_ event: InputEvent) -> String {
   switch event {
+  case .colorReport(let reply):
+    return "color report(\(reply.role), \(reply.color))"
+
+  case .colorSchemeChanged(let scheme):
+    return "color scheme changed(\(scheme))"
+
   case .focusGained:
     return "focus gained"
 

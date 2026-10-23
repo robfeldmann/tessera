@@ -67,8 +67,9 @@ enum RendererDemo {
     case .paste(let text):
       state.message = "paste ignored by renderer demo: \(text.count) characters"
 
-    case .focusGained, .focusLost, .kittyGraphicsResponse, .kittyKeyboardEnhancementFlags,
-      .mouse, .primaryDeviceAttributes, .privateModeStatus:
+    case .colorReport, .colorSchemeChanged, .focusGained, .focusLost,
+      .kittyGraphicsResponse, .kittyKeyboardEnhancementFlags, .mouse,
+      .primaryDeviceAttributes, .privateModeStatus:
       state.message = "protocol event ignored by renderer demo"
 
     case .resize(let size):

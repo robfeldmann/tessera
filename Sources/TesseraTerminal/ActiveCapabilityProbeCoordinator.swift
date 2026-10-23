@@ -1,4 +1,5 @@
 import TesseraTerminalCore
+import TesseraTerminalIO
 import TesseraTerminalInput
 
 package struct ActiveCapabilityProbeEvidence: Equatable, Sendable {
@@ -10,6 +11,17 @@ package struct ActiveCapabilityProbeEvidence: Equatable, Sendable {
 package enum ActiveCapabilityProbeCoordinatorError: Error, Equatable, Sendable {
   case alreadyResolved
   case inProgress
+}
+
+/// Which colors a color round asks the terminal for.
+package enum ColorQueryScope: Equatable, Sendable {
+  /// The default foreground (OSC 10), the default background (OSC 11), and ANSI slots 0
+  /// through 15 (OSC 4).
+  case all
+
+  /// Only the default background (OSC 11), which `NO_COLOR` sessions still need for the
+  /// color scheme.
+  case backgroundOnly
 }
 
 /// Correlates one serialized generation of terminal capability probes with the session's
@@ -29,6 +41,7 @@ package actor ActiveCapabilityProbeCoordinator {
     case privateModes(Set<Int>)
     case kittyKeyboard
     case kittyGraphics(KittyImageID)
+    case colors
   }
 
   private struct Waiter {
@@ -41,11 +54,15 @@ package actor ActiveCapabilityProbeCoordinator {
     0x1B, 0x5B, 0x3F, 0x75, 0x1B, 0x5B, 0x63,
   ]
 
+  private var colorRerunQueued = false
   private var evidence = ActiveCapabilityProbeEvidence()
   private var generation: GenerationState = .idle
+  private var generationColorRoundStarted = false
   private var inputIsClosed = false
+  private var isClosed = false
   private var nextWaiterID: UInt64 = 0
   private var round: Round = .none
+  private let roundGate = ModeLifecycleTransitionGate()
   private var roundResponseObserved = false
   private var roundResolved = false
   private var waiter: Waiter?
@@ -58,6 +75,27 @@ package actor ActiveCapabilityProbeCoordinator {
 
   private static func kittyGraphicsProbeBytes(id: KittyImageID) -> [UInt8] {
     var bytes = ControlSequence.kittyGraphics(.query(id: id)).bytes
+    bytes.append(contentsOf: [0x1B, 0x5B, 0x63])
+    return bytes
+  }
+
+  /// The bytes of one color round: one query per requested color, then the round's single
+  /// DA1, which a terminal answers after every reply it will send.
+  package static func colorQueryBytes(scope: ColorQueryScope) -> [UInt8] {
+    var bytes: [UInt8] = []
+    func appendQuery(_ query: String) {
+      bytes.append(contentsOf: Array("\u{1B}]\(query);?\u{1B}\\".utf8))
+    }
+    switch scope {
+    case .all:
+      appendQuery("10")
+      appendQuery("11")
+      for slot in TerminalColorReport.slotRange {
+        appendQuery("4;\(slot)")
+      }
+    case .backgroundOnly:
+      appendQuery("11")
+    }
     bytes.append(contentsOf: [0x1B, 0x5B, 0x63])
     return bytes
   }
@@ -92,7 +130,11 @@ package actor ActiveCapabilityProbeCoordinator {
       }
       resolveRound()
 
-    case (.none, _), (.privateModes, _), (.kittyKeyboard, _), (.kittyGraphics, _):
+    case (.colors, .primaryDeviceAttributes):
+      resolveRound()
+
+    case (.none, _), (.privateModes, _), (.kittyKeyboard, _), (.kittyGraphics, _),
+      (.colors, _):
       break
     }
   }
@@ -116,9 +158,15 @@ package actor ActiveCapabilityProbeCoordinator {
     return false
   }
 
+  /// Runs the generation: DECRQM, Kitty keyboard, Kitty graphics, then the color round.
+  ///
+  /// The color round is the generation's last round and ends at its own DA1 or at
+  /// `timeout`. Color replies are not evidence here; the session applies each one as it
+  /// arrives, so a reply after the round ended is still applied.
   package func reconcile(
     privateModes: [Int],
     kittyImageID: KittyImageID,
+    colorScope: ColorQueryScope,
     timeout: Duration,
     sleep: @escaping Sleep,
     emit: @escaping Emit
@@ -130,6 +178,10 @@ package actor ActiveCapabilityProbeCoordinator {
       throw ActiveCapabilityProbeCoordinatorError.inProgress
     case .resolved:
       throw ActiveCapabilityProbeCoordinatorError.alreadyResolved
+    }
+    guard await roundGate.acquire() else {
+      generation = .idle
+      throw CancellationError()
     }
 
     do {
@@ -154,9 +206,20 @@ package actor ActiveCapabilityProbeCoordinator {
         _ = await waitForRound(timeout: timeout, sleep: sleep)
       }
 
+      try Task.checkCancellation()
+      generationColorRoundStarted = true
+      try await performColorRound(
+        scope: colorScope,
+        timeout: timeout,
+        sleep: sleep,
+        emit: emit
+      )
+
       round = .none
       try Task.checkCancellation()
       generation = .resolved(evidence)
+      generationColorRoundStarted = false
+      await roundGate.release()
       return evidence
     } catch {
       // Cancellation and emit failures mean the terminal was never fully asked, so a later
@@ -164,9 +227,77 @@ package actor ActiveCapabilityProbeCoordinator {
       round = .none
       evidence = ActiveCapabilityProbeEvidence()
       generation = .idle
+      generationColorRoundStarted = false
       cancelWaiter()
+      await roundGate.release()
       throw error
     }
+  }
+
+  /// Asks the terminal for its colors again, after the generation has resolved.
+  ///
+  /// A color-scheme notification or a resume calls this; unlike every other probe, the
+  /// color round is not cached. Rounds run one at a time. A request that arrives while
+  /// another is already queued adds nothing, because the queued round has not asked yet
+  /// and will see the newest colors. A request that arrives before the generation's own
+  /// color round has asked is covered the same way, and one for a session that never ran
+  /// the generation, or after `close()`, does nothing.
+  package func rerunColorRound(
+    scope: ColorQueryScope,
+    timeout: Duration,
+    sleep: @escaping Sleep,
+    emit: @escaping Emit
+  ) async throws {
+    guard !isClosed, !colorRerunQueued else {
+      return
+    }
+    switch generation {
+    case .idle:
+      return
+    case .inProgress where !generationColorRoundStarted:
+      return
+    case .inProgress, .resolved:
+      break
+    }
+
+    colorRerunQueued = true
+    guard await roundGate.acquire() else {
+      colorRerunQueued = false
+      throw CancellationError()
+    }
+    colorRerunQueued = false
+
+    do {
+      if !isClosed, case .resolved = generation {
+        try await performColorRound(
+          scope: scope, timeout: timeout, sleep: sleep, emit: emit)
+      }
+      await roundGate.release()
+    } catch {
+      round = .none
+      cancelWaiter()
+      await roundGate.release()
+      throw error
+    }
+  }
+
+  /// Ends any round in flight and stops later color rounds from asking.
+  package func close() {
+    isClosed = true
+    resolveRound(completed: false)
+  }
+
+  private func performColorRound(
+    scope: ColorQueryScope,
+    timeout: Duration,
+    sleep: @escaping Sleep,
+    emit: @escaping Emit
+  ) async throws {
+    round = .colors
+    roundResolved = false
+    try await emit(Self.colorQueryBytes(scope: scope))
+    _ = await waitForRound(timeout: timeout, sleep: sleep)
+    round = .none
   }
 
   private func waitForRound(

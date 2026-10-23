@@ -26,6 +26,10 @@ The module performs no terminal I/O. An application or another module owns the b
 - ``InputEvent``
 - ``PrivateModeStatus``
 - ``PrivateModeState``
+- ``TerminalColorReply``
+- ``TerminalColorRole``
+- ``TerminalRGBColor``
+- ``TerminalColorScheme``
 
 ### Keyboard values and modifiers
 

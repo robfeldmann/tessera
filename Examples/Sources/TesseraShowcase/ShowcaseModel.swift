@@ -76,9 +76,9 @@ final class ShowcaseModel {
       lastPaste = text
     case .resize(let size):
       resize(to: size)
-    case .focusGained, .focusLost, .key, .kittyGraphicsResponse,
-      .kittyKeyboardEnhancementFlags, .mouse, .primaryDeviceAttributes,
-      .privateModeStatus, .unknown:
+    case .colorReport, .colorSchemeChanged, .focusGained, .focusLost, .key,
+      .kittyGraphicsResponse, .kittyKeyboardEnhancementFlags, .mouse,
+      .primaryDeviceAttributes, .privateModeStatus, .unknown:
       break
     }
   }

@@ -164,6 +164,62 @@ func `enter enables focus tracking after bracketed paste`() async throws {
 }
 
 @Test
+func `enter enables color scheme notifications after the alternate screen`() async throws
+{
+  let device = LifecycleTestDevice()
+  let lifecycle = await makeLifecycle(device)
+
+  try await lifecycle.enter([
+    .rawMode, .altScreen, .bracketedPaste, .colorSchemeNotifications,
+  ])
+
+  let activeModes = await lifecycle.activeModes
+  let events = await device.events
+
+  expectNoDifference(
+    activeModes,
+    [.rawMode, .altScreen, .bracketedPaste, .colorSchemeNotifications]
+  )
+  expectNoDifference(
+    events,
+    [
+      .enableRawMode,
+      .enableAltScreen,
+      .flush(colorSchemeNotificationsEnableBytes),
+      .flush(bracketedPasteEnableBytes),
+    ]
+  )
+}
+
+@Test
+func `exit disables color scheme notifications before leaving the alternate screen`()
+  async throws
+{
+  let device = LifecycleTestDevice()
+  let lifecycle = await makeLifecycle(device)
+
+  try await lifecycle.enter([.rawMode, .altScreen, .colorSchemeNotifications])
+  try await lifecycle.exit()
+
+  let activeModes = await lifecycle.activeModes
+  let events = await device.events
+
+  expectNoDifference(activeModes, [])
+  expectNoDifference(
+    events,
+    [
+      .enableRawMode,
+      .enableAltScreen,
+      .flush(colorSchemeNotificationsEnableBytes),
+      .flush(kittyGraphicsDeleteAllBytes),
+      .flush(colorSchemeNotificationsDisableBytes),
+      .disableAltScreen,
+      .disableRawMode,
+    ]
+  )
+}
+
+@Test
 func `enter enables button-event mouse tracking after focus tracking`() async throws {
   let device = LifecycleTestDevice()
   let lifecycle = await makeLifecycle(device)
@@ -583,6 +639,19 @@ func `apply rejects session fixed modes`() async throws {
 }
 
 @Test
+func `apply rejects color scheme notifications as a session fixed mode`() async throws {
+  let device = LifecycleTestDevice()
+  let lifecycle = await makeLifecycle(device)
+
+  try await lifecycle.enter([.rawMode, .altScreen])
+
+  await #expect(throws: ModeLifecycleError.unsupportedModes([.colorSchemeNotifications]))
+  {
+    try await lifecycle.apply(applicationModes: [.colorSchemeNotifications])
+  }
+}
+
+@Test
 func `apply failure leaves exit safe for succeeded operations`() async throws {
   let device = LifecycleTestDevice(failure: .writeOnAttempt(2))
   let lifecycle = await makeLifecycle(device)
@@ -990,6 +1059,31 @@ struct ModeLifecycleEmergencyCleanupTests {
     }
   }
 
+  @Test
+  func `cleanup bytes disable color scheme notifications before leaving alt screen`()
+    async throws
+  {
+    let registry = TestCleanupRegistry()
+    let lifecycle = await makeLifecycle(
+      LifecycleTestDevice(cleanupState: testCleanupState()),
+      cleanupRegistry: registry.client
+    )
+
+    try await lifecycle.enter([
+      .rawMode, .altScreen, .bracketedPaste, .colorSchemeNotifications,
+    ])
+
+    let bytes = await registry.teardownBytes
+    expectNoDifference(
+      bytes,
+      kittyGraphicsDeleteAllBytes
+        + bracketedPasteDisableBytes
+        + colorSchemeNotificationsDisableBytes
+        + Array("\u{1B}[?1049l".utf8)
+        + Array("\u{1B}[?25h".utf8)
+    )
+  }
+
   @Test(arguments: [MouseTracking.buttonEvents, .anyEvent])
   func `cleanup bytes defensively disable mouse tracking for either granularity`(
     _ granularity: MouseTracking
@@ -1363,6 +1457,8 @@ private let bracketedPasteEnableBytes = Array("\u{1B}[?2004h".utf8)
 private let bracketedPasteDisableBytes = Array("\u{1B}[?2004l".utf8)
 private let focusEnableBytes = Array("\u{1B}[?1004h".utf8)
 private let focusDisableBytes = Array("\u{1B}[?1004l".utf8)
+private let colorSchemeNotificationsEnableBytes = Array("\u{1B}[?2031h".utf8)
+private let colorSchemeNotificationsDisableBytes = Array("\u{1B}[?2031l".utf8)
 private let mouseDisableBytes =
   Array("\u{1B}[?1003l\u{1B}[?1002l\u{1B}[?1006l".utf8)
 private let kittyKeyboardPushBytes = Array("\u{1B}[>7u".utf8)
