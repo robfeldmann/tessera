@@ -93,33 +93,35 @@ function Test-CommittedHeaders {
     $committed = Join-Path $RepoRoot "Sources\CGhosttyVT\include\ghostty"
     $pinned = Join-Path $installDir "include\ghostty"
     if ($UpdateHeaders) {
-        if (Test-Path $committed) {
-            Remove-Item -Recurse -Force $committed
+        if (Test-Path -LiteralPath $committed) {
+            Remove-Item -LiteralPath $committed -Recurse -Force
         }
-        Copy-Item -Recurse -Path $pinned -Destination $committed
+        Copy-Item -LiteralPath $pinned -Destination $committed -Recurse
         Write-Step "updated the committed Ghostty headers: $committed"
         return
     }
     # Compare text with line endings normalized: Git may check either tree out with CRLF.
+    # -LiteralPath throughout: a checkout path may contain [ or ], which -Path reads as
+    # wildcards.
     $relative = {
         param([string]$Root)
-        $base = (Resolve-Path $Root).Path.TrimEnd('\')
-        Get-ChildItem -Path $base -Recurse -File |
+        $base = (Resolve-Path -LiteralPath $Root).Path.TrimEnd('\')
+        Get-ChildItem -LiteralPath $base -Recurse -File |
             ForEach-Object { $_.FullName.Substring($base.Length + 1) }
     }
-    if (-not (Test-Path $committed)) {
+    if (-not (Test-Path -LiteralPath $committed)) {
         throw "the committed Ghostty headers are missing: $committed"
     }
     $names = @(& $relative $pinned) + @(& $relative $committed) | Sort-Object -Unique
     $differences = foreach ($name in $names) {
         $left = Join-Path $pinned $name
         $right = Join-Path $committed $name
-        if (-not (Test-Path $left)) {
+        if (-not (Test-Path -LiteralPath $left)) {
             "only committed: $name"
-        } elseif (-not (Test-Path $right)) {
+        } elseif (-not (Test-Path -LiteralPath $right)) {
             "missing from the commit: $name"
-        } elseif (((Get-Content -Raw $left) -replace "`r`n", "`n") -cne
-            ((Get-Content -Raw $right) -replace "`r`n", "`n")) {
+        } elseif (((Get-Content -LiteralPath $left -Raw) -replace "`r`n", "`n") -cne
+            ((Get-Content -LiteralPath $right -Raw) -replace "`r`n", "`n")) {
             "differs: $name"
         }
     }

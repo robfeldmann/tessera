@@ -3,8 +3,11 @@ name: Ghostty VT bundle
 # Builds libghostty-vt for the pinned revision (scripts/ghostty-vt-version.txt) on every
 # platform Tessera supports, assembles one SE-0482 static-library artifact bundle, and,
 # for a ghostty-vt-<first 12 characters of the pin> tag, publishes it as a prerelease that
-# is never marked latest. Package.swift references that release asset by URL and checksum.
-# Pull requests that touch the producer build and assemble the bundle without publishing.
+# is never marked latest. Package.swift references that release asset by URL and checksum,
+# so a published asset must never change once Package.swift points at it: publishing
+# refuses to replace an existing asset, and refuses a bundle that is missing a variant,
+# unless a manual run opts in. Dispatched on a branch, the workflow builds and assembles
+# without publishing.
 
 on:
   push:
@@ -19,6 +22,17 @@ on:
       - scripts/package-libghostty-vt-bundle.sh
       - Sources/CGhosttyVT/include/ghostty/**
   workflow_dispatch:
+    inputs:
+      replace-assets:
+        description: >-
+          Replace the assets of an existing release. Safe only while no commit of
+          Package.swift references its checksum.
+        type: boolean
+        default: false
+      allow-partial:
+        description: Publish even when a variant failed to build.
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -162,6 +176,8 @@ jobs:
           name: variant-${{ matrix.variant }}
           path: dist/GhosttyVTLibrary.artifactbundle
           if-no-files-found: error
+          # A re-run of a failed leg uploads again into the same run.
+          overwrite: true
 
   build-windows:
     name: build (${{ matrix.variant }})
@@ -198,11 +214,14 @@ jobs:
           name: variant-${{ matrix.variant }}
           path: dist/GhosttyVTLibrary.artifactbundle
           if-no-files-found: error
+          # A re-run of a failed leg uploads again into the same run.
+          overwrite: true
 
   assemble:
     name: assemble bundle
     needs: [check-tag, build-unix, build-windows]
-    # A variant that fails to build is left out of the bundle rather than blocking it.
+    # Runs when a leg fails, so the step summary shows what did build; publishing then
+    # refuses the incomplete bundle unless allow-partial is set.
     if: ${{ !cancelled() && needs.check-tag.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -265,18 +284,35 @@ jobs:
             dist/GhosttyVTLibrary.artifactbundle.zip
             dist/checksum.txt
           if-no-files-found: error
+          overwrite: true
 
-      # The repository allows only GitHub-owned and a few listed actions, so publish with
-      # the runner's gh. A re-run replaces the assets of the release it already created.
+      # The repository's Actions policy keeps third-party actions to a short list, so
+      # publish with the runner's gh.
       - name: Publish the prerelease
         if: needs.check-tag.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ github.ref_name }}
+          ALL_VARIANTS_BUILT: >-
+            ${{ needs.build-unix.result == 'success' && needs.build-windows.result ==
+            'success' }}
+          ALLOW_PARTIAL: ${{ inputs.allow-partial && 'true' || 'false' }}
+          REPLACE_ASSETS: ${{ inputs.replace-assets && 'true' || 'false' }}
         run: |
+          if [[ "$ALL_VARIANTS_BUILT" != "true" && "$ALLOW_PARTIAL" != "true" ]]; then
+            echo "::error::a variant failed to build; re-run the failed legs, or dispatch the workflow on $TAG with allow-partial to publish without it"
+            exit 1
+          fi
           assets=(dist/GhosttyVTLibrary.artifactbundle.zip dist/checksum.txt)
           if gh release view "$TAG" >/dev/null 2>&1; then
+            published="$(gh release view "$TAG" --json assets --jq '[.assets[].name] | index("GhosttyVTLibrary.artifactbundle.zip") != null')"
+            if [[ "$published" == "true" && "$REPLACE_ASSETS" != "true" ]]; then
+              # A rebuilt zip never has the same bytes, so replacing it breaks the checksum
+              # every Package.swift that references this tag pins.
+              echo "::error::$TAG already has GhosttyVTLibrary.artifactbundle.zip; replacing it breaks every Package.swift that pins its checksum. Dispatch the workflow on $TAG with replace-assets only if none does (docs/guides/updating-ghostty-vt.md)."
+              exit 1
+            fi
             gh release upload "$TAG" "${assets[@]}" --clobber
           else
             gh release create "$TAG" "${assets[@]}" \

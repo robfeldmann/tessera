@@ -9,7 +9,9 @@ Usage: scripts/package-libghostty-vt-bundle.sh [--variant <name>] [--library <pa
 Copy a libghostty-vt static library built by scripts/build-libghostty-vt.sh (or
 .ps1) into an SE-0482 static-library artifact bundle, then rewrite the bundle's
 info.json from every variant the bundle holds. Run it once per variant to merge
-several variants into one bundle.
+several variants into one bundle; a variant whose triples another variant in the
+bundle already claims is refused. The bundle also gets Ghostty's LICENSE and
+scripts/ghostty-vt-licenses/ as THIRD_PARTY_LICENSES/.
 
 Variants and the triples they declare:
   macos-arm64        arm64-apple-macosx
@@ -132,12 +134,31 @@ if [[ -z "$license" && -f "$output_root/source/$revision/LICENSE" ]]; then
   license="$output_root/source/$revision/LICENSE"
 fi
 
+# Two variants that claim the same triple make SwiftPM's choice ambiguous, for example a
+# local macos-arm64 build added to a bundle that already holds macos-universal.
+for directory in "$bundle"/*/; do
+  [[ -d "$directory" ]] || continue
+  other="$(basename "$directory")"
+  [[ "$other" != "$variant" ]] || continue
+  other_triples="$(variant_triples "$other")" || continue
+  [[ -f "$directory/$(variant_library_name "$other")" ]] || continue
+  for triple in $(variant_triples "$variant"); do
+    if [[ " $other_triples " == *" $triple "* ]]; then
+      echo "error: $bundle already has variant $other for $triple; remove it before adding $variant" >&2
+      exit 1
+    fi
+  done
+done
+
 mkdir -p "$bundle/$variant"
 rm -f "$bundle/$variant"/*
 cp "$library" "$bundle/$variant/$library_name"
 if [[ -n "$license" ]]; then
   cp "$license" "$bundle/LICENSE"
 fi
+# The third-party components linked into the archives (see the directory's README.md).
+rm -rf "$bundle/THIRD_PARTY_LICENSES"
+cp -R "$repo_root/scripts/ghostty-vt-licenses" "$bundle/THIRD_PARTY_LICENSES"
 
 # Rewrite info.json from the variant directories present, so repeated runs merge.
 variants_json=""

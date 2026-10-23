@@ -6,8 +6,10 @@ Add a Windows libghostty-vt variant to an SE-0482 artifact bundle.
 Windows counterpart of scripts/package-libghostty-vt-bundle.sh. Copies the
 ghostty-vt-static.lib that scripts/build-libghostty-vt.ps1 installed into a
 GhosttyVTLibrary.artifactbundle variant directory, then rewrites the bundle's
-info.json from every variant the bundle holds, so repeated runs merge. The
-variant table matches the shell script's.
+info.json from every variant the bundle holds, so repeated runs merge. A variant
+whose triples another variant in the bundle already claims is refused. The bundle
+also gets Ghostty's LICENSE and scripts\ghostty-vt-licenses\ as
+THIRD_PARTY_LICENSES\. The variant table matches the shell script's.
 
 .PARAMETER Variant
 windows-arm64 or windows-x86_64 (default: the host's).
@@ -86,31 +88,56 @@ $libraryName = Get-LibraryName $Variant
 if (-not $Library) {
     $Library = Join-Path $outputRoot "$revision\$Variant\lib\$libraryName"
 }
-if (-not (Test-Path $Library)) {
+if (-not (Test-Path -LiteralPath $Library)) {
     throw "library not found: $Library (run scripts\build-libghostty-vt.ps1 first)"
 }
 if (-not $Bundle) {
     $Bundle = Join-Path $RepoRoot ".build\ghostty-vt\GhosttyVTLibrary.artifactbundle"
 }
+# .NET file APIs resolve relative paths against the process directory, not PowerShell's
+# location, so make the bundle path absolute before info.json is written.
+$Bundle = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Bundle)
 $sourceLicense = Join-Path $outputRoot "source\$revision\LICENSE"
-if (-not $License -and (Test-Path $sourceLicense)) {
+if (-not $License -and (Test-Path -LiteralPath $sourceLicense)) {
     $License = $sourceLicense
 }
 
+# Two variants that claim the same triple make SwiftPM's choice ambiguous, for example a
+# local macos-arm64 build added to a bundle that already holds macos-universal.
+foreach ($other in $VariantTriples.Keys) {
+    if ($other -eq $Variant) {
+        continue
+    }
+    if (-not (Test-Path -LiteralPath (Join-Path $Bundle "$other\$(Get-LibraryName $other)"))) {
+        continue
+    }
+    foreach ($triple in $VariantTriples[$Variant]) {
+        if ($VariantTriples[$other] -contains $triple) {
+            throw "$Bundle already has variant $other for $triple; remove it before adding $Variant"
+        }
+    }
+}
+
 $variantDir = Join-Path $Bundle $Variant
-if (Test-Path $variantDir) {
-    Remove-Item -Recurse -Force $variantDir
+if (Test-Path -LiteralPath $variantDir) {
+    Remove-Item -LiteralPath $variantDir -Recurse -Force
 }
 New-Item -ItemType Directory -Force -Path $variantDir | Out-Null
-Copy-Item -Path $Library -Destination (Join-Path $variantDir $libraryName)
+Copy-Item -LiteralPath $Library -Destination (Join-Path $variantDir $libraryName)
 if ($License) {
-    Copy-Item -Path $License -Destination (Join-Path $Bundle "LICENSE")
+    Copy-Item -LiteralPath $License -Destination (Join-Path $Bundle "LICENSE")
 }
+# The third-party components linked into the archives (see the directory's README.md).
+$licensesDir = Join-Path $Bundle "THIRD_PARTY_LICENSES"
+if (Test-Path -LiteralPath $licensesDir) {
+    Remove-Item -LiteralPath $licensesDir -Recurse -Force
+}
+Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\ghostty-vt-licenses") -Destination $licensesDir -Recurse
 
 # Rewrite info.json from the variant directories present, so repeated runs merge.
 $entries = foreach ($name in $VariantTriples.Keys) {
     $file = Get-LibraryName $name
-    if (-not (Test-Path (Join-Path $Bundle "$name\$file"))) {
+    if (-not (Test-Path -LiteralPath (Join-Path $Bundle "$name\$file"))) {
         continue
     }
     $triples = ($VariantTriples[$name] | ForEach-Object { "`"$_`"" }) -join ", "
