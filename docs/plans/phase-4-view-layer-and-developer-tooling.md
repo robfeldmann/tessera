@@ -15,7 +15,7 @@ This plan merges plan 032 (Phases 8-17, its open implementation phases; Phases 1
 ## Progress
 
 - [ ] 1 Terminal colour reports
-- [ ] 2 Seams for the harness
+- [x] 2 Seams for the harness: `ea513af` on `phase-4/02-seams` (draft PR #59); `mise run core:test -- --filter TerminalSessionTests` runs 103 tests green (94 before, 9 seam tests added), and the two `ViewGraphClockTests` are green; full `mise run core:test` (673 tests), `quality:format`, `quality:lint`, and `docs:lint` green on Xcode 26.6; the added lines declare no `public` API (`git diff 79da704 HEAD -U0 -- Sources` shows only the existing `ViewGraph` init gaining `convenience`); CI run 40027319517 green on every leg (macOS, Linux, Windows, Swift 6.4, DocC, static Linux SDK).
 - [ ] 3 Harness target and Showcase retirement
 - [ ] 4 Demo contract, registry, viewports, and the headless driver
 - [ ] 5 Scenario language, runner, `tessera-dev`, and the CI corpus
@@ -35,7 +35,7 @@ This plan merges plan 032 (Phases 8-17, its open implementation phases; Phases 1
 - [ ] 19 Docs, skill, and the conformance gate
 - [ ] 20 Intro app and Phase 4 closure
 
-Next: Slice 1 and Slice 2, in parallel, under [Unattended execution](#unattended-execution); Slice 3 follows Slice 2. Slice 4 waits for Decision 9 (i).
+Next: Slice 1 runs in its own pull request. Slice 2 is done (PR #59). Slice 3 follows Slice 2 (branch from `phase-4/02-seams` until PR #59 lands) but names Decision 9 for the harness's product and stability promise, so it waits for the owner; Slice 4 waits for Decision 9 (i).
 
 ## Approach
 
@@ -222,6 +222,7 @@ Rules for an agent running slices of this plan without the owner.
 - 2026-10-23 Decision 5, the terminal colour-report probe: a slice of this plan (Slice 1) that depends on no other slice and runs in parallel, so styling is built and reviewed in the `derived` tier; the harness answers colour queries from the scenario's `term` header so goldens never depend on Ghostty's defaults. (owner)
 - 2026-10-23 Decision 8, the coverage walk: the levels `shortcut`, `tab`, and `unreachable`, the shortest route as key-and-count steps, and the stop reason, without Ternbook's app-only levels and landmarks. The rule behind it covers every tool: an output field earns its place when it lets an agent find and fix a problem in fewer turns with less context. (owner)
 - 2026-10-23 Slices renumbered: the colour-report slice is Slice 1, and Flow and `ViewThatFits` move from Slice 10 to Slice 7, so former Slices 1-5 are now 2-6, 6-9 are 8-11, 10 is 7, and 11-19 are 12-20; entries above use the new numbers. (this plan)
+- 2026-10-23 Slice 2 seam shapes. `InMemoryTerminalDevice` registers an open device's byte and size-change streams inside the actor when `terminalDevice` is read, instead of the patch's unstructured attach `Task` with a replay of every delivered size: a resize delivered after the read is never lost to an attach race, and a late reader sees no history (plan 033 Step A.2's since-subscription semantics, without the race). The streams are single-reader, which `PlatformIO` satisfies (one `bytes()` and one `sizeChanges()` call). `TerminalSession.outputTap` tees only a draw's bytes, before its `io.write` (plan 033's "draw tap"); clipboard, image, probe, and cursor-restore writes stay untapped. `lastDrawn` sits beside the renderer's diff base rather than replacing it: `invalidateRenderer()` clears the base but not `lastDrawn`, because the terminal still shows that frame. `size` is `get async throws`, as `PlatformIO.size()` throws. `InMemoryTerminalSession.package init(device:)` from the patch stays, since an open device is only built through the package init. The `probeImageID` and `probeSleep` defaults are hoisted into `randomProbeImageID()` and `continuousClockSleep`, so the init and the `withApplicationTerminal` static share them. (this plan, Slice 2 run)
 - Open, Decision 9: how app authors consume the harness. (i) The public surface: `HeadlessApp` as designed here, or driving the Phase 5 runtime's scene (`TestRuntime(scene:)` in `docs/spec/phase-5-runtime-and-polish.md`), and which names carry a 1.0 stability promise. Deferred by the owner (2026-10-22); on 2026-10-23 the owner asked for a `senior` review (spikes allowed) to settle it before Slice 4, so Slices 4-7 can run unattended; the owner decides from that review. (ii) Distribution of libghostty-vt: decided 2026-10-22 (owner) after [libghostty-vt distribution](../research/libghostty-vt-distribution.md): an SE-0482 static-library artifact bundle built by Tessera's CI once per Ghostty pin and published as a release asset behind `binaryTarget(url:checksum:)`, with the pinned headers committed in `CGhosttyVT`. Taken and implemented 2026-10-22 by [Ship libghostty-vt as a prebuilt binary](libghostty-vt-binary-distribution.md): `Package.swift` links the `ghostty-vt-f54340ad7781` release, no test job builds Zig, and [libghostty-vt distribution](../architecture/libghostty-vt-distribution.md) records the rule. (iii) How an app gets `tessera-dev`: a per-app executable calling `HarnessCLI.main(registry:)`, a prebuilt front end (GitHub releases, Homebrew, mise) that builds and forwards to that executable, or a SwiftPM command plugin. Deferred by the owner (2026-10-22); a per-app executable is needed under every option, so Slices 4-18 build that and nothing forecloses the others; settle before Slice 19.
 
 ## Discoveries
@@ -231,6 +232,10 @@ Rules for an agent running slices of this plan without the owner.
 - `Text` does not wrap at HEAD and ignores its width proposal (plan 033) — Slice 8.
 - `handlerKinds` and the focus and requirement counters are dead at HEAD (plan 033; `focusChanges` confirmed in plan 034 R-10) — Slice 9.
 - The seams spike's `sizeChanges` fan-out was superseded by plan 034 Step 6.6, which fans one subscription out newest-only — Slice 2 adapts the patch rather than applying it.
+- A device whose input has finished (the default `InMemoryTerminalDevice`) never waits on a probe timeout: `finishInput()` marks the coordinator closed and every round resolves at once, so an injected `probeSleep` is observable only on an open device. The seams README's "waits out `activeProbeTimeout`" holds for an input stream that never finishes. Slice 2's probe-sleep test uses `keepsInputOpen` for this reason.
+- `--filter TerminalSessionTests`, the Slice 2 Verify command, matches the test's source file name, since the session tests are free-function `@Test`s; the seam tests live in `TerminalSessionTests.swift` so the filter runs them.
+- `TerminalSession.outputTap` is actor-isolated state, so the harness sets it inside `withApplicationTerminal`'s `isolated` body or through an `isolated TerminalSession` parameter, never from outside the actor — Slice 3's `Driver` takes the session that way.
+- swift-format rewrites a final closure argument into a trailing closure, then flags the call for also carrying a labelled closure (`OnlyOneTrailingClosureArgument`; SwiftLint `multiple_closures_with_trailing_closure`), so tests bind injected clocks and sleeps to locals before passing them.
 
 ## Outcome
 
