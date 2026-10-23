@@ -251,3 +251,56 @@ jobs:
       - name: Test in parallel
         if: needs.ci-gate.outputs.vouch-only != 'true'
         run: swift test --parallel
+
+  version-consumer:
+    name: version consumer (${{ matrix.os }})
+    needs: ci-gate
+    if: >
+      github.event_name != 'pull_request' ||
+      !contains(github.event.pull_request.labels.*.name, 'skip-ci')
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-26, ubuntu-latest, windows-latest]
+    steps:
+      - name: Skip for trust-only change
+        if: needs.ci-gate.outputs.vouch-only == 'true'
+        run: echo "Trust-only change; the version consumer is not required."
+
+      - name: Checkout
+        if: needs.ci-gate.outputs.vouch-only != 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # A full clone, so the temporary clone below is not shallow.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Swift
+        if: needs.ci-gate.outputs.vouch-only != 'true'
+        uses: ./.github/actions/setup-swift
+
+      # Tests/Fixtures/VersionConsumer depends on Tessera by version, as an app would:
+      # through a file:// clone of this checkout tagged 0.0.0-ci. It must link
+      # libghostty-vt from the published bundle, with no Zig on the machine.
+      - name: Build, run, and test the version consumer
+        if: needs.ci-gate.outputs.vouch-only != 'true'
+        shell: bash
+        run: |
+          if command -v zig; then
+            echo "::error::zig is on PATH; a version consumer must not need it"
+            exit 1
+          fi
+          clone="$RUNNER_TEMP/version-consumer/tessera"
+          git clone --quiet "$GITHUB_WORKSPACE" "$clone"
+          git -C "$clone" tag 0.0.0-ci
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            export TESSERA_VERSION_CONSUMER_URL="file:///$(cygpath -m "$clone")"
+          else
+            export TESSERA_VERSION_CONSUMER_URL="file://$clone"
+          fi
+          cd Tests/Fixtures/VersionConsumer
+          swift build
+          swift run VersionConsumer
+          swift test

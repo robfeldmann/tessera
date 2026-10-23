@@ -24,6 +24,9 @@ node_modules/
 # swift-format cache
 .swift-format-cache/
 
+# The version-consumer fixture resolves against a temporary clone on every run
+Tests/Fixtures/VersionConsumer/Package.resolved
+
 # Swift Package Manager
 .build/
 .swiftpm/*
