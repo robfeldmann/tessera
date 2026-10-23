@@ -21,7 +21,7 @@ The design draws on Textual's pilot and snapshot tests, oh-my-pi's debug socket 
 2. **The runtime returns facts; the harness judges them.** Expectations are evaluated against a projection of the diagnostics the runtime already produces. `TesseraCore` holds no assertion state and gains only value-typed diagnostics fields, each by spec amendment.
 3. **Text first, pixels for review.** The Ghostty cell grid is the golden. SVG and PNG pictures help a human review a change; they are never committed and never compared.
 4. **Time is injected.** No step sleeps. Waiting and animation are expressed against a clock the harness advances, and are not expressible until that clock exists rather than faked with real time.
-5. **A plain agent contract.** One JSON object per command when stdout is not a terminal, fixed exit codes, and errors that name the accepted vocabulary. A selector that matches nothing is an error, not an empty result.
+5. **A plain agent contract.** One JSON object per command when stdout is not a terminal, fixed exit codes, and errors that name the accepted vocabulary. A selector that matches nothing is an error, not an empty result. Every output is shaped for the agent reading it: a field earns its place when it lets an agent find and fix a problem in fewer turns with less context, and a field that saves neither is left out.
 6. **No test affordances in product API.** The view and terminal libraries expose no hooks for the harness: the seams it needs are `package`, never `public`, and the harness, which app authors import, uses them internally without re-exporting them. Text goldens are the only committed artefacts, and drift fails unless `--record` is passed.
 7. **"Why" is answered by the trace, not by prints.** Demos find library bugs; the harness never works around them, and a demo is never bent to make a run pass.
 
@@ -109,7 +109,7 @@ check
 | Observe | `shot NAME [SEL]`, `tree [SEL]`, `dump [SEL]`, `hit R,C` |
 | Assert | `expect text ROW "..."`, `expect screen <<EOF ... EOF`, `expect cell R,C bold fg=ROLE bg=ROLE`, `expect node SEL frame X,Y WxH \| visible \| clipped \| count N`, `expect focused SEL`, `expect cost bodies<=N measures<=N bytes<=N`, `expect wireframe PATH N [at SEL]`, `check [rule...]` |
 
-The `term` header maps onto the session's real capability settings, so ASCII fallbacks, `NO_COLOR`, and backtab-versus-Shift+Tab are scenario facts rather than environment accidents. Input is typed `InputEvent` verbs with `bytes` as the escape hatch; key names follow Playwright and are normalised (`Ctrl+C`). The parser binds the header first and fails fast with `FILE:LINE: error:`. A failed `expect` is recorded with the screen and the run continues, so one run reports every failure. `Examples/Scenarios/README.md` is the grammar's single source; a verb the library cannot honour yet (`wait` before the schedulable clock, `mouse` before hit testing) is listed there as not yet expressible, never faked.
+The `term` header maps onto the session's real capability settings, so ASCII fallbacks, `NO_COLOR`, and backtab-versus-Shift+Tab are scenario facts rather than environment accidents. The harness answers the app's terminal colour queries itself from the header, with given colours or with none, so a styled golden never depends on the virtual terminal's default colours. Input is typed `InputEvent` verbs with `bytes` as the escape hatch; key names follow Playwright and are normalised (`Ctrl+C`). The parser binds the header first and fails fast with `FILE:LINE: error:`. A failed `expect` is recorded with the screen and the run continues, so one run reports every failure. `Examples/Scenarios/README.md` is the grammar's single source; a verb the library cannot honour yet (`wait` before the schedulable clock, `mouse` before hit testing) is listed there as not yet expressible, never faked.
 
 ### Locators
 
@@ -163,7 +163,7 @@ The driver writes one JSONL record per step: sequence number, event, the pass's 
 | `run PATH...` | run scenario files or directories (`--record`, `--repeat N`, `--timing`, `--json`, `--pretty`) |
 | `shot`, `tree`, `check` | one-off picture, tree, or check of a demo at a size |
 | `replay FILE --app NAME` | rerun a recorded trace as a scenario |
-| `coverage --app NAME` | walk the keyboard from initial focus: per focusable, the shortest route (by shortcut or Tab) or `unreachable`, and why the walk stopped |
+| `coverage --app NAME` | walk the keyboard from initial focus with Tab and Shift+Tab, and the arrow keys inside lists and pickers: per focusable, its level (`shortcut` for a KeyLegend binding, `tab`, or `unreachable`) and its shortest route as a starting point plus key-and-count steps (`[["Tab", 2], ["Down", 3]]`, which replay directly as `key` statements), and why the walk stopped |
 | `conform [DOC...]` | list every catalog wireframe fence and the scenario that pins it, or `unpinned` |
 | `attach` | talk to a live app over the debug socket |
 
@@ -192,9 +192,8 @@ The loop the `tessera-devtools` skill teaches, for humans and agents alike:
 
 ## Open questions
 
-- How app authors consume the harness: whether they adopt `HeadlessApp` or drive the app runtime's scene, which names carry a stability promise, and how libghostty-vt is distributed, since it is linked today through build flags that SwiftPM refuses in version-based dependencies.
+- How app authors consume the harness: whether they adopt `HeadlessApp` or drive the app runtime's scene, and which names carry a stability promise. (libghostty-vt reaches apps as a prebuilt binary; see [libghostty-vt distribution](libghostty-vt-distribution.md).)
 - How an app gets `tessera-dev`: its own small executable over the harness, or a shared tool.
-- The shape of the keyboard coverage walk's output.
 
 ## Keeping this page current
 
