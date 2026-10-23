@@ -194,8 +194,8 @@ if ProcessInfo.processInfo.environment["TESSERA_GHOSTTY_VT_BUNDLE"] == "local" {
     .binaryTarget(
       name: "GhosttyVTLibrary",
       url:
-        "https://github.com/robfeldmann/tessera/releases/download/ghostty-vt-f54340ad7781/GhosttyVTLibrary.artifactbundle.zip",
-      checksum: "0876a3561e62c321db0a75f04195288690bdffcdea6e9e02d5861c6ca2d01ccc"
+        "https://github.com/robfeldmann/tessera/releases/download/ghostty-vt-f54340ad7781-r2/GhosttyVTLibrary.artifactbundle.zip",
+      checksum: "b949bba401914a8e9dbd864d3748d74c63348660398bb5399be36e8aa24205de"
     )
   )
 }

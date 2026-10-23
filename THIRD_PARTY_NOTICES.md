@@ -38,4 +38,4 @@ The `libghostty-vt` static archives also contain code from the components below,
 - [uucode](https://github.com/jacobsandlund/uucode) 0.2.0: MIT; with Unicode Character Database tables under the Unicode License V3 and Björn Höhrmann's UTF-8 decoder under MIT.
 - [Zig](https://ziglang.org) 0.17.0 standard library and compiler-rt: MIT.
 
-The first published bundle, `ghostty-vt-f54340ad7781`, predates `THIRD_PARTY_LICENSES/` and carries only Ghostty's `LICENSE`; this file and `scripts/ghostty-vt-licenses/` cover it. Bundles for later pins include the directory.
+Every published bundle from `ghostty-vt-f54340ad7781-r2` on carries `THIRD_PARTY_LICENSES/`. The first one, `ghostty-vt-f54340ad7781`, carried only Ghostty's `LICENSE` and was deleted once `Package.swift` pointed at `-r2`.
