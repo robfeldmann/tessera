@@ -48,9 +48,11 @@ Update the pinned revision when Tessera needs a Ghostty VT bug fix, API change, 
 
 4. If the Ghostty C API changed, update the `CGhosttyVT`/`VirtualTerminal` boundary only. Keep Ghostty-specific details out of public Tessera products.
 
-5. Open the pull request. Because it changes the pin, the `Ghostty VT bundle` workflow builds every variant on hosted runners, audits the glibc variants, and assembles the bundle without publishing it. The `test` jobs still link the previous release until step 7: they compile the new headers against the old library, so they fail when Tessera uses a symbol the old library lacks, and they never exercise the new pin. Your local runs from step 3 do.
+5. Check the third-party licenses. `ar t` on the built archive lists the objects linked into it, and the pinned `build.zig.zon` and `pkg/*/build.zig.zon` name the dependencies' versions. Update the table and the license files in `scripts/ghostty-vt-licenses/` when a component, version, or license changed.
 
-6. Publish the bundle by pushing the tag for the new pin on the pull request's head commit:
+6. Open the pull request. The `test` jobs still link the previous release until step 8: they compile the new headers against the old library, so they fail when Tessera uses a symbol the old library lacks, and they never exercise the new pin. Your local runs from step 3 do. To build every variant on hosted runners before publishing anything, dispatch the producer on the branch: `gh workflow run ghostty-vt.yml --ref <branch>` builds, audits, and assembles the bundle, and publishes nothing.
+
+7. Publish the bundle by pushing the tag for the new pin on the pull request's head commit:
 
    ```sh
    revision="$(tr -d '[:space:]' < scripts/ghostty-vt-version.txt)"
@@ -58,9 +60,9 @@ Update the pinned revision when Tessera needs a Ghostty VT bug fix, API change, 
    git push origin "ghostty-vt-${revision:0:12}"
    ```
 
-   The workflow checks that the tag names the pin, then creates the prerelease with `GhosttyVTLibrary.artifactbundle.zip` and `checksum.txt`, never marked latest. If a leg fails, `gh run rerun --failed` on the tag's run replaces the release's assets; once the workflow is on `main`, `gh workflow run ghostty-vt.yml --ref <tag>` rebuilds it too.
+   The workflow checks that the tag names the pin, then creates the prerelease with `GhosttyVTLibrary.artifactbundle.zip` and `checksum.txt`, never marked latest. It publishes only when all seven variants built: if a leg fails, fix the cause and run `gh run rerun --failed` on the tag's run. Once a release has its zip, the workflow refuses to replace it, because a rebuilt zip never has the same bytes and every `Package.swift` that pins its checksum would stop resolving. While no commit of `Package.swift` references the tag yet, `gh workflow run ghostty-vt.yml --ref <tag> -f replace-assets=true` rebuilds and replaces it; after that, never. `-f allow-partial=true` publishes without a variant that cannot be built; record why in the pull request.
 
-7. Point `Package.swift` at the new release: in the `GhosttyVTLibrary` block, replace the tag in the URL and set `checksum` to the contents of the release's `checksum.txt`. Push; the `test` and `version consumer` jobs now link the new bundle on every platform.
+8. Point `Package.swift` at the new release: in the `GhosttyVTLibrary` block, replace the tag in the URL and set `checksum` to the contents of the release's `checksum.txt`. Push; the `test`, `version consumer`, and `static Linux SDK` jobs now link the new bundle on every platform and architecture.
 
 ## Variants
 
@@ -71,7 +73,7 @@ Update the pinned revision when Tessera needs a Ghostty VT bug fix, API change, 
 | `linux-musl-x86_64`, `linux-musl-arm64` | `x86_64-swift-linux-musl`, `aarch64-swift-linux-musl` | `ubuntu-latest`, `--target <arch>-linux-musl`, for the Static Linux SDK |
 | `windows-x86_64`, `windows-arm64` | `x86_64-unknown-windows-msvc`, `aarch64-unknown-windows-msvc` | `windows-latest` and `windows-11-arm`, `build-libghostty-vt.ps1` |
 
-Each variant directory holds only the static library (`libghostty-vt.a`, or `ghostty-vt-static.lib` on Windows); the bundle root holds `info.json` and Ghostty's `LICENSE`. Headers and a module map stay out of the bundle, because Xcode 26.6 and Swift Build 6.3.3 do not see a module map inside a transitive artifact bundle. `CGhosttyVT` links `ntdll` on Windows itself, because Zig's standard library calls it and a bundle cannot declare system libraries. SwiftPM needs `unzip` on Linux to unpack the bundle.
+Each variant directory holds only the static library (`libghostty-vt.a`, or `ghostty-vt-static.lib` on Windows). The bundle root holds `info.json`, Ghostty's `LICENSE`, and `THIRD_PARTY_LICENSES/`, a copy of `scripts/ghostty-vt-licenses/` with the licenses of the other components linked into the archives (Highway, simdutf, Wuffs, uucode and its Unicode data and UTF-8 decoder, and Zig's standard library and compiler-rt). Headers and a module map stay out of the bundle, because Xcode 26.6 and Swift Build 6.3.3 do not see a module map inside a transitive artifact bundle. `CGhosttyVT` links `ntdll` on Windows itself, because Zig's standard library calls it and a bundle cannot declare system libraries. SwiftPM needs `unzip` on Linux to unpack the bundle. The packaging scripts refuse a variant whose triples another variant in the bundle already claims, such as a local `macos-arm64` added to a CI bundle's `macos-universal`.
 
 ## Windows
 

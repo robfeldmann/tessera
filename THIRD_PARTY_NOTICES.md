@@ -27,3 +27,15 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+### Components linked into libghostty-vt
+
+The `libghostty-vt` static archives also contain code from the components below, compiled in by Ghostty's build. Their license texts are in [`scripts/ghostty-vt-licenses/`](scripts/ghostty-vt-licenses/README.md), which the producer workflow ships in the artifact bundle as `THIRD_PARTY_LICENSES/`; a distribution of an app that links `libghostty-vt` must retain them too.
+
+- [Highway](https://github.com/google/highway) 1.2.0: BSD-3-Clause (offered as Apache-2.0 OR BSD-3-Clause).
+- [simdutf](https://github.com/simdutf/simdutf) 9.0.0: MIT (offered as Apache-2.0 OR MIT).
+- [Wuffs](https://github.com/google/wuffs) 0.4.0-alpha.10: MIT (offered as Apache-2.0 OR MIT).
+- [uucode](https://github.com/jacobsandlund/uucode) 0.2.0: MIT; with Unicode Character Database tables under the Unicode License V3 and Björn Höhrmann's UTF-8 decoder under MIT.
+- [Zig](https://ziglang.org) 0.17.0 standard library and compiler-rt: MIT.
+
+The first published bundle, `ghostty-vt-f54340ad7781`, predates `THIRD_PARTY_LICENSES/` and carries only Ghostty's `LICENSE`; this file and `scripts/ghostty-vt-licenses/` cover it. Bundles for later pins include the directory.

@@ -9,9 +9,9 @@ description: How Tessera ships libghostty-vt, so apps that depend on Tessera by 
 
 Tessera ships Ghostty's `libghostty-vt` as a prebuilt SE-0482 static-library artifact bundle, built by Tessera's CI once per Ghostty pin and published from this repository as a release asset. `CGhosttyVT` is a source C target that holds Ghostty's headers for the pin (committed under `Sources/CGhosttyVT/include/ghostty/`), depends on the `GhosttyVTLibrary` binary target, and links `ntdll` on Windows. `GhosttyVTLibrary` points at the bundle by URL and checksum in one place in `Package.swift`. `Package.swift` has no `unsafeFlags`.
 
-The bundle holds one static library per variant and nothing else besides `info.json` and Ghostty's `LICENSE`: a universal macOS archive, glibc and musl archives for Linux x86_64 and aarch64, and `ghostty-vt-static.lib` for Windows x86_64 and aarch64. The glibc archives target glibc 2.28 and need 2.27 at run time. The bundle carries no headers and no module map.
+The bundle holds one static library per variant: a universal macOS archive, glibc and musl archives for Linux x86_64 and aarch64, and `ghostty-vt-static.lib` for Windows x86_64 and aarch64. The glibc archives target glibc 2.28 and need 2.27 at run time. Beside them sit `info.json`, Ghostty's `LICENSE`, and `THIRD_PARTY_LICENSES/` (from `scripts/ghostty-vt-licenses/`) for the other components linked into the archives. The bundle carries no headers and no module map.
 
-`.github/workflows/ghostty-vt.yml` is the only place libghostty-vt is built for a release. It runs the same build scripts a contributor runs (`scripts/build-libghostty-vt.sh` and `.ps1`), packs each variant with `scripts/package-libghostty-vt-bundle.sh` and `.ps1`, and publishes on a `ghostty-vt-<first 12 characters of the pin>` tag, as a prerelease never marked latest, beside Tessera's own `v<SemVer>` releases. A pin bump builds locally and selects the result with `TESSERA_GHOSTTY_VT_BUNDLE=local` until its release exists; [Updating Ghostty VT](../guides/updating-ghostty-vt.md) is the procedure. No test, docs, or VM job builds Zig, and the `version consumer` CI job proves on macOS, Linux, and Windows that a package depending on Tessera by version links the bundle and runs a Ghostty round trip.
+`.github/workflows/ghostty-vt.yml` is the only place libghostty-vt is built for a release. It runs the same build scripts a contributor runs (`scripts/build-libghostty-vt.sh` and `.ps1`), packs each variant with `scripts/package-libghostty-vt-bundle.sh` and `.ps1`, and publishes on a `ghostty-vt-<first 12 characters of the pin>` tag, as a prerelease never marked latest, beside Tessera's own `v<SemVer>` releases. It publishes only a complete bundle and never replaces a published zip unless a manual run opts in, because `Package.swift` pins the zip's checksum. A pin bump builds locally and selects the result with `TESSERA_GHOSTTY_VT_BUNDLE=local` until its release exists; [Updating Ghostty VT](../guides/updating-ghostty-vt.md) is the procedure. No test, docs, or VM job builds Zig. The `version consumer` CI job proves on macOS (arm64 and x86_64), Linux, and Windows that a package depending on Tessera by version links the bundle and runs a Ghostty round trip, and the `static Linux SDK` job builds Tessera for both musl triples and runs the round trip from a statically linked binary.
 
 ## Why
 
@@ -21,9 +21,10 @@ The library-only bundle under a source C target is the layout that built by vers
 
 ## Consequences
 
-- A `ghostty-vt-*` tag and its release are permanent once a Tessera version references them; a fix re-runs the workflow for the same tag, which replaces the assets.
+- A `ghostty-vt-*` tag and its zip are permanent once any commit of `Package.swift` references them: rebuilding the zip changes its bytes and breaks every consumer that pins its checksum. The workflow refuses to replace a published zip; the `replace-assets` dispatch input exists only for a release that nothing references yet.
+- Ghostty's `LICENSE` covers Ghostty's own code only. The archives also contain Highway, simdutf, Wuffs, uucode (with Unicode data and a UTF-8 decoder), and Zig's standard library and compiler-rt, and binary redistribution of each requires its notice, so their licenses ship in the bundle and are listed in `THIRD_PARTY_NOTICES.md`. The dual-licensed ones are redistributed under their BSD or MIT option.
 - SwiftPM needs `unzip` on Linux to unpack the bundle.
-- The musl variants cannot be audited by `swift package experimental-audit-binary-artifact`, which only checks the host's triple; they were proven by building and running a static binary instead.
+- The musl variants cannot be audited by `swift package experimental-audit-binary-artifact`, which only checks the host's triple; the `static Linux SDK` job links both and runs the x86_64 one instead.
 
 ## Affected plans
 

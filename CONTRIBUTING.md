@@ -187,12 +187,13 @@ Use `27` for the Swift 6.4 lane (macOS 27 with Xcode 27.1).
 
 ### Linux
 
-Compile-check against the Static Linux SDK without a VM (does not run tests):
+Compile-check the library targets against the Static Linux SDK (x86_64 and aarch64 musl) without a VM; it does not run tests:
 
 ```sh
-mise run linux:install-sdk     # SDK metadata is pinned in scripts/config/swift-sdks.json
-mise run linux:build
+mise run linux:build           # installs the SDK pinned in scripts/config/swift-sdks.json first
 ```
+
+The SDK needs a swift.org toolchain; Xcode's compiler rejects its modules. On macOS the task runs the swift.org toolchain of the active Swift version through swiftly (`swiftly install 6.3.3`) and stops with that advice when none is installed. CI's `static Linux SDK` job runs the same build on Linux, so a Mac without that toolchain can rely on CI.
 
 Run the Linux test suite in a [Lima](https://lima-vm.io/) VM (Ubuntu 24.04, no Docker):
 

@@ -47,7 +47,7 @@ mise run core:clean-libghostty-vt
 
 There are two Linux paths:
 
-1. `mise run linux:build` uses Swift's Static Linux SDK from macOS. The SDK is installed into the active Swift toolchain, not into this repository.
+1. `mise run linux:build` cross-compiles the library targets with Swift's Static Linux SDK. The SDK installs per user, under SwiftPM's configuration directory, not into this repository, and it needs a swift.org toolchain: on macOS the task uses swiftly's toolchain of the active Swift version and stops when none is installed. CI's `static Linux SDK` job runs the same build.
 2. `mise run vm:linux-test` uses a Lima VM so tests run on an actual Linux userspace.
 
 The Static Linux SDK metadata lives in `scripts/config/swift-sdks.json`, keyed by Swift version. `scripts/linux-sdk-version.sh` picks the entry that matches the active compiler (`swift --version`), because the SDK must match the compiler that uses it, and falls back to `.swift-version` when the active compiler has no entry. Updating the baseline Swift means adding an entry here and updating `.swift-version` together.
