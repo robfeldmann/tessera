@@ -162,10 +162,43 @@ let AllTesseraTargetNames: Set<String> = [
 package.targets.append(
   .target(
     name: "CGhosttyVT",
+    dependencies: ["GhosttyVTLibrary"],
     path: "Sources/CGhosttyVT",
-    publicHeadersPath: "include"
+    publicHeadersPath: "include",
+    linkerSettings: [
+      // Zig's std library calls ntdll directly, and an artifact bundle cannot declare
+      // the system libraries its static library needs.
+      .linkedLibrary("ntdll", .when(platforms: [.windows]))
+    ]
   )
 )
+
+// MARK: GhosttyVTLibrary
+
+// libghostty-vt for the Ghostty revision in scripts/ghostty-vt-version.txt, as an SE-0482
+// static-library artifact bundle. .github/workflows/ghostty-vt.yml builds it and publishes
+// it as the ghostty-vt-<revision prefix> prerelease. After a pin bump,
+// TESSERA_GHOSTTY_VT_BUNDLE=local selects the bundle that
+// scripts/package-libghostty-vt-bundle.sh writes until the new release exists; see
+// docs/guides/updating-ghostty-vt.md.
+
+if ProcessInfo.processInfo.environment["TESSERA_GHOSTTY_VT_BUNDLE"] == "local" {
+  package.targets.append(
+    .binaryTarget(
+      name: "GhosttyVTLibrary",
+      path: ".build/ghostty-vt/GhosttyVTLibrary.artifactbundle"
+    )
+  )
+} else {
+  package.targets.append(
+    .binaryTarget(
+      name: "GhosttyVTLibrary",
+      url:
+        "https://github.com/robfeldmann/tessera/releases/download/ghostty-vt-f54340ad7781/GhosttyVTLibrary.artifactbundle.zip",
+      checksum: "0876a3561e62c321db0a75f04195288690bdffcdea6e9e02d5861c6ca2d01ccc"
+    )
+  )
+}
 
 // MARK: CTesseraTerminalPlatform
 
@@ -510,105 +543,6 @@ package.targets.append(
     ]
   )
 )
-
-// MARK: - 👻 Ghostty VT Build Output
-
-let PackageDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().path
-let GhosttyVTEnvironment = ProcessInfo.processInfo.environment
-
-func defaultGhosttyVTOutputRoot(
-  packageDirectory: String,
-  environment: [String: String]
-) -> String {
-  let outputDirectory = environment["GHOSTTY_VT_OUTPUT_DIR"] ?? ""
-  if !outputDirectory.isEmpty {
-    return outputDirectory
-  }
-  #if os(Windows)
-    if let localAppData = environment["LOCALAPPDATA"], !localAppData.isEmpty {
-      return "\(localAppData)/tessera/libghostty-vt"
-    }
-  #else
-    if let cacheHome = environment["XDG_CACHE_HOME"], !cacheHome.isEmpty {
-      return "\(cacheHome)/tessera/libghostty-vt"
-    }
-    if let home = environment["HOME"], !home.isEmpty {
-      return "\(home)/.cache/tessera/libghostty-vt"
-    }
-  #endif
-  return "\(packageDirectory)/.build/libghostty-vt"
-}
-
-let GhosttyVTRevisionFile = "\(PackageDirectory)/scripts/ghostty-vt-version.txt"
-let GhosttyVTRevision =
-  (try? String(contentsOfFile: GhosttyVTRevisionFile, encoding: .utf8))?
-  .trimmingCharacters(in: .whitespacesAndNewlines) ?? "unknown"
-#if os(macOS)
-  let GhosttyVTPlatform = "macos"
-#elseif os(Linux)
-  let GhosttyVTPlatform = "linux"
-#elseif os(Windows)
-  let GhosttyVTPlatform = "windows"
-#else
-  let GhosttyVTPlatform = "unsupported"
-#endif
-#if arch(arm64)
-  let GhosttyVTArch = "arm64"
-#elseif arch(x86_64)
-  let GhosttyVTArch = "x86_64"
-#else
-  let GhosttyVTArch = "unsupported"
-#endif
-let GhosttyVTOutputRoot = defaultGhosttyVTOutputRoot(
-  packageDirectory: PackageDirectory,
-  environment: GhosttyVTEnvironment
-)
-let GhosttyVTInstallPath =
-  "\(GhosttyVTOutputRoot)/\(GhosttyVTRevision)/\(GhosttyVTPlatform)-\(GhosttyVTArch)"
-let GhosttyVTLibraryPath = "\(GhosttyVTInstallPath)/lib"
-#if os(Windows)
-  // Static: linking ghostty-vt-static.lib avoids runtime ghostty-vt.dll
-  // discovery. Zig's std library calls ntdll syscalls (NtAllocateVirtualMemory,
-  // DeviceIoControl, ...) directly, so static consumers must link ntdll too.
-  // No rpath on Windows.
-  let GhosttyVTUnsafeLinkerFlags = [
-    "-L\(GhosttyVTLibraryPath)",
-    "-lghostty-vt-static",
-    "-lntdll",
-  ]
-#else
-  let GhosttyVTUnsafeLinkerFlags = [
-    "-L\(GhosttyVTLibraryPath)",
-    "-lghostty-vt",
-    "-Xlinker",
-    "-rpath",
-    "-Xlinker",
-    GhosttyVTLibraryPath,
-  ]
-#endif
-// TESSERA_GHOSTTY_VT_BUNDLE=local links the SE-0482 artifact bundle that
-// scripts/package-libghostty-vt-bundle.sh writes, instead of the unsafe flags above.
-let GhosttyVTBundleMode = GhosttyVTEnvironment["TESSERA_GHOSTTY_VT_BUNDLE"] ?? ""
-if let GhosttyVTTarget = package.targets.first(where: { $0.name == "CGhosttyVT" }) {
-  if GhosttyVTBundleMode == "local" {
-    package.targets.append(
-      .binaryTarget(
-        name: "GhosttyVTLibrary",
-        path: ".build/ghostty-vt/GhosttyVTLibrary.artifactbundle"
-      )
-    )
-    GhosttyVTTarget.dependencies.append("GhosttyVTLibrary")
-    // Zig's std library calls ntdll directly, and an artifact bundle cannot declare
-    // the system libraries its static library needs.
-    GhosttyVTTarget.linkerSettings = [
-      .linkedLibrary("ntdll", .when(platforms: [.windows]))
-    ]
-  } else {
-    GhosttyVTTarget.linkerSettings = [
-      .unsafeFlags(GhosttyVTUnsafeLinkerFlags)
-    ]
-  }
-}
 
 // MARK: - ⚙️ Shared Swift Settings
 
