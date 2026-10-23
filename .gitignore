@@ -4,9 +4,8 @@
 # Homebrew Bundle lockfile
 Brewfile.lock.json
 
-# libghostty-vt headers materialized by scripts/build-libghostty-vt.{sh,ps1}
-Sources/CGhosttyVT/include/ghostty/
-
+# IWE app state (indexes, history, snapshots); docs/.iwe/config.toml and schemas stay tracked
+docs/.iwe/app/
 
 # pi local settings
 .pi/settings.json
@@ -24,6 +23,9 @@ node_modules/
 
 # swift-format cache
 .swift-format-cache/
+
+# The version-consumer fixture resolves against a temporary clone on every run
+Tests/Fixtures/VersionConsumer/Package.resolved
 
 # Swift Package Manager
 .build/

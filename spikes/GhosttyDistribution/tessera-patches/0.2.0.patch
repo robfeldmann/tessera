@@ -1,0 +1,169 @@
+diff --git a/Package.swift b/Package.swift
+index 5d19473..4acd045 100644
+--- a/Package.swift
++++ b/Package.swift
+@@ -97,6 +97,12 @@ let SnapshotTestingCustomDump: Target.Dependency = .product(
+   package: "swift-snapshot-testing"
+ )
+ 
++// MARK: GhosttyVT (SE-0482 spike)
++
++package.dependencies.append(
++  .package(url: "file:///tmp/ghostty-dist-spike/ghostty-vt-binary", from: "0.1.0")
++)
++
+ // MARK: SystemPackage
+ 
+ package.dependencies.append(
+@@ -113,7 +119,7 @@ let SystemPackage: Target.Dependency = .product(
+ 
+ // MARK: - 🚛 Forward Module Declarations
+ 
+-let CGhosttyVT: Target.Dependency = .byName(name: "CGhosttyVT")
++let CGhosttyVT: Target.Dependency = .product(name: "CGhosttyVT", package: "ghostty-vt-binary")
+ let CTesseraTerminalPlatform: Target.Dependency = .byName(
+   name: "CTesseraTerminalPlatform"
+ )
+@@ -157,16 +163,6 @@ let AllTesseraTargetNames: Set<String> = [
+ 
+ // MARK: - 🎯 Products & Targets
+ 
+-// MARK: CGhosttyVT
+-
+-package.targets.append(
+-  .target(
+-    name: "CGhosttyVT",
+-    path: "Sources/CGhosttyVT",
+-    publicHeadersPath: "include"
+-  )
+-)
+-
+ // MARK: CTesseraTerminalPlatform
+ 
+ package.targets.append(
+@@ -511,87 +507,6 @@ package.targets.append(
+   )
+ )
+ 
+-// MARK: - 👻 Ghostty VT Build Output
+-
+-let PackageDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().path
+-let GhosttyVTEnvironment = ProcessInfo.processInfo.environment
+-
+-func defaultGhosttyVTOutputRoot(
+-  packageDirectory: String,
+-  environment: [String: String]
+-) -> String {
+-  let outputDirectory = environment["GHOSTTY_VT_OUTPUT_DIR"] ?? ""
+-  if !outputDirectory.isEmpty {
+-    return outputDirectory
+-  }
+-  #if os(Windows)
+-    if let localAppData = environment["LOCALAPPDATA"], !localAppData.isEmpty {
+-      return "\(localAppData)/tessera/libghostty-vt"
+-    }
+-  #else
+-    if let cacheHome = environment["XDG_CACHE_HOME"], !cacheHome.isEmpty {
+-      return "\(cacheHome)/tessera/libghostty-vt"
+-    }
+-    if let home = environment["HOME"], !home.isEmpty {
+-      return "\(home)/.cache/tessera/libghostty-vt"
+-    }
+-  #endif
+-  return "\(packageDirectory)/.build/libghostty-vt"
+-}
+-
+-let GhosttyVTRevisionFile = "\(PackageDirectory)/scripts/ghostty-vt-version.txt"
+-let GhosttyVTRevision =
+-  (try? String(contentsOfFile: GhosttyVTRevisionFile, encoding: .utf8))?
+-  .trimmingCharacters(in: .whitespacesAndNewlines) ?? "unknown"
+-#if os(macOS)
+-  let GhosttyVTPlatform = "macos"
+-#elseif os(Linux)
+-  let GhosttyVTPlatform = "linux"
+-#elseif os(Windows)
+-  let GhosttyVTPlatform = "windows"
+-#else
+-  let GhosttyVTPlatform = "unsupported"
+-#endif
+-#if arch(arm64)
+-  let GhosttyVTArch = "arm64"
+-#elseif arch(x86_64)
+-  let GhosttyVTArch = "x86_64"
+-#else
+-  let GhosttyVTArch = "unsupported"
+-#endif
+-let GhosttyVTOutputRoot = defaultGhosttyVTOutputRoot(
+-  packageDirectory: PackageDirectory,
+-  environment: GhosttyVTEnvironment
+-)
+-let GhosttyVTInstallPath =
+-  "\(GhosttyVTOutputRoot)/\(GhosttyVTRevision)/\(GhosttyVTPlatform)-\(GhosttyVTArch)"
+-let GhosttyVTLibraryPath = "\(GhosttyVTInstallPath)/lib"
+-#if os(Windows)
+-  // Static: linking ghostty-vt-static.lib avoids runtime ghostty-vt.dll
+-  // discovery. Zig's std library calls ntdll syscalls (NtAllocateVirtualMemory,
+-  // DeviceIoControl, ...) directly, so static consumers must link ntdll too.
+-  // No rpath on Windows.
+-  let GhosttyVTUnsafeLinkerFlags = [
+-    "-L\(GhosttyVTLibraryPath)",
+-    "-lghostty-vt-static",
+-    "-lntdll",
+-  ]
+-#else
+-  let GhosttyVTUnsafeLinkerFlags = [
+-    "-L\(GhosttyVTLibraryPath)",
+-    "-lghostty-vt",
+-    "-Xlinker",
+-    "-rpath",
+-    "-Xlinker",
+-    GhosttyVTLibraryPath,
+-  ]
+-#endif
+-if let GhosttyVTTarget = package.targets.first(where: { $0.name == "CGhosttyVT" }) {
+-  GhosttyVTTarget.linkerSettings = [
+-    .unsafeFlags(GhosttyVTUnsafeLinkerFlags)
+-  ]
+-}
+-
+ // MARK: - ⚙️ Shared Swift Settings
+ 
+ for target in package.targets {
+diff --git a/Sources/CGhosttyVT/include/CGhosttyVT.h b/Sources/CGhosttyVT/include/CGhosttyVT.h
+deleted file mode 100644
+index 0a07413..0000000
+--- a/Sources/CGhosttyVT/include/CGhosttyVT.h
++++ /dev/null
+@@ -1,15 +0,0 @@
+-#ifndef C_GHOSTTY_VT_H
+-#define C_GHOSTTY_VT_H
+-
+-// On Windows, Tessera links the static ghostty-vt-static.lib (no runtime DLL
+-// discovery). GHOSTTY_STATIC makes the header's GHOSTTY_API macro a no-op so
+-// symbols are not declared __declspec(dllimport); see ghostty/vt/types.h.
+-#if defined(_WIN32) || defined(_WIN64)
+-#define GHOSTTY_STATIC 1
+-#endif
+-
+-// The ghostty/ directory next to this header is materialized (gitignored) by
+-// scripts/build-libghostty-vt.sh / .ps1 from the pinned build's install tree.
+-#include "ghostty/vt.h"
+-
+-#endif
+diff --git a/Sources/CGhosttyVT/include/module.modulemap b/Sources/CGhosttyVT/include/module.modulemap
+deleted file mode 100644
+index ca082b6..0000000
+--- a/Sources/CGhosttyVT/include/module.modulemap
++++ /dev/null
+@@ -1,4 +0,0 @@
+-module CGhosttyVT {
+-  umbrella header "CGhosttyVT.h"
+-  export *
+-}
+diff --git a/Sources/CGhosttyVT/shim.c b/Sources/CGhosttyVT/shim.c
+deleted file mode 100644
+index f000186..0000000
+--- a/Sources/CGhosttyVT/shim.c
++++ /dev/null
+@@ -1 +0,0 @@
+-#include <ghostty/vt.h>

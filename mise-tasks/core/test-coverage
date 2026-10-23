@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 #MISE description="Run the full Swift test suite with code coverage enabled"
-#MISE depends=["core:build-libghostty-vt"]
 set -euo pipefail
 cd "$MISE_PROJECT_ROOT"
-swift test --no-parallel --enable-code-coverage
+swift test --only-use-versions-from-resolved-file --no-parallel --enable-code-coverage

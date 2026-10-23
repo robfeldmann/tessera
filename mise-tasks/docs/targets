@@ -2,7 +2,6 @@
 #MISE description="Generate DocC archives for all documented package targets"
 set -euo pipefail
 cd "$MISE_PROJECT_ROOT"
-mise run core:build-libghostty-vt
 echo "▶ Building documentation for Tessera targets..."
 base_targets=(
   TesseraCore
@@ -19,7 +18,7 @@ base_targets=(
   TesseraWidgets
 )
 for target in "${base_targets[@]}"; do
-  swift package \
+  swift package --only-use-versions-from-resolved-file \
     --allow-writing-to-directory .build/doccarchives/targets \
     generate-documentation \
     --target "$target" \
@@ -34,7 +33,7 @@ for archive in .build/doccarchives/targets/TesseraTerminal*.doccarchive; do
     dependency_args+=(--dependency "$archive")
   fi
 done
-swift package \
+swift package --only-use-versions-from-resolved-file \
   --allow-writing-to-directory .build/doccarchives/targets \
   generate-documentation \
   --target TesseraTerminal \
@@ -49,7 +48,7 @@ for archive in .build/doccarchives/targets/*.doccarchive; do
     dependency_args+=(--dependency "$archive")
   fi
 done
-swift package \
+swift package --only-use-versions-from-resolved-file \
   --allow-writing-to-directory .build/doccarchives/targets \
   generate-documentation \
   --target Tessera \

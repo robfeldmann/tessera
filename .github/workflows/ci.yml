@@ -121,8 +121,8 @@ jobs:
     # The xcode-27 label is a public preview image (actions/runner-images#14404); its leg
     # reports but cannot fail the run until the image is generally available.
     continue-on-error: ${{ matrix.required == false }}
-    # Windows pays a one-time Zig build of libghostty-vt on cache miss.
-    timeout-minutes: ${{ matrix.os == 'windows-latest' && 45 || 20 }}
+    # Windows builds from scratch: it keeps no SwiftPM cache (see the step that removes it).
+    timeout-minutes: ${{ matrix.os == 'windows-latest' && 30 || 20 }}
     strategy:
       # Cancel sibling OS jobs on first failure to save hosted minutes.
       fail-fast: true
@@ -189,76 +189,24 @@ jobs:
             Remove-Item -LiteralPath .build -Recurse -Force
           }
 
-      - name: Install mise tools (zig, cmake, ninja)
-        if: needs.ci-gate.outputs.vouch-only != 'true' && runner.os != 'Windows'
-        uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
-
-      - name: Install libghostty-vt prerequisites on Linux
-        if: needs.ci-gate.outputs.vouch-only != 'true' && runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            blueprint-compiler \
-            build-essential \
-            cmake \
-            gettext \
-            libadwaita-1-dev \
-            libgtk-4-dev \
-            libxml2-utils \
-            ninja-build \
-            pkg-config
-
-      - name: Restore libghostty-vt cache
-        id: ghostty-cache
+      # Package.resolved is owned by the Swift 6.4 lane, whose graph is larger
+      # (xctest-dynamic-overlay's 6.4 manifest adds swift-issue-reporting). Swift 6.3 drops
+      # that pin on any plain resolve or build, so every SwiftPM command here, as in the
+      # mise tasks, passes --only-use-versions-from-resolved-file, which also fails a lane
+      # whose resolved file is out of date (docs/architecture/toolchain-lanes.md).
+      - name: Check the resolved files are current
         if: needs.ci-gate.outputs.vouch-only != 'true'
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          # Source checkouts and intermediate build trees are re-creatable and
-          # huge; cache only the installed artifacts.
-          path: |
-            ~/.cache/tessera/libghostty-vt
-            !~/.cache/tessera/libghostty-vt/source
-            !~/.cache/tessera/libghostty-vt/cmake
-            ~/AppData/Local/tessera/libghostty-vt
-            !~/AppData/Local/tessera/libghostty-vt/source
-          # Exact-only: a script or pinned-revision change must rebuild rather than
-          # relabeling a restored stale install under the new key.
-          # prettier-ignore
-          key: libghostty-vt-v4-${{ runner.os }}-${{ runner.arch }}-zig-0.17.0-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
-
-      - name: Build libghostty-vt
-        if: needs.ci-gate.outputs.vouch-only != 'true' && runner.os != 'Windows'
-        run: mise run core:build-libghostty-vt
-
-      - name: Build libghostty-vt (Windows)
-        if: needs.ci-gate.outputs.vouch-only != 'true' && runner.os == 'Windows'
-        shell: pwsh
-        run: scripts/build-libghostty-vt.ps1
-
-      # Save immediately so a later build/test failure cannot lose the
-      # expensive Zig artifact (Windows cold build is the long pole).
-      - name: Save libghostty-vt cache after build
-        if: >
-          needs.ci-gate.outputs.vouch-only != 'true' &&
-          steps.ghostty-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.cache/tessera/libghostty-vt
-            !~/.cache/tessera/libghostty-vt/source
-            !~/.cache/tessera/libghostty-vt/cmake
-            ~/AppData/Local/tessera/libghostty-vt
-            !~/AppData/Local/tessera/libghostty-vt/source
-          # prettier-ignore
-          key: libghostty-vt-v4-${{ runner.os }}-${{ runner.arch }}-zig-0.17.0-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
+        run: |
+          swift package resolve --only-use-versions-from-resolved-file
+          swift package resolve --only-use-versions-from-resolved-file --package-path Examples
 
       - name: Build
         if: needs.ci-gate.outputs.vouch-only != 'true'
-        run: swift build
+        run: swift build --only-use-versions-from-resolved-file
 
       - name: Build Examples
         if: needs.ci-gate.outputs.vouch-only != 'true'
-        run: swift build --package-path Examples
+        run: swift build --only-use-versions-from-resolved-file --package-path Examples
 
       - name: Save SwiftPM cache after build
         if: >
@@ -272,7 +220,11 @@ jobs:
 
       - name: Test
         if: needs.ci-gate.outputs.vouch-only != 'true'
-        run: swift test --no-parallel
+        run: swift test --only-use-versions-from-resolved-file --no-parallel
+
+      - name: Check the resolved files are unchanged
+        if: needs.ci-gate.outputs.vouch-only != 'true'
+        run: git diff --exit-code -- Package.resolved Examples/Package.resolved
 
   test-parallel:
     name: test (parallel, ubuntu-latest)
@@ -311,40 +263,106 @@ jobs:
           restore-keys: |
             swiftpm-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.swift.outputs.toolchain }}-
 
-      - name: Install mise tools (zig, cmake, ninja)
-        if: needs.ci-gate.outputs.vouch-only != 'true'
-        uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
-
-      - name: Install libghostty-vt prerequisites
-        if: needs.ci-gate.outputs.vouch-only != 'true'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            blueprint-compiler \
-            build-essential \
-            cmake \
-            gettext \
-            libadwaita-1-dev \
-            libgtk-4-dev \
-            libxml2-utils \
-            ninja-build \
-            pkg-config
-
-      - name: Restore libghostty-vt cache
-        if: needs.ci-gate.outputs.vouch-only != 'true'
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.cache/tessera/libghostty-vt
-            !~/.cache/tessera/libghostty-vt/source
-            !~/.cache/tessera/libghostty-vt/cmake
-          # prettier-ignore
-          key: libghostty-vt-v4-${{ runner.os }}-${{ runner.arch }}-zig-0.17.0-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
-
-      - name: Build libghostty-vt
-        if: needs.ci-gate.outputs.vouch-only != 'true'
-        run: mise run core:build-libghostty-vt
-
       - name: Test in parallel
         if: needs.ci-gate.outputs.vouch-only != 'true'
-        run: swift test --parallel
+        run: swift test --only-use-versions-from-resolved-file --parallel
+
+  version-consumer:
+    name: version consumer (${{ matrix.os }})
+    needs: ci-gate
+    if: >
+      github.event_name != 'pull_request' ||
+      !contains(github.event.pull_request.labels.*.name, 'skip-ci')
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # macos-26-intel runs the bundle's x86_64 macOS slice, which an Apple silicon Mac
+        # without Rosetta can link but not run.
+        os: [macos-26, macos-26-intel, ubuntu-latest, windows-latest]
+    steps:
+      - name: Skip for trust-only change
+        if: needs.ci-gate.outputs.vouch-only == 'true'
+        run: echo "Trust-only change; the version consumer is not required."
+
+      - name: Checkout
+        if: needs.ci-gate.outputs.vouch-only != 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # A full clone, so the temporary clone below is not shallow.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Swift
+        if: needs.ci-gate.outputs.vouch-only != 'true'
+        uses: ./.github/actions/setup-swift
+
+      # Tests/Fixtures/VersionConsumer depends on Tessera by version, as an app would:
+      # through a file:// clone of this checkout tagged 0.0.0-ci. It must link
+      # libghostty-vt from the published bundle, with no Zig on the machine.
+      - name: Build, run, and test the version consumer
+        if: needs.ci-gate.outputs.vouch-only != 'true'
+        shell: bash
+        run: |
+          if command -v zig; then
+            echo "::error::zig is on PATH; a version consumer must not need it"
+            exit 1
+          fi
+          clone="$RUNNER_TEMP/version-consumer/tessera"
+          git clone --quiet "$GITHUB_WORKSPACE" "$clone"
+          git -C "$clone" tag 0.0.0-ci
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            export TESSERA_VERSION_CONSUMER_URL="file:///$(cygpath -m "$clone")"
+          else
+            export TESSERA_VERSION_CONSUMER_URL="file://$clone"
+          fi
+          cd Tests/Fixtures/VersionConsumer
+          swift build
+          swift run VersionConsumer
+          swift test
+
+  static-linux:
+    name: static Linux SDK
+    needs: ci-gate
+    if: >
+      github.event_name != 'pull_request' ||
+      !contains(github.event.pull_request.labels.*.name, 'skip-ci')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Skip for trust-only change
+        if: needs.ci-gate.outputs.vouch-only == 'true'
+        run: echo "Trust-only change; the static Linux SDK build is not required."
+
+      - name: Checkout
+        if: needs.ci-gate.outputs.vouch-only != 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Swift
+        if: needs.ci-gate.outputs.vouch-only != 'true'
+        uses: ./.github/actions/setup-swift
+
+      # The Static Linux SDK needs a swift.org toolchain, so this runs here rather than
+      # from Xcode on a Mac (`mise run linux:build` locally needs swiftly's toolchain).
+      - name: Build the library targets for x86_64 and aarch64 musl
+        if: needs.ci-gate.outputs.vouch-only != 'true'
+        run: scripts/build-static-linux.sh
+
+      # The bundle's musl variants: link the version consumer statically and run it.
+      - name: Build and run the version consumer statically
+        if: needs.ci-gate.outputs.vouch-only != 'true'
+        run: |
+          clone="$RUNNER_TEMP/version-consumer/tessera"
+          git clone --quiet "$GITHUB_WORKSPACE" "$clone"
+          git -C "$clone" tag 0.0.0-ci
+          export TESSERA_VERSION_CONSUMER_URL="file://$clone"
+          cd Tests/Fixtures/VersionConsumer
+          swift build --swift-sdk aarch64-swift-linux-musl --product VersionConsumer
+          swift build --swift-sdk x86_64-swift-linux-musl --product VersionConsumer
+          binary=.build/x86_64-swift-linux-musl/debug/VersionConsumer
+          file "$binary"
+          "$binary"

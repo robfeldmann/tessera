@@ -3,6 +3,7 @@
 set -euo pipefail
 cd "$MISE_PROJECT_ROOT"
 python3 -m unittest scripts/test_check_package_boundaries.py
-swift package describe --type json | python3 scripts/check-package-boundaries.py
-swift build --target TesseraTerminalBuffer
+swift package --only-use-versions-from-resolved-file describe --type json |
+  python3 scripts/check-package-boundaries.py
+swift build --only-use-versions-from-resolved-file --target TesseraTerminalBuffer
 scripts/check-frame-region-ownership.sh

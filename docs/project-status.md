@@ -14,7 +14,7 @@ Tessera targets macOS, Linux, and Windows with Swift 6.3 or later. The baseline 
 | Linux | Ubuntu 24.04 (CI and project Linux VM) | Swift 6.3.3; Swift 6.4.1 | x86_64 (CI), ARM64 |
 | Windows | Windows 11 25H2 (CI); Windows 11 ARM64 UTM guest (local, 651 tests passed on 2026-10-22) | Swift 6.3.3 (`.swift-version`) | x86_64 (CI), ARM64 |
 
-Continuous integration runs the full test suite on all three platforms with Ghostty-backed output snapshot coverage (via `libghostty-vt`), including Windows. The Xcode 27 leg runs on GitHub's `xcode-27` preview image and is not yet a required check.
+Continuous integration runs the full test suite on all three platforms with Ghostty-backed output snapshot coverage (via `libghostty-vt`), including Windows. `libghostty-vt` comes from a prebuilt artifact bundle that Tessera publishes per Ghostty pin, so neither Tessera's builds nor an app that depends on Tessera by version need Zig; a CI job checks that by-version path on all three platforms. The Xcode 27 leg runs on GitHub's `xcode-27` preview image and is not yet a required check.
 
 ### Planned platform widening
 
@@ -53,22 +53,24 @@ The [design catalog](design.md) (`docs/design/`) is the authoritative contract f
 
 ## Roadmap
 
-The active milestone is the Phase 4 view layer. Each step lands its components with tests and a demo:
+The active milestone is the Phase 4 view layer. Each step lands its components with tests, a demo, and a scenario, and the [developer tools](architecture/developer-tooling.md) grow alongside them:
 
 1. Core view graph, reconciliation, and `Text` — **done**.
 2. Layout, stacks, static `SplitView`, and `ScrollView` — **done**.
 3. Flex sizing and final `SplitView` negotiation — **done**.
 4. Component designs revised against a reference TUI — _in progress_.
-5. The demo harness — _planned_.
+5. The demo harness, scenarios, checks, and `tessera-dev` — _planned_.
 6. Styling and decoration — _planned_.
 7. Focus, key routing, and `KeyLegend` — _planned_.
 8. Mouse, hit testing, and hover — _planned_.
 9. Interactive `ScrollView` — _planned_.
-10. Controls — _planned_.
-11. Collections and fitting — _planned_.
-12. Interactive `SplitView` — _planned_.
-13. The remaining 1.0 views — _planned_.
-14. The intro demo app — _planned_.
+10. Flow layout and `ViewThatFits` — _planned_.
+11. Controls — _planned_.
+12. Collections — _planned_.
+13. Interactive `SplitView` — _planned_.
+14. The remaining 1.0 views — _planned_.
+15. Live inspection — _planned_.
+16. The intro demo app — _planned_.
 
 After the view layer (spec Phase 5, "Runtime + polish") the work turns to:
 

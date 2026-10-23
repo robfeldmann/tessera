@@ -1,0 +1,137 @@
+Fetching /tmp/ghostty-dist-spike/tessera
+Fetched /tmp/ghostty-dist-spike/tessera from cache (1.91s)
+Computing version for /tmp/ghostty-dist-spike/tessera
+Computed /tmp/ghostty-dist-spike/tessera at 0.3.0 (2.30s)
+Fetching https://github.com/ainame/swift-displaywidth from cache
+Fetching https://github.com/pointfreeco/xctest-dynamic-overlay from cache
+Fetching https://github.com/pointfreeco/swift-custom-dump from cache
+Fetching https://github.com/pointfreeco/swift-snapshot-testing from cache
+Fetching https://github.com/apple/swift-system from cache
+Fetching /tmp/ghostty-dist-spike/ghostty-vt-binary
+Fetched /tmp/ghostty-dist-spike/ghostty-vt-binary from cache (0.50s)
+Fetched https://github.com/pointfreeco/xctest-dynamic-overlay from cache (0.53s)
+Fetched https://github.com/pointfreeco/swift-custom-dump from cache (0.54s)
+Fetched https://github.com/ainame/swift-displaywidth from cache (0.55s)
+warning: 'swift-snapshot-testing': skipping cache due to an error: The file “maintenance.lock” doesn’t exist.
+Fetched https://github.com/apple/swift-system from cache (0.61s)
+[1/16589] Fetching swift-snapshot-testing
+Fetched https://github.com/pointfreeco/swift-snapshot-testing from cache (5.64s)
+Computing version for /tmp/ghostty-dist-spike/ghostty-vt-binary
+Computed /tmp/ghostty-dist-spike/ghostty-vt-binary at 0.2.0 (6.05s)
+Computing version for https://github.com/pointfreeco/swift-snapshot-testing
+Computed https://github.com/pointfreeco/swift-snapshot-testing at 1.18.9 (0.29s)
+Fetching https://github.com/swiftlang/swift-syntax from cache
+Fetched https://github.com/swiftlang/swift-syntax from cache (1.00s)
+Computing version for https://github.com/ainame/swift-displaywidth
+Computed https://github.com/ainame/swift-displaywidth at 0.2.0 (1.29s)
+Computing version for https://github.com/pointfreeco/swift-custom-dump
+Computed https://github.com/pointfreeco/swift-custom-dump at 1.7.3 (0.29s)
+Computing version for https://github.com/pointfreeco/xctest-dynamic-overlay
+Computed https://github.com/pointfreeco/xctest-dynamic-overlay at 1.13.1 (0.35s)
+Computing version for https://github.com/swiftlang/swift-syntax
+Computed https://github.com/swiftlang/swift-syntax at 602.0.0 (0.38s)
+Computing version for https://github.com/apple/swift-system
+Computed https://github.com/apple/swift-system at 1.8.1 (0.29s)
+Creating working copy for /tmp/ghostty-dist-spike/ghostty-vt-binary
+Working copy of /tmp/ghostty-dist-spike/ghostty-vt-binary resolved at 0.2.0
+Creating working copy for https://github.com/ainame/swift-displaywidth
+Working copy of https://github.com/ainame/swift-displaywidth resolved at 0.2.0
+Creating working copy for https://github.com/pointfreeco/xctest-dynamic-overlay
+Working copy of https://github.com/pointfreeco/xctest-dynamic-overlay resolved at 1.13.1
+Creating working copy for https://github.com/pointfreeco/swift-custom-dump
+Working copy of https://github.com/pointfreeco/swift-custom-dump resolved at 1.7.3
+Creating working copy for https://github.com/swiftlang/swift-syntax
+Working copy of https://github.com/swiftlang/swift-syntax resolved at 602.0.0
+Creating working copy for https://github.com/pointfreeco/swift-snapshot-testing
+Working copy of https://github.com/pointfreeco/swift-snapshot-testing resolved at 1.18.9
+Creating working copy for https://github.com/apple/swift-system
+Working copy of https://github.com/apple/swift-system resolved at 1.8.1
+Creating working copy for /tmp/ghostty-dist-spike/tessera
+Working copy of /tmp/ghostty-dist-spike/tessera resolved at 0.3.0
+Building for debugging...
+[0/15] Copying libghostty-vt.a
+[0/15] Write sources
+[3/15] Write App-entitlement.plist
+[3/15] Write sources
+[10/15] Write swift-version-3CD7052B146186F2.txt
+[11/48] Compiling CGhosttyVT shim.c
+[13/48] Compiling TesseraTerminalCore KittyGraphics.swift
+[14/48] Compiling TesseraTerminalCore TerminalGeometry.swift
+[15/48] Emitting module TesseraTerminalCore
+[16/65] Compiling IssueReporting XCTest.swift
+[17/65] Compiling IssueReporting Deprecations.swift
+[18/65] Compiling IssueReporting FailureObserver.swift
+[19/65] Compiling IssueReporting LockIsolated.swift
+[20/65] Compiling IssueReporting Rethrows.swift
+[21/65] Compiling IssueReporting SwiftTesting.swift
+[22/65] Compiling IssueReporting UncheckedSendable.swift
+[23/66] Compiling TesseraTerminalANSI Clipboard.swift
+[24/66] Compiling TesseraTerminalANSI ANSIColor.swift
+[25/66] Compiling TesseraTerminalANSI ANSIByteEncoding.swift
+[26/66] Emitting module TesseraTerminalANSI
+[27/66] Compiling TesseraTerminalANSI Hyperlink.swift
+[28/66] Compiling TesseraTerminalANSI RawTerminalPayload.swift
+[29/66] Compiling TesseraTerminalANSI UnderlineStyle.swift
+[30/66] Compiling TesseraTerminalANSI UnderlineRenderingPolicy.swift
+[31/66] Compiling TesseraTerminalANSI ControlSequence.swift
+[32/66] Compiling TesseraTerminalANSI ColorCapability.swift
+[33/66] Compiling TesseraTerminalANSI Color.swift
+[34/66] Compiling TesseraTerminalANSI CursorStyle.swift
+[35/66] Compiling TesseraTerminalANSI ANSIEncoder.swift
+[36/66] Compiling TesseraTerminalANSI EraseMode.swift
+[37/66] Compiling TesseraTerminalANSI MouseTracking.swift
+[38/66] Compiling TesseraTerminalANSI KittyKeyboardFlags.swift
+[39/66] Compiling TesseraTerminalANSI KittyGraphics.swift
+[40/66] Compiling IssueReporting BreakpointReporter.swift
+[41/66] Compiling IssueReporting ReportIssue.swift
+[42/66] Compiling IssueReporting IssueSeverity.swift
+[43/66] Compiling IssueReporting Unimplemented.swift
+[44/66] Compiling IssueReporting WithExpectedIssue.swift
+[45/66] Compiling IssueReporting FatalErrorReporter.swift
+[46/66] Compiling IssueReporting IssueReporter.swift
+[47/66] Compiling IssueReporting TestContext.swift
+[48/66] Compiling IssueReporting _Test.swift
+[49/66] Compiling IssueReporting Warn.swift
+[50/66] Compiling IssueReporting ErrorReporting.swift
+[51/66] Compiling IssueReporting AppHostWarning.swift
+[52/66] Compiling IssueReporting IsTesting.swift
+[53/66] Compiling IssueReporting DefaultReporter.swift
+[54/66] Emitting module IssueReporting
+[55/66] Compiling IssueReporting WithIssueContext.swift
+[56/66] Compiling DisplayWidth LocaleAwareDisplayWidth.swift
+[57/66] Compiling DisplayWidth UnicodeData.generated.swift
+[58/66] Compiling DisplayWidth DisplayWidth.swift
+[59/66] Compiling DisplayWidth UnicodeData.swift
+[60/66] Emitting module DisplayWidth
+[61/66] Compiling DisplayWidth GeneralCategory.swift
+[62/66] Compiling DisplayWidth BinarySearch.swift
+[63/66] Compiling DisplayWidth EastAsianWidthAttribute.swift
+[64/74] Compiling TesseraTerminalBuffer TerminalWidth.swift
+[65/74] Compiling TesseraTerminalBuffer GraphemeWriteResult.swift
+[66/74] Compiling TesseraTerminalBuffer Style.swift
+[67/74] Compiling TesseraTerminalBuffer Cell.swift
+[68/74] Compiling TesseraTerminalBuffer BufferBoundsError.swift
+[69/74] Compiling TesseraTerminalBuffer Buffer.swift
+[70/74] Compiling TesseraTerminalBuffer Frame.swift
+[71/74] Emitting module TesseraTerminalBuffer
+[72/78] Compiling TesseraTerminalRendering StyleEncoding.swift
+[73/78] Emitting module TesseraTerminalRendering
+[74/78] Compiling TesseraTerminalRendering Renderer.swift
+[75/78] Compiling TesseraTerminalRendering BufferDiff.swift
+[76/89] Compiling TesseraTerminalSnapshotSupport RenderedColor.swift
+[77/89] Compiling TesseraTerminalSnapshotSupport ScreenSnapshot.swift
+[78/89] Compiling TesseraTerminalSnapshotSupport VirtualTerminal+ghosttyUnavailable.swift
+[79/89] Emitting module TesseraTerminalSnapshotSupport
+[80/89] Compiling TesseraTerminalSnapshotSupport RenderedKittyGraphics.swift
+[81/89] Compiling TesseraTerminalSnapshotSupport GhosttyKeyEncoder.swift
+[82/89] Compiling TesseraTerminalSnapshotSupport VirtualTerminal.swift
+[83/89] Compiling TesseraTerminalSnapshotSupport VirtualTerminalError.swift
+[84/89] Compiling TesseraTerminalSnapshotSupport FrameSnapshot.swift
+[85/89] Compiling TesseraTerminalSnapshotSupport RenderedCell.swift
+[86/89] Compiling TesseraTerminalSnapshotSupport VirtualTerminal+Ghostty.swift
+[87/91] Compiling App main.swift
+[88/91] Emitting module App
+[88/91] Write Objects.LinkFileList
+[89/91] Linking App
+[90/91] Applying App
+Build complete! (23.34s)

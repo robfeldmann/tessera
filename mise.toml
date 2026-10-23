@@ -25,9 +25,10 @@ uv = "0.13.5"
 "aqua:tamasfe/taplo" = "0.10.0"
 jq = "1.8.2"
 "github:iwe-org/iwe" = { version = "0.29.0", version_prefix = "iwe-v" }
-# libghostty-vt's build: zig must match what the pinned Ghostty revision requires
-# (scripts/ghostty-vt-version.txt; build.zig.zon's minimum_zig_version, 0.17.0 for
-# f54340ad). cmake and ninja are its build drivers.
+# libghostty-vt's build, run only to bump the Ghostty pin and by the producer workflow
+# (builds and tests link the published bundle): zig must match what the pinned revision
+# requires (scripts/ghostty-vt-version.txt; build.zig.zon's minimum_zig_version, 0.17.0
+# for f54340ad). cmake and ninja are its build drivers.
 zig = "0.17.0"
 cmake = "4.4.4"
 ninja = "1.13.2"

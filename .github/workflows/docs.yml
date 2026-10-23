@@ -71,22 +71,9 @@ jobs:
         if: needs.docs-gate.outputs.vouch-only != 'true'
         uses: ./.github/actions/setup-swift
 
-      - name: Install mise tools (zig, cmake, ninja)
+      - name: Install mise tools
         if: needs.docs-gate.outputs.vouch-only != 'true'
         uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
-
-      - name: Restore libghostty-vt cache
-        if: needs.docs-gate.outputs.vouch-only != 'true'
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          # Key/path shape must match the CI test job so both share entries.
-          path: |
-            ~/.cache/tessera/libghostty-vt
-            !~/.cache/tessera/libghostty-vt/source
-            !~/.cache/tessera/libghostty-vt/cmake
-          # Exact-only to match CI and prevent a stale native install from being relabeled.
-          # prettier-ignore
-          key: libghostty-vt-v4-${{ runner.os }}-${{ runner.arch }}-zig-0.17.0-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
 
       - name: Validate docs
         if: needs.docs-gate.outputs.vouch-only != 'true'

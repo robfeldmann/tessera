@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-This source distribution does not include third-party source code, generated Ghostty headers, or `libghostty-vt`. Swift Package Manager resolves the following components when building Tessera or its documentation and test targets. Their versions and revisions are pinned in [`Package.resolved`](Package.resolved) and, for examples, in [`Examples/Package.resolved`](Examples/Package.resolved).
+This source distribution includes no third-party source code apart from Ghostty's C headers (see [Ghostty VT](#ghostty-vt)). Swift Package Manager resolves the following components when building Tessera or its documentation and test targets. Their versions and revisions are pinned in [`Package.resolved`](Package.resolved) and, for examples, in [`Examples/Package.resolved`](Examples/Package.resolved).
 
 ## Apache License 2.0 Components
 
@@ -18,7 +18,7 @@ This source distribution does not include third-party source code, generated Gho
 
 ## Ghostty VT
 
-Tessera's documented local build flow fetches [Ghostty](https://github.com/ghostty-org/ghostty) at the revision in [`scripts/ghostty-vt-version.txt`](scripts/ghostty-vt-version.txt). It does not check in or ship Ghostty source, generated headers, or `libghostty-vt`. A Tessera distribution that includes any of those Ghostty-derived artifacts must retain this attribution and the MIT license text below.
+Tessera includes the C headers of [Ghostty](https://github.com/ghostty-org/ghostty)'s `libghostty-vt` for the revision in [`scripts/ghostty-vt-version.txt`](scripts/ghostty-vt-version.txt), under [`Sources/CGhosttyVT/include/ghostty/`](Sources/CGhosttyVT/include/ghostty/). The `GhosttyVTLibrary` binary target downloads `libghostty-vt`, built from that revision, from this repository's `ghostty-vt-<revision>` release; that artifact bundle carries Ghostty's `LICENSE`. A Tessera distribution that includes any Ghostty-derived artifact must retain this attribution and the MIT license text below.
 
 Copyright (c) 2024 Mitchell Hashimoto, Ghostty contributors
 
@@ -27,3 +27,15 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+### Components linked into libghostty-vt
+
+The `libghostty-vt` static archives also contain code from the components below, compiled in by Ghostty's build. Their license texts are in [`scripts/ghostty-vt-licenses/`](scripts/ghostty-vt-licenses/README.md), which the producer workflow ships in the artifact bundle as `THIRD_PARTY_LICENSES/`; a distribution of an app that links `libghostty-vt` must retain them too.
+
+- [Highway](https://github.com/google/highway) 1.2.0: BSD-3-Clause (offered as Apache-2.0 OR BSD-3-Clause).
+- [simdutf](https://github.com/simdutf/simdutf) 9.0.0: MIT (offered as Apache-2.0 OR MIT).
+- [Wuffs](https://github.com/google/wuffs) 0.4.0-alpha.10: MIT (offered as Apache-2.0 OR MIT).
+- [uucode](https://github.com/jacobsandlund/uucode) 0.2.0: MIT; with Unicode Character Database tables under the Unicode License V3 and Björn Höhrmann's UTF-8 decoder under MIT.
+- [Zig](https://ziglang.org) 0.17.0 standard library and compiler-rt: MIT.
+
+Every published bundle from `ghostty-vt-f54340ad7781-r2` on carries `THIRD_PARTY_LICENSES/`. The first one, `ghostty-vt-f54340ad7781`, carried only Ghostty's `LICENSE` and was deleted once `Package.swift` pointed at `-r2`.

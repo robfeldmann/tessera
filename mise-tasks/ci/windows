@@ -2,9 +2,10 @@
 #MISE description="Build and test on Windows, honoring TESSERA_CI_WINDOWS_TEST_FILTER"
 set -euo pipefail
 cd "$MISE_PROJECT_ROOT"
-swift build
+swift build --only-use-versions-from-resolved-file
 if [[ -n "${TESSERA_CI_WINDOWS_TEST_FILTER:-}" ]]; then
-  swift test --no-parallel --filter "$TESSERA_CI_WINDOWS_TEST_FILTER"
+  swift test --only-use-versions-from-resolved-file --no-parallel \
+    --filter "$TESSERA_CI_WINDOWS_TEST_FILTER"
 else
-  swift test --no-parallel
+  swift test --only-use-versions-from-resolved-file --no-parallel
 fi

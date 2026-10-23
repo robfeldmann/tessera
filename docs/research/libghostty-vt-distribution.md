@@ -1,0 +1,111 @@
+---
+type: research
+observed: 2026-10-22
+status: resolved
+description: How a version-based Tessera consumer gets libghostty-vt linked on macOS, Linux, and Windows.
+---
+
+# libghostty-vt distribution for version-based consumers
+
+## Question
+
+An app that depends on Tessera by version (`.package(url:…, from: "x.y.z")`) and uses the Ghostty-backed harness (`TesseraTerminalSnapshotSupport`, later `TesseraHarness`) needs libghostty-vt linked. Today `CGhosttyVT` links a locally built library through `.unsafeFlags` ([Package.swift:160-168](../../Package.swift), [Package.swift:514-593](../../Package.swift)). Does that work for a version-based consumer on macOS, Linux, and Windows? If not, which mechanism gets libghostty-vt linked without every consumer, and ideally without Tessera, building it?
+
+## Outcome
+
+- **The premise is half right.** `unsafeFlags` do not block a version-based consumer: SwiftPM stopped checking them for packages whose manifest declares tools-version 6.2 or later, and Tessera declares 6.3. What breaks is everything around the flag. The headers are gitignored, so a clean checkout fails with `'ghostty/vt.h' file not found`. Once the headers are committed, the link still needs a libghostty-vt that the consumer built with Zig into `~/.cache/tessera`: `ld: library 'ghostty-vt' not found`. All of this was observed; see Findings §1.
+- **Recommended: an SE-0482 static-library artifact bundle that holds only the library, under a source `CGhosttyVT` target with the headers committed.** The bundle carries one `libghostty-vt.a` or `.lib` per triple and no headers or module map. `CGhosttyVT` remains a plain C target. It commits the pinned `ghostty/` headers, depends on the binary target, and declares `.linkedLibrary("ntdll", .when(platforms: [.windows]))`. The spike used this layout, consumed by version over `file://` git URLs. It built, ran a real Ghostty round trip, and passed a Swift Testing test on macOS (Swift 6.3.3 and 6.4; `swift build` with the native build system and with Swift Build; `xcodebuild`), on Linux aarch64 (6.3.3 and 6.4.1), and on Windows aarch64 (6.3.3). See Findings §4.
+- **Building cannot be avoided, but it becomes a CI job per pin bump instead of a step every consumer runs.** Upstream publishes no Linux or Windows libraries, and its only Apple artifact is a rolling `tip` XCFramework (Findings §2). Tessera's CI would build each variant with the existing scripts, zip the bundle (about 11 MB for three variants), upload it as a release asset, and reference it with `binaryTarget(url:checksum:)`. [INFERENCE: the url download is the one link not exercised locally, because SwiftPM rejects non-https binary URLs (Findings §4). The same mechanism ships GhosttyKit in `Lakr233/libghostty-spm`.]
+- **Runner-up:** split the harness so the Ghostty part is optional, using a package trait or a separate product, and keep today's Zig build as a contributor-only path. On Apple platforms the dependency could also be an XCFramework `binaryTarget`; the spike linked upstream's `tip` `ghostty-vt.xcframework` that way. This only shrinks the problem. Linux and Windows consumers would still build Zig themselves, and `tip` is a moving target.
+- **Unproven:** the https download of the bundle; the x86_64 variants (macOS, Linux, Windows); Windows under Swift 6.4 or Swift Build; a musl variant for the Static Linux SDK; how low the glibc floor of a Linux variant can go (Findings §5); and whether Windows links without the explicit `ntdll`.
+- **Next step for the plan:** a slice "Ship libghostty-vt as an SE-0482 binary". It needs:
+  - A workflow that builds the pinned revision for `arm64-apple-macosx` (ideally also `x86_64`, via `lipo`), `x86_64` and `aarch64-unknown-linux-gnu` (against an old glibc), and `x86_64` and `aarch64-unknown-windows-msvc`. It packs those builds with `info.json` and Ghostty's LICENSE, runs `swift package experimental-audit-binary-artifact` on Linux, and uploads the zip to a release tagged with the pin.
+  - Committed headers under `Sources/CGhosttyVT/include/ghostty/`.
+  - In `Package.swift`: replace the unsafeFlags and output-root logic with `binaryTarget(url:checksum:)` and add the `ntdll` linked library.
+  - CI test jobs that stop building Zig.
+  - A CI job that consumes Tessera by version, as `/tmp/ghostty-dist-spike/matrix.sh` does.
+  - An update to [Updating Ghostty VT](../guides/updating-ghostty-vt.md).
+
+## Findings
+
+### 1. The unsafeFlags premise (spike)
+
+Spike scratch is in `/tmp/ghostty-dist-spike/`; its `README.md` lists every tag. The repo was cloned to `tessera/` and tagged `0.1.0` at `06233f7`. `consumer-unsafe/` depends on it with `from: "0.1.0"` and imports `TesseraTerminalSnapshotSupport`. Toolchains: Xcode 26.6 (Apple Swift 6.3.3, `swiftlang-6.3.3.1.3`) and Xcode 27.1 (Apple Swift 6.4, `swiftlang-6.4.0.34.1`).
+
+- Observed, Swift 6.4 at tag `0.1.0`: the build fails while compiling the shim with `error: …/.build/checkouts/tessera/Sources/CGhosttyVT/shim.c:1:10 'ghostty/vt.h' file not found`. The headers are materialized by `scripts/build-libghostty-vt.sh:128` and ignored by `.gitignore:8`, so a consumer's checkout never has them.
+- Observed, tag `0.1.1` with the headers committed: `Build complete!` on 6.4 and on 6.3.3 (native build system), and `** BUILD SUCCEEDED **` from `xcodebuild` (Xcode 26.6) for both the package and an XcodeGen app project (`consumer-xcodeproj/`). No unsafe-flags diagnostic appeared. The binary loads `@rpath/libghostty-vt.dylib` with an absolute `LC_RPATH` into this machine's `~/.cache/tessera/libghostty-vt/f54340ad…/macos-arm64/lib`, so it runs only where that cache exists.
+- Observed, same tag with `XDG_CACHE_HOME` pointed at an empty directory, standing in for a consumer who never ran the Zig build: `ld: warning: search path '…/empty-cache/tessera/libghostty-vt/f54340ad…/macos-arm64/lib' not found`, then `ld: library 'ghostty-vt' not found`.
+- Observed: the tools-version gate. A one-target library with `.unsafeFlags(["-L/tmp/nonexistent"])` was tagged and consumed by version (`unsafe-lib-6.1/`, `unsafe-lib-6.2/`). At tools-version 6.1, both 6.3.3 and 6.4 report `error: 'consumer-tv-6.1': the target 'Lib' in product 'Lib' contains unsafe build flags`. At 6.2 both build, with only the linker's search-path warning. `consumer-direct/` builds a product that exposes the unsafeFlags `CGhosttyVT` directly (tag `0.1.2`).
+- Observed in SwiftPM source at `swift-6.3.3-RELEASE`: [PackageBuilder.swift:1035-1036](https://github.com/swiftlang/swift-package-manager/blob/swift-6.3.3-RELEASE/Sources/PackageLoading/PackageBuilder.swift#L1035-L1036) reads `// unsafe flags check disabled in 6.2` / `usesUnsafeFlags: manifest.toolsVersion >= .v6_2 ? false : …`. The diagnostic lives in [Diagnostics.swift:20-22](https://github.com/swiftlang/swift-package-manager/blob/swift-6.3.3-RELEASE/Sources/PackageGraph/Diagnostics.swift#L20-L22). Apple's [`unsafeFlags` documentation](https://developer.apple.com/documentation/packagedescription/swiftsetting/unsafeflags(_:_:)) still says such products are "ineligible for use by other packages"; for 6.2+ manifests that statement is out of date.
+- [INFERENCE] Linux and Windows behave the same way, because the check sits in the platform-independent `PackageBuilder`. The Linux and Windows SE-0482 consumers below also resolved by version without any diagnostic.
+
+### 2. Upstream Ghostty artifacts and stability
+
+- Observed: the GitHub release [`tip`](https://github.com/ghostty-org/ghostty/releases/tag/tip) is a prerelease named `Ghostty Tip ("Nightly")`. Its libghostty-vt assets are `ghostty-vt.xcframework.zip`, `ghostty-vt.wasm`, `ghostty-vt-small.wasm`, and `libghostty-vt-source.tar.gz`, each with a `.minisig`, and all were re-uploaded on 2026-10-22. No Linux or Windows library is published. The assets are replaced in place, so a `binaryTarget(url:checksum:)` pointing at them would break on the next nightly. [INFERENCE]
+- Observed: the downloaded `ghostty-vt.xcframework` contains static libraries for `macos-arm64_x86_64` (`libghostty-vt.a`, universal, `minos 13.0`), `ios-arm64`, and `ios-arm64-simulator`. Each slice ships `Headers/module.modulemap` declaring `module GhosttyVt { umbrella header "ghostty/vt.h" export * }`. The source tarball unpacks to `libghostty-vt-1.3.2-main+08a9518/`, which is mostly `.zig` files (776) plus 65 headers, so it still needs Zig.
+- From upstream sources, as reported by a survey agent that read them; not re-read here:
+  - The [README](https://github.com/ghostty-org/ghostty/blob/main/README.md) says libghostty-vt has not been tagged with a version and its "API signatures [are] still in flux".
+  - [`include/ghostty/vt.h`](https://github.com/ghostty-org/ghostty/blob/main/include/ghostty/vt.h) warns that the API is incomplete, WIP, and not yet stable.
+  - [Libghostty Is Coming](https://mitchellh.com/writing/libghostty-is-coming) (2025-09-22) promises separate versioning later.
+  - [`src/build/GhosttyLibVt.zig`](https://github.com/ghostty-org/ghostty/blob/main/src/build/GhosttyLibVt.zig) installs a static library, a shared library, `libghostty-vt.pc`, and `libghostty-vt-static.pc` ([#12210](https://github.com/ghostty-org/ghostty/pull/12210)). It builds the XCFramework only on a macOS host.
+  - The survey found no Homebrew, vcpkg, Conan, nixpkgs, Debian, or Arch package for libghostty-vt. [INFERENCE: absence came from searching, not from an exhaustive check.]
+- Observed: the [LICENSE](https://github.com/ghostty-org/ghostty/blob/f54340ad77814fe319d136e5e915d6a48de8dd23/LICENSE) at the pinned commit is MIT. The static archive also bundles code from Highway (`hwy`), simdutf, and Wuffs (seen in `nm`). [INFERENCE: a redistributed bundle should carry Ghostty's LICENSE and those projects' notices. Their licenses are not verified here.]
+
+### 3. Prior art
+
+Each entry lists how the project ships the library. Entries marked "survey" were read by a survey agent; "spot-checked" means the named file was fetched again here.
+
+| Project | Consumes | How it ships | Platforms |
+| --- | --- | --- | --- |
+| [Lakr233/libghostty-spm](https://github.com/Lakr233/libghostty-spm) | GhosttyKit (full `ghostty.h`) | `binaryTarget(url: …/releases/download/upstream.1e9e14af5df1-3/GhosttyKit.xcframework.zip, checksum:)`, tools 6.2 (spot-checked [Package.swift](https://github.com/Lakr233/libghostty-spm/blob/main/Package.swift)) | Apple only |
+| [sethdeckard/libghostty-spm](https://github.com/sethdeckard/libghostty-spm) | GhosttyKit | `binaryTarget(url:checksum:)` release asset, tools 6.0 (spot-checked), built from a `vendor/ghostty` submodule with Zig (survey) | Apple only |
+| [termio-sh/libghostty-swift](https://github.com/termio-sh/libghostty-swift), [briannadoubt/GhosttyKit](https://github.com/briannadoubt/GhosttyKit) | GhosttyKit | prebuilt XCFramework, remote or `path:` (survey) | Apple only |
+| [supabitapp/supacode](https://github.com/supabitapp/supacode), [manaflow-ai/cmux](https://github.com/manaflow-ai/cmux) | GhosttyKit | apps; supacode builds the XCFramework from a Zig submodule (survey) | macOS |
+| [Uzaaft/libghostty-rs](https://github.com/Uzaaft/libghostty-rs) | libghostty-vt | `build.rs` clones `ghostty-org/ghostty` at a pinned commit and runs Zig, with `GHOSTTY_SOURCE_DIR` and `pkg-config` escape hatches (spot-checked `crates/libghostty-vt-sys/build.rs`); MIT, 395 stars | all, needs Zig |
+| [microsoft/tui-test](https://github.com/microsoft/tui-test) | libghostty-vt | git dependency on libghostty-rs at rev `a28e4ad…` (spot-checked `Cargo.toml`), wrapped in an FFI adapter for Go, Python, and JS (survey) | all, Zig at build |
+| [mitchellh/go-libghostty](https://github.com/mitchellh/go-libghostty) | libghostty-vt | cgo through `pkg-config`, static by default; "you need the library installed" (spot-checked README) | all, user builds |
+| [coder/libghostty-vt-node](https://github.com/coder/libghostty-vt-node) | libghostty-vt | prebuilt `.node` addons per platform in npm (spot-checked README) | Linux, macOS arm64 |
+| [python-libghostty-vt](https://pypi.org/project/python-libghostty-vt) | libghostty-vt | prebuilt wheels; the sdist builds with Zig (survey) | Linux, macOS |
+| [alexey1312/swift-resvg](https://github.com/alexey1312/swift-resvg) | resvg (Rust, C ABI) | SE-0482 `staticLibrary` artifact bundle via `binaryTarget(url:checksum:)`, with Windows `.lib` variants and `.linkedLibrary` for system libraries (survey) | Apple, Linux, Windows |
+
+- Every Swift package found ships GhosttyKit, the full surface API, as an Apple-only XCFramework. None ships the VT-only library, and none covers Linux or Windows. Projects outside Swift either build with Zig at install time or prebuild per platform and publish to their own registry. The pattern Tessera needs, SE-0482 for a C-ABI static library on all three platforms, has a working precedent in swift-resvg. [INFERENCE from the survey above.]
+
+### 4. Mechanisms, spiked
+
+Every Tessera variant in this section depends on `ghostty-vt-binary/`, a package whose `GhosttyVTLibrary.artifactbundle` was built from this machine's and the VMs' existing pinned builds (`f54340ad`, Zig 0.17.0). Each consumer prints a Ghostty round trip: `VirtualTerminal.ghostty(cols: 20, rows: 3)` is fed `hello\r\n\e[31mred\e[0m`, and the program prints rows 0 and 1, `cell(1,0)` (`"r"`, foreground `.indexed(1)`), and the cursor (`column: 3, row: 1`).
+
+- Observed, bundle with headers and module map (`ghostty-vt-binary` `0.1.0`, `tessera` `0.2.0`, `consumer-se0482/`): it builds and runs on Swift 6.4 (`swift build` with the Swift Build default, and `xcodebuild` from Xcode 27.1) and on 6.3.3 with `--build-system native`. It fails on 6.3.3 with `--build-system swiftbuild` and on `xcodebuild` from Xcode 26.6 with `error: unable to resolve module dependency: 'CGhosttyVT'` / `note: a dependency of Swift module 'TesseraTerminalSnapshotSupport'`. The client's module scan does not see a module map that lives in a transitive artifact bundle. Switching to `internal import CGhosttyVT` (tag `0.2.1`) gives the same error.
+- Observed, lib-only bundle with a source `CGhosttyVT` and committed headers (`ghostty-vt-binary` `0.2.x`, `tessera` `0.3.0`, `consumer-se0482-split/`, `matrix.sh`):
+
+  | Toolchain | `swift build` native | `swift build` swiftbuild | `xcodebuild` |
+  | --- | --- | --- | --- |
+  | Xcode 26.6, Swift 6.3.3 | runs | runs | runs |
+  | Xcode 27.1, Swift 6.4 | runs | runs | runs |
+
+  `otool -L` shows no ghostty dylib, so the library is linked statically. A release build is 2.3 MB. `swift test` passes on both toolchains (`consumer-linux/`, `Test ghosttyRendersFedBytes() passed`). An `--arch x86_64` build fails at link time with `Undefined symbols for architecture x86_64`, which is what a triple missing from the bundle looks like.
+- Observed, Linux, in the `tessera-linux` Lima VM (Ubuntu 24.04.5, glibc 2.39, aarch64). With the `linux-arm64` variant added (`ghostty-vt-binary` `0.2.1`), `consumer-linux/` builds and runs with the same output on Swift 6.3.3 and 6.4.1 (6.4.1 uses Swift Build, `Debug-linux-aarch64.xctest`). `swift test` passes on both, and `ldd` shows no ghostty library. `swift package experimental-audit-binary-artifact` reports `Artifact is safe to use on the platforms runtime compatible with triple: aarch64-unknown-linux-gnu`. On macOS the same command reports `not supported on Darwin and Windows platforms`.
+- Observed, Windows, in the `tessera-windows-11` UTM guest (Swift 6.3.3, `aarch64-unknown-windows-msvc`). The variant is the guest's existing `ghostty-vt-static.lib` (`ghostty-vt-binary` `0.2.2`), and Tessera `0.3.1` adds `.linkedLibrary("ntdll", .when(platforms: [.windows]))` to `CGhosttyVT`. `consumer-windows/` reports `Build complete! (79.76s)`, `App.exe` prints the same round trip, and `swift test` reports `Test run with 1 test in 0 suites passed`. Upstream [swift-package-manager#8657](https://github.com/swiftlang/swift-package-manager/issues/8657), "Add support for static libraries in binary targets" for Windows, is still open, yet a `.lib` variant linked. `GHOSTTY_STATIC` still comes from the committed `CGhosttyVT.h`.
+- Observed, XCFramework on Apple (`ghostty-vt-xcf/`, `consumer-xcf/`): upstream's unmodified tip `ghostty-vt.xcframework`, wrapped as a `binaryTarget(path:)` and consumed by version, builds on 6.3.3 and 6.4. It runs `ghostty_terminal_new` → `ghostty_terminal_vt_write("hello\r\nred")` → `ghostty_terminal_get(CURSOR_X/Y)` and prints `cursor: 3 1`. That header set comes from `main+08a9518`, not the pin, so Tessera's sources would have to follow tip.
+- Observed, remote binaries: a `binaryTarget(url: "file:///…zip", checksum:)` fails with `error: 'url-bin': invalid URL scheme for binary target 'GhosttyVTLibrary'; valid schemes are: 'https'`. The spike therefore proves the bundle through `path:` inside a tagged git repo. Committing binaries, about 45 MB uncompressed per pin, would grow every consumer's clone of that repo. [INFERENCE] A release-asset url avoids that.
+
+| Mechanism | Version-based deps | macOS | Linux | Windows | Who builds and hosts | Pin-bump cost | Evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Today: `unsafeFlags` plus a local Zig build | allowed (tools ≥ 6.2) | consumer builds | consumer builds | consumer builds | every consumer, with Zig, CMake, and Ninja | rebuild everywhere | observed §1 |
+| SE-0482 lib-only bundle, source `CGhosttyVT` with committed headers | yes | yes (6.3.3, 6.4, all build systems, Xcode) | yes (aarch64, 6.3.3, 6.4.1) | yes (aarch64, 6.3.3) | Tessera CI builds; release asset | run the workflow, re-vendor headers, update url and checksum | observed §4 |
+| SE-0482 bundle carrying headers and module map | yes | fails on Xcode 26.6 and Swift Build 6.3.3 | not tried | not tried | Tessera CI | same | observed §4 |
+| XCFramework `binaryTarget` (upstream tip, or built by Tessera) | yes | yes | no ([SE-0272](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0272-swiftpm-binary-dependencies.md): Apple only) | no | upstream tip (rolling, must be rehosted) or Tessera | follow tip, or rebuild | observed §4 |
+| `systemLibrary` with `pkgConfig: "libghostty-vt-static"` | yes, not an unsafe flag | consumer installs | consumer installs | pkg-config is rare | every consumer; no distro packages exist | consumer rebuilds | [INFERENCE], not spiked |
+| Build from source inside SwiftPM | yes | no | no | no | not possible: the core is Zig (776 `.zig` files), not C | — | observed §2; [INFERENCE] build-tool plugins generate sources, run sandboxed, and would still need Zig and network access for Zig's dependencies ([SE-0303](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0303-swiftpm-extensible-build-tools.md)) |
+| Optional Ghostty: package trait or separate product, falling back to `VirtualTerminal.ghosttyUnavailable` | yes | n/a | n/a | n/a | complements any of the above | none | fallback exists at `Sources/TesseraTerminalSnapshotSupport/VirtualTerminal+ghosttyUnavailable.swift:9-58`; traits [INFERENCE] |
+| Pure-Swift VT engine (SwiftTerm) | yes | yes | yes | yes | nobody | none | rejected for fidelity in [Windows libghostty-vt Snapshot Build Spike](windows-libghostty-vt-snapshot-spike.md) (lines 36-42) |
+
+### 5. Platform details for the CI build
+
+- Observed: the archives depend only on libc. macOS needs `libSystem` symbols plus `__availability_version_check`; Linux needs glibc and libm, with no C++ runtime because the `hwy` and `simdutf` symbols resolve inside the archive. The macOS objects carry `minos 13.0`, so they suit the `.macOS(.v26)` floor.
+- Observed: the Linux archive references `arc4random_buf`, which glibc added in 2.36, so a variant built on Ubuntu 24.04 would fail to link on Ubuntu 22.04 (glibc 2.35) or Amazon Linux 2. [INFERENCE] Building with an explicit Zig target such as `-Dtarget=x86_64-linux-gnu.2.28` would lower the floor. This is unverified. The Static Linux SDK needs a separate `*-swift-linux-musl` variant.
+- Observed: the Windows build uses `zig build -Demit-lib-vt -Dsimd=false -Doptimize=ReleaseFast` (`scripts/build-libghostty-vt.ps1:177`), and the Linux build uses `-Dcpu=baseline` (`scripts/build-libghostty-vt.sh:111`). The CI producer should reuse those flags.
+- [INFERENCE] Pin bumps that are not yet released need a local override, for example a script that writes the bundle into a gitignored directory inside the package, selected by an environment variable in the manifest, because `binaryTarget(path:)` must lie inside the package.
+
+## Conclusion
+
+The `unsafeFlags` link is not what blocks version-based consumers on Swift 6.2+ manifests. The blockers are the uncommitted headers and the need for each consumer to build libghostty-vt with Zig. No upstream or third-party artifact covers Linux and Windows, so somebody has to build the library. The cheapest owner is Tessera's CI, once per pin. It publishes an SE-0482 static-library artifact bundle that holds only the library, and a source `CGhosttyVT` target with committed headers sits on top. The spike shows that layout building and running by version on macOS (6.3.3 and 6.4, every build system), Linux aarch64 (6.3.3 and 6.4.1), and Windows aarch64 (6.3.3). The url-hosted download, the x86_64 and musl variants, and the glibc floor are still to be proven in the follow-up slice.

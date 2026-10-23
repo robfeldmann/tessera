@@ -2,4 +2,4 @@
 #MISE description="Print a summary for the latest Swift code coverage report"
 set -euo pipefail
 cd "$MISE_PROJECT_ROOT"
-scripts/coverage-summary.py "$(swift test --show-codecov-path)"
+scripts/coverage-summary.py "$(swift test --only-use-versions-from-resolved-file --show-codecov-path)"

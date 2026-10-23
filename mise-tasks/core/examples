@@ -2,4 +2,4 @@
 #MISE description="Build all example package executables"
 set -euo pipefail
 cd "$MISE_PROJECT_ROOT"
-swift build --package-path Examples
+swift build --only-use-versions-from-resolved-file --package-path Examples

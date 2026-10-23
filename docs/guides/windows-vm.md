@@ -97,7 +97,7 @@ The script, `scripts/provision-windows-vm.ps1`, converges the guest on the toolc
 - Git 2.54 (the arm64 installer).
 - Visual Studio 2022 Community with the Desktop C++ workload and the Windows 11 SDK 26100.
 - The Swift toolchain named by `.swift-version` (the swift.org ARM64 installer).
-- Zig at the version `mise.toml` pins, under `%LOCALAPPDATA%\Programs\zig\zig-aarch64-windows-<version>\`, where `scripts/build-libghostty-vt.ps1` looks for it.
+- Zig at the version `mise.toml` pins, under `%LOCALAPPDATA%\Programs\zig\zig-aarch64-windows-<version>\`, where `scripts/build-libghostty-vt.ps1` looks for it. Only a Ghostty pin bump uses it ([Updating Ghostty VT](updating-ghostty-vt.md)); builds and tests link the published libghostty-vt bundle.
 - The UTM guest tools, from an ISO (downloaded from getutm.app) that the script mounts in the guest.
 
 Every step checks before it installs, so provisioning is idempotent: rerun it after `.swift-version` or the pinned Zig changes, and a run with nothing to do makes no changes (about 9 seconds). Visual Studio usually leaves a reboot pending. Over SSH the script then exits with code 100 and `vm.py` reboots the guest and runs it again, up to five passes. Run from a console by hand, the script registers a one-time logon task and reboots itself instead.
@@ -134,7 +134,7 @@ mise run vm:windows-test -- --filter WindowsInputLoopTests
 
 `vm:windows-push` starts the guest when it is stopped, then delivers what `git ls-files --cached --others --exclude-standard` lists as a tar.gz over `scp` into `C:\Users\tester\tessera`. That checkout is a Git index of the last delivery, so files you removed on the host disappear in the guest, while ignored paths such as `.build` stay and keep builds incremental. Edits made in the guest are overwritten by the next push.
 
-`vm:windows-test` runs `scripts/run-windows-tests.ps1` in the guest. It builds libghostty-vt for the revision in `scripts/ghostty-vt-version.txt` with `scripts/build-libghostty-vt.ps1` (skipped when `C:\Users\tester\AppData\Local\tessera\libghostty-vt\<revision>\windows-arm64` already exists), points `GHOSTTY_VT_OUTPUT_DIR` at it, then runs `swift test --no-parallel` with the arguments after `--`. The task exits with Swift's status. The output includes `==> Ghostty VT enabled` when the Ghostty-backed suites are built. `vm:windows-test` does not push; run `vm:windows-push` first. `windows:test` and `windows-utm:test` remain as aliases, and `windows-utm:sync` for `vm:windows-push`.
+`vm:windows-test` runs `scripts/run-windows-tests.ps1` in the guest, which runs `swift test --no-parallel` with the arguments after `--`; the package links libghostty-vt from the published artifact bundle, so nothing is built with Zig. The task exits with Swift's status. `vm:windows-test` does not push; run `vm:windows-push` first. `windows:test` and `windows-utm:test` remain as aliases, and `windows-utm:sync` for `vm:windows-push`.
 
 ## ConPTY smoke
 
