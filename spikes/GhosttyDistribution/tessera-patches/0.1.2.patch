@@ -1,0 +1,11 @@
+diff --git a/Package.swift b/Package.swift
+index 5d19473..b19a100 100644
+--- a/Package.swift
++++ b/Package.swift
+@@ -608,3 +608,6 @@ for target in package.targets {
+   ])
+   target.swiftSettings = settings
+ }
++
++// SPIKE: product that exposes CGhosttyVT directly, to probe SwiftPM's unsafeFlags check.
++package.products.append(.library(name: "CGhosttyVTDirect", targets: ["CGhosttyVT"]))

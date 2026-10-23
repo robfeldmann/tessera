@@ -53,22 +53,24 @@ The [design catalog](design.md) (`docs/design/`) is the authoritative contract f
 
 ## Roadmap
 
-The active milestone is the Phase 4 view layer. Each step lands its components with tests and a demo:
+The active milestone is the Phase 4 view layer. Each step lands its components with tests, a demo, and a scenario, and the [developer tools](architecture/developer-tooling.md) grow alongside them:
 
 1. Core view graph, reconciliation, and `Text` — **done**.
 2. Layout, stacks, static `SplitView`, and `ScrollView` — **done**.
 3. Flex sizing and final `SplitView` negotiation — **done**.
 4. Component designs revised against a reference TUI — _in progress_.
-5. The demo harness — _planned_.
+5. The demo harness, scenarios, checks, and `tessera-dev` — _planned_.
 6. Styling and decoration — _planned_.
 7. Focus, key routing, and `KeyLegend` — _planned_.
 8. Mouse, hit testing, and hover — _planned_.
 9. Interactive `ScrollView` — _planned_.
-10. Controls — _planned_.
-11. Collections and fitting — _planned_.
-12. Interactive `SplitView` — _planned_.
-13. The remaining 1.0 views — _planned_.
-14. The intro demo app — _planned_.
+10. Flow layout and `ViewThatFits` — _planned_.
+11. Controls — _planned_.
+12. Collections — _planned_.
+13. Interactive `SplitView` — _planned_.
+14. The remaining 1.0 views — _planned_.
+15. Live inspection — _planned_.
+16. The intro demo app — _planned_.
 
 After the view layer (spec Phase 5, "Runtime + polish") the work turns to:
 

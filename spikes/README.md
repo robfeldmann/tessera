@@ -9,8 +9,11 @@ Time-boxed spikes for plan 033 (`docs/plans/developer-tooling.md`). Each is a st
 | [SvgShot](SvgShot/) | Can a `ScreenSnapshot` become a byte-stable, legible SVG? | partial |
 | [LiveSocket](LiveSocket/) | Can a running app answer `text`, `tree`, `key`, and `quit` over a local socket? | pass |
 | [Seams](Seams/README.md) | Are live resize, an injected clock, and a probe ID small `package` seams? | pass |
+| [GhosttyDistribution](GhosttyDistribution/README.md) | Can an app that depends on Tessera by version link libghostty-vt on macOS, Linux, and Windows? | pass |
 
 The Seams spike edits root sources, so its code is saved as a patch, [`Seams/30e4bbf.patch`](Seams/30e4bbf.patch), beside its README.
+
+GhosttyDistribution is not a path-dependent package: it is the saved sources of a spike that consumed tagged copies of Tessera through `file://` URLs, for [libghostty-vt distribution](../docs/research/libghostty-vt-distribution.md). Its README says how to rerun it.
 
 ## Status
 

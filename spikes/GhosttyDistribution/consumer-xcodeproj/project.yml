@@ -1,0 +1,16 @@
+name: ConsumerXcodeproj
+options:
+  deploymentTarget:
+    macOS: "26.0"
+packages:
+  tessera:
+    url: file:///tmp/ghostty-dist-spike/tessera
+    from: 0.1.1
+targets:
+  App:
+    type: tool
+    platform: macOS
+    sources: [App]
+    dependencies:
+      - package: tessera
+        product: TesseraTerminalSnapshotSupport

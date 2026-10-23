@@ -1,0 +1,58 @@
+Fetching https://github.com/apple/swift-system from cache
+Fetching https://github.com/ainame/swift-displaywidth from cache
+Fetching /tmp/ghostty-dist-spike/tessera
+Fetching https://github.com/swiftlang/swift-syntax from cache
+Fetching https://github.com/pointfreeco/xctest-dynamic-overlay from cache
+Fetching https://github.com/pointfreeco/swift-snapshot-testing from cache
+Fetching https://github.com/pointfreeco/swift-custom-dump from cache
+Fetching /tmp/ghostty-dist-spike/ghostty-vt-binary
+Fetched /tmp/ghostty-dist-spike/ghostty-vt-binary from cache (2.02s)
+Fetched /tmp/ghostty-dist-spike/tessera from cache (2.02s)
+Fetched https://github.com/swiftlang/swift-syntax from cache (2.05s)
+Fetched https://github.com/pointfreeco/xctest-dynamic-overlay from cache (2.05s)
+Fetched https://github.com/pointfreeco/swift-custom-dump from cache (2.08s)
+Fetched https://github.com/ainame/swift-displaywidth from cache (2.08s)
+Fetched https://github.com/pointfreeco/swift-snapshot-testing from cache (2.14s)
+Fetched https://github.com/apple/swift-system from cache (2.16s)
+Creating working copy for https://github.com/apple/swift-system
+Creating working copy for https://github.com/pointfreeco/swift-snapshot-testing
+Creating working copy for https://github.com/pointfreeco/swift-custom-dump
+Creating working copy for /tmp/ghostty-dist-spike/ghostty-vt-binary
+Creating working copy for https://github.com/ainame/swift-displaywidth
+Creating working copy for https://github.com/pointfreeco/xctest-dynamic-overlay
+Creating working copy for /tmp/ghostty-dist-spike/tessera
+Creating working copy for https://github.com/swiftlang/swift-syntax
+Working copy of /tmp/ghostty-dist-spike/ghostty-vt-binary resolved at 0.2.0
+Working copy of https://github.com/ainame/swift-displaywidth resolved at 0.2.0
+Working copy of https://github.com/pointfreeco/swift-custom-dump resolved at 1.7.3
+Working copy of https://github.com/apple/swift-system resolved at 1.8.1
+Working copy of https://github.com/pointfreeco/swift-snapshot-testing resolved at 1.18.9
+Working copy of https://github.com/pointfreeco/xctest-dynamic-overlay resolved at 1.13.1
+Working copy of https://github.com/swiftlang/swift-syntax resolved at 602.0.0
+Working copy of /tmp/ghostty-dist-spike/tessera resolved at 0.3.0
+Building for debugging...
+Pre-planning 1 / 305
+Planning deferred tasks
+[46/100] CGhosttyVT 71 / 150
+[54/100] CGhosttyVT 88 / 160
+[57/100] TesseraTerminalCore 92 / 160
+[62/100] TesseraTerminalANSI 151 / 237
+[68/100] IssueReporting 166 / 237
+[70/100] DisplayWidth 170 / 237
+[71/100] IssueReporting 173 / 237
+[75/100] DisplayWidth 182 / 237
+[75/100] IssueReporting 182 / 237
+[79/100] DisplayWidth 188 / 237
+[81/100] TesseraTerminalBuffer 195 / 238
+[82/100] TesseraTerminalBuffer 203 / 246
+[85/100] TesseraTerminalRendering 211 / 247
+[87/100] TesseraTerminalRendering 222 / 252
+[88/100] TesseraTerminalSnapshotSupport 223 / 252
+[90/100] TesseraTerminalRendering 242 / 264
+[91/100] TesseraTerminalSnapshotSupport 242 / 264
+[93/100] TesseraTerminalSnapshotSupport 250 / 266
+[95/100] App 258 / 270
+/private/tmp/ghostty-dist-spike/consumer-se0482-split/Package.swift: App-product: ld: warning: ignoring duplicate libraries: '/private/tmp/ghostty-dist-spike/consumer-se0482-split/.build/checkouts/ghostty-vt-binary/GhosttyVTLibrary.artifactbundle/macos-arm64/libghostty-vt.a'
+[99/100] App-product 269 / 270
+[100/100] 
+Build complete! (9.75 sec)

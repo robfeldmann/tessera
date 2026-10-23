@@ -1,0 +1,83 @@
+Fetching /tmp/ghostty-dist-spike/tessera
+Fetching https://github.com/pointfreeco/xctest-dynamic-overlay from cache
+Fetching https://github.com/pointfreeco/swift-custom-dump from cache
+Fetching https://github.com/pointfreeco/swift-snapshot-testing from cache
+Fetching https://github.com/pointfreeco/swift-issue-reporting from cache
+Fetching /tmp/ghostty-dist-spike/ghostty-vt-binary
+Fetching https://github.com/ainame/swift-displaywidth from cache
+Fetching https://github.com/apple/swift-system from cache
+Fetching https://github.com/swiftlang/swift-syntax from cache
+Fetched /tmp/ghostty-dist-spike/ghostty-vt-binary (0.09s)
+Fetched https://github.com/swiftlang/swift-syntax from cache (0.12s)
+Fetched https://github.com/pointfreeco/xctest-dynamic-overlay from cache (0.12s)
+Fetched https://github.com/pointfreeco/swift-issue-reporting from cache (0.15s)
+Fetched https://github.com/pointfreeco/swift-custom-dump from cache (0.15s)
+Fetched https://github.com/ainame/swift-displaywidth from cache (0.15s)
+Fetched https://github.com/pointfreeco/swift-snapshot-testing from cache (0.21s)
+Fetched https://github.com/apple/swift-system from cache (0.25s)
+Fetched /tmp/ghostty-dist-spike/tessera (2.21s)
+Creating working copy for https://github.com/ainame/swift-displaywidth
+Creating working copy for https://github.com/pointfreeco/swift-issue-reporting
+Creating working copy for /tmp/ghostty-dist-spike/ghostty-vt-binary
+Creating working copy for https://github.com/apple/swift-system
+Creating working copy for https://github.com/pointfreeco/swift-custom-dump
+Creating working copy for https://github.com/pointfreeco/xctest-dynamic-overlay
+Creating working copy for /tmp/ghostty-dist-spike/tessera
+Creating working copy for https://github.com/pointfreeco/swift-snapshot-testing
+Creating working copy for https://github.com/swiftlang/swift-syntax
+Working copy of https://github.com/pointfreeco/swift-custom-dump resolved at 1.7.3
+Working copy of /tmp/ghostty-dist-spike/ghostty-vt-binary resolved at 0.2.0
+Working copy of https://github.com/ainame/swift-displaywidth resolved at 0.2.0
+Working copy of https://github.com/pointfreeco/xctest-dynamic-overlay resolved at 1.13.1
+Working copy of https://github.com/pointfreeco/swift-snapshot-testing resolved at 1.18.9
+Working copy of https://github.com/pointfreeco/swift-issue-reporting resolved at 2.1.2
+Working copy of https://github.com/apple/swift-system resolved at 1.8.1
+Working copy of https://github.com/swiftlang/swift-syntax resolved at 602.0.0
+Working copy of /tmp/ghostty-dist-spike/tessera resolved at 0.3.0
+Building for debugging...
+[Computing dependencies]
+[Pre-planning 1 / 306]
+[Planning deferred tasks]
+[67 / 141]
+[83 / 159]
+[94 / 160] CGhosttyVT
+[95 / 160] DisplayWidth
+[120 / 302]
+[133 / 302]
+[143 / 302]
+[148 / 302]
+[149 / 302]
+[159 / 302]
+[164 / 302]
+[169 / 302]
+[176 / 302]
+[183 / 302]
+[186 / 302]
+[187 / 302]
+[192 / 302]
+[195 / 302]
+[213 / 302] IssueReporting
+[214 / 302] TesseraTerminalANSI
+[219 / 302] TesseraTerminalANSI
+[224 / 302] TesseraTerminalANSI
+[227 / 302] TesseraTerminalANSI
+[228 / 302] TesseraTerminalANSI
+[232 / 302] TesseraTerminalANSI
+[241 / 302] IssueReporting
+[242 / 302] IssueReporting
+[245 / 302] IssueReporting
+[252 / 303] IssueReporting
+[252 / 303] _IssueReporting
+[254 / 305] _IssueReporting
+[261 / 305] IssueReporting
+[266 / 305] DisplayWidth
+[273 / 306] TesseraTerminalBuffer
+[283 / 314] DisplayWidth
+[292 / 315] TesseraTerminalRendering
+[303 / 320] TesseraTerminalRendering
+[305 / 320] TesseraTerminalSnapshotSupport
+[317 / 332] TesseraTerminalSnapshotSupport
+[326 / 333] TesseraTerminalSnapshotSupport
+[330 / 335] App-product
+[333 / 335] App-product
+Build complete! (11.02 sec)

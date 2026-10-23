@@ -10,6 +10,7 @@ One plan per piece of work, in order. This page is rendered from each plan's fro
 ## Next
 
 1. [Build the Phase 4 view layer with the tooling that proves it](plans/phase-4-view-layer-and-developer-tooling.md): Build the Phase 4 view layer from the omp2-reviewed catalog and the developer tooling that drives, pictures, and checks it, in one slice order where each component lands with its demo, its scenario, and the harness capability it needs.
+2. [Ship libghostty-vt as a prebuilt binary](plans/libghostty-vt-binary-distribution.md): Ship libghostty-vt as a prebuilt SE-0482 static-library artifact bundle that Tessera's CI builds once per Ghostty pin, so apps can depend on Tessera by version and no build or test job runs Zig.
 
 ## Done
 
