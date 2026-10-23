@@ -25,7 +25,9 @@ Set-Location $RepoPath
 Write-Host "==> Swift"
 swift --version
 
-$swiftArgs = @("test", "--no-parallel") + $SwiftTestArgs
+# --only-use-versions-from-resolved-file keeps Swift 6.3 from rewriting the Swift 6.4
+# Package.resolved (docs/architecture/toolchain-lanes.md).
+$swiftArgs = @("test", "--only-use-versions-from-resolved-file", "--no-parallel") + $SwiftTestArgs
 Write-Host "==> swift $($swiftArgs -join ' ')"
 & swift @swiftArgs
 exit $LASTEXITCODE

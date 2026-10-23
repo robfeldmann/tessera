@@ -18,7 +18,7 @@ base_targets=(
   TesseraWidgets
 )
 for target in "${base_targets[@]}"; do
-  swift package \
+  swift package --only-use-versions-from-resolved-file \
     --allow-writing-to-directory .build/doccarchives/targets \
     generate-documentation \
     --target "$target" \
@@ -33,7 +33,7 @@ for archive in .build/doccarchives/targets/TesseraTerminal*.doccarchive; do
     dependency_args+=(--dependency "$archive")
   fi
 done
-swift package \
+swift package --only-use-versions-from-resolved-file \
   --allow-writing-to-directory .build/doccarchives/targets \
   generate-documentation \
   --target TesseraTerminal \
@@ -48,7 +48,7 @@ for archive in .build/doccarchives/targets/*.doccarchive; do
     dependency_args+=(--dependency "$archive")
   fi
 done
-swift package \
+swift package --only-use-versions-from-resolved-file \
   --allow-writing-to-directory .build/doccarchives/targets \
   generate-documentation \
   --target Tessera \

@@ -3,4 +3,4 @@
 #USAGE arg "[args]..." help="Extra swift test arguments, for example --filter TesseraCoreTests" var=#true
 set -euo pipefail
 cd "$MISE_PROJECT_ROOT"
-swift test --no-parallel "$@"
+swift test --only-use-versions-from-resolved-file --no-parallel "$@"

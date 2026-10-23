@@ -189,9 +189,11 @@ jobs:
             Remove-Item -LiteralPath .build -Recurse -Force
           }
 
-      # Package.resolved is resolved with the Swift 6.4 lane, whose graph is a superset
-      # (xctest-dynamic-overlay's 6.4 manifest adds swift-issue-reporting); every lane must
-      # accept it unchanged, or switching Xcode versions rewrites it locally.
+      # Package.resolved is owned by the Swift 6.4 lane, whose graph is larger
+      # (xctest-dynamic-overlay's 6.4 manifest adds swift-issue-reporting). Swift 6.3 drops
+      # that pin on any plain resolve or build, so every SwiftPM command here, as in the
+      # mise tasks, passes --only-use-versions-from-resolved-file, which also fails a lane
+      # whose resolved file is out of date (docs/architecture/toolchain-lanes.md).
       - name: Check the resolved files are current
         if: needs.ci-gate.outputs.vouch-only != 'true'
         run: |
@@ -200,11 +202,11 @@ jobs:
 
       - name: Build
         if: needs.ci-gate.outputs.vouch-only != 'true'
-        run: swift build
+        run: swift build --only-use-versions-from-resolved-file
 
       - name: Build Examples
         if: needs.ci-gate.outputs.vouch-only != 'true'
-        run: swift build --package-path Examples
+        run: swift build --only-use-versions-from-resolved-file --package-path Examples
 
       - name: Save SwiftPM cache after build
         if: >
@@ -218,7 +220,11 @@ jobs:
 
       - name: Test
         if: needs.ci-gate.outputs.vouch-only != 'true'
-        run: swift test --no-parallel
+        run: swift test --only-use-versions-from-resolved-file --no-parallel
+
+      - name: Check the resolved files are unchanged
+        if: needs.ci-gate.outputs.vouch-only != 'true'
+        run: git diff --exit-code -- Package.resolved Examples/Package.resolved
 
   test-parallel:
     name: test (parallel, ubuntu-latest)
@@ -259,7 +265,7 @@ jobs:
 
       - name: Test in parallel
         if: needs.ci-gate.outputs.vouch-only != 'true'
-        run: swift test --parallel
+        run: swift test --only-use-versions-from-resolved-file --parallel
 
   version-consumer:
     name: version consumer (${{ matrix.os }})

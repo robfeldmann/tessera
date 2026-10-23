@@ -651,7 +651,7 @@ rm -rf \
   .build/x86_64-unknown-linux-gnu/debug/ModuleCache*
 
 swiftly run "+$swift_version" swift --version
-swiftly run "+$swift_version" swift test --jobs 2 --no-parallel "$@"
+swiftly run "+$swift_version" swift test --only-use-versions-from-resolved-file --jobs 2 --no-parallel "$@"
 """
     try:
         result = run(

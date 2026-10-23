@@ -2,6 +2,6 @@
 #MISE description="Build and test the package and build the Examples"
 set -euo pipefail
 cd "$MISE_PROJECT_ROOT"
-swift build
-swift build --package-path Examples
-swift test --no-parallel
+swift build --only-use-versions-from-resolved-file
+swift build --only-use-versions-from-resolved-file --package-path Examples
+swift test --only-use-versions-from-resolved-file --no-parallel

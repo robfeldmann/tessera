@@ -3,4 +3,4 @@
 #USAGE arg "[args]..." help="Extra swift test arguments" var=#true
 set -euo pipefail
 cd "$MISE_PROJECT_ROOT"
-swift test --parallel "$@"
+swift test --only-use-versions-from-resolved-file --parallel "$@"

@@ -9,7 +9,7 @@ expected="requires that 'FrameRegion' conform to 'Escapable'"
 
 # Ask SwiftPM where the active toolchain puts debug products: the native build system
 # writes modules to `<bin>/Modules`, Swift Build (the default from Swift 6.4) to `<bin>`.
-bin_path="$(swift build --show-bin-path)"
+bin_path="$(swift build --only-use-versions-from-resolved-file --show-bin-path)"
 module_dirs=()
 for candidate in "$bin_path/Modules" "$bin_path"; do
   if [[ -e "$candidate/TesseraTerminalBuffer.swiftmodule" ]]; then
