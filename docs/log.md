@@ -1,5 +1,10 @@
 # Log
 
+## 2026-10-23
+
+- Shipped libghostty-vt as a prebuilt SE-0482 artifact bundle ([plan](plans/libghostty-vt-binary-distribution.md), [architecture](architecture/libghostty-vt-distribution.md)): `.github/workflows/ghostty-vt.yml` publishes the `ghostty-vt-f54340ad7781` prerelease (republished as `-r2` with the linked licenses) with seven variants, `Package.swift` links it by URL and checksum with the Ghostty headers committed and no `unsafeFlags`, CI and the VM tasks stop building Zig, and a `version consumer` job proves a by-version dependency on macOS, Linux, and Windows. [Updating Ghostty VT](guides/updating-ghostty-vt.md) covers pin bumps.
+- Followed up on the libghostty-vt reviews: the producer refuses to replace a published zip or publish an incomplete bundle without an explicit dispatch input, no longer runs on pull requests, and ships the linked components' licenses ([`scripts/ghostty-vt-licenses/`](../scripts/ghostty-vt-licenses/README.md)); CI runs the x86_64 macOS slice and a Static Linux SDK build (`TesseraTerminalIO` now imports `Musl`), and `mise run linux:build` works with swiftly linked or unlinked; and the resolved files belong to the Swift 6.4 lane, with every repository entry point passing `--only-use-versions-from-resolved-file` so Swift 6.3 no longer rewrites them ([Toolchain lanes](architecture/toolchain-lanes.md)).
+
 ## 2026-10-22
 
 - Moved the project documentation into this IWE workspace (plan 035 Step 5.2): plans and research records took slug names under `plans/` and `research/`, the design catalog moved under `design/`, the contributor guides under `guides/`, and the spec was split into `spec/` pages. `docs/plans.md` is rendered from plan frontmatter by `scripts/plans.py`, and `docs/architecture/` opened with the toolchain-lanes decision from plan 035 Phase 2.

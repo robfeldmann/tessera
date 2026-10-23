@@ -14,7 +14,7 @@ Tessera targets macOS, Linux, and Windows with Swift 6.3 or later. The baseline 
 | Linux | Ubuntu 24.04 (CI and project Linux VM) | Swift 6.3.3; Swift 6.4.1 | x86_64 (CI), ARM64 |
 | Windows | Windows 11 25H2 (CI); Windows 11 ARM64 UTM guest (local, 651 tests passed on 2026-10-22) | Swift 6.3.3 (`.swift-version`) | x86_64 (CI), ARM64 |
 
-Continuous integration runs the full test suite on all three platforms with Ghostty-backed output snapshot coverage (via `libghostty-vt`), including Windows. The Xcode 27 leg runs on GitHub's `xcode-27` preview image and is not yet a required check.
+Continuous integration runs the full test suite on all three platforms with Ghostty-backed output snapshot coverage (via `libghostty-vt`), including Windows. `libghostty-vt` comes from a prebuilt artifact bundle that Tessera publishes per Ghostty pin, so neither Tessera's builds nor an app that depends on Tessera by version need Zig; a CI job checks that by-version path on all three platforms. The Xcode 27 leg runs on GitHub's `xcode-27` preview image and is not yet a required check.
 
 ### Planned platform widening
 

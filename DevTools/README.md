@@ -15,7 +15,6 @@ Use it from Xcode when you want a visible reminder or one-click way to run the L
 The executable delegates to `mise run vm:linux-test`, which:
 
 - starts the `tessera-linux` Lima VM without prompting when needed (see [Tessera VMs](../docs/guides/vms.md));
-- runs the Linux build of `libghostty-vt`;
 - runs `swift test --jobs 2` inside the VM;
 - stops the VM afterward only if the command started it.
 

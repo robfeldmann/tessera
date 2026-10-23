@@ -159,7 +159,7 @@ The next body of work completes the view and application-programming layer, then
 Contributions are welcome — please read [CONTRIBUTING.md](CONTRIBUTING.md) first. The dev loop is driven by [mise](https://mise.jdx.dev/) tasks (`mise install`, then):
 
 ```sh
-mise run core:build       # build the package (prepares libghostty-vt)
+mise run core:build       # build the package
 mise run core:test        # full Swift test suite
 mise run core:showcase    # run the Showcase example
 mise run docs:preview     # build and serve DocC locally

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-#MISE description="Build the Swift package after preparing libghostty-vt"
-#MISE depends=["core:build-libghostty-vt"]
+#MISE description="Build the Swift package"
 set -euo pipefail
 cd "$MISE_PROJECT_ROOT"
-swift build "$@"
+# --only-use-versions-from-resolved-file: Swift 6.3 would otherwise rewrite the Swift 6.4
+# Package.resolved (docs/architecture/toolchain-lanes.md).
+swift build --only-use-versions-from-resolved-file "$@"

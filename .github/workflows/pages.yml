@@ -29,23 +29,11 @@ jobs:
       - name: Set up Swift
         uses: ./.github/actions/setup-swift
 
-      - name: Install mise tools (zig, cmake, ninja)
+      - name: Install mise tools
         uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
 
       - name: Install gnu-tar
         run: brew install gnu-tar
-
-      - name: Restore libghostty-vt cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          # Key/path shape must match CI so both share entries.
-          path: |
-            ~/.cache/tessera/libghostty-vt
-            !~/.cache/tessera/libghostty-vt/source
-            !~/.cache/tessera/libghostty-vt/cmake
-          # Exact-only to prevent a stale native install from being relabeled.
-          # prettier-ignore
-          key: libghostty-vt-v4-${{ runner.os }}-${{ runner.arch }}-zig-0.17.0-${{ hashFiles('scripts/ghostty-vt-version.txt', 'scripts/build-libghostty-vt.sh', 'scripts/build-libghostty-vt.ps1') }}
 
       - name: Build static docs
         run: mise run docs:build

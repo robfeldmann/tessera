@@ -34,7 +34,8 @@ Vouching only permits a contributor to present work. Every contribution still re
 ## Prerequisites
 
 - Swift 6.3.3 (`.swift-version`), the baseline toolchain every lane must pass: Xcode 26.6 on macOS, the swift.org release on Linux and Windows. Swift 6.4 (Xcode 27) is a second supported lane; see [Toolchain lanes](#toolchain-lanes).
-- [mise](https://mise.jdx.dev/), which installs every other tool at the pinned versions in `mise.toml` (SwiftLint, rumdl, hk, codespell, Node, Python, zig, cmake, ninja, and the rest) and runs the tasks in `mise-tasks/`; swift-format comes from the selected Xcode toolchain on macOS
+- [mise](https://mise.jdx.dev/), which installs every other tool at the pinned versions in `mise.toml` (SwiftLint, rumdl, hk, codespell, Node, Python, and the rest) and runs the tasks in `mise-tasks/`; swift-format comes from the selected Xcode toolchain on macOS. It also installs Zig, CMake, and Ninja, which only a Ghostty pin bump uses: builds and tests link libghostty-vt from a prebuilt artifact bundle ([Updating Ghostty VT](docs/guides/updating-ghostty-vt.md))
+- On Linux, `unzip`, which SwiftPM uses to unpack that bundle
 - Python 3 (repository-local spelling tool and local documentation previews)
 
 SwiftLint and DocC validation are macOS/Linux-native; run quality checks and `xcrun docc` there or in CI, not on Windows.
@@ -65,6 +66,8 @@ Select a toolchain locally:
 - Windows: the UTM guest carries the baseline only (`mise run vm:windows-provision` installs the Swift release named by `.swift-version`). There is no Windows 6.4 lane yet.
 - Linux cross-compilation (`mise run linux:build`) picks the Static Linux SDK that matches the active compiler from `scripts/config/swift-sdks.json`, falling back to the baseline.
 
+The resolved files (`Package.resolved`, `Examples/Package.resolved`, and the workspace's) belong to the Swift 6.4 lane, because a dependency's Swift 6.4 manifest adds swift-issue-reporting. A plain `swift build`, `swift test`, or `swift package` command on Swift 6.3 drops that pin, as does building the bare package in Xcode 26.6. The `mise run` tasks pass `--only-use-versions-from-resolved-file`, which leaves the files alone on both lanes; pass it yourself when you run SwiftPM directly (`swift test --only-use-versions-from-resolved-file`), and discard a resolved-file change a plain Swift 6.3 command makes (`git checkout -- Package.resolved`). Xcode's equivalent is the user default `defaults write com.apple.dt.Xcode IDEPackageOnlyUseVersionsFromResolvedFile -bool YES` (`xcodebuild -onlyUsePackageVersionsFromResolvedFile` for one command); it applies to every project, so Xcode uses each project's resolved file as written instead of updating it. Regenerate the files with Xcode 27.1 only, as [Toolchain lanes](docs/architecture/toolchain-lanes.md) describes. CI fails a resolved file that is out of date for a lane.
+
 ## Setup
 
 Install [mise](https://mise.jdx.dev/getting-started.html) first (`brew install mise`, or the installer on that page); it provides every other pinned tool. On macOS a `Brewfile` installs the host packages mise cannot (swiftly, Lima, UTM):
@@ -94,7 +97,7 @@ Optional platform tooling for cross-platform testing:
 Tasks are grouped by area; run `mise tasks` to list them. The fastest inner-loop commands while editing:
 
 ```sh
-mise run core:build            # build the package (prepares libghostty-vt first)
+mise run core:build            # build the package
 mise run core:test             # full Swift test suite (non-parallel, as CI runs it)
 mise run core:test-parallel    # the same suite in parallel; must stay green
 mise run core:showcase         # run the Tessera Showcase example
@@ -186,12 +189,13 @@ Use `27` for the Swift 6.4 lane (macOS 27 with Xcode 27.1).
 
 ### Linux
 
-Compile-check against the Static Linux SDK without a VM (does not run tests):
+Compile-check the library targets against the Static Linux SDK (x86_64 and aarch64 musl) without a VM; it does not run tests:
 
 ```sh
-mise run linux:install-sdk     # SDK metadata is pinned in scripts/config/swift-sdks.json
-mise run linux:build
+mise run linux:build           # installs the SDK pinned in scripts/config/swift-sdks.json first
 ```
+
+The SDK needs a swift.org toolchain; Xcode's compiler rejects its modules. With swiftly, either setup works on macOS: when swiftly is linked and its toolchain is the active `swift`, the task uses it as is, and when Xcode's compiler is active (swiftly unlinked, or no swiftly `swift` on `PATH`), the task runs swiftly's toolchain of the same version (`swiftly install 6.3.3`). Without a swift.org toolchain it stops with that advice. CI's `static Linux SDK` job runs the same build on Linux, so a Mac without that toolchain can rely on CI.
 
 Run the Linux test suite in a [Lima](https://lima-vm.io/) VM (Ubuntu 24.04, no Docker):
 
@@ -214,7 +218,7 @@ mise run vm:windows-test                # add `-- --filter WindowsInputLoopTests
 mise run vm:windows-stop --quit         # shut the guest down and quit UTM
 ```
 
-`vm:windows-test` builds the pinned Windows `libghostty-vt` artifact in the guest once per pin before running the Ghostty-backed suites.
+`vm:windows-test` links libghostty-vt from the published artifact bundle, as every build does; nothing in the guest builds it with Zig.
 
 For manual GUI validation, run a Tessera demo in each host you support — Windows Terminal (PowerShell), PowerShell in classic conhost, and `cmd.exe` — and verify arrow keys, `q` clean exit, `Ctrl-C` cleanup, resize-driven redraw, and terminal restoration (prompt returns with normal echo, a visible cursor, and the primary screen active).
 

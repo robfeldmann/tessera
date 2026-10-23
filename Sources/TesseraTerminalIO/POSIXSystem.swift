@@ -2,17 +2,20 @@
 
   #if os(macOS)
     @_exported import Darwin
-  #elseif os(Linux)
+  #elseif canImport(Glibc)
     @_exported import Glibc
+  #elseif canImport(Musl)
+    // The Static Linux SDK's C library.
+    @_exported import Musl
   #endif
 
   /// The injectable POSIX syscall surface used by platform I/O.
   ///
-  /// This is the single place the platform C library is imported and `Darwin`/`Glibc` are
-  /// disambiguated; the `@_exported import` re-exports the C symbols (`termios`, `pollfd`,
-  /// `errno`, `STDIN_FILENO`, …) to the rest of the target, so no other file needs its
-  /// own platform import block. Tests inject a stub through `$override`; production
-  /// resolves to `live`.
+  /// This is the single place the platform C library is imported and `Darwin`, `Glibc`,
+  /// and `Musl` are disambiguated; the `@_exported import` re-exports the C symbols
+  /// (`termios`, `pollfd`, `errno`, `STDIN_FILENO`, …) to the rest of the target, so no
+  /// other file needs its own platform import block. Tests inject a stub through
+  /// `$override`; production resolves to `live`.
   package struct POSIXSystem: Sendable {
     @TaskLocal package static var override: Self?
 

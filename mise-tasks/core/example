@@ -17,4 +17,4 @@ if [[ -z "$example" ]]; then
     exit 1
   fi
 fi
-swift run --package-path Examples "$example"
+swift run --only-use-versions-from-resolved-file --package-path Examples "$example"
