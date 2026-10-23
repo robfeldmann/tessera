@@ -49,7 +49,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Removed the Frost Windows workflow (its scripts, `windows-frost:` tasks, guide, and the Homebrew `qemu`, `swtpm`, and `sshpass` dependencies); QEMU's Apple hypervisor backend aborts on the TPM device on macOS 27, and snapshots of the UTM guest replace Frost's disposable overlays.
 
 ### Fixed
-- Fixed `Package.resolved` and `Examples/Package.resolved` being rewritten whenever the Swift 6.4 lane resolved them: they are now resolved with Swift 6.4, a superset Swift 6.3.3 accepts unchanged, and each CI test leg fails when a resolved file is out of date.
+- Fixed `Package.resolved` churn between toolchains: the resolved files (root, `Examples`, and the workspace) are resolved with Swift 6.4, whose graph adds swift-issue-reporting, and every repository entry point passes `--only-use-versions-from-resolved-file`, so Swift 6.3.3 no longer prunes that pin; each CI test leg fails when a resolved file is out of date or a run changes it.
 - Fixed `PlatformIO` to keep its raw input byte stream private to the event parser: a second reader raced the parser for chunks (an `AsyncStream` has one consumer), which surfaced as a flaky `TesseraTerminalIOTests` failure on the Xcode 27 lane.
 - Fixed Windows terminal input shutdown so queued resize notifications drain before the event stream finishes, and fixed text snapshots to omit wide-cell continuation placeholders.
 - Fixed POSIX input cancellation to break retention cycles, wake blocked polls, prevent empty-read CPU spins, and keep active-probe tests deterministic; Linux Lima test arguments now support an empty forwarded argument list.
