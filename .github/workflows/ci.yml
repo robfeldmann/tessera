@@ -189,6 +189,15 @@ jobs:
             Remove-Item -LiteralPath .build -Recurse -Force
           }
 
+      # Package.resolved is resolved with the Swift 6.4 lane, whose graph is a superset
+      # (xctest-dynamic-overlay's 6.4 manifest adds swift-issue-reporting); every lane must
+      # accept it unchanged, or switching Xcode versions rewrites it locally.
+      - name: Check the resolved files are current
+        if: needs.ci-gate.outputs.vouch-only != 'true'
+        run: |
+          swift package resolve --only-use-versions-from-resolved-file
+          swift package resolve --only-use-versions-from-resolved-file --package-path Examples
+
       - name: Build
         if: needs.ci-gate.outputs.vouch-only != 'true'
         run: swift build
@@ -263,7 +272,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-26, ubuntu-latest, windows-latest]
+        # macos-26-intel runs the bundle's x86_64 macOS slice, which an Apple silicon Mac
+        # without Rosetta can link but not run.
+        os: [macos-26, macos-26-intel, ubuntu-latest, windows-latest]
     steps:
       - name: Skip for trust-only change
         if: needs.ci-gate.outputs.vouch-only == 'true'
@@ -304,3 +315,48 @@ jobs:
           swift build
           swift run VersionConsumer
           swift test
+
+  static-linux:
+    name: static Linux SDK
+    needs: ci-gate
+    if: >
+      github.event_name != 'pull_request' ||
+      !contains(github.event.pull_request.labels.*.name, 'skip-ci')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Skip for trust-only change
+        if: needs.ci-gate.outputs.vouch-only == 'true'
+        run: echo "Trust-only change; the static Linux SDK build is not required."
+
+      - name: Checkout
+        if: needs.ci-gate.outputs.vouch-only != 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Swift
+        if: needs.ci-gate.outputs.vouch-only != 'true'
+        uses: ./.github/actions/setup-swift
+
+      # The Static Linux SDK needs a swift.org toolchain, so this runs here rather than
+      # from Xcode on a Mac (`mise run linux:build` locally needs swiftly's toolchain).
+      - name: Build the library targets for x86_64 and aarch64 musl
+        if: needs.ci-gate.outputs.vouch-only != 'true'
+        run: scripts/build-static-linux.sh
+
+      # The bundle's musl variants: link the version consumer statically and run it.
+      - name: Build and run the version consumer statically
+        if: needs.ci-gate.outputs.vouch-only != 'true'
+        run: |
+          clone="$RUNNER_TEMP/version-consumer/tessera"
+          git clone --quiet "$GITHUB_WORKSPACE" "$clone"
+          git -C "$clone" tag 0.0.0-ci
+          export TESSERA_VERSION_CONSUMER_URL="file://$clone"
+          cd Tests/Fixtures/VersionConsumer
+          swift build --swift-sdk aarch64-swift-linux-musl --product VersionConsumer
+          swift build --swift-sdk x86_64-swift-linux-musl --product VersionConsumer
+          binary=.build/x86_64-swift-linux-musl/debug/VersionConsumer
+          file "$binary"
+          "$binary"

@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-#MISE description="Cross-compile the library products with the Static Linux SDK (no tests)"
-#USAGE arg "[args]..." help="Extra swift build arguments, for example --product TesseraTerminal" var=#true
+#MISE description="Cross-compile the library targets with the Static Linux SDK (no tests; needs a swift.org toolchain)"
+#USAGE arg "[args]..." help="Extra swift build arguments, for example --configuration release" var=#true
 set -euo pipefail
 cd "$MISE_PROJECT_ROOT"
-mise run linux:install-sdk
-swift build --swift-sdk "$(scripts/linux-sdk-id.sh)" "$@"
+exec scripts/build-static-linux.sh "$@"
