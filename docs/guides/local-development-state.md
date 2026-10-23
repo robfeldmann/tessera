@@ -23,7 +23,7 @@ This prints the active checkout, the pinned Ghostty VT revision, the Ghostty VT 
 
 ## Ghostty VT
 
-`TesseraTerminalSnapshotSupport` links against Ghostty's `libghostty-vt` on macOS, Linux, and Windows. On Windows the UTM guest builds the artifact itself on the first `mise run vm:windows-test` after a pin changes.
+`TesseraTerminalSnapshotSupport` links Ghostty's `libghostty-vt` on macOS, Linux, and Windows from a prebuilt artifact bundle: `Package.swift`'s `GhosttyVTLibrary` binary target downloads it from the `ghostty-vt-<revision prefix>` release into `.build/artifacts` (SwiftPM keeps a copy in its own cache), and the headers are committed under `Sources/CGhosttyVT/include/ghostty/`. A plain `swift build` or `swift test` needs no Zig, CMake, or Ninja. On Linux, SwiftPM needs `unzip` to unpack the bundle.
 
 The pin lives in:
 
@@ -31,28 +31,13 @@ The pin lives in:
 scripts/ghostty-vt-version.txt
 ```
 
-`mise run core:build`, `mise run core:test`, the `docs:` tasks, and the `ci:` tasks all run `mise run core:build-libghostty-vt` first. Direct `swift build` does not build the C library for you; run `mise run core:build-libghostty-vt` once first if the cache is missing.
-
-By default, the Ghostty VT build is shared by every Tessera checkout on the machine:
+Only a pin bump builds Ghostty locally ([Updating Ghostty VT](updating-ghostty-vt.md)). `mise run core:build-libghostty-vt` installs that build in a cache shared by every Tessera checkout on the machine, so worktrees do not each clone and rebuild Ghostty, and different branches can keep different pins side by side:
 
 ```text
-${XDG_CACHE_HOME:-~/.cache}/tessera/libghostty-vt/<revision>/<platform>-<arch>/
+${XDG_CACHE_HOME:-~/.cache}/tessera/libghostty-vt/<revision>/<variant>/
 ```
 
-That location is deliberate:
-
-- `mise run core:clean` removes only this checkout's `.build` directory.
-- switching branches keeps using the same Ghostty VT artifact when the pinned revision did not change.
-- different branches can keep different pinned revisions side by side.
-- different worktrees do not each clone and rebuild Ghostty.
-
-Override the cache when needed:
-
-```sh
-env GHOSTTY_VT_OUTPUT_DIR=/tmp/tessera-libghostty-vt mise run core:build-libghostty-vt
-```
-
-Remove the shared cache explicitly:
+`scripts/package-libghostty-vt-bundle.sh` copies the build into `.build/ghostty-vt/GhosttyVTLibrary.artifactbundle`, and `TESSERA_GHOSTTY_VT_BUNDLE=local` makes `Package.swift` link that bundle instead of the release. Override the cache with `GHOSTTY_VT_OUTPUT_DIR`, and remove it with:
 
 ```sh
 mise run core:clean-libghostty-vt
@@ -87,7 +72,7 @@ You usually do not need to rebuild the Linux VM after switching branches. Rebuil
 
 ## macOS VMs
 
-A macOS work instance (`tessera-macos-26`, `tessera-macos-27`) does not mount the host checkout. `mise run vm:macos-push` delivers the working tree to `~/tessera` in the guest, which keeps its own `.build` and libghostty-vt cache between runs, so that state is VM-local. The disks live under `~/.local/share/vms/tart/`; see [Tessera VMs](vms.md).
+A macOS work instance (`tessera-macos-26`, `tessera-macos-27`) does not mount the host checkout. `mise run vm:macos-push` delivers the working tree to `~/tessera` in the guest, which keeps its own `.build` between runs, so that state is VM-local. The disks live under `~/.local/share/vms/tart/`; see [Tessera VMs](vms.md).
 
 ## Windows (UTM)
 
@@ -97,7 +82,7 @@ The Windows guest is a UTM VM, so its state lives with UTM rather than in the re
 - `~/Library/Containers/com.utmapp.UTM/Data/Documents/tessera-*.utm`: the guest's bundles, disk included.
 - `~/.local/share/vms/utm/<vm>/snapshots/<name>/`: APFS-clone snapshots of the stopped guest's `Data/` (`mise run vm:windows-snapshot <name>`).
 
-`mise run core:doctor` prints UTM.app's presence, each `tessera-*` bundle, and its snapshots, and says how to create a guest when there is none. The guest owns a Git checkout at `C:\Users\tester\tessera` and its own `.build` and libghostty-vt cache, so that state is VM-local; `mise run vm:windows-push` delivers the working tree into it. Forward focused SwiftPM test arguments after `--`:
+`mise run core:doctor` prints UTM.app's presence, each `tessera-*` bundle, and its snapshots, and says how to create a guest when there is none. The guest owns a Git checkout at `C:\Users\tester\tessera` and its own `.build`, so that state is VM-local; `mise run vm:windows-push` delivers the working tree into it. Forward focused SwiftPM test arguments after `--`:
 
 ```sh
 mise run vm:windows-push

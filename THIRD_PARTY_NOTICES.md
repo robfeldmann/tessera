@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-This source distribution does not include third-party source code, generated Ghostty headers, or `libghostty-vt`. Swift Package Manager resolves the following components when building Tessera or its documentation and test targets. Their versions and revisions are pinned in [`Package.resolved`](Package.resolved) and, for examples, in [`Examples/Package.resolved`](Examples/Package.resolved).
+This source distribution includes no third-party source code apart from Ghostty's C headers (see [Ghostty VT](#ghostty-vt)). Swift Package Manager resolves the following components when building Tessera or its documentation and test targets. Their versions and revisions are pinned in [`Package.resolved`](Package.resolved) and, for examples, in [`Examples/Package.resolved`](Examples/Package.resolved).
 
 ## Apache License 2.0 Components
 
@@ -18,7 +18,7 @@ This source distribution does not include third-party source code, generated Gho
 
 ## Ghostty VT
 
-Tessera's documented local build flow fetches [Ghostty](https://github.com/ghostty-org/ghostty) at the revision in [`scripts/ghostty-vt-version.txt`](scripts/ghostty-vt-version.txt). It does not check in or ship Ghostty source, generated headers, or `libghostty-vt`. A Tessera distribution that includes any of those Ghostty-derived artifacts must retain this attribution and the MIT license text below.
+Tessera includes the C headers of [Ghostty](https://github.com/ghostty-org/ghostty)'s `libghostty-vt` for the revision in [`scripts/ghostty-vt-version.txt`](scripts/ghostty-vt-version.txt), under [`Sources/CGhosttyVT/include/ghostty/`](Sources/CGhosttyVT/include/ghostty/). The `GhosttyVTLibrary` binary target downloads `libghostty-vt`, built from that revision, from this repository's `ghostty-vt-<revision>` release; that artifact bundle carries Ghostty's `LICENSE`. A Tessera distribution that includes any Ghostty-derived artifact must retain this attribution and the MIT license text below.
 
 Copyright (c) 2024 Mitchell Hashimoto, Ghostty contributors
 

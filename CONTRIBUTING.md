@@ -34,7 +34,8 @@ Vouching only permits a contributor to present work. Every contribution still re
 ## Prerequisites
 
 - Swift 6.3.3 (`.swift-version`), the baseline toolchain every lane must pass: Xcode 26.6 on macOS, the swift.org release on Linux and Windows. Swift 6.4 (Xcode 27) is a second supported lane; see [Toolchain lanes](#toolchain-lanes).
-- [mise](https://mise.jdx.dev/), which installs every other tool at the pinned versions in `mise.toml` (SwiftLint, rumdl, hk, codespell, Node, Python, zig, cmake, ninja, and the rest) and runs the tasks in `mise-tasks/`; swift-format comes from the selected Xcode toolchain on macOS
+- [mise](https://mise.jdx.dev/), which installs every other tool at the pinned versions in `mise.toml` (SwiftLint, rumdl, hk, codespell, Node, Python, and the rest) and runs the tasks in `mise-tasks/`; swift-format comes from the selected Xcode toolchain on macOS. It also installs Zig, CMake, and Ninja, which only a Ghostty pin bump uses: builds and tests link libghostty-vt from a prebuilt artifact bundle ([Updating Ghostty VT](docs/guides/updating-ghostty-vt.md))
+- On Linux, `unzip`, which SwiftPM uses to unpack that bundle
 - Python 3 (repository-local spelling tool and local documentation previews)
 
 SwiftLint and DocC validation are macOS/Linux-native; run quality checks and `xcrun docc` there or in CI, not on Windows.
@@ -94,7 +95,7 @@ Optional platform tooling for cross-platform testing:
 Tasks are grouped by area; run `mise tasks` to list them. The fastest inner-loop commands while editing:
 
 ```sh
-mise run core:build            # build the package (prepares libghostty-vt first)
+mise run core:build            # build the package
 mise run core:test             # full Swift test suite (non-parallel, as CI runs it)
 mise run core:test-parallel    # the same suite in parallel; must stay green
 mise run core:showcase         # run the Tessera Showcase example
@@ -214,7 +215,7 @@ mise run vm:windows-test                # add `-- --filter WindowsInputLoopTests
 mise run vm:windows-stop --quit         # shut the guest down and quit UTM
 ```
 
-`vm:windows-test` builds the pinned Windows `libghostty-vt` artifact in the guest once per pin before running the Ghostty-backed suites.
+`vm:windows-test` links libghostty-vt from the published artifact bundle, as every build does; nothing in the guest builds it with Zig.
 
 For manual GUI validation, run a Tessera demo in each host you support — Windows Terminal (PowerShell), PowerShell in classic conhost, and `cmd.exe` — and verify arrow keys, `q` clean exit, `Ctrl-C` cleanup, resize-driven redraw, and terminal restoration (prompt returns with normal echo, a visible cursor, and the primary screen active).
 
