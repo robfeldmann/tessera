@@ -2,7 +2,6 @@
 #MISE description="Generate DocC archives for all documented package targets"
 set -euo pipefail
 cd "$MISE_PROJECT_ROOT"
-mise run core:build-libghostty-vt
 echo "▶ Building documentation for Tessera targets..."
 base_targets=(
   TesseraCore

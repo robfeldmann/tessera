@@ -650,7 +650,6 @@ rm -rf \
   .build/aarch64-unknown-linux-gnu/debug/ModuleCache* \
   .build/x86_64-unknown-linux-gnu/debug/ModuleCache*
 
-scripts/build-libghostty-vt.sh
 swiftly run "+$swift_version" swift --version
 swiftly run "+$swift_version" swift test --jobs 2 --no-parallel "$@"
 """
@@ -1112,14 +1111,13 @@ Remove-Item $archive -Force
 
 def windows_test(name: str, args: list[str]) -> int:
     windows_boot(name)
-    zig_version = pinned_zig_version()
     swift_args = ", ".join(ps_quote(arg) for arg in args)
     result = windows_guest(
         name,
         f"""
 $checkout = Join-Path $env:USERPROFILE {ps_quote(GUEST_CHECKOUT)}
 & (Join-Path $checkout "scripts\\run-windows-tests.ps1") -RepoPath $checkout `
-    -ZigVersion {ps_quote(zig_version)} -SwiftTestArgs @({swift_args})
+    -SwiftTestArgs @({swift_args})
 exit $LASTEXITCODE
 """,
         check=False,

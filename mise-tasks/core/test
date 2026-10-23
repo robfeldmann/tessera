@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 #MISE description="Run the full Swift test suite without parallel execution, as CI does"
-#MISE depends=["core:build-libghostty-vt"]
 #USAGE arg "[args]..." help="Extra swift test arguments, for example --filter TesseraCoreTests" var=#true
 set -euo pipefail
 cd "$MISE_PROJECT_ROOT"
