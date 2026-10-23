@@ -223,6 +223,11 @@ public actor TerminalSession {
     Self.cursorStyle(in: enabledProtocolModes)
   }
 
+  /// The colors the session's color rounds ask for: only the background under `NO_COLOR`.
+  private var colorQueryScope: ColorQueryScope {
+    hasNoColorEnvironment ? .backgroundOnly : .all
+  }
+
   /// The terminal's per-cell pixel size, or `nil` when unknown.
   public var cellPixelSize: CellPixelSize? {
     get async { await io.cellPixelSize() }
@@ -249,7 +254,7 @@ public actor TerminalSession {
     cursorStyle: CursorStyle? = nil,
     keyboardProtocol: KeyboardProtocolMode = .legacyOnly,
     kittyKeyboardFlags: KittyKeyboardFlags = .tesseraDefault,
-    activeProbeTimeout: Duration = .milliseconds(250),
+    activeProbeTimeout: Duration = .seconds(1),
     probeImageID: KittyImageID = KittyImageID(
       rawValue: UInt32.random(in: 1...UInt32.max)),
     probeSleep: @escaping ActiveCapabilityProbeCoordinator.Sleep = { duration in
@@ -301,7 +306,7 @@ public actor TerminalSession {
   ) -> Set<ModeLifecycle.Mode> {
     modes.filter { mode in
       switch mode {
-      case .rawMode, .altScreen:
+      case .rawMode, .altScreen, .colorSchemeNotifications:
         true
       case .bracketedPaste, .cursorStyle, .focusEvents, .kittyKeyboard, .mouseTracking:
         false
@@ -314,7 +319,7 @@ public actor TerminalSession {
   ) -> Set<ModeLifecycle.Mode> {
     modes.filter { mode in
       switch mode {
-      case .rawMode, .altScreen:
+      case .rawMode, .altScreen, .colorSchemeNotifications:
         false
       case .bracketedPaste, .cursorStyle, .focusEvents, .kittyKeyboard, .mouseTracking:
         true
@@ -343,8 +348,8 @@ public actor TerminalSession {
         return .anyEvent
       case .mouseTracking(.buttonEvents):
         buttonEventsRequested = true
-      case .altScreen, .bracketedPaste, .cursorStyle, .focusEvents, .kittyKeyboard,
-        .rawMode:
+      case .altScreen, .bracketedPaste, .colorSchemeNotifications, .cursorStyle,
+        .focusEvents, .kittyKeyboard, .rawMode:
         continue
       }
     }
@@ -732,8 +737,11 @@ public actor TerminalSession {
 
   /// Runs or reuses this session's single serialized active-probe generation.
   ///
-  /// The rounds are DECRQM, Kitty keyboard plus DA1, then Kitty Graphics plus DA1. Every
-  /// parsed event, including probe replies, remains available through the input queue.
+  /// The rounds are DECRQM, Kitty keyboard plus DA1, Kitty Graphics plus DA1, then the
+  /// color round: OSC 10, 11, and 4 queries plus DA1, which fills ``capabilities``'s
+  /// ``TerminalCapabilities/colorReport``. The color round asks only for the background
+  /// when the environment sets `NO_COLOR`. Every parsed event, including probe replies,
+  /// remains available through the input queue.
   @discardableResult
   public func queryActiveCapabilities() async throws -> ActiveCapabilityProbeResult {
     try await queryActiveCapabilities(kittyImageID: probeImageID)
@@ -891,12 +899,11 @@ public actor TerminalSession {
       let evidence = try await probeCoordinator.reconcile(
         privateModes: Self.privateModeProbeModes,
         kittyImageID: kittyImageID,
+        colorScope: colorQueryScope,
         timeout: activeProbeTimeout,
-        sleep: probeSleep
-      ) { [io] bytes in
-        await io.write(bytes)
-        try await io.flush()
-      }
+        sleep: probeSleep,
+        emit: emitProbeBytes
+      )
       capabilities.applyActiveProbeEvidence(evidence)
       return .resolved
     } catch ActiveCapabilityProbeCoordinatorError.alreadyResolved {
@@ -909,9 +916,48 @@ public actor TerminalSession {
     }
   }
 
+  /// Writes one probe round to the terminal, unless the session has closed.
+  private func emitProbeBytes(_ bytes: [UInt8]) async throws {
+    try checkOpen()
+    await io.write(bytes)
+    try await io.flush()
+  }
+
+  /// Asks the terminal for its colors again after the process resumes from a suspend.
+  ///
+  /// The session's suspend path calls this once the terminal is back. It does nothing
+  /// unless active detection ran the session's probe generation, because `.passive` and
+  /// `.disabled` detection send no color queries. Replies fill ``capabilities``'s
+  /// ``TerminalCapabilities/colorReport`` as they arrive.
+  package func resumeAfterSuspend() async throws {
+    try await rerunColorRound()
+  }
+
+  private func rerunColorRound() async throws {
+    try await probeCoordinator.rerunColorRound(
+      scope: colorQueryScope,
+      timeout: activeProbeTimeout,
+      sleep: probeSleep,
+      emit: emitProbeBytes
+    )
+  }
+
+  /// Re-runs the color round for a color-scheme notification without blocking the input
+  /// pump, which must keep delivering the round's replies. A failed re-run leaves the
+  /// reported colors as they were; the next notification asks again.
+  private func scheduleColorRound() {
+    Task { [weak self] in
+      try? await self?.rerunColorRound()
+    }
+  }
+
   private func observeInput(_ event: InputEvent) async {
     await probeCoordinator.observe(event)
     switch event {
+    case .colorReport(let reply):
+      capabilities.colorReport.record(reply)
+    case .colorSchemeChanged:
+      scheduleColorRound()
     case .privateModeStatus(let status):
       capabilities.recordPrivateModeStatus(status)
     case .kittyGraphicsResponse:
@@ -952,9 +998,11 @@ public actor TerminalSession {
     try await io.flush()
   }
 
-  /// Marks the session closed once its scope ends; later writing calls throw.
-  private func close() {
+  /// Marks the session closed once its scope ends; later writing calls throw and a color
+  /// round in flight ends.
+  private func close() async {
     isClosed = true
+    await probeCoordinator.close()
   }
 
   private func checkOpen() throws {

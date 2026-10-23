@@ -38,9 +38,10 @@ enum HelloTessera {
             try await render(lastKey: lastKey, to: terminal)
           }
 
-        case .focusGained, .focusLost, .mouse, .kittyGraphicsResponse,
-          .kittyKeyboardEnhancementFlags, .primaryDeviceAttributes, .privateModeStatus,
-          .paste, .resize, .unknown:
+        case .colorReport, .colorSchemeChanged, .focusGained, .focusLost, .mouse,
+          .kittyGraphicsResponse, .kittyKeyboardEnhancementFlags,
+          .primaryDeviceAttributes,
+          .privateModeStatus, .paste, .resize, .unknown:
           break
         }
       }

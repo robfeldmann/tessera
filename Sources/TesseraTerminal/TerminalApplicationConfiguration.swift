@@ -137,7 +137,7 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
 
   /// Whether capability detection runs before startup.
   public var capabilityDetection: CapabilityDetectionMode
-  /// Maximum time to await each serialized active-probe round.
+  /// Maximum time to await each serialized active-probe round, one second by default.
   public var activeProbeTimeout: Duration
 
   /// OSC 52 clipboard write policy.
@@ -180,7 +180,7 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
 
   /// Creates a terminal application configuration from protocol intent.
   public init(
-    activeProbeTimeout: Duration = .milliseconds(250),
+    activeProbeTimeout: Duration = .seconds(1),
     capabilityDetection: CapabilityDetectionMode = .passive,
     enableBracketedPaste: Bool = true,
     enableFocusEvents: Bool = true,
@@ -214,7 +214,7 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
 
   /// Creates a terminal application configuration from an exact mode set.
   public init(
-    activeProbeTimeout: Duration = .milliseconds(250),
+    activeProbeTimeout: Duration = .seconds(1),
     modes: Set<ModeLifecycle.Mode>,
     kittyKeyboardFlags: KittyKeyboardFlags = .tesseraDefault,
     synchronizedOutput: SynchronizedOutputPolicy = .enabled,
@@ -260,7 +260,8 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
       switch mode {
       case .mouseTracking, .cursorStyle:
         return false
-      case .altScreen, .bracketedPaste, .focusEvents, .kittyKeyboard, .rawMode:
+      case .altScreen, .bracketedPaste, .colorSchemeNotifications, .focusEvents,
+        .kittyKeyboard, .rawMode:
         return true
       }
     }
@@ -285,8 +286,8 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
         return .anyEvent
       case .mouseTracking(.buttonEvents):
         requestedButtonEvents = true
-      case .altScreen, .bracketedPaste, .cursorStyle, .focusEvents, .kittyKeyboard,
-        .rawMode:
+      case .altScreen, .bracketedPaste, .colorSchemeNotifications, .cursorStyle,
+        .focusEvents, .kittyKeyboard, .rawMode:
         continue
       }
     }
@@ -312,8 +313,8 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
         }
       case .cursorStyle:
         continue
-      case .rawMode, .altScreen, .bracketedPaste, .focusEvents, .mouseTracking,
-        .kittyKeyboard:
+      case .rawMode, .altScreen, .bracketedPaste, .colorSchemeNotifications,
+        .focusEvents, .mouseTracking, .kittyKeyboard:
         continue
       }
     }
@@ -458,6 +459,12 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
     capabilities: TerminalCapabilities
   ) -> Set<ModeLifecycle.Mode> {
     var modes: Set<ModeLifecycle.Mode> = [.rawMode, .altScreen]
+
+    // Each color-scheme notification re-runs the color round, which only active
+    // detection sends, so passive and disabled detection never enable the mode.
+    if capabilityDetection == .active {
+      modes.insert(.colorSchemeNotifications)
+    }
 
     if enableBracketedPaste {
       modes.insert(.bracketedPaste)

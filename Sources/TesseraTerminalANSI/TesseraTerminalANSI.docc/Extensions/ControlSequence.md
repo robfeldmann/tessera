@@ -50,6 +50,7 @@ A semantic ANSI/VT operation. Encode one operation with ``encode(into:)``, or en
 
 - ``disableMouseTracking``
 - ``enableBracketedPaste(_:)``
+- ``enableColorSchemeNotifications(_:)``
 - ``enableFocusTracking(_:)``
 - ``enableLineWrap(_:)``
 - ``enableMouseTracking(_:)``

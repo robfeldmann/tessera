@@ -34,6 +34,17 @@ public enum PrivateModeState: Equatable, Sendable {
 }
 /// A terminal input event parsed from raw terminal bytes.
 public enum InputEvent: Equatable, Sendable {
+  /// The terminal reported one of its colors in reply to an OSC 10, 11, or 4 query.
+  ///
+  /// The session consumes these replies as probe evidence; they are never key events.
+  case colorReport(TerminalColorReply)
+
+  /// The terminal announced a color-scheme change (`CSI ? 997 ; Ps n`).
+  ///
+  /// Terminals send it only while color-scheme notifications (DEC private mode 2031) are
+  /// enabled.
+  case colorSchemeChanged(TerminalColorScheme)
+
   /// The terminal reported that the application gained focus.
   case focusGained
 

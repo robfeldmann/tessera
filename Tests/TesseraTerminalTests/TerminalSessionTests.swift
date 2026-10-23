@@ -959,8 +959,11 @@ func `probe failure exits before application body`() async throws {
 
   #expect(!bodyRan)
   expectNoDifference(
-    Array(events.prefix(3)),
-    [.enterRawMode, .enterAltScreen, .flush(privateModeStatusProbeBytes)]
+    Array(events.prefix(4)),
+    [
+      .enterRawMode, .enterAltScreen, .flush(colorSchemeNotificationsEnableBytes),
+      .flush(privateModeStatusProbeBytes),
+    ]
   )
   #expect(events.contains(.exitAltScreen))
   #expect(events.contains(.exitRawMode))
@@ -1237,6 +1240,7 @@ func `active app terminal probes without enabling Kitty keyboard`() async throws
   let device = InMemoryTerminalDevice(size: TerminalSize(columns: 4, rows: 2))
   let io = PlatformIO(terminalDevice: await device.terminalDevice)
   let configuration = TerminalApplicationConfiguration(
+    activeProbeTimeout: .zero,
     capabilityDetection: .active,
     enableBracketedPaste: true,
     enableFocusEvents: true,
@@ -1278,19 +1282,25 @@ func `active app terminal probes without enabling Kitty keyboard`() async throws
       isNested: false
     )
   )
-  expectNoDifference(observed.1, applicationModes())
+  expectNoDifference(
+    observed.1,
+    applicationModes(including: [.colorSchemeNotifications])
+  )
   #expect(
     terminalSessionEventLog(events) == """
       enterRawMode
       enterAltScreen
+      flush: enableColorSchemeNotifications(true)
       flush: privateModeStatusProbes
       flush: kittyKeyboardProbe
+      flush: colorRoundProbe
       flush: enableBracketedPaste(true)
       flush: enableFocusTracking(true)
       flush: cursorVisible(true)
       flush: deleteKittyGraphicsAll
       flush: enableFocusTracking(false)
       flush: enableBracketedPaste(false)
+      flush: enableColorSchemeNotifications(false)
       exitAltScreen
       exitRawMode
       """
@@ -2712,6 +2722,15 @@ private func terminalFlushName(_ bytes: [UInt8]) -> String {
   if bytes == Array("\u{1B}[?25h".utf8) {
     return "cursorVisible(true)"
   }
+  if bytes == colorSchemeNotificationsEnableBytes {
+    return "enableColorSchemeNotifications(true)"
+  }
+  if bytes == colorSchemeNotificationsDisableBytes {
+    return "enableColorSchemeNotifications(false)"
+  }
+  if bytes == colorRoundProbeBytes {
+    return "colorRoundProbe"
+  }
   if bytes == Array("\u{1B}[?1004h".utf8) {
     return "enableFocusTracking(true)"
   }
@@ -2788,10 +2807,17 @@ private let privateModeProbeModes = [2_004, 1_004, 1_002, 1_003, 1_006, 2_026]
 private let privateModeStatusProbeBytes = privateModeProbeModes.flatMap { mode in
   Array("\u{1B}[?\(mode)$p".utf8)
 }
+private let colorSchemeNotificationsEnableBytes = Array("\u{1B}[?2031h".utf8)
+private let colorSchemeNotificationsDisableBytes = Array("\u{1B}[?2031l".utf8)
+private let colorRoundProbeBytes = Array(
+  ("\u{1B}]10;?\u{1B}\\" + "\u{1B}]11;?\u{1B}\\"
+    + (0...15).map { "\u{1B}]4;\($0);?\u{1B}\\" }.joined() + "\u{1B}[c").utf8
+)
 private let serializedActiveProbeEvents: [InMemoryTerminalDeviceEvent] = [
   .flush(privateModeStatusProbeBytes),
   .flush(kittyKeyboardProbeBytes),
   .flush(kittyGraphicsQueryProbeBytes),
+  .flush(colorRoundProbeBytes),
 ]
 
 private func mouseEnableBytes(_ granularity: MouseTracking) -> [UInt8] {
@@ -2873,6 +2899,8 @@ private actor KeyboardProbeResponseTerminalDevice {
         keyboardSupported ? "\u{1B}[?7u\u{1B}[?1;2c" : "\u{1B}[?1;2c"
       inputContinuation.yield(Array(response.utf8))
     } else if containsBytes(Array(",a=q,".utf8), in: bytes) {
+      inputContinuation.yield(Array("\u{1B}[?1;2c".utf8))
+    } else if bytes == colorRoundProbeBytes {
       inputContinuation.yield(Array("\u{1B}[?1;2c".utf8))
     }
     return bytes.count

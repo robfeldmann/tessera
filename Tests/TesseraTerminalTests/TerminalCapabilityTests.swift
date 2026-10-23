@@ -515,7 +515,10 @@ func `active detection marks protocols probing before support`() {
       isNested: false
     )
   )
-  expectNoDifference(resolution.modes, baseApplicationModes)
+  expectNoDifference(
+    resolution.modes,
+    baseApplicationModes.union([.colorSchemeNotifications])
+  )
   expectNoDifference(resolution.runsActiveProbes, true)
 }
 
@@ -565,12 +568,44 @@ func `DECRQM normal tracking evidence is explicitly excluded`() {
 }
 
 @Test
-func `active probe timeout defaults to two hundred fifty milliseconds`() {
+func `active probe timeout defaults to one second`() {
   let configuration = TerminalApplicationConfiguration(capabilityDetection: .active)
   let resolution = configuration.resolve(environment: [:])
 
-  expectNoDifference(configuration.activeProbeTimeout, .milliseconds(250))
-  expectNoDifference(resolution.activeProbeTimeout, .milliseconds(250))
+  expectNoDifference(configuration.activeProbeTimeout, .seconds(1))
+  expectNoDifference(resolution.activeProbeTimeout, .seconds(1))
+}
+
+@Test
+func `only active detection requests color scheme notifications`() {
+  let active = TerminalApplicationConfiguration(capabilityDetection: .active)
+  let passive = TerminalApplicationConfiguration(capabilityDetection: .passive)
+  let disabled = TerminalApplicationConfiguration(capabilityDetection: .disabled)
+
+  #expect(active.resolve(environment: [:]).modes.contains(.colorSchemeNotifications))
+  #expect(
+    active.resolve(environment: ["NO_COLOR": "1"]).modes.contains(
+      .colorSchemeNotifications)
+  )
+  #expect(!passive.resolve(environment: [:]).modes.contains(.colorSchemeNotifications))
+  #expect(!disabled.resolve(environment: [:]).modes.contains(.colorSchemeNotifications))
+  #expect(active.modes.contains(.colorSchemeNotifications))
+  #expect(
+    !TerminalApplicationConfiguration(modes: [.rawMode, .altScreen]).modes
+      .contains(.colorSchemeNotifications)
+  )
+}
+
+@Test
+func `every color input starts unknown and nerd font coverage is not detectable`() {
+  for detection in [CapabilityDetectionMode.active, .passive, .disabled] {
+    let capabilities = TerminalApplicationConfiguration(capabilityDetection: detection)
+      .resolve(environment: ["TERM_PROGRAM": "Ghostty", "COLORTERM": "truecolor"])
+      .capabilities
+
+    expectNoDifference(capabilities.colorReport, TerminalColorReport())
+    expectNoDifference(capabilities.nerdFontCoverage, .notDetectable)
+  }
 }
 
 @Test

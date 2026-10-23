@@ -45,6 +45,7 @@ The example shows the pairing, not a public construction path: ``ModeLifecycle``
 - ``ModeLifecycle/Mode/focusEvents`` requests focus reports.
 - ``ModeLifecycle/Mode/mouseTracking(_:)`` requests `MouseTracking` reports.
 - ``ModeLifecycle/Mode/kittyKeyboard`` requests the Kitty keyboard protocol.
+- ``ModeLifecycle/Mode/colorSchemeNotifications`` requests color-scheme change notifications, which a session acquires with raw mode and the alternate screen when active capability detection asks the terminal for its colors.
 
 `enter(_:)` acquires a request in a canonical order, and `exit()` releases modes in reverse acquisition order. That symmetry matters when modes interact and when cleanup must restore the terminal after an error. An attempt to enter a mode slot that is already occupied reports ``ModeLifecycleError/modesAlreadyActive(_:)``; unsupported requests report ``ModeLifecycleError/unsupportedModes(_:)``. Once `exit()` has succeeded the lifecycle is closed: `enter(_:)` and `apply(_:)` report ``ModeLifecycleError/closed`` before writing anything, while `exit()` stays callable so a failed teardown can be retried.
 

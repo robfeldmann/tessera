@@ -41,6 +41,9 @@ public enum ControlSequence: Equatable, Sendable {
   /// Enable or disable bracketed paste using DEC private mode 2004.
   case enableBracketedPaste(Bool)
 
+  /// Enable or disable color-scheme change notifications using DEC private mode 2031.
+  case enableColorSchemeNotifications(Bool)
+
   /// Enable or disable focus event reports using DEC private mode 1004.
   case enableFocusTracking(Bool)
 
@@ -169,6 +172,7 @@ public enum ControlSequence: Equatable, Sendable {
 
     case .disableMouseTracking,
       .enableBracketedPaste,
+      .enableColorSchemeNotifications,
       .enableFocusTracking,
       .enableLineWrap,
       .enableMouseTracking,
@@ -261,6 +265,7 @@ public enum ControlSequence: Equatable, Sendable {
       .copyToClipboard,
       .disableMouseTracking,
       .enableBracketedPaste,
+      .enableColorSchemeNotifications,
       .enableFocusTracking,
       .enableLineWrap,
       .enableMouseTracking,
@@ -316,6 +321,7 @@ public enum ControlSequence: Equatable, Sendable {
       .cursorVisible,
       .disableMouseTracking,
       .enableBracketedPaste,
+      .enableColorSchemeNotifications,
       .enableFocusTracking,
       .enableLineWrap,
       .enableMouseTracking,
@@ -416,6 +422,7 @@ public enum ControlSequence: Equatable, Sendable {
       .cursorVisible,
       .disableMouseTracking,
       .enableBracketedPaste,
+      .enableColorSchemeNotifications,
       .enableFocusTracking,
       .enableLineWrap,
       .enableMouseTracking,
@@ -452,6 +459,10 @@ public enum ControlSequence: Equatable, Sendable {
     case .enableBracketedPaste(let isEnabled):
       // DEC private mode 2004: bracketed paste, `CSI ? 2004 h/l`.
       ANSIByteEncoding.appendCSI(isEnabled ? "?2004h" : "?2004l", into: &buffer)
+
+    case .enableColorSchemeNotifications(let isEnabled):
+      // DEC private mode 2031: color-scheme change notifications, `CSI ? 2031 h/l`.
+      ANSIByteEncoding.appendCSI(isEnabled ? "?2031h" : "?2031l", into: &buffer)
 
     case .enableFocusTracking(let isEnabled):
       // DEC private mode 1004: focus event reports, `CSI ? 1004 h/l`.
@@ -552,6 +563,7 @@ public enum ControlSequence: Equatable, Sendable {
       .cursorVisible,
       .disableMouseTracking,
       .enableBracketedPaste,
+      .enableColorSchemeNotifications,
       .enableFocusTracking,
       .enableLineWrap,
       .enableMouseTracking,
@@ -641,6 +653,7 @@ public enum ControlSequence: Equatable, Sendable {
       .cursorVisible,
       .disableMouseTracking,
       .enableBracketedPaste,
+      .enableColorSchemeNotifications,
       .enableFocusTracking,
       .enableLineWrap,
       .enableMouseTracking,
@@ -698,6 +711,7 @@ public enum ControlSequence: Equatable, Sendable {
       .cursorVisible,
       .disableMouseTracking,
       .enableBracketedPaste,
+      .enableColorSchemeNotifications,
       .enableFocusTracking,
       .enableLineWrap,
       .enableMouseTracking,

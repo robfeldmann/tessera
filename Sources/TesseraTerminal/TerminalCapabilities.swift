@@ -107,6 +107,11 @@ public struct TerminalCapabilities: Equatable, Sendable {
   /// OSC 52 clipboard advisory support.
   public var osc52Clipboard: CapabilityStatus
 
+  /// Nerd Font glyph coverage advisory support.
+  ///
+  /// Tessera has no protocol-native coverage query, so this is `.notDetectable`.
+  public var nerdFontCoverage: CapabilityStatus
+
   /// DEC synchronized output advisory support.
   public var synchronizedOutput: CapabilityStatus
 
@@ -124,6 +129,13 @@ public struct TerminalCapabilities: Equatable, Sendable {
   /// Terminal color advisory support.
   public var color: ColorCapability
 
+  /// The terminal's own colors, as the OSC 10, 11, and 4 color round reports them.
+  ///
+  /// Every input starts unknown. Replies fill it in, including replies that arrive after
+  /// the round that asked for them ended, and a color-scheme notification or a resume
+  /// asks again.
+  public var colorReport: TerminalColorReport
+
   /// Best passive terminal identity hint.
   public var identity: TerminalIdentity
 
@@ -139,10 +151,12 @@ public struct TerminalCapabilities: Equatable, Sendable {
     kittyKeyboard: CapabilityStatus = .unknown,
     osc8Hyperlinks: CapabilityStatus = .unknown,
     osc52Clipboard: CapabilityStatus = .notDetectable,
+    nerdFontCoverage: CapabilityStatus = .notDetectable,
     synchronizedOutput: CapabilityStatus = .unknown,
     underlineDeclarations: TerminfoUnderlineDeclarations = .unknown,
     privateModeStates: [Int: PrivateModeState] = [:],
     color: ColorCapability = .unknown,
+    colorReport: TerminalColorReport = TerminalColorReport(),
     identity: TerminalIdentity = .unknown,
     isNested: Bool = false
   ) {
@@ -153,10 +167,12 @@ public struct TerminalCapabilities: Equatable, Sendable {
     self.kittyKeyboard = kittyKeyboard
     self.osc8Hyperlinks = osc8Hyperlinks
     self.osc52Clipboard = osc52Clipboard
+    self.nerdFontCoverage = nerdFontCoverage
     self.synchronizedOutput = synchronizedOutput
     self.underlineDeclarations = underlineDeclarations
     self.privateModeStates = privateModeStates
     self.color = color
+    self.colorReport = colorReport
     self.identity = identity
     self.isNested = isNested
   }

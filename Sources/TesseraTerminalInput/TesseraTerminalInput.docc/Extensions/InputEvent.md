@@ -27,6 +27,8 @@ A semantic event decoded from terminal input bytes.
 - ``kittyKeyboardEnhancementFlags(_:)``
 - ``primaryDeviceAttributes(_:)``
 - ``privateModeStatus(_:)``
+- ``colorReport(_:)``
+- ``colorSchemeChanged(_:)``
 
 ### Other terminal input
 

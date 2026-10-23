@@ -71,6 +71,13 @@ public actor ModeLifecycle {
     /// Alternate screen buffer.
     case altScreen
 
+    /// Color-scheme change notifications (DEC private mode 2031).
+    ///
+    /// A session acquires this mode with raw mode and the alternate screen, only while
+    /// active capability detection runs, because each notification re-runs the color
+    /// round. It is session-fixed, so runtime mode changes reject it.
+    case colorSchemeNotifications
+
     /// Session-owned cursor shape and color styling.
     case cursorStyle(CursorStyle)
 
@@ -90,6 +97,7 @@ public actor ModeLifecycle {
   private enum AcquisitionSlot: Sendable {
     case rawMode
     case altScreen
+    case colorSchemeNotifications
     case cursorStyle
     case bracketedPaste
     case focusEvents
@@ -100,6 +108,7 @@ public actor ModeLifecycle {
   private static let acquisitionOrder: [AcquisitionSlot] = [
     .rawMode,
     .altScreen,
+    .colorSchemeNotifications,
     .cursorStyle,
     .bracketedPaste,
     .focusEvents,
@@ -156,8 +165,8 @@ public actor ModeLifecycle {
 
   private static func isSupported(_ mode: Mode) -> Bool {
     switch mode {
-    case .rawMode, .altScreen, .cursorStyle, .bracketedPaste, .focusEvents,
-      .mouseTracking, .kittyKeyboard:
+    case .rawMode, .altScreen, .colorSchemeNotifications, .cursorStyle, .bracketedPaste,
+      .focusEvents, .mouseTracking, .kittyKeyboard:
       true
     }
   }
@@ -168,6 +177,8 @@ public actor ModeLifecycle {
       modes.contains(.rawMode) ? .rawMode : nil
     case .altScreen:
       modes.contains(.altScreen) ? .altScreen : nil
+    case .colorSchemeNotifications:
+      modes.contains(.colorSchemeNotifications) ? .colorSchemeNotifications : nil
     case .cursorStyle:
       requestedCursorStyle(in: modes).map(Mode.cursorStyle)
     case .bracketedPaste:
@@ -186,7 +197,8 @@ public actor ModeLifecycle {
       switch mode {
       case .mouseTracking, .cursorStyle:
         return false
-      case .rawMode, .altScreen, .bracketedPaste, .focusEvents, .kittyKeyboard:
+      case .rawMode, .altScreen, .bracketedPaste, .colorSchemeNotifications,
+        .focusEvents, .kittyKeyboard:
         return true
       }
     }
@@ -211,8 +223,8 @@ public actor ModeLifecycle {
         return .anyEvent
       case .mouseTracking(.buttonEvents):
         requestedButtonEvents = true
-      case .rawMode, .altScreen, .cursorStyle, .bracketedPaste, .focusEvents,
-        .kittyKeyboard:
+      case .rawMode, .altScreen, .colorSchemeNotifications, .cursorStyle,
+        .bracketedPaste, .focusEvents, .kittyKeyboard:
         continue
       }
     }
@@ -236,8 +248,8 @@ public actor ModeLifecycle {
         }
       case .cursorStyle:
         continue
-      case .rawMode, .altScreen, .bracketedPaste, .focusEvents, .mouseTracking,
-        .kittyKeyboard:
+      case .rawMode, .altScreen, .colorSchemeNotifications, .bracketedPaste,
+        .focusEvents, .mouseTracking, .kittyKeyboard:
         continue
       }
     }
@@ -294,6 +306,8 @@ public actor ModeLifecycle {
       .rawMode
     case .altScreen:
       .altScreen
+    case .colorSchemeNotifications:
+      .colorSchemeNotifications
     case .cursorStyle:
       .cursorStyle
     case .bracketedPaste:
@@ -443,7 +457,7 @@ public actor ModeLifecycle {
       case .cursorStyle, .bracketedPaste, .focusEvents, .mouseTracking,
         .kittyKeyboard:
         return false
-      case .rawMode, .altScreen:
+      case .rawMode, .altScreen, .colorSchemeNotifications:
         return true
       }
     }
@@ -453,7 +467,7 @@ public actor ModeLifecycle {
 
     let fixedModes = modes.filter { mode in
       switch mode {
-      case .rawMode, .altScreen:
+      case .rawMode, .altScreen, .colorSchemeNotifications:
         return true
       case .cursorStyle, .bracketedPaste, .focusEvents, .mouseTracking,
         .kittyKeyboard:
@@ -466,7 +480,7 @@ public actor ModeLifecycle {
       case .cursorStyle, .bracketedPaste, .focusEvents, .mouseTracking,
         .kittyKeyboard:
         return true
-      case .rawMode, .altScreen:
+      case .rawMode, .altScreen, .colorSchemeNotifications:
         return false
       }
     }
@@ -584,6 +598,10 @@ public actor ModeLifecycle {
     case .altScreen:
       try await io.disableAltScreen()
 
+    case .colorSchemeNotifications:
+      await io.write(ControlSequence.enableColorSchemeNotifications(false).bytes)
+      try await io.flush()
+
     case .cursorStyle(let style):
       var bytes: [UInt8] = []
       if style.shape != nil {
@@ -620,6 +638,10 @@ public actor ModeLifecycle {
 
     case .altScreen:
       try await io.enableAltScreen()
+
+    case .colorSchemeNotifications:
+      await io.write(ControlSequence.enableColorSchemeNotifications(true).bytes)
+      try await io.flush()
 
     case .cursorStyle(let style):
       var bytes: [UInt8] = []
@@ -684,6 +706,11 @@ public actor ModeLifecycle {
     }
     if cursorStyleFacets.hasColor {
       ControlSequence.resetCursorColor.encode(into: &teardownBytes)
+    }
+
+    // DEC private mode 2031: disable color-scheme notifications, `CSI ? 2031 l`.
+    if cleanupModes.contains(.colorSchemeNotifications) {
+      ControlSequence.enableColorSchemeNotifications(false).encode(into: &teardownBytes)
     }
 
     // DEC private mode 1049: leave alternate screen, `CSI ? 1049 l`.

@@ -36,6 +36,12 @@ Frame rendering can encode OSC 8 hyperlinks, extended underline styling, and DEC
 
 OSC 52 clipboard writes are separately gated by ``ClipboardWriteMode`` and ``ClipboardWritePolicy``. Calling `TerminalSession.copyToClipboard(_:selection:intent:)` requires a ``ClipboardUserIntent`` as well as an enabled session policy.
 
+## Terminal colors
+
+Active detection also asks the terminal for its own colors, so a view layer can derive shades from the user's palette. After the other probe rounds, the session sends OSC 10 (default foreground), OSC 11 (default background), and OSC 4 for the 16 ANSI slots in one write, followed by one primary device attributes request (DA1). The round ends when the terminal answers DA1 or after ``TerminalApplicationConfiguration/activeProbeTimeout``, which defaults to one second. When the environment sets `NO_COLOR`, the round asks only for the background, because the color scheme still depends on it.
+
+The answers fill ``TerminalCapabilities/colorReport``, a ``TerminalColorReport`` whose every input is `nil` until the terminal answers. A terminal that never answers leaves every input unknown. A reply that arrives after the round ended still updates the report, and it also arrives on ``TerminalSession/events`` as a color report event, after the report changed. Active detection also enables color-scheme notifications (DEC private mode 2031), so each notification that the terminal's colors changed asks again. ``CapabilityDetectionMode/passive`` and ``CapabilityDetectionMode/disabled`` detection send no color queries and never enable the mode.
+
 ## Kitty graphics
 
 Kitty Graphics Protocol support is session-scoped. Send image data with ``TerminalSession/transmitImage(_:)`` and delete it with ``TerminalSession/deleteImages(_:)``. During a draw, ``/TesseraTerminalBuffer/Frame/placeImage(_:at:occupying:)`` anchors a placement to its occupied cell region so normal frame updates can account for that geometry. ``TerminalSession/queryKittyGraphicsSupport(id:)`` requests an active graphics support probe when needed.
@@ -46,6 +52,7 @@ Kitty Graphics Protocol support is session-scoped. Send image data with ``Termin
 
 - ``TerminalApplicationConfiguration``
 - ``TerminalCapabilities``
+- ``TerminalColorReport``
 - ``CapabilityDetectionMode``
 - ``ActiveCapabilityProbeResult``
 - ``TerminalProtocolModeReport``
