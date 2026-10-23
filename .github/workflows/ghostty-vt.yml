@@ -1,0 +1,284 @@
+name: Ghostty VT bundle
+
+# Builds libghostty-vt for the pinned revision (scripts/ghostty-vt-version.txt) on every
+# platform Tessera supports, assembles one SE-0482 static-library artifact bundle, and,
+# for a ghostty-vt-<first 12 characters of the pin> tag, publishes it as a prerelease that
+# is never marked latest. Package.swift references that release asset by URL and checksum.
+# Pull requests that touch the producer build and assemble the bundle without publishing.
+
+on:
+  push:
+    tags: ["ghostty-vt-*"]
+  pull_request:
+    paths:
+      - .github/workflows/ghostty-vt.yml
+      - scripts/build-libghostty-vt.ps1
+      - scripts/build-libghostty-vt.sh
+      - scripts/ghostty-vt-version.txt
+      - scripts/package-libghostty-vt-bundle.ps1
+      - scripts/package-libghostty-vt-bundle.sh
+      - Sources/CGhosttyVT/include/ghostty/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ghostty-vt-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check-tag:
+    name: check tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      publish: ${{ steps.check.outputs.publish }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check the tag names the pinned revision
+        id: check
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          revision="$(tr -d '[:space:]' < scripts/ghostty-vt-version.txt)"
+          expected="ghostty-vt-${revision:0:12}"
+          if [[ "$REF_TYPE" != "tag" ]]; then
+            echo "Not a tag; the bundle for $expected is built but not published."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ "$REF_NAME" != "$expected" ]]; then
+            echo "::error::tag $REF_NAME does not name the pinned revision; expected $expected"
+            exit 1
+          fi
+          echo "publish=true" >> "$GITHUB_OUTPUT"
+
+  build-unix:
+    name: build (${{ matrix.variant }})
+    needs: check-tag
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: macos-universal
+            os: macos-26
+          - variant: linux-x86_64
+            os: ubuntu-latest
+            target: x86_64-linux-gnu.2.28
+            audit: true
+          - variant: linux-arm64
+            os: ubuntu-24.04-arm
+            target: aarch64-linux-gnu.2.28
+            audit: true
+          - variant: linux-musl-x86_64
+            os: ubuntu-latest
+            target: x86_64-linux-musl
+          - variant: linux-musl-arm64
+            os: ubuntu-latest
+            target: aarch64-linux-musl
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install mise tools (zig, cmake, ninja)
+        uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
+
+      - name: Install libghostty-vt prerequisites on Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            blueprint-compiler \
+            build-essential \
+            gettext \
+            libadwaita-1-dev \
+            libgtk-4-dev \
+            libxml2-utils \
+            pkg-config
+
+      - name: Build and package (macOS, universal)
+        if: runner.os == 'macOS'
+        run: |
+          scripts/build-libghostty-vt.sh --target aarch64-macos
+          scripts/build-libghostty-vt.sh --target x86_64-macos
+          root="$HOME/.cache/tessera/libghostty-vt/$(tr -d '[:space:]' < scripts/ghostty-vt-version.txt)"
+          mkdir -p dist
+          lipo -create \
+            "$root/macos-arm64/lib/libghostty-vt.a" \
+            "$root/macos-x86_64/lib/libghostty-vt.a" \
+            -output dist/libghostty-vt.a
+          lipo -info dist/libghostty-vt.a
+          scripts/package-libghostty-vt-bundle.sh \
+            --variant macos-universal \
+            --library dist/libghostty-vt.a \
+            --bundle dist/GhosttyVTLibrary.artifactbundle
+
+      - name: Build and package (Linux)
+        if: runner.os == 'Linux'
+        env:
+          TARGET: ${{ matrix.target }}
+          VARIANT: ${{ matrix.variant }}
+        run: |
+          scripts/build-libghostty-vt.sh --target "$TARGET"
+          scripts/package-libghostty-vt-bundle.sh \
+            --variant "$VARIANT" \
+            --bundle dist/GhosttyVTLibrary.artifactbundle
+          # The static archive carries no symbol versions; the shared library built
+          # from the same objects shows the glibc floor the variant needs.
+          root="$HOME/.cache/tessera/libghostty-vt/$(tr -d '[:space:]' < scripts/ghostty-vt-version.txt)"
+          shared="$(find "$root/$VARIANT/lib" -name 'libghostty-vt.so*' -type f | head -n 1)"
+          if [[ -n "$shared" && "$VARIANT" != linux-musl-* ]]; then
+            floor="$(objdump -T "$shared" | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -n 1)"
+            echo "glibc floor for $VARIANT: $floor"
+            echo "glibc floor for \`$VARIANT\`: \`$floor\`" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # The audit checks only the variants that match the runner's own triple, so it runs
+      # on the native glibc legs; nothing runs a musl variant's triple.
+      - name: Set up Swift for the audit
+        if: matrix.audit
+        uses: ./.github/actions/setup-swift
+
+      - name: Audit the variant
+        if: matrix.audit
+        run: |
+          tar -czf dist/variant.tar.gz -C dist GhosttyVTLibrary.artifactbundle
+          swift package experimental-audit-binary-artifact dist/variant.tar.gz
+          rm dist/variant.tar.gz
+
+      - name: Upload variant
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: variant-${{ matrix.variant }}
+          path: dist/GhosttyVTLibrary.artifactbundle
+          if-no-files-found: error
+
+  build-windows:
+    name: build (${{ matrix.variant }})
+    needs: check-tag
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: windows-x86_64
+            os: windows-latest
+          - variant: windows-arm64
+            os: windows-11-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build and package
+        shell: pwsh
+        env:
+          VARIANT: ${{ matrix.variant }}
+        run: |
+          scripts/build-libghostty-vt.ps1
+          scripts/package-libghostty-vt-bundle.ps1 `
+            -Variant $env:VARIANT `
+            -Bundle dist/GhosttyVTLibrary.artifactbundle
+
+      - name: Upload variant
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: variant-${{ matrix.variant }}
+          path: dist/GhosttyVTLibrary.artifactbundle
+          if-no-files-found: error
+
+  assemble:
+    name: assemble bundle
+    needs: [check-tag, build-unix, build-windows]
+    # A variant that fails to build is left out of the bundle rather than blocking it.
+    if: ${{ !cancelled() && needs.check-tag.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Swift
+        uses: ./.github/actions/setup-swift
+
+      - name: Download variants
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: variant-*
+          path: variants
+
+      - name: Assemble the bundle
+        run: |
+          bundle=dist/GhosttyVTLibrary.artifactbundle
+          for variant_dir in variants/variant-*/; do
+            variant="$(basename "$variant_dir")"
+            variant="${variant#variant-}"
+            library="$(find "$variant_dir$variant" -type f | head -n 1)"
+            scripts/package-libghostty-vt-bundle.sh \
+              --variant "$variant" \
+              --library "$library" \
+              --bundle "$bundle"
+          done
+          # Every leg packs the LICENSE of the same pinned checkout.
+          license="$(find variants -mindepth 2 -maxdepth 2 -name LICENSE | head -n 1)"
+          if [[ -z "$license" ]]; then
+            echo "::error::no variant carried Ghostty's LICENSE"
+            exit 1
+          fi
+          cp "$license" "$bundle/LICENSE"
+          cat "$bundle/info.json"
+          {
+            echo "### Variants"
+            echo
+            find "$bundle" -mindepth 1 -maxdepth 1 -type d -printf '- `%f`\n' | sort
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Zip and checksum
+        run: |
+          cd dist
+          zip -qr GhosttyVTLibrary.artifactbundle.zip GhosttyVTLibrary.artifactbundle
+          swift package compute-checksum GhosttyVTLibrary.artifactbundle.zip | tee checksum.txt
+          ls -l GhosttyVTLibrary.artifactbundle.zip
+          echo "checksum: \`$(cat checksum.txt)\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload bundle
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: GhosttyVTLibrary.artifactbundle
+          path: |
+            dist/GhosttyVTLibrary.artifactbundle.zip
+            dist/checksum.txt
+          if-no-files-found: error
+
+      - name: Publish the prerelease
+        if: needs.check-tag.outputs.publish == 'true'
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: libghostty-vt ${{ github.ref_name }}
+          body: >-
+            libghostty-vt built from the Ghostty revision pinned in
+            scripts/ghostty-vt-version.txt, as an SE-0482 static-library artifact bundle
+            for Package.swift's GhosttyVTLibrary binary target. Built by
+            .github/workflows/ghostty-vt.yml; not a Tessera release.
+          prerelease: true
+          make_latest: false
+          files: |
+            dist/GhosttyVTLibrary.artifactbundle.zip
+            dist/checksum.txt

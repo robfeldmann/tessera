@@ -7,10 +7,13 @@ stage: living
 
 One plan per piece of work, in order. This page is rendered from each plan's frontmatter by `scripts/plans.py`; change `stage`, `order`, `description`, or `completed` in the plan and re-run it (`mise run quality:lint` fails while the page is stale). Read a plan's Progress list and `Next:` line before resuming it, and its Approach and Acceptance before starting it.
 
+## Active
+
+- [Ship libghostty-vt as a prebuilt binary](plans/libghostty-vt-binary-distribution.md): Ship libghostty-vt as a prebuilt SE-0482 static-library artifact bundle that Tessera's CI builds once per Ghostty pin, so apps can depend on Tessera by version and no build or test job runs Zig.
+
 ## Next
 
 1. [Build the Phase 4 view layer with the tooling that proves it](plans/phase-4-view-layer-and-developer-tooling.md): Build the Phase 4 view layer from the omp2-reviewed catalog and the developer tooling that drives, pictures, and checks it, in one slice order where each component lands with its demo, its scenario, and the harness capability it needs.
-2. [Ship libghostty-vt as a prebuilt binary](plans/libghostty-vt-binary-distribution.md): Ship libghostty-vt as a prebuilt SE-0482 static-library artifact bundle that Tessera's CI builds once per Ghostty pin, so apps can depend on Tessera by version and no build or test job runs Zig.
 
 ## Done
 

@@ -1,6 +1,6 @@
 ---
 type: plan
-stage: planned
+stage: active
 created: 2026-10-22
 order: 38
 description: Ship libghostty-vt as a prebuilt SE-0482 static-library artifact bundle that Tessera's CI builds once per Ghostty pin, so apps can depend on Tessera by version and no build or test job runs Zig.
@@ -12,14 +12,14 @@ Goal: an app that depends on Tessera by version links libghostty-vt on macOS, Li
 
 ## Progress
 
-- [ ] 1 Commit the headers and add a local bundle mode
+- [x] 1 Commit the headers and add a local bundle mode — `1febb03`. `TESSERA_GHOSTTY_VT_BUNDLE=local swift test --filter TesseraTerminalSnapshotSupportTests`: 15 tests passed on macOS (Xcode 26.6), in the Lima guest on 6.3.3 and 6.4.1, and in the UTM Windows guest (6.3.3, `windows-arm64`). `swift package dump-package | grep -c unsafeFlags` is 0 in local mode on macOS and Windows and 1 in the default mode (`swift package describe` omits linker settings in both modes, so it cannot show the difference). The default mode's full `swift test` (Xcode 26.6): 662 tests passed.
 - [ ] 2 Producer workflow and the first published bundle
 - [ ] 3 Switch the package to the published bundle
 - [ ] 4 Stop building Zig in test, docs, and VM jobs
 - [ ] 5 Consume Tessera by version in CI
 - [ ] 6 Docs, decision record, and closure
 
-Next: Slice 1, on the `ghostty-vt-binary` worktree described in [Overnight execution](#overnight-execution).
+Next: Slice 2. Validate `.github/workflows/ghostty-vt.yml` through its `pull_request` trigger on the draft pull request before pushing the one authorized tag, `ghostty-vt-f54340ad7781`.
 
 ## Approach
 
@@ -109,6 +109,8 @@ Rules for an agent running this plan unattended.
 
 - 2026-10-22 Ship libghostty-vt as an SE-0482 static-library artifact bundle with the headers committed in a source `CGhosttyVT`, built by Tessera's CI once per pin and published as a release asset, because no upstream artifact covers Linux and Windows and the spike proved this layout by version on all three platforms. (owner, from [libghostty-vt distribution](../research/libghostty-vt-distribution.md); plan 036 Decision 9 (ii))
 - 2026-10-22 The bundle is published from this repository as `ghostty-vt-<short-sha>` prereleases marked not latest, beside Tessera's own `v<SemVer>` releases, rather than from a separate repository, because tags and releases are independent on GitHub and one repository keeps the producer workflow, the pin, and the manifest's URL in one change. The owner authorized the first tag and prerelease for an unattended run. (owner)
+- 2026-10-22 The build scripts re-vendor the committed headers with `--update-headers` (`-UpdateHeaders` on Windows), and `build-libghostty-vt.sh` takes `--target <zig-target>` for the cross-built variants (macOS x86_64, a glibc floor, musl), because the plan keeps the build scripts the one way to compile libghostty-vt and its Slice 6 flow needs a re-vendor step. Variant directories are named by the build scripts' install labels (`macos-universal`, `linux-arm64`, `linux-musl-x86_64`, `windows-arm64`, …), and the packaging scripts regenerate `info.json` from the directories a bundle holds, so merging needs no JSON parser. (agent)
+- 2026-10-22 `ghostty-vt.yml` also runs on pull requests that touch the producer (build, package, and audit, never publish), because `workflow_dispatch` only works once the workflow is on `main` and the one authorized tag cannot be moved, so the workflow had to be proven before the tag was pushed. (agent)
 
 ## Discoveries
 
