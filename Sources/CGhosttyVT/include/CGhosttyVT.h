@@ -8,8 +8,8 @@
 #define GHOSTTY_STATIC 1
 #endif
 
-// The ghostty/ directory next to this header is materialized (gitignored) by
-// scripts/build-libghostty-vt.sh / .ps1 from the pinned build's install tree.
+// The ghostty/ directory next to this header holds the pinned revision's headers,
+// committed; scripts/build-libghostty-vt.sh / .ps1 check them against the build.
 #include "ghostty/vt.h"
 
 #endif

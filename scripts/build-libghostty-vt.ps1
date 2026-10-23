@@ -10,9 +10,9 @@ under:
   $env:GHOSTTY_VT_OUTPUT_DIR (default: $env:LOCALAPPDATA\tessera\libghostty-vt)
     \<revision>\windows-<arch>\
 
-It also materializes the generated headers into the workspace (gitignored):
-
-  Sources\CGhosttyVT\include\ghostty\
+The Ghostty headers are committed under Sources\CGhosttyVT\include\ghostty\. The
+script fails when they differ from the pinned build's headers and names the files;
+after bumping the pin, pass -UpdateHeaders to re-vendor them.
 
 Zig fetches the dependencies itself during `zig build`. That needs Zig 0.17 or
 later on Windows: Zig 0.15 could not reach https://deps.files.ghostty.org there
@@ -20,6 +20,9 @@ later on Windows: Zig 0.15 could not reach https://deps.files.ghostty.org there
 
 .PARAMETER Force
 Rebuild even when the pinned artifact already exists.
+
+.PARAMETER UpdateHeaders
+Copy the pinned build's headers over the committed ones.
 
 Environment:
   GHOSTTY_VT_REVISION_FILE  Revision file path
@@ -32,7 +35,8 @@ Environment:
 
 [CmdletBinding()]
 param(
-    [switch]$Force
+    [switch]$Force,
+    [switch]$UpdateHeaders
 )
 
 $ErrorActionPreference = "Stop"
@@ -85,14 +89,45 @@ if (-not $env:ZIG_GLOBAL_CACHE_DIR) {
     $env:ZIG_GLOBAL_CACHE_DIR = Join-Path $env:LOCALAPPDATA "zig"
 }
 
-function Copy-HeaderBridge {
-    $bridgeDir = Join-Path $RepoRoot "Sources\CGhosttyVT\include\ghostty"
-    $sourceHeaders = Join-Path $installDir "include\ghostty"
-    if (Test-Path $bridgeDir) {
-        Remove-Item -Recurse -Force $bridgeDir
+function Test-CommittedHeaders {
+    $committed = Join-Path $RepoRoot "Sources\CGhosttyVT\include\ghostty"
+    $pinned = Join-Path $installDir "include\ghostty"
+    if ($UpdateHeaders) {
+        if (Test-Path $committed) {
+            Remove-Item -Recurse -Force $committed
+        }
+        Copy-Item -Recurse -Path $pinned -Destination $committed
+        Write-Step "updated the committed Ghostty headers: $committed"
+        return
     }
-    Copy-Item -Recurse -Path $sourceHeaders -Destination $bridgeDir
-    Write-Step "materialized headers: $bridgeDir"
+    # Compare text with line endings normalized: Git may check either tree out with CRLF.
+    $relative = {
+        param([string]$Root)
+        $base = (Resolve-Path $Root).Path.TrimEnd('\')
+        Get-ChildItem -Path $base -Recurse -File |
+            ForEach-Object { $_.FullName.Substring($base.Length + 1) }
+    }
+    if (-not (Test-Path $committed)) {
+        throw "the committed Ghostty headers are missing: $committed"
+    }
+    $names = @(& $relative $pinned) + @(& $relative $committed) | Sort-Object -Unique
+    $differences = foreach ($name in $names) {
+        $left = Join-Path $pinned $name
+        $right = Join-Path $committed $name
+        if (-not (Test-Path $left)) {
+            "only committed: $name"
+        } elseif (-not (Test-Path $right)) {
+            "missing from the commit: $name"
+        } elseif (((Get-Content -Raw $left) -replace "`r`n", "`n") -cne
+            ((Get-Content -Raw $right) -replace "`r`n", "`n")) {
+            "differs: $name"
+        }
+    }
+    if ($differences) {
+        $differences | ForEach-Object { Write-Host "  $_" }
+        throw ("the committed Ghostty headers differ from revision $revision; " +
+            "re-vendor them with scripts\build-libghostty-vt.ps1 -UpdateHeaders")
+    }
 }
 
 # ── Early exit when already built ───────────────────────────────────────────
@@ -100,7 +135,7 @@ function Copy-HeaderBridge {
 $vtHeader = Join-Path $installDir "include\ghostty\vt.h"
 $staticLib = Join-Path $installDir "lib\ghostty-vt-static.lib"
 if (-not $Force -and (Test-Path $vtHeader) -and (Test-Path $staticLib)) {
-    Copy-HeaderBridge
+    Test-CommittedHeaders
     Write-Step "libghostty-vt already built: $installDir"
     exit 0
 }
@@ -202,5 +237,5 @@ $metadata = @(
     $Utf8NoBom
 )
 
-Copy-HeaderBridge
+Test-CommittedHeaders
 Write-Step "Built libghostty-vt: $installDir"

@@ -3,20 +3,28 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/build-libghostty-vt.sh [--force]
+Usage: scripts/build-libghostty-vt.sh [--force] [--target <zig-target>] [--update-headers]
 
 Build Ghostty's libghostty-vt from the pinned revision in
 scripts/ghostty-vt-version.txt and install it under:
 
-  ${GHOSTTY_VT_OUTPUT_DIR:-${XDG_CACHE_HOME:-~/.cache}/tessera/libghostty-vt}/<revision>/<platform>-<arch>/
+  ${GHOSTTY_VT_OUTPUT_DIR:-${XDG_CACHE_HOME:-~/.cache}/tessera/libghostty-vt}/<revision>/<variant>/
 
-The script also updates this diagnostic symlink:
+where <variant> is <platform>-<arch> (macos-arm64, linux-x86_64, ...), or
+linux-musl-<arch> for a musl target. The script also updates this diagnostic
+symlink:
 
-  ${GHOSTTY_VT_OUTPUT_DIR:-${XDG_CACHE_HOME:-~/.cache}/tessera/libghostty-vt}/current -> <revision>/<platform>-<arch>
+  ${GHOSTTY_VT_OUTPUT_DIR:-${XDG_CACHE_HOME:-~/.cache}/tessera/libghostty-vt}/current -> <revision>/<variant>
 
-and materializes the generated headers into the workspace (gitignored):
+The Ghostty headers are committed under Sources/CGhosttyVT/include/ghostty/. The
+script fails when they differ from the pinned build's headers and names the files;
+after bumping the pin, pass --update-headers to re-vendor them.
 
-  Sources/CGhosttyVT/include/ghostty/
+Options:
+  --force           Rebuild even when the pinned variant is already installed
+  --target TARGET   Zig target to cross-compile for, for example x86_64-macos,
+                    x86_64-linux-gnu.2.31, or aarch64-linux-musl (default: host)
+  --update-headers  Copy the pinned build's headers over the committed ones
 
 Prerequisites:
   - Zig 0.17.x on PATH (`mise install` provides it)
@@ -39,10 +47,24 @@ USAGE
 }
 
 force=0
+update_headers=0
+zig_target=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --force)
       force=1
+      shift
+      ;;
+    --target)
+      if [[ $# -lt 2 || -z "$2" ]]; then
+        echo "error: --target needs a Zig target" >&2
+        exit 2
+      fi
+      zig_target="$2"
+      shift 2
+      ;;
+    --update-headers)
+      update_headers=1
       shift
       ;;
     -h|--help)
@@ -97,24 +119,57 @@ case "$arch" in
     ;;
 esac
 
+variant="$platform-$arch"
+zig_build_flags=()
+if [[ -n "$zig_target" ]]; then
+  IFS=- read -r target_arch target_os target_abi <<<"$zig_target"
+  case "$target_arch" in
+    aarch64) arch="arm64" ;;
+    x86_64) arch="x86_64" ;;
+    *)
+      echo "error: unsupported target architecture in $zig_target" >&2
+      exit 2
+      ;;
+  esac
+  case "$target_os" in
+    macos)
+      if [[ "$platform" != "macos" ]]; then
+        echo "error: $zig_target needs a macOS host" >&2
+        exit 2
+      fi
+      variant="macos-$arch"
+      ;;
+    linux)
+      platform="linux"
+      case "${target_abi%%.*}" in
+        gnu) variant="linux-$arch" ;;
+        musl) variant="linux-musl-$arch" ;;
+        *)
+          echo "error: $zig_target must name a gnu or musl ABI" >&2
+          exit 2
+          ;;
+      esac
+      ;;
+    *)
+      echo "error: unsupported target OS in $zig_target (Windows uses build-libghostty-vt.ps1)" >&2
+      exit 2
+      ;;
+  esac
+  zig_build_flags+=("-Dtarget=$zig_target")
+fi
+if [[ "$platform" == "linux" ]]; then
+  # GitHub-hosted runners may build or run on a different x86_64 CPU model. A baseline
+  # library stays portable instead of trapping on native-only instructions.
+  zig_build_flags+=("-Dcpu=baseline")
+fi
+zig_build_flags_text="${zig_build_flags[*]-}"
+
 output_root="${GHOSTTY_VT_OUTPUT_DIR:-$(default_output_root)}"
-install_dir="$output_root/$revision/$platform-$arch"
+install_dir="$output_root/$revision/$variant"
 source_dir="${GHOSTTY_VT_SOURCE_DIR:-$output_root/source/$revision}"
-build_dir="${GHOSTTY_VT_BUILD_DIR:-$output_root/cmake/$revision/$platform-$arch}"
+build_dir="${GHOSTTY_VT_BUILD_DIR:-$output_root/cmake/$revision/$variant}"
 build_mode="${GHOSTTY_VT_BUILD_MODE:-Release}"
 expected_zig="${GHOSTTY_VT_ZIG_VERSION:-0.17}"
-zig_build_flags=""
-if [[ "$platform" == "linux" ]]; then
-  # GitHub-hosted runners may restore this cache on a different x86_64 CPU model.
-  # A baseline library stays portable across runners instead of trapping on native-only
-  # instructions.
-  zig_build_flags="-Dcpu=baseline"
-fi
-
-case "$platform" in
-  macos) shared_glob="libghostty-vt*.dylib" ;;
-  linux) shared_glob="libghostty-vt*.so*" ;;
-esac
 
 update_current_symlink() {
   local current_link="$output_root/current"
@@ -122,19 +177,38 @@ update_current_symlink() {
     echo "error: $current_link exists and is not a symlink" >&2
     exit 1
   fi
-  ln -sfn "$revision/$platform-$arch" "$current_link"
+  ln -sfn "$revision/$variant" "$current_link"
 }
 
-materialize_header_bridge() {
-  local bridge_dir="$repo_root/Sources/CGhosttyVT/include/ghostty"
-  rm -rf "$bridge_dir"
-  mkdir -p "$(dirname "$bridge_dir")"
-  cp -R "$install_dir/include/ghostty" "$bridge_dir"
+check_committed_headers() {
+  local pinned="$install_dir/include/ghostty"
+  local committed="$repo_root/Sources/CGhosttyVT/include/ghostty"
+  if [[ "$update_headers" == "1" ]]; then
+    rm -rf "$committed"
+    mkdir -p "$(dirname "$committed")"
+    cp -R "$pinned" "$committed"
+    echo "Updated the committed Ghostty headers: $committed"
+    return
+  fi
+  local differences
+  if ! differences="$(diff -rq "$pinned" "$committed" 2>&1)"; then
+    echo "error: the committed Ghostty headers differ from revision $revision:" >&2
+    printf '%s\n' "$differences" >&2
+    echo "Re-vendor them with: scripts/build-libghostty-vt.sh --update-headers" >&2
+    exit 1
+  fi
 }
 
-if [[ "$force" == "0" ]] && [[ -f "$install_dir/include/ghostty/vt.h" ]] && compgen -G "$install_dir/lib/$shared_glob" >/dev/null; then
+installed_flags() {
+  sed -n 's/^zig_build_flags=//p' "$install_dir/build-metadata.txt" 2>/dev/null || true
+}
+
+if [[ "$force" == "0" ]] \
+  && [[ -f "$install_dir/include/ghostty/vt.h" ]] \
+  && [[ -f "$install_dir/lib/libghostty-vt.a" ]] \
+  && [[ "$(installed_flags)" == "$zig_build_flags_text" ]]; then
   update_current_symlink
-  materialize_header_bridge
+  check_committed_headers
   echo "libghostty-vt already built: $install_dir"
   exit 0
 fi
@@ -182,23 +256,26 @@ if [[ "$actual_revision" != "$revision" ]]; then
   exit 1
 fi
 
+# CMake takes a list, so the flags are joined with semicolons.
+cmake_zig_flags="$(IFS=';'; printf '%s' "${zig_build_flags[*]-}")"
 cmake \
   -S "$source_dir" \
   -B "$build_dir" \
   -G Ninja \
   -DCMAKE_BUILD_TYPE="$build_mode" \
   -DCMAKE_INSTALL_PREFIX="$install_dir" \
-  -DGHOSTTY_ZIG_BUILD_FLAGS="$zig_build_flags"
+  -DGHOSTTY_ZIG_BUILD_FLAGS="$cmake_zig_flags"
 cmake --build "$build_dir" --target zig_build_lib_vt
 cmake --install "$build_dir"
 
 cat > "$install_dir/build-metadata.txt" <<EOF
 revision=$revision
+variant=$variant
 platform=$platform
 arch=$arch
 build_mode=$build_mode
 zig_version=$zig_version
-zig_build_flags=$zig_build_flags
+zig_build_flags=$zig_build_flags_text
 cmake_version=$(cmake --version | head -n 1)
 ninja_version=$(ninja --version)
 source_dir=$source_dir
@@ -206,6 +283,6 @@ build_dir=$build_dir
 EOF
 
 update_current_symlink
-materialize_header_bridge
+check_committed_headers
 
 echo "Built libghostty-vt: $install_dir"

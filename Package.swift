@@ -586,10 +586,28 @@ let GhosttyVTLibraryPath = "\(GhosttyVTInstallPath)/lib"
     GhosttyVTLibraryPath,
   ]
 #endif
+// TESSERA_GHOSTTY_VT_BUNDLE=local links the SE-0482 artifact bundle that
+// scripts/package-libghostty-vt-bundle.sh writes, instead of the unsafe flags above.
+let GhosttyVTBundleMode = GhosttyVTEnvironment["TESSERA_GHOSTTY_VT_BUNDLE"] ?? ""
 if let GhosttyVTTarget = package.targets.first(where: { $0.name == "CGhosttyVT" }) {
-  GhosttyVTTarget.linkerSettings = [
-    .unsafeFlags(GhosttyVTUnsafeLinkerFlags)
-  ]
+  if GhosttyVTBundleMode == "local" {
+    package.targets.append(
+      .binaryTarget(
+        name: "GhosttyVTLibrary",
+        path: ".build/ghostty-vt/GhosttyVTLibrary.artifactbundle"
+      )
+    )
+    GhosttyVTTarget.dependencies.append("GhosttyVTLibrary")
+    // Zig's std library calls ntdll directly, and an artifact bundle cannot declare
+    // the system libraries its static library needs.
+    GhosttyVTTarget.linkerSettings = [
+      .linkedLibrary("ntdll", .when(platforms: [.windows]))
+    ]
+  } else {
+    GhosttyVTTarget.linkerSettings = [
+      .unsafeFlags(GhosttyVTUnsafeLinkerFlags)
+    ]
+  }
 }
 
 // MARK: - ⚙️ Shared Swift Settings
