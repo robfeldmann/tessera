@@ -71,11 +71,13 @@ import TesseraTerminalInput
 /// When production code must stay free of the contract, a test or development target adopts it
 /// with the isolation the type already has: `extension Counter: Application {}` for a
 /// nonisolated type, and `extension Notes: @MainActor Application {}` for a main-actor one.
-/// From another module, writing the second without `@MainActor` is a compile error, not a
-/// runtime trap. In the module that declares the type, the compiler infers the isolated
-/// conformance when the module uses default main-actor isolation or enables the
-/// `InferIsolatedConformances` upcoming feature, so `extension Notes: Application {}` is
-/// already isolated there; in plain Swift 6 mode the same line is a compile error.
+/// Writing `@MainActor` on the conformance is accepted in every mode. Leaving it off depends
+/// on the compiler mode of the module that writes the extension: in plain Swift 6 mode it is a
+/// compile error, not a runtime trap, and with the `InferIsolatedConformances` upcoming feature
+/// or default main-actor isolation the compiler infers the isolated conformance instead.
+/// Swift 6.3 infers it under `InferIsolatedConformances` alone only for a type declared
+/// `@MainActor`, not for one that is main-actor isolated through its own module's default
+/// isolation; Swift 6.4 infers both.
 public protocol Application: AnyObject {
   /// The type of the root view.
   associatedtype Body: View

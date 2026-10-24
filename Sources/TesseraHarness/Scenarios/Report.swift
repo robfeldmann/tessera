@@ -21,7 +21,7 @@ package struct ScenarioObservation: Codable, Equatable, Sendable {
   package var lines: [String]
 }
 
-/// A file a `shot` statement produces when the CLI runs with `--out`.
+/// The text and the node tree a `shot` statement captures, for a runner to write as files.
 struct ShotArtifact: Equatable, Sendable {
   var name: String
   var text: String
