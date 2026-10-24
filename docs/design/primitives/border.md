@@ -250,6 +250,9 @@ Rules, owner decision, omp2 review, 2026-10:
 - `zero area frame paints nothing` (anatomy: declared minimum; sizing: 1x1 rule)
 - `custom glyph wider than one cell fails a precondition` (public API: `.custom`)
 - `ascii degradation substitutes the ascii border set` (degradation: ASCII-only)
+
+### Focus
+
 - `self focus paints a heavy ring in the focus role without moving the ring` (focus border: summary, rule 1)
 - `focus within tints the nearest bordered ring at normal weight` (focus border: rule 2)
 - `focused row shows the cursor and a bold focus label` (focus border: rule 3)
@@ -258,6 +261,11 @@ Rules, owner decision, omp2 review, 2026-10:
 - `heavy and double rings change colour only on focus` (focus border: rule 6)
 - `ascii focus renders bold on the ascii ring` (focus border: rule 6; degradation: ASCII-only)
 - `focus ring takes the focus role in every colour tier, with no hue` (focus border: rules 1, 2 and 6; [tokens.md#focus](../tokens.md#focus); owner decision, 2026-10-19)
+- `border holds no focus state and the owning view chooses its set and line style` (focus border: summary; Public API)
+
+### Pointer
+
+- `border ring is decorative and hit testing follows the wrapped child's final frame and clip` (Decisions: hit testing deferred to Slice 5)
 
 ## Degradation
 

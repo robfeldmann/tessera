@@ -391,7 +391,6 @@ Schema: [README](../../design.md#requirements-list). Each entry traces to a call
 - `image boxed phase ends the last visible label row in an ellipsis when the box height cuts it` (Sizing; owner decision, 2026-10-18)
 - `image draws the optional image icon before the boxed label, as [img] in Unicode and ASCII` (Boxed callout 2; owner decision, 2026-10-18)
 - `image draws its minimum state at 8 by 4 cells, with a one-cell floor` (Minimum)
-- `image takes no focus, keys or pointer input in 1.0; apps wrap it in a Button` (Key table; Mouse table)
 - `image reserves the proposed box for tight, under-minimum and over-maximum proposals` (Sizing 32x16, 0x0, 80x16)
 - `image nil x nil size is pixel width by half pixel height, capped by maxRows` (Sizing nil x nil, nil x nil with `maxRows` 8)
 - `image keeps its reserved width when maxRows narrows the drawn image` (Sizing 32 x nil and 21 x nil with `maxRows` 8; owner decision, 2026-10-10)
@@ -399,6 +398,14 @@ Schema: [README](../../design.md#requirements-list). Each entry traces to a call
 - `image draws density art from the ten-step ramp under NO_COLOR` (Degradation)
 - `image draws the placeholder fill as . under the ASCII charset` (Degradation)
 - `image density ramp inverts on a light scheme` (Degradation; bars and ramps)
+
+### Pointer
+
+- `image takes no focus, keys or pointer input in 1.0; apps wrap it in a Button` (Key table; Mouse table)
+
+### Clock
+
+- `image loading placeholder is static and draws no spinner or animation` (State model: load phase)
 
 ## Degradation
 

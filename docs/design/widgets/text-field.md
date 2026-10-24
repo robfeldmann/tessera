@@ -441,6 +441,20 @@ Under a finite height, the rows are shared by the label, the frame, and the inpu
 
 ## Requirements
 
+- `text field label word-wraps above the frame and grows the field height` (Label wrapping wireframe 16x5; sizing: 12xnil).
+- `text field editing line stays single-line with no wrap and no tail mark` (Wrap exception; Horizontal overflow wireframe; Mobile wireframe).
+- `text field prompt ends in the truncation mark under the one-row input line` (Label wrapping wireframe 20x4).
+- `text field keeps the input row first, then the frame, then label rows under a fixed height` (sizing: 11x2, 11x1).
+- `text field reports a 17x4 ideal and tight default-style size` (sizing: nil x nil; sizing: 17x4)
+- `text field stays single-line at mobile and minimum proposals` (Mobile wireframe; Minimum wireframe; sizing: 11x2)
+- `text field applies ascii degradation without creating a software cursor` (Degraded wireframe)
+- `text field shows the remaining count in secondary under its limit` (Character counter wireframe; state model: counter display)
+- `text field shows a zero remaining count in secondary when the count equals its limit` (state model: counter display; owner decision, 2026-10-10)
+- `text field shows an overflow count in error without capping its binding` (Character counter wireframe; state model: counter display and character limit)
+- `text field draws no counter without an app-supplied limit` (state model: character limit)
+
+### Focus
+
 - `text field continuously writes printable graphemes through its binding` (key table: printable character)
 - `text field normalizes focused paste input into one single-line binding edit` (Paste-input contract: `InputEvent.paste(String)`)
 - `text field routes software keyboard and dictation characters as ordinary printable input` (Paste-input contract: software keyboard and dictation; key table: printable character)
@@ -449,24 +463,31 @@ Under a finite height, the rows are shared by the label, the frame, and the inpu
 - `text field replaces whole selected graphemes through its binding` (state model: selected grapheme range; key table: printable character)
 - `text field never positions caret inside CJK emoji or combining graphemes` (Grapheme, CJK, emoji, and combining marks wireframe; key table: Left)
 - `text field reveals the hardware caret without inserting an ellipsis into editable text` (Horizontal overflow wireframe; state model: horizontal reveal offset)
-- `text field label word-wraps above the frame and grows the field height` (Label wrapping wireframe 16x5; sizing: 12xnil).
-- `text field editing line stays single-line with no wrap and no tail mark` (Wrap exception; Horizontal overflow wireframe; Mobile wireframe).
-- `text field prompt ends in the truncation mark under the one-row input line` (Label wrapping wireframe 20x4).
-- `text field keeps the input row first, then the frame, then label rows under a fixed height` (sizing: 11x2, 11x1).
 - `text field invokes submit without owning or clearing app text` (key table: Enter with has submit handler is true)
 - `text field bubbles Enter when has submit handler is false` (key table: Enter with has submit handler is false)
 - `text field bubbles Tab and Esc for app focus and dismissal policy` (key table: Tab; key table: Esc)
 - `text field deletes whole graphemes on both sides of the caret` (key table: Backspace; key table: Delete)
-- `text field maps an enabled input-line click to a grapheme boundary` (mouse table: click with effective enabled)
 - `text field requests a focused enabled hardware cursor at its visible caret boundary` (state model: caret terminal position; render contract: no software cursor)
+- `focused text field draws its frame heavy in the focus role, bold under NO_COLOR and plus-hyphen-bar under ASCII` (Degradation; Anatomy)
+- `focus loss or node removal clears the field's cursor request` (state model: caret terminal position)
+- `a zero-width text field requests no hardware cursor` (state model: caret terminal position)
+- `left and right move the caret one grapheme and shift extends the selection from the anchor` (key table: Left, Right, Shift-Left, Shift-Right)
+- `alt arrows move by word and control arrows do so only when the keyboard protocol distinguishes them, otherwise they bubble` (key table: Alt-Left, Alt-Right, Ctrl-Left, Ctrl-Right)
+- `home and end move the caret to the leading and trailing boundary and set the reveal offset` (key table: Home, End)
+- `unlisted keys bubble from a text field` (key table)
+- `text field has no undo, yank or clipboard behaviour in 1.0` (Deferred post-1.0; key table)
+- `text field reveal offset clamps to a legal grapheme boundary on every layout` (state model: horizontal reveal offset)
+
+### Pointer
+
+- `text field maps an enabled input-line click to a grapheme boundary` (mouse table: click with effective enabled)
 - `text field leaves disabled bindings and routing untouched` (Disabled wireframe; key table: printable character; mouse table: disabled click)
-- `text field reports a 17x4 ideal and tight default-style size` (sizing: nil x nil; sizing: 17x4)
-- `text field stays single-line at mobile and minimum proposals` (Mobile wireframe; Minimum wireframe; sizing: 11x2)
-- `text field applies ascii degradation without creating a software cursor` (Degraded wireframe)
-- `text field shows the remaining count in secondary under its limit` (Character counter wireframe; state model: counter display)
-- `text field shows a zero remaining count in secondary when the count equals its limit` (state model: counter display; owner decision, 2026-10-10)
-- `text field shows an overflow count in error without capping its binding` (Character counter wireframe; state model: counter display and character limit)
-- `text field draws no counter without an app-supplied limit` (state model: character limit)
+- `text field declares a mouse requirement only while an enabled instance is live and the input line is its one hit region` (Mouse table)
+- `double-click and drag on the input line bubble unchanged and right and middle clicks have no use` (mouse table)
+
+### Clock
+
+- `text field draws no animated cursor and no software caret` (Anatomy; render contract)
 
 ## Degradation
 

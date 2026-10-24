@@ -258,6 +258,8 @@ Schema: [README](../../design.md#sizing-table). Mandatory rows: nil x nil, tight
 
 ## Requirements
 
+### Focus
+
 - `legend shows all five entries at 60 columns` (anatomy)
 - `plain legend keys are bold secondary and descriptions are secondary` (anatomy: callouts 1-5)
 - `keycaps legend fills each key on a keycap` (states: keycaps)
@@ -276,6 +278,13 @@ Schema: [README](../../design.md#sizing-table). Mandatory rows: nil x nil, tight
 - `legend entries come from the focused responder's bindings` (state model: bindings)
 - `legend takes no focus and consumes no keys` (key table: none)
 - `light sixteen colour legend falls back to the plain look for keycaps` (degradation: 16-colour)
+- `legend with no focused responder bindings is empty and adds no overlay` (state model: bindings; API)
+- `legend bindings are recomputed on every focus change and stored nowhere` (state model: bindings)
+- `declaring a key binding installs no behaviour and keys route as before` (state model: bindings)
+
+### Pointer
+
+- `legend takes no pointer input` (Mouse table)
 
 ## Degradation
 

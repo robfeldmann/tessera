@@ -451,23 +451,14 @@ The default checkbox style is label-hugging unless a parent forces a horizontal 
 
 - `toggle displays the bound true value with the checkbox marker` (anatomy: natural fixture).
 - `toggle displays the bound false value at the minimum floor` (states: minimum fixture).
-- `toggle keeps a parent-forced mobile row as one full-width hit target` (states: mobile fixture; sizing: forced frame allocation).
 - `toggle label word-wraps at a finite width and indents continuation rows under the label` (states: label wrapping fixture; sizing: 9x nil, 12x nil).
 - `toggle overlong label word breaks between graphemes instead of clipping` (sizing: 8x nil).
 - `toggle label under a one-row budget ends its last visible row in the truncation mark` (sizing: 8x1).
 - `toggle minimum is the marker plus the label's widest word` (states: minimum fixtures; sizing: 9x nil).
-- `toggle preserves checkbox geometry for focus and press feedback` (states: focused and pressed fixture).
-- `disabled toggle is absent from focus and bubbles activation input` (states: disabled; key table: disabled Enter and Space; mouse table: disabled click).
-- `enter toggles the bound value exactly once across phased and legacy input` (key table: Enter).
-- `space toggles the bound value exactly once across phased and legacy input` (key table: Space).
-- `pointer activation focuses before one same-node value inversion` (mouse table: enabled click).
-- `toggle clears a pending press when a pointer release leaves its node` (mouse table: drag).
 - `toggle suppresses rather than partially draws below its minimum floor` (sizing: 1x1 Unicode; 3x1 ASCII).
 - `checkbox marker falls back to [x] and [ ] under the ASCII charset` (states: ASCII fixture; degradation: ASCII).
 - `toggle draws checked and unchecked markers in accent and secondary` (anatomy: natural and unchecked fixtures).
 - `toggle draws Nerd Font markers under the Nerd Font charset` (anatomy: Nerd Font fixture; degradation: Nerd Font).
-- `standalone focused toggle marks its label with an underline and keeps its marker colour` (states: focused and pressed fixture).
-- `focused toggle in a form row shows the row cursor and a bold focus label without an underline` (API direction: Form rows; [Form](form.md) key table).
 - `circle style displays a filled marker for true and a hollow marker for false` (circle style fixtures).
 - `circle style falls back to (*) and ( ) under the ASCII charset` (circle style: ASCII fixture).
 - `standalone toggle defaults to the checkbox style and a toggle in a form row to the text style` (API direction; Text style).
@@ -475,10 +466,31 @@ The default checkbox style is label-hugging unless a parent forces a horizontal 
 - `text style draws true in success and false in secondary with no marker` (Text style fixtures).
 - `text style in a form row draws only the value word and keeps the label as accessible name` (Text style; Form anatomy).
 - `standalone text style draws the value word, one space, then the label` (Text style).
-- `text style keeps the checkbox keyboard, pointer, focus, and disabled contract` (key table; mouse table; states).
-- `a click anywhere on a text-style Form row acts as Enter and inverts the value once` (Text style; [Form](form.md) mouse table).
 - `text style value word in a host row breaks between graphemes in a narrow value column` (sizing: 4 x nil, `.text` in a host row).
 - `text style value word under a fixed one-row host ends in the truncation mark` (sizing: 4x1, `.text` in a host row).
+
+### Focus
+
+- `toggle preserves checkbox geometry for focus and press feedback` (states: focused and pressed fixture).
+- `enter toggles the bound value exactly once across phased and legacy input` (key table: Enter).
+- `space toggles the bound value exactly once across phased and legacy input` (key table: Space).
+- `standalone focused toggle marks its label with an underline and keeps its marker colour` (states: focused and pressed fixture).
+- `focused toggle in a form row shows the row cursor and a bold focus label without an underline` (API direction: Form rows; [Form](form.md) key table).
+- `release after focus loss, disablement or removal clears pressed state without inverting` (key table)
+- `focused toggle leaves printable characters unconsumed and unchanged` (key table: printable characters)
+- `toggle clears isPressed on release, cancellation, focus loss, disablement, removal and every unfocused update` (state model: is pressed)
+
+### Pointer
+
+- `toggle keeps a parent-forced mobile row as one full-width hit target` (states: mobile fixture; sizing: forced frame allocation).
+- `disabled toggle is absent from focus and bubbles activation input` (states: disabled; key table: disabled Enter and Space; mouse table: disabled click).
+- `pointer activation focuses before one same-node value inversion` (mouse table: enabled click).
+- `toggle clears a pending press when a pointer release leaves its node` (mouse table: drag).
+- `text style keeps the checkbox keyboard, pointer, focus, and disabled contract` (key table; mouse table; states).
+- `a click anywhere on a text-style Form row acts as Enter and inverts the value once` (Text style; [Form](form.md) mouse table).
+- `double-click is no distinct gesture and each valid same-node click inverts once` (mouse table: double-click)
+- `toggle draws no hover and requests no pointer motion` (mouse table: no move row)
+- `toggle hit target is the whole control and disappears below the marker floor` (mouse table; sizing)
 
 ## Degradation
 

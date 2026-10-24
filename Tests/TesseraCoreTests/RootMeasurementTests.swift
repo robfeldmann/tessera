@@ -25,15 +25,16 @@ private let size = TerminalSize(columns: 20, rows: 6)
 func `a nil height proposal measures the content and a finite one measures the offer`() {
   let graph = ViewGraph(root: { FillingLeaf() }, size: size)
 
+  let measured = [nil, 500, 1_000].map {
+    graph.measuredRootSize(proposing: ProposedSize(width: 10, height: $0))
+  }
+
   #expect(
-    graph.measuredRootSize(proposing: ProposedSize(width: 10, height: nil))
-      == TerminalSize(columns: 10, rows: 3))
-  #expect(
-    graph.measuredRootSize(proposing: ProposedSize(width: 10, height: 500))
-      == TerminalSize(columns: 10, rows: 500))
-  #expect(
-    graph.measuredRootSize(proposing: ProposedSize(width: 10, height: 1_000))
-      == TerminalSize(columns: 10, rows: 1_000))
+    measured == [
+      TerminalSize(columns: 10, rows: 3),
+      TerminalSize(columns: 10, rows: 500),
+      TerminalSize(columns: 10, rows: 1_000),
+    ])
 }
 
 @Test

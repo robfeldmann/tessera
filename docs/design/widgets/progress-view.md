@@ -478,22 +478,33 @@ Tokens consumed, each defined in [tokens.md](../tokens.md).
 - `percent is the default current-value label` (current-value labels state)
 - `supplied current-value label replaces the percent` (current-value labels state)
 - `value is clamped to the closed range from zero to total` (state model: value)
-- `indeterminate label starts two cells in for every frame set` (indeterminate anatomy; frame sets)
 - `braille is the default spinner frame set` (frame sets)
 - `nerd font spinner sets fall back to orbit without a nerd font` (frame sets)
 - `ascii-only output draws every spinner set with line` (frame sets; degradation)
 - `custom frames without an ascii fallback draw line in ascii-only output` (frame sets)
 - `nerd font spinner frame is followed by a real space` (frame sets; [Nerd Font cells](../tokens.md#nerd-font-cells))
-- `built-in spinner sets run at their own intervals` (frame sets: braille, orbit and clock 80 ms, arc 100 ms, slices 125 ms, halves and line 120 ms)
 - `quarters is not a built-in spinner set` (frame sets)
-- `spinner frame derives from the supplied clock and stores no state` (state model: frame index)
-- `indeterminate view declares a tick requirement at its frame set's interval` (state model: tick requirement)
-- `determinate view declares no tick requirement` (state model: tick requirement)
-- `nerd font set drawn as orbit declares orbit's interval` (state model: tick requirement; frame sets)
 - `under-minimum proposal reports the 9x1 floor` (sizing table: 8x1)
 - `tight 9x1 proposal draws the bar and percent without the label` (sizing table: 9x1)
 - `determinate bar takes the proposed width and the label stays whole when one row fits` (sizing table: 40 x nil)
 - `determinate bar fills a proposal wider than the readable width` (sizing table: 100 x nil)
+
+### Pointer
+
+- `progress view takes no focus, keys or pointer input` (Key table; Mouse table)
+
+### Clock
+
+- `indeterminate label starts two cells in for every frame set` (indeterminate anatomy; frame sets)
+- `built-in spinner sets run at their own intervals` (frame sets: braille, orbit and clock 80 ms, arc 100 ms, slices 125 ms, halves and line 120 ms)
+- `spinner frame derives from the supplied clock and stores no state` (state model: frame index)
+- `indeterminate view declares a tick requirement at its frame set's interval` (state model: tick requirement)
+- `determinate view declares no tick requirement` (state model: tick requirement)
+- `nerd font set drawn as orbit declares orbit's interval` (state model: tick requirement; frame sets)
+- `ascii-only indeterminate view declares the line set's 120 ms tick requirement` (frame sets; degradation)
+- `custom spinner set declares its own interval as the tick requirement` (frame sets; state model: tick requirement)
+- `tick requirement is recomputed on every update and aggregated by the graph over live nodes` (state model: tick requirement)
+- `progress view has no reduced-motion setting in 1.0` (state model; Open questions)
 
 ## Degradation
 

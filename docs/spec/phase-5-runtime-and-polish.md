@@ -50,7 +50,7 @@ public protocol Application: AnyObject {
 }
 ```
 
-The protocol refines nothing but `AnyObject`. It is not `@MainActor`, and it does not refine `SendableMetatype`: that refinement would forbid isolated conformances (SE-0470), which are the compile-time proof this design rests on. The app is a reference type because `body` reads the model and hands out `Binding`s that write back to it.
+The protocol is class-only: it inherits from `AnyObject` and from no other protocol. It is not `@MainActor`, and it does not inherit from `SendableMetatype`, because that would forbid isolated conformances (SE-0470), which are the compile-time proof this design rests on. The app is a reference type because `body` reads the model and hands out `Binding`s that write back to it.
 
 ### The canonical step
 

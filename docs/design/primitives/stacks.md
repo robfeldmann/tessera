@@ -128,6 +128,14 @@ Child priority, measured ideal/minimum sizes, final frames, and clipping interse
 - `empty stack introduces no spacing and paints nothing` (allocation fixtures: Empty `HStack`, `9x1`, spacing 2).
 - `linear stack publishes its axis to descendant layout context` (environment: `HStack` and `VStack` rows).
 
+### Pointer
+
+- `stacks take no press or focus behaviour and name no hit region` (Decisions and deferred scope)
+
+### Scroll
+
+- `stacks never scroll` (Decisions and deferred scope)
+
 ## Degradation
 
 Stacks, Spacer, priority, and alignment have no glyph or style dependency. Every terminal capability mode preserves integer distribution, source order, and parent-frame clipping.

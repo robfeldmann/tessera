@@ -228,9 +228,10 @@ jobs:
           swift test --only-use-versions-from-resolved-file --no-parallel --package-path
           Examples
 
-      # The behaviour corpus (Decision 7): every leg, Windows included, runs the scenarios in
-      # Examples/Scenarios against their committed goldens, which are checked out with LF
-      # (.gitattributes). A drifted golden or a failed expectation fails the leg.
+      # The behaviour corpus (docs/architecture/developer-tooling.md): every leg, Windows
+      # included, runs the scenarios in Examples/Scenarios against their committed goldens,
+      # which are checked out with LF (.gitattributes). A drifted golden or a failed
+      # expectation fails the leg.
       - name: Run the scenario corpus
         if: needs.ci-gate.outputs.vouch-only != 'true'
         run:

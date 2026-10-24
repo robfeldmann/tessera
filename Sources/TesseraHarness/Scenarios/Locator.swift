@@ -4,7 +4,7 @@
 /// every statement. Every key filters; `nth` then picks one match by zero-based position in tree
 /// order. Without `nth` the selector must match exactly one node, and a selector that matches
 /// nothing is an error, never an empty result.
-package struct Locator: Equatable, Sendable {
+package struct Locator: CustomStringConvertible, Equatable, Sendable {
   struct Failure: Error {
     var message: String
   }
@@ -23,7 +23,7 @@ package struct Locator: Equatable, Sendable {
   package var text: String?
   package var nth: Int?
 
-  var description: String {
+  package var description: String {
     var terms: [String] = []
     if let type { terms.append("type=\(type)") }
     if let layout { terms.append("layout=\(layout)") }

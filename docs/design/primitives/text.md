@@ -368,7 +368,6 @@ Text installs no responder. These explicit no-op rows make the routing contract 
 - `text background fills its allocated rectangle` (environment: background fill).
 - `text substitutes ascii truncation mark without changing geometry` (environment: truncation mark; degradation: ASCII-only).
 - `truncation mark takes the text's resolved style` (environment: truncation mark).
-- `text never consumes keyboard or pointer input` (key table: printable characters, Enter, and Up / Down / Left / Right; mouse table: click, drag, wheel-up, and wheel-down).
 - `joined text measures and wraps as one string` (styled runs: anatomy 14x3; sizing: `Text("Ship") + Text(" one thing")`, 8xnil; variants: `Text + Text`).
 - `a word that spans a run seam wraps as one word` (styled runs: callout 4; sizing: `Text("un") + Text("do").bold()`, 3xnil).
 - `a grapheme cluster that spans a run seam takes the first run's attributes` (sizing: `Text("e") + Text("\u{301}").bold()`, nil x nil).
@@ -376,6 +375,14 @@ Text installs no responder. These explicit no-op rows make the routing contract 
 - `a run background colours only the cells the run writes` (styled runs: callout 2; environment: shared modifiers).
 - `run attributes win over inherited ones and the innermost run attribute wins` (environment: inherited Style and shared modifiers).
 - `truncation mark takes only the attributes every run shares` (environment: truncation mark).
+
+### Pointer
+
+- `text never consumes keyboard or pointer input` (key table: printable characters, Enter, and Up / Down / Left / Right; mouse table: click, drag, wheel-up, and wheel-down).
+
+### Scroll
+
+- `text never creates scroll state` (Degradation)
 
 ## Degradation
 

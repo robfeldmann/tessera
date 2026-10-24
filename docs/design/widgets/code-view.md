@@ -337,6 +337,10 @@ Schema: [README](../../design.md#requirements-list). Each entry traces to a call
 - `code view draws its minimum at 8x3: a four-column gutter and four source cells` (Minimum; owner decision, 2026-10-10)
 - `code view keeps syntax hues on at 16 colours and resolves a hue below 3:1 to syntax.plain` (Degradation)
 
+### Pointer
+
+- `code view takes no focus, keys or pointer input in 1.0` (Key table; Mouse table)
+
 ## Degradation
 
 Follows the [degradation ladder](../tokens.md#degradation-ladder). Under `NO_COLOR`, syntax roles keep only their attributes: comments italic and dim, punctuation dim, every other role plain. At 16 colours the syntax hues stay on in the slot palette, except that a hue whose slot is below 3:1 against a known background resolves as `syntax.plain` (readability floor; [syntax roles](../tokens.md#syntax-roles)). The source text and gutter remain. With no highlighter installed, or no `path`, the source draws plain. Below the 8x3 minimum the block clips at the proposed size (see [Sizing](#sizing)); lines still never wrap and the cut carries no mark.

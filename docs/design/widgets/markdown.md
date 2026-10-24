@@ -503,7 +503,6 @@ Schema: [README](../../design.md#requirements-list). Each entry traces to a call
 - `markdown does not word-wrap fenced code` (Fenced code wrap exception; owner decision, 2026-10-18)
 - `markdown keeps pipe table cells single-line and opts no column into wrapping` (Pipe table; owner decision, 2026-10-18)
 - `markdown writes link text as an OSC 8 hyperlink` (Anatomy callout 5; owner decision, 2026-10-18)
-- `markdown takes no focus, keys or pointer input` (Key table, Mouse table; owner decision, 2026-10-18)
 - `markdown draws fenced code through the code view without a box` (Fenced code)
 - `markdown draws ordered, bullet and task markers in info` (Lists callouts 1-3)
 - `markdown draws one quote rail per level in border` (Block quote callouts 1, 4)
@@ -512,11 +511,18 @@ Schema: [README](../../design.md#requirements-list). Each entry traces to a call
 - `markdown renders a pipe table through the table grid style` (Pipe table callout 1)
 - `markdown aligns pipe table columns left, centre and right as written` (Pipe table callouts 4, 5)
 - `markdown renders the full layout again when the source string changes` (State model; owner decision, 2026-10-10)
-- `markdown does not reveal streamed source in 1.0` (State model; owner decision, 2026-10-10)
 - `markdown breaks a word wider than the width between grapheme clusters` (Minimum; Sizing 12 x nil; owner decisions, 2026-10-10 and 2026-10-18)
 - `markdown wraps the anatomy block to 24 rows at 12 columns` (Sizing 12 x nil)
 - `markdown code block fills a proposal wider than the readable width` (Sizing 100 x nil (Fenced code))
 - `markdown draws a pipe table at its natural width` (Sizing 100 x nil (Pipe table); Pipe table)
+
+### Pointer
+
+- `markdown takes no focus, keys or pointer input` (Key table, Mouse table; owner decision, 2026-10-18)
+
+### Clock
+
+- `markdown does not reveal streamed source in 1.0` (State model; owner decision, 2026-10-10)
 
 ## Degradation
 

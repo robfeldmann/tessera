@@ -2,13 +2,13 @@ import TesseraTerminalCore
 import TesseraTerminalInput
 
 /// A rectangle written as `x,y,wxh` in `expect node … frame`.
-package struct FrameExpectation: Equatable, Sendable {
+package struct FrameExpectation: CustomStringConvertible, Equatable, Sendable {
   package var column: Int
   package var row: Int
   package var columns: Int
   package var rows: Int
 
-  var description: String {
+  package var description: String {
     "\(column),\(row),\(columns)x\(rows)"
   }
 }
@@ -115,7 +115,7 @@ package struct Scenario: Equatable, Sendable {
 }
 
 /// A fail-fast parse error that renders as `FILE:LINE: error: message`.
-package struct ScenarioParseError: Error, Equatable, Sendable, CustomStringConvertible {
+package struct ScenarioParseError: CustomStringConvertible, Equatable, Error, Sendable {
   package var file: String
   package var line: Int
 

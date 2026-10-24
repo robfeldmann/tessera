@@ -1,3 +1,4 @@
+import CustomDump
 import TesseraTerminal
 import TesseraTerminalCore
 import Testing
@@ -122,14 +123,13 @@ struct TerminalAnswererTests {
 struct TerminalProfileTests {
   @Test
   func `colour levels map to the session's forced capability`() {
-    #expect(TerminalColors.none.override == .force(.noColor))
-    #expect(TerminalColors.ansi16.override == .force(.ansi16))
-    #expect(TerminalColors.indexed256.override == .force(.indexed256))
-    #expect(TerminalColors.truecolor.override == .force(.truecolor))
-    #expect(TerminalColors(rawValue: "16") == .ansi16)
-    #expect(TerminalColors(rawValue: "256") == .indexed256)
-    #expect(TerminalColors(rawValue: "true") == .truecolor)
-    #expect(TerminalColors(rawValue: "none") == TerminalColors.none)
+    let overrides = ["none", "16", "256", "true"].map { spelling in
+      TerminalColors(rawValue: spelling)?.override
+    }
+
+    expectNoDifference(
+      overrides,
+      [.force(.noColor), .force(.ansi16), .force(.indexed256), .force(.truecolor)])
     #expect(Set(TerminalColors.spellings) == Set(TerminalColors.allCases.map(\.rawValue)))
     #expect(Set(TerminalTheme.spellings) == Set(TerminalTheme.allCases.map(\.rawValue)))
   }

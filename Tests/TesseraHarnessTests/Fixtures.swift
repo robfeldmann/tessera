@@ -169,7 +169,7 @@ final class GreedyApp: Application {
 }
 
 /// A view whose equal replacement lets reconciliation skip the whole subtree.
-private struct StillLabel: View, Equatable {
+private struct StillLabel: Equatable, View {
   var body: some View {
     Text("Still")
   }
