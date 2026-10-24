@@ -59,7 +59,7 @@ The active milestone is the Phase 4 view layer. Each step lands its components w
 2. Layout, stacks, static `SplitView`, and `ScrollView` — **done**.
 3. Flex sizing and final `SplitView` negotiation — **done**.
 4. Component designs revised against a reference TUI — _in progress_.
-5. The demo harness, scenarios, checks, and `tessera-dev` — _planned_.
+5. The demo harness, scenarios, checks, and the `tessera` CLI — _planned_.
 6. Styling and decoration — _planned_.
 7. Focus, key routing, and `KeyLegend` — _planned_.
 8. Mouse, hit testing, and hover — _planned_.

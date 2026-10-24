@@ -21,6 +21,7 @@ Products:
   Tessera                  // public view/runtime product
   TesseraTerminal          // public terminal-foundation product
   TesseraTestSupport       // public view-layer test and snapshot support
+  TesseraHarness           // public harness: registry, scenarios, CLI; for test and dev targets
 
 Targets:
   Tessera                  // re-export target for the view/runtime product
@@ -28,7 +29,8 @@ Targets:
   TesseraLayout            // Layout protocol, stacks, flex, grid, decoration (slices 2, 3, 5, 6)
   TesseraWidgets           // ScrollView/SplitView (slice 2), controls (slice 4), List/TextInput (slice 7)
   TesseraTestSupport       // graph/layout/widget snapshots; re-exports terminal test support
-  TesseraRuntime           // optional @MainActor convenience loop (Phase 5)
+  TesseraRuntime           // Application contract (Phase 4); optional @MainActor convenience loop (Phase 5)
+  TesseraHarness           // drives an app headlessly and live: registry, viewports, scenarios, CLI entry point
 
   TesseraTerminal          // re-export target for the terminal product
   TesseraTerminalANSI
@@ -41,7 +43,7 @@ Targets:
   TesseraTerminalTestSupport
 ```
 
-The `TesseraTerminal` targets are relatively concrete because Phases 1–3 define their responsibilities in detail. `TesseraTerminalTestSupport` owns terminal-specific fixtures, in-memory sessions, virtual-terminal snapshot helpers, and renderer diagnostics without making live-terminal escape hatches public. `TesseraTestSupport` is the elevated testing surface for view graphs, layouts, and widgets. It depends on `TesseraCore`, re-exports `TesseraTerminalTestSupport`, and owns stable high-level snapshot strategies rather than placing them in individual test files. The production `Tessera` targets follow the Phase 4 slice plan: `TesseraCore` for the view protocol, graph, environment, and responder system; `TesseraLayout` for the layout protocol, containers, and decoration; `TesseraWidgets` for the standard widget set; and `TesseraRuntime` (Phase 5) for the optional convenience loop.
+The `TesseraTerminal` targets are relatively concrete because Phases 1–3 define their responsibilities in detail. `TesseraTerminalTestSupport` owns terminal-specific fixtures, in-memory sessions, virtual-terminal snapshot helpers, and renderer diagnostics without making live-terminal escape hatches public. `TesseraTestSupport` is the elevated testing surface for view graphs, layouts, and widgets. It depends on `TesseraCore`, re-exports `TesseraTerminalTestSupport`, and owns stable high-level snapshot strategies rather than placing them in individual test files. The production `Tessera` targets follow the Phase 4 slice plan: `TesseraCore` for the view protocol, graph, environment, and responder system; `TesseraLayout` for the layout protocol, containers, and decoration; `TesseraWidgets` for the standard widget set; and `TesseraRuntime` for the app contract (`Application`, created in Phase 4 and re-exported by `Tessera`) and, in Phase 5, the optional convenience loop. `TesseraHarness` drives an app headlessly and live for tests and dev executables; app authors import it from those targets, never from production code, and it does not re-export `TesseraRuntime`. The isolation rules for the contract, the runtime, and the harness are the [Runtime isolation](phase-5-runtime-and-polish.md#runtime-isolation) section of Phase 5.
 
 Swift SPI may be used sparingly when SwiftPM visibility is not expressive enough:
 
@@ -138,6 +140,16 @@ Sources/
 
   Tessera/
     Tessera.swift                 // @_exported imports only
+
+  TesseraRuntime/
+    Application.swift             // the app contract (Phase 4)
+    Step.swift                    // the canonical step, package-visible; hosts call it (Phase 4)
+    ApplicationRuntime.swift      // optional @MainActor convenience loop (Phase 5)
+
+  TesseraHarness/
+    ApplicationRegistry.swift     // registry and Viewport (public)
+    Driver.swift                  // main-actor shell over the step; headless and live hosts (package)
+    Scenarios/                    // parser, runner, report, CLI entry point
 
   TesseraCore/                  // declarative view values and explicit graph runtime
     Views/
@@ -247,6 +259,7 @@ Tests/
     ListTests.swift
     ScrollViewTests.swift
   TesseraRuntimeTests/
+    ApplicationTests.swift        // adoption shapes written against `import Tessera`
 ```
 
 Optional examples can sit outside the module graph and import the public products:
@@ -274,8 +287,9 @@ Dependency direction inside `Tessera`:
 - `TesseraCore` defines the `View` protocol, graph, environment, focus/responder system, and `Text`. It directly depends only on `TesseraTerminalCore`, `TesseraTerminalBuffer` (the borrowed `Frame`/`Buffer`/`Style` seam), and `TesseraTerminalInput`; it never imports `TesseraTerminal`, `TesseraTerminalIO`, platform shims, or UI frameworks.
 - `TesseraLayout` builds only on `TesseraCore`: the `Layout` protocol, containers, styling modifiers, and decoration.
 - `TesseraWidgets` builds only on `TesseraCore` + `TesseraLayout`. It starts in Slice 2 rather than waiting for Slice 7 so ScrollView and SplitView do not require a temporary target.
-- `TesseraRuntime` (Phase 5) may depend on the whole view layer plus `TesseraTerminal`.
-- The `Tessera` target re-exports the public view-layer modules (and `TesseraTerminal`) for app authors.
+- `TesseraRuntime` depends on `TesseraCore` and `TesseraTerminalInput` for the contract in Phase 4, and on the whole view layer plus `TesseraTerminal` once the Phase 5 runtime lands.
+- `TesseraHarness` depends on `TesseraRuntime`, the view layer, and `TesseraTerminal`, and may use their `package` seams; it re-exports none of them.
+- The `Tessera` target re-exports the public view-layer modules, `TesseraRuntime`, and `TesseraTerminal` for app authors.
 
 Prefer Swift's access control to model intent:
 

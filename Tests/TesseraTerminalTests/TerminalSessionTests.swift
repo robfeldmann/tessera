@@ -2712,6 +2712,30 @@ private final class MainActorFrameHost {
 }
 
 @Test
+func `a body isolated to the session draws in the session's own isolation`() async throws
+{
+  let size = TerminalSize(columns: 3, rows: 1)
+  let session = InMemoryTerminalSession(size: size)
+
+  let observed = try await session.withApplicationTerminal { terminal in
+    var bodyRuns = 0
+    let columns = try await terminal.draw { frame in
+      bodyRuns += 1
+      frame.write("abc", at: TerminalPosition(column: 0, row: 0))
+      return frame.size.columns
+    }
+    return (columns, bodyRuns, terminal.lastDrawn)
+  }
+  let (columns, bodyRuns, lastDrawn) = observed
+
+  var expectedBuffer = Buffer(size: size)
+  expectedBuffer.write("abc", at: TerminalPosition(column: 0, row: 0))
+  #expect(columns == 3)
+  #expect(bodyRuns == 1)
+  #expect(lastDrawn == DrawnFrame(buffer: expectedBuffer, cursor: nil, sequence: 1))
+}
+
+@Test
 func `resize delivered mid-session produces a second draw at the new size`() async throws
 {
   let initialSize = TerminalSize(columns: 4, rows: 2)
