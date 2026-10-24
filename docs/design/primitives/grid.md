@@ -125,6 +125,14 @@ Grid consumes no token and has no state model. It publishes no `stackAxis`, so a
 - `grid rejects negative spacing before layout` (variants: Negative `spacing`)
 - `grid rows keep their identity across a keyed reorder` (variants: `ForEach(items) { item in GridRow { ... } }`)
 
+### Pointer
+
+- `grid takes no focus and handles no key or pointer input` (Overview)
+
+### Scroll
+
+- `grid never scrolls itself` (Overview)
+
 ## Degradation
 
 Grid emits no cells and has no capability-dependent state. Glyph, width, colour, and ASCII degradation remain each cell's responsibility. Column resolution, row heights, clipping, and source order are identical at every tier of the [degradation ladder](../tokens.md#degradation-ladder).

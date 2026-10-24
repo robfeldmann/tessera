@@ -376,6 +376,9 @@ Schema: [README](../../design.md#sizing-table). Mandatory rows: nil x nil, tight
 - `labeled content styling the label view leaves the value in the primary role` (States: Foreground tones, Cache)
 - `labeled content applies bold per view` (States: Bold)
 - `labeled content reports the label, the gap, and the value at their measured widths under a wider proposal` (Sizing: nil x nil, 80 x nil)
+
+### Pointer
+
 - `labeled content holds no node state and lets every key and pointer event bubble` (State model; Key table; Mouse table)
 
 ## Degradation

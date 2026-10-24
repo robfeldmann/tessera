@@ -220,6 +220,51 @@ Not a table, but schema'd: each entry is a backticked sentence-style Swift Testi
 - `selection stays visible when table scrolls` (key table: Down; state: scroll offset)
 ```
 
+A page opens `## Requirements` with a plain list of the requirements that no capability owns: layout, sizing, anatomy, and degradation. Capability requirements follow under optional `###` subsections (owner decision, 2026-10-23). The phase 4 capability slices (focus, pointer, scroll, and clock) each work through the matching subsection of every already-built component, so a slice has one place to look in every doc.
+
+```text
+## Requirements
+
+- `table fills its proposal on both axes` (sizing: 26 x 12)
+
+### Focus
+
+- `down moves selection to the next row via the binding` (key table: Down)
+
+### Pointer
+
+- `click on a data row sets selection` (mouse table: click)
+
+### Scroll
+
+- `page down moves the offset and the selection one page` (key table: PgDn)
+
+### Clock
+
+- `spinner advances one frame per tick` (state model: frame)
+```
+
+The rules:
+
+1. **Closed names, fixed order.** The only subsections are `### Focus`, `### Pointer`, `### Scroll`, and `### Clock`, each at most once, in that order. No other `###` heading, and no deeper heading, sits under `## Requirements`. `iwe schema validate` enforces the names, the order, and the single use of each (`docs/.iwe/schemas/design.yaml`).
+2. **What each capability covers.**
+   - `Focus`: all keyboard handling (every key table row) and how a focused component looks. A key requirement that also needs scrolling goes under `Scroll` by rule 4.
+   - `Pointer`: clicks, drags, hover, hit testing, and any wheel handling that does not scroll an offset.
+   - `Scroll`: interactive scrolling only: offsets, reveal, paging, wheel scrolling and boundary bubbling, and indicators that follow the offset. A static viewport or a clipped fixture belongs in the plain list.
+   - `Clock`: time and animation: tick-driven state, timers, spinners, and the absence of them.
+3. **Present only when needed.** A subsection exists only where the component needs the capability. An empty heading, or one that holds only "none", is a defect. A component with no requirement for a capability has no subsection for it.
+4. **Latest-landing rule.** A requirement that needs several capabilities goes under the one that lands last: Focus, then Pointer, then Scroll, then Clock. A requirement about paging a selection with PgDn belongs under `Scroll`, not `Focus`.
+5. **Negatives belong too.** A negative assertion (`... receives no keyboard scroll events`, `... draws no hover`) goes in the subsection of the capability it denies.
+6. **Group labels** may subdivide a list (`Menu:`, `Radio group:`) when a page presents several controls. A label heads a group of one or more entries and is repeated per subsection only where that subsection has entries for it.
+
+A capability slice finds its work with the IWE query:
+
+```fish
+iwe find --blocks '{ $section: Focus }'
+```
+
+Swap the name for `Pointer`, `Scroll`, or `Clock`.
+
 ## Prior art
 
 Every doc cites concrete sources in its prior-art section. Local references first:
