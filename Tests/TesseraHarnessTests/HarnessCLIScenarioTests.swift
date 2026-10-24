@@ -238,7 +238,7 @@ struct HarnessCLIScenarioTests {
       CommandOutput(
         exitCode: 2,
         stdout: """
-          {"command":"run","exitCode":2,"message":"usage: run PATH... [--record] [--repeat N] [--timing]"}
+          {"command":"run","exitCode":2,"message":"Missing expected argument '<path> ...'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] <path> ..."}
           
           """,
         stderr: ""
@@ -253,16 +253,15 @@ struct HarnessCLIScenarioTests {
     let noValue = await run("run", "x.scn", "--repeat", "--pretty")
     let zero = await run("run", "x.scn", "--repeat", "0", "--pretty")
     let word = await run("run", "x.scn", "--repeat", "many", "--pretty")
-    let twice = await run("run", "x.scn", "--repeat", "2", "--repeat", "3", "--pretty")
 
-    assertInlineSnapshot(of: [unknown, noValue, zero, word, twice], as: .customDump) {
+    assertInlineSnapshot(of: [unknown, noValue, zero, word], as: .customDump) {
       #"""
       [
         [0]: CommandOutput(
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: unknown flag `--frobnicate`; accepted: --json, --pretty, --record, --repeat, --timing
+            error: Unknown option '--frobnicate'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] <path> ...
             
             """
         ),
@@ -270,7 +269,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: `--repeat` needs a value
+            error: Missing value for '--repeat <n>'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] <path> ...
             
             """
         ),
@@ -278,7 +277,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: `--repeat` needs a whole number of at least 1, got `0`
+            error: `--repeat` needs a whole number of at least 1, got `0`; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] <path> ...
             
             """
         ),
@@ -286,15 +285,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: `--repeat` needs a whole number of at least 1, got `many`
-            
-            """
-        ),
-        [4]: CommandOutput(
-          exitCode: 2,
-          stdout: "",
-          stderr: """
-            error: `--repeat` is given twice
+            error: The value 'many' is invalid for '--repeat <n>'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] <path> ...
             
             """
         )
@@ -315,7 +306,7 @@ struct HarnessCLIScenarioTests {
         exitCode: 2,
         stdout: "",
         stderr: """
-          error: `--repeat` needs a whole number of at least 1, got `x.scn`
+          error: The value 'x.scn' is invalid for '--repeat <n>'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] <path> ...
           
           """
       )
@@ -473,7 +464,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: bad size `huge`; expected WxH, desktop, mobile, or mobileScreen
+            error: bad size `huge`; expected WxH, desktop, mobile, or mobileScreen; usage: tessera tree [--json] [--pretty] <name> [<size>]
             
             """
         ),
@@ -481,7 +472,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: usage: shot NAME [SIZE]
+            error: Missing expected argument '<name>'; usage: tessera shot [--json] [--pretty] <name> [<size>]
             
             """
         ),
@@ -489,7 +480,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: usage: shot NAME [SIZE]
+            error: Unexpected argument 'more'; usage: tessera shot [--json] [--pretty] <name> [<size>]
             
             """
         ),
@@ -523,11 +514,11 @@ struct HarnessCLIScenarioTests {
     for command in HarnessCLI.commandNames {
       #expect(overview.stdout.contains(command), "\(command)")
       let help = await run("help", command)
-      #expect(help.stdout.hasPrefix("usage: \(command)"), "\(command)")
+      #expect(help.stdout.contains("USAGE: tessera \(command)"), "\(command)")
       #expect(help.stdout.count > 60, "\(command)")
     }
     let runHelp = await run("help", "run")
-    for flag in ["--record", "--repeat N", "--timing", "--json", "--pretty"] {
+    for flag in ["--record", "--repeat <n>", "--timing", "--json", "--pretty"] {
       #expect(runHelp.stdout.contains(flag), "\(flag)")
     }
     for field in [#""change": "created" or "updated""#, #""line" 0"#, #""--repeat N""#] {

@@ -86,7 +86,10 @@ extension HarnessCLI {
     }
   }
 
-  static let commands: [any HarnessCommand.Type] = [AppsCommand.self, LaunchCommand.self]
+  static let commands: [any HarnessCommand.Type] = [
+    AppsCommand.self, LaunchCommand.self, RunCommand.self, ShotCommand.self,
+    TreeCommand.self,
+  ]
 
   /// The words that name a command: the commands, then ArgumentParser's `help`.
   static var commandNames: [String] {
@@ -121,19 +124,6 @@ extension HarnessCLI {
       // must still be reported in the form the caller asked for.
       let asJSON = OutputForm.prefersJSON(arguments, outputIsTerminal: outputIsTerminal)
 
-      // `run`, `shot`, and `tree` take their own arguments and are not declared to
-      // ArgumentParser yet.
-      let words = withoutOutputFlags(arguments)
-      switch words.first {
-      case "run":
-        return await runScenarios(
-          Array(words.dropFirst()), registry: registry, json: asJSON)
-      case "shot", "tree":
-        return await picture(
-          words[0], Array(words.dropFirst()), registry: registry, json: asJSON)
-      default:
-        break
-      }
       // ArgumentParser reports an unknown command word as an unexpected argument, and
       // `help ghost` as the overview. Both are usage errors that list the commands here.
       if let unknown = unknownCommand(in: arguments, json: asJSON) {

@@ -1,71 +1,12 @@
+import ArgumentParser
 import Foundation
 
-/// The arguments of one command: positional words, flags, and flags that take a value.
-struct CommandArguments {
-  struct Failure: Error {
-    var message: String
-  }
-
-  private(set) var positional: [String] = []
-  private(set) var flags: Set<String> = []
-  private(set) var values: [String: String] = [:]
-
-  /// Splits `arguments`, accepting only the named flags.
-  ///
-  /// - Parameters:
-  ///   - arguments: The words after the command.
-  ///   - flags: The flags that stand alone.
-  ///   - valued: The flags followed by their value.
-  init(
-    _ arguments: [String], flags allowed: Set<String> = [], valued: Set<String> = []
-  ) throws(Failure) {
-    var iterator = arguments.makeIterator()
-    while let argument = iterator.next() {
-      if allowed.contains(argument) {
-        flags.insert(argument)
-      } else if valued.contains(argument) {
-        guard let value = iterator.next() else {
-          throw Failure(message: "`\(argument)` needs a value")
-        }
-        guard values.updateValue(value, forKey: argument) == nil else {
-          throw Failure(message: "`\(argument)` is given twice")
-        }
-      } else if argument.hasPrefix("-"), argument.count > 1 {
-        let accepted = (allowed.union(valued).union(["--json", "--pretty"])).sorted()
-        throw Failure(
-          message:
-            "unknown flag `\(argument)`; accepted: \(accepted.joined(separator: ", "))")
-      } else {
-        positional.append(argument)
-      }
-    }
-  }
-}
-
 extension HarnessCLI {
-  /// `run`'s JSON object: the command's own status and one report per scenario.
-  private struct RunResult: Encodable {
-    var command = "run"
-    var exitCode: Int32
-    var scenarios: [ReportBody]
-  }
-
-  /// `shot`'s JSON object.
-  private struct ShotResult: Encodable {
-    var app: String
-    var command = "shot"
-    var exitCode: Int32 = 0
-    var rows: [String]
-    var size: String
-  }
-
-  /// `tree`'s JSON object.
-  private struct TreeResult: Encodable {
-    var app: String
-    var command = "tree"
-    var exitCode: Int32 = 0
-    var lines: [String]
-    var size: String
+  /// What a one-off command found: the application's picture, or the output that says why
+  /// there is none.
+  enum Loaded {
+    case picture(ScenarioPlayer.Picture)
+    case refused(CommandOutput)
   }
 
   /// The exit code for a set of reports, the highest any failure asks for: 3 for a `harness`
@@ -81,45 +22,147 @@ extension HarnessCLI {
     }.max() ?? 0
   }
 
-  // MARK: run
+  /// Shows the application `target` names at its size, for `shot` and `tree`.
+  @MainActor
+  static func loadPicture(
+    _ command: String, _ target: PictureArguments, in context: Context
+  ) async -> Loaded {
+    do {
+      return .picture(
+        try await ScenarioPlayer.picture(
+          of: target.name, at: target.viewport, registry: context.registry))
+    } catch let error as RegistryError {
+      return .refused(
+        registryFailure(error, command: command, json: context.asJSON))
+    } catch let error as HostError {
+      // A size the app cannot take is a mistake in the command, not a failed expectation.
+      return .refused(
+        failure(
+          error.message, exitCode: error.verb == "size" ? 2 : 3, command: command,
+          json: context.asJSON))
+    } catch {
+      return .refused(
+        failure("\(error)", exitCode: 3, command: command, json: context.asJSON))
+    }
+  }
+}
+
+/// `NAME [SIZE]`, the arguments `shot` and `tree` take.
+struct PictureArguments: ParsableArguments {
+  @Argument(
+    help: "The application to show, as `apps` lists it.",
+    completion: HarnessCLI.appNameCompletion)
+  var name: String
+
+  @Argument(
+    help: ArgumentHelp(
+      "The terminal size: desktop, mobile, mobileScreen, or WxH.", valueName: "size"),
+    completion: .list(["desktop", "mobile", "mobileScreen"]))
+  var size = "desktop"
+
+  /// The size as a viewport. ``validate()`` rejects a size that names none, so the fallback
+  /// is never used.
+  var viewport: Viewport {
+    ScenarioParser.viewport(spelled: size) ?? .desktop
+  }
+
+  func validate() throws {
+    guard ScenarioParser.viewport(spelled: size) != nil else {
+      throw ValidationError(
+        "bad size `\(size)`; expected WxH, desktop, mobile, or mobileScreen")
+    }
+  }
+}
+
+struct RunCommand: HarnessCommand {
+  /// `run`'s JSON object: the command's own status and one report per scenario.
+  private struct Result: Encodable {
+    var command = "run"
+    var exitCode: Int32
+    var scenarios: [ReportBody]
+  }
+
+  static let configuration = CommandConfiguration(
+    commandName: "run",
+    abstract: "Run scenario files, or directories of them.",
+    discussion: """
+      Runs scenario files. A path is a .scn file, or a directory whose .scn files, at any \
+      depth, run in sorted order. A path that is neither, or a directory with no scenarios, \
+      is a usage error. Each scenario starts a fresh application.
+
+      A scenario is a text file with one statement per line. The header statements are \
+      `app NAME`, `size SIZE`, and `term colors=... theme=...`. The input statements are \
+      `resize WxH`, `key NAME`, `type "text"`, `paste "text"`, and `bytes "..."`. \
+      `shot NAME` compares the screen with a golden file and `tree` adds the node tree to \
+      the report. The assertions are `expect text [ROW] "text"`, `expect screen <<WORD`, \
+      and `expect node SEL frame X,Y,WxH`. A statement outside this list is a parse error.
+
+      Exit codes: 0 every scenario passed, 1 an expectation failed, 2 a scenario did not \
+      parse or a path is not a scenario, 3 a harness error. When several apply, the \
+      highest wins.
+
+      The JSON form is {"command": "run", "exitCode", "scenarios": [REPORT...]} with one \
+      REPORT per scenario: {"failures": [FAILURE...], "observations": [{"line", "verb", \
+      "lines"} and, for a shot, "name"], "passed", "recorded" (only when --record wrote \
+      goldens: [{"change": "created" or "updated", "path"}]), "scenario", "seconds" (only \
+      with --timing)}. A FAILURE is {"line", "statement", "verb", "message"} and, when the \
+      statement compares values, "expected", "actual", and "screen". A failure that \
+      belongs to a file or a command, not a line, has "line" 0 and "statement" "" (a \
+      repeat failure's statement is "--repeat N"). A shot whose golden is missing, is not \
+      UTF-8, or has CRLF line endings has no "expected", "actual", or "screen": its \
+      observation holds the screen. A scenario that does not parse is a failure with verb \
+      "parse". Fields are added, never removed or renamed.
+      """)
+
+  @OptionGroup var output: OutputOptions
+
+  @Flag(
+    help: """
+      Write the golden files that `shot` statements compare against, instead of failing \
+      when one differs or is missing, and list what changed. Review the files it wrote; \
+      never record to make a failing run pass.
+      """)
+  var record = false
+
+  @Option(
+    name: .customLong("repeat"),
+    help: ArgumentHelp(
+      "Run each scenario N times, and fail a run whose report differs from the first.",
+      valueName: "n"))
+  var repetitions = 1
+
+  @Flag(
+    help: """
+      Add the wall-clock seconds of each run to the report. Times differ from run to run, \
+      so they are never golden.
+      """)
+  var timing = false
+
+  @Argument(
+    help: ArgumentHelp("A .scn file, or a directory of them.", valueName: "path"),
+    completion: .file(extensions: ["scn"]))
+  var paths: [String]
+
+  func validate() throws {
+    guard repetitions >= 1 else {
+      throw ValidationError(
+        "`--repeat` needs a whole number of at least 1, got `\(repetitions)`")
+    }
+  }
 
   @MainActor
-  static func runScenarios(
-    _ arguments: [String], registry: ApplicationRegistry, json: Bool
-  ) async -> CommandOutput {
-    let parsed: CommandArguments
-    do {
-      parsed = try CommandArguments(
-        arguments, flags: ["--record", "--timing"], valued: ["--repeat"])
-    } catch {
-      return usage(error.message, command: "run", json: json)
-    }
-    var runner = ScenarioRunner(
-      registry: registry, record: parsed.flags.contains("--record"))
-    runner.measuresTime = parsed.flags.contains("--timing")
-    // The value first: `run --repeat x.scn` read `x.scn` as the count, and that is the mistake
-    // to report, not the missing path it leaves behind.
-    if let value = parsed.values["--repeat"] {
-      guard let count = Int(value), count >= 1 else {
-        return usage(
-          "`--repeat` needs a whole number of at least 1, got `\(value)`", command: "run",
-          json: json)
-      }
-      runner.repetitions = count
-    }
-    guard !parsed.positional.isEmpty else {
-      return usage(
-        "usage: run PATH... [--record] [--repeat N] [--timing]", command: "run",
-        json: json)
-    }
+  func execute(in context: HarnessCLI.Context) async -> CommandOutput {
+    var runner = ScenarioRunner(registry: context.registry, record: record)
+    runner.measuresTime = timing
+    runner.repetitions = repetitions
 
-    let reports = await runner.run(paths: parsed.positional)
-    let code = exitCode(for: reports)
-    if json {
+    let reports = await runner.run(paths: paths)
+    let code = HarnessCLI.exitCode(for: reports)
+    if context.asJSON {
       return CommandOutput(
         exitCode: code,
-        stdout: encode(RunResult(exitCode: code, scenarios: reports.map(ReportBody.init)))
-          + "\n")
+        stdout: HarnessCLI.encode(
+          Result(exitCode: code, scenarios: reports.map(ReportBody.init))) + "\n")
     }
     let failed = reports.filter { !$0.passed }.count
     var lines = reports.map(\.description)
@@ -128,63 +171,86 @@ extension HarnessCLI {
         + "\(reports.count - failed) passed, \(failed) failed")
     return CommandOutput(exitCode: code, stdout: lines.joined(separator: "\n") + "\n")
   }
+}
 
-  // MARK: shot and tree
-
-  @MainActor
-  static func picture(
-    _ command: String, _ arguments: [String], registry: ApplicationRegistry, json: Bool
-  ) async -> CommandOutput {
-    let target: (name: String, viewport: Viewport)
-    do {
-      target = try appAndSize(arguments, command: command)
-    } catch {
-      return usage(error.message, command: command, json: json)
-    }
-
-    let picture: ScenarioPlayer.Picture
-    do {
-      picture = try await ScenarioPlayer.picture(
-        of: target.name, at: target.viewport, registry: registry)
-    } catch let error as RegistryError {
-      return registryFailure(error, command: command, json: json)
-    } catch let error as HostError {
-      // A size the app cannot take is a mistake in the command, not a failed expectation.
-      return failure(
-        error.message, exitCode: error.verb == "size" ? 2 : 3, command: command,
-        json: json)
-    } catch {
-      return failure("\(error)", exitCode: 3, command: command, json: json)
-    }
-
-    let size = "\(picture.size.columns)x\(picture.size.rows)"
-    if command == "shot" {
-      return CommandOutput(
-        exitCode: 0,
-        stdout: json
-          ? encode(ShotResult(app: target.name, rows: picture.rows, size: size)) + "\n"
-          : GoldenStore.text(of: picture.rows))
-    }
-    return CommandOutput(
-      exitCode: 0,
-      stdout: json
-        ? encode(TreeResult(app: target.name, lines: picture.tree, size: size)) + "\n"
-        : picture.tree.map { $0 + "\n" }.joined())
+struct ShotCommand: HarnessCommand {
+  /// `shot`'s JSON object.
+  private struct Result: Encodable {
+    var app: String
+    var command = "shot"
+    var exitCode: Int32 = 0
+    var rows: [String]
+    var size: String
   }
 
-  /// `NAME [SIZE]`, the words `shot` and `tree` take.
-  private static func appAndSize(_ arguments: [String], command: String)
-    throws(CommandArguments.Failure) -> (name: String, viewport: Viewport)
-  {
-    let parsed = try CommandArguments(arguments)
-    guard (1...2).contains(parsed.positional.count) else {
-      throw CommandArguments.Failure(message: "usage: \(command) NAME [SIZE]")
+  static let configuration = CommandConfiguration(
+    commandName: "shot",
+    abstract: "Print one application's screen as text.",
+    discussion: """
+      Prints the screen of the registered application, as text, the way a golden file \
+      holds it. The JSON form is {"app", "command": "shot", "exitCode", "rows", "size"}, \
+      where "size" is the terminal size the application was shown at. An unknown name is a \
+      usage error that lists the registered names, and so is a size the application \
+      cannot take, such as `mobile` for an application whose content fills any height: \
+      the error says which size to use.
+      """)
+
+  @OptionGroup var output: OutputOptions
+  @OptionGroup var target: PictureArguments
+
+  @MainActor
+  func execute(in context: HarnessCLI.Context) async -> CommandOutput {
+    switch await HarnessCLI.loadPicture("shot", target, in: context) {
+    case .refused(let refusal):
+      return refusal
+    case .picture(let picture):
+      let size = "\(picture.size.columns)x\(picture.size.rows)"
+      return CommandOutput(
+        exitCode: 0,
+        stdout: context.asJSON
+          ? HarnessCLI.encode(Result(app: target.name, rows: picture.rows, size: size))
+            + "\n"
+          : GoldenStore.text(of: picture.rows))
     }
-    let size = parsed.positional.dropFirst().first ?? "desktop"
-    guard let viewport = ScenarioParser.viewport(spelled: size) else {
-      throw CommandArguments.Failure(
-        message: "bad size `\(size)`; expected WxH, desktop, mobile, or mobileScreen")
+  }
+}
+
+struct TreeCommand: HarnessCommand {
+  /// `tree`'s JSON object.
+  private struct Result: Encodable {
+    var app: String
+    var command = "tree"
+    var exitCode: Int32 = 0
+    var lines: [String]
+    var size: String
+  }
+
+  static let configuration = CommandConfiguration(
+    commandName: "tree",
+    abstract: "Print one application's node tree.",
+    discussion: """
+      Prints the node tree of the registered application, one line per node with its \
+      identity, type, frame, and clip. The JSON form is {"app", "command": "tree", \
+      "exitCode", "lines", "size"}. The tree's text is for reading and is not promised to \
+      stay as it is. Errors are those of `shot`.
+      """)
+
+  @OptionGroup var output: OutputOptions
+  @OptionGroup var target: PictureArguments
+
+  @MainActor
+  func execute(in context: HarnessCLI.Context) async -> CommandOutput {
+    switch await HarnessCLI.loadPicture("tree", target, in: context) {
+    case .refused(let refusal):
+      return refusal
+    case .picture(let picture):
+      let size = "\(picture.size.columns)x\(picture.size.rows)"
+      return CommandOutput(
+        exitCode: 0,
+        stdout: context.asJSON
+          ? HarnessCLI.encode(Result(app: target.name, lines: picture.tree, size: size))
+            + "\n"
+          : picture.tree.map { $0 + "\n" }.joined())
     }
-    return (parsed.positional[0], viewport)
   }
 }

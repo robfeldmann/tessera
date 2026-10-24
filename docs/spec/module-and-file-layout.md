@@ -150,8 +150,8 @@ Sources/
     ApplicationRegistry.swift     // ApplicationRegistry (public) and its fail-closed reads (package)
     Viewport.swift                // Viewport (public)
     HarnessCLI.swift              // HarnessCLI.main(registry:) (public): parsing, dispatch, exit codes
-    HarnessCLI+Commands.swift     // the commands and their ArgumentParser declarations (internal)
-    HelpText.swift                // what `help` prints (internal)
+    HarnessCLI+Commands.swift     // apps, launch, and the ArgumentParser declarations they share (internal)
+    HarnessCLI+Scenarios.swift    // run, shot, and tree (internal)
     Driver.swift                  // main-actor shell over the step (internal)
     HeadlessHost.swift            // a session over a headless device into one virtual terminal (internal)
     HeadlessTerminalDevice.swift  // the device under a headless session; answers its terminal queries (internal)

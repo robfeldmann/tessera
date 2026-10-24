@@ -45,7 +45,7 @@ struct HarnessCLITests {
       CommandOutput(
         exitCode: 0,
         stdout: """
-          {"apps":[{"minimum":"20x1","name":"counter","viewports":["desktop"]},{"minimum":null,"name":"greedy","viewports":["desktop","mobileScreen"]},{"minimum":null,"name":"main-actor-counter","viewports":["desktop"]},{"minimum":null,"name":"observed-counter","viewports":["desktop"]},{"minimum":null,"name":"stack","viewports":["desktop","mobile"]},{"minimum":null,"name":"workspace","viewports":["desktop","mobileScreen"]}],"command":"apps"}
+          {"apps":[{"minimum":"20x1","name":"counter","viewports":["desktop"]},{"minimum":null,"name":"event-log","viewports":["desktop","mobileScreen"]},{"minimum":null,"name":"greedy","viewports":["desktop","mobileScreen"]},{"minimum":null,"name":"main-actor-counter","viewports":["desktop"]},{"minimum":null,"name":"observed-counter","viewports":["desktop"]},{"minimum":null,"name":"stack","viewports":["desktop","mobile"]},{"minimum":null,"name":"workspace","viewports":["desktop","mobileScreen"]}],"command":"apps"}
           
           """,
         stderr: ""
@@ -82,6 +82,7 @@ struct HarnessCLITests {
         stdout: """
           NAME                MINIMUM  VIEWPORTS
           counter             20x1     desktop
+          event-log           -        desktop, mobileScreen
           greedy              -        desktop, mobileScreen
           main-actor-counter  -        desktop
           observed-counter    -        desktop
@@ -174,7 +175,7 @@ struct HarnessCLITests {
         exitCode: 2,
         stdout: "",
         stderr: """
-          error: unknown app `ghost`; accepted: counter, greedy, main-actor-counter, observed-counter, stack, workspace
+          error: unknown app `ghost`; accepted: counter, event-log, greedy, main-actor-counter, observed-counter, stack, workspace
           
           """
       )
@@ -266,7 +267,7 @@ struct HarnessCLITests {
       CommandOutput(
         exitCode: 2,
         stdout: """
-          {"command":null,"exitCode":2,"message":"unknown command `jump`; accepted: apps, launch, help"}
+          {"command":null,"exitCode":2,"message":"unknown command `jump`; accepted: apps, launch, run, shot, tree, help"}
           
           """,
         stderr: ""
@@ -285,7 +286,7 @@ struct HarnessCLITests {
         exitCode: 2,
         stdout: "",
         stderr: """
-          error: unknown command `jump`; accepted: apps, launch, help
+          error: unknown command `jump`; accepted: apps, launch, run, shot, tree, help
           
           """
       )
@@ -303,7 +304,7 @@ struct HarnessCLITests {
         exitCode: 2,
         stdout: "",
         stderr: """
-          error: a command is required; accepted: apps, launch, help
+          error: a command is required; accepted: apps, launch, run, shot, tree, help
           
           """
       )
@@ -323,11 +324,12 @@ struct HarnessCLITests {
         [0]: CommandOutput(
           exitCode: 0,
           stdout: """
-            OVERVIEW: List and launch the registered applications.
+            OVERVIEW: List, launch, run, and picture the registered applications.
             
-            Every command exits 0 on success, 2 on a usage error, and 3 on a harness error.
-            When standard output is not a terminal each command writes one JSON object to
-            it; --json forces that form and --pretty forces the text form.
+            Every command exits 0 on success, 1 when an expectation failed, 2 on a usage or
+            parse error, and 3 on a harness error. When standard output is not a terminal
+            each command writes one JSON object to it; --json forces that form and --pretty
+            forces the text form.
             
             `--generate-completion-script SHELL` prints a completion script for fish, zsh,
             or bash. It completes the commands, their flags, and the registered application
@@ -344,6 +346,9 @@ struct HarnessCLITests {
             SUBCOMMANDS:
               apps                    List the registered applications.
               launch                  Run one application in this terminal.
+              run                     Run scenario files, or directories of them.
+              shot                    Print one application's screen as text.
+              tree                    Print one application's node tree.
             
               See 'tessera help <subcommand>' for detailed help.
             
@@ -424,6 +429,22 @@ struct HarnessCLITests {
   }
 
   @Test
+  func `help and its errors name no repository path and promise no later work`() async {
+    var texts = [await run("help").stdout]
+    for command in HarnessCLI.commandNames {
+      texts.append(await run("help", command).stdout)
+    }
+    texts.append(await run("help", "ghost").stdout)
+    texts.append(await run("jump").stdout)
+    texts.append(await run("apps", "--nope", "--pretty").stderr)
+
+    let banned = ["Examples/", "docs/", ".agents", "spikes/", "README", "yet", "later"]
+    for text in texts {
+      #expect(!banned.contains { text.contains($0) }, "\(text)")
+    }
+  }
+
+  @Test
   func `help for an unknown command is a usage error that lists the commands`() async {
     let json = await run("help", "ghost")
     let text = await run("help", "ghost", "--pretty")
@@ -434,7 +455,7 @@ struct HarnessCLITests {
         [0]: CommandOutput(
           exitCode: 2,
           stdout: """
-            {"command":"help","exitCode":2,"message":"unknown command `ghost`; accepted: apps, launch, help"}
+            {"command":"help","exitCode":2,"message":"unknown command `ghost`; accepted: apps, launch, run, shot, tree, help"}
             
             """,
           stderr: ""
@@ -443,7 +464,7 @@ struct HarnessCLITests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: unknown command `ghost`; accepted: apps, launch, help
+            error: unknown command `ghost`; accepted: apps, launch, run, shot, tree, help
             
             """
         )
@@ -567,6 +588,7 @@ struct HarnessCLITests {
         exitCode: 0,
         stdout: """
           counter
+          event-log
           greedy
           main-actor-counter
           observed-counter
