@@ -71,6 +71,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Removed the Showcase example (`Examples/Sources/TesseraShowcase`, its tests and Xcode schemes) and the `core:showcase` task: each view component ships its own demo instead, and `mise run core:example` runs what remains in the Examples package.
 
 ### Fixed
+- Fixed the active probe's DECRQM round to end on a DA1 sentinel: a terminal that answers DA1 but not every mode no longer waits out the probe timeout, and a DECRQM round that times out now retires the Kitty keyboard and Kitty graphics rounds so a late DA1 cannot satisfy their sentinel.
 - Fixed `Package.resolved` churn between toolchains: the resolved files (root, `Examples`, and the workspace) are resolved with Swift 6.4, whose graph adds swift-issue-reporting, and every repository entry point passes `--only-use-versions-from-resolved-file`, so Swift 6.3.3 no longer prunes that pin; each CI test leg fails when a resolved file is out of date or a run changes it.
 - Fixed `PlatformIO` to keep its raw input byte stream private to the event parser: a second reader raced the parser for chunks (an `AsyncStream` has one consumer), which surfaced as a flaky `TesseraTerminalIOTests` failure on the Xcode 27 lane.
 - Fixed Windows terminal input shutdown so queued resize notifications drain before the event stream finishes, and fixed text snapshots to omit wide-cell continuation placeholders.

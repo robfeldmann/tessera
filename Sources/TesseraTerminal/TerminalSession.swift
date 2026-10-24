@@ -834,8 +834,8 @@ public actor TerminalSession {
 
   /// Runs or reuses this session's single serialized active-probe generation.
   ///
-  /// The rounds are DECRQM, Kitty keyboard plus DA1, Kitty Graphics plus DA1, then the
-  /// color round: OSC 10, 11, and 4 queries plus DA1, which fills ``capabilities``'s
+  /// The rounds are DECRQM plus DA1, Kitty keyboard plus DA1, Kitty Graphics plus DA1, then
+  /// the color round: OSC 10, 11, and 4 queries plus DA1, which fills ``capabilities``'s
   /// ``TerminalCapabilities/colorReport``. The color round asks only for the background
   /// when the environment sets `NO_COLOR`. Every parsed event, including probe replies,
   /// remains available through the input queue.

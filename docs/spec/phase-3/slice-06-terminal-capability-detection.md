@@ -86,7 +86,7 @@ In particular, underline rendering is application-selected output policy, not de
 > - crossterm has a narrow internal capability-query precedent: it parses keyboard enhancement flag responses and primary device attributes into `InternalEvent`s (`crossterm` `src/event/sys/unix/parse.rs`, lines 258-292), and filters for those internal responses separately from public input (`crossterm` `src/event/filter.rs`, lines 22-35). Tessera should use the same separation if it adds active queries.
 > - Ratatui's flex demo reads `TERM_PROGRAM` / `TERM_PROGRAM_VERSION` only as local example behavior, not as core terminal policy (`examples/apps/flex/src/main.rs`, lines 602-607). Tessera can centralize that kind of passive hinting in `TerminalCapabilities`.
 
-Implemented active queries include KGP `a=q` + DA1, Kitty keyboard query + DA1, DECRQM (`CSI ? Ps $ p`) for the DEC private modes Tessera uses (`2004`, `1004`, `1000`, `1002`, `1003`, `1006`, and `2026`), and the OSC 10/11/4 color round ([Terminal color reports](#terminal-color-reports)). Primary/secondary device attributes and terminfo-style queries such as XTGETTCAP remain possible future inputs, but they must not become terminal-name allowlists.
+Implemented active queries include KGP `a=q` + DA1, Kitty keyboard query + DA1, DECRQM (`CSI ? Ps $ p`) + DA1 for the DEC private modes Tessera uses (`2004`, `1004`, `1000`, `1002`, `1003`, `1006`, and `2026`), and the OSC 10/11/4 color round ([Terminal color reports](#terminal-color-reports)). Primary/secondary device attributes and terminfo-style queries such as XTGETTCAP remain possible future inputs, but they must not become terminal-name allowlists.
 
 ## Startup behavior
 
@@ -95,6 +95,7 @@ Capability detection must not make terminal startup feel slow or brittle.
 Rules:
 
 - Prefer sentinel-based probes over wall-clock timeouts when the protocol defines one. KGP and Kitty keyboard can use DA1 as the sentinel: response before DA1 means supported, DA1 first means unsupported.
+- DECRQM uses DA1 as an end-of-round sentinel only. Its requests go out in one write followed by one DA1, which a terminal answers after every reply it will give, so the round ends at the DA1 reply after one round trip instead of waiting out the timeout. A mode with no reply by then stays `.unknown`, not unsupported, because ignoring an unrecognized private mode says nothing conclusive. DA1 alone ends the round; having every mode answered does not, since the DA1 is still in flight and would otherwise satisfy the next round's sentinel. If the round times out without DA1, that DA1 may still arrive late, so the Kitty keyboard and Kitty graphics rounds are retired and their evidence stays `.unknown`.
 - For queries without a reliable sentinel, timeout means `.unknown`, not failure.
 - Query responses must flow through a parser path that cannot steal ordinary user input indefinitely.
 - Detection should not block raw-mode restoration or cleanup.
