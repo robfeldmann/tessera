@@ -10,7 +10,6 @@ set -euo pipefail
 cd "$MISE_PROJECT_ROOT"
 source scripts/dev-tessera.sh
 if [[ -z "${usage_name:-}" ]]; then
-  tessera_help_with_apps shot
-  exit 0
+  tessera_exit_with_help_and_apps shot
 fi
 tessera shot "$@"
