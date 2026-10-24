@@ -81,7 +81,7 @@ Every wireframe is a fenced block tagged with its exact size and, optionally, a 
 ```
 ````
 
-`NAME` in `id=NAME` is lowercase words joined by hyphens (`[a-z0-9]+(-[a-z0-9]+)*`) and unique within its doc. A wireframe's identity is its doc's file name plus its `id`, or, when it has none, its 0-based position among the doc's `wireframe` fences. Tests and gallery renders (`.build/tessera-dev/<slug>/<id-or-index>-current.svg`) are keyed by that identity: give an `id` to any wireframe a test pins, because inserting a wireframe shifts every later position.
+`NAME` in `id=NAME` is lowercase words joined by hyphens (`[a-z0-9]+(-[a-z0-9]+)*`) and unique within its doc. A wireframe's identity is its doc's file name plus its `id`, or, when it has none, its 0-based position among the doc's `wireframe` fences. Tests and gallery renders (`.build/tessera/<slug>/<id-or-index>-current.svg`) are keyed by that identity: give an `id` to any wireframe a test pins, because inserting a wireframe shifts every later position.
 
 Rules, enforced by `scripts/check-wireframes.py`:
 
@@ -267,7 +267,7 @@ python3 scripts/gallery-serve.py   # http://127.0.0.1:8790/
 
 The gallery lists every catalog doc by slug, grouped by folder, with its status, and shows each doc's wireframes. It reads the `wireframe` fences of `primitives/*.md` and `widgets/*.md` directly, so there is no second copy to keep in step, and a banner offers a reload when a doc changes. Each fence is one entry, labelled with the nearest heading, its `WxH` and its [viewport](design/tokens.md#viewports) name. A styled grid that belongs to the fence colours it for the theme chosen with `?theme=` (the five review themes in `DevTools/gallery/themes.json`), and its callouts show under it. `/tokens` draws the role swatches of [tokens.md](design/tokens.md) in its three tiers beside catalog samples on every theme. The script needs only the standard library; `--port` and `--host` change where it listens.
 
-Each entry also has empty **Current** and **Previous** slots for the renders of the real widgets. Later they read `.build/tessera-dev/<slug>/<id-or-index>-current.svg` and `<id-or-index>-previous.svg` as `tessera-dev` writes them (plan 033, Phase C), and say "not built yet" until then; the stem is the fence's `id` when it has one, else its 0-based position among the doc's `wireframe` fences. The gallery only displays files; it never decides pass or fail. A `standalone` styled grid has no wireframe to compare, so it is drawn as its own entry after the doc's wireframes, without slots. What the gallery cannot honour (a grid that matches no wireframe, an unknown legend token, a style letter the legend does not define) shows as a warning badge on the entry; the checker above is the gate.
+Each entry also has empty **Current** and **Previous** slots for the renders of the real widgets. Later they read `.build/tessera/<slug>/<id-or-index>-current.svg` and `<id-or-index>-previous.svg` as `tessera` writes them (plan 033, Phase C), and say "not built yet" until then; the stem is the fence's `id` when it has one, else its 0-based position among the doc's `wireframe` fences. The gallery only displays files; it never decides pass or fail. A `standalone` styled grid has no wireframe to compare, so it is drawn as its own entry after the doc's wireframes, without slots. What the gallery cannot honour (a grid that matches no wireframe, an unknown legend token, a style letter the legend does not define) shows as a warning badge on the entry; the checker above is the gate.
 
 ## Index
 

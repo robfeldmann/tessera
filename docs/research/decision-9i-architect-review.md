@@ -1,11 +1,13 @@
 ---
 type: research
 observed: 2026-10-23 # main 9325271 and origin/docs/phase-4-decisions 79da704; spikes rebuilt on Swift 6.3.3 (Xcode 26.6)
-status: open
+status: resolved
 description: Architect review of the Decision 9 (i) record ([Decision 9 (i)](decision-9i-application-contract.md)) — verdict, concerns with evidence, required amendment changes, and answers to the two owner questions.
 ---
 
 # Decision 9 (i): architect review
+
+> Resolved 2026-10-23: the owner took the review's answer (a) as `TesseraRuntime` created in Phase 4 and re-exported by `Tessera`, accepted the required changes to the amendment text, and went further on isolation (no `SendableMetatype`, `@MainActor` hosts, `TerminalSession.draw` caller-isolated); the spec's [Runtime isolation](../spec/phase-5-runtime-and-polish.md#runtime-isolation) section supersedes the text below wherever they differ, and the CLI is `tessera` with `apps`, `launch`, and `run`, not `app list|run`.
 
 Claims with a `path:line`, a command, or a quoted compiler message were observed. [INFERENCE] marks the rest. Review probes live in `/Users/rob/Developer/robfeldmann/tessera/decision-9-spike/spikes/Decision9Review/` (untracked; nothing in `main` touched).
 

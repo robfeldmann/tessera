@@ -1,11 +1,13 @@
 ---
 type: research
 observed: 2026-10-23
-status: open
+status: resolved
 description: Architect's evidence for the runtime isolation spec section (Phase 5 spec), what it changes in Decision 9 (i), and its CLI naming recommendation.
 ---
 
 # Runtime isolation: evidence and owner note
+
+> Resolved 2026-10-23: the owner accepted the Phase 5 spec's [Runtime isolation](../spec/phase-5-runtime-and-polish.md#runtime-isolation) section as written, with `TerminalSession.draw` caller-isolated in plan 036's Slice 2 (PR #59), and chose the CLI recommended below (`tessera`, `tessera apps`, `tessera launch NAME`, `tessera run PATH...`); the spec section supersedes the text below wherever they differ.
 
 The section itself is proposed in [Phase 5's Runtime isolation](../spec/phase-5-runtime-and-polish.md#runtime-isolation). Probes live in the untracked scratch worktree `decision-9-spike/spikes/Decision9Isolation/`, and the restructured `TerminalSession.draw` in the detached worktree `decision-9-isolation`; neither is committed.
 

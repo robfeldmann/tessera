@@ -1,11 +1,13 @@
 ---
 type: research
 observed: 2026-10-23 # citations hold at main 9325271; the spike ran on origin/main 3b05863, which differs only by a dependency bump
-status: open
+status: resolved
 description: Decision 9 (i) — how an app hands itself to TesseraHarness, and which harness names and contracts carry a 1.0 promise.
 ---
 
 # Decision 9 (i): the app contract and the harness's 1.0 surface
+
+> Resolved 2026-10-23: the owner decided Decision 9 (i) as `Application: AnyObject` in a `TesseraRuntime` module created in Phase 4 (no `SendableMetatype`, no `@MainActor`, `@MainActor` hosts and registry factories, no host quit key, no public stepping API), the stable surface below, and the `tessera` CLI (`tessera apps`, `tessera launch NAME`, `tessera run PATH...`) in place of `tessera-dev` and `app list|run`; the spec's [Runtime isolation](../spec/phase-5-runtime-and-polish.md#runtime-isolation) section supersedes the text below wherever they differ, and [plan 036](../plans/phase-4-view-layer-and-developer-tooling.md) records the decisions.
 
 Claims with a `path:line`, a command, or a quoted compiler message were observed. Claims marked [INFERENCE] were not. Links are relative to `docs/research/`, where this record would live as `decision-9i-app-contract.md`; the amendment texts link it by that name and date the decision 2026-10-23, to be changed to the day the owner accepts it.
 
