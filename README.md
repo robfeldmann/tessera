@@ -149,7 +149,7 @@ The supported/tested OS-version range widens as the view layer matures. Contribu
 | `TesseraTerminalSnapshotSupport` | Ghostty-backed virtual-terminal support for output snapshot testing. |
 | `TesseraTerminalTestSupport` | Fixtures and utilities for terminal-behavior tests. |
 | `TesseraTestSupport` | General Tessera test and snapshot support. |
-| `TesseraHarness` | Register, launch, and drive Tessera apps from test and development targets: `ApplicationRegistry`, `Viewport`, and `HarnessCLI` (the scenario runner is not public yet). |
+| `TesseraHarness` | Register, launch, drive, and check Tessera apps from test and development targets: `ApplicationRegistry`, `Viewport`, `HarnessCLI`, and `ScenarioRunner`, which runs text scenarios and returns `ScenarioReport`s (`ScenarioFailure` describes each failed statement). |
 
 ## Roadmap
 

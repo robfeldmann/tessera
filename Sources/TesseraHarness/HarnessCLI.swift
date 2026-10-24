@@ -12,13 +12,18 @@ import TesseraTerminal
 /// ```
 ///
 /// The commands are `apps` (list the registry), `launch NAME` (run one application in this
-/// terminal), and `help [COMMAND]`. Exit codes are 0 for success, 2 for a usage error, and 3
-/// for a harness error. When standard output is not a terminal, each command writes one JSON
-/// object to it; `--json` forces that form and `--pretty` forces the text form.
+/// terminal), `run PATH...` (run scenario files, with `--record`, `--repeat N`, and
+/// `--timing`), `shot NAME [SIZE]` and `tree NAME [SIZE]` (print one application's screen or
+/// node tree), `check` and `replay` (named, and not yet available), and `help [COMMAND]`.
+///
+/// Exit codes are 0 for success, 1 when an expectation failed, 2 for a usage or parse error,
+/// and 3 for a harness error. When standard output is not a terminal, each command writes one
+/// JSON object to it; `--json` forces that form and `--pretty` forces the text form.
 public enum HarnessCLI {
   /// Runs the command in the process's arguments and exits with its status.
   ///
-  /// - Parameter registry: The applications the commands can list and launch.
+  /// - Parameter registry: The applications the commands can list, launch, and run
+  ///   scenarios against.
   @MainActor
   public static func main(registry: ApplicationRegistry) async -> Never {
     let output = await run(
@@ -88,43 +93,8 @@ extension HarnessCLI {
     }
   }
 
-  static let commands = ["apps", "launch", "help"]
-
-  private static let overview = """
-    usage: <executable> COMMAND [ARGUMENT]
-
-    commands:
-      apps           list the registered applications
-      launch NAME    run one application in this terminal
-      help [COMMAND] describe a command
-
-    Every command exits 0 on success, 2 on a usage error, and 3 on a harness error. When
-    standard output is not a terminal each command writes one JSON object to it; --json
-    forces that form and --pretty forces the text form.
-    """
-
-  private static let helpText: [String: String] = [
-    "apps": """
-    usage: apps [--json | --pretty]
-
-    Lists every registered application with the smallest size it declares and the
-    viewports it is checked at. The JSON form is {"apps": [{"minimum", "name",
-    "viewports"}], "command": "apps"}, sorted by name, where "minimum" is null for an
-    application that declares none. A name registered twice fails the command with exit 3.
-    """,
-    "launch": """
-    usage: launch NAME
-
-    Runs the named application in this terminal at the terminal's size, until the
-    application finishes. The harness has no quit key of its own: the application decides
-    which key quits. Exits 2 for an unknown name, and 3 for a duplicate registration or
-    when standard input or output is not a terminal.
-    """,
-    "help": """
-    usage: help [COMMAND]
-
-    Prints the commands, or one command's usage.
-    """,
+  static let commands = [
+    "apps", "launch", "run", "shot", "tree", "check", "replay", "help",
   ]
 
   /// Runs one command and returns what it printed, without touching the process.
@@ -169,6 +139,14 @@ extension HarnessCLI {
         rest, registry: registry, json: asJSON,
         terminals: (input: inputIsTerminal, output: outputIsTerminal),
         configuration: configuration)
+    case "run":
+      return await runScenarios(rest, registry: registry, json: asJSON)
+    case "shot", "tree":
+      return await picture(command, rest, registry: registry, json: asJSON)
+    case "check":
+      return check(rest, registry: registry, json: asJSON)
+    case "replay":
+      return replay(rest, registry: registry, json: asJSON)
     case "help":
       return help(rest, json: asJSON)
     default:
@@ -238,12 +216,7 @@ extension HarnessCLI {
     do {
       entry = try registry.entry(named: name)
     } catch {
-      let exitCode: Int32 =
-        switch error {
-        case .duplicate: 3
-        case .unknown: 2
-        }
-      return failure(error.description, exitCode: exitCode, command: "launch", json: json)
+      return registryFailure(error, command: "launch", json: json)
     }
     guard terminals.input, terminals.output else {
       let missing =
@@ -268,12 +241,12 @@ extension HarnessCLI {
 
   private static func help(_ arguments: [String], json: Bool) -> CommandOutput {
     guard let topic = arguments.first else {
-      return CommandOutput(exitCode: 0, stdout: overview + "\n")
+      return CommandOutput(exitCode: 0, stdout: HelpText.overview + "\n")
     }
     guard arguments.count == 1 else {
       return usage("usage: help [COMMAND]", command: "help", json: json)
     }
-    guard let text = helpText[topic] else {
+    guard let text = HelpText.commands[topic] else {
       return usage(
         "unknown command `\(topic)`; accepted: \(commands.joined(separator: ", "))",
         command: "help", json: json)
@@ -283,21 +256,28 @@ extension HarnessCLI {
 
   // MARK: Output
 
-  private static func encode(_ value: some Encodable) -> String {
-    let encoder = JSONEncoder()
-    encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-    let data = (try? encoder.encode(value)) ?? Data()
-    // swiftlint:disable:next optional_data_string_conversion
-    return String(decoding: data, as: UTF8.self)
+  static func encode(_ value: some Encodable) -> String {
+    JSONText.string(for: value)
   }
 
-  private static func usage(_ message: String, command: String?, json: Bool)
-    -> CommandOutput
-  {
+  static func usage(_ message: String, command: String?, json: Bool) -> CommandOutput {
     failure(message, exitCode: 2, command: command, json: json)
   }
 
-  private static func failure(
+  /// The failure for a name the registry cannot answer: an unknown name is a usage error and
+  /// a duplicate registration a harness error.
+  static func registryFailure(_ error: RegistryError, command: String, json: Bool)
+    -> CommandOutput
+  {
+    let exitCode: Int32 =
+      switch error {
+      case .duplicate: 3
+      case .unknown: 2
+      }
+    return failure(error.description, exitCode: exitCode, command: command, json: json)
+  }
+
+  static func failure(
     _ message: String, exitCode: Int32, command: String?, json: Bool
   ) -> CommandOutput {
     if json {

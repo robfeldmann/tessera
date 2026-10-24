@@ -53,11 +53,11 @@ Read the diagram as one scenario run. `tessera run` and `swift test` are two way
 | Demos and the registry | both | demos in `Examples/Sources/DemoSupport`, `ApplicationRegistry` in `TesseraHarness` | built; one demo so far, the counter |
 | The app contract (`Application`) | both | `TesseraRuntime`, re-exported by `Tessera` | built |
 | Headless driver (`Driver`) | both | `TesseraHarness` | built: one `Driver` under a headless host, a live host, and a per-test actor host, all internal to `TesseraHarness` (tests reach them with `@testable import`) |
-| Scenario language and runner | both | grammar in `Examples/Scenarios/README.md`, runner in `TesseraHarness` | designed; the spike's v0 parser, runner, and report are ported as `package` code and run over the registry |
-| `tessera` CLI and `mise run dev:*` | agents first | `Examples/Sources/TesseraDev`, `HarnessCLI` in `TesseraHarness`, `mise-tasks/dev/` | `apps`, `launch`, and `help` built; the other commands designed |
+| Scenario language and runner | both | grammar in `Examples/Scenarios/README.md`, parser, runner, and report in `TesseraHarness` | built for the statements the harness can honour today; the rest are refused by name until their prerequisite exists |
+| `tessera` CLI and `mise run dev:*` | agents first | `Examples/Sources/TesseraDev`, `HarnessCLI` in `TesseraHarness`, `mise-tasks/dev/` | `apps`, `launch`, `run`, `shot`, `tree`, and `help` built; `check` and `replay` are named and refuse until the projection and the trace exist |
 | Projection and locators | agents first | `TesseraHarness` | designed |
 | Invariant checks (`check`) | both | `TesseraHarness` | designed |
-| Shots (text, grid, SVG) | both | goldens beside the scenario; pictures in `.build/tessera/` | designed |
+| Shots (text, grid, SVG) | both | goldens beside the scenario; pictures in `.build/tessera/` | text shots and goldens built (`NAME.txt`); the styled grid and the pictures designed |
 | Trace and cost | both | `TesseraHarness` | designed |
 | Catalog conformance and the gallery | both | `tessera conform`, `DevTools/gallery/` | designed |
 | Keyboard coverage walk | agents | `tessera coverage` | designed |
@@ -96,25 +96,31 @@ Built today: the driver delivers its starting size to the app as a `.resize` thr
 A scenario is a text file under `Examples/Scenarios/`: one statement per line, shell quoting, `#` comments. A header binds the app and the terminal; the body sends input, observes, and asserts.
 
 ```text
-# Tab moves focus from the name field to Submit.
-app form-basics
-size desktop
-term colors=256 keyboard=kitty
+# The counter steps on `+` and `-`, resets on `0`, and ignores everything else.
+app counter
+size mobile
+term colors=256 theme=dark
 
-key Tab
-expect focused role=button label="Submit"
-shot after-tab
-check
+type "++"
+bytes "+\x1b[A"
+expect text 2 "Count                                  3"
+shot after-steps
 ```
 
-| Group | Verbs |
-| --- | --- |
-| Header | `app NAME`, `size desktop\|mobile\|mobileScreen\|WxH`, `term colors=none\|16\|256\|true glyphs=ascii keyboard=legacy\|kitty theme=light\|dark\|probe` |
-| Input | `resize WxH`, `key Tab`, `type "hi"`, `paste "..."`, `bytes "\x1b[A"`, `focus SEL`, `mouse click\|move\|scroll\|down\|up R,C`, `wait`, `settle` |
-| Observe | `shot NAME [SEL]`, `tree [SEL]`, `dump [SEL]`, `hit R,C` |
-| Assert | `expect text ROW "..."`, `expect screen <<EOF ... EOF`, `expect cell R,C bold fg=ROLE bg=ROLE`, `expect node SEL frame X,Y WxH \| visible \| clipped \| count N`, `expect focused SEL`, `expect cost bodies<=N measures<=N bytes<=N`, `expect wireframe PATH N [at SEL]`, `check [rule...]` |
+| Group | Built | Designed, refused until its prerequisite exists |
+| --- | --- | --- |
+| Header | `app`, `size`, `term colors= theme=light\|dark` | `term glyphs=`, `term keyboard=`, `term theme=probe` |
+| Input | `resize`, `key`, `type`, `paste`, `bytes` | `focus SEL`, `mouse`, `wait`, `settle` |
+| Observe | `shot NAME`, `tree` | `shot NAME SEL`, `tree SEL`, `dump`, `hit R,C` |
+| Assert | `expect text`, `expect screen`, `expect node SEL frame` | `expect node SEL visible\|clipped\|count N`, `expect focused SEL`, `expect cell`, `expect cost`, `expect wireframe`, `check` |
 
-The `term` header maps onto the session's real capability settings, so ASCII fallbacks, `NO_COLOR`, and backtab-versus-Shift+Tab are scenario facts rather than environment accidents. The harness answers the app's terminal colour queries itself from the header, with given colours or with none, so a styled golden never depends on the virtual terminal's default colours. Input is typed `InputEvent` verbs with `bytes` as the escape hatch; key names follow Playwright and are normalised (`Ctrl+C`). The parser binds the header first and fails fast with `FILE:LINE: error:`. A failed `expect` is recorded with the screen and the run continues, so one run reports every failure. `Examples/Scenarios/README.md` is the grammar's single source; a verb the library cannot honour yet (`wait` before the schedulable clock, `mouse` before hit testing) is listed there as not yet expressible, never faked.
+`Examples/Scenarios/README.md` is the grammar's single source: the exact syntax of every statement, the quoting rules, the key names, the report, and the "not yet expressible" table; this page says what each part is for and what is built. A form the library cannot honour yet (`wait` before the schedulable clock, `mouse` before hit testing, `check` before the projection) is a parse error that says what it waits for, never a statement that is skipped or a check that passes without checking.
+
+Input is typed `InputEvent` verbs with `bytes` as the escape hatch, which runs its text through the same input parser a live session uses; key names follow Playwright and are normalised (`Ctrl+C`). The parser binds the header first and fails fast with `FILE:LINE: error:`, reads lines at `\n` and treats a `\r` as whitespace so a CRLF checkout parses like an LF one, and treats an unknown statement as an error so a scenario written for a newer harness fails loudly on an older one. A failed `expect` is recorded with the screen and the run continues, so one run reports every failure.
+
+A scenario ends when its app finishes, as a live run does: the statement that finishes the app (`key q` for the counter) is the last that runs, and the next statement fails with its own verb and a message naming the line that finished the app, so a scenario cannot pass by running on against an app a terminal would have closed.
+
+The `term` header names the terminal the app runs on, not the machine running the scenario. `colors` is the colour level the session renders with, which the session applies as its forced colour capability. The harness answers the session's terminal queries itself, from fixed values: with `theme=light` or `theme=dark` it reports that scheme's foreground, background, and 16 palette colours to OSC 10, 11, and 4 queries, and without a theme it reports none, as a terminal that cannot answer would; it always answers the primary device attributes query, so a probe round ends at once instead of at its timeout. A styled golden therefore never depends on the Ghostty virtual terminal's default colours. Built today, the answering is pinned at the headless device by tests, but the headless session still detects capabilities passively and so sends no colour query yet; the host switches to active detection with the terminal half of [terminal color reports](../spec/phase-3/slice-06-terminal-capability-detection.md#terminal-color-reports), when styling first reads the colours. `glyphs=` and `keyboard=` wait for ASCII glyph fallbacks in the views and for key routing that depends on the keyboard protocol, so they are refused today rather than accepted and ignored.
 
 ### Locators
 
@@ -152,6 +158,10 @@ Single ownership of each `NodeState` row cannot be seen in the projection, so it
 
 `shot NAME [SEL]` records the screen, or one node's frame region, as two text files beside the scenario: `NAME.txt` (the trimmed text) and `NAME.grid.txt` (the styled cell grid). They are the only committed artefacts. Drift from a committed golden fails the statement; `run --record` rewrites goldens and prints what changed. Never use `--record` to make a failing run pass.
 
+Built today: `shot NAME` compares the trimmed screen text, every row without its trailing spaces and trailing empty rows dropped, with `NAME.txt` in a directory named like the scenario file without its extension, beside it (`counter-basics.scn` keeps its goldens in `counter-basics/`), so shot names only need to be unique within a scenario. A missing golden or a drifted one fails the `shot` statement with the first differing row and the screen, and `tessera run --record` writes the files and lists what changed; a golden checked out with CRLF fails with a message that says so, and `.gitattributes` keeps this repository's goldens LF. The styled grid (`NAME.grid.txt`), the SVG, and the PNG are designed and not built, so the `shot` statement takes no selector yet.
+
+Shot names are unique within a scenario ignoring case, since goldens are files and the macOS and Windows file systems fold case: `shot a` and `shot A` is a parse error. A golden that holds a carriage return fails as a CRLF golden before any row is compared, and a missing or CRLF golden reports no expected or actual row, because there is nothing to compare.
+
 Each shot also writes an SVG to `.build/tessera/` (one text element per row, one span per style run, box-drawing and block glyphs drawn as geometry so they align without font metrics), plus a PNG on macOS. Under `term theme=probe`, every semantic role gets a unique colour that the projection maps back, so `expect cell 3,4 fg=focus` asserts in roles rather than RGB.
 
 ### Trace and cost
@@ -172,9 +182,9 @@ The driver writes one JSONL record per step: sequence number, event, the pass's 
 | `conform [DOC...]` | list every catalog wireframe fence and the scenario that pins it, or `unpinned` |
 | `attach` | talk to a live app over the debug socket |
 
-Exit codes: 0 pass, 1 an expectation or check failed, 2 a usage or parse error, 3 a harness error. When stdout is not a terminal, each command writes one JSON object to stdout; `help COMMAND` prints real text. `mise run dev:run`, `dev:shot`, and the rest mirror the commands. CI runs `swift test --package-path Examples` and `tessera run Examples/Scenarios` on macOS, Linux, and Windows; goldens are checked out with LF line endings everywhere, so a Windows checkout cannot drift them.
+Exit codes: 0 pass, 1 an expectation or check failed, 2 a usage or parse error, 3 a harness error. When stdout is not a terminal, each command writes one JSON object to stdout; `help COMMAND` prints real text. `mise run dev:run`, `dev:shot`, and the rest mirror the commands. CI runs `swift test --package-path Examples` and `tessera run Examples/Scenarios` on every leg of the test matrix, macOS, Linux, and Windows among them, and all are required checks; goldens are checked out with LF line endings everywhere, so a Windows checkout cannot drift them.
 
-Built today: `apps`, `launch NAME`, and `help [COMMAND]`, with `--json` and `--pretty` forcing either form of `apps`. `apps` prints a name, minimum, and viewports table on a terminal, and otherwise one sorted-key JSON object, `{"apps": [{"minimum", "name", "viewports"}], "command": "apps"}`, where `minimum` is `null` for an app that declares none. `launch` refuses to start unless standard input and output are both terminals (exit 3, before the terminal changes mode), because it opens a live session; an unknown name is a usage error (exit 2) that lists the registered names. `HarnessCLI.main(registry:)` is the entry point an app author's executable calls; `Examples/Sources/TesseraDev` is Tessera's, over `Demos.registry()`, and its product is named `tessera` while its module is `TesseraDev`, so the executable and the `Tessera` library share no artifact name on a case-insensitive file system.
+Built today: `apps`, `launch NAME`, `run PATH...`, `shot NAME [SIZE]`, `tree NAME [SIZE]`, and `help [COMMAND]`, with `--json` and `--pretty` forcing either form of any of them, and `check NAME` and `replay FILE --app NAME` named and refusing. `apps` prints a name, minimum, and viewports table on a terminal, and otherwise one sorted-key JSON object, `{"apps": [{"minimum", "name", "viewports"}], "command": "apps"}`, where `minimum` is `null` for an app that declares none. `launch` refuses to start unless standard input and output are both terminals (exit 3, before the terminal changes mode), because it opens a live session; an unknown name is a usage error (exit 2) that lists the registered names. `run` takes `.scn` files and directories (every `.scn` under a directory, sorted, hidden entries skipped), runs each scenario against a fresh app, and prints one report per scenario: the human form on a terminal, and otherwise `{"command": "run", "exitCode", "scenarios": [REPORT...]}`, where a report is `{"failures", "observations", "passed", "scenario"}` with `recorded` when `--record` wrote goldens and `seconds` under `--timing`. A failure is `{"line", "statement", "verb", "message"}` with `expected`, `actual`, and `screen` when the statement compares values, and its `verb` decides the exit code: a statement's own verb, `size`, or `repeat` is an expectation that failed (1), `parse` and `usage` are mistakes in the file or the command (2), and `harness` is a fault in the run (3); the highest of a run wins. A scenario that does not parse is not run and reports one `parse` failure. `--record` writes goldens, `--repeat N` runs each scenario N times and reports a `repeat` failure for any run whose report differs from the first, and `--timing` adds the seconds of each run, which are the only numbers that differ between two runs. `shot` prints the screen of one app at a size (`desktop`, `mobile`, `mobileScreen`, or `WxH`) as a golden would hold it, and `tree` prints its node tree, one line per node; both take the app as a positional name, answer a size the app cannot take with a usage error, and have JSON forms `{"app", "command", "exitCode", "rows" or "lines", "size"}`. `check` and `replay` exit 2 with a message that says they are not yet available, because `check` would pass without checking anything until the projection and its rules exist, and `replay` needs the trace; their usage errors are real. `HarnessCLI.main(registry:)` is the entry point an app author's executable calls; `Examples/Sources/TesseraDev` is Tessera's, over `Demos.registry()`, and its product is named `tessera` while its module is `TesseraDev`, so the executable and the `Tessera` library share no artifact name on a case-insensitive file system. `ScenarioRunner(registry:record:)` is the Swift entry point to `run`, one report per scenario, so an app's tests and its command line run the same scenarios the same way.
 
 ### Stability
 
@@ -204,7 +214,7 @@ The gallery (`DevTools/gallery/`, served by `scripts/gallery-serve.py`) shows ea
 The loop the `tessera-devtools` skill teaches, for humans and agents alike:
 
 1. `tessera launch NAME` to see the component.
-2. `tessera run Examples/Scenarios/NAME.scenario` and read the report (or its JSON).
+2. `tessera run Examples/Scenarios/NAME.scn` and read the report (or its JSON).
 3. `shot` to picture the failing state, `tree` to see the nodes and frames.
 4. Read the trace to learn why a redraw or a focus move happened.
 5. `check` to find the broken invariant.

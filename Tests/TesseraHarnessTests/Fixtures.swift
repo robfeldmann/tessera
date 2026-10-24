@@ -246,8 +246,71 @@ final class ObservedCounterApp: Application {
   }
 }
 
+/// Shows the last events it received, one per line with the newest last, so a scenario can
+/// assert what `key`, `type`, `paste`, and `bytes` delivered.
+final class EventLogApp: Application {
+  private var log: [String] = []
+
+  var body: some View {
+    Text(log.suffix(6).joined(separator: "\n"))
+  }
+
+  func apply(_ event: InputEvent) {
+    switch event {
+    case .key(let key): log.append("key \(KeyName.describe(key))")
+    case .paste(let text): log.append("paste \(text)")
+    case .resize(let size): log.append("resize \(size.columns)x\(size.rows)")
+    default: log.append("other")
+    }
+  }
+}
+
+/// The characters a ``QuitterApp`` has been delivered, in order, across every instance.
+@MainActor
+enum Delivered {
+  static var characters: [Character] = []
+}
+
+/// Records each character key it receives in ``Delivered`` and finishes on `q`, so a test can
+/// see which of a statement's events reached an app that quit part-way through.
+@MainActor
+final class QuitterApp: @MainActor Application {
+  private var quit = false
+
+  var isFinished: Bool {
+    quit
+  }
+
+  var body: some View {
+    Text("Quitter")
+  }
+
+  func apply(_ event: InputEvent) {
+    guard case .key(let key) = event, case .character(let character) = key.code else {
+      return
+    }
+    Delivered.characters.append(character)
+    if character == "q" {
+      quit = true
+    }
+  }
+}
+
+/// An app that reports itself finished before it has received anything.
+final class FinishedApp: Application {
+  var isFinished: Bool {
+    true
+  }
+
+  var body: some View {
+    Text("Finished")
+  }
+
+  func apply(_ event: InputEvent) {}
+}
+
 enum Fixtures {
-  static let names = ["stack", "workspace", "greedy"]
+  static let names = ["stack", "workspace", "greedy", "event-log", "counter"]
 
   /// Every fixture app, registered once under the name the scenario corpus uses.
   @MainActor
@@ -267,6 +330,7 @@ enum Fixtures {
       MainActorCounterApp()
     }
     registry.register("observed-counter", viewports: [.desktop]) { ObservedCounterApp() }
+    registry.register("event-log", viewports: [.desktop, .mobileScreen]) { EventLogApp() }
     return registry
   }
 }
