@@ -109,11 +109,27 @@ The factory closure runs on the main actor once per run, so every run starts fro
 | `tessera tree NAME [SIZE]` | Print one app's node tree, one line per node: identity, type, layout, frame, clip. |
 | `tessera check NAME [SIZE]` | Run every invariant rule over one app at a size, with no input. |
 | `tessera replay FILE --app NAME` | Run a recorded trace again against an app and report what differs. |
-| `tessera help [COMMAND]` | Print the commands, or one command's usage. |
+| `tessera help [COMMAND]` | Print the commands, or one command's usage. `tessera COMMAND --help` prints the same. |
+| `tessera --generate-completion-script SHELL` | Print a completion script for `fish`, `zsh`, or `bash`. |
 
 Every command takes `--json` or `--pretty` to force the JSON object or the text form. Standard output is one JSON object when it is not a terminal, and text when it is. `apps` prints `{"apps": [{"minimum", "name", "viewports"}], "command": "apps"}`, sorted by name, where `minimum` is `null` for an app that declares none. A failed command prints `{"command", "exitCode", "message"}`.
 
-Exit codes: 0 success, 1 an expectation or check failed, 2 a usage or parse error (an unknown command, app name, or flag, a bad path, a scenario that does not parse, a trace that is not one), 3 a harness error (a name registered twice, `launch` without a terminal, a golden that cannot be written).
+Exit codes: 0 success, 1 an expectation or check failed, 2 a usage or parse error (an unknown command, app name, or flag, a missing or extra argument, `--json` with `--pretty`, a bad path, a scenario that does not parse, a trace that is not one; the message lists the accepted commands or app names, or the command's usage), 3 a harness error (a name registered twice, `launch` without a terminal, a golden that cannot be written). `--json` and `--pretty` go after the command or before it.
+
+## Complete commands and app names
+
+The executable prints a completion script that completes the commands, their flags, and the registered app names, so `tessera launch <Tab>` offers your apps. Install it once per shell, with `tessera` on your `PATH` (the script runs it to ask for the names):
+
+```sh
+# fish
+tessera --generate-completion-script fish > ~/.config/fish/completions/tessera.fish
+# zsh: a directory on $fpath, then restart the shell
+tessera --generate-completion-script zsh > ~/.zfunc/_tessera
+# bash: with bash-completion's per-command directory
+tessera --generate-completion-script bash > ~/.local/share/bash-completion/completions/tessera
+```
+
+The script names the executable as it was invoked, so a product that is not called `tessera` generates a script for its own name. The names come from the executable you built, so rebuild after registering an app.
 
 ## Run the app
 

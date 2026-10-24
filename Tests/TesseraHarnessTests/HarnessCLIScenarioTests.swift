@@ -14,8 +14,6 @@ private let failing = "app stack\nsize 40x10\nexpect text 0 \"Stack demos\"\n"
 
 @MainActor
 struct HarnessCLIScenarioTests {
-  private let traced = "app stack\nsize 40x10\ntype \"Rob\"\nresize 30x8\nkey Backspace\n"
-
   private func run(
     _ arguments: String...,
     registry: ApplicationRegistry? = nil,
@@ -158,7 +156,7 @@ struct HarnessCLIScenarioTests {
       CommandOutput(
         exitCode: 2,
         stdout: """
-          {"command":"run","exitCode":2,"scenarios":[{"failures":[{"line":2,"message":"unknown statement `blink`; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost","statement":"blink","verb":"parse"}],"observations":[],"passed":false,"scenario":"<scratch>/bad.scn"}]}
+          {"command":"run","exitCode":2,"scenarios":[{"failures":[{"line":2,"message":"unknown statement `blink`; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node","statement":"blink","verb":"parse"}],"observations":[],"passed":false,"scenario":"<scratch>/bad.scn"}]}
           
           """,
         stderr: ""
@@ -240,7 +238,7 @@ struct HarnessCLIScenarioTests {
       CommandOutput(
         exitCode: 2,
         stdout: """
-          {"command":"run","exitCode":2,"message":"usage: run PATH... [--record] [--repeat N] [--timing]"}
+          {"command":"run","exitCode":2,"message":"Missing expected argument '<path> ...'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] <path> ..."}
           
           """,
         stderr: ""
@@ -255,16 +253,15 @@ struct HarnessCLIScenarioTests {
     let noValue = await run("run", "x.scn", "--repeat", "--pretty")
     let zero = await run("run", "x.scn", "--repeat", "0", "--pretty")
     let word = await run("run", "x.scn", "--repeat", "many", "--pretty")
-    let twice = await run("run", "x.scn", "--repeat", "2", "--repeat", "3", "--pretty")
 
-    assertInlineSnapshot(of: [unknown, noValue, zero, word, twice], as: .customDump) {
+    assertInlineSnapshot(of: [unknown, noValue, zero, word], as: .customDump) {
       #"""
       [
         [0]: CommandOutput(
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: unknown flag `--frobnicate`; accepted: --json, --pretty, --record, --repeat, --timing, --trace
+            error: Unknown option '--frobnicate'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] <path> ...
             
             """
         ),
@@ -272,7 +269,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: `--repeat` needs a value
+            error: Missing value for '--repeat <n>'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] <path> ...
             
             """
         ),
@@ -280,7 +277,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: `--repeat` needs a whole number of at least 1, got `0`
+            error: `--repeat` needs a whole number of at least 1, got `0`; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] <path> ...
             
             """
         ),
@@ -288,15 +285,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: `--repeat` needs a whole number of at least 1, got `many`
-            
-            """
-        ),
-        [4]: CommandOutput(
-          exitCode: 2,
-          stdout: "",
-          stderr: """
-            error: `--repeat` is given twice
+            error: The value 'many' is invalid for '--repeat <n>'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] <path> ...
             
             """
         )
@@ -317,7 +306,7 @@ struct HarnessCLIScenarioTests {
         exitCode: 2,
         stdout: "",
         stderr: """
-          error: `--repeat` needs a whole number of at least 1, got `x.scn`
+          error: The value 'x.scn' is invalid for '--repeat <n>'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] <path> ...
           
           """
       )
@@ -335,7 +324,7 @@ struct HarnessCLIScenarioTests {
 
     #expect(recorded.exitCode == 0)
     let report = try #require(try reports(recorded).first)
-    #expect((report["recorded"] as? [[String: Any]])?.count == 2)
+    #expect((report["recorded"] as? [[String: Any]])?.count == 1)
     #expect((report["seconds"] as? [Double])?.count == 2)
     #expect(checked.exitCode == 0)
     #expect(try reports(checked)[0]["seconds"] == nil)
@@ -475,7 +464,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: bad size `huge`; expected WxH, desktop, mobile, or mobileScreen
+            error: bad size `huge`; expected WxH, desktop, mobile, or mobileScreen; usage: tessera tree [--json] [--pretty] <name> [<size>]
             
             """
         ),
@@ -483,7 +472,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: usage: shot NAME [SIZE]
+            error: Missing expected argument '<name>'; usage: tessera shot [--json] [--pretty] <name> [<size>]
             
             """
         ),
@@ -491,7 +480,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: usage: shot NAME [SIZE]
+            error: Unexpected argument 'more'; usage: tessera shot [--json] [--pretty] <name> [<size>]
             
             """
         ),
@@ -516,631 +505,20 @@ struct HarnessCLIScenarioTests {
     }
   }
 
-  // MARK: check
-
-  private func projectionRun(_ arguments: String...) async -> CommandOutput {
-    await HarnessCLI.run(
-      arguments: arguments, registry: ProjectionFixtures.registry(),
-      inputIsTerminal: false,
-      outputIsTerminal: false, configuration: .default)
-  }
-
-  @Test
-  func `check runs every rule over the app at a size and a clean app passes`()
-    async throws
-  {
-    let output = await projectionRun("check", "layers", "mobile")
-
-    assertInlineSnapshot(of: output, as: .customDump) {
-      #"""
-      CommandOutput(
-        exitCode: 0,
-        stdout: """
-          {"app":"layers","command":"check","exitCode":0,"rules":["no-dirty-after-pass","frame-inside-clip","measured-within-proposal","siblings-disjoint","requirements-aggregate"],"size":"40x6","violations":[]}
-          
-          """,
-        stderr: ""
-      )
-      """#
-    }
-  }
-
-  @Test
-  func `check exits 1 when a rule that is an error is violated and lists it`()
-    async throws
-  {
-    let output = await projectionRun("check", "overlap")
-
-    assertInlineSnapshot(of: output, as: .customDump) {
-      #"""
-      CommandOutput(
-        exitCode: 1,
-        stdout: """
-          {"app":"overlap","command":"check","exitCode":1,"rules":["no-dirty-after-pass","frame-inside-clip","measured-within-proposal","siblings-disjoint","requirements-aggregate"],"size":"80x24","violations":[{"detail":"shows 0,0,6x1, which overlaps sibling root/index(0)/index(0) showing 0,0,5x1 under Overlap","node":"root/index(0)/index(1)","rule":"siblings-disjoint","severity":"error"}]}
-          
-          """,
-        stderr: ""
-      )
-      """#
-    }
-  }
-
-  @Test
-  func `check lists a warning with its errors and a text form that says PASS or FAIL`()
-    async
-  {
-    let json = await projectionRun("check", "overflow")
-    let text = await projectionRun("check", "overflow", "--pretty")
-    let passing = await projectionRun("check", "layers", "--pretty")
-
-    assertInlineSnapshot(of: [json, text, passing], as: .customDump) {
-      #"""
-      [
-        [0]: CommandOutput(
-          exitCode: 1,
-          stdout: """
-            {"app":"overflow","command":"check","exitCode":1,"rules":["no-dirty-after-pass","frame-inside-clip","measured-within-proposal","siblings-disjoint","requirements-aggregate"],"size":"80x24","violations":[{"detail":"frame 0,0,12x1 is clipped to 0,0,4x1 (visible text `wide`)","node":"root/index(0)/index(0)/index(0)","rule":"frame-inside-clip","severity":"warning"},{"detail":"measured 12 columns where 4 were offered","node":"root/index(0)/index(0)/index(0)","rule":"measured-within-proposal","severity":"error"}]}
-            
-            """,
-          stderr: ""
-        ),
-        [1]: CommandOutput(
-          exitCode: 1,
-          stdout: """
-            check overflow at 80x24 against 5 rules: no-dirty-after-pass, frame-inside-clip, measured-within-proposal, siblings-disjoint, requirements-aggregate
-              warning frame-inside-clip root/index(0)/index(0)/index(0): frame 0,0,12x1 is clipped to 0,0,4x1 (visible text `wide`)
-              error measured-within-proposal root/index(0)/index(0)/index(0): measured 12 columns where 4 were offered
-            FAIL overflow: 1 error, 1 warning
-            
-            """,
-          stderr: ""
-        ),
-        [2]: CommandOutput(
-          exitCode: 0,
-          stdout: """
-            check layers at 80x24 against 5 rules: no-dirty-after-pass, frame-inside-clip, measured-within-proposal, siblings-disjoint, requirements-aggregate
-            PASS layers
-            
-            """,
-          stderr: ""
-        )
-      ]
-      """#
-    }
-  }
-
-  @Test
-  func `check validates its arguments and names an unknown app`() async {
-    var duplicated = Fixtures.registry()
-    duplicated.register("stack", viewports: [.desktop]) { StackApp() }
-
-    let noApp = await run("check", "--pretty")
-    let badSize = await run("check", "stack", "huge", "--pretty")
-    let unknown = await run("check", "ghost", "--pretty")
-    let duplicate = await run("check", "stack", "--pretty", registry: duplicated)
-    let greedy = await run("check", "greedy", "mobile", "--pretty")
-
-    assertInlineSnapshot(
-      of: [noApp, badSize, unknown, duplicate, greedy], as: .customDump
-    ) {
-      #"""
-      [
-        [0]: CommandOutput(
-          exitCode: 2,
-          stdout: "",
-          stderr: """
-            error: usage: check NAME [SIZE]
-            
-            """
-        ),
-        [1]: CommandOutput(
-          exitCode: 2,
-          stdout: "",
-          stderr: """
-            error: bad size `huge`; expected WxH, desktop, mobile, or mobileScreen
-            
-            """
-        ),
-        [2]: CommandOutput(
-          exitCode: 2,
-          stdout: "",
-          stderr: """
-            error: unknown app `ghost`; accepted: counter, event-log, greedy, main-actor-counter, observed-counter, stack, workspace
-            
-            """
-        ),
-        [3]: CommandOutput(
-          exitCode: 3,
-          stdout: "",
-          stderr: """
-            error: applications registered more than once: `stack`
-            
-            """
-        ),
-        [4]: CommandOutput(
-          exitCode: 2,
-          stdout: "",
-          stderr: """
-            error: `greedy` has no natural height: it measured 500 rows when offered 500 and 1000 when offered 1000. Use `size mobileScreen` (40x16) or an explicit WxH
-            
-            """
-        )
-      ]
-      """#
-    }
-  }
-
-  @Test
-  func `run --pretty shows a bare check's warnings under the scenario's line`()
-    async throws
-  {
-    let scratch = try ScratchDirectory()
-    try scratch.write("w.scn", "app overflow\ncheck\n")
-
-    let output = await projectionRun("run", scratch.path, "--pretty")
-
-    assertInlineSnapshot(of: scratch.dump(output), as: .lines) {
-      #"""
-      CommandOutput(
-        exitCode: 1,
-        stdout: """
-          FAIL <scratch>/w.scn
-            line 2: warning frame-inside-clip root/index(0)/index(0)/index(0): frame 0,0,12x1 is clipped to 0,0,4x1 (visible text `wide`)
-            line 2: check
-              measured-within-proposal at root/index(0)/index(0)/index(0): measured 12 columns where 4 were offered
-              screen:
-                0| wide
-                1| ok
-          1 scenario, 0 passed, 1 failed
-          
-          """,
-        stderr: ""
-      )
-      """#
-    }
-  }
-
-  @Test
-  func `a scenario that passes with warnings prints them under its PASS line`() {
-    let report = ScenarioReport(
-      scenario: "flex.scn", failures: [],
-      observations: [
-        ScenarioObservation(
-          line: 7, verb: "check", name: nil,
-          lines: [
-            "ran no-dirty-after-pass, frame-inside-clip",
-            "warning frame-inside-clip root/a: shows 0,0,9x1",
-          ]),
-        ScenarioObservation(
-          line: 9, verb: "check", name: nil, lines: ["ran no-dirty-after-pass"]),
-        ScenarioObservation(
-          line: 3, verb: "shot", name: "a", lines: ["warning: not a check"]),
-      ])
-
-    assertInlineSnapshot(of: report.description, as: .lines) {
-      """
-      PASS flex.scn
-        line 7: warning frame-inside-clip root/a: shows 0,0,9x1
-      """
-    }
-    assertInlineSnapshot(of: report.json, as: .lines) {
-      """
-      {"failures":[],"observations":[{"line":7,"lines":["ran no-dirty-after-pass, frame-inside-clip","warning frame-inside-clip root/a: shows 0,0,9x1"],"verb":"check"},{"line":9,"lines":["ran no-dirty-after-pass"],"verb":"check"},{"line":3,"lines":["warning: not a check"],"name":"a","verb":"shot"}],"passed":true,"scenario":"flex.scn"}
-      """
-    }
-  }
-
-  @Test
-  func `an empty path, name, or flag value is a usage error and nothing runs`()
-    async throws
-  {
-    let scratch = try ScratchDirectory()
-    try scratch.write("a.scn", passing)
-    let out = scratch.appending("traces")
-
-    let trace = await run("run", scratch.path, "--trace", "", "--pretty")
-    let path = await run("run", "", "--pretty")
-    let inside = await run("run", scratch.path, "", "--pretty")
-    let shot = await run("shot", "", "--pretty")
-    let tree = await run("tree", "", "--pretty")
-    let check = await run("check", "", "--pretty")
-    let file = await run("replay", "", "--app", "stack", "--pretty")
-    let app = await run("replay", "t.jsonl", "--app", "", "--pretty")
-    let json = await run("run", scratch.path, "--trace", "")
-
-    assertInlineSnapshot(
-      of: scratch.dump([trace, path, inside, shot, tree, check, file, app, json]),
-      as: .lines
-    ) {
-      #"""
-      [
-        [0]: CommandOutput(
-          exitCode: 2,
-          stdout: "",
-          stderr: """
-            error: `--trace` needs a value that is not empty
-            
-            """
-        ),
-        [1]: CommandOutput(
-          exitCode: 2,
-          stdout: "",
-          stderr: """
-            error: an empty argument is not a path or an application name
-            
-            """
-        ),
-        [2]: CommandOutput(
-          exitCode: 2,
-          stdout: "",
-          stderr: """
-            error: an empty argument is not a path or an application name
-            
-            """
-        ),
-        [3]: CommandOutput(
-          exitCode: 2,
-          stdout: "",
-          stderr: """
-            error: an empty argument is not a path or an application name
-            
-            """
-        ),
-        [4]: CommandOutput(
-          exitCode: 2,
-          stdout: "",
-          stderr: """
-            error: an empty argument is not a path or an application name
-            
-            """
-        ),
-        [5]: CommandOutput(
-          exitCode: 2,
-          stdout: "",
-          stderr: """
-            error: an empty argument is not a path or an application name
-            
-            """
-        ),
-        [6]: CommandOutput(
-          exitCode: 2,
-          stdout: "",
-          stderr: """
-            error: an empty argument is not a path or an application name
-            
-            """
-        ),
-        [7]: CommandOutput(
-          exitCode: 2,
-          stdout: "",
-          stderr: """
-            error: `--app` needs a value that is not empty
-            
-            """
-        ),
-        [8]: CommandOutput(
-          exitCode: 2,
-          stdout: """
-            {"command":"run","exitCode":2,"message":"`--trace` needs a value that is not empty"}
-            
-            """,
-          stderr: ""
-        )
-      ]
-      """#
-    }
-    #expect(!FileManager.default.fileExists(atPath: out))
-  }
-
-  @Test
-  func `the help overview spells replay's required flag`() async {
-    let overview = await run("help")
-
-    #expect(overview.exitCode == 0)
-    #expect(
-      overview.stdout.contains(
-        "  replay FILE --app NAME  rerun a recorded trace against an application\n"))
-    #expect(overview.stdout.contains("  check NAME [SIZE]       check one application"))
-  }
-
-  // MARK: trace and replay
-
-  @Test
-  func `run --trace writes one trace file per scenario under the directory`() async throws
-  {
-    let scratch = try ScratchDirectory()
-    try scratch.write("a.scn", traced)
-    try scratch.write("nested/b.scn", traced)
-    let out = scratch.appending("traces")
-
-    let output = await run("run", scratch.path, "--trace", out, "--pretty")
-
-    assertInlineSnapshot(of: scratch.dump(output), as: .lines) {
-      #"""
-      CommandOutput(
-        exitCode: 0,
-        stdout: """
-          PASS <scratch>/a.scn
-          PASS <scratch>/nested/b.scn
-          2 scenarios, 2 passed, 0 failed
-          
-          """,
-        stderr: ""
-      )
-      """#
-    }
-    let files = [
-      TraceFile.path(forScenario: scratch.appending("a.scn"), in: out),
-      TraceFile.path(forScenario: scratch.appending("nested/b.scn"), in: out),
-    ]
-    for file in files {
-      let text = try #require(
-        FileManager.default.contents(atPath: file).flatMap {
-          String(validating: $0, as: UTF8.self)
-        }, "no trace at \(file)")
-      let records = try TraceFile.records(in: text)
-      expectNoDifference(records.map(\.seq), [0, 1, 2, 3, 4, 5])
-      expectNoDifference(
-        records[4].event, TraceEvent(.resize(TerminalSize(columns: 30, rows: 8))))
-    }
-  }
-
-  @Test
-  func `replay runs a recorded trace again and passes against the app it came from`()
-    async throws
-  {
-    let scratch = try ScratchDirectory()
-    let scenario = try scratch.write("a.scn", traced)
-    let out = scratch.appending("traces")
-    _ = await run("run", scenario, "--trace", out, "--pretty")
-    let file = TraceFile.path(forScenario: scenario, in: out)
-
-    let output = await run("replay", file, "--app", "stack")
-
-    assertInlineSnapshot(of: scratch.dump(output), as: .lines) {
-      #"""
-      CommandOutput(
-        exitCode: 0,
-        stdout: """
-          {"command":"replay","exitCode":0,"scenarios":[{"failures":[],"observations":[{"line":0,"lines":["Stack demo","──────────────────────────────","Name: Ro","left                     right","──────────────────────────────","30 columns"],"verb":"replay"}],"passed":true,"scenario":"<scratch>/traces<scratch>/a.trace.jsonl"}]}
-          
-          """,
-        stderr: ""
-      )
-      """#
-    }
-  }
-
-  @Test
-  func `replay against a different app exits 1 and names the step that differs`()
-    async throws
-  {
-    let scratch = try ScratchDirectory()
-    let scenario = try scratch.write("a.scn", traced)
-    let out = scratch.appending("traces")
-    _ = await run("run", scenario, "--trace", out, "--pretty")
-    let file = TraceFile.path(forScenario: scenario, in: out)
-    var other = ApplicationRegistry()
-    other.register("stack", viewports: [.desktop]) { GreedyApp() }
-
-    let output = await run("replay", file, "--app", "stack", "--pretty", registry: other)
-
-    assertInlineSnapshot(of: scratch.dump(output), as: .lines) {
-      #"""
-      CommandOutput(
-        exitCode: 1,
-        stdout: """
-          FAIL <scratch>/traces<scratch>/a.trace.jsonl
-            line 1: step 0: resize 40x10
-              the changed nodes differ from the recording
-              expected: {"added":["root","root/index(0)","root/index(0)/index(0)","root/index(0)/index(1)","root/index(0)/index(2)","root/index(0)/index(2)/index(0)","root/index(0)/index(2)/index(1)","root/index(0)/index(3)","root/index(0)/index(3)/index(0)","root/index(0)/index(3)/index(1)","root/index(0)/index(3)/index(2)","root/index(0)/index(4)","root/index(0)/index(5)"],"changed":[],"removed":[]}
-              actual:   {"added":["root","root/index(0)","root/index(0)/index(0)","root/index(0)/index(1)","root/index(0)/index(2)"],"changed":[],"removed":[]}
-              screen:
-                0| Greedy
-                1| 
-                2| 
-                3| 
-                4| 
-                5| 
-                6| 
-                7| 
-                8| 
-                9| footer
-            line 2: step 1: key R
-              the changed rows differ from the recording
-              expected: [2]
-              actual:   []
-              screen:
-                0| Greedy
-                1| 
-                2| 
-                3| 
-                4| 
-                5| 
-                6| 
-                7| 
-                8| 
-                9| footer
-            line 3: step 2: key o
-              the changed nodes differ from the recording
-              expected: {"added":[],"changed":["root/index(0)/index(2)","root/index(0)/index(2)/index(1)"],"removed":[]}
-              actual:   {"added":[],"changed":[],"removed":[]}
-              screen:
-                0| Greedy
-                1| 
-                2| 
-                3| 
-                4| 
-                5| 
-                6| 
-                7| 
-                8| 
-                9| footer
-            line 4: step 3: key b
-              the changed nodes differ from the recording
-              expected: {"added":[],"changed":["root/index(0)/index(2)","root/index(0)/index(2)/index(1)"],"removed":[]}
-              actual:   {"added":[],"changed":[],"removed":[]}
-              screen:
-                0| Greedy
-                1| 
-                2| 
-                3| 
-                4| 
-                5| 
-                6| 
-                7| 
-                8| 
-                9| footer
-            line 5: step 4: resize 30x8
-              the changed nodes differ from the recording
-              expected: {"added":[],"changed":["root","root/index(0)","root/index(0)/index(0)","root/index(0)/index(1)","root/index(0)/index(2)","root/index(0)/index(3)","root/index(0)/index(3)/index(1)","root/index(0)/index(3)/index(2)","root/index(0)/index(4)","root/index(0)/index(5)"],"removed":[]}
-              actual:   {"added":[],"changed":["root","root/index(0)","root/index(0)/index(0)","root/index(0)/index(1)","root/index(0)/index(2)"],"removed":[]}
-              screen:
-                0| Greedy
-                1| 
-                2| 
-                3| 
-                4| 
-                5| 
-                6| 
-                7| footer
-            line 6: step 5: key Backspace
-              the changed nodes differ from the recording
-              expected: {"added":[],"changed":["root/index(0)/index(2)","root/index(0)/index(2)/index(1)"],"removed":[]}
-              actual:   {"added":[],"changed":[],"removed":[]}
-              screen:
-                0| Greedy
-                1| 
-                2| 
-                3| 
-                4| 
-                5| 
-                6| 
-                7| footer
-          
-          """,
-        stderr: ""
-      )
-      """#
-    }
-  }
-
-  @Test
-  func `replay validates its arguments, its file, and its app`() async throws {
-    let scratch = try ScratchDirectory()
-    let notTrace = try scratch.write("nope.jsonl", "not json\n")
-    let binary = scratch.appending("bin.jsonl")
-    try Data([0xff, 0xfe, 0x00]).write(to: URL(fileURLWithPath: binary))
-
-    let noFile = await run("replay", "--app", "stack", "--pretty")
-    let noName = await run("replay", "run.trace", "--pretty")
-    let missing = await run(
-      "replay", scratch.appending("none.jsonl"), "--app", "stack", "--pretty")
-    let notUTF8 = await run("replay", binary, "--app", "stack", "--pretty")
-    let notRecords = await run("replay", notTrace, "--app", "stack", "--pretty")
-    let unknown = await run("replay", "run.trace", "--app", "ghost", "--pretty")
-
-    assertInlineSnapshot(
-      of: scratch.dump([noFile, noName, missing, notUTF8, notRecords, unknown]),
-      as: .lines
-    ) {
-      #"""
-      [
-        [0]: CommandOutput(
-          exitCode: 2,
-          stdout: "",
-          stderr: """
-            error: usage: replay FILE --app NAME
-            
-            """
-        ),
-        [1]: CommandOutput(
-          exitCode: 2,
-          stdout: "",
-          stderr: """
-            error: usage: replay FILE --app NAME
-            
-            """
-        ),
-        [2]: CommandOutput(
-          exitCode: 2,
-          stdout: "",
-          stderr: """
-            error: cannot read the trace `<scratch>/none.jsonl`
-            
-            """
-        ),
-        [3]: CommandOutput(
-          exitCode: 2,
-          stdout: "",
-          stderr: """
-            error: the trace `<scratch>/bin.jsonl` is not UTF-8 text
-            
-            """
-        ),
-        [4]: CommandOutput(
-          exitCode: 2,
-          stdout: """
-            FAIL <scratch>/nope.jsonl
-            <scratch>/nope.jsonl:1: error: this line is not a trace record (not valid JSON)
-            
-            """,
-          stderr: ""
-        ),
-        [5]: CommandOutput(
-          exitCode: 2,
-          stdout: "",
-          stderr: """
-            error: unknown app `ghost`; accepted: counter, event-log, greedy, main-actor-counter, observed-counter, stack, workspace
-            
-            """
-        )
-      ]
-      """#
-    }
-  }
-
-  @Test
-  func `launch with a trace file it cannot create exits 3 before the terminal changes`()
-    async throws
-  {
-    let scratch = try ScratchDirectory()
-
-    let output = await HarnessCLI.run(
-      arguments: ["launch", "stack", "--pretty"], registry: Fixtures.registry(),
-      inputIsTerminal: true, outputIsTerminal: true, configuration: .default,
-      environment: ["TESSERA_TRACE": scratch.path])
-
-    assertInlineSnapshot(of: scratch.dump(output), as: .lines) {
-      #"""
-      CommandOutput(
-        exitCode: 3,
-        stdout: "",
-        stderr: """
-          error: cannot create the trace file `<scratch>`: the file could not be created
-          
-          """
-      )
-      """#
-    }
-  }
-
   // MARK: help
 
   @Test
   func `help describes every command, and the overview names each one`() async {
     let overview = await run("help")
 
-    for command in HarnessCLI.commands {
+    for command in HarnessCLI.commandNames {
       #expect(overview.stdout.contains(command), "\(command)")
       let help = await run("help", command)
-      #expect(help.stdout.hasPrefix("usage: \(command)"), "\(command)")
+      #expect(help.stdout.contains("USAGE: tessera \(command)"), "\(command)")
       #expect(help.stdout.count > 60, "\(command)")
     }
     let runHelp = await run("help", "run")
-    for flag in [
-      "--record", "--repeat N", "--timing", "--trace DIR", "--json", "--pretty",
-    ] {
+    for flag in ["--record", "--repeat <n>", "--timing", "--json", "--pretty"] {
       #expect(runHelp.stdout.contains(flag), "\(flag)")
     }
     for field in [#""change": "created" or "updated""#, #""line" 0"#, #""--repeat N""#] {

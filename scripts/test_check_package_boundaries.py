@@ -114,6 +114,20 @@ class PackageBoundaryTests(unittest.TestCase):
 
         self.assertEqual(checker.check_package_boundaries(package), [])
 
+    def test_accepts_argument_parser_in_the_harness_and_nowhere_else(self) -> None:
+        package = self.valid_package()
+        targets = package["targets"]
+        assert isinstance(targets, list)
+        by_name = {target["name"]: target for target in targets}
+        by_name["TesseraHarness"]["product_dependencies"] = ["ArgumentParser"]
+        self.assertEqual(checker.check_package_boundaries(package), [])
+
+        by_name["TesseraRuntime"]["product_dependencies"] = ["ArgumentParser"]
+        self.assertEqual(
+            checker.check_package_boundaries(package),
+            ["TesseraRuntime -> product ArgumentParser"],
+        )
+
     def test_requires_all_view_layer_targets(self) -> None:
         package = self.valid_package()
         targets = package["targets"]

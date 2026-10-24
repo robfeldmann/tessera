@@ -17,14 +17,16 @@ struct HarnessCLITests {
     _ arguments: String...,
     registry: ApplicationRegistry? = nil,
     terminal: Bool = false,
-    input: Bool = false
+    input: Bool = false,
+    executable: String = "tessera"
   ) async -> CommandOutput {
     await HarnessCLI.run(
       arguments: arguments,
       registry: registry ?? Fixtures.registry(),
       inputIsTerminal: input,
       outputIsTerminal: terminal,
-      configuration: .default
+      configuration: .default,
+      executableName: executable
     )
   }
 
@@ -191,7 +193,7 @@ struct HarnessCLITests {
         exitCode: 2,
         stdout: "",
         stderr: """
-          error: usage: launch NAME
+          error: Missing expected argument '<name>'; usage: tessera launch [--json] [--pretty] <name>
           
           """
       )
@@ -311,11 +313,10 @@ struct HarnessCLITests {
   }
 
   @Test
-  func `help prints real text for each command whatever stdout is`() async {
-    var outputs = [await run("help")]
-    for command in HarnessCLI.commands + ["ghost"] {
-      outputs.append(await run("help", command))
-    }
+  func `help prints the overview and each command's help whatever stdout is`() async {
+    let outputs = [
+      await run("help"), await run("help", "apps"), await run("help", "launch"),
+    ]
 
     assertInlineSnapshot(of: outputs, as: .customDump) {
       #"""
@@ -323,21 +324,33 @@ struct HarnessCLITests {
         [0]: CommandOutput(
           exitCode: 0,
           stdout: """
-            usage: <executable> COMMAND [ARGUMENT...]
+            OVERVIEW: List, launch, run, and picture the registered applications.
             
-            commands:
-              apps                    list the registered applications
-              launch NAME             run one application in this terminal
-              run PATH...             run scenario files, or directories of them
-              shot NAME [SIZE]        print one application's screen as text
-              tree NAME [SIZE]        print one application's node tree
-              check NAME [SIZE]       check one application against the invariant rules
-              replay FILE --app NAME  rerun a recorded trace against an application
-              help [COMMAND]          describe a command
+            Every command exits 0 on success, 1 when an expectation failed, 2 on a usage or
+            parse error, and 3 on a harness error. When standard output is not a terminal
+            each command writes one JSON object to it; --json forces that form and --pretty
+            forces the text form.
             
-            Every command exits 0 on success, 1 when an expectation failed, 2 on a usage or parse
-            error, and 3 on a harness error. When standard output is not a terminal each command
-            writes one JSON object to it; --json forces that form and --pretty forces the text form.
+            `--generate-completion-script SHELL` prints a completion script for fish, zsh,
+            or bash. It completes the commands, their flags, and the registered application
+            names.
+            
+            USAGE: tessera [--json] [--pretty] <subcommand>
+            
+            OPTIONS:
+              --json                  Print one JSON object, even on a terminal.
+              --pretty                Print the text form, even when output is not a
+                                      terminal.
+              -h, --help              Show help information.
+            
+            SUBCOMMANDS:
+              apps                    List the registered applications.
+              launch                  Run one application in this terminal.
+              run                     Run scenario files, or directories of them.
+              shot                    Print one application's screen as text.
+              tree                    Print one application's node tree.
+            
+              See 'tessera help <subcommand>' for detailed help.
             
             """,
           stderr: ""
@@ -345,12 +358,22 @@ struct HarnessCLITests {
         [1]: CommandOutput(
           exitCode: 0,
           stdout: """
-            usage: apps [--json | --pretty]
+            OVERVIEW: List the registered applications.
             
             Lists every registered application with the smallest size it declares and the
             viewports it is checked at. The JSON form is {"apps": [{"minimum", "name",
-            "viewports"}], "command": "apps"}, sorted by name, where "minimum" is null for an
-            application that declares none. A name registered twice fails the command with exit 3.
+            "viewports"}], "command": "apps"}, sorted by name, where "minimum" is null for
+            an application that declares none. A name registered twice fails the command
+            with exit 3.
+            
+            USAGE: tessera apps [--json] [--pretty]
+            
+            OPTIONS:
+              --json                  Print one JSON object, even on a terminal.
+              --pretty                Print the text form, even when output is not a
+                                      terminal.
+              -h, --help              Show help information.
+            
             
             """,
           stderr: ""
@@ -358,112 +381,26 @@ struct HarnessCLITests {
         [2]: CommandOutput(
           exitCode: 0,
           stdout: """
-            usage: launch NAME
+            OVERVIEW: Run one application in this terminal.
             
-            Runs the named application in this terminal at the terminal's size, until the
-            application finishes. The harness has no quit key of its own: the application decides
-            which key quits. Exits 2 for an unknown name, and 3 for a duplicate registration or
-            when standard input or output is not a terminal.
+            Runs the named application at the terminal's size, until the application
+            finishes. The harness has no quit key of its own: the application decides which
+            key quits.
             
-            When the environment variable TESSERA_TRACE names a file, the session writes its trace
-            there, one JSON record per step, so `replay` can run it again. A file that cannot be
-            created is exit 3, before the terminal changes mode. The trace is not promised to stay
-            as it is.
+            Exits 2 for an unknown name, and 3 for a duplicate registration or when
+            standard input or output is not a terminal.
             
-            """,
-          stderr: ""
-        ),
-        [3]: CommandOutput(
-          exitCode: 0,
-          stdout: """
-            usage: run PATH... [--record] [--repeat N] [--timing] [--trace DIR] [--json | --pretty]
+            USAGE: tessera launch [--json] [--pretty] <name>
             
-            Runs scenario files. A PATH is a .scn file, or a directory whose .scn files, at any
-            depth, run in sorted order. A path that is neither, or a directory with no scenarios, is
-            a usage error. Each scenario starts a fresh application.
+            ARGUMENTS:
+              <name>                  The application to run, as `apps` lists it.
             
-            A scenario is a text file with one statement per line. The header statements are
-            `app NAME`, `size SIZE`, and `term colors=... theme=...`. The input statements are
-            `resize WxH`, `key NAME`, `type "text"`, `paste "text"`, and `bytes "..."`. `shot NAME`
-            compares the screen with golden files, `tree` adds the node tree to the report, and
-            `dump` adds the projection. The assertions are `expect text [ROW] "text"`,
-            `expect screen <<WORD`, `expect node SEL frame X,Y,WxH`, `expect cost NAME<=N...`, and
-            `check [RULE...]`. A statement outside this list is a parse error.
+            OPTIONS:
+              --json                  Print one JSON object, even on a terminal.
+              --pretty                Print the text form, even when output is not a
+                                      terminal.
+              -h, --help              Show help information.
             
-              --record     write the golden files that `shot` statements compare against, instead
-                           of failing when one differs or is missing, and list what changed. Review
-                           the files it wrote; never record to make a failing run pass.
-              --repeat N   run each scenario N times, and fail a run whose report differs from the
-                           first.
-              --timing     add the wall-clock seconds of each run to the report. Times differ from
-                           run to run, so they are never golden.
-              --trace DIR  write each scenario's trace under DIR, as DIR/PATH.trace.jsonl, one JSON
-                           record per step: the event, why the frame was drawn (`reasons`), the
-                           nodes and rows that changed, and what the step cost. Read it to learn
-                           why a redraw happened. The trace is not promised to stay as it is.
-            
-            Exit codes: 0 every scenario passed, 1 an expectation failed, 2 a scenario did not parse
-            or a path is not a scenario, 3 a harness error. When several apply, the highest wins.
-            
-            The JSON form is {"command": "run", "exitCode", "scenarios": [REPORT...]} with one
-            REPORT per scenario: {"failures": [FAILURE...], "observations": [{"line", "verb",
-            "lines"} and, for a shot, "name"; for a dump, "projection"], "passed", "recorded" (only
-            when --record wrote goldens: [{"change": "created" or "updated", "path"}]), "scenario",
-            "seconds" (only with --timing)}. A FAILURE is {"line", "statement", "verb", "message"}
-            and, when the statement compares values, "expected", "actual", and "screen"; a failed
-            `check` adds "rule" and "node". A failure that belongs to a file or a command, not a
-            line, has "line" 0 and "statement" "" (a repeat failure's statement is "--repeat N"). A
-            shot whose golden is missing, is not UTF-8, or has CRLF line endings has no "expected",
-            "actual", or "screen": its observation holds the screen. A scenario that does not parse
-            is a failure with verb "parse". Fields are added, never removed or renamed.
-            
-            """,
-          stderr: ""
-        ),
-        [4]: CommandOutput(
-          exitCode: 0,
-          stdout: """
-            usage: shot NAME [SIZE] [--json | --pretty]
-            
-            Prints the screen of the registered application NAME, as text, the way a golden file
-            holds it. SIZE is desktop, mobile, mobileScreen, or WxH, and defaults to desktop. The
-            JSON form is {"app", "command": "shot", "exitCode", "rows", "size"}, where "size" is the
-            terminal size the application was shown at. An unknown NAME is a usage error that lists
-            the registered names, and so is a size the application cannot take, such as `mobile` for
-            an application whose content fills any height: the error says which size to use.
-            
-            """,
-          stderr: ""
-        ),
-        [5]: CommandOutput(
-          exitCode: 0,
-          stdout: """
-            usage: tree NAME [SIZE] [--json | --pretty]
-            
-            Prints the node tree of the registered application NAME, one line per node with its
-            identity, type, frame, and clip; a container with a layout algorithm shows it in
-            parentheses, as `_LayoutContainer(_FrameLayout)`. SIZE is desktop, mobile, mobileScreen,
-            or WxH, and defaults to desktop. The JSON form is {"app", "command": "tree", "exitCode",
-            "lines", "size"}. The tree's text is for reading and is not promised to stay as it is.
-            Errors are those of `shot`.
-            
-            """,
-          stderr: ""
-        ),
-        [6]: CommandOutput(
-          exitCode: 0,
-          stdout: """
-            usage: help [COMMAND]
-            
-            Prints the commands, or one command's usage.
-            
-            """,
-          stderr: ""
-        ),
-        [7]: CommandOutput(
-          exitCode: 2,
-          stdout: """
-            {"command":"help","exitCode":2,"message":"unknown command `ghost`; accepted: apps, launch, run, shot, tree, help"}
             
             """,
           stderr: ""
@@ -474,17 +411,143 @@ struct HarnessCLITests {
   }
 
   @Test
+  func `help COMMAND and COMMAND --help print the same text`() async {
+    let spelled = await run("help", "launch")
+    let flagged = await run("launch", "--help")
+    let overview = await run("help")
+    let flaggedOverview = await run("--help", terminal: true)
+
+    expectNoDifference(spelled, flagged)
+    expectNoDifference(overview, flaggedOverview)
+  }
+
+  @Test
+  func `usage names the executable it runs as`() async {
+    let output = await run("help", "launch", executable: "mytool")
+
+    #expect(output.stdout.contains("USAGE: mytool launch"))
+  }
+
+  @Test
   func `help and its errors name no repository path and promise no later work`() async {
     var texts = [await run("help").stdout]
-    for command in HarnessCLI.commands {
+    for command in HarnessCLI.commandNames {
       texts.append(await run("help", command).stdout)
     }
     texts.append(await run("help", "ghost").stdout)
-    texts.append(await run("jump").stderr)
+    texts.append(await run("jump").stdout)
+    texts.append(await run("apps", "--nope", "--pretty").stderr)
 
     let banned = ["Examples/", "docs/", ".agents", "spikes/", "README", "yet", "later"]
     for text in texts {
       #expect(!banned.contains { text.contains($0) }, "\(text)")
+    }
+  }
+
+  @Test
+  func `help for an unknown command is a usage error that lists the commands`() async {
+    let json = await run("help", "ghost")
+    let text = await run("help", "ghost", "--pretty")
+
+    assertInlineSnapshot(of: [json, text], as: .customDump) {
+      #"""
+      [
+        [0]: CommandOutput(
+          exitCode: 2,
+          stdout: """
+            {"command":"help","exitCode":2,"message":"unknown command `ghost`; accepted: apps, launch, run, shot, tree, help"}
+            
+            """,
+          stderr: ""
+        ),
+        [1]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: unknown command `ghost`; accepted: apps, launch, run, shot, tree, help
+            
+            """
+        )
+      ]
+      """#
+    }
+  }
+
+  @Test
+  func `the parser's usage errors exit 2, not its own 64, and say what is accepted`()
+    async
+  {
+    let outputs = [
+      await run("apps", "extra", "--pretty"),
+      await run("apps", "--nope", "--pretty"),
+      await run("launch", "a", "b", "--pretty"),
+      await run("--generate-completion-script", "powershell", "--pretty"),
+      await run("--nope", "--pretty"),
+    ]
+
+    assertInlineSnapshot(of: outputs, as: .customDump) {
+      #"""
+      [
+        [0]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: Unexpected argument 'extra'; usage: tessera apps [--json] [--pretty]
+            
+            """
+        ),
+        [1]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: Unknown option '--nope'; usage: tessera apps [--json] [--pretty]
+            
+            """
+        ),
+        [2]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: Unexpected argument 'b'; usage: tessera launch [--json] [--pretty] <name>
+            
+            """
+        ),
+        [3]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: Can't generate completion scripts for 'powershell'. Please use --generate-completion-script=<shell> with one of: zsh bash fish; usage: tessera [--json] [--pretty] <subcommand>
+            
+            """
+        ),
+        [4]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: Unknown option '--nope'; usage: tessera [--json] [--pretty] <subcommand>
+            
+            """
+        )
+      ]
+      """#
+    }
+  }
+
+  @Test
+  func `a usage error is a JSON failure when stdout is not a terminal`() async {
+    let output = await run("launch")
+
+    assertInlineSnapshot(of: output, as: .customDump) {
+      #"""
+      CommandOutput(
+        exitCode: 2,
+        stdout: """
+          {"command":"launch","exitCode":2,"message":"Missing expected argument '<name>'; usage: tessera launch [--json] [--pretty] <name>"}
+          
+          """,
+        stderr: ""
+      )
+      """#
     }
   }
 
@@ -498,11 +561,65 @@ struct HarnessCLITests {
         exitCode: 2,
         stdout: "",
         stderr: """
-          error: `--json` and `--pretty` contradict each other
+          error: Value to be set with flag '--pretty' had already been set with flag '--json'; usage: tessera apps [--json] [--pretty]
           
           """
       )
       """#
     }
+  }
+
+  @Test
+  func `the output flags are accepted before or after the command`() async {
+    let before = await run("--json", "apps", terminal: true)
+    let after = await run("apps", "--json", terminal: true)
+
+    expectNoDifference(before, after)
+    #expect(before.exitCode == 0)
+  }
+
+  @Test
+  func `the app-name completion lists the registered names`() async {
+    let output = await run("---completion", "launch", "--", "name", "0", "0", "launch")
+
+    assertInlineSnapshot(of: output, as: .customDump) {
+      #"""
+      CommandOutput(
+        exitCode: 0,
+        stdout: """
+          counter
+          event-log
+          greedy
+          main-actor-counter
+          observed-counter
+          stack
+          workspace
+          
+          """,
+        stderr: ""
+      )
+      """#
+    }
+  }
+
+  @Test
+  func `a registry with a duplicate name completes nothing`() async {
+    let output = await run(
+      "---completion", "launch", "--", "name", "0", "0", "launch", registry: duplicated())
+
+    expectNoDifference(output, CommandOutput(exitCode: 0))
+  }
+
+  @Test(arguments: ["bash", "fish", "zsh"])
+  func `the completion script for a shell calls the executable by its name`(
+    shell: String
+  ) async {
+    let output = await run(
+      "--generate-completion-script", shell, executable: "mytool")
+
+    #expect(output.exitCode == 0)
+    #expect(output.stderr.isEmpty)
+    #expect(output.stdout.contains("mytool"))
+    #expect(output.stdout.contains("---completion"))
   }
 }
