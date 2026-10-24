@@ -1,3 +1,7 @@
+import CustomDump
+import InlineSnapshotTesting
+import SnapshotTesting
+import SnapshotTestingCustomDump
 import TesseraCore
 import TesseraRuntime
 import TesseraTerminal
@@ -55,13 +59,13 @@ struct DriverTests {
     }
 
     let output = try #require(String(bytes: await device.bytes, encoding: .utf8))
-    #expect(
-      output.debugDescription
-        == #""\u{1B}[?1049h\u{1B}[2J\u{1B}[1;1H\u{1B}[0mCount: 0    \u{1B}[2;1H            "#
-        + #"\u{1B}[0m\u{1B}[?25l\u{1B}[1;8H1\u{1B}[0m\u{1B}[?25l\u{1B}[?25h"#
-        + #"\u{1B}_Ga=d,d=A\u{1B}\\\u{1B}[?1049l""#
-    )
-    #expect(Array(await device.events.suffix(2)) == [.exitAltScreen, .exitRawMode])
+    assertInlineSnapshot(of: output.debugDescription, as: .lines) {
+      #"""
+      "\u{1B}[?1049h\u{1B}[2J\u{1B}[1;1H\u{1B}[0mCount: 0    \u{1B}[2;1H            \u{1B}[0m\u{1B}[?25l\u{1B}[1;8H1\u{1B}[0m\u{1B}[?25l\u{1B}[?25h\u{1B}_Ga=d,d=A\u{1B}\\\u{1B}[?1049l"
+      """#
+    }
+    let closing = Array(await device.events.suffix(2))
+    expectNoDifference(closing, [.exitAltScreen, .exitRawMode])
   }
 
   @Test
@@ -130,8 +134,22 @@ struct DriverTests {
     }
 
     #expect(size == TerminalSize(columns: 50, rows: 12))
-    #expect(rows.first == "Workspace 50x12")
-    #expect(rows.count == 12)
+    assertInlineSnapshot(of: rows.joined(separator: "\n"), as: .lines) {
+      """
+      Workspace 50x12
+      ──────────────────────────────────────────────────
+      Typed:
+      Key: none
+      Count: 0
+
+
+
+
+
+      ──────────────────────────────────────────────────
+      focus=catalog scroll=0
+      """
+    }
   }
 
   @Test(arguments: [
@@ -165,7 +183,7 @@ struct DriverTests {
       rows = host.screenRows
     }
 
-    #expect(rows == ["Count: 2", "", ""])
+    expectNoDifference(rows, ["Count: 2", "", ""])
   }
 }
 

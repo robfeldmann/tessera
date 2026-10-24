@@ -433,21 +433,9 @@ Tokens consumed (see [tokens.md](../tokens.md#roles)).
 Schema: [README](../../design.md#requirements-list).
 
 - `tab view shows only the pane for the bound selection` (state model: selection; anatomy).
-- `left on the first tab wraps the selection to the last tab` (key table).
-- `right on the last tab wraps the selection to the first tab` (key table).
-- `left and right write the selection only through the binding` (state model: selection).
 - `tab view never changes the bound selection on its own` (state model: selection).
-- `clicking a tab chip writes its value through the binding` (mouse table: click).
-- `clicking the active tab chip leaves the selection unchanged` (mouse table: click).
-- `a click outside a tab chip has no effect` (mouse table: click on rule, pane, frame).
-- `move input is requested only while a hover consumer exists in the subtree; with none, move events are not delivered` (mouse table: move).
-- `move events draw no hover state` (mouse table: move).
-- `focused tab view draws the focus cursor on the bar row only` (anatomy callout 1).
-- `nerd font draws the cursor mark as U+F054` (states: minimum; Environment: cursor mark).
-- `unfocused tab view draws a blank cursor and the accent pill` (states: unfocused).
 - `active tab draws a filled pill and inactive tabs draw secondary titles` (anatomy callouts 2-4).
 - `rule row draws in border, not secondary` (anatomy callout 5; states: mobile).
-- `active pill is solid(focus) while the tab view is focused and solid(accent) when it is not` (anatomy callout 2; states: unfocused; [composite styles](../tokens.md#composite-styles)).
 - `selection matching no tab draws no pill and an empty pane and leaves the binding unchanged` (states: no matching selection).
 - `chips without an icon never shrink` (states: mobile).
 - `bar wraps onto extra rows before the pane` (states: mobile).
@@ -461,6 +449,28 @@ Schema: [README](../../design.md#requirements-list).
 - `selected tab moves the pill without changing the pane layout` (states: switched).
 - `tab view height is bar rows plus rule row plus active pane height` (sizing: nil x nil).
 - `natural width is the larger of the bar and the widest pane` (sizing: nil x nil).
+
+### Focus
+
+- `left on the first tab wraps the selection to the last tab` (key table).
+- `right on the last tab wraps the selection to the first tab` (key table).
+- `left and right write the selection only through the binding` (state model: selection).
+- `focused tab view draws the focus cursor on the bar row only` (anatomy callout 1).
+- `nerd font draws the cursor mark as U+F054` (states: minimum; Environment: cursor mark).
+- `unfocused tab view draws a blank cursor and the accent pill` (states: unfocused).
+- `active pill is solid(focus) while the tab view is focused and solid(accent) when it is not` (anatomy callout 2; states: unfocused; [composite styles](../tokens.md#composite-styles)).
+- `tab view bubbles every key except left and right and handles no keys while unfocused` (key table)
+- `ascii tab view draws the cursor as > and the active tab as a flat bold label in focus while focused and accent otherwise` (states; Degradation: ASCII)
+- `focused tab view with no matching tab shows its cursor with no pill and an empty pane` (state model: selection; states)
+
+### Pointer
+
+- `clicking a tab chip writes its value through the binding` (mouse table: click).
+- `clicking the active tab chip leaves the selection unchanged` (mouse table: click).
+- `a click outside a tab chip has no effect` (mouse table: click on rule, pane, frame).
+- `move input is requested only while a hover consumer exists in the subtree; with none, move events are not delivered` (mouse table: move).
+- `move events draw no hover state` (mouse table: move).
+- `wheel and drag on the tab frame have no effect and are not consumed` (mouse table)
 
 ## Degradation
 

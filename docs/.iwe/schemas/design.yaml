@@ -13,3 +13,34 @@ frontmatter:
       description:
         The status ladder in docs/design.md; absent on tokens, templates, the inbox, and
         references.
+sections:
+  # The page title: every design page has one level-1 heading, whatever its text.
+  - header: { pattern: ".+" }
+    sections:
+      # A component page lists its requirements, optionally split by capability.
+      # Matching is ordered and greedy, so the subsections can only be the four
+      # capability names, each at most once, in the order the capability slices land.
+      - header: { const: Requirements }
+        minContains: 0
+        maxContains: 1
+        description:
+          Requirements has only the subsections Focus, Pointer, Scroll, and Clock, each at
+          most once and in that order (docs/design.md, Requirements list).
+        sections:
+          - header: { const: Focus }
+            minContains: 0
+            maxContains: 1
+            additionalSections: false
+          - header: { const: Pointer }
+            minContains: 0
+            maxContains: 1
+            additionalSections: false
+          - header: { const: Scroll }
+            minContains: 0
+            maxContains: 1
+            additionalSections: false
+          - header: { const: Clock }
+            minContains: 0
+            maxContains: 1
+            additionalSections: false
+        additionalSections: false

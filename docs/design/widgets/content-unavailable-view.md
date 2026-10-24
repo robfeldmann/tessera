@@ -391,6 +391,11 @@ Backticked sentence-style test names, each traced to a table row or wireframe st
 - `search state collapses the glyphless icon row and its gap under the unicode charset` (States: Search; state model: icon; Label precedent, owner decision, 2026-10-19)
 - `search state draws the search icon row under the ascii and nerd font charsets` (States: Search; Degradation)
 
+### Pointer
+
+- `content unavailable view owns no keys, responder or pointer regions` (Key table; Mouse table; State model (delegation))
+- `content unavailable view action buttons keep their own focus, key and click behaviour` (Key table; Mouse table; State model (delegation))
+
 ## Degradation
 
 What changes at `NO_COLOR`, 16-color, ascii-only, and below `min`. Reference the [degradation ladder](../tokens.md#degradation-ladder).
