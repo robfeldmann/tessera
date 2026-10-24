@@ -25,7 +25,7 @@ package struct ScreenGrid: Equatable, Sendable {
   }
 
   /// A screen that cannot be written as a grid.
-  package struct GridError: Error, Equatable, CustomStringConvertible {
+  package struct GridError: CustomStringConvertible, Equatable, Error {
     /// How many distinct styles the screen has.
     var styles: Int
 

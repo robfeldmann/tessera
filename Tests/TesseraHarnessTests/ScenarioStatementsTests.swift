@@ -1,4 +1,8 @@
+import CustomDump
 import Foundation
+import InlineSnapshotTesting
+import SnapshotTesting
+import SnapshotTestingCustomDump
 import Testing
 
 @testable import TesseraHarness
@@ -32,38 +36,53 @@ struct NewStatementParserTests {
 
   @Test
   func `check with no word runs every rule and with words runs those`() throws {
-    #expect(try statement("check") == .check(rules: []))
-    #expect(
-      try statement("check siblings-disjoint no-dirty-after-pass")
-        == .check(rules: [.siblingsDisjoint, .noDirtyAfterPass]))
+    expectNoDifference(
+      try [statement("check"), statement("check siblings-disjoint no-dirty-after-pass")],
+      [.check(rules: []), .check(rules: [.siblingsDisjoint, .noDirtyAfterPass])]
+    )
   }
 
   @Test
   func `an unknown or repeated check rule is a parse error that names the rules`() {
-    #expect(
-      message("check no-such-rule")
-        == "unknown check rule `no-such-rule`; accepted: \(CheckRule.accepted)")
-    #expect(
-      message("check siblings-disjoint siblings-disjoint")
-        == "check rule `siblings-disjoint` is named twice")
+    assertInlineSnapshot(
+      of: [
+        message("check no-such-rule"),
+        message("check siblings-disjoint siblings-disjoint"),
+      ],
+      as: .customDump
+    ) {
+      """
+      [
+        [0]: "unknown check rule `no-such-rule`; accepted: no-dirty-after-pass, frame-inside-clip, measured-within-proposal, siblings-disjoint, requirements-aggregate",
+        [1]: "check rule `siblings-disjoint` is named twice"
+      ]
+      """
+    }
   }
 
   @Test
   func `dump takes no argument`() throws {
     #expect(try statement("dump") == .dump)
-    #expect(message("dump everything")?.hasPrefix("usage: dump") == true)
+    assertInlineSnapshot(of: message("dump everything"), as: .customDump) {
+      """
+      "usage: dump (the whole projection; it takes no argument)"
+      """
+    }
   }
 
   @Test
   func `expect cost takes a bound for each counter it names`() throws {
-    #expect(
-      try statement("expect cost bodies<=5 bytes<=40")
-        == .expectCost([
+    expectNoDifference(
+      try [
+        statement("expect cost bodies<=5 bytes<=40"), statement("expect cost renders<=0"),
+      ],
+      [
+        .expectCost([
           CostBound(counter: "bodies", limit: 5), CostBound(counter: "bytes", limit: 40),
-        ]))
-    #expect(
-      try statement("expect cost renders<=0")
-        == .expectCost([CostBound(counter: "renders", limit: 0)]))
+        ]),
+        .expectCost([CostBound(counter: "renders", limit: 0)]),
+      ]
+    )
   }
 
   @Test
@@ -71,57 +90,72 @@ struct NewStatementParserTests {
     `expect cost refuses everything but a counter, then less than or equal, then a number`()
     throws
   {
-    #expect(message("expect cost")?.hasPrefix("usage: expect cost NAME<=N") == true)
-    #expect(message("expect cost bodies<5")?.contains("only `<=` is accepted") == true)
-    #expect(
-      message("expect cost bodies <= 5")?.contains("written without spaces") == true)
-    #expect(
-      message("expect cost frames<=5")
-        == "unknown cost counter `frames`; accepted: bodies, bytes, measures, placements, renders"
-    )
-    #expect(
-      message("expect cost bodies<=many")
-        == "cost bound `bodies<=many` needs a non-negative whole number after `<=`")
-    #expect(
-      message("expect cost bodies<=-1")
-        == "cost bound `bodies<=-1` needs a non-negative whole number after `<=`")
-    #expect(
-      message("expect cost bodies<=1 bodies<=2")
-        == "cost counter `bodies` is bounded twice")
+    let lines = [
+      "expect cost", "expect cost bodies<5", "expect cost bodies <= 5",
+      "expect cost frames<=5", "expect cost bodies<=many", "expect cost bodies<=-1",
+      "expect cost bodies<=1 bodies<=2",
+    ]
+
+    assertInlineSnapshot(of: lines.map(message), as: .customDump) {
+      #"""
+      [
+        [0]: "usage: expect cost NAME<=N… (counters: bodies, bytes, measures, placements, renders)",
+        [1]: "cost bound `bodies<5` is not NAME<=N, written without spaces; only `<=` is accepted, because the counts are the library\'s work and change with it (counters: bodies, bytes, measures, placements, renders)",
+        [2]: "cost bound `bodies` is not NAME<=N, written without spaces; only `<=` is accepted, because the counts are the library\'s work and change with it (counters: bodies, bytes, measures, placements, renders)",
+        [3]: "unknown cost counter `frames`; accepted: bodies, bytes, measures, placements, renders",
+        [4]: "cost bound `bodies<=many` needs a non-negative whole number after `<=`",
+        [5]: "cost bound `bodies<=-1` needs a non-negative whole number after `<=`",
+        [6]: "cost counter `bodies` is bounded twice"
+      ]
+      """#
+    }
   }
 
   @Test
   func `the unknown statement error lists the new statements`() {
-    #expect(
-      message("blink")?.hasSuffix(
-        "accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, "
-          + "expect text, expect screen, expect node, expect cost") == true)
+    assertInlineSnapshot(of: message("blink"), as: .customDump) {
+      """
+      "unknown statement `blink`; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost"
+      """
+    }
   }
 
   @Test
   func `a locator takes a layout, and the accepted keys name it`() throws {
-    #expect(
-      try statement("expect node layout=_FrameLayout nth=1 frame 0,0,2x1")
-        == .expectNode(
-          Locator(layout: "_FrameLayout", nth: 1),
-          FrameExpectation(column: 0, row: 0, columns: 2, rows: 1)))
-    #expect(
-      message("expect node colour=red frame 0,0,1x1")
-        == "unknown locator key `colour`; accepted: type, layout, id, text, nth")
+    expectNoDifference(
+      try statement("expect node layout=_FrameLayout nth=1 frame 0,0,2x1"),
+      .expectNode(
+        Locator(layout: "_FrameLayout", nth: 1),
+        FrameExpectation(column: 0, row: 0, columns: 2, rows: 1))
+    )
+    assertInlineSnapshot(
+      of: message("expect node colour=red frame 0,0,1x1"), as: .customDump
+    ) {
+      """
+      "unknown locator key `colour`; accepted: type, layout, id, text, nth"
+      """
+    }
   }
 
   @Test
   func
     `a locator key with an empty value is a parse error and not a query for everything`()
   {
-    for key in ["type", "layout", "id", "text"] {
-      #expect(
-        message("expect node \(key)= frame 0,0,1x1")
-          == "locator key `\(key)` needs a value that is not empty")
+    let lines =
+      ["type", "layout", "id", "text"].map { "expect node \($0)= frame 0,0,1x1" }
+      + [#"expect node text="" frame 0,0,1x1"#]
+
+    assertInlineSnapshot(of: lines.map(message), as: .customDump) {
+      """
+      [
+        [0]: "locator key `type` needs a value that is not empty",
+        [1]: "locator key `layout` needs a value that is not empty",
+        [2]: "locator key `id` needs a value that is not empty",
+        [3]: "locator key `text` needs a value that is not empty",
+        [4]: "locator key `text` needs a value that is not empty"
+      ]
+      """
     }
-    #expect(
-      message(#"expect node text="" frame 0,0,1x1"#)
-        == "locator key `text` needs a value that is not empty")
   }
 }
 
@@ -142,14 +176,22 @@ struct NewStatementPlayerTests {
   func `check passes on a clean app and records the rules it ran`() async throws {
     let report = try await play("app layers\ncheck")
 
-    #expect(report.passed, "\(report)")
-    let observation = try #require(report.observations.first)
-    #expect(observation.verb == "check")
-    #expect(
-      observation.lines == [
-        "ran no-dirty-after-pass, frame-inside-clip, measured-within-proposal, "
-          + "siblings-disjoint, requirements-aggregate"
-      ])
+    expectNoDifference(report.failures, [])
+    assertInlineSnapshot(of: report.observations, as: .customDump) {
+      """
+      [
+        [0]: ScenarioObservation(
+          line: 2,
+          verb: "check",
+          name: nil,
+          lines: [
+            [0]: "ran no-dirty-after-pass, frame-inside-clip, measured-within-proposal, siblings-disjoint, requirements-aggregate"
+          ],
+          projection: nil
+        )
+      ]
+      """
+    }
   }
 
   @Test
@@ -167,8 +209,31 @@ struct NewStatementPlayerTests {
       check
       """)
 
-    #expect(report.passed, "\(report)")
-    #expect(report.observations.count == 2)
+    expectNoDifference(report.failures, [])
+    assertInlineSnapshot(of: report.observations, as: .customDump) {
+      """
+      [
+        [0]: ScenarioObservation(
+          line: 5,
+          verb: "check",
+          name: nil,
+          lines: [
+            [0]: "ran siblings-disjoint"
+          ],
+          projection: nil
+        ),
+        [1]: ScenarioObservation(
+          line: 6,
+          verb: "check",
+          name: nil,
+          lines: [
+            [0]: "ran no-dirty-after-pass, frame-inside-clip, measured-within-proposal, siblings-disjoint, requirements-aggregate"
+          ],
+          projection: nil
+        )
+      ]
+      """
+    }
   }
 
   @Test
@@ -177,11 +242,25 @@ struct NewStatementPlayerTests {
   {
     let report = try await play("app list-overlap\ncheck siblings-disjoint")
 
-    let failure = try #require(report.failures.first)
-    #expect(report.failures.count == 1)
-    #expect(failure.rule == "siblings-disjoint")
-    #expect(failure.node?.hasSuffix("id(b)") == true)
-    #expect(failure.message.contains("under ForEach"))
+    assertInlineSnapshot(of: report.failures, as: .customDump) {
+      """
+      [
+        [0]: ScenarioFailure(
+          line: 2,
+          statement: "check siblings-disjoint",
+          verb: "check",
+          message: "siblings-disjoint at root/index(0)/index(0)/id(b): shows 0,0,1x1, which overlaps sibling root/index(0)/index(0)/id(a) showing 0,0,1x1 under ForEach",
+          expected: nil,
+          actual: nil,
+          screen: [
+            [0]: "b"
+          ],
+          rule: "siblings-disjoint",
+          node: "root/index(0)/index(0)/id(b)"
+        )
+      ]
+      """
+    }
   }
 
   @Test
@@ -198,28 +277,55 @@ struct NewStatementPlayerTests {
 
     // The app's `ForEach` is not looked through, so the `ZStack` does not excuse the two texts
     // that its container-less body puts on one frame.
-    let failure = try #require(report.failures.first)
-    #expect(report.failures.count == 1, "\(report)")
-    #expect(failure.verb == "check")
-    #expect(failure.rule == "siblings-disjoint")
-    #expect(failure.message.contains("under TupleView"))
+    assertInlineSnapshot(of: report.failures, as: .customDump) {
+      """
+      [
+        [0]: ScenarioFailure(
+          line: 3,
+          statement: "check siblings-disjoint",
+          verb: "check",
+          message: "siblings-disjoint at root/index(0)/index(0)/body/index(1): shows 0,0,6x1, which overlaps sibling root/index(0)/index(0)/body/index(0) showing 0,0,5x1 under TupleView",
+          expected: nil,
+          actual: nil,
+          screen: [
+            [0]: "second"
+          ],
+          rule: "siblings-disjoint",
+          node: "root/index(0)/index(0)/body/index(1)"
+        )
+      ]
+      """
+    }
   }
 
   @Test
   func `a violated rule fails the statement with its rule and node`() async throws {
     let report = try await play("app overlap\ncheck siblings-disjoint")
 
-    let failure = try #require(report.failures.first)
-    #expect(report.failures.count == 1)
-    #expect(failure.verb == "check")
-    #expect(failure.line == 2)
-    #expect(failure.statement == "check siblings-disjoint")
-    #expect(failure.rule == "siblings-disjoint")
-    #expect(failure.node?.hasPrefix("root") == true)
-    #expect(failure.message.hasPrefix("siblings-disjoint at root"))
-    #expect(failure.message.contains("under Overlap"))
-    #expect(failure.screen?.first == "second")
-    #expect(report.json.contains(#""rule":"siblings-disjoint""#))
+    assertInlineSnapshot(of: report.failures, as: .customDump) {
+      """
+      [
+        [0]: ScenarioFailure(
+          line: 2,
+          statement: "check siblings-disjoint",
+          verb: "check",
+          message: "siblings-disjoint at root/index(0)/index(1): shows 0,0,6x1, which overlaps sibling root/index(0)/index(0) showing 0,0,5x1 under Overlap",
+          expected: nil,
+          actual: nil,
+          screen: [
+            [0]: "second"
+          ],
+          rule: "siblings-disjoint",
+          node: "root/index(0)/index(1)"
+        )
+      ]
+      """
+    }
+    assertInlineSnapshot(of: report.json, as: .lines) {
+      """
+      {"failures":[{"line":2,"message":"siblings-disjoint at root/index(0)/index(1): shows 0,0,6x1, which overlaps sibling root/index(0)/index(0) showing 0,0,5x1 under Overlap","node":"root/index(0)/index(1)","rule":"siblings-disjoint","screen":["second"],"statement":"check siblings-disjoint","verb":"check"}],"observations":[{"line":2,"lines":["ran siblings-disjoint"],"verb":"check"}],"passed":false,"scenario":"t.scn"}
+      """
+    }
   }
 
   @Test
@@ -231,13 +337,170 @@ struct NewStatementPlayerTests {
     let others = try await play(
       "app overflow\ncheck no-dirty-after-pass siblings-disjoint")
 
-    #expect(bare.failures.map(\.rule) == ["measured-within-proposal"])
-    let lines = try #require(bare.observations.first?.lines)
-    #expect(lines.count == 2)
-    #expect(lines[1].hasPrefix("warning frame-inside-clip root"))
-    #expect(named.failures.map(\.rule) == ["frame-inside-clip"])
-    #expect(named.observations.first?.lines.count == 1)
-    #expect(others.passed, "\(others)")
+    assertInlineSnapshot(of: bare, as: .customDump) {
+      """
+      ScenarioReport(
+        scenario: "t.scn",
+        failures: [
+          [0]: ScenarioFailure(
+            line: 2,
+            statement: "check",
+            verb: "check",
+            message: "measured-within-proposal at root/index(0)/index(0)/index(0): measured 12 columns where 4 were offered",
+            expected: nil,
+            actual: nil,
+            screen: [
+              [0]: "wide",
+              [1]: "ok"
+            ],
+            rule: "measured-within-proposal",
+            node: "root/index(0)/index(0)/index(0)"
+          )
+        ],
+        observations: [
+          [0]: ScenarioObservation(
+            line: 2,
+            verb: "check",
+            name: nil,
+            lines: [
+              [0]: "ran no-dirty-after-pass, frame-inside-clip, measured-within-proposal, siblings-disjoint, requirements-aggregate",
+              [1]: "warning frame-inside-clip root/index(0)/index(0)/index(0): frame 0,0,12x1 is clipped to 0,0,4x1 (visible text `wide`)"
+            ],
+            projection: nil
+          )
+        ],
+        recorded: [],
+        seconds: [],
+        trace: [
+          [0]: TraceRecord(
+            version: 1,
+            seq: 0,
+            event: TraceEvent(
+              type: "resize",
+              key: nil,
+              kind: nil,
+              text: nil,
+              size: "80x24",
+              detail: nil
+            ),
+            drew: true,
+            reasons: [
+              [0]: "layoutEnvironmentChanged",
+              [1]: "layoutViewChanged",
+              [2]: "renderEnvironmentChanged",
+              [3]: "renderRequested",
+              [4]: "renderViewChanged",
+              [5]: "updateRequested"
+            ],
+            nodes: TraceRecord.NodeChanges(
+              added: [
+                [0]: "root",
+                [1]: "root/index(0)",
+                [2]: "root/index(0)/index(0)",
+                [3]: "root/index(0)/index(0)/index(0)",
+                [4]: "root/index(0)/index(1)"
+              ],
+              changed: [],
+              removed: []
+            ),
+            rows: [
+              [0]: 0,
+              [1]: 1
+            ],
+            cost: StepCost(
+              bodies: 0,
+              bytes: 2097,
+              measures: 11,
+              placements: 5,
+              renders: 2
+            )
+          )
+        ]
+      )
+      """
+    }
+    assertInlineSnapshot(of: named, as: .customDump) {
+      """
+      ScenarioReport(
+        scenario: "t.scn",
+        failures: [
+          [0]: ScenarioFailure(
+            line: 2,
+            statement: "check frame-inside-clip",
+            verb: "check",
+            message: "frame-inside-clip at root/index(0)/index(0)/index(0): frame 0,0,12x1 is clipped to 0,0,4x1 (visible text `wide`)",
+            expected: nil,
+            actual: nil,
+            screen: [
+              [0]: "wide",
+              [1]: "ok"
+            ],
+            rule: "frame-inside-clip",
+            node: "root/index(0)/index(0)/index(0)"
+          )
+        ],
+        observations: [
+          [0]: ScenarioObservation(
+            line: 2,
+            verb: "check",
+            name: nil,
+            lines: [
+              [0]: "ran frame-inside-clip"
+            ],
+            projection: nil
+          )
+        ],
+        recorded: [],
+        seconds: [],
+        trace: [
+          [0]: TraceRecord(
+            version: 1,
+            seq: 0,
+            event: TraceEvent(
+              type: "resize",
+              key: nil,
+              kind: nil,
+              text: nil,
+              size: "80x24",
+              detail: nil
+            ),
+            drew: true,
+            reasons: [
+              [0]: "layoutEnvironmentChanged",
+              [1]: "layoutViewChanged",
+              [2]: "renderEnvironmentChanged",
+              [3]: "renderRequested",
+              [4]: "renderViewChanged",
+              [5]: "updateRequested"
+            ],
+            nodes: TraceRecord.NodeChanges(
+              added: [
+                [0]: "root",
+                [1]: "root/index(0)",
+                [2]: "root/index(0)/index(0)",
+                [3]: "root/index(0)/index(0)/index(0)",
+                [4]: "root/index(0)/index(1)"
+              ],
+              changed: [],
+              removed: []
+            ),
+            rows: [
+              [0]: 0,
+              [1]: 1
+            ],
+            cost: StepCost(
+              bodies: 0,
+              bytes: 2097,
+              measures: 11,
+              placements: 5,
+              renders: 2
+            )
+          )
+        ]
+      )
+      """
+    }
+    expectNoDifference(others.failures, [])
   }
 
   // MARK: dump
@@ -248,21 +511,29 @@ struct NewStatementPlayerTests {
     let report = try await play("app layers\ndump")
 
     let observation = try #require(report.observations.first)
-    #expect(observation.verb == "dump")
-    #expect(observation.lines.isEmpty)
     let projection = try #require(observation.projection)
-    #expect(projection.pass == 0)
-    #expect(projection.nodes.count > 5)
+    assertInlineSnapshot(
+      of: (observation.verb, observation.lines, projection.pass, projection.nodes.count),
+      as: .customDump
+    ) {
+      """
+      (
+        "dump",
+        [],
+        0,
+        13
+      )
+      """
+    }
     let json = try #require(
       JSONSerialization.jsonObject(with: Data(report.json.utf8)) as? [String: Any])
     let observations = try #require(json["observations"] as? [[String: Any]])
     let dumped = try #require(observations.first?["projection"] as? [String: Any])
     #expect(dumped["version"] as? Int == 1)
     #expect((dumped["nodes"] as? [Any])?.count == projection.nodes.count)
-    #expect(
-      Set(dumped.keys) == [
-        "nodes", "pass", "requirements", "screen", "statistics", "version",
-      ])
+    expectNoDifference(
+      dumped.keys.sorted(),
+      ["nodes", "pass", "requirements", "screen", "statistics", "version"])
   }
 
   @Test
@@ -288,7 +559,7 @@ struct NewStatementPlayerTests {
       expect cost bytes<=100 renders<=1
       """)
 
-    #expect(report.passed, "\(report)")
+    expectNoDifference(report.failures, [])
   }
 
   @Test
@@ -298,22 +569,46 @@ struct NewStatementPlayerTests {
   {
     let report = try await play("app steady\nkey +\nexpect cost bytes<=0 measures<=5")
 
-    let failure = try #require(report.failures.first)
-    #expect(failure.verb == "expect cost")
-    #expect(failure.line == 3)
-    #expect(failure.message.hasPrefix("step 1 (key +) took "))
-    #expect(failure.message.contains(" bytes, above the bound 0"))
-    #expect(failure.expected == "bytes<=0 measures<=5")
-    #expect(failure.actual?.contains(" bytes=") == true)
-    #expect(failure.actual?.contains("renders=") == true)
+    assertInlineSnapshot(of: report.failures, as: .customDump) {
+      """
+      [
+        [0]: ScenarioFailure(
+          line: 3,
+          statement: "expect cost bytes<=0 measures<=5",
+          verb: "expect cost",
+          message: "step 1 (key +) took 17 bytes, above the bound 0",
+          expected: "bytes<=0 measures<=5",
+          actual: "bodies=1 bytes=17 measures=4 placements=4 renders=1",
+          screen: nil,
+          rule: nil,
+          node: nil
+        )
+      ]
+      """
+    }
   }
 
   @Test
   func `expect cost before any event bounds the first frame`() async throws {
     let report = try await play("app layers\nexpect cost bytes<=1")
 
-    let failure = try #require(report.failures.first)
-    #expect(failure.message.hasPrefix("step 0 (resize 80x24) took "))
+    assertInlineSnapshot(of: report.failures, as: .customDump) {
+      """
+      [
+        [0]: ScenarioFailure(
+          line: 2,
+          statement: "expect cost bytes<=1",
+          verb: "expect cost",
+          message: "step 0 (resize 80x24) took 2097 bytes, above the bound 1",
+          expected: "bytes<=1",
+          actual: "bodies=0 bytes=2097 measures=29 placements=13 renders=5",
+          screen: nil,
+          rule: nil,
+          node: nil
+        )
+      ]
+      """
+    }
   }
 
   @Test
@@ -322,7 +617,7 @@ struct NewStatementPlayerTests {
     let report = try await play(
       "app steady\ntype \"+x\"\nexpect cost bytes<=0 renders<=0")
 
-    #expect(report.passed, "\(report)")
+    expectNoDifference(report.failures, [])
   }
 
   // MARK: Locators
@@ -341,7 +636,7 @@ struct NewStatementPlayerTests {
       expect node type=ForEach frame 0,4,1x2
       """)
 
-    #expect(report.passed, "\(report)")
+    expectNoDifference(report.failures, [])
   }
 
   @Test
@@ -350,10 +645,32 @@ struct NewStatementPlayerTests {
     let shown = try await play("app layers\nexpect node text=atus frame 0,0,6x1")
     let top = try await play("app layers\nexpect node text=OK frame 0,0,2x1")
 
-    #expect(
-      covered.failures.first?.message == "locator `text=\"status\"` matches no node")
-    #expect(shown.passed, "\(shown)")
-    #expect(top.passed, "\(top)")
+    assertInlineSnapshot(of: covered.failures, as: .customDump) {
+      """
+      [
+        [0]: ScenarioFailure(
+          line: 2,
+          statement: "expect node text=status frame 0,0,6x1",
+          verb: "expect node",
+          message: #"locator `text="status"` matches no node"#,
+          expected: "0,0,6x1",
+          actual: "(no node; types: TupleView, VStack, ZStack, Text, _LayoutContainer, ForEach; layouts: _FrameLayout, _PaddingLayout)",
+          screen: [
+            [0]: "OKatus",
+            [1]: "",
+            [2]: " Go",
+            [3]: "",
+            [4]: "a",
+            [5]: "b"
+          ],
+          rule: nil,
+          node: nil
+        )
+      ]
+      """
+    }
+    expectNoDifference(shown.failures, [])
+    expectNoDifference(top.failures, [])
   }
 
   @Test
@@ -362,10 +679,30 @@ struct NewStatementPlayerTests {
     let report = try await play(
       "app layers\nexpect node layout=_NoSuchLayout frame 0,0,1x1")
 
-    let actual = try #require(report.failures.first?.actual)
-    #expect(actual.hasPrefix("(no node; types: "))
-    #expect(actual.contains("_LayoutContainer"))
-    #expect(actual.contains("; layouts: _FrameLayout, _PaddingLayout)"))
+    assertInlineSnapshot(of: report.failures, as: .customDump) {
+      """
+      [
+        [0]: ScenarioFailure(
+          line: 2,
+          statement: "expect node layout=_NoSuchLayout frame 0,0,1x1",
+          verb: "expect node",
+          message: "locator `layout=_NoSuchLayout` matches no node",
+          expected: "0,0,1x1",
+          actual: "(no node; types: TupleView, VStack, ZStack, Text, _LayoutContainer, ForEach; layouts: _FrameLayout, _PaddingLayout)",
+          screen: [
+            [0]: "OKatus",
+            [1]: "",
+            [2]: " Go",
+            [3]: "",
+            [4]: "a",
+            [5]: "b"
+          ],
+          rule: nil,
+          node: nil
+        )
+      ]
+      """
+    }
   }
 
   @Test
@@ -373,10 +710,30 @@ struct NewStatementPlayerTests {
   {
     let report = try await play("app layers\nexpect node type=Text frame 0,0,1x1")
 
-    let failure = try #require(report.failures.first)
-    #expect(failure.message.hasPrefix("locator `type=Text` matches "))
-    #expect(failure.message.hasSuffix(" nodes; add nth="))
-    #expect(failure.actual?.contains("root/index(0)/index(1)") == true)
+    assertInlineSnapshot(of: report.failures, as: .customDump) {
+      """
+      [
+        [0]: ScenarioFailure(
+          line: 2,
+          statement: "expect node type=Text frame 0,0,1x1",
+          verb: "expect node",
+          message: "locator `type=Text` matches 5 nodes; add nth=",
+          expected: "0,0,1x1",
+          actual: "root/index(0)/index(0)/index(0), root/index(0)/index(0)/index(1)/index(0), root/index(0)/index(1)/index(0), root/index(0)/index(2)/id(a)/index(0), root/index(0)/index(2)/id(b)/index(0)",
+          screen: [
+            [0]: "OKatus",
+            [1]: "",
+            [2]: " Go",
+            [3]: "",
+            [4]: "a",
+            [5]: "b"
+          ],
+          rule: nil,
+          node: nil
+        )
+      ]
+      """
+    }
   }
 
   // MARK: Trace and shots
@@ -385,8 +742,9 @@ struct NewStatementPlayerTests {
   func `a played scenario carries one trace record per step`() async throws {
     let report = try await play("app growing\nkey +\ntype \"+-\"\nresize 30x6")
 
-    #expect(report.trace.map(\.seq) == [0, 1, 2, 3, 4])
-    #expect(report.trace.map(\.event.type) == ["resize", "key", "key", "key", "resize"])
+    expectNoDifference(report.trace.map(\.seq), [0, 1, 2, 3, 4])
+    expectNoDifference(
+      report.trace.map(\.event.type), ["resize", "key", "key", "key", "resize"])
   }
 
   @Test
@@ -399,6 +757,22 @@ struct NewStatementPlayerTests {
     let report = await ScenarioPlayer.run(scenario, name: "t.scn", registry: registry)
 
     #expect(report.trace.count == 2)
-    #expect(report.failures.map(\.verb) == ["expect text"])
+    assertInlineSnapshot(of: report.failures, as: .customDump) {
+      """
+      [
+        [0]: ScenarioFailure(
+          line: 3,
+          statement: #"expect text 0 "x""#,
+          verb: "expect text",
+          message: "the application finished at line 2 (`key q`), and in a terminal nothing after it runs",
+          expected: nil,
+          actual: nil,
+          screen: nil,
+          rule: nil,
+          node: nil
+        )
+      ]
+      """
+    }
   }
 }

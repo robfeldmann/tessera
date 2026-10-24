@@ -6,8 +6,8 @@ import TesseraTerminalInput
 
 @testable import TesseraHarness
 
-/// A custom layout that puts every child at the origin: the defect plan 034 fixed in `ForEach`,
-/// written by hand so a check has something to find.
+/// A custom layout that puts every child at the origin, the defect of a `ForEach` whose rows
+/// overlap, written by hand so a check has something to find.
 private struct Overlap: Layout {
   func sizeThatFits(_ proposal: ProposedSize, subviews: Subviews) -> TerminalSize {
     let sizes = subviews.map { $0.sizeThatFits(proposal) }
@@ -92,7 +92,7 @@ final class WideApp: Application {
 
 /// A counter that is clean after every step it ignores: it returns its root explicitly, so
 /// reconciliation skips the whole tree when nothing changed.
-private struct Stable: View, Equatable {
+private struct Stable: Equatable, View {
   var count: Int
 
   var body: some View {

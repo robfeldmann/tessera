@@ -1,4 +1,8 @@
+import CustomDump
 import Foundation
+import InlineSnapshotTesting
+import SnapshotTesting
+import SnapshotTestingCustomDump
 import TesseraTerminal
 import TesseraTerminalCore
 import Testing
@@ -48,17 +52,18 @@ struct HarnessCLIScenarioTests {
 
     let output = await run("run", scratch.path)
 
-    #expect(output.exitCode == 0)
-    #expect(output.stderr.isEmpty)
-    #expect(output.stdout.hasSuffix("}\n"))
-    #expect(output.stdout.filter { $0 == "\n" }.count == 1)
-    let object = try object(output)
-    #expect(Set(object.keys) == ["command", "exitCode", "scenarios"])
-    #expect(object["command"] as? String == "run")
-    #expect(object["exitCode"] as? Int == 0)
-    let reports = try reports(output)
-    #expect(reports.count == 2)
-    #expect(reports.allSatisfy { $0["passed"] as? Bool == true })
+    assertInlineSnapshot(of: scratch.dump(output), as: .lines) {
+      #"""
+      CommandOutput(
+        exitCode: 0,
+        stdout: """
+          {"command":"run","exitCode":0,"scenarios":[{"failures":[],"observations":[],"passed":true,"scenario":"<scratch>/a.scn"},{"failures":[],"observations":[],"passed":true,"scenario":"<scratch>/b.scn"}]}
+          
+          """,
+        stderr: ""
+      )
+      """#
+    }
   }
 
   @Test
@@ -69,12 +74,31 @@ struct HarnessCLIScenarioTests {
 
     let output = await run("run", scratch.path, terminal: true)
 
-    #expect(output.exitCode == 1)
-    #expect(output.stdout.contains("PASS \(scratch.appending("a.scn"))"))
-    #expect(output.stdout.contains("FAIL \(scratch.appending("b.scn"))"))
-    #expect(output.stdout.contains("expected: Stack demos"))
-    #expect(output.stdout.hasSuffix("2 scenarios, 1 passed, 1 failed\n"))
-    #expect(output.stderr.isEmpty)
+    assertInlineSnapshot(of: scratch.dump(output), as: .lines) {
+      #"""
+      CommandOutput(
+        exitCode: 1,
+        stdout: """
+          PASS <scratch>/a.scn
+          FAIL <scratch>/b.scn
+            line 3: expect text 0 "Stack demos"
+              row 0 text differs
+              expected: Stack demos
+              actual:   Stack demo
+              screen:
+                0| Stack demo
+                1| ────────────────────────────────────────
+                2| Name: -
+                3| left                               right
+                4| ────────────────────────────────────────
+                5| 40 columns
+          2 scenarios, 1 passed, 1 failed
+          
+          """,
+        stderr: ""
+      )
+      """#
+    }
   }
 
   @Test
@@ -84,7 +108,19 @@ struct HarnessCLIScenarioTests {
 
     let output = await run("run", scratch.path, "--pretty")
 
-    #expect(output.stdout.hasSuffix("1 scenario, 1 passed, 0 failed\n"))
+    assertInlineSnapshot(of: scratch.dump(output), as: .lines) {
+      #"""
+      CommandOutput(
+        exitCode: 0,
+        stdout: """
+          PASS <scratch>/a.scn
+          1 scenario, 1 passed, 0 failed
+          
+          """,
+        stderr: ""
+      )
+      """#
+    }
   }
 
   @Test
@@ -96,14 +132,18 @@ struct HarnessCLIScenarioTests {
 
     let output = await run("run", scratch.path)
 
-    #expect(output.exitCode == 1)
-    let object = try object(output)
-    #expect(object["exitCode"] as? Int == 1)
-    let failures = try #require(
-      try reports(output).first?["failures"] as? [[String: Any]])
-    #expect(failures.first?["line"] as? Int == 3)
-    #expect(failures.first?["verb"] as? String == "expect text")
-    #expect(failures.first?["expected"] as? String == "Stack demos")
+    assertInlineSnapshot(of: scratch.dump(output), as: .lines) {
+      #"""
+      CommandOutput(
+        exitCode: 1,
+        stdout: """
+          {"command":"run","exitCode":1,"scenarios":[{"failures":[{"actual":"Stack demo","expected":"Stack demos","line":3,"message":"row 0 text differs","screen":["Stack demo","────────────────────────────────────────","Name: -","left                               right","────────────────────────────────────────","40 columns"],"statement":"expect text 0 \"Stack demos\"","verb":"expect text"}],"observations":[],"passed":false,"scenario":"<scratch>/b.scn"}]}
+          
+          """,
+        stderr: ""
+      )
+      """#
+    }
   }
 
   @Test
@@ -113,13 +153,18 @@ struct HarnessCLIScenarioTests {
 
     let output = await run("run", scratch.path)
 
-    #expect(output.exitCode == 2)
-    let failures = try #require(
-      try reports(output).first?["failures"] as? [[String: Any]])
-    #expect(failures.count == 1)
-    #expect(failures[0]["verb"] as? String == "parse")
-    #expect(failures[0]["line"] as? Int == 2)
-    #expect(failures[0]["statement"] as? String == "blink")
+    assertInlineSnapshot(of: scratch.dump(output), as: .lines) {
+      #"""
+      CommandOutput(
+        exitCode: 2,
+        stdout: """
+          {"command":"run","exitCode":2,"scenarios":[{"failures":[{"line":2,"message":"unknown statement `blink`; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost","statement":"blink","verb":"parse"}],"observations":[],"passed":false,"scenario":"<scratch>/bad.scn"}]}
+          
+          """,
+        stderr: ""
+      )
+      """#
+    }
   }
 
   @Test
@@ -128,10 +173,18 @@ struct HarnessCLIScenarioTests {
 
     let output = await run("run", scratch.appending("missing.scn"))
 
-    #expect(output.exitCode == 2)
-    let failures = try #require(
-      try reports(output).first?["failures"] as? [[String: Any]])
-    #expect(failures.first?["verb"] as? String == "usage")
+    assertInlineSnapshot(of: scratch.dump(output), as: .lines) {
+      #"""
+      CommandOutput(
+        exitCode: 2,
+        stdout: """
+          {"command":"run","exitCode":2,"scenarios":[{"failures":[{"line":0,"message":"no such file or directory","statement":"","verb":"usage"}],"observations":[],"passed":false,"scenario":"<scratch>/missing.scn"}]}
+          
+          """,
+        stderr: ""
+      )
+      """#
+    }
   }
 
   @Test
@@ -164,18 +217,36 @@ struct HarnessCLIScenarioTests {
 
     let output = await run("run", scratch.path, registry: registry)
 
-    #expect(output.exitCode == 3)
+    assertInlineSnapshot(of: scratch.dump(output), as: .lines) {
+      #"""
+      CommandOutput(
+        exitCode: 3,
+        stdout: """
+          {"command":"run","exitCode":3,"scenarios":[{"failures":[{"line":0,"message":"applications registered more than once: `stack`","statement":"","verb":"harness"}],"observations":[],"passed":false,"scenario":"<scratch>/a.scn"}]}
+          
+          """,
+        stderr: ""
+      )
+      """#
+    }
   }
 
   @Test
   func `run without a path is a usage error with the failure object`() async throws {
     let output = await run("run")
 
-    #expect(output.exitCode == 2)
-    let object = try object(output)
-    #expect(object["command"] as? String == "run")
-    #expect(object["exitCode"] as? Int == 2)
-    #expect((object["message"] as? String)?.hasPrefix("usage: run PATH...") == true)
+    assertInlineSnapshot(of: output, as: .customDump) {
+      #"""
+      CommandOutput(
+        exitCode: 2,
+        stdout: """
+          {"command":"run","exitCode":2,"message":"usage: run PATH... [--record] [--repeat N] [--timing]"}
+          
+          """,
+        stderr: ""
+      )
+      """#
+    }
   }
 
   @Test
@@ -186,16 +257,52 @@ struct HarnessCLIScenarioTests {
     let word = await run("run", "x.scn", "--repeat", "many", "--pretty")
     let twice = await run("run", "x.scn", "--repeat", "2", "--repeat", "3", "--pretty")
 
-    #expect(unknown.exitCode == 2)
-    #expect(
-      unknown.stderr
-        == "error: unknown flag `--frobnicate`; accepted: --json, --pretty, --record, "
-        + "--repeat, --timing, --trace\n")
-    #expect(noValue.stderr.contains("`--repeat` needs a value"))
-    #expect(
-      zero.stderr.contains("`--repeat` needs a whole number of at least 1, got `0`"))
-    #expect(word.exitCode == 2)
-    #expect(twice.stderr.contains("`--repeat` is given twice"))
+    assertInlineSnapshot(of: [unknown, noValue, zero, word, twice], as: .customDump) {
+      #"""
+      [
+        [0]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: unknown flag `--frobnicate`; accepted: --json, --pretty, --record, --repeat, --timing, --trace
+            
+            """
+        ),
+        [1]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: `--repeat` needs a value
+            
+            """
+        ),
+        [2]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: `--repeat` needs a whole number of at least 1, got `0`
+            
+            """
+        ),
+        [3]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: `--repeat` needs a whole number of at least 1, got `many`
+            
+            """
+        ),
+        [4]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: `--repeat` is given twice
+            
+            """
+        )
+      ]
+      """#
+    }
   }
 
   @Test
@@ -204,10 +311,18 @@ struct HarnessCLIScenarioTests {
   {
     let output = await run("run", "--repeat", "x.scn", "--pretty")
 
-    #expect(output.exitCode == 2)
-    #expect(
-      output.stderr
-        == "error: `--repeat` needs a whole number of at least 1, got `x.scn`\n")
+    assertInlineSnapshot(of: output, as: .customDump) {
+      #"""
+      CommandOutput(
+        exitCode: 2,
+        stdout: "",
+        stderr: """
+          error: `--repeat` needs a whole number of at least 1, got `x.scn`
+          
+          """
+      )
+      """#
+    }
   }
 
   @Test
@@ -245,32 +360,41 @@ struct HarnessCLIScenarioTests {
   func `shot prints the screen as a golden holds it`() async {
     let output = await run("shot", "stack", "40x8", "--pretty")
 
-    #expect(output.exitCode == 0)
-    #expect(
-      output.stdout
-        == """
-        Stack demo
-        ────────────────────────────────────────
-        Name: -
-        left                               right
-        ────────────────────────────────────────
-        40 columns
-
-        """)
+    assertInlineSnapshot(of: output, as: .customDump) {
+      #"""
+      CommandOutput(
+        exitCode: 0,
+        stdout: """
+          Stack demo
+          ────────────────────────────────────────
+          Name: -
+          left                               right
+          ────────────────────────────────────────
+          40 columns
+          
+          """,
+        stderr: ""
+      )
+      """#
+    }
   }
 
   @Test
   func `shot prints one JSON object with the rows and the size`() async throws {
     let output = await run("shot", "stack", "mobile")
 
-    #expect(output.exitCode == 0)
-    let object = try object(output)
-    #expect(Set(object.keys) == ["app", "command", "exitCode", "rows", "size"])
-    #expect(object["app"] as? String == "stack")
-    #expect(object["command"] as? String == "shot")
-    #expect(object["size"] as? String == "40x6")
-    #expect((object["rows"] as? [String])?.first == "Stack demo")
-    #expect((object["rows"] as? [String])?.count == 6)
+    assertInlineSnapshot(of: output, as: .customDump) {
+      #"""
+      CommandOutput(
+        exitCode: 0,
+        stdout: """
+          {"app":"stack","command":"shot","exitCode":0,"rows":["Stack demo","────────────────────────────────────────","Name: -","left                               right","────────────────────────────────────────","40 columns"],"size":"40x6"}
+          
+          """,
+        stderr: ""
+      )
+      """#
+    }
   }
 
   @Test
@@ -286,9 +410,30 @@ struct HarnessCLIScenarioTests {
     let text = await run("tree", "stack", "40x8", "--pretty")
     let json = await run("tree", "stack", "40x8")
 
-    #expect(text.exitCode == 0)
-    #expect(
-      text.stdout.hasPrefix("root TupleView frame=0,0,40x8\n  root/index(0) VStack"))
+    assertInlineSnapshot(of: text, as: .customDump) {
+      #"""
+      CommandOutput(
+        exitCode: 0,
+        stdout: """
+          root TupleView frame=0,0,40x8
+            root/index(0) VStack frame=0,0,40x8
+              root/index(0)/index(0) Text frame=0,0,10x1
+              root/index(0)/index(1) Divider frame=0,1,40x1
+              root/index(0)/index(2) HStack frame=0,2,7x1
+                root/index(0)/index(2)/index(0) Text frame=0,2,5x1
+                root/index(0)/index(2)/index(1) Text frame=6,2,1x1
+              root/index(0)/index(3) HStack frame=0,3,40x1
+                root/index(0)/index(3)/index(0) Text frame=0,3,4x1
+                root/index(0)/index(3)/index(1) Spacer frame=4,3,31x0 clip=4,3,0x0
+                root/index(0)/index(3)/index(2) Text frame=35,3,5x1
+              root/index(0)/index(4) Divider frame=0,4,40x1
+              root/index(0)/index(5) Text frame=0,5,10x1
+          
+          """,
+        stderr: ""
+      )
+      """#
+    }
     let object = try object(json)
     #expect(Set(object.keys) == ["app", "command", "exitCode", "lines", "size"])
     #expect(
@@ -313,15 +458,62 @@ struct HarnessCLIScenarioTests {
         return registry
       }())
 
-    #expect(unknown.exitCode == 2)
-    #expect(unknown.stderr.contains("unknown app `ghost`; accepted: "))
-    #expect(badSize.exitCode == 2)
-    #expect(badSize.stderr.contains("bad size `huge`"))
-    #expect(none.stderr == "error: usage: shot NAME [SIZE]\n")
-    #expect(extra.exitCode == 2)
-    #expect(greedy.exitCode == 2)
-    #expect((try object(greedy)["message"] as? String)?.contains("mobileScreen") == true)
-    #expect(duplicate.exitCode == 3)
+    assertInlineSnapshot(
+      of: [unknown, badSize, none, extra, greedy, duplicate], as: .customDump
+    ) {
+      #"""
+      [
+        [0]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: unknown app `ghost`; accepted: counter, event-log, greedy, main-actor-counter, observed-counter, stack, workspace
+            
+            """
+        ),
+        [1]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: bad size `huge`; expected WxH, desktop, mobile, or mobileScreen
+            
+            """
+        ),
+        [2]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: usage: shot NAME [SIZE]
+            
+            """
+        ),
+        [3]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: usage: shot NAME [SIZE]
+            
+            """
+        ),
+        [4]: CommandOutput(
+          exitCode: 2,
+          stdout: """
+            {"command":"shot","exitCode":2,"message":"`greedy` has no natural height: it measured 500 rows when offered 500 and 1000 when offered 1000. Use `size mobileScreen` (40x16) or an explicit WxH"}
+            
+            """,
+          stderr: ""
+        ),
+        [5]: CommandOutput(
+          exitCode: 3,
+          stdout: "",
+          stderr: """
+            error: applications registered more than once: `stack`
+            
+            """
+        )
+      ]
+      """#
+    }
   }
 
   // MARK: check
@@ -339,18 +531,18 @@ struct HarnessCLIScenarioTests {
   {
     let output = await projectionRun("check", "layers", "mobile")
 
-    #expect(output.exitCode == 0)
-    let object = try object(output)
-    #expect(object["command"] as? String == "check")
-    #expect(object["app"] as? String == "layers")
-    #expect(object["exitCode"] as? Int == 0)
-    #expect(object["size"] as? String == "40x6")
-    #expect(
-      object["rules"] as? [String] == [
-        "no-dirty-after-pass", "frame-inside-clip", "measured-within-proposal",
-        "siblings-disjoint", "requirements-aggregate",
-      ])
-    #expect((object["violations"] as? [Any])?.isEmpty == true)
+    assertInlineSnapshot(of: output, as: .customDump) {
+      #"""
+      CommandOutput(
+        exitCode: 0,
+        stdout: """
+          {"app":"layers","command":"check","exitCode":0,"rules":["no-dirty-after-pass","frame-inside-clip","measured-within-proposal","siblings-disjoint","requirements-aggregate"],"size":"40x6","violations":[]}
+          
+          """,
+        stderr: ""
+      )
+      """#
+    }
   }
 
   @Test
@@ -359,13 +551,18 @@ struct HarnessCLIScenarioTests {
   {
     let output = await projectionRun("check", "overlap")
 
-    #expect(output.exitCode == 1)
-    let violations = try #require(try object(output)["violations"] as? [[String: String]])
-    #expect(violations.count == 1)
-    #expect(violations[0]["rule"] == "siblings-disjoint")
-    #expect(violations[0]["severity"] == "error")
-    #expect(violations[0]["detail"]?.hasSuffix("under Overlap") == true)
-    #expect(violations[0]["node"]?.hasPrefix("root") == true)
+    assertInlineSnapshot(of: output, as: .customDump) {
+      #"""
+      CommandOutput(
+        exitCode: 1,
+        stdout: """
+          {"app":"overlap","command":"check","exitCode":1,"rules":["no-dirty-after-pass","frame-inside-clip","measured-within-proposal","siblings-disjoint","requirements-aggregate"],"size":"80x24","violations":[{"detail":"shows 0,0,6x1, which overlaps sibling root/index(0)/index(0) showing 0,0,5x1 under Overlap","node":"root/index(0)/index(1)","rule":"siblings-disjoint","severity":"error"}]}
+          
+          """,
+        stderr: ""
+      )
+      """#
+    }
   }
 
   @Test
@@ -376,17 +573,40 @@ struct HarnessCLIScenarioTests {
     let text = await projectionRun("check", "overflow", "--pretty")
     let passing = await projectionRun("check", "layers", "--pretty")
 
-    let severities = (try? object(json)["violations"] as? [[String: String]])?.compactMap
-    {
-      $0["severity"]
+    assertInlineSnapshot(of: [json, text, passing], as: .customDump) {
+      #"""
+      [
+        [0]: CommandOutput(
+          exitCode: 1,
+          stdout: """
+            {"app":"overflow","command":"check","exitCode":1,"rules":["no-dirty-after-pass","frame-inside-clip","measured-within-proposal","siblings-disjoint","requirements-aggregate"],"size":"80x24","violations":[{"detail":"frame 0,0,12x1 is clipped to 0,0,4x1 (visible text `wide`)","node":"root/index(0)/index(0)/index(0)","rule":"frame-inside-clip","severity":"warning"},{"detail":"measured 12 columns where 4 were offered","node":"root/index(0)/index(0)/index(0)","rule":"measured-within-proposal","severity":"error"}]}
+            
+            """,
+          stderr: ""
+        ),
+        [1]: CommandOutput(
+          exitCode: 1,
+          stdout: """
+            check overflow at 80x24 against 5 rules: no-dirty-after-pass, frame-inside-clip, measured-within-proposal, siblings-disjoint, requirements-aggregate
+              warning frame-inside-clip root/index(0)/index(0)/index(0): frame 0,0,12x1 is clipped to 0,0,4x1 (visible text `wide`)
+              error measured-within-proposal root/index(0)/index(0)/index(0): measured 12 columns where 4 were offered
+            FAIL overflow: 1 error, 1 warning
+            
+            """,
+          stderr: ""
+        ),
+        [2]: CommandOutput(
+          exitCode: 0,
+          stdout: """
+            check layers at 80x24 against 5 rules: no-dirty-after-pass, frame-inside-clip, measured-within-proposal, siblings-disjoint, requirements-aggregate
+            PASS layers
+            
+            """,
+          stderr: ""
+        )
+      ]
+      """#
     }
-    #expect(severities == ["warning", "error"])
-    #expect(text.exitCode == 1)
-    #expect(text.stdout.contains("  warning frame-inside-clip "))
-    #expect(text.stdout.contains("  error measured-within-proposal "))
-    #expect(text.stdout.hasSuffix("FAIL overflow: 1 error, 1 warning\n"))
-    #expect(passing.stdout.hasPrefix("check layers at 80x24 against 5 rules: no-dirty"))
-    #expect(passing.stdout.hasSuffix("PASS layers\n"))
   }
 
   @Test
@@ -400,15 +620,54 @@ struct HarnessCLIScenarioTests {
     let duplicate = await run("check", "stack", "--pretty", registry: duplicated)
     let greedy = await run("check", "greedy", "mobile", "--pretty")
 
-    #expect(noApp.exitCode == 2)
-    #expect(noApp.stderr == "error: usage: check NAME [SIZE]\n")
-    #expect(badSize.stderr.contains("bad size `huge`"))
-    #expect(unknown.exitCode == 2)
-    #expect(unknown.stderr.hasPrefix("error: unknown app `ghost`; accepted: "))
-    #expect(duplicate.exitCode == 3)
-    #expect(duplicate.stderr.contains("registered more than once"))
-    #expect(greedy.exitCode == 2)
-    #expect(greedy.stderr.contains("mobileScreen"))
+    assertInlineSnapshot(
+      of: [noApp, badSize, unknown, duplicate, greedy], as: .customDump
+    ) {
+      #"""
+      [
+        [0]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: usage: check NAME [SIZE]
+            
+            """
+        ),
+        [1]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: bad size `huge`; expected WxH, desktop, mobile, or mobileScreen
+            
+            """
+        ),
+        [2]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: unknown app `ghost`; accepted: counter, event-log, greedy, main-actor-counter, observed-counter, stack, workspace
+            
+            """
+        ),
+        [3]: CommandOutput(
+          exitCode: 3,
+          stdout: "",
+          stderr: """
+            error: applications registered more than once: `stack`
+            
+            """
+        ),
+        [4]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: `greedy` has no natural height: it measured 500 rows when offered 500 and 1000 when offered 1000. Use `size mobileScreen` (40x16) or an explicit WxH
+            
+            """
+        )
+      ]
+      """#
+    }
   }
 
   @Test
@@ -420,13 +679,25 @@ struct HarnessCLIScenarioTests {
 
     let output = await projectionRun("run", scratch.path, "--pretty")
 
-    #expect(output.exitCode == 1, "the error of the same check fails the run")
-    let lines = output.stdout.split(separator: "\n").map(String.init)
-    let warning = try #require(lines.firstIndex { $0.hasPrefix("  line 2: warning ") })
-    let failure = try #require(lines.firstIndex(of: "  line 2: check"))
-    #expect(lines[warning].contains("frame-inside-clip root"))
-    #expect(warning < failure, "the warnings come before the failures")
-    #expect(lines[failure + 1].hasPrefix("    measured-within-proposal at root"))
+    assertInlineSnapshot(of: scratch.dump(output), as: .lines) {
+      #"""
+      CommandOutput(
+        exitCode: 1,
+        stdout: """
+          FAIL <scratch>/w.scn
+            line 2: warning frame-inside-clip root/index(0)/index(0)/index(0): frame 0,0,12x1 is clipped to 0,0,4x1 (visible text `wide`)
+            line 2: check
+              measured-within-proposal at root/index(0)/index(0)/index(0): measured 12 columns where 4 were offered
+              screen:
+                0| wide
+                1| ok
+          1 scenario, 0 passed, 1 failed
+          
+          """,
+        stderr: ""
+      )
+      """#
+    }
   }
 
   @Test
@@ -446,10 +717,17 @@ struct HarnessCLIScenarioTests {
           line: 3, verb: "shot", name: "a", lines: ["warning: not a check"]),
       ])
 
-    #expect(
-      report.description
-        == "PASS flex.scn\n  line 7: warning frame-inside-clip root/a: shows 0,0,9x1")
-    #expect(report.json.contains("warning frame-inside-clip root/a"))
+    assertInlineSnapshot(of: report.description, as: .lines) {
+      """
+      PASS flex.scn
+        line 7: warning frame-inside-clip root/a: shows 0,0,9x1
+      """
+    }
+    assertInlineSnapshot(of: report.json, as: .lines) {
+      """
+      {"failures":[],"observations":[{"line":7,"lines":["ran no-dirty-after-pass, frame-inside-clip","warning frame-inside-clip root/a: shows 0,0,9x1"],"verb":"check"},{"line":9,"lines":["ran no-dirty-after-pass"],"verb":"check"},{"line":3,"lines":["warning: not a check"],"name":"a","verb":"shot"}],"passed":true,"scenario":"flex.scn"}
+      """
+    }
   }
 
   @Test
@@ -470,17 +748,87 @@ struct HarnessCLIScenarioTests {
     let app = await run("replay", "t.jsonl", "--app", "", "--pretty")
     let json = await run("run", scratch.path, "--trace", "")
 
-    for output in [trace, path, inside, shot, tree, check, file, app, json] {
-      #expect(output.exitCode == 2, "\(output.stderr)\(output.stdout)")
+    assertInlineSnapshot(
+      of: scratch.dump([trace, path, inside, shot, tree, check, file, app, json]),
+      as: .lines
+    ) {
+      #"""
+      [
+        [0]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: `--trace` needs a value that is not empty
+            
+            """
+        ),
+        [1]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: an empty argument is not a path or an application name
+            
+            """
+        ),
+        [2]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: an empty argument is not a path or an application name
+            
+            """
+        ),
+        [3]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: an empty argument is not a path or an application name
+            
+            """
+        ),
+        [4]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: an empty argument is not a path or an application name
+            
+            """
+        ),
+        [5]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: an empty argument is not a path or an application name
+            
+            """
+        ),
+        [6]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: an empty argument is not a path or an application name
+            
+            """
+        ),
+        [7]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: `--app` needs a value that is not empty
+            
+            """
+        ),
+        [8]: CommandOutput(
+          exitCode: 2,
+          stdout: """
+            {"command":"run","exitCode":2,"message":"`--trace` needs a value that is not empty"}
+            
+            """,
+          stderr: ""
+        )
+      ]
+      """#
     }
-    #expect(trace.stderr == "error: `--trace` needs a value that is not empty\n")
-    #expect(trace.stdout.isEmpty, "no scenario ran")
-    #expect(
-      path.stderr == "error: an empty argument is not a path or an application name\n")
-    #expect(app.stderr == "error: `--app` needs a value that is not empty\n")
-    #expect(
-      try object(json)["message"] as? String
-        == "`--trace` needs a value that is not empty")
     #expect(!FileManager.default.fileExists(atPath: out))
   }
 
@@ -507,7 +855,20 @@ struct HarnessCLIScenarioTests {
 
     let output = await run("run", scratch.path, "--trace", out, "--pretty")
 
-    #expect(output.exitCode == 0)
+    assertInlineSnapshot(of: scratch.dump(output), as: .lines) {
+      #"""
+      CommandOutput(
+        exitCode: 0,
+        stdout: """
+          PASS <scratch>/a.scn
+          PASS <scratch>/nested/b.scn
+          2 scenarios, 2 passed, 0 failed
+          
+          """,
+        stderr: ""
+      )
+      """#
+    }
     let files = [
       TraceFile.path(forScenario: scratch.appending("a.scn"), in: out),
       TraceFile.path(forScenario: scratch.appending("nested/b.scn"), in: out),
@@ -518,8 +879,9 @@ struct HarnessCLIScenarioTests {
           String(validating: $0, as: UTF8.self)
         }, "no trace at \(file)")
       let records = try TraceFile.records(in: text)
-      #expect(records.map(\.seq) == [0, 1, 2, 3, 4, 5])
-      #expect(records[4].event == TraceEvent(.resize(TerminalSize(columns: 30, rows: 8))))
+      expectNoDifference(records.map(\.seq), [0, 1, 2, 3, 4, 5])
+      expectNoDifference(
+        records[4].event, TraceEvent(.resize(TerminalSize(columns: 30, rows: 8))))
     }
   }
 
@@ -535,14 +897,18 @@ struct HarnessCLIScenarioTests {
 
     let output = await run("replay", file, "--app", "stack")
 
-    #expect(output.exitCode == 0, "\(output.stdout)")
-    let object = try object(output)
-    #expect(object["command"] as? String == "replay")
-    let report = try #require((object["scenarios"] as? [[String: Any]])?.first)
-    #expect(report["passed"] as? Bool == true)
-    #expect(report["scenario"] as? String == file)
-    let final = (report["observations"] as? [[String: Any]])?.last?["lines"] as? [String]
-    #expect(final?.first == "Stack demo")
+    assertInlineSnapshot(of: scratch.dump(output), as: .lines) {
+      #"""
+      CommandOutput(
+        exitCode: 0,
+        stdout: """
+          {"command":"replay","exitCode":0,"scenarios":[{"failures":[],"observations":[{"line":0,"lines":["Stack demo","──────────────────────────────","Name: Ro","left                     right","──────────────────────────────","30 columns"],"verb":"replay"}],"passed":true,"scenario":"<scratch>/traces<scratch>/a.trace.jsonl"}]}
+          
+          """,
+        stderr: ""
+      )
+      """#
+    }
   }
 
   @Test
@@ -559,10 +925,104 @@ struct HarnessCLIScenarioTests {
 
     let output = await run("replay", file, "--app", "stack", "--pretty", registry: other)
 
-    #expect(output.exitCode == 1)
-    #expect(output.stdout.hasPrefix("FAIL \(file)\n"))
-    #expect(output.stdout.contains("line 1: step 0: resize 40x10"))
-    #expect(output.stdout.contains("differ from the recording"))
+    assertInlineSnapshot(of: scratch.dump(output), as: .lines) {
+      #"""
+      CommandOutput(
+        exitCode: 1,
+        stdout: """
+          FAIL <scratch>/traces<scratch>/a.trace.jsonl
+            line 1: step 0: resize 40x10
+              the changed nodes differ from the recording
+              expected: {"added":["root","root/index(0)","root/index(0)/index(0)","root/index(0)/index(1)","root/index(0)/index(2)","root/index(0)/index(2)/index(0)","root/index(0)/index(2)/index(1)","root/index(0)/index(3)","root/index(0)/index(3)/index(0)","root/index(0)/index(3)/index(1)","root/index(0)/index(3)/index(2)","root/index(0)/index(4)","root/index(0)/index(5)"],"changed":[],"removed":[]}
+              actual:   {"added":["root","root/index(0)","root/index(0)/index(0)","root/index(0)/index(1)","root/index(0)/index(2)"],"changed":[],"removed":[]}
+              screen:
+                0| Greedy
+                1| 
+                2| 
+                3| 
+                4| 
+                5| 
+                6| 
+                7| 
+                8| 
+                9| footer
+            line 2: step 1: key R
+              the changed rows differ from the recording
+              expected: [2]
+              actual:   []
+              screen:
+                0| Greedy
+                1| 
+                2| 
+                3| 
+                4| 
+                5| 
+                6| 
+                7| 
+                8| 
+                9| footer
+            line 3: step 2: key o
+              the changed nodes differ from the recording
+              expected: {"added":[],"changed":["root/index(0)/index(2)","root/index(0)/index(2)/index(1)"],"removed":[]}
+              actual:   {"added":[],"changed":[],"removed":[]}
+              screen:
+                0| Greedy
+                1| 
+                2| 
+                3| 
+                4| 
+                5| 
+                6| 
+                7| 
+                8| 
+                9| footer
+            line 4: step 3: key b
+              the changed nodes differ from the recording
+              expected: {"added":[],"changed":["root/index(0)/index(2)","root/index(0)/index(2)/index(1)"],"removed":[]}
+              actual:   {"added":[],"changed":[],"removed":[]}
+              screen:
+                0| Greedy
+                1| 
+                2| 
+                3| 
+                4| 
+                5| 
+                6| 
+                7| 
+                8| 
+                9| footer
+            line 5: step 4: resize 30x8
+              the changed nodes differ from the recording
+              expected: {"added":[],"changed":["root","root/index(0)","root/index(0)/index(0)","root/index(0)/index(1)","root/index(0)/index(2)","root/index(0)/index(3)","root/index(0)/index(3)/index(1)","root/index(0)/index(3)/index(2)","root/index(0)/index(4)","root/index(0)/index(5)"],"removed":[]}
+              actual:   {"added":[],"changed":["root","root/index(0)","root/index(0)/index(0)","root/index(0)/index(1)","root/index(0)/index(2)"],"removed":[]}
+              screen:
+                0| Greedy
+                1| 
+                2| 
+                3| 
+                4| 
+                5| 
+                6| 
+                7| footer
+            line 6: step 5: key Backspace
+              the changed nodes differ from the recording
+              expected: {"added":[],"changed":["root/index(0)/index(2)","root/index(0)/index(2)/index(1)"],"removed":[]}
+              actual:   {"added":[],"changed":[],"removed":[]}
+              screen:
+                0| Greedy
+                1| 
+                2| 
+                3| 
+                4| 
+                5| 
+                6| 
+                7| footer
+          
+          """,
+        stderr: ""
+      )
+      """#
+    }
   }
 
   @Test
@@ -580,17 +1040,64 @@ struct HarnessCLIScenarioTests {
     let notRecords = await run("replay", notTrace, "--app", "stack", "--pretty")
     let unknown = await run("replay", "run.trace", "--app", "ghost", "--pretty")
 
-    #expect(noFile.stderr == "error: usage: replay FILE --app NAME\n")
-    #expect(noName.stderr == "error: usage: replay FILE --app NAME\n")
-    #expect(missing.exitCode == 2)
-    #expect(missing.stderr.contains("cannot read the trace"))
-    #expect(notUTF8.exitCode == 2)
-    #expect(notUTF8.stderr.contains("is not UTF-8 text"))
-    #expect(notRecords.exitCode == 2)
-    #expect(
-      notRecords.stderr.hasPrefix("error: ") || notRecords.stdout.contains("error:"))
-    #expect(unknown.exitCode == 2)
-    #expect(unknown.stderr.hasPrefix("error: unknown app `ghost`; accepted: "))
+    assertInlineSnapshot(
+      of: scratch.dump([noFile, noName, missing, notUTF8, notRecords, unknown]),
+      as: .lines
+    ) {
+      #"""
+      [
+        [0]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: usage: replay FILE --app NAME
+            
+            """
+        ),
+        [1]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: usage: replay FILE --app NAME
+            
+            """
+        ),
+        [2]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: cannot read the trace `<scratch>/none.jsonl`
+            
+            """
+        ),
+        [3]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: the trace `<scratch>/bin.jsonl` is not UTF-8 text
+            
+            """
+        ),
+        [4]: CommandOutput(
+          exitCode: 2,
+          stdout: """
+            FAIL <scratch>/nope.jsonl
+            <scratch>/nope.jsonl:1: error: this line is not a trace record (not valid JSON)
+            
+            """,
+          stderr: ""
+        ),
+        [5]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: unknown app `ghost`; accepted: counter, event-log, greedy, main-actor-counter, observed-counter, stack, workspace
+            
+            """
+        )
+      ]
+      """#
+    }
   }
 
   @Test
@@ -604,9 +1111,18 @@ struct HarnessCLIScenarioTests {
       inputIsTerminal: true, outputIsTerminal: true, configuration: .default,
       environment: ["TESSERA_TRACE": scratch.path])
 
-    #expect(output.exitCode == 3)
-    #expect(
-      output.stderr.hasPrefix("error: cannot create the trace file `\(scratch.path)`"))
+    assertInlineSnapshot(of: scratch.dump(output), as: .lines) {
+      #"""
+      CommandOutput(
+        exitCode: 3,
+        stdout: "",
+        stderr: """
+          error: cannot create the trace file `<scratch>`: the file could not be created
+          
+          """
+      )
+      """#
+    }
   }
 
   // MARK: help

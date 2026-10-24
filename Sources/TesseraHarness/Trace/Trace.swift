@@ -8,7 +8,7 @@ import TesseraTerminalInput
 /// The counts are deterministic, so a scenario can bound them with `expect cost`. They are the
 /// library's work and not a promise: a change that makes the library do less work lowers
 /// them, so bound them with `<=` and never assert an exact number.
-package struct StepCost: Equatable, Codable, Sendable {
+package struct StepCost: Codable, Equatable, Sendable {
   /// The counters `expect cost` accepts, in the order the grammar lists them.
   package static let names = ["bodies", "bytes", "measures", "placements", "renders"]
 
@@ -52,7 +52,7 @@ package struct StepCost: Equatable, Codable, Sendable {
 /// `focusGained` or `focusLost` and replays like the others. An event neither the grammar nor
 /// replay can deliver (a mouse event before pointer input exists, a terminal reply) is
 /// recorded as `other`, so the trace stays complete and `replay` can refuse it by name.
-package struct TraceEvent: Equatable, Codable, Sendable {
+package struct TraceEvent: Codable, Equatable, Sendable {
   /// `key`, `paste`, `resize`, `focusGained`, `focusLost`, or `other`.
   package var type: String
 
@@ -154,9 +154,9 @@ package struct TraceEvent: Equatable, Codable, Sendable {
 /// A record is one line of the trace file, a sorted-key JSON object. "Why did this redraw?" is
 /// read from `reasons`: the library's invalidation reasons for the pass, which are value-free
 /// and bounded. The record carries a `version` and is not part of the 1.0 promise.
-package struct TraceRecord: Equatable, Codable, Sendable {
+package struct TraceRecord: Codable, Equatable, Sendable {
   /// The nodes a step changed, by identity path.
-  package struct NodeChanges: Equatable, Codable, Sendable {
+  package struct NodeChanges: Codable, Equatable, Sendable {
     /// Nodes that did not exist before the step.
     package var added: [String]
 

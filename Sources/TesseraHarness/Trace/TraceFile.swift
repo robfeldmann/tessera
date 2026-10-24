@@ -12,7 +12,7 @@ enum TraceFile {
   }
 
   /// A line of a trace file that cannot be read back.
-  struct ReadError: Error, Equatable, CustomStringConvertible {
+  struct ReadError: CustomStringConvertible, Equatable, Error {
     /// The line's number, counted from 1.
     var line: Int
     var message: String

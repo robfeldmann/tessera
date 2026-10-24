@@ -1,3 +1,7 @@
+import CustomDump
+import InlineSnapshotTesting
+import SnapshotTesting
+import SnapshotTestingCustomDump
 import TesseraTerminalANSI
 import TesseraTerminalCore
 import TesseraTerminalSnapshotSupport
@@ -35,24 +39,24 @@ struct ScreenGridTests {
   func `a blank after a wide grapheme is its continuation and leaves no character`() {
     let screen = grid([[cell("東"), .blank, cell("京"), .blank, cell("a"), .blank]])
 
-    #expect(screen.textRows == ["東京a"])
-    #expect(
-      screen.rows[0].map(\.isContinuation) == [false, true, false, true, false, false])
+    expectNoDifference(screen.textRows, ["東京a"])
+    expectNoDifference(
+      screen.rows[0].map(\.isContinuation), [false, true, false, true, false, false])
   }
 
   @Test
   func `content right after a wide grapheme is never taken for its continuation`() {
     let screen = grid([[cell("東"), cell("x"), .blank]])
 
-    #expect(screen.textRows == ["東x"])
-    #expect(screen.rows[0].map(\.isContinuation) == [false, false, false])
+    expectNoDifference(screen.textRows, ["東x"])
+    expectNoDifference(screen.rows[0].map(\.isContinuation), [false, false, false])
   }
 
   @Test
   func `a row's text loses its trailing spaces and a blank row is empty`() {
     let screen = grid([plain("ab", width: 5), plain("", width: 5)])
 
-    #expect(screen.textRows == ["ab", ""])
+    expectNoDifference(screen.textRows, ["ab", ""])
     #expect(screen.columns == 5)
   }
 
@@ -64,16 +68,16 @@ struct ScreenGridTests {
   {
     let screen = grid([plain("Hi", width: 4), plain("", width: 4)])
 
-    #expect(
-      try screen.styledGridText()
-        == """
-        ── chars ──
-        Hi
-        ── style ──
-        ── legend ──
-        .  default
+    assertInlineSnapshot(of: try screen.styledGridText(), as: .lines) {
+      """
+      ── chars ──
+      Hi
+      ── style ──
+      ── legend ──
+      .  default
 
-        """)
+      """
+    }
   }
 
   @Test
@@ -89,21 +93,21 @@ struct ScreenGridTests {
       plain("", width: 5),
     ])
 
-    #expect(
-      try screen.styledGridText()
-        == """
-        ── chars ──
-        xAAy
-        BzB
-        ── style ──
-        .AA
-        B.B
-        ── legend ──
-        .  default
-        A  bold
-        B  fg=#0080ff bold
+    assertInlineSnapshot(of: try screen.styledGridText(), as: .lines) {
+      """
+      ── chars ──
+      xAAy
+      BzB
+      ── style ──
+      .AA
+      B.B
+      ── legend ──
+      .  default
+      A  bold
+      B  fg=#0080ff bold
 
-        """)
+      """
+    }
   }
 
   @Test
@@ -111,22 +115,22 @@ struct ScreenGridTests {
     let wide = cell("東", background: .indexed(4), italic: true)
     let screen = grid([[wide, cell(" "), cell("a")]])
 
-    #expect(
-      try screen.styledGridText()
-        == """
-        ── chars ──
-        東a
-        ── style ──
-        AA
-        ── legend ──
-        .  default
-        A  bg=indexed(4) italic
+    assertInlineSnapshot(of: try screen.styledGridText(), as: .lines) {
+      """
+      ── chars ──
+      東a
+      ── style ──
+      AA
+      ── legend ──
+      .  default
+      A  bg=indexed(4) italic
 
-        """)
-    #expect(
-      screen.styleRuns == [
-        ScreenGrid.StyleRun(row: 0, column: 0, columns: 2, style: "bg=indexed(4) italic")
-      ])
+      """
+    }
+    expectNoDifference(
+      screen.styleRuns,
+      [ScreenGrid.StyleRun(row: 0, column: 0, columns: 2, style: "bg=indexed(4) italic")]
+    )
   }
 
   @Test
@@ -146,12 +150,14 @@ struct ScreenGridTests {
     let bold = cell("a", bold: true)
     let screen = grid([[bold, bold, cell("b"), bold], [bold, .blank]])
 
-    #expect(
-      screen.styleRuns == [
+    expectNoDifference(
+      screen.styleRuns,
+      [
         ScreenGrid.StyleRun(row: 0, column: 0, columns: 2, style: "bold"),
         ScreenGrid.StyleRun(row: 0, column: 3, columns: 1, style: "bold"),
         ScreenGrid.StyleRun(row: 1, column: 0, columns: 1, style: "bold"),
-      ])
+      ]
+    )
   }
 
   // MARK: Grid rows
@@ -185,23 +191,23 @@ struct ScreenGridTests {
       plain("Hi", width: 4), [fill, fill, fill, fill], [fill, fill, fill, fill],
     ])
 
-    #expect(screen.textRows == ["Hi", "", ""])
-    #expect(
-      try screen.styledGridText()
-        == """
-        ── chars ──
-        Hi
+    expectNoDifference(screen.textRows, ["Hi", "", ""])
+    assertInlineSnapshot(of: try screen.styledGridText(), as: .lines) {
+      """
+      ── chars ──
+      Hi
 
 
-        ── style ──
+      ── style ──
 
-        AAAA
-        AAAA
-        ── legend ──
-        .  default
-        A  bg=indexed(4)
+      AAAA
+      AAAA
+      ── legend ──
+      .  default
+      A  bg=indexed(4)
 
-        """)
+      """
+    }
   }
 
   @Test
@@ -210,7 +216,7 @@ struct ScreenGridTests {
     let screen = grid([plain("Hi", width: 4), [fill, fill, fill, fill]])
 
     #expect(GoldenStore.text(of: screen.textRows) == "Hi\n")
-    #expect(try sections(of: screen.styledGridText()).chars == ["Hi", ""])
+    expectNoDifference(try sections(of: screen.styledGridText()).chars, ["Hi", ""])
   }
 
   @Test
@@ -261,14 +267,23 @@ struct ScreenGridTests {
     let cells = (0..<63).map { cell("x", foreground: .rgb(UInt8($0), 0, 0)) }
     let screen = grid([cells])
 
+    var messages: [String] = []
     for record in [false, true] {
       let store = GoldenStore(scenarioPath: "/nonexistent/many.scn", record: record)
       guard case .failed(let message) = store.check(shot: "wide", screen: screen) else {
         Issue.record("record \(record): the shot did not fail as a harness error")
         continue
       }
-      #expect(message.contains("shot `wide`"))
-      #expect(message.contains("63 distinct styles"))
+      messages.append(message)
+    }
+
+    assertInlineSnapshot(of: messages, as: .customDump) {
+      """
+      [
+        [0]: "shot `wide` cannot be compared with a grid golden: the screen has 63 distinct styles, and a grid golden names at most 62 with one letter each; take the shot where fewer styles show, or compare the screen with `expect text` instead",
+        [1]: "shot `wide` cannot be compared with a grid golden: the screen has 63 distinct styles, and a grid golden names at most 62 with one letter each; take the shot where fewer styles show, or compare the screen with `expect text` instead"
+      ]
+      """
     }
   }
 }

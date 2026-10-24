@@ -14,14 +14,14 @@ package struct FrameExpectation: CustomStringConvertible, Equatable, Sendable {
 }
 
 /// One bound of an `expect cost` statement: `bodies<=5`.
-package struct CostBound: Equatable, Sendable {
+package struct CostBound: CustomStringConvertible, Equatable, Sendable {
   /// The counter, one of ``StepCost/names``.
   package var counter: String
 
   /// The most the counter may be.
   package var limit: Int
 
-  var description: String {
+  package var description: String {
     "\(counter)<=\(limit)"
   }
 }

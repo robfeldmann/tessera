@@ -58,7 +58,7 @@ package enum CheckRule: String, CaseIterable, Sendable {
 }
 
 /// One invariant that does not hold, on one node.
-package struct Violation: Equatable, Encodable, Sendable {
+package struct Violation: Encodable, Equatable, Sendable {
   /// The id of the rule, such as `siblings-disjoint`.
   package var rule: String
 

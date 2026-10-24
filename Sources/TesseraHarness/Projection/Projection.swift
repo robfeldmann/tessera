@@ -13,7 +13,7 @@ import TesseraTerminalCore
 /// renamed, or removed in any release, and the version says when.
 package struct Projection: Encodable, Equatable, Sendable {
   /// A cell rectangle, half-open like `Rect`.
-  struct Box: Equatable, Encodable, Sendable {
+  struct Box: Encodable, Equatable, Sendable {
     var column: Int
     var row: Int
     var columns: Int
@@ -48,19 +48,19 @@ package struct Projection: Encodable, Equatable, Sendable {
   }
 
   /// A size in cells.
-  struct Extent: Equatable, Encodable, Sendable {
+  struct Extent: Encodable, Equatable, Sendable {
     var columns: Int
     var rows: Int
   }
 
   /// The size a node was offered; a missing axis was unconstrained.
-  struct Proposal: Equatable, Encodable, Sendable {
+  struct Proposal: Encodable, Equatable, Sendable {
     var width: Int?
     var height: Int?
   }
 
   /// One node of the view graph.
-  struct Node: Equatable, Encodable, Sendable {
+  struct Node: Encodable, Equatable, Sendable {
     /// The identity path, such as `root/index(2)/id(catalog)`; unique per node.
     var path: String
     var parent: String?
@@ -104,21 +104,21 @@ package struct Projection: Encodable, Equatable, Sendable {
   }
 
   /// The terminal features the graph asks for.
-  struct Requirements: Equatable, Encodable, Sendable {
+  struct Requirements: Encodable, Equatable, Sendable {
     var effective: [String]?  // swiftlint:disable:this discouraged_optional_collection
     var requested: [String]
   }
 
   /// The screen the pass drew.
-  struct Screen: Equatable, Encodable, Sendable {
+  struct Screen: Encodable, Equatable, Sendable {
     /// Where the cursor is.
-    struct Cursor: Equatable, Encodable, Sendable {
+    struct Cursor: Encodable, Equatable, Sendable {
       var column: Int
       var row: Int
     }
 
     /// A run of non-default style.
-    struct StyleRun: Equatable, Encodable, Sendable {
+    struct StyleRun: Encodable, Equatable, Sendable {
       var row: Int
       var column: Int
       var columns: Int
@@ -135,7 +135,7 @@ package struct Projection: Encodable, Equatable, Sendable {
   }
 
   /// The pass counters. Durations are left out: they are not deterministic.
-  struct Statistics: Equatable, Encodable, Sendable {
+  struct Statistics: Encodable, Equatable, Sendable {
     var bodyEvaluations: Int
     var equatableSkips: Int
     var focusChanges: Int

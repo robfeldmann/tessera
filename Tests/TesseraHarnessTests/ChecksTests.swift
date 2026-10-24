@@ -1,3 +1,7 @@
+import CustomDump
+import InlineSnapshotTesting
+import SnapshotTesting
+import SnapshotTestingCustomDump
 import Testing
 
 @testable import TesseraHarness
@@ -70,12 +74,14 @@ struct ChecksTests {
           dirty: (layout: true, render: true)),
       ]))
 
-    #expect(
-      found == [
+    expectNoDifference(
+      found,
+      [
         Violation(
           rule: "no-dirty-after-pass", severity: "error", node: "root/a",
           detail: "still dirty after pass 3: needsLayout, needsRender")
-      ])
+      ]
+    )
   }
 
   @Test
@@ -94,12 +100,18 @@ struct ChecksTests {
         node("root", frame: (0, 0, 10, 1), clip: (0, 0, 4, 1), text: "Hello, world")
       ]))
 
-    #expect(found.map(\.severity) == ["warning"])
-    #expect(found.map(\.node) == ["root"])
-    #expect(
-      found.map(\.detail) == [
-        "frame 0,0,10x1 is clipped to 0,0,4x1 (visible text `Hello, world`)"
-      ])
+    assertInlineSnapshot(of: found, as: .customDump) {
+      """
+      [
+        [0]: Violation(
+          rule: "frame-inside-clip",
+          severity: "warning",
+          node: "root",
+          detail: "frame 0,0,10x1 is clipped to 0,0,4x1 (visible text `Hello, world`)"
+        )
+      ]
+      """
+    }
   }
 
   @Test
@@ -108,7 +120,18 @@ struct ChecksTests {
       .frameInsideClip,
       projection([node("root", frame: (5, 0, 3, 1), clip: (0, 0, 4, 1))]))
 
-    #expect(found.map(\.detail) == ["frame 5,0,3x1 is clipped to nothing"])
+    assertInlineSnapshot(of: found, as: .customDump) {
+      """
+      [
+        [0]: Violation(
+          rule: "frame-inside-clip",
+          severity: "warning",
+          node: "root",
+          detail: "frame 5,0,3x1 is clipped to nothing"
+        )
+      ]
+      """
+    }
   }
 
   @Test
@@ -144,11 +167,18 @@ struct ChecksTests {
           measured: (columns: 12, rows: 3))
       ]))
 
-    #expect(
-      found.map(\.detail) == [
-        "measured 12 columns where 4 were offered and 3 rows where 1 were offered"
-      ])
-    #expect(found.map(\.severity) == ["error"])
+    assertInlineSnapshot(of: found, as: .customDump) {
+      """
+      [
+        [0]: Violation(
+          rule: "measured-within-proposal",
+          severity: "error",
+          node: "root",
+          detail: "measured 12 columns where 4 were offered and 3 rows where 1 were offered"
+        )
+      ]
+      """
+    }
   }
 
   @Test
@@ -194,14 +224,16 @@ struct ChecksTests {
         node("root/id(b)", parent: "root", frame: (0, 0, 4, 1)),
       ]))
 
-    #expect(
-      found == [
+    expectNoDifference(
+      found,
+      [
         Violation(
           rule: "siblings-disjoint", severity: "error", node: "root/id(b)",
           detail:
             "shows 0,0,4x1, which overlaps sibling root/id(a) showing 0,0,4x1 under VStack"
         )
-      ])
+      ]
+    )
   }
 
   @Test
@@ -236,8 +268,18 @@ struct ChecksTests {
     }
 
     #expect(items(under: "ZStack").isEmpty)
-    #expect(items(under: "VStack").map(\.node) == ["root/index(0)/id(b)"])
-    #expect(items(under: "VStack").first?.detail.hasSuffix("under ForEach") == true)
+    assertInlineSnapshot(of: items(under: "VStack"), as: .customDump) {
+      """
+      [
+        [0]: Violation(
+          rule: "siblings-disjoint",
+          severity: "error",
+          node: "root/index(0)/id(b)",
+          detail: "shows 0,0,2x1, which overlaps sibling root/index(0)/id(a) showing 0,0,4x1 under ForEach"
+        )
+      ]
+      """
+    }
   }
 
   @Test
@@ -271,11 +313,26 @@ struct ChecksTests {
     #expect(run(.siblingsDisjoint, tree(under: "ZStack")).isEmpty)
     // Under a stack the same two texts on one frame are the defect, and so is the text
     // that the optional puts over `base`.
-    #expect(
-      run(.siblingsDisjoint, tree(under: "VStack")).map(\.node) == [
-        "root/index(1)",
-        "root/index(1)/branch(true)/index(1)",
-      ])
+    assertInlineSnapshot(
+      of: run(.siblingsDisjoint, tree(under: "VStack")), as: .customDump
+    ) {
+      """
+      [
+        [0]: Violation(
+          rule: "siblings-disjoint",
+          severity: "error",
+          node: "root/index(1)",
+          detail: "shows 0,0,1x1, which overlaps sibling root/index(0) showing 0,0,4x1 under VStack"
+        ),
+        [1]: Violation(
+          rule: "siblings-disjoint",
+          severity: "error",
+          node: "root/index(1)/branch(true)/index(1)",
+          detail: "shows 0,0,1x1, which overlaps sibling root/index(1)/branch(true)/index(0) showing 0,0,1x1 under TupleView"
+        )
+      ]
+      """
+    }
   }
 
   @Test
@@ -325,7 +382,18 @@ struct ChecksTests {
         node("root/index(1)", parent: "root", frame: (0, 0, 4, 1)),
       ]))
 
-    #expect(found.map(\.node) == ["root/index(1)"])
+    assertInlineSnapshot(of: found, as: .customDump) {
+      """
+      [
+        [0]: Violation(
+          rule: "siblings-disjoint",
+          severity: "error",
+          node: "root/index(1)",
+          detail: "shows 0,0,4x1, which overlaps sibling root/index(0) showing 0,0,4x1 under TupleView"
+        )
+      ]
+      """
+    }
   }
 
   @Test
@@ -355,10 +423,20 @@ struct ChecksTests {
       ])
     }
 
-    #expect(
-      run(.siblingsDisjoint, tree(userViewIsList: false)).map(\.node) == [
-        "root/index(0)/index(0)/index(1)"
-      ])
+    assertInlineSnapshot(
+      of: run(.siblingsDisjoint, tree(userViewIsList: false)), as: .customDump
+    ) {
+      """
+      [
+        [0]: Violation(
+          rule: "siblings-disjoint",
+          severity: "error",
+          node: "root/index(0)/index(0)/index(1)",
+          detail: "shows 0,0,2x1, which overlaps sibling root/index(0)/index(0)/index(0) showing 0,0,4x1 under TupleView"
+        )
+      ]
+      """
+    }
     #expect(
       run(.siblingsDisjoint, tree(userViewIsList: true)).isEmpty,
       "the library's own ForEach in that place is a list, and is looked through")
@@ -377,8 +455,18 @@ struct ChecksTests {
         node("root/b", parent: "root", frame: (2, 0, 4, 1)),
       ]))
 
-    #expect(found.map(\.node) == ["root/b"])
-    #expect(found.map(\.detail).first?.hasSuffix("under Stagger") == true)
+    assertInlineSnapshot(of: found, as: .customDump) {
+      """
+      [
+        [0]: Violation(
+          rule: "siblings-disjoint",
+          severity: "error",
+          node: "root/b",
+          detail: "shows 2,0,4x1, which overlaps sibling root/a showing 0,0,4x1 under Stagger"
+        )
+      ]
+      """
+    }
   }
 
   @Test
@@ -422,12 +510,14 @@ struct ChecksTests {
           node("root/a", parent: "root", frame: (0, 0, 4, 1), requirements: ["mouse"]),
         ], requested: []))
 
-    #expect(
-      found == [
+    expectNoDifference(
+      found,
+      [
         Violation(
           rule: "requirements-aggregate", severity: "error", node: "root/a",
           detail: "asks for `mouse`, which the graph does not request")
-      ])
+      ]
+    )
   }
 
   @Test
@@ -438,8 +528,18 @@ struct ChecksTests {
       .requirementsAggregate,
       projection([node("root", frame: (0, 0, 4, 1))], requested: ["focus"]))
 
-    #expect(found.map(\.node) == ["root"])
-    #expect(found.map(\.detail) == ["the graph requests `focus` and no node asks for it"])
+    assertInlineSnapshot(of: found, as: .customDump) {
+      """
+      [
+        [0]: Violation(
+          rule: "requirements-aggregate",
+          severity: "error",
+          node: "root",
+          detail: "the graph requests `focus` and no node asks for it"
+        )
+      ]
+      """
+    }
   }
 
   @Test
@@ -474,30 +574,72 @@ struct ChecksTests {
     let backward = Checker.run(
       [.siblingsDisjoint, .frameInsideClip, .noDirtyAfterPass], on: crafted)
 
-    #expect(
-      forward.map(\.rule) == [
-        "no-dirty-after-pass", "frame-inside-clip", "siblings-disjoint",
-      ])
-    #expect(
-      backward.map(\.rule) == [
-        "siblings-disjoint", "frame-inside-clip", "no-dirty-after-pass",
-      ])
-    #expect(forward.map(\.severity) == ["error", "warning", "error"])
+    assertInlineSnapshot(of: forward, as: .customDump) {
+      """
+      [
+        [0]: Violation(
+          rule: "no-dirty-after-pass",
+          severity: "error",
+          node: "root",
+          detail: "still dirty after pass 3: needsLayout"
+        ),
+        [1]: Violation(
+          rule: "frame-inside-clip",
+          severity: "warning",
+          node: "root/a",
+          detail: "frame 0,0,4x1 is clipped to 0,0,2x1"
+        ),
+        [2]: Violation(
+          rule: "siblings-disjoint",
+          severity: "error",
+          node: "root/b",
+          detail: "shows 0,0,4x1, which overlaps sibling root/a showing 0,0,2x1 under VStack"
+        )
+      ]
+      """
+    }
+    assertInlineSnapshot(of: backward, as: .customDump) {
+      """
+      [
+        [0]: Violation(
+          rule: "siblings-disjoint",
+          severity: "error",
+          node: "root/b",
+          detail: "shows 0,0,4x1, which overlaps sibling root/a showing 0,0,2x1 under VStack"
+        ),
+        [1]: Violation(
+          rule: "frame-inside-clip",
+          severity: "warning",
+          node: "root/a",
+          detail: "frame 0,0,4x1 is clipped to 0,0,2x1"
+        ),
+        [2]: Violation(
+          rule: "no-dirty-after-pass",
+          severity: "error",
+          node: "root",
+          detail: "still dirty after pass 3: needsLayout"
+        )
+      ]
+      """
+    }
     #expect(Checker.run([], on: crafted).isEmpty)
   }
 
   @Test
   func `the rule ids are the five the catalog names, in the order bare check runs them`()
   {
-    #expect(
-      CheckRule.allCases.map(\.rawValue) == [
+    expectNoDifference(
+      CheckRule.allCases.map(\.rawValue),
+      [
         "no-dirty-after-pass", "frame-inside-clip", "measured-within-proposal",
         "siblings-disjoint", "requirements-aggregate",
-      ])
+      ]
+    )
     #expect(
       CheckRule.accepted
         == "no-dirty-after-pass, frame-inside-clip, measured-within-proposal, "
         + "siblings-disjoint, requirements-aggregate")
-    #expect(CheckRule.allCases.filter { $0.severity == .warning } == [.frameInsideClip])
+    expectNoDifference(
+      CheckRule.allCases.filter { $0.severity == .warning }, [.frameInsideClip])
   }
 }

@@ -1,4 +1,8 @@
+import CustomDump
 import Foundation
+import InlineSnapshotTesting
+import SnapshotTesting
+import SnapshotTestingCustomDump
 import TesseraTerminalCore
 import TesseraTerminalInput
 import Testing
@@ -38,16 +42,50 @@ struct TraceTests {
   func `the first record is step 0 and its event is the starting size`() async throws {
     let records = try await records(of: "steady")
 
-    let first = try #require(records.first)
-    #expect(records.count == 1)
-    #expect(first.seq == 0)
-    #expect(first.version == TraceRecord.currentVersion)
-    #expect(first.event == TraceEvent(.resize(TerminalSize(columns: 40, rows: 12))))
-    #expect(first.drew)
-    #expect(first.cost.bytes > 0)
-    #expect(first.nodes.added.first == "root")
-    #expect(first.nodes.changed.isEmpty && first.nodes.removed.isEmpty)
-    #expect(first.rows == [0])
+    #expect(records.first?.version == TraceRecord.currentVersion)
+    assertInlineSnapshot(of: records, as: .customDump) {
+      """
+      [
+        [0]: TraceRecord(
+          version: 1,
+          seq: 0,
+          event: TraceEvent(
+            type: "resize",
+            key: nil,
+            kind: nil,
+            text: nil,
+            size: "40x12",
+            detail: nil
+          ),
+          drew: true,
+          reasons: [
+            [0]: "renderRequested",
+            [1]: "updateRequested"
+          ],
+          nodes: TraceRecord.NodeChanges(
+            added: [
+              [0]: "root",
+              [1]: "root/index(0)",
+              [2]: "root/index(0)/body",
+              [3]: "root/index(0)/body/index(0)"
+            ],
+            changed: [],
+            removed: []
+          ),
+          rows: [
+            [0]: 0
+          ],
+          cost: StepCost(
+            bodies: 0,
+            bytes: 573,
+            measures: 4,
+            placements: 4,
+            renders: 1
+          )
+        )
+      ]
+      """
+    }
   }
 
   @Test
@@ -56,11 +94,51 @@ struct TraceTests {
   {
     let records = try await records(of: "layers", [key("x"), key("y")])
 
-    #expect(records.map(\.seq) == [0, 1, 2])
+    assertInlineSnapshot(
+      of: records.map { ($0.seq, $0.drew, $0.reasons) }, as: .customDump
+    ) {
+      """
+      [
+        [0]: (
+          0,
+          true,
+          [
+            [0]: "layoutEnvironmentChanged",
+            [1]: "layoutViewChanged",
+            [2]: "renderEnvironmentChanged",
+            [3]: "renderRequested",
+            [4]: "renderViewChanged",
+            [5]: "updateRequested"
+          ]
+        ),
+        [1]: (
+          1,
+          true,
+          [
+            [0]: "layoutEnvironmentChanged",
+            [1]: "layoutViewChanged",
+            [2]: "renderEnvironmentChanged",
+            [3]: "renderRequested",
+            [4]: "renderViewChanged",
+            [5]: "updateRequested"
+          ]
+        ),
+        [2]: (
+          2,
+          true,
+          [
+            [0]: "layoutEnvironmentChanged",
+            [1]: "layoutViewChanged",
+            [2]: "renderEnvironmentChanged",
+            [3]: "renderRequested",
+            [4]: "renderViewChanged",
+            [5]: "updateRequested"
+          ]
+        )
+      ]
+      """
+    }
     for record in records {
-      #expect(record.drew)
-      #expect(record.reasons.contains("updateRequested"), "step \(record.seq)")
-      #expect(record.reasons.contains("renderRequested"), "step \(record.seq)")
       #expect(record.reasons == record.reasons.sorted(), "the library's fixed order")
     }
   }
@@ -70,11 +148,68 @@ struct TraceTests {
     let records = try await records(
       of: "layers", [.resize(TerminalSize(columns: 30, rows: 10)), key("x")])
 
-    #expect(records[1].event == TraceEvent(.resize(TerminalSize(columns: 30, rows: 10))))
-    #expect(records[1].reasons.contains("layoutViewportChanged"))
-    #expect(records[1].reasons.contains("renderViewportChanged"))
-    #expect(!records[2].reasons.contains("layoutViewportChanged"))
-    #expect(!records[0].reasons.contains("layoutViewportChanged"))
+    assertInlineSnapshot(of: records.map { ($0.event, $0.reasons) }, as: .customDump) {
+      """
+      [
+        [0]: (
+          TraceEvent(
+            type: "resize",
+            key: nil,
+            kind: nil,
+            text: nil,
+            size: "40x12",
+            detail: nil
+          ),
+          [
+            [0]: "layoutEnvironmentChanged",
+            [1]: "layoutViewChanged",
+            [2]: "renderEnvironmentChanged",
+            [3]: "renderRequested",
+            [4]: "renderViewChanged",
+            [5]: "updateRequested"
+          ]
+        ),
+        [1]: (
+          TraceEvent(
+            type: "resize",
+            key: nil,
+            kind: nil,
+            text: nil,
+            size: "30x10",
+            detail: nil
+          ),
+          [
+            [0]: "layoutEnvironmentChanged",
+            [1]: "layoutViewChanged",
+            [2]: "layoutViewportChanged",
+            [3]: "renderEnvironmentChanged",
+            [4]: "renderRequested",
+            [5]: "renderViewChanged",
+            [6]: "renderViewportChanged",
+            [7]: "updateRequested"
+          ]
+        ),
+        [2]: (
+          TraceEvent(
+            type: "key",
+            key: "x",
+            kind: nil,
+            text: nil,
+            size: nil,
+            detail: nil
+          ),
+          [
+            [0]: "layoutEnvironmentChanged",
+            [1]: "layoutViewChanged",
+            [2]: "renderEnvironmentChanged",
+            [3]: "renderRequested",
+            [4]: "renderViewChanged",
+            [5]: "updateRequested"
+          ]
+        )
+      ]
+      """
+    }
   }
 
   @Test
@@ -83,28 +218,163 @@ struct TraceTests {
   {
     let records = try await records(of: "steady", [key("x"), key("+"), key("x")])
 
-    let ignored = records[1]
-    #expect(!ignored.drew)
-    #expect(
-      ignored.cost
-        == StepCost(bodies: 0, bytes: 0, measures: 0, placements: 0, renders: 0))
-    #expect(ignored.rows.isEmpty)
-    #expect(ignored.nodes == TraceRecord.NodeChanges(added: [], changed: [], removed: []))
-    #expect(ignored.reasons == ["updateRequested"])
-    #expect(records[2].drew)
-    #expect(records[2].rows == [0])
-    #expect(records[2].cost.bytes > 0)
-    #expect(!records[3].drew)
+    assertInlineSnapshot(
+      of: records.map { ($0.drew, $0.cost, $0.rows, $0.nodes, $0.reasons) },
+      as: .customDump
+    ) {
+      """
+      [
+        [0]: (
+          true,
+          StepCost(
+            bodies: 0,
+            bytes: 573,
+            measures: 4,
+            placements: 4,
+            renders: 1
+          ),
+          [
+            [0]: 0
+          ],
+          TraceRecord.NodeChanges(
+            added: [
+              [0]: "root",
+              [1]: "root/index(0)",
+              [2]: "root/index(0)/body",
+              [3]: "root/index(0)/body/index(0)"
+            ],
+            changed: [],
+            removed: []
+          ),
+          [
+            [0]: "renderRequested",
+            [1]: "updateRequested"
+          ]
+        ),
+        [1]: (
+          false,
+          StepCost(
+            bodies: 0,
+            bytes: 0,
+            measures: 0,
+            placements: 0,
+            renders: 0
+          ),
+          [],
+          TraceRecord.NodeChanges(
+            added: [],
+            changed: [],
+            removed: []
+          ),
+          [
+            [0]: "updateRequested"
+          ]
+        ),
+        [2]: (
+          true,
+          StepCost(
+            bodies: 1,
+            bytes: 17,
+            measures: 4,
+            placements: 4,
+            renders: 1
+          ),
+          [
+            [0]: 0
+          ],
+          TraceRecord.NodeChanges(
+            added: [],
+            changed: [],
+            removed: []
+          ),
+          [
+            [0]: "layoutViewChanged",
+            [1]: "renderRequested",
+            [2]: "renderViewChanged",
+            [3]: "updateRequested"
+          ]
+        ),
+        [3]: (
+          false,
+          StepCost(
+            bodies: 0,
+            bytes: 0,
+            measures: 0,
+            placements: 0,
+            renders: 0
+          ),
+          [],
+          TraceRecord.NodeChanges(
+            added: [],
+            changed: [],
+            removed: []
+          ),
+          [
+            [0]: "updateRequested"
+          ]
+        )
+      ]
+      """
+    }
   }
 
   @Test
   func `a step lists the nodes it added and removed by identity`() async throws {
     let records = try await records(of: "growing", [key("+"), key("+"), key("-")])
 
-    #expect(records[1].nodes.added.contains { $0.hasSuffix("id(b)") })
-    #expect(records[2].nodes.added.contains { $0.hasSuffix("id(c)") })
-    #expect(records[3].nodes.removed.contains { $0.hasSuffix("id(c)") })
-    #expect(records[3].nodes.added.isEmpty)
+    assertInlineSnapshot(of: records.map(\.nodes), as: .customDump) {
+      """
+      [
+        [0]: TraceRecord.NodeChanges(
+          added: [
+            [0]: "root",
+            [1]: "root/index(0)",
+            [2]: "root/index(0)/index(0)",
+            [3]: "root/index(0)/index(0)/id(a)",
+            [4]: "root/index(0)/index(0)/id(a)/index(0)"
+          ],
+          changed: [],
+          removed: []
+        ),
+        [1]: TraceRecord.NodeChanges(
+          added: [
+            [0]: "root/index(0)/index(0)/id(b)",
+            [1]: "root/index(0)/index(0)/id(b)/index(0)"
+          ],
+          changed: [
+            [0]: "root",
+            [1]: "root/index(0)",
+            [2]: "root/index(0)/index(0)"
+          ],
+          removed: []
+        ),
+        [2]: TraceRecord.NodeChanges(
+          added: [
+            [0]: "root/index(0)/index(0)/id(c)",
+            [1]: "root/index(0)/index(0)/id(c)/index(0)"
+          ],
+          changed: [
+            [0]: "root",
+            [1]: "root/index(0)",
+            [2]: "root/index(0)/index(0)"
+          ],
+          removed: []
+        ),
+        [3]: TraceRecord.NodeChanges(
+          added: [],
+          changed: [
+            [0]: "root",
+            [1]: "root/index(0)",
+            [2]: "root/index(0)/index(0)"
+          ],
+          removed: [
+            [0]: "root/index(0)/index(0)/id(c)",
+            [1]: "root/index(0)/index(0)/id(c)/index(0)"
+          ]
+        )
+      ]
+      """
+    }
   }
 
   @Test
@@ -113,40 +383,78 @@ struct TraceTests {
     let records = try await records(
       of: "layers", [.resize(TerminalSize(columns: 20, rows: 12))])
 
-    #expect(records[1].nodes.added.isEmpty)
-    #expect(records[1].nodes.removed.isEmpty)
-    #expect(!records[1].nodes.changed.contains("root/index(0)/index(2)/id(a)"))
-    #expect(records[1].nodes.changed.contains("root"))
+    assertInlineSnapshot(of: records[1].nodes, as: .customDump) {
+      """
+      TraceRecord.NodeChanges(
+        added: [],
+        changed: [
+          [0]: "root",
+          [1]: "root/index(0)",
+          [2]: "root/index(0)/index(0)",
+          [3]: "root/index(0)/index(1)",
+          [4]: "root/index(0)/index(2)/id(a)/index(0)",
+          [5]: "root/index(0)/index(2)/id(b)/index(0)"
+        ],
+        removed: []
+      )
+      """
+    }
   }
 
   // MARK: Events
 
   @Test
   func `an event is spelled the way a scenario statement spells it`() {
-    #expect(TraceEvent(.key(Key(code: .down))).key == "ArrowDown")
-    #expect(TraceEvent(.key(Key(code: .tab, modifiers: .shift))).key == "Shift+Tab")
-    #expect(
-      TraceEvent(.key(Key(code: .character("c"), modifiers: .control))).key == "Ctrl+c")
-    #expect(TraceEvent(.key(Key(code: .character(" ")))).key == "Space")
+    let keys = [
+      Key(code: .down), Key(code: .tab, modifiers: .shift),
+      Key(code: .character("c"), modifiers: .control), Key(code: .character(" ")),
+    ]
+    let kinds = [KeyEventKind.release, .repeat, .press].map {
+      TraceEvent(.key(Key(code: .character("a"), kind: $0))).kind
+    }
+
+    expectNoDifference(
+      keys.map { TraceEvent(.key($0)).key },
+      ["ArrowDown", "Shift+Tab", "Ctrl+c", "Space"])
+    expectNoDifference(kinds, ["release", "repeat", nil])
     #expect(TraceEvent(.paste("a b")).text == "a b")
     #expect(TraceEvent(.resize(TerminalSize(columns: 9, rows: 4))).size == "9x4")
-    #expect(
-      TraceEvent(.key(Key(code: .character("a"), kind: .release))).kind == "release")
-    #expect(TraceEvent(.key(Key(code: .character("a"), kind: .repeat))).kind == "repeat")
-    #expect(TraceEvent(.key(Key(code: .character("a")))).kind == nil)
   }
 
   @Test
   func `an event neither the grammar nor replay can say is recorded as other`() {
-    for event in [InputEvent.unknown([0x1b, 0x5b]), .primaryDeviceAttributes([1])] {
-      let recorded = TraceEvent(event)
-      #expect(recorded.type == "other")
-      #expect(recorded.inputEvent == nil)
-      #expect(recorded.summary.hasSuffix("(not replayable)"))
+    let recorded = [
+      InputEvent.unknown([0x1b, 0x5b]), .primaryDeviceAttributes([1]),
+      .key(Key(code: .character("a"), modifiers: .capsLock)),
+    ].map(TraceEvent.init)
+
+    assertInlineSnapshot(
+      of: recorded.map { ($0.type, $0.inputEvent == nil, $0.summary, $0.detail) },
+      as: .customDump
+    ) {
+      """
+      [
+        [0]: (
+          "other",
+          true,
+          "unknown (not replayable)",
+          "unknown"
+        ),
+        [1]: (
+          "other",
+          true,
+          "terminalReply (not replayable)",
+          "terminalReply"
+        ),
+        [2]: (
+          "other",
+          true,
+          "key a (not replayable)",
+          "key a"
+        )
+      ]
+      """
     }
-    let capsLock = TraceEvent(.key(Key(code: .character("a"), modifiers: .capsLock)))
-    #expect(capsLock.type == "other")
-    #expect(capsLock.detail?.hasPrefix("key") == true)
   }
 
   @Test
@@ -154,12 +462,24 @@ struct TraceTests {
     let gained = TraceEvent(.focusGained)
     let lost = TraceEvent(.focusLost)
 
-    #expect(gained.type == "focusGained")
-    #expect(lost.type == "focusLost")
-    #expect(gained.inputEvent == .focusGained)
-    #expect(lost.inputEvent == .focusLost)
-    #expect(gained.summary == "focus gained")
-    #expect(lost.summary == "focus lost")
+    assertInlineSnapshot(
+      of: [gained, lost].map { ($0.type, $0.inputEvent, $0.summary) }, as: .customDump
+    ) {
+      """
+      [
+        [0]: (
+          "focusGained",
+          .focusGained,
+          "focus gained"
+        ),
+        [1]: (
+          "focusLost",
+          .focusLost,
+          "focus lost"
+        )
+      ]
+      """
+    }
     // Nothing else rides along, so a record is just the type.
     #expect(JSONText.string(for: gained) == #"{"type":"focusGained"}"#)
     let decoded = try JSONDecoder().decode(
@@ -189,11 +509,11 @@ struct TraceTests {
 
     let line = try #require(records.first?.line)
     #expect(!line.contains("\n"))
-    let keys = ["cost", "drew", "event", "nodes", "reasons", "rows", "seq", "version"]
-    let positions = keys.compactMap { line.range(of: "\"\($0)\":")?.lowerBound }
-    #expect(positions.count == keys.count)
-    #expect(positions == positions.sorted())
-    #expect(line.contains(#""version":1"#))
+    assertInlineSnapshot(of: line, as: .lines) {
+      """
+      {"cost":{"bodies":0,"bytes":573,"measures":4,"placements":4,"renders":1},"drew":true,"event":{"size":"40x12","type":"resize"},"nodes":{"added":["root","root/index(0)","root/index(0)/body","root/index(0)/body/index(0)"],"changed":[],"removed":[]},"reasons":["renderRequested","updateRequested"],"rows":[0],"seq":0,"version":1}
+      """
+    }
   }
 
   @Test
@@ -204,8 +524,8 @@ struct TraceTests {
 
     #expect(text.hasSuffix("}\n"))
     #expect(text.split(separator: "\n").count == records.count)
-    #expect(try TraceFile.records(in: text) == records)
-    #expect(try TraceFile.records(in: "\n" + text + "\n\n") == records)
+    expectNoDifference(try TraceFile.records(in: text), records)
+    expectNoDifference(try TraceFile.records(in: "\n" + text + "\n\n"), records)
   }
 
   @Test
@@ -227,11 +547,24 @@ struct TraceTests {
         in: valid.line.replacingOccurrences(of: #""version":1"#, with: #""version":2"#))
     }
 
-    #expect(notJSON?.line == 2)
-    #expect(notJSON?.message.contains("not a trace record") == true)
-    #expect(missing?.line == 2)
-    #expect(later?.line == 1)
-    #expect(later?.message.contains("version 2") == true)
+    assertInlineSnapshot(of: [notJSON, missing, later], as: .customDump) {
+      """
+      [
+        [0]: TraceFile.ReadError(
+          line: 2,
+          message: "this line is not a trace record (not valid JSON)"
+        ),
+        [1]: TraceFile.ReadError(
+          line: 2,
+          message: "this line is not a trace record (no `seq`)"
+        ),
+        [2]: TraceFile.ReadError(
+          line: 1,
+          message: "the record has version 2; this harness reads version 1"
+        )
+      ]
+      """
+    }
   }
 
   @Test
@@ -249,27 +582,41 @@ struct TraceTests {
       try TraceFile.records(in: #"{"seq":0}"# + "\n")
     }
 
-    #expect(renamed?.line == 1)
-    #expect(renamed?.message == "the record has version 2; this harness reads version 1")
-    #expect(older?.message == "the record has version 0; this harness reads version 1")
-    #expect(noVersion?.message.contains("not a trace record") == true)
-    #expect(noVersion?.message.contains("version") == true)
+    assertInlineSnapshot(of: [renamed, older, noVersion], as: .customDump) {
+      """
+      [
+        [0]: TraceFile.ReadError(
+          line: 1,
+          message: "the record has version 2; this harness reads version 1"
+        ),
+        [1]: TraceFile.ReadError(
+          line: 1,
+          message: "the record has version 0; this harness reads version 1"
+        ),
+        [2]: TraceFile.ReadError(
+          line: 1,
+          message: "this line is not a trace record (no `version`)"
+        )
+      ]
+      """
+    }
   }
 
   @Test
   func
     `a scenario's trace file mirrors its path under the directory and stays inside it`()
   {
-    #expect(
-      TraceFile.path(forScenario: "Examples/Scenarios/flex-desktop.scn", in: "out")
-        == "out/Examples/Scenarios/flex-desktop.trace.jsonl")
-    #expect(
-      TraceFile.path(forScenario: "/tmp/../etc/x.scn", in: "out")
-        == "out/tmp/etc/x.trace.jsonl")
-    #expect(
-      TraceFile.path(forScenario: "./a/./b.scn", in: "out") == "out/a/b.trace.jsonl")
-    #expect(
-      TraceFile.path(forScenario: #"C:\work\s.scn"#, in: "out")
-        == "out/C_/work/s.trace.jsonl")
+    let scenarios = [
+      "Examples/Scenarios/flex-desktop.scn", "/tmp/../etc/x.scn", "./a/./b.scn",
+      #"C:\work\s.scn"#,
+    ]
+
+    expectNoDifference(
+      scenarios.map { TraceFile.path(forScenario: $0, in: "out") },
+      [
+        "out/Examples/Scenarios/flex-desktop.trace.jsonl", "out/tmp/etc/x.trace.jsonl",
+        "out/a/b.trace.jsonl", "out/C_/work/s.trace.jsonl",
+      ]
+    )
   }
 }

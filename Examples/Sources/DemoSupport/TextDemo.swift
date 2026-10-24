@@ -10,8 +10,8 @@ import TesseraHarness
 /// `mobile` viewport, and a probe that `n` and `p` step through one sample at a time with the
 /// size it should measure.
 ///
-/// Wrapping, truncation, and styled runs are not here: they arrive with the styling slice, and
-/// the archived demo's wrap and truncation keys come back with them. `q` quits.
+/// The demo shows measurement and placement only, with no wrapping, truncation, or styled runs.
+/// `q` quits.
 final class TextDemo: Demo {
   /// One probe sample and the size it measures.
   private struct Sample {

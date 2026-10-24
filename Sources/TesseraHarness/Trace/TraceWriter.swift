@@ -9,7 +9,7 @@ import Foundation
 @MainActor
 final class TraceWriter {
   /// A trace file that cannot be created.
-  struct OpenError: Error, CustomStringConvertible {
+  struct OpenError: CustomStringConvertible, Error {
     var path: String
     var reason: String
 

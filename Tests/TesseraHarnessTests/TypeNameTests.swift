@@ -1,3 +1,4 @@
+import CustomDump
 import Testing
 
 @testable import TesseraHarness
@@ -5,13 +6,14 @@ import Testing
 struct TypeNameTests {
   @Test
   func `a short name drops the module and every generic argument`() {
-    #expect(TypeName.short("TesseraCore.Text") == "Text")
-    #expect(
-      TypeName.short(
-        "TesseraLayout.VStack<TesseraCore.TupleView<(TesseraCore.Text, Int)>>")
-        == "VStack")
-    #expect(TypeName.short("MyApp.Outer<Int>.Inner<String>") == "Inner")
-    #expect(TypeName.short("Text") == "Text")
+    let reflected = [
+      "TesseraCore.Text",
+      "TesseraLayout.VStack<TesseraCore.TupleView<(TesseraCore.Text, Int)>>",
+      "MyApp.Outer<Int>.Inner<String>", "Text",
+    ]
+
+    expectNoDifference(
+      reflected.map(TypeName.short), ["Text", "VStack", "Inner", "Text"])
   }
 
   @Test
@@ -33,46 +35,50 @@ struct TypeNameTests {
     let custom = "TesseraCore._LayoutContainer<MyApp.Stagger<Int>, TesseraCore.Text>"
 
     #expect(TypeName.short(frame) == "_LayoutContainer")
-    #expect(TypeName.layout(of: frame) == "_FrameLayout")
-    #expect(TypeName.layout(of: padding) == "_PaddingLayout")
-    #expect(TypeName.layout(of: custom) == "Stagger")
+    expectNoDifference(
+      [frame, padding, custom].map(TypeName.layout(of:)),
+      ["_FrameLayout", "_PaddingLayout", "Stagger"])
   }
 
   @Test
   func `only a layout container has a layout`() {
-    #expect(TypeName.layout(of: "TesseraLayout.HStack<TesseraCore.Text>") == nil)
-    #expect(TypeName.layout(of: "TesseraCore.Text") == nil)
-    #expect(TypeName.layout(of: "TesseraCore._LayoutContainer") == nil)
+    let reflected = [
+      "TesseraLayout.HStack<TesseraCore.Text>", "TesseraCore.Text",
+      "TesseraCore._LayoutContainer",
+    ]
+
+    expectNoDifference(reflected.map(TypeName.layout(of:)), [nil, nil, nil])
   }
 
   @Test
   func `the library's view lists are lists whatever they hold`() {
-    #expect(
-      TypeName.isViewList(
-        "TesseraCore.ForEach<Swift.Array<Swift.String>, TesseraCore.Text>"))
-    #expect(
-      TypeName.isViewList("TesseraCore.TupleView<(TesseraCore.Text, TesseraCore.Text)>"))
-    #expect(
-      TypeName.isViewList(
-        "TesseraCore.ConditionalView<TesseraCore.Text, TesseraCore.Text>"))
-    #expect(TypeName.isViewList("TesseraCore.EmptyView"))
-    #expect(TypeName.isViewList("Swift.Optional<TesseraCore.Text>"))
+    let lists = [
+      "TesseraCore.ForEach<Swift.Array<Swift.String>, TesseraCore.Text>",
+      "TesseraCore.TupleView<(TesseraCore.Text, TesseraCore.Text)>",
+      "TesseraCore.ConditionalView<TesseraCore.Text, TesseraCore.Text>",
+      "TesseraCore.EmptyView", "Swift.Optional<TesseraCore.Text>",
+    ]
+
+    expectNoDifference(lists.map(TypeName.isViewList), Array(repeating: true, count: 5))
   }
 
   @Test
   func `a view of an app's own with a list's name is not a list`() {
-    #expect(!TypeName.isViewList("MyApp.ForEach"))
-    #expect(!TypeName.isViewList("MyApp.TupleView<Swift.Int>"))
-    #expect(!TypeName.isViewList("MyApp.Optional<TesseraCore.Text>"))
-    #expect(!TypeName.isViewList("MyApp.Outer.EmptyView"))
-    #expect(!TypeName.isViewList("ForEach"))
+    let views = [
+      "MyApp.ForEach", "MyApp.TupleView<Swift.Int>", "MyApp.Optional<TesseraCore.Text>",
+      "MyApp.Outer.EmptyView", "ForEach",
+    ]
+
+    expectNoDifference(views.map(TypeName.isViewList), Array(repeating: false, count: 5))
   }
 
   @Test
   func `a view that only has a list inside its arguments is not a list`() {
-    #expect(
-      !TypeName.isViewList("TesseraLayout.VStack<TesseraCore.TupleView<(Int, Int)>>"))
-    #expect(!TypeName.isViewList("TesseraCore.Text"))
-    #expect(!TypeName.isViewList("Swift.Array<TesseraCore.ForEach<Int, Int>>"))
+    let views = [
+      "TesseraLayout.VStack<TesseraCore.TupleView<(Int, Int)>>", "TesseraCore.Text",
+      "Swift.Array<TesseraCore.ForEach<Int, Int>>",
+    ]
+
+    expectNoDifference(views.map(TypeName.isViewList), Array(repeating: false, count: 3))
   }
 }
