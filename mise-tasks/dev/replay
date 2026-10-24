@@ -9,7 +9,6 @@ set -euo pipefail
 cd "$MISE_PROJECT_ROOT"
 source scripts/dev-tessera.sh
 if [[ -z "${usage_file:-}" ]]; then
-  tessera_help_with_apps replay
-  exit 0
+  tessera_exit_with_help_and_apps replay
 fi
 tessera replay "$@"
