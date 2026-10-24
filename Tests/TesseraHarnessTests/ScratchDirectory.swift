@@ -1,4 +1,7 @@
+import CustomDump
 import Foundation
+
+@testable import TesseraHarness
 
 /// The path of `relative` in the directory that holds the source file `file`.
 ///
@@ -41,6 +44,26 @@ final class ScratchDirectory: Sendable {
     FileManager.default.contents(atPath: appending(relative)).flatMap {
       String(validating: $0, as: UTF8.self)
     }
+  }
+
+  /// `text` with this directory's path shown as `<scratch>`, so text that names a file in it is
+  /// the same in every run.
+  ///
+  /// A path with backslashes appears in a dump with each one doubled, and in the JSON a dump
+  /// holds with each one doubled again, so every spelling of it is replaced, the longest first.
+  func redacted(_ text: String) -> String {
+    [4, 2, 1].reduce(text) { text, factor in
+      let spelled = path.replacingOccurrences(
+        of: "\\", with: String(repeating: "\\", count: factor))
+      return text.replacingOccurrences(of: spelled, with: "<scratch>")
+    }
+  }
+
+  /// `value` as a custom dump with the directory's path redacted.
+  func dump<Value>(_ value: Value) -> String {
+    var text = ""
+    customDump(value, to: &text)
+    return redacted(text)
   }
 
   deinit {

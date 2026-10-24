@@ -1,4 +1,8 @@
+import CustomDump
 import Foundation
+import InlineSnapshotTesting
+import SnapshotTesting
+import SnapshotTestingCustomDump
 import TesseraCore
 import TesseraRuntime
 import TesseraTerminalInput
@@ -67,11 +71,13 @@ struct ScenarioRunnerFileTests {
 
     let reports = await runner().run(scratch.path)
 
-    #expect(
-      reports.map(\.scenario) == [
+    expectNoDifference(
+      reports.map(\.scenario),
+      [
         scratch.appending("a.scn"), scratch.appending("b.scn"),
         scratch.appending("nested/a.scn"), scratch.appending("nested/deep/c.scn"),
-      ])
+      ]
+    )
   }
 
   @Test
@@ -83,7 +89,7 @@ struct ScenarioRunnerFileTests {
 
     let reports = await runner().run(scratch.path + "/")
 
-    #expect(reports.map(\.scenario) == [scratch.appending("a.scn")])
+    expectNoDifference(reports.map(\.scenario), [scratch.appending("a.scn")])
   }
 
   @Test
@@ -98,12 +104,70 @@ struct ScenarioRunnerFileTests {
       scratch.appending("missing.scn"), scratch.appending("plain.txt"),
       scratch.appending("empty"), scratch.appending("ok.scn"))
 
-    #expect(reports.map(\.passed) == [false, false, false, true])
-    #expect(
-      reports.prefix(3).flatMap(\.failures).map(\.verb) == ["usage", "usage", "usage"])
-    #expect(reports[0].failures[0].message == "no such file or directory")
-    #expect(reports[1].failures[0].message == "scenario files end in `.scn`")
-    #expect(reports[2].failures[0].message.hasPrefix("no scenario files (*.scn)"))
+    assertInlineSnapshot(of: scratch.dump(reports), as: .lines) {
+      """
+      [
+        [0]: ScenarioReport(
+          scenario: "<scratch>/missing.scn",
+          failures: [
+            [0]: ScenarioFailure(
+              line: 0,
+              statement: "",
+              verb: "usage",
+              message: "no such file or directory",
+              expected: nil,
+              actual: nil,
+              screen: nil
+            )
+          ],
+          observations: [],
+          recorded: [],
+          seconds: []
+        ),
+        [1]: ScenarioReport(
+          scenario: "<scratch>/plain.txt",
+          failures: [
+            [0]: ScenarioFailure(
+              line: 0,
+              statement: "",
+              verb: "usage",
+              message: "scenario files end in `.scn`",
+              expected: nil,
+              actual: nil,
+              screen: nil
+            )
+          ],
+          observations: [],
+          recorded: [],
+          seconds: []
+        ),
+        [2]: ScenarioReport(
+          scenario: "<scratch>/empty",
+          failures: [
+            [0]: ScenarioFailure(
+              line: 0,
+              statement: "",
+              verb: "usage",
+              message: "no scenario files (*.scn) under this directory",
+              expected: nil,
+              actual: nil,
+              screen: nil
+            )
+          ],
+          observations: [],
+          recorded: [],
+          seconds: []
+        ),
+        [3]: ScenarioReport(
+          scenario: "<scratch>/ok.scn",
+          failures: [],
+          observations: [],
+          recorded: [],
+          seconds: []
+        )
+      ]
+      """
+    }
   }
 
   @Test
@@ -122,11 +186,76 @@ struct ScenarioRunnerFileTests {
     let reports = await runner().run(file)
 
     #expect(reports.map(\.passed) == [false])
-    #expect(reports[0].failures.map(\.line) == [6, 7, 8, 10])
-    #expect(
-      reports[0].failures.map(\.verb) == [
-        "expect text", "expect text", "expect node", "expect node",
-      ])
+    assertInlineSnapshot(of: reports[0].failures, as: .customDump) {
+      """
+      [
+        [0]: ScenarioFailure(
+          line: 6,
+          statement: #"expect text 0 "Stack demos""#,
+          verb: "expect text",
+          message: "row 0 text differs",
+          expected: "Stack demos",
+          actual: "Stack demo",
+          screen: [
+            [0]: "Stack demo",
+            [1]: "────────────────────────────────────────",
+            [2]: "Name: -",
+            [3]: "left                               right",
+            [4]: "────────────────────────────────────────",
+            [5]: "40 columns"
+          ]
+        ),
+        [1]: ScenarioFailure(
+          line: 7,
+          statement: #"expect text "no such text""#,
+          verb: "expect text",
+          message: "no screen row contains the text",
+          expected: "no such text",
+          actual: "(not found in 10 rows)",
+          screen: [
+            [0]: "Stack demo",
+            [1]: "────────────────────────────────────────",
+            [2]: "Name: -",
+            [3]: "left                               right",
+            [4]: "────────────────────────────────────────",
+            [5]: "40 columns"
+          ]
+        ),
+        [2]: ScenarioFailure(
+          line: 8,
+          statement: "expect node id=root frame 0,0,40x6",
+          verb: "expect node",
+          message: "frame of `id=root` differs",
+          expected: "0,0,40x6",
+          actual: "0,0,40x10",
+          screen: [
+            [0]: "Stack demo",
+            [1]: "────────────────────────────────────────",
+            [2]: "Name: -",
+            [3]: "left                               right",
+            [4]: "────────────────────────────────────────",
+            [5]: "40 columns"
+          ]
+        ),
+        [3]: ScenarioFailure(
+          line: 10,
+          statement: "expect node type=Missing frame 0,0,1x1",
+          verb: "expect node",
+          message: "locator `type=Missing` matches no node",
+          expected: "0,0,1x1",
+          actual: "(no node; types: TupleView, VStack, Text, Divider, HStack, Spacer)",
+          screen: [
+            [0]: "Stack demo",
+            [1]: "────────────────────────────────────────",
+            [2]: "Name: -",
+            [3]: "left                               right",
+            [4]: "────────────────────────────────────────",
+            [5]: "40 columns"
+          ]
+        )
+      ]
+      """
+    }
   }
 
   // MARK: Parse errors
@@ -136,25 +265,52 @@ struct ScenarioRunnerFileTests {
     async throws
   {
     let scratch = try ScratchDirectory()
-    let bad = try scratch.write("a-bad.scn", "app stack\nsize 40x10\nblink 3\n")
+    try scratch.write("a-bad.scn", "app stack\nsize 40x10\nblink 3\n")
     try scratch.write("b-good.scn", "app stack\nsize 40x10\nexpect text 0 \"Stack demo\"")
 
     let reports = await runner().run(scratch.path)
 
-    #expect(reports.map(\.passed) == [false, true])
-    let failure = try #require(reports.first?.failures.first)
-    #expect(failure.verb == "parse")
-    #expect(failure.line == 3)
-    #expect(failure.statement == "blink 3")
-    #expect(
-      failure.message.hasPrefix("unknown statement `blink`; accepted: app, size, term"))
-    #expect(
-      reports[0].description.hasPrefix(
-        "FAIL \(bad)\n\(bad):3: error: unknown statement `blink`"))
-    #expect(
-      reports[0].json.hasPrefix(
-        #"{"failures":[{"line":3,"message":"unknown statement `blink`; accepted:"#))
-    #expect(reports[0].json.contains(#""verb":"parse""#))
+    assertInlineSnapshot(of: scratch.dump(reports), as: .lines) {
+      """
+      [
+        [0]: ScenarioReport(
+          scenario: "<scratch>/a-bad.scn",
+          failures: [
+            [0]: ScenarioFailure(
+              line: 3,
+              statement: "blink 3",
+              verb: "parse",
+              message: "unknown statement `blink`; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node",
+              expected: nil,
+              actual: nil,
+              screen: nil
+            )
+          ],
+          observations: [],
+          recorded: [],
+          seconds: []
+        ),
+        [1]: ScenarioReport(
+          scenario: "<scratch>/b-good.scn",
+          failures: [],
+          observations: [],
+          recorded: [],
+          seconds: []
+        )
+      ]
+      """
+    }
+    assertInlineSnapshot(of: scratch.redacted(reports[0].description), as: .lines) {
+      """
+      FAIL <scratch>/a-bad.scn
+      <scratch>/a-bad.scn:3: error: unknown statement `blink`; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
+      """
+    }
+    assertInlineSnapshot(of: scratch.redacted(reports[0].json), as: .lines) {
+      """
+      {"failures":[{"line":3,"message":"unknown statement `blink`; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node","statement":"blink 3","verb":"parse"}],"observations":[],"passed":false,"scenario":"<scratch>/a-bad.scn"}
+      """
+    }
   }
 
   @Test
@@ -180,10 +336,29 @@ struct ScenarioRunnerFileTests {
 
     let reports = await ScenarioRunner(registry: registry).run(scratch.path)
 
-    #expect(reports.count == 1)
-    #expect(reports[0].failures.first?.verb == "harness")
-    #expect(
-      reports[0].failures.first?.message.contains("registered more than once") == true)
+    assertInlineSnapshot(of: scratch.dump(reports), as: .lines) {
+      """
+      [
+        [0]: ScenarioReport(
+          scenario: "<scratch>/a.scn",
+          failures: [
+            [0]: ScenarioFailure(
+              line: 0,
+              statement: "",
+              verb: "harness",
+              message: "applications registered more than once: `stack`",
+              expected: nil,
+              actual: nil,
+              screen: nil
+            )
+          ],
+          observations: [],
+          recorded: [],
+          seconds: []
+        )
+      ]
+      """
+    }
   }
 
   // MARK: Goldens
@@ -197,12 +372,43 @@ struct ScenarioRunnerFileTests {
 
     let reports = await runner().run(scratch.path)
 
-    let failure = try #require(reports.first?.failures.first)
-    #expect(failure.verb == "shot")
-    #expect(failure.line == 5)
-    #expect(failure.message.contains("has no golden at"))
-    #expect(failure.message.contains("run with --record"))
-    #expect(failure.screen == nil)
+    assertInlineSnapshot(of: scratch.dump(reports), as: .lines) {
+      """
+      [
+        [0]: ScenarioReport(
+          scenario: "<scratch>/stack.scn",
+          failures: [
+            [0]: ScenarioFailure(
+              line: 5,
+              statement: "shot after-typing",
+              verb: "shot",
+              message: "shot `after-typing` has no golden at `<scratch>/stack/after-typing.txt`; run with --record to create it, and review the file",
+              expected: nil,
+              actual: nil,
+              screen: nil
+            )
+          ],
+          observations: [
+            [0]: ScenarioObservation(
+              line: 5,
+              verb: "shot",
+              name: "after-typing",
+              lines: [
+                [0]: "Stack demo",
+                [1]: "────────────────────────────────────────",
+                [2]: "Name: Rob",
+                [3]: "left                               right",
+                [4]: "────────────────────────────────────────",
+                [5]: "40 columns"
+              ]
+            )
+          ],
+          recorded: [],
+          seconds: []
+        )
+      ]
+      """
+    }
     #expect(scratch.read("stack/after-typing.txt") == nil)
   }
 
@@ -215,24 +421,76 @@ struct ScenarioRunnerFileTests {
     let recorded = await runner(record: true).run(scratch.path)
     let checked = await runner().run(scratch.path)
 
-    #expect(recorded.map(\.passed) == [true])
-    #expect(
-      recorded[0].recorded == [
-        GoldenChange(path: scratch.appending("stack/after-typing.txt"), change: .created)
-      ])
-    #expect(checked.map(\.passed) == [true])
-    #expect(checked[0].recorded.isEmpty)
-    #expect(
-      scratch.read("stack/after-typing.txt")
-        == """
-        Stack demo
-        ────────────────────────────────────────
-        Name: Rob
-        left                               right
-        ────────────────────────────────────────
-        40 columns
+    assertInlineSnapshot(of: scratch.dump(recorded), as: .lines) {
+      """
+      [
+        [0]: ScenarioReport(
+          scenario: "<scratch>/stack.scn",
+          failures: [],
+          observations: [
+            [0]: ScenarioObservation(
+              line: 5,
+              verb: "shot",
+              name: "after-typing",
+              lines: [
+                [0]: "Stack demo",
+                [1]: "────────────────────────────────────────",
+                [2]: "Name: Rob",
+                [3]: "left                               right",
+                [4]: "────────────────────────────────────────",
+                [5]: "40 columns"
+              ]
+            )
+          ],
+          recorded: [
+            [0]: GoldenChange(
+              path: "<scratch>/stack/after-typing.txt",
+              change: .created
+            )
+          ],
+          seconds: []
+        )
+      ]
+      """
+    }
+    assertInlineSnapshot(of: scratch.dump(checked), as: .lines) {
+      """
+      [
+        [0]: ScenarioReport(
+          scenario: "<scratch>/stack.scn",
+          failures: [],
+          observations: [
+            [0]: ScenarioObservation(
+              line: 5,
+              verb: "shot",
+              name: "after-typing",
+              lines: [
+                [0]: "Stack demo",
+                [1]: "────────────────────────────────────────",
+                [2]: "Name: Rob",
+                [3]: "left                               right",
+                [4]: "────────────────────────────────────────",
+                [5]: "40 columns"
+              ]
+            )
+          ],
+          recorded: [],
+          seconds: []
+        )
+      ]
+      """
+    }
+    assertInlineSnapshot(of: scratch.read("stack/after-typing.txt"), as: .lines) {
+      """
+      Stack demo
+      ────────────────────────────────────────
+      Name: Rob
+      left                               right
+      ────────────────────────────────────────
+      40 columns
 
-        """)
+      """
+    }
   }
 
   @Test
@@ -249,15 +507,50 @@ struct ScenarioRunnerFileTests {
 
     let reports = await runner().run(scratch.path)
 
-    #expect(reports.map(\.passed) == [false])
-    let failure = try #require(reports.first?.failures.first)
-    #expect(failure.verb == "shot")
-    #expect(failure.expected == "Name: Bob")
-    #expect(failure.actual == "Name: Rob")
-    #expect(failure.message.contains("differs from"))
-    #expect(failure.message.contains("at row 2"))
-    #expect(failure.message.contains("rerun with --record and review"))
-    #expect(failure.screen?.count == 6)
+    assertInlineSnapshot(of: scratch.dump(reports), as: .lines) {
+      #"""
+      [
+        [0]: ScenarioReport(
+          scenario: "<scratch>/stack.scn",
+          failures: [
+            [0]: ScenarioFailure(
+              line: 5,
+              statement: "shot after-typing",
+              verb: "shot",
+              message: "shot `after-typing` differs from `<scratch>/stack/after-typing.txt` at row 2: the golden has 6 rows and the screen has 6. If the new rendering is intended, rerun with --record and review the golden\'s diff",
+              expected: "Name: Bob",
+              actual: "Name: Rob",
+              screen: [
+                [0]: "Stack demo",
+                [1]: "────────────────────────────────────────",
+                [2]: "Name: Rob",
+                [3]: "left                               right",
+                [4]: "────────────────────────────────────────",
+                [5]: "40 columns"
+              ]
+            )
+          ],
+          observations: [
+            [0]: ScenarioObservation(
+              line: 5,
+              verb: "shot",
+              name: "after-typing",
+              lines: [
+                [0]: "Stack demo",
+                [1]: "────────────────────────────────────────",
+                [2]: "Name: Rob",
+                [3]: "left                               right",
+                [4]: "────────────────────────────────────────",
+                [5]: "40 columns"
+              ]
+            )
+          ],
+          recorded: [],
+          seconds: []
+        )
+      ]
+      """#
+    }
     #expect(scratch.read("stack/after-typing.txt")?.contains("Name: Bob") == true)
   }
 
@@ -269,13 +562,44 @@ struct ScenarioRunnerFileTests {
 
     let reports = await runner(record: true).run(scratch.path)
 
-    #expect(reports.map(\.passed) == [true])
-    #expect(
-      reports[0].recorded == [
-        GoldenChange(path: scratch.appending("stack/after-typing.txt"), change: .updated)
-      ])
-    #expect(reports[0].description.contains("recorded"))
-    #expect(reports[0].description.contains("(updated)"))
+    assertInlineSnapshot(of: scratch.dump(reports), as: .lines) {
+      """
+      [
+        [0]: ScenarioReport(
+          scenario: "<scratch>/stack.scn",
+          failures: [],
+          observations: [
+            [0]: ScenarioObservation(
+              line: 5,
+              verb: "shot",
+              name: "after-typing",
+              lines: [
+                [0]: "Stack demo",
+                [1]: "────────────────────────────────────────",
+                [2]: "Name: Rob",
+                [3]: "left                               right",
+                [4]: "────────────────────────────────────────",
+                [5]: "40 columns"
+              ]
+            )
+          ],
+          recorded: [
+            [0]: GoldenChange(
+              path: "<scratch>/stack/after-typing.txt",
+              change: .updated
+            )
+          ],
+          seconds: []
+        )
+      ]
+      """
+    }
+    assertInlineSnapshot(of: scratch.redacted(reports[0].description), as: .lines) {
+      """
+      PASS <scratch>/stack.scn
+        recorded <scratch>/stack/after-typing.txt (updated)
+      """
+    }
     #expect(scratch.read("stack/after-typing.txt")?.hasPrefix("Stack demo\n") == true)
   }
 
@@ -305,9 +629,43 @@ struct ScenarioRunnerFileTests {
 
     let reports = await runner().run(scratch.path)
 
-    let failure = try #require(reports.first?.failures.first)
-    #expect(failure.message.contains("CRLF line endings"))
-    #expect(failure.message.contains("eol=lf"))
+    assertInlineSnapshot(of: scratch.dump(reports), as: .lines) {
+      """
+      [
+        [0]: ScenarioReport(
+          scenario: "<scratch>/stack.scn",
+          failures: [
+            [0]: ScenarioFailure(
+              line: 5,
+              statement: "shot after-typing",
+              verb: "shot",
+              message: "golden `<scratch>/stack/after-typing.txt` has CRLF line endings; goldens are LF files, so check them out with LF (`*.txt text eol=lf` in .gitattributes)",
+              expected: nil,
+              actual: nil,
+              screen: nil
+            )
+          ],
+          observations: [
+            [0]: ScenarioObservation(
+              line: 5,
+              verb: "shot",
+              name: "after-typing",
+              lines: [
+                [0]: "Stack demo",
+                [1]: "────────────────────────────────────────",
+                [2]: "Name: Rob",
+                [3]: "left                               right",
+                [4]: "────────────────────────────────────────",
+                [5]: "40 columns"
+              ]
+            )
+          ],
+          recorded: [],
+          seconds: []
+        )
+      ]
+      """
+    }
   }
 
   @Test
@@ -326,12 +684,43 @@ struct ScenarioRunnerFileTests {
     let reports = await runner().run(scratch.path)
     let recorded = await runner(record: true).run(scratch.path)
 
-    let failure = try #require(reports.first?.failures.first)
-    #expect(failure.verb == "shot")
-    #expect(failure.message.contains("CRLF line endings"))
-    #expect(failure.expected == nil)
-    #expect(failure.actual == nil)
-    #expect(failure.screen == nil)
+    assertInlineSnapshot(of: scratch.dump(reports), as: .lines) {
+      """
+      [
+        [0]: ScenarioReport(
+          scenario: "<scratch>/stack.scn",
+          failures: [
+            [0]: ScenarioFailure(
+              line: 5,
+              statement: "shot after-typing",
+              verb: "shot",
+              message: "golden `<scratch>/stack/after-typing.txt` has CRLF line endings; goldens are LF files, so check them out with LF (`*.txt text eol=lf` in .gitattributes)",
+              expected: nil,
+              actual: nil,
+              screen: nil
+            )
+          ],
+          observations: [
+            [0]: ScenarioObservation(
+              line: 5,
+              verb: "shot",
+              name: "after-typing",
+              lines: [
+                [0]: "Stack demo",
+                [1]: "────────────────────────────────────────",
+                [2]: "Name: Rob",
+                [3]: "left                               right",
+                [4]: "────────────────────────────────────────",
+                [5]: "40 columns"
+              ]
+            )
+          ],
+          recorded: [],
+          seconds: []
+        )
+      ]
+      """
+    }
     #expect(recorded.map(\.passed) == [true])
     #expect(scratch.read("stack/after-typing.txt") == lf)
   }
@@ -364,7 +753,7 @@ struct ScenarioRunnerFileTests {
     let first = await runner().run(scratch.path).map(\.json)
     let second = await runner().run(scratch.path).map(\.json)
 
-    #expect(first == second)
+    expectNoDifference(first, second)
     #expect(first.count == 2)
   }
 
@@ -394,11 +783,30 @@ struct ScenarioRunnerFileTests {
     let reports = await repeating.run(scratch.path)
 
     #expect(Builds.count == 3)
-    let failures = try #require(reports.first?.failures)
-    #expect(failures.map(\.verb) == ["repeat", "repeat"])
-    #expect(failures[0].statement == "--repeat 3")
-    #expect(failures[0].message.hasPrefix("run 2 of 3 differs from run 1: "))
-    #expect(failures[0].message.contains("it has 1 failures where run 1 has 0"))
+    assertInlineSnapshot(of: reports.first?.failures, as: .customDump) {
+      """
+      [
+        [0]: ScenarioFailure(
+          line: 0,
+          statement: "--repeat 3",
+          verb: "repeat",
+          message: "run 2 of 3 differs from run 1: it has 1 failures where run 1 has 0",
+          expected: nil,
+          actual: nil,
+          screen: nil
+        ),
+        [1]: ScenarioFailure(
+          line: 0,
+          statement: "--repeat 3",
+          verb: "repeat",
+          message: "run 3 of 3 differs from run 1: it has 1 failures where run 1 has 0",
+          expected: nil,
+          actual: nil,
+          screen: nil
+        )
+      ]
+      """
+    }
   }
 
   @Test
@@ -453,40 +861,44 @@ struct ScenarioReportShapeTests {
     let json = failing.json
 
     #expect(!json.contains("\n"))
-    #expect(
-      json
-        == #"{"failures":[{"actual":"y","expected":"x","line":4,"message":"row 0 text differs","#
-        + #""screen":["y"],"statement":"expect text 0 \"x\"","verb":"expect text"},"#
-        + #"{"line":6,"message":"m","statement":"key Tab","verb":"harness"}],"#
-        + #""observations":[{"line":2,"lines":["y"],"name":"s","verb":"shot"}],"#
-        + #""passed":false,"scenario":"a.scn"}"#)
+    assertInlineSnapshot(of: json, as: .lines) {
+      #"""
+      {"failures":[{"actual":"y","expected":"x","line":4,"message":"row 0 text differs","screen":["y"],"statement":"expect text 0 \"x\"","verb":"expect text"},{"line":6,"message":"m","statement":"key Tab","verb":"harness"}],"observations":[{"line":2,"lines":["y"],"name":"s","verb":"shot"}],"passed":false,"scenario":"a.scn"}
+      """#
+    }
   }
 
   @Test
   func `a passing report is passed true with empty arrays`() {
     let report = ScenarioReport(scenario: "ok.scn", failures: [])
 
-    #expect(
-      report.json
-        == #"{"failures":[],"observations":[],"passed":true,"scenario":"ok.scn"}"#)
-    #expect(report.description == "PASS ok.scn")
+    assertInlineSnapshot(of: report.json, as: .lines) {
+      """
+      {"failures":[],"observations":[],"passed":true,"scenario":"ok.scn"}
+      """
+    }
+    assertInlineSnapshot(of: report.description, as: .lines) {
+      """
+      PASS ok.scn
+      """
+    }
   }
 
   @Test
   func `the human form shows the statement, expected, actual, and the screen`() {
-    #expect(
-      failing.description
-        == """
-        FAIL a.scn
-          line 4: expect text 0 "x"
-            row 0 text differs
-            expected: x
-            actual:   y
-            screen:
-              0| y
-          line 6: key Tab
-            m
-        """)
+    assertInlineSnapshot(of: failing.description, as: .lines) {
+      """
+      FAIL a.scn
+        line 4: expect text 0 "x"
+          row 0 text differs
+          expected: x
+          actual:   y
+          screen:
+            0| y
+        line 6: key Tab
+          m
+      """
+    }
   }
 
   @Test
@@ -496,9 +908,32 @@ struct ScenarioReportShapeTests {
     let usage = ScenarioReport.failure(
       scenario: "dir", verb: "usage", message: "no such file")
 
-    #expect(parse.description == "FAIL p.scn\np.scn:3: error: unknown")
-    #expect(usage.description == "FAIL dir\ndir: error: no such file")
-    #expect(parse.failures[0].statement == "blink")
-    #expect(parse.failures[0].message == "unknown")
+    assertInlineSnapshot(of: parse.description, as: .lines) {
+      """
+      FAIL p.scn
+      p.scn:3: error: unknown
+      """
+    }
+    assertInlineSnapshot(of: usage.description, as: .lines) {
+      """
+      FAIL dir
+      dir: error: no such file
+      """
+    }
+    assertInlineSnapshot(of: parse.failures, as: .customDump) {
+      """
+      [
+        [0]: ScenarioFailure(
+          line: 3,
+          statement: "blink",
+          verb: "parse",
+          message: "unknown",
+          expected: nil,
+          actual: nil,
+          screen: nil
+        )
+      ]
+      """
+    }
   }
 }

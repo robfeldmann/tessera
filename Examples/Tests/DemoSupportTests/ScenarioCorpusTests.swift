@@ -1,3 +1,4 @@
+import CustomDump
 import DemoSupport
 import TesseraHarness
 import Testing
@@ -18,8 +19,7 @@ struct ScenarioCorpusTests {
   func `every scenario in the corpus passes against its committed goldens`() async {
     let reports = await ScenarioRunner(registry: Demos.registry()).run(Self.corpus)
 
-    let failed = reports.filter { !$0.passed }
-    #expect(failed.isEmpty, "\(failed.map(\.description).joined(separator: "\n"))")
+    expectNoDifference(reports.filter { !$0.passed }, [])
     #expect(reports.count >= 5)
   }
 
@@ -30,7 +30,7 @@ struct ScenarioCorpusTests {
     let first = await runner.run(Self.corpus).map(\.json)
     let second = await runner.run(Self.corpus).map(\.json)
 
-    #expect(first == second)
+    expectNoDifference(first, second)
     #expect(!first.isEmpty)
   }
 }
