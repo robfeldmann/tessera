@@ -12,7 +12,7 @@ private func parse(_ source: String) throws -> Scenario {
 extension ProjectionFixtures {
   static let names = [
     "overlap", "overflow", "layers", "styled", "wide", "steady", "growing", "list-layers",
-    "list-overlap",
+    "list-overlap", "shadowed-list",
   ]
 }
 
@@ -182,6 +182,27 @@ struct NewStatementPlayerTests {
     #expect(failure.rule == "siblings-disjoint")
     #expect(failure.node?.hasSuffix("id(b)") == true)
     #expect(failure.message.contains("under ForEach"))
+  }
+
+  @Test
+  func
+    `an app's own view named ForEach is not a list, so its overlapping body is reported`()
+    async throws
+  {
+    let report = try await play(
+      """
+      app shadowed-list
+      expect node type=Text text="second" frame 0,0,6x1
+      check siblings-disjoint
+      """)
+
+    // The app's `ForEach` is not looked through, so the `ZStack` does not excuse the two texts
+    // that its container-less body puts on one frame.
+    let failure = try #require(report.failures.first)
+    #expect(report.failures.count == 1, "\(report)")
+    #expect(failure.verb == "check")
+    #expect(failure.rule == "siblings-disjoint")
+    #expect(failure.message.contains("under TupleView"))
   }
 
   @Test

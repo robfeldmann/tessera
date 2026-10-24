@@ -16,6 +16,7 @@ struct ChecksTests {
     children: [String] = [],
     type: String = "Text",
     layout: String? = nil,
+    list: Bool = false,
     frame: Rect4,
     clip: Rect4? = nil,
     proposal: (width: Int?, height: Int?)? = nil,
@@ -26,7 +27,7 @@ struct ChecksTests {
   ) -> Projection.Node {
     Projection.Node(
       path: path, parent: parent, children: children, depth: 0, paintOrder: 0, type: type,
-      layout: layout,
+      layout: layout, isList: list,
       proposal: proposal.map { Projection.Proposal(width: $0.width, height: $0.height) },
       measured: measured.map { Projection.Extent(columns: $0.columns, rows: $0.rows) },
       frame: box(frame), clip: box(clip ?? frame), needsLayout: dirty.layout,
@@ -228,7 +229,7 @@ struct ChecksTests {
           node(
             "root/index(0)", parent: "root",
             children: ["root/index(0)/id(a)", "root/index(0)/id(b)"], type: "ForEach",
-            frame: (0, 0, 4, 1)),
+            list: true, frame: (0, 0, 4, 1)),
           node("root/index(0)/id(a)", parent: "root/index(0)", frame: (0, 0, 4, 1)),
           node("root/index(0)/id(b)", parent: "root/index(0)", frame: (0, 0, 2, 1)),
         ]))
@@ -251,13 +252,13 @@ struct ChecksTests {
         node("root/index(0)", parent: "root", frame: (0, 0, 4, 1)),
         node(
           "root/index(1)", parent: "root", children: ["root/index(1)/branch(true)"],
-          type: "Optional", frame: (0, 0, 1, 1)),
+          type: "Optional", list: true, frame: (0, 0, 1, 1)),
         node(
           "root/index(1)/branch(true)", parent: "root/index(1)",
           children: [
             "root/index(1)/branch(true)/index(0)", "root/index(1)/branch(true)/index(1)",
           ],
-          type: "TupleView", frame: (0, 0, 1, 1)),
+          type: "TupleView", list: true, frame: (0, 0, 1, 1)),
         node(
           "root/index(1)/branch(true)/index(0)", parent: "root/index(1)/branch(true)",
           frame: (0, 0, 1, 1)),
@@ -288,13 +289,13 @@ struct ChecksTests {
           frame: (0, 0, 4, 2)),
         node(
           "root/index(0)", parent: "root", children: ["root/index(0)/branch(false)"],
-          type: "ConditionalView", frame: (0, 0, 4, 1)),
+          type: "ConditionalView", list: true, frame: (0, 0, 4, 1)),
         node(
           "root/index(0)/branch(false)", parent: "root/index(0)",
           children: [
             "root/index(0)/branch(false)/id(a)", "root/index(0)/branch(false)/id(b)",
           ],
-          type: "TupleView", frame: (0, 0, 4, 1)),
+          type: "TupleView", list: true, frame: (0, 0, 4, 1)),
         node(
           "root/index(0)/branch(false)/id(a)", parent: "root/index(0)/branch(false)",
           frame: (0, 0, 4, 1)),
@@ -319,12 +320,48 @@ struct ChecksTests {
       projection([
         node(
           "root", children: ["root/index(0)", "root/index(1)"], type: "TupleView",
-          frame: (0, 0, 4, 1)),
+          list: true, frame: (0, 0, 4, 1)),
         node("root/index(0)", parent: "root", frame: (0, 0, 4, 1)),
         node("root/index(1)", parent: "root", frame: (0, 0, 4, 1)),
       ]))
 
     #expect(found.map(\.node) == ["root/index(1)"])
+  }
+
+  @Test
+  func `a view of an app's own that is named like a list is not looked through`() {
+    // The app's `ForEach` is a composite with one child, here the tuple of its body `Text;
+    // Text`. Layout does not look through a composite, so the two texts overlap by the
+    // library's own placement, and the rule must report them under `ZStack` as it would
+    // anywhere else. Only the tuple is the library's list.
+    func tree(userViewIsList: Bool) -> Projection {
+      projection([
+        node("root", children: ["root/index(0)"], type: "ZStack", frame: (0, 0, 4, 1)),
+        node(
+          "root/index(0)", parent: "root", children: ["root/index(0)/index(0)"],
+          type: "ForEach", list: userViewIsList, frame: (0, 0, 4, 1)),
+        node(
+          "root/index(0)/index(0)", parent: "root/index(0)",
+          children: [
+            "root/index(0)/index(0)/index(0)", "root/index(0)/index(0)/index(1)",
+          ],
+          type: "TupleView", list: true, frame: (0, 0, 4, 1)),
+        node(
+          "root/index(0)/index(0)/index(0)", parent: "root/index(0)/index(0)",
+          frame: (0, 0, 4, 1)),
+        node(
+          "root/index(0)/index(0)/index(1)", parent: "root/index(0)/index(0)",
+          frame: (0, 0, 2, 1)),
+      ])
+    }
+
+    #expect(
+      run(.siblingsDisjoint, tree(userViewIsList: false)).map(\.node) == [
+        "root/index(0)/index(0)/index(1)"
+      ])
+    #expect(
+      run(.siblingsDisjoint, tree(userViewIsList: true)).isEmpty,
+      "the library's own ForEach in that place is a list, and is looked through")
   }
 
   @Test

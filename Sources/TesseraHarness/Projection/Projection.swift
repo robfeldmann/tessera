@@ -77,6 +77,12 @@ package struct Projection: Encodable, Equatable, Sendable {
     /// For a `_LayoutContainer` (`frame`, `padding`, an app's own `Layout`), the short name of
     /// its algorithm; absent for every other node.
     var layout: String?
+
+    /// Whether this is one of the library's view lists (`ForEach`, `if`, a group of views),
+    /// which layout looks through to place the elements as the list's parent's own children.
+    /// It is decided from the module-qualified type, so an app's own view named `ForEach` is
+    /// not one.
+    var isList: Bool
     var proposal: Proposal?
     var measured: Extent?
     var frame: Box
@@ -248,6 +254,7 @@ extension Projection.Node {
     self.paintOrder = paintOrder
     type = TypeName.short(node.viewType)
     layout = TypeName.layout(of: node.viewType)
+    isList = TypeName.isViewList(node.viewType)
     proposal = node.proposal.map {
       Projection.Proposal(width: $0.width, height: $0.height)
     }

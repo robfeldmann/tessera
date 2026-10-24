@@ -7,9 +7,24 @@
 /// and, for a `_LayoutContainer`, the short `layout` of its algorithm (`_FrameLayout`,
 /// `_PaddingLayout`, or the name of an app's own `Layout`), and never the reflected name.
 enum TypeName {
+  /// The generic-free, module-qualified names of the view lists: the structural views that
+  /// `_ViewList` marks in `TesseraCore`, and the `Optional` an `if` without an `else` builds.
+  private static let viewLists: Set<String> = [
+    "TesseraCore.ConditionalView", "TesseraCore.EmptyView", "TesseraCore.ForEach",
+    "TesseraCore.TupleView", "Swift.Optional",
+  ]
+
   /// `TesseraLayout.VStack<TesseraCore.TupleView<…>>` becomes `VStack`.
   static func short(_ reflected: String) -> String {
     lastComponent(of: genericFree(reflected))
+  }
+
+  /// Whether the reflected type is one of the library's view lists, which layout looks through.
+  ///
+  /// The module-qualified name decides, before it is shortened: a view of an app's own that
+  /// happens to be called `ForEach` or `TupleView` is a composite with one child, not a list.
+  static func isViewList(_ reflected: String) -> Bool {
+    viewLists.contains(genericFree(reflected))
   }
 
   /// The short name of the algorithm of a `_LayoutContainer<Algorithm, Content>`, or `nil`

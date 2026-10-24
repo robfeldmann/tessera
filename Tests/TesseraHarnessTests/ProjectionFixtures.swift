@@ -195,6 +195,7 @@ enum ProjectionFixtures {
     registry.register("growing", viewports: [.desktop]) { GrowingApp() }
     registry.register("list-layers", viewports: [.desktop]) { ListLayersApp() }
     registry.register("list-overlap", viewports: [.desktop]) { ListOverlapApp() }
+    registry.register("shadowed-list", viewports: [.desktop]) { ShadowedListApp() }
     return registry
   }
 }

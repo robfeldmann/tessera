@@ -88,12 +88,6 @@ private let overlappingContainers: Set<String> = ["ZStack"]
 /// container doing its job.
 private let scrollingContainers: Set<String> = ["ScrollView"]
 
-/// The node types that hold a view list, which layout looks through: it places a list's
-/// elements as though they were children of the list's own parent.
-private let listTypes: Set<String> = [
-  "ConditionalView", "EmptyView", "ForEach", "Optional", "TupleView",
-]
-
 /// One projection, indexed for the rules.
 private struct CheckContext {
   let projection: Projection
@@ -116,9 +110,7 @@ private struct CheckContext {
   /// that is not a view list when `node` is one.
   func placingContainer(of node: Projection.Node) -> Projection.Node {
     var current = node
-    while listTypes.contains(current.type),
-      let parent = current.parent.flatMap({ byPath[$0] })
-    {
+    while current.isList, let parent = current.parent.flatMap({ byPath[$0] }) {
       current = parent
     }
     return current

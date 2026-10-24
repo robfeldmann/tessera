@@ -44,4 +44,35 @@ struct TypeNameTests {
     #expect(TypeName.layout(of: "TesseraCore.Text") == nil)
     #expect(TypeName.layout(of: "TesseraCore._LayoutContainer") == nil)
   }
+
+  @Test
+  func `the library's view lists are lists whatever they hold`() {
+    #expect(
+      TypeName.isViewList(
+        "TesseraCore.ForEach<Swift.Array<Swift.String>, TesseraCore.Text>"))
+    #expect(
+      TypeName.isViewList("TesseraCore.TupleView<(TesseraCore.Text, TesseraCore.Text)>"))
+    #expect(
+      TypeName.isViewList(
+        "TesseraCore.ConditionalView<TesseraCore.Text, TesseraCore.Text>"))
+    #expect(TypeName.isViewList("TesseraCore.EmptyView"))
+    #expect(TypeName.isViewList("Swift.Optional<TesseraCore.Text>"))
+  }
+
+  @Test
+  func `a view of an app's own with a list's name is not a list`() {
+    #expect(!TypeName.isViewList("MyApp.ForEach"))
+    #expect(!TypeName.isViewList("MyApp.TupleView<Swift.Int>"))
+    #expect(!TypeName.isViewList("MyApp.Optional<TesseraCore.Text>"))
+    #expect(!TypeName.isViewList("MyApp.Outer.EmptyView"))
+    #expect(!TypeName.isViewList("ForEach"))
+  }
+
+  @Test
+  func `a view that only has a list inside its arguments is not a list`() {
+    #expect(
+      !TypeName.isViewList("TesseraLayout.VStack<TesseraCore.TupleView<(Int, Int)>>"))
+    #expect(!TypeName.isViewList("TesseraCore.Text"))
+    #expect(!TypeName.isViewList("Swift.Array<TesseraCore.ForEach<Int, Int>>"))
+  }
 }
