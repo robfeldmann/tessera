@@ -9,12 +9,32 @@ import Testing
 
 @testable import TesseraHarness
 
+/// What a shell's completion script sends to ask for the candidates of a command's app name:
+/// the command, `--`, the key of the argument (`positional@0` for a positional, the flag for
+/// an option), the index of the word being completed, the cursor in it, and the words so
+/// far, the executable first.
+private let completionRequests: [[String]] = [
+  ["launch", "--", "positional@0", "2", "0", "tessera", "launch", ""]
+]
+
 @MainActor
 struct HarnessCLITests {
   /// Runs a command. `terminal` says standard output is a terminal and `input` says standard
   /// input is; neither defaults to `true`, so no test opens a live session by accident.
   private func run(
     _ arguments: String...,
+    registry: ApplicationRegistry? = nil,
+    terminal: Bool = false,
+    input: Bool = false,
+    executable: String = "tessera"
+  ) async -> CommandOutput {
+    await run(
+      arguments: arguments, registry: registry, terminal: terminal, input: input,
+      executable: executable)
+  }
+
+  private func run(
+    arguments: [String],
     registry: ApplicationRegistry? = nil,
     terminal: Bool = false,
     input: Bool = false,
@@ -424,11 +444,15 @@ struct HarnessCLITests {
   }
 
   @Test
-  func `help for an unknown command is a usage error that lists the commands`() async {
+  func `help for an unknown or extra word is a usage error that lists the commands`()
+    async
+  {
     let json = await run("help", "ghost")
     let text = await run("help", "ghost", "--pretty")
+    let extra = await run("help", "launch", "extra", "--pretty")
+    let both = await run("help", "ghost", "launch", "--pretty")
 
-    assertInlineSnapshot(of: [json, text], as: .customDump) {
+    assertInlineSnapshot(of: [json, text, extra, both], as: .customDump) {
       #"""
       [
         [0]: CommandOutput(
@@ -446,8 +470,48 @@ struct HarnessCLITests {
             error: unknown command `ghost`; accepted: apps, launch, help
             
             """
+        ),
+        [2]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: `help` takes one command, got `launch extra`; accepted: apps, launch, help
+            
+            """
+        ),
+        [3]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: `help` takes one command, got `ghost launch`; accepted: apps, launch, help
+            
+            """
         )
       ]
+      """#
+    }
+  }
+
+  @Test
+  func `help help describes help as ArgumentParser words it`() async {
+    let output = await run("help", "help")
+
+    assertInlineSnapshot(of: output, as: .customDump) {
+      #"""
+      CommandOutput(
+        exitCode: 0,
+        stdout: """
+          OVERVIEW: Show subcommand help information.
+          
+          USAGE: tessera help [<subcommands> ...]
+          
+          ARGUMENTS:
+            <subcommands>
+          
+          
+          """,
+        stderr: ""
+      )
       """#
     }
   }
@@ -557,33 +621,20 @@ struct HarnessCLITests {
     #expect(before.exitCode == 0)
   }
 
-  @Test
-  func `the app-name completion lists the registered names`() async {
-    let output = await run("---completion", "launch", "--", "name", "0", "0", "launch")
+  @Test(arguments: completionRequests)
+  func `every command that takes an app name completes the registered names`(
+    request: [String]
+  ) async throws {
+    let output = await run(arguments: ["---completion"] + request)
 
-    assertInlineSnapshot(of: output, as: .customDump) {
-      #"""
-      CommandOutput(
-        exitCode: 0,
-        stdout: """
-          counter
-          greedy
-          main-actor-counter
-          observed-counter
-          stack
-          workspace
-          
-          """,
-        stderr: ""
-      )
-      """#
-    }
+    let names = try Fixtures.registry().names()
+    expectNoDifference(
+      output, CommandOutput(exitCode: 0, stdout: names.map { $0 + "\n" }.joined()))
   }
 
-  @Test
-  func `a registry with a duplicate name completes nothing`() async {
-    let output = await run(
-      "---completion", "launch", "--", "name", "0", "0", "launch", registry: duplicated())
+  @Test(arguments: completionRequests)
+  func `a registry with a duplicate name completes nothing`(request: [String]) async {
+    let output = await run(arguments: ["---completion"] + request, registry: duplicated())
 
     expectNoDifference(output, CommandOutput(exitCode: 0))
   }
