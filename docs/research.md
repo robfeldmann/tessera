@@ -43,3 +43,4 @@ Research records answer one question each: what was observed, with citations tha
 - 040 (2026-10-19) [Phase 4 tooling context and prior attempts](research/phase-4-tooling-context-and-prior-attempts.md)
 - 041 (2026-10-19) [TUI Devtools Prior Art](research/tui-devtools-prior-art.md)
 - 042 (2026-10-22) [libghostty-vt distribution for version-based consumers](research/libghostty-vt-distribution.md)
+- 043 (2026-10-23) [Catalog capability requirements audit](research/catalog-capability-requirements-audit.md)
