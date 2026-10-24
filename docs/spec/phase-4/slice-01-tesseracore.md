@@ -136,7 +136,7 @@ public final class ViewGraph {
 }
 ```
 
-`GraphStatistics` includes counts for nodes created/destroyed/updated, body evaluations, equatable skips, leaf updates, `sizeThatFits` calls, placements, rendered nodes, focus changes, terminal requirement changes, debug-only invalidation reasons, and pass durations. Anything developers need print statements to answer belongs here or in `dump()`.
+`GraphStatistics` includes counts for nodes created/destroyed/updated, body evaluations, equatable skips, leaf updates, `sizeThatFits` calls, placements, rendered nodes, focus changes, terminal requirement changes, debug-only invalidation reasons, and pass durations. Anything developers need print statements to answer belongs here or in `dump()`. Each `update()` starts a fresh set of statistics, but a `resize(to:)` that changed the size since the last render pass keeps `layoutViewportChanged` and `renderViewportChanged` for the update that follows it, because the canonical loop resizes before it updates and the viewport is a cause of that pass.
 
 `ViewGraph` is non-`Sendable` and unisolated; whoever creates it owns it. The canonical immediate-mode loop (the Phase 5 runtime automates exactly this, nothing more):
 

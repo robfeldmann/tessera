@@ -165,6 +165,13 @@ public actor TerminalSession {
   /// ``invalidateRenderer()`` does not clear it: the terminal still shows that frame.
   package private(set) var lastDrawn: DrawnFrame?
 
+  /// The total bytes of the frames the terminal has received; a test and harness seam.
+  ///
+  /// A draw adds its encoded byte count once its flush succeeds, as it sets ``lastDrawn``, so
+  /// the difference between two reads is what the draws between them wrote. It counts frames
+  /// only: mode changes, probes, and cursor-restore writes are not frames.
+  package private(set) var bytesDrawn = 0
+
   /// Receives the encoded bytes of each draw just before they are written, in write order;
   /// a test and harness seam.
   package var outputTap: (@Sendable ([UInt8]) -> Void)?
@@ -806,6 +813,7 @@ public actor TerminalSession {
     do {
       try await io.flush()
       lastDrawnBuffer = buffer
+      bytesDrawn += bytes.count
       lastDrawn = DrawnFrame(
         buffer: buffer,
         cursor: cursor,
