@@ -30,6 +30,7 @@ func `probe coordinator runs graphics after unsupported keyboard evidence`() asy
             .privateModeStatus(PrivateModeStatus(mode: mode, state: .reset))
           )
         }
+        await coordinator.observe(.primaryDeviceAttributes([1, 2]))
       } else if bytes == kittyKeyboardProbeBytes {
         await coordinator.observe(.primaryDeviceAttributes([1, 2]))
       } else {
@@ -63,6 +64,107 @@ func `probe coordinator runs graphics after unsupported keyboard evidence`() asy
 }
 
 @Test
+func `DA1 alone ends the DECRQM round without waiting for the timeout`() async throws {
+  let coordinator = ActiveCapabilityProbeCoordinator()
+  let recorder = ProbeEmissionRecorder()
+  let imageID = KittyImageID(rawValue: 7)
+  let modes = [2_004, 1_004]
+  let (sleepStarted, sleepStartedSignal) = AsyncStream<Void>.makeStream()
+  let sleepCalls = SleepCallCounter()
+
+  // The terminal ignores every DECRQM request and answers only DA1. The injected sleep
+  // never elapses, so only the DA1 sentinel can end the round.
+  let replies = Task {
+    for await _ in sleepStarted {
+      await coordinator.observe(.primaryDeviceAttributes([1, 2]))
+      return
+    }
+  }
+  let evidence = try await coordinator.reconcile(
+    privateModes: modes,
+    kittyImageID: imageID,
+    timeout: .seconds(60),
+    sleep: { _ in
+      await sleepCalls.record()
+      sleepStartedSignal.yield()
+      try await suspendUntilCancelled()
+    },
+    emit: { bytes in
+      await recorder.append(bytes)
+      if bytes != privateModeProbeBytes(modes) {
+        await coordinator.observe(.primaryDeviceAttributes([1, 2]))
+      }
+    }
+  )
+  await replies.value
+
+  let emissions = await recorder.values
+  expectNoDifference(
+    emissions,
+    [
+      privateModeProbeBytes(modes),
+      kittyKeyboardProbeBytes,
+      kittyGraphicsProbeBytes(imageID),
+    ])
+  let sleepCallCount = await sleepCalls.count
+  expectNoDifference(sleepCallCount, 1)
+  expectNoDifference(evidence.privateModes, [:])
+}
+
+@Test
+func `DA1 ends the DECRQM round with only the replies received so far`() async throws {
+  let coordinator = ActiveCapabilityProbeCoordinator()
+  let modes = [2_004, 1_004]
+
+  let evidence = try await coordinator.reconcile(
+    privateModes: modes,
+    kittyImageID: KittyImageID(rawValue: 7),
+    timeout: .seconds(60),
+    sleep: { _ in
+      Issue.record("DA1 should have ended every round before its timeout")
+    },
+    emit: { bytes in
+      if bytes == privateModeProbeBytes(modes) {
+        await coordinator.observe(
+          .privateModeStatus(PrivateModeStatus(mode: 2_004, state: .set))
+        )
+      }
+      await coordinator.observe(.primaryDeviceAttributes([1, 2]))
+    }
+  )
+
+  expectNoDifference(evidence.privateModes, [2_004: .set])
+}
+
+@Test
+func `DECRQM timeout retires the later rounds and resolves unknown evidence`()
+  async throws
+{
+  let coordinator = ActiveCapabilityProbeCoordinator()
+  let recorder = ProbeEmissionRecorder()
+  let modes = [2_004, 1_004]
+
+  let evidence = try await coordinator.reconcile(
+    privateModes: modes,
+    kittyImageID: KittyImageID(rawValue: 7),
+    timeout: .milliseconds(250),
+    sleep: { _ in },
+    emit: { bytes in
+      await recorder.append(bytes)
+    }
+  )
+
+  // The late DA1 of the timed-out round must not reach a round that never started.
+  await coordinator.observe(.primaryDeviceAttributes([1, 2]))
+
+  let emissions = await recorder.values
+  expectNoDifference(emissions, [privateModeProbeBytes(modes)])
+  expectNoDifference(evidence, ActiveCapabilityProbeEvidence())
+  let cachedEvidence = await coordinator.cachedEvidence()
+  expectNoDifference(cachedEvidence, evidence)
+}
+
+@Test
 func `keyboard timeout skips graphics probe and resolves partial evidence`() async throws
 {
   let coordinator = ActiveCapabilityProbeCoordinator()
@@ -77,6 +179,9 @@ func `keyboard timeout skips graphics probe and resolves partial evidence`() asy
     sleep: { _ in },
     emit: { bytes in
       await recorder.append(bytes)
+      if bytes == privateModeProbeBytes(modes) {
+        await coordinator.observe(.primaryDeviceAttributes([1, 2]))
+      }
     }
   )
 
@@ -109,6 +214,7 @@ func `late DA1 after keyboard timeout is ignored`() async throws {
         await coordinator.observe(
           .privateModeStatus(PrivateModeStatus(mode: modes[0], state: .reset))
         )
+        await coordinator.observe(.primaryDeviceAttributes([1, 2]))
       }
     }
   )
@@ -158,7 +264,7 @@ func `input closure resumes a probe and rejects an overlapping generation`() asy
 
   expectNoDifference(evidence, ActiveCapabilityProbeEvidence())
   let emissionCount = await recorder.count
-  expectNoDifference(emissionCount, 2)
+  expectNoDifference(emissionCount, 1)
 }
 
 @Test
@@ -202,7 +308,6 @@ func `failed emit returns the probe generation to idle so a later reconcile retr
     [
       privateModeProbeBytes([2_004]),
       privateModeProbeBytes([2_004]),
-      kittyKeyboardProbeBytes,
     ])
   expectNoDifference(evidence, ActiveCapabilityProbeEvidence())
   let cachedAfterRetry = await coordinator.cachedEvidence()
@@ -231,6 +336,7 @@ func `cancelled probe discards partial evidence and a later reconcile retries`()
           await coordinator.observe(
             .privateModeStatus(PrivateModeStatus(mode: modes[0], state: .set))
           )
+          await coordinator.observe(.primaryDeviceAttributes([1, 2]))
         }
       }
     )
@@ -263,9 +369,54 @@ func `cancelled probe discards partial evidence and a later reconcile retries`()
       privateModeProbeBytes(modes),
       kittyKeyboardProbeBytes,
       privateModeProbeBytes(modes),
-      kittyKeyboardProbeBytes,
     ])
   expectNoDifference(evidence, ActiveCapabilityProbeEvidence())
+}
+
+@Test
+func `a cancelled generation's DA1 does not end the retry's DECRQM round`() async throws {
+  let coordinator = ActiveCapabilityProbeCoordinator()
+  let (sleepStarted, sleepStartedSignal) = AsyncStream<Void>.makeStream()
+  let cancelledProbe = Task {
+    try await coordinator.reconcile(
+      privateModes: [2_004],
+      kittyImageID: KittyImageID(rawValue: 7),
+      timeout: .seconds(60),
+      sleep: { _ in
+        sleepStartedSignal.yield()
+        try await suspendUntilCancelled()
+      },
+      emit: { _ in }
+    )
+  }
+  for await _ in sleepStarted {
+    break
+  }
+  cancelledProbe.cancel()
+  await #expect(throws: CancellationError.self) {
+    try await cancelledProbe.value
+  }
+
+  try await expectRetryAttributesEverySentinel(coordinator)
+}
+
+@Test
+func `a failed emit's DA1 does not end the retry's DECRQM round`() async throws {
+  struct EmitFailure: Error, Equatable {}
+  let coordinator = ActiveCapabilityProbeCoordinator()
+  await #expect(throws: EmitFailure()) {
+    try await coordinator.reconcile(
+      privateModes: [2_004],
+      kittyImageID: KittyImageID(rawValue: 7),
+      timeout: .seconds(60),
+      sleep: { _ in
+        Issue.record("a failed emit should not reach a timeout")
+      },
+      emit: { _ in throw EmitFailure() }
+    )
+  }
+
+  try await expectRetryAttributesEverySentinel(coordinator)
 }
 
 @Test
@@ -406,6 +557,77 @@ private func suspendUntilCancelled() async throws {
   try Task.checkCancellation()
 }
 
+/// Replays the replies a terminal sends, in order, one batch per trigger.
+private actor ReplyWire {
+  private var batches: [[InputEvent]]
+
+  init(_ batches: [[InputEvent]]) {
+    self.batches = batches
+  }
+
+  func deliverNext(to coordinator: ActiveCapabilityProbeCoordinator) async {
+    guard !batches.isEmpty else {
+      return
+    }
+    for event in batches.removeFirst() {
+      await coordinator.observe(event)
+    }
+  }
+}
+
+/// Retries a generation whose first attempt already wrote its DECRQM batch and DA1. The
+/// terminal answers in order, and each reply batch arrives one step later than the write
+/// it answers, so the first DA1 belongs to the abandoned attempt. The retry must not take
+/// it for any of its own sentinels: that would shift every later round by one and cache
+/// false `.unsupported` evidence for a terminal that supports both Kitty protocols.
+private func expectRetryAttributesEverySentinel(
+  _ coordinator: ActiveCapabilityProbeCoordinator
+) async throws {
+  let imageID = KittyImageID(rawValue: 7)
+  let da1 = InputEvent.primaryDeviceAttributes([1, 2])
+  let status = InputEvent.privateModeStatus(PrivateModeStatus(mode: 2_004, state: .set))
+  let wire = ReplyWire([
+    [status, da1],  // the abandoned attempt's replies
+    [status, da1],  // the retry's DECRQM replies
+    [.kittyKeyboardEnhancementFlags(7), da1],
+    [.kittyGraphicsResponse(KittyGraphicsResponse(id: imageID, message: "OK")), da1],
+  ])
+  let (sleepStarted, sleepStartedSignal) = AsyncStream<Void>.makeStream()
+  // A round that is still waiting for its sentinel is waiting on the sleep, which is
+  // injected and never elapses, so the next reply batch arrives only through this task.
+  let lateReplies = Task {
+    for await _ in sleepStarted {
+      await wire.deliverNext(to: coordinator)
+    }
+  }
+
+  let evidence = try await coordinator.reconcile(
+    privateModes: [2_004],
+    kittyImageID: imageID,
+    timeout: .seconds(60),
+    sleep: { _ in
+      sleepStartedSignal.yield()
+      try await suspendUntilCancelled()
+    },
+    emit: { _ in
+      await wire.deliverNext(to: coordinator)
+    }
+  )
+  lateReplies.cancel()
+
+  expectNoDifference(evidence.privateModes, [2_004: .set])
+  expectNoDifference(evidence.kittyKeyboard, .supported)
+  expectNoDifference(evidence.kittyGraphics, .supported)
+}
+
+private actor SleepCallCounter {
+  private(set) var count = 0
+
+  func record() {
+    count += 1
+  }
+}
+
 private actor ProbeEmissionRecorder {
   private var countWaiters: [(Int, CheckedContinuation<Void, Never>)] = []
   private(set) var values: [[UInt8]] = []
@@ -465,6 +687,7 @@ private actor ResponsiveProbeTerminalDevice {
       for mode in activePrivateModeProbeModes {
         response.append(contentsOf: "\u{1B}[?\(mode);1$y".utf8)
       }
+      response.append(contentsOf: "\u{1B}[?1;2c".utf8)
       inputContinuation.yield(response)
     } else if bytes == kittyKeyboardProbeBytes {
       if keyboardSupported {
@@ -517,7 +740,7 @@ private let kittyKeyboardPushBytes = Array("\u{1B}[>7u".utf8)
 private let kittyKeyboardPopBytes = Array("\u{1B}[<u".utf8)
 
 private func privateModeProbeBytes(_ modes: [Int]) -> [UInt8] {
-  modes.flatMap { Array("\u{1B}[?\($0)$p".utf8) }
+  modes.flatMap { Array("\u{1B}[?\($0)$p".utf8) } + Array("\u{1B}[c".utf8)
 }
 
 private func kittyGraphicsProbeBytes(_ imageID: KittyImageID) -> [UInt8] {

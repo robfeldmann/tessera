@@ -732,8 +732,8 @@ public actor TerminalSession {
 
   /// Runs or reuses this session's single serialized active-probe generation.
   ///
-  /// The rounds are DECRQM, Kitty keyboard plus DA1, then Kitty Graphics plus DA1. Every
-  /// parsed event, including probe replies, remains available through the input queue.
+  /// The rounds are DECRQM plus DA1, Kitty keyboard plus DA1, then Kitty Graphics plus DA1.
+  /// Every parsed event, including probe replies, remains available through the input queue.
   @discardableResult
   public func queryActiveCapabilities() async throws -> ActiveCapabilityProbeResult {
     try await queryActiveCapabilities(kittyImageID: probeImageID)

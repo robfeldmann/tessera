@@ -45,6 +45,10 @@ package actor ActiveCapabilityProbeCoordinator {
   private var generation: GenerationState = .idle
   private var inputIsClosed = false
   private var nextWaiterID: UInt64 = 0
+  /// DA1 queries written (or attempted) whose reply has not been observed. The terminal
+  /// answers them in order, and a cancelled or failed generation leaves its own in flight,
+  /// so only the reply that brings this to zero can be the current round's sentinel.
+  private var pendingSentinels = 0
   private var round: Round = .none
   private var roundResponseObserved = false
   private var roundResolved = false
@@ -52,8 +56,13 @@ package actor ActiveCapabilityProbeCoordinator {
 
   package init() {}
 
+  /// The mode requests followed by one DA1 sentinel, which a terminal answers after every
+  /// reply it will give. An empty request asks nothing, so it needs no sentinel.
   private static func privateModeRequestBytes(_ modes: [Int]) -> [UInt8] {
-    modes.flatMap { Array("\u{1B}[?\($0)$p".utf8) }
+    guard !modes.isEmpty else {
+      return []
+    }
+    return modes.flatMap { Array("\u{1B}[?\($0)$p".utf8) } + [0x1B, 0x5B, 0x63]
   }
 
   private static func kittyGraphicsProbeBytes(id: KittyImageID) -> [UInt8] {
@@ -63,13 +72,23 @@ package actor ActiveCapabilityProbeCoordinator {
   }
 
   package func observe(_ event: InputEvent) {
+    if case .primaryDeviceAttributes = event {
+      pendingSentinels = max(pendingSentinels - 1, 0)
+      guard pendingSentinels == 0 else {
+        // An earlier generation's reply: it precedes every reply to the current round.
+        return
+      }
+    }
+
     switch (round, event) {
     case (.privateModes(let expected), .privateModeStatus(let status))
     where expected.contains(status.mode):
       evidence.privateModes[status.mode] = status.state
-      if expected.allSatisfy({ evidence.privateModes[$0] != nil }) {
-        resolveRound()
-      }
+
+    case (.privateModes, .primaryDeviceAttributes):
+      // DA1 ends the round. A mode with no reply by now stays unknown: an unanswered
+      // DECRQM is not a conclusive "unsupported".
+      resolveRound()
 
     case (.kittyKeyboard, .kittyKeyboardEnhancementFlags):
       evidence.kittyKeyboard = .supported
@@ -135,21 +154,34 @@ package actor ActiveCapabilityProbeCoordinator {
     do {
       round = .privateModes(Set(privateModes))
       roundResolved = privateModes.isEmpty
+      // Counted before the write: a write that throws part-way may still have sent its DA1,
+      // and a miscount that expects a DA1 that never comes only costs a timeout, not a
+      // wrong answer.
+      if !privateModes.isEmpty {
+        pendingSentinels += 1
+      }
       try await emit(Self.privateModeRequestBytes(privateModes))
-      _ = await waitForRound(timeout: timeout, sleep: sleep)
+      let modesRoundCompleted = await waitForRound(timeout: timeout, sleep: sleep)
 
-      try Task.checkCancellation()
-      round = .kittyKeyboard
-      roundResponseObserved = false
-      roundResolved = false
-      try await emit(Self.kittyKeyboardProbeBytes)
-      let keyboardRoundCompleted = await waitForRound(timeout: timeout, sleep: sleep)
+      // A DA1 round that timed out may still have its DA1 in flight, so later rounds
+      // retire: a late reply could otherwise satisfy their sentinel.
+      var keyboardRoundCompleted = false
+      if modesRoundCompleted {
+        try Task.checkCancellation()
+        round = .kittyKeyboard
+        roundResponseObserved = false
+        roundResolved = false
+        pendingSentinels += 1
+        try await emit(Self.kittyKeyboardProbeBytes)
+        keyboardRoundCompleted = await waitForRound(timeout: timeout, sleep: sleep)
+      }
 
       if keyboardRoundCompleted {
         round = .kittyGraphics(kittyImageID)
         roundResponseObserved = false
         try Task.checkCancellation()
         roundResolved = false
+        pendingSentinels += 1
         try await emit(Self.kittyGraphicsProbeBytes(id: kittyImageID))
         _ = await waitForRound(timeout: timeout, sleep: sleep)
       }
@@ -160,7 +192,9 @@ package actor ActiveCapabilityProbeCoordinator {
       return evidence
     } catch {
       // Cancellation and emit failures mean the terminal was never fully asked, so a later
-      // reconcile retries from scratch. Timeouts do not reach here; they resolve permanently.
+      // reconcile retries from scratch, keeping `pendingSentinels` so the retry waits past
+      // the DA1 replies this attempt left in flight. Timeouts do not reach here; they
+      // resolve permanently.
       round = .none
       evidence = ActiveCapabilityProbeEvidence()
       generation = .idle
