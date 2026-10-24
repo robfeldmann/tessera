@@ -1,6 +1,6 @@
 # Scenarios
 
-A scenario is a plain text file that drives one app and says what the screen should show. It is a test, a bug report, and a fixture at once: a person or an agent can write it without reading Tessera's source, and `tessera run` runs it the same way on macOS, Linux, and Windows. This file is the grammar's single source. The design behind it is [Developer tooling](../../docs/architecture/developer-tooling.md), and the `tessera-devtools` skill is how to use it.
+A scenario is a plain text file that drives one app and says what the screen should show. It is a test, a bug report, and a fixture at once: a person or an agent can write it without reading Tessera's source, and `tessera run` runs it the same way on macOS, Linux, and Windows. This file is the grammar's single source. The design behind it is [Developer tooling](../../docs/architecture/developer-tooling.md), and the `tessera` skill is how to use it, with `tessera-contributing` for this repository's corpus and `mise` tasks.
 
 ```sh
 mise run dev:run Examples/Scenarios            # every scenario under a directory

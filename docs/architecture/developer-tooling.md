@@ -5,7 +5,7 @@ description: What Tessera's developer tools are, how they fit together, and the 
 
 # Developer tooling
 
-This page describes Tessera's developer tools: what each one is, how they fit together, and the rules they follow. They serve two audiences: contributors building Tessera, and authors of apps built on Tessera, who drive and check their own apps with the same harness, scenarios, and checks. Each tool's status in [The tools](#the-tools) says whether it exists yet or is only designed. The how-to for using them is the `tessera-devtools` skill (and, later, a user guide); this page is the design they implement.
+This page describes Tessera's developer tools: what each one is, how they fit together, and the rules they follow. They serve two audiences: contributors building Tessera, and authors of apps built on Tessera, who drive and check their own apps with the same harness, scenarios, and checks. Each tool's status in [The tools](#the-tools) says whether it exists yet or is only designed. The how-to for using them is the `tessera` skill for app authors and `tessera-contributing` for contributors (and, later, a user guide); this page is the design they implement.
 
 ## Why the tools exist
 
@@ -64,7 +64,8 @@ Read the diagram as one scenario run. `tessera run` and `swift test` are two way
 | Pointer verbs and hit query | both | scenario `mouse`, `hit` | designed |
 | Schedulable clock | both | environment `Clock` plus scenario `wait`, `settle` | designed |
 | Live inspection socket | agents | `TESSERA_DEBUG_SOCKET`, `tessera attach` | designed |
-| `tessera-devtools` skill | agents | `.agents/skills/tessera-devtools/` | built for the tools above; it grows with each tool |
+| `tessera` skill | agents of app authors | `.agents/skills/tessera/` | built; covers each tool built above |
+| `tessera-contributing` skill | agents of contributors | `.agents/skills/tessera-contributing/` | built; covers the `mise` tasks and the demos, over the `tessera` skill |
 
 ### Demos
 
@@ -217,14 +218,16 @@ The gallery (`DevTools/gallery/`, served by `scripts/gallery-serve.py`) shows ea
 
 ## The development loop
 
-The loop the `tessera-devtools` skill teaches, for humans and agents alike:
+The loop the `tessera` skill teaches app authors, for humans and agents alike:
 
-1. `tessera launch NAME` to see the component.
-2. `tessera run Examples/Scenarios/NAME.scn` and read the report (or its JSON).
+1. `tessera launch NAME` to see the app.
+2. `tessera run PATH` on the app's scenario, and read the report (or its JSON).
 3. `shot` to picture the failing state, `tree` to see the nodes and frames.
 4. Read the trace to learn why a redraw or a focus move happened.
 5. `check` to find the broken invariant.
-6. Fix the library, never the demo, and rerun.
+6. Fix the app and rerun; when the fault is Tessera's, report a Tessera bug and do not work around it.
+
+The `tessera-contributing` skill runs the same loop over Tessera's own demos: through `mise run dev:*`, on a scenario from `Examples/Scenarios`, and with step 6 as fix the library, add a regression test, and never bend the demo.
 
 ## Open questions
 
@@ -232,7 +235,7 @@ The loop the `tessera-devtools` skill teaches, for humans and agents alike:
 
 ## Keeping this page current
 
-This page is the index for the tools. A change that adds or changes a tool updates the matching section here, and the `tessera-devtools` skill, in the same change: what the tool is now, what it does not do yet, and its status in [The tools](#the-tools). When a tool grows past a section, its detail moves to its own page under `docs/architecture/developer-tooling/`, and this page keeps a summary and a link. How-tos belong in the skill and the user guide, not here.
+This page is the index for the tools. A change that adds or changes a tool updates the matching section here and the skills, in the same change: the `tessera` skill first, as an app author sees the tool, then `tessera-contributing` for what only a contributor has. The page says what the tool is now, what it does not do yet, and its status in [The tools](#the-tools); the skills describe only what exists. When a tool grows past a section, its detail moves to its own page under `docs/architecture/developer-tooling/`, and this page keeps a summary and a link. How-tos belong in the skill and the user guide, not here.
 
 ## Affected plans
 
