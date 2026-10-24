@@ -774,11 +774,16 @@ public actor TerminalSession {
   }
 
   /// Encodes the rendered buffer against the last drawn one and flushes the bytes.
+  ///
+  /// The body ran in the caller's isolation, so the scope that owns this session can have
+  /// closed since `beginFrame`; the check keeps a frame from reaching a terminal that has
+  /// already left its application modes.
   private func commitFrame(
     _ buffer: Buffer,
     cursor: TerminalPosition?,
     policy: FramePolicy
   ) async throws {
+    try checkOpen()
     var bytes: [UInt8] = []
     if policy.synchronizedOutput == .enabled {
       ControlSequence.enterSynchronizedOutput.encode(into: &bytes)
