@@ -40,12 +40,12 @@ ALLOWED_DIRECT_DEPENDENCIES: dict[str, frozenset[str]] = {
 ALLOWED_DIRECT_DEPENDENCIES["TesseraTestSupport"] = frozenset(
     {"TesseraCore", "TesseraTerminalTestSupport"}
 )
+ALLOWED_EXTERNAL_PRODUCTS: dict[str, frozenset[str]] = {
+    "TesseraHarness": frozenset({"ArgumentParser"}),
+    "TesseraTestSupport": frozenset({"SnapshotTesting", "SnapshotTestingCustomDump"}),
+}
 ALLOWED_PRODUCT_DEPENDENCIES: dict[str, frozenset[str]] = {
-    target: (
-        frozenset({"SnapshotTesting", "SnapshotTestingCustomDump"})
-        if target == "TesseraTestSupport"
-        else frozenset()
-    )
+    target: ALLOWED_EXTERNAL_PRODUCTS.get(target, frozenset())
     for target in ALLOWED_DIRECT_DEPENDENCIES
 }
 

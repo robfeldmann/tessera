@@ -17,14 +17,16 @@ struct HarnessCLITests {
     _ arguments: String...,
     registry: ApplicationRegistry? = nil,
     terminal: Bool = false,
-    input: Bool = false
+    input: Bool = false,
+    executable: String = "tessera"
   ) async -> CommandOutput {
     await HarnessCLI.run(
       arguments: arguments,
       registry: registry ?? Fixtures.registry(),
       inputIsTerminal: input,
       outputIsTerminal: terminal,
-      configuration: .default
+      configuration: .default,
+      executableName: executable
     )
   }
 
@@ -190,7 +192,7 @@ struct HarnessCLITests {
         exitCode: 2,
         stdout: "",
         stderr: """
-          error: usage: launch NAME
+          error: Missing expected argument '<name>'; usage: tessera launch [--json] [--pretty] <name>
           
           """
       )
@@ -310,10 +312,9 @@ struct HarnessCLITests {
   }
 
   @Test
-  func `help prints real text for each command whatever stdout is`() async {
+  func `help prints the overview and each command's help whatever stdout is`() async {
     let outputs = [
       await run("help"), await run("help", "apps"), await run("help", "launch"),
-      await run("help", "help"), await run("help", "ghost"),
     ]
 
     assertInlineSnapshot(of: outputs, as: .customDump) {
@@ -322,16 +323,29 @@ struct HarnessCLITests {
         [0]: CommandOutput(
           exitCode: 0,
           stdout: """
-            usage: <executable> COMMAND [ARGUMENT]
+            OVERVIEW: List and launch the registered applications.
             
-            commands:
-              apps           list the registered applications
-              launch NAME    run one application in this terminal
-              help [COMMAND] describe a command
+            Every command exits 0 on success, 2 on a usage error, and 3 on a harness error.
+            When standard output is not a terminal each command writes one JSON object to
+            it; --json forces that form and --pretty forces the text form.
             
-            Every command exits 0 on success, 2 on a usage error, and 3 on a harness error. When
-            standard output is not a terminal each command writes one JSON object to it; --json
-            forces that form and --pretty forces the text form.
+            `--generate-completion-script SHELL` prints a completion script for fish, zsh,
+            or bash. It completes the commands, their flags, and the registered application
+            names.
+            
+            USAGE: tessera [--json] [--pretty] <subcommand>
+            
+            OPTIONS:
+              --json                  Print one JSON object, even on a terminal.
+              --pretty                Print the text form, even when output is not a
+                                      terminal.
+              -h, --help              Show help information.
+            
+            SUBCOMMANDS:
+              apps                    List the registered applications.
+              launch                  Run one application in this terminal.
+            
+              See 'tessera help <subcommand>' for detailed help.
             
             """,
           stderr: ""
@@ -339,12 +353,22 @@ struct HarnessCLITests {
         [1]: CommandOutput(
           exitCode: 0,
           stdout: """
-            usage: apps [--json | --pretty]
+            OVERVIEW: List the registered applications.
             
             Lists every registered application with the smallest size it declares and the
             viewports it is checked at. The JSON form is {"apps": [{"minimum", "name",
-            "viewports"}], "command": "apps"}, sorted by name, where "minimum" is null for an
-            application that declares none. A name registered twice fails the command with exit 3.
+            "viewports"}], "command": "apps"}, sorted by name, where "minimum" is null for
+            an application that declares none. A name registered twice fails the command
+            with exit 3.
+            
+            USAGE: tessera apps [--json] [--pretty]
+            
+            OPTIONS:
+              --json                  Print one JSON object, even on a terminal.
+              --pretty                Print the text form, even when output is not a
+                                      terminal.
+              -h, --help              Show help information.
+            
             
             """,
           stderr: ""
@@ -352,35 +376,156 @@ struct HarnessCLITests {
         [2]: CommandOutput(
           exitCode: 0,
           stdout: """
-            usage: launch NAME
+            OVERVIEW: Run one application in this terminal.
             
-            Runs the named application in this terminal at the terminal's size, until the
-            application finishes. The harness has no quit key of its own: the application decides
-            which key quits. Exits 2 for an unknown name, and 3 for a duplicate registration or
-            when standard input or output is not a terminal.
+            Runs the named application at the terminal's size, until the application
+            finishes. The harness has no quit key of its own: the application decides which
+            key quits.
+            
+            Exits 2 for an unknown name, and 3 for a duplicate registration or when
+            standard input or output is not a terminal.
+            
+            USAGE: tessera launch [--json] [--pretty] <name>
+            
+            ARGUMENTS:
+              <name>                  The application to run, as `apps` lists it.
+            
+            OPTIONS:
+              --json                  Print one JSON object, even on a terminal.
+              --pretty                Print the text form, even when output is not a
+                                      terminal.
+              -h, --help              Show help information.
+            
             
             """,
           stderr: ""
-        ),
-        [3]: CommandOutput(
-          exitCode: 0,
-          stdout: """
-            usage: help [COMMAND]
-            
-            Prints the commands, or one command's usage.
-            
-            """,
-          stderr: ""
-        ),
-        [4]: CommandOutput(
+        )
+      ]
+      """#
+    }
+  }
+
+  @Test
+  func `help COMMAND and COMMAND --help print the same text`() async {
+    let spelled = await run("help", "launch")
+    let flagged = await run("launch", "--help")
+    let overview = await run("help")
+    let flaggedOverview = await run("--help", terminal: true)
+
+    expectNoDifference(spelled, flagged)
+    expectNoDifference(overview, flaggedOverview)
+  }
+
+  @Test
+  func `usage names the executable it runs as`() async {
+    let output = await run("help", "launch", executable: "mytool")
+
+    #expect(output.stdout.contains("USAGE: mytool launch"))
+  }
+
+  @Test
+  func `help for an unknown command is a usage error that lists the commands`() async {
+    let json = await run("help", "ghost")
+    let text = await run("help", "ghost", "--pretty")
+
+    assertInlineSnapshot(of: [json, text], as: .customDump) {
+      #"""
+      [
+        [0]: CommandOutput(
           exitCode: 2,
           stdout: """
             {"command":"help","exitCode":2,"message":"unknown command `ghost`; accepted: apps, launch, help"}
             
             """,
           stderr: ""
+        ),
+        [1]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: unknown command `ghost`; accepted: apps, launch, help
+            
+            """
         )
       ]
+      """#
+    }
+  }
+
+  @Test
+  func `the parser's usage errors exit 2, not its own 64, and say what is accepted`()
+    async
+  {
+    let outputs = [
+      await run("apps", "extra", "--pretty"),
+      await run("apps", "--nope", "--pretty"),
+      await run("launch", "a", "b", "--pretty"),
+      await run("--generate-completion-script", "powershell", "--pretty"),
+      await run("--nope", "--pretty"),
+    ]
+
+    assertInlineSnapshot(of: outputs, as: .customDump) {
+      #"""
+      [
+        [0]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: Unexpected argument 'extra'; usage: tessera apps [--json] [--pretty]
+            
+            """
+        ),
+        [1]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: Unknown option '--nope'; usage: tessera apps [--json] [--pretty]
+            
+            """
+        ),
+        [2]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: Unexpected argument 'b'; usage: tessera launch [--json] [--pretty] <name>
+            
+            """
+        ),
+        [3]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: Can't generate completion scripts for 'powershell'. Please use --generate-completion-script=<shell> with one of: zsh bash fish; usage: tessera [--json] [--pretty] <subcommand>
+            
+            """
+        ),
+        [4]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: Unknown option '--nope'; usage: tessera [--json] [--pretty] <subcommand>
+            
+            """
+        )
+      ]
+      """#
+    }
+  }
+
+  @Test
+  func `a usage error is a JSON failure when stdout is not a terminal`() async {
+    let output = await run("launch")
+
+    assertInlineSnapshot(of: output, as: .customDump) {
+      #"""
+      CommandOutput(
+        exitCode: 2,
+        stdout: """
+          {"command":"launch","exitCode":2,"message":"Missing expected argument '<name>'; usage: tessera launch [--json] [--pretty] <name>"}
+          
+          """,
+        stderr: ""
+      )
       """#
     }
   }
@@ -395,11 +540,64 @@ struct HarnessCLITests {
         exitCode: 2,
         stdout: "",
         stderr: """
-          error: `--json` and `--pretty` contradict each other
+          error: Value to be set with flag '--pretty' had already been set with flag '--json'; usage: tessera apps [--json] [--pretty]
           
           """
       )
       """#
     }
+  }
+
+  @Test
+  func `the output flags are accepted before or after the command`() async {
+    let before = await run("--json", "apps", terminal: true)
+    let after = await run("apps", "--json", terminal: true)
+
+    expectNoDifference(before, after)
+    #expect(before.exitCode == 0)
+  }
+
+  @Test
+  func `the app-name completion lists the registered names`() async {
+    let output = await run("---completion", "launch", "--", "name", "0", "0", "launch")
+
+    assertInlineSnapshot(of: output, as: .customDump) {
+      #"""
+      CommandOutput(
+        exitCode: 0,
+        stdout: """
+          counter
+          greedy
+          main-actor-counter
+          observed-counter
+          stack
+          workspace
+          
+          """,
+        stderr: ""
+      )
+      """#
+    }
+  }
+
+  @Test
+  func `a registry with a duplicate name completes nothing`() async {
+    let output = await run(
+      "---completion", "launch", "--", "name", "0", "0", "launch", registry: duplicated())
+
+    expectNoDifference(output, CommandOutput(exitCode: 0))
+  }
+
+  @Test(arguments: ["bash", "fish", "zsh"])
+  func `the completion script for a shell calls the executable by its name`(
+    shell: String
+  ) async {
+    let output = await run(
+      "--generate-completion-script", shell, executable: "mytool")
+
+    #expect(output.exitCode == 0)
+    #expect(output.stderr.isEmpty)
+    #expect(output.stdout.contains("mytool"))
+    #expect(output.stdout.contains("---completion"))
   }
 }

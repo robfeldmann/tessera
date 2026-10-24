@@ -20,6 +20,20 @@ let package = Package(
 
 // MARK: - ⤵️ Dependencies
 
+// MARK: ArgumentParser
+
+package.dependencies.append(
+  .package(
+    url: "https://github.com/apple/swift-argument-parser",
+    from: "1.8.2"
+  )
+)
+
+let ArgumentParser: Target.Dependency = .product(
+  name: "ArgumentParser",
+  package: "swift-argument-parser"
+)
+
 // MARK: CustomDump
 
 package.dependencies.append(
@@ -270,6 +284,7 @@ package.targets.append(contentsOf: [
   .target(
     name: "TesseraHarness",
     dependencies: [
+      ArgumentParser,
       TesseraCore,
       TesseraRuntime,
       TesseraTerminal,
