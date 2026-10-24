@@ -439,6 +439,14 @@ Schema: [README](../../design.md#sizing-table). Mandatory rows: nil x nil, tight
 - `label icon-only style draws the icon without a gap or title` (Label styles: `.iconOnly`; Sizing: `.iconOnly`, nil x nil)
 - `label icon-only style draws the truncation mark for a name with no glyph` (Label styles: `.iconOnly`)
 
+### Pointer
+
+- `label takes no focus, keys or pointer input` (Overview)
+
+### Clock
+
+- `label reads no clock` (Decisions)
+
 ## Degradation
 
 - ASCII charset: the bracketed ASCII column is used. Names draw as the ASCII column.

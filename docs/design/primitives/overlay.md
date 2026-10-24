@@ -114,7 +114,13 @@ Overlay consumes no token and creates no environment value. It does not create a
 - `overlay clips an oversized layer to primary bounds` (anatomy: overlay layer, oversized example)
 - `overlay paints its layer after the primary without clearing revealed cells` (anatomy: revealed primary, topTrailing example)
 - `overlay paints nothing when its primary bounds have zero area` (anatomy: zero-area primary note)
+
+### Pointer
+
 - `decorative overlay requires explicit hit-testing opt-out` (open questions: decorative overlay decision)
+- `overlay layer is hit before the primary inside the primary bounds` (Open questions: hit testing respects ZStack order)
+- `overlay hit testing skips a layer marked allows hit testing false and reaches the primary` (Open questions: decorative overlay decision)
+- `overlay installs no input handler and supplies only paint order to hit-test routing` (Open questions: hit testing respects ZStack order)
 
 ## Degradation
 

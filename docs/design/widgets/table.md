@@ -474,7 +474,7 @@ Rules for a wrapped column:
 - **Narrow tables.** Dropping columns by priority is unchanged (owner decision, 2026-10-18): a wrapped column does not change the drop order. It wraps at whatever width the surviving columns leave it, breaking a word between graphemes only when the word is wider than the column.
 - **Selection.** The bar, the fill, and the multi-select cursor bar cover every row of a data row. The member mark `●` sits on the first row only. A stripe covers every row.
 - **Frames.** In `bordered` and `grid` the column separators and side borders run down every row of a tall data row. `grid`'s row rules sit between data rows, never inside one.
-- **Scrolling.** The offset, the thumb, and paging count rows, per [ScrollView's contract](scroll-view.md#rows-and-variable-height-content): a data row cut by the top or bottom edge draws its visible rows, with no truncation mark, and a selection move reveals the fewest rows that show the whole data row.
+- **Scrolling.** The offset, the thumb, and paging count rows, per [ScrollView's contract](scroll-view.md#rows-and-variable-height-content): a data row cut by the top or bottom edge draws its visible rows, with no truncation mark, an arrow, Home, or End move reveals the fewest rows that show the whole data row, and a page key moves the offset by a page and the selection by the same rows.
 - **Header.** The header row stays one row. Its cells tail-truncate, and a sort mark keeps its place.
 
 ## States
@@ -540,7 +540,7 @@ Degraded ascii/no-color (46x6): geometry identical, glyphs swapped per the [degr
 | header cursor | NodeState | `Int?` (column index) | set by Ctrl-↑ to the first column; clamped to the first and last column on every update; cleared by ↑, ↓, Esc, or focus loss (key D3) |
 | sort order | Binding | `[TableSortOrder<ColumnID>]?` | keyed by column identity, not title; Table marks the header of each named column with its direction, and the app re-sorts data itself; an entry naming no column ID is ignored and the binding is not mutated; header Space and header click write the binding on user action only |
 | sort marks | derived | `↑`, `↓` (ASCII `^`, `v`) | drawn on each header whose column ID has an entry in the sort order binding; never stored |
-| scroll offset | NodeState | `Int` (content rows above the viewport) | counts rows, not data rows, so a partly visible row at either edge draws its visible rows; clamps to `0...maximum scroll offset` on every update, including after a width change re-wraps cells; keeps the cursor or selection visible after cursor- or selection-moving keys by the fewest rows that show every row of it (a row taller than the viewport aligns its first row with the top) (key D4) |
+| scroll offset | NodeState | `Int` (content rows above the viewport) | counts rows, not data rows, so a partly visible row at either edge draws its visible rows; clamps to `0...maximum scroll offset` on every update, including after a width change re-wraps cells; arrows, Home, and End keep the cursor or selection visible by the fewest rows that show every row of it (a row taller than the viewport aligns its first row with the top) (key D4); PgDn and PgUp move it by V rows and the selection or cursor by the same rows (owner decision, 2026-10-23) |
 | maximum scroll offset | derived | `Int` | recomputed as `max(0, C - V)` for C content rows (the sum of row heights) and V viewport rows on every update and layout pass; never stored |
 | column widths | derived | `[Int]` | recomputed per layout pass by Flex's one resolver from each column's `width`, once across all rows (key G9); never stored |
 | column line limit | derived | `Int?` per column | read from the column declaration on every update: 1 unless the column opted in with `TableColumn.lineLimit(_:)`; nil wraps every row, n caps the cell at n rows; header cells are always 1; never stored |
@@ -561,16 +561,20 @@ The scroll offset and both keyboard cursors have exactly one runtime owner. If `
 | --- | --- | --- | --- |
 | ↓ | focused, single-select | moves selection to next row via binding | yes |
 | ↑ | focused, single-select | moves selection to previous row via binding | yes |
-| PgDn | focused, single-select | moves selection down one viewport of rows via binding | yes |
-| PgUp | focused, single-select | moves selection up one viewport of rows via binding | yes |
+| PgDn | focused, single-select, selection is set | moves NodeState scroll offset down V rows, clamped to the maximum, and moves selection down the same rows (rest of the way to the last row when the offset stops) via binding | yes |
+| PgUp | focused, single-select, selection is set | moves NodeState scroll offset up V rows, clamped to 0, and moves selection up the same rows (rest of the way to the first row when the offset stops) via binding | yes |
+| PgDn | focused, single-select, selection not set | increments NodeState scroll offset by V rows, clamped to the maximum | yes |
+| PgUp | focused, single-select, selection not set | decrements NodeState scroll offset by V rows, clamped to 0 | yes |
 | Home | focused, single-select | moves selection to first row via binding | yes |
 | End | focused, single-select | moves selection to last row via binding | yes |
 | Enter | focused, single-select, selection is set | calls `onActivate` with the selected element | yes |
 | ↓ | focused, single-select, selection not set | sets selection to first visible row via binding | yes |
 | ↓ | focused, multi-select, cursor is set | moves cursor to next row; membership unchanged | yes |
 | ↑ | focused, multi-select, cursor is set | moves cursor to previous row; membership unchanged | yes |
-| PgDn | focused, multi-select, cursor is set | moves cursor down one viewport of rows; membership unchanged | yes |
-| PgUp | focused, multi-select, cursor is set | moves cursor up one viewport of rows; membership unchanged | yes |
+| PgDn | focused, multi-select, cursor is set | moves NodeState scroll offset down V rows, clamped to the maximum, and moves cursor down the same rows (rest of the way to the last row when the offset stops); membership unchanged | yes |
+| PgUp | focused, multi-select, cursor is set | moves NodeState scroll offset up V rows, clamped to 0, and moves cursor up the same rows (rest of the way to the first row when the offset stops); membership unchanged | yes |
+| PgDn | focused, multi-select, cursor not set | increments NodeState scroll offset by V rows, clamped to the maximum; cursor stays unset | yes |
+| PgUp | focused, multi-select, cursor not set | decrements NodeState scroll offset by V rows, clamped to 0; cursor stays unset | yes |
 | Home | focused, multi-select, cursor is set | moves cursor to first row; membership unchanged | yes |
 | End | focused, multi-select, cursor is set | moves cursor to last row; membership unchanged | yes |
 | ↓ | focused, multi-select, cursor not set | sets cursor to first visible row; membership unchanged | yes |
@@ -584,7 +588,7 @@ The scroll offset and both keyboard cursors have exactly one runtime owner. If `
 | ↓ | header mode | leaves header mode; header cursor cleared | yes |
 | Esc | header mode | leaves header mode; header cursor cleared | yes |
 
-Every cursor- or selection-moving key also updates the `NodeState` scroll offset per its clamp rule so the moved row stays visible. Keys move by data row; only the offset is in rows, so PgUp and PgDn move to the data row containing the row one viewport (V rows) above or below the current row's first row, clamped to the first and last data row.
+Every cursor- or selection-moving key also updates the `NodeState` scroll offset per its clamp rule so the moved row stays visible: arrows, Home, and End reveal the fewest rows that show the whole data row. PgDn and PgUp page instead (owner decision, 2026-10-23; [ScrollView](scroll-view.md#rows-and-variable-height-content)): the offset moves by `V` rows and the selection or cursor by the same rows, so it keeps its screen row. The target is the row `V` rows below or above the current row's first row, and the selection lands on the data row containing it. Near the end the offset stops at its maximum and the selection or cursor moves the rest of the way, clamped to the last data row; PgUp mirrors this at the top. When the data row at the target is cut by an edge, reveal then shows all its rows. With nothing selected (single-select) or no cursor (multi-select), the page keys page the offset only and never invent a selection. `V` is the data rows of the viewport; the header and rule do not count.
 
 ## Mouse table
 
@@ -753,18 +757,11 @@ Column width policy (baseline, owner decision, 2026-10-10): each `TableColumn` d
 ## Requirements
 
 - `rows recompute from immutable data input on every update without a binding` (state model: rows)
-- `selection stays visible when moved past the viewport edge` (key table: ↓; state: scroll offset)
-- `successive selection moves separated by graph updates keep selection and scroll offset synchronized` (key table: ↓; state: selection and scroll offset)
-- `wheel scrolling moves viewport without changing selection` (mouse table: wheel-down)
-- `scroll indicator is output-only and has no drag interaction` (anatomy: callout 7; mouse table)
 - `selection binding survives app reordering rows` (state model: selection)
 - `vanished selection id renders no selection and does not mutate the binding` (state model: selection)
-- `scroll offset clamps when app shrinks data` (state model: scroll offset; maximum scroll offset)
 - `default header uses bold primary and TableStyle can override it` (state model: header styling)
-- `header click cycles the sort entry for that column id through binding` (mouse table: header cell)
 - `sort order is keyed by column id so retitling a column keeps its sort` (state model: sort order)
 - `sort entry naming no column id is ignored and does not mutate the binding` (state model: sort order)
-- `enter activates the selected element` (key table: Enter)
 - `columns resolve once across all rows through the shared Flex resolver` (sizing: column width policy; state model: column widths)
 - `a column's alignment places each cell inside its resolved width` (wrapped columns: callout 5)
 - `column narrower than content renders truncation mark not overflow` (anatomy: callout 6)
@@ -781,24 +778,10 @@ Column width policy (baseline, owner decision, 2026-10-10): each `TableColumn` d
 - `grid style draws a rule between every row` (styles: grid)
 - `alternating row backgrounds stripe every second data row in every style` (styles: striped; bordered striped)
 - `selected row keeps selection fill over the stripe` (styles: striped; bordered striped)
-- `table with focus draws its outer ring in the focus role with the heavy set; focus inside draws it at light weight` (styles: environment)
-- `ascii focus renders bold on the bordered ring` (styles: environment; degradation)
 - `bordered and grid table height and width match the sizing rules` (sizing: style chrome)
 - `markdown tables render through the grid style` (styles: intro)
-- `multi-select click on a data row replaces the selection set and moves the cursor there` (mouse table: click data row, multi-select)
-- `mark gutter click toggles membership and moves the cursor` (mouse table: mark gutter)
-- `double-click runs the click effect, then activates the row, in single and multi-select` (mouse table: double-click)
-- `multi-select arrow keys move the cursor and leave membership unchanged` (key table: ↓; state model: cursor)
-- `multi-select space toggles the cursor row membership and leaves the cursor in place` (key table: Space; state model: cursor)
-- `multi-select enter activates the cursor row` (key table: Enter)
-- `multi-select cursor clamps to the data count and clears when data is empty` (state model: cursor)
 - `vanished multi-select id renders nowhere and stays in the set without a binding write` (state model: selection)
 - `multi-select membership draws selection fill with a member mark in the gutter` (multi-select wireframe: callouts 3-4)
-- `ctrl-up enters header mode only when a sort order binding is set` (key table: Ctrl-↑)
-- `space in header mode cycles that column's sort entry through none, ascending, descending, removed` (key table: Space; mouse table: header cell)
-- `left and right clamp the header cursor to the first and last column` (key table: ← →; state model: header cursor)
-- `down and escape leave header mode, and focus loss clears the header cursor` (key table: ↓, Esc; state model: header cursor)
-- `header mode draws the header cursor cell in selection fill and dims the row selection` (state model: selection style; keyboard sorting wireframe: callouts 2-3)
 - `sort marks name each sorted column and table never reorders data` (state model: sort order; keyboard sorting wireframe: callout 1)
 - `mobile state at 40 columns is natural height with no scrollbar or footer` (sizing: 40 x nil; states: mobile)
 - `nil width proposal lays out every column at ideal width without dropping` (sizing: nil x nil; states: mobile)
@@ -811,17 +794,60 @@ Column width policy (baseline, owner decision, 2026-10-10): each `TableColumn` d
 - `data row height is its tallest wrapped cell` (wrapped columns: callouts 3, 8-9; sizing: 40 x nil)
 - `line limit of n caps a wrapped cell at n rows and marks the last visible row` (wrapped columns: height rule)
 - `selection bar and fill cover every row of a wrapped data row; the bar cell takes the fill when derived and draws on the terminal background where selection.fill is reverse video` (wrapped columns: callout 7)
+- `narrow table drops columns by priority and wraps the surviving wrapped column` (sizing: 24 x 5; wrapped columns: narrow tables)
+- `nil width proposal does not wrap an opted-in column` (sizing: nil x nil)
+
+### Focus
+
+- `enter activates the selected element` (key table: Enter)
+- `table with focus draws its outer ring in the focus role with the heavy set; focus inside draws it at light weight` (styles: environment)
+- `ascii focus renders bold on the bordered ring` (styles: environment; degradation)
+- `multi-select arrow keys move the cursor and leave membership unchanged` (key table: ↓; state model: cursor)
+- `multi-select space toggles the cursor row membership and leaves the cursor in place` (key table: Space; state model: cursor)
+- `multi-select enter activates the cursor row` (key table: Enter)
+- `multi-select cursor clamps to the data count and clears when data is empty` (state model: cursor)
+- `ctrl-up enters header mode only when a sort order binding is set` (key table: Ctrl-↑)
+- `space in header mode cycles that column's sort entry through none, ascending, descending, removed` (key table: Space; mouse table: header cell)
+- `left and right clamp the header cursor to the first and last column` (key table: ← →; state model: header cursor)
+- `down and escape leave header mode, and focus loss clears the header cursor` (key table: ↓, Esc; state model: header cursor)
+- `header mode draws the header cursor cell in selection fill and dims the row selection` (state model: selection style; keyboard sorting wireframe: callouts 2-3)
 - `bar cell takes accent or secondary and the selection fill when derived; under reverse-video selection fill it draws on the terminal background` (Anatomy callout 4)
+- `unfocused table renders its selection in the inactive style` (state model: selection style)
+- `down and up move the selection through the binding and saturate consumed at the ends` (key table: Down, Up)
+- `home and end select the first and last row` (key table: Home, End)
+- `down with no selection selects the first visible row` (key table: Down, selection not set)
+- `cursor moves never write the selection` (state model: cursor)
+
+### Pointer
+
+- `scroll indicator is output-only and has no drag interaction` (anatomy: callout 7; mouse table)
+- `header click cycles the sort entry for that column id through binding` (mouse table: header cell)
+- `multi-select click on a data row replaces the selection set and moves the cursor there` (mouse table: click data row, multi-select)
+- `mark gutter click toggles membership and moves the cursor` (mouse table: mark gutter)
+- `double-click runs the click effect, then activates the row, in single and multi-select` (mouse table: double-click)
 - `row under the pointer takes the hover fill; a selected row keeps selection.fill under the pointer` (Anatomy callout 9; state model: hovered row)
 - `hover and stripes coexist: a hovered striped row shows hover over its stripe` (Styles: Striped)
 - `rows request pointer motion only while the table is live in the graph` (state model: hovered row; [Slice 5](../../spec/phase-4/slice-05-mouse-and-hit-testing.md))
 - `.rowHover(.disabled) removes the hover fill and the motion request` (state model: hover enabled)
 - `move event sets the hovered row without changing selection or scroll offset` (mouse table: move)
 - `slots, NO_COLOR and 16-colour show hover as an underline on the row label` (Degradation: hover)
+- `click on a data row in single-select sets the selection through the binding and is consumed` (mouse table: click)
+
+### Scroll
+
+- `selection stays visible when moved past the viewport edge` (key table: ↓; state: scroll offset)
+- `successive selection moves separated by graph updates keep selection and scroll offset synchronized` (key table: ↓; state: selection and scroll offset)
+- `wheel scrolling moves viewport without changing selection` (mouse table: wheel-down)
+- `scroll offset clamps when app shrinks data` (state model: scroll offset; maximum scroll offset)
 - `scroll offset thumb and paging count rows not data rows` (state model: scroll offset; sizing: 40 x 6)
 - `partly visible data row draws its visible rows without a mark` (state model: scroll offset)
-- `narrow table drops columns by priority and wraps the surviving wrapped column` (sizing: 24 x 5; wrapped columns: narrow tables)
-- `nil width proposal does not wrap an opted-in column` (sizing: nil x nil)
+- `page down moves the offset and the selection one page down so the selection keeps its screen row` (key table: PgDn; state: scroll offset)
+- `page up moves the offset and the selection one page up so the selection keeps its screen row` (key table: PgUp; state: scroll offset)
+- `page down near the end stops the offset at its maximum and moves the selection to the last row` (key table: PgDn; state: maximum scroll offset)
+- `page keys move the multi-select cursor and the offset together and leave membership unchanged` (key table: multi-select PgDn, PgUp)
+- `page keys with no selection or cursor scroll the offset one page and invent no selection` (key table: PgDn, PgUp, selection not set; cursor not set)
+- `table row taller than the viewport aligns its first row with the top` (state model: scroll offset)
+- `table scroll offset and cursors are not mirrored into responder state` (state model: scroll offset)
 
 ## Degradation
 

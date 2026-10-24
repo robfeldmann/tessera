@@ -70,6 +70,10 @@ Padding consumes no environment token and has no state model. `EdgeInsets`, alig
 - `parent frame clips padded content outside its allocation` (sizing: 1x1).
 - `padding inside a button label creates compact interior space` (sizing: `Text("Save").padding(1)`, nil x nil).
 
+### Pointer
+
+- `padding hit testing clips to its own final frame and owns no input` (Sizing; placement: final frame)
+
 ## Degradation
 
 Padding has no glyph, style, color, or capability dependency. ASCII-only, `NO_COLOR`, and reduced-color terminals preserve the same integer geometry and clipping.

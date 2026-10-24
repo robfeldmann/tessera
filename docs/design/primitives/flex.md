@@ -144,6 +144,14 @@ Flex consumes no style or glyph token.
 - `flex saturates overflowing arithmetic without wrapping negative` (validation: allocation multiplication row)
 - `flex publishes its axis to descendant Divider and Spacer views` (environment: descendant stackAxis row)
 
+### Pointer
+
+- `flex takes no focus and handles no key or pointer input` (Overview)
+
+### Scroll
+
+- `flex never scrolls` (Overview)
+
 ## Degradation
 
 Flex emits no cells and has no capability-dependent state. Unicode width, glyph, color, and ASCII degradation remain each child's responsibility. Allocation, clipping, and source order are identical at every capability tier in the [degradation ladder](../tokens.md#degradation-ladder).

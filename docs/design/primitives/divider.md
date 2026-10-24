@@ -180,6 +180,10 @@ The `nil x nil` result of 1x1 is a deliberate departure from SwiftUI (which repo
 - `divider inside a horizontal stack renders the vertical rule` (variants: `HStack` row; anatomy: 24x4 vertical wireframe)
 - `bare divider falls back to the horizontal rule` (variants: no stack row)
 
+### Pointer
+
+- `divider takes no focus and handles no key or pointer events` (Overview; Blended junctions)
+
 ## Degradation
 
 Only the glyph changes, never the geometry:

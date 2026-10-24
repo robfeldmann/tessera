@@ -479,6 +479,10 @@ From 3 to 8 columns the badge drops, the title tail-truncates, and body words wi
 - `callout under its floor drops the badge and cuts the one body row with the truncation mark` (Sizing 8 x 2)
 - `callout body takes a proposal wider than its ideal width` (Sizing 120 x nil)
 
+### Pointer
+
+- `callout takes no focus, keys or pointer input` (Key table; Mouse table)
+
 ## Degradation
 
 - `NO_COLOR`: kind colour is lost. The icon and title text still identify the kind, and bold stays per the [degradation ladder](../tokens.md#degradation-ladder).
