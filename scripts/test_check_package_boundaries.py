@@ -44,12 +44,12 @@ class PackageBoundaryTests(unittest.TestCase):
                 ],
                 "TesseraHarness": [
                     "TesseraCore",
-                    "TesseraLayout",
                     "TesseraRuntime",
+                    "TesseraTerminal",
                     "TesseraTerminalCore",
                     "TesseraTerminalInput",
+                    "TesseraTerminalIO",
                     "TesseraTerminalSnapshotSupport",
-                    "TesseraWidgets",
                 ],
                 "TesseraTestSupport": [
                     "TesseraCore",
@@ -82,13 +82,13 @@ class PackageBoundaryTests(unittest.TestCase):
         assert isinstance(targets, list)
         by_name = {target["name"]: target for target in targets}
         by_name["TesseraRuntime"]["target_dependencies"].append("TesseraTerminalIO")
-        by_name["TesseraHarness"]["target_dependencies"].append("TesseraTerminal")
+        by_name["TesseraHarness"]["target_dependencies"].append("TesseraTerminalRendering")
 
         self.assertEqual(
             checker.check_package_boundaries(package),
             [
                 "TesseraRuntime -> TesseraTerminalIO",
-                "TesseraHarness -> TesseraTerminal",
+                "TesseraHarness -> TesseraTerminalRendering",
             ],
         )
 

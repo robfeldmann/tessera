@@ -577,19 +577,27 @@ package.targets.append(contentsOf: [
     name: "TesseraHarness",
     dependencies: [
       TesseraCore,
-      TesseraLayout,
       TesseraRuntime,
+      TesseraTerminal,
       TesseraTerminalCore,
       TesseraTerminalInput,
+      TesseraTerminalIO,
       TesseraTerminalSnapshotSupport,
-      TesseraWidgets,
     ]
   ),
   .testTarget(
     name: "TesseraHarnessTests",
     dependencies: [
+      TesseraCore,
       TesseraHarness,
+      TesseraLayout,
+      TesseraRuntime,
+      TesseraTerminal,
+      TesseraTerminalCore,
       TesseraTerminalInput,
+      TesseraTerminalSnapshotSupport,
+      TesseraTerminalTestSupport,
+      TesseraWidgets,
     ],
     exclude: ["Scenarios"]
   ),

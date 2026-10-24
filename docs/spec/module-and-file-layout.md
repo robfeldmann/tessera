@@ -147,9 +147,17 @@ Sources/
     ApplicationRuntime.swift      // optional @MainActor convenience loop (Phase 5)
 
   TesseraHarness/
-    ApplicationRegistry.swift     // registry and Viewport (public)
-    Driver.swift                  // main-actor shell over the step; headless and live hosts (package)
-    Scenarios/                    // parser, runner, report, CLI entry point
+    ApplicationRegistry.swift     // ApplicationRegistry (public) and its fail-closed reads (package)
+    Viewport.swift                // Viewport (public)
+    HarnessCLI.swift              // HarnessCLI.main(registry:) (public): apps, launch, help
+    Driver.swift                  // main-actor shell over the step (package)
+    HeadlessHost.swift            // a session over a headless device into one virtual terminal (package)
+    HeadlessTerminalDevice.swift  // the device under a headless session (package)
+    LiveHost.swift                // a session over the real terminal (package)
+    ActorHost.swift               // per-test actor shell over the same step (package)
+    NaturalHeight.swift           // the mobile natural-height probe (package)
+    StandardOutput.swift          // the one platform question the CLI asks (package)
+    Scenarios/                    // parser, runner, report
 
   TesseraCore/                  // declarative view values and explicit graph runtime
     Views/
@@ -288,7 +296,7 @@ Dependency direction inside `Tessera`:
 - `TesseraLayout` builds only on `TesseraCore`: the `Layout` protocol, containers, styling modifiers, and decoration.
 - `TesseraWidgets` builds only on `TesseraCore` + `TesseraLayout`. It starts in Slice 2 rather than waiting for Slice 7 so ScrollView and SplitView do not require a temporary target.
 - `TesseraRuntime` depends on `TesseraCore` and `TesseraTerminalInput` for the contract in Phase 4, and on the whole view layer plus `TesseraTerminal` once the Phase 5 runtime lands.
-- `TesseraHarness` depends on `TesseraRuntime`, the view layer, and `TesseraTerminal`, and may use their `package` seams; it re-exports none of them.
+- `TesseraHarness` depends on `TesseraRuntime`, `TesseraCore`, `TesseraTerminal`, and the narrow terminal modules it imports (`TesseraTerminalIO` to build the device under a headless session, `TesseraTerminalSnapshotSupport` for its virtual terminal), and may use their `package` seams; it re-exports none of them. It never depends on `TesseraTerminalTestSupport` or `TesseraTestSupport`: those link the snapshot-testing library, and an executable that links it cannot launch (`dyld` cannot load `Testing.framework`), while the harness is linked into development executables.
 - The `Tessera` target re-exports the public view-layer modules, `TesseraRuntime`, and `TesseraTerminal` for app authors.
 
 Prefer Swift's access control to model intent:

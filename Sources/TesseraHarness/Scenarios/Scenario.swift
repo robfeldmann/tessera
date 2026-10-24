@@ -2,21 +2,6 @@ import Foundation
 import TesseraTerminalCore
 import TesseraTerminalInput
 
-/// A terminal size request from a `size` or `resize` statement.
-package enum Viewport: Equatable, Sendable {
-  /// An explicit size.
-  case custom(columns: Int, rows: Int)
-
-  /// 80x24.
-  case desktop
-
-  /// 40 columns at the natural height the driver measures.
-  case mobile
-
-  /// 40 columns by 16 rows, for screen-filling demos.
-  case mobileScreen
-}
-
 /// A rectangle written as `x,y,wxh` in `expect node … frame`.
 package struct FrameExpectation: Equatable, Sendable {
   package var column: Int
@@ -62,7 +47,7 @@ package struct ScenarioLine: Equatable, Sendable {
 
 /// A parsed scenario: a header followed by an ordered list of statements.
 package struct Scenario: Equatable, Sendable {
-  /// The registered app name; defaults to ``DemoRegistry/defaultName``.
+  /// The registered app name, from the `app NAME` header.
   package var app: String
   package var viewport: Viewport
   package var lines: [ScenarioLine]
@@ -103,9 +88,9 @@ package enum ScenarioParser {
   package static func parse(
     _ source: String,
     file: String,
-    knownApps: [String] = DemoRegistry.names
+    knownApps: [String]
   ) throws -> Scenario {
-    var app = DemoRegistry.defaultName
+    var app: String?
     var viewport = Viewport.desktop
     var lines: [ScenarioLine] = []
     var shotNames: Set<String> = []
@@ -168,7 +153,7 @@ package enum ScenarioParser {
               "bad size `\(arguments[0])`; expected WxH, desktop, mobile, or mobileScreen"
             )
           }
-          viewport = .custom(columns: columns, rows: rows)
+          viewport = .custom(TerminalSize(columns: columns, rows: rows))
         }
 
       case "resize":
@@ -226,6 +211,14 @@ package enum ScenarioParser {
       }
     }
 
+    guard let app else {
+      throw ScenarioParseError(
+        file: file, line: 1,
+        message:
+          "a scenario names its app with an `app NAME` header; accepted: "
+          + knownApps.joined(separator: ", ")
+      )
+    }
     return Scenario(app: app, viewport: viewport, lines: lines)
   }
 
