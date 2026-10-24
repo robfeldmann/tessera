@@ -12,9 +12,10 @@ import TesseraTerminal
 /// ```
 ///
 /// The commands are `apps` (list the registry), `launch NAME` (run one application in this
-/// terminal), `run PATH...` (run scenario files, with `--record`, `--repeat N`, and
-/// `--timing`), `shot NAME [SIZE]` and `tree NAME [SIZE]` (print one application's screen or
-/// node tree), `check` and `replay` (named, and not yet available), and `help [COMMAND]`.
+/// terminal), `run PATH...` (run scenario files, with `--record`, `--repeat N`, `--timing`,
+/// and `--trace DIR`), `shot NAME [SIZE]`, `tree NAME [SIZE]`, and `check NAME [SIZE]` (print
+/// one application's screen or node tree, or check it against the invariant rules),
+/// `replay FILE --app NAME` (run a recorded trace again), and `help [COMMAND]`.
 ///
 /// Exit codes are 0 for success, 1 when an expectation failed, 2 for a usage or parse error,
 /// and 3 for a harness error. When standard output is not a terminal, each command writes one
@@ -31,7 +32,8 @@ public enum HarnessCLI {
       registry: registry,
       inputIsTerminal: StandardStreams.inputIsTerminal,
       outputIsTerminal: StandardStreams.outputIsTerminal,
-      configuration: .default
+      configuration: .default,
+      environment: ProcessInfo.processInfo.environment
     )
     if !output.stdout.isEmpty {
       FileHandle.standardOutput.write(Data(output.stdout.utf8))
@@ -108,7 +110,8 @@ extension HarnessCLI {
     registry: ApplicationRegistry,
     inputIsTerminal: Bool,
     outputIsTerminal: Bool,
-    configuration: TerminalApplicationConfiguration
+    configuration: TerminalApplicationConfiguration,
+    environment: [String: String] = [:]
   ) async -> CommandOutput {
     var arguments = arguments
     let asJSON: Bool
@@ -138,15 +141,15 @@ extension HarnessCLI {
       return await launch(
         rest, registry: registry, json: asJSON,
         terminals: (input: inputIsTerminal, output: outputIsTerminal),
-        configuration: configuration)
+        configuration: configuration, environment: environment)
     case "run":
       return await runScenarios(rest, registry: registry, json: asJSON)
     case "shot", "tree":
       return await picture(command, rest, registry: registry, json: asJSON)
     case "check":
-      return check(rest, registry: registry, json: asJSON)
+      return await check(rest, registry: registry, json: asJSON)
     case "replay":
-      return replay(rest, registry: registry, json: asJSON)
+      return await replay(rest, registry: registry, json: asJSON)
     case "help":
       return help(rest, json: asJSON)
     default:
@@ -202,12 +205,14 @@ extension HarnessCLI {
     return CommandOutput(exitCode: 0, stdout: lines.joined(separator: "\n") + "\n")
   }
 
+  @MainActor
   private static func launch(
     _ arguments: [String],
     registry: ApplicationRegistry,
     json: Bool,
     terminals: (input: Bool, output: Bool),
-    configuration: TerminalApplicationConfiguration
+    configuration: TerminalApplicationConfiguration,
+    environment: [String: String]
   ) async -> CommandOutput {
     guard arguments.count == 1, let name = arguments.first, !name.hasPrefix("-") else {
       return usage("usage: launch NAME", command: "launch", json: json)
@@ -229,12 +234,25 @@ extension HarnessCLI {
         "`launch` runs an application in this terminal, and \(missing)",
         exitCode: 3, command: "launch", json: json)
     }
+    var trace: TraceWriter?
+    if let path = environment["TESSERA_TRACE"], !path.isEmpty {
+      do {
+        trace = try TraceWriter(path: path)
+      } catch {
+        return failure(error.description, exitCode: 3, command: "launch", json: json)
+      }
+    }
     do {
-      try await entry.live(configuration)
+      try await entry.live(configuration, trace)
     } catch {
+      trace?.close()
       return failure(
         "`launch \(name)` could not run in this terminal: \(error)",
         exitCode: 3, command: "launch", json: json)
+    }
+    trace?.close()
+    if let message = trace?.failure {
+      return failure(message, exitCode: 3, command: "launch", json: json)
     }
     return CommandOutput(exitCode: 0)
   }

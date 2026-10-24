@@ -19,17 +19,17 @@ package enum ScenarioGrammar {
     Deferred(form: "focus", needs: "focus tracking and role and label locators"),
     Deferred(form: "mouse", needs: "pointer input and hit testing"),
     Deferred(form: "hit", needs: "pointer input and hit testing"),
-    Deferred(form: "dump", needs: "the projection"),
-    Deferred(form: "check", needs: "the invariant rules, which read the projection"),
     Deferred(form: "expect cell", needs: "style and role assertions on cells"),
-    Deferred(form: "expect cost", needs: "the per-step cost counters"),
     Deferred(form: "expect focused", needs: "focus tracking"),
     Deferred(form: "expect wireframe", needs: "catalog conformance"),
-    Deferred(form: "expect node SEL visible", needs: "the projection"),
-    Deferred(form: "expect node SEL clipped", needs: "the projection"),
-    Deferred(form: "expect node SEL count N", needs: "the projection"),
-    Deferred(form: "shot NAME SEL", needs: "selectors over the projection"),
-    Deferred(form: "tree SEL", needs: "selectors over the projection"),
+    Deferred(
+      form: "expect node SEL visible", needs: "the visibility rules of focus tooling"),
+    Deferred(
+      form: "expect node SEL clipped", needs: "the visibility rules of focus tooling"),
+    Deferred(
+      form: "expect node SEL count N", needs: "a later release of the locator language"),
+    Deferred(form: "shot NAME SEL", needs: "region shots, with catalog conformance"),
+    Deferred(form: "tree SEL", needs: "a later release of the locator language"),
     Deferred(form: "term glyphs=", needs: "ASCII glyph fallbacks in the views"),
     Deferred(form: "term keyboard=", needs: "key routing that depends on the protocol"),
     Deferred(form: "term theme=probe", needs: "semantic roles"),
@@ -37,8 +37,8 @@ package enum ScenarioGrammar {
 
   /// The statements a scenario may use, for the error that names the vocabulary.
   static let acceptedStatements =
-    "app, size, term, resize, key, type, paste, bytes, shot, tree, "
-    + "expect text, expect screen, expect node"
+    "app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, "
+    + "expect text, expect screen, expect node, expect cost"
 
   /// The refusal for a form that is named but not yet expressible.
   static func refusal(_ form: String) -> String {

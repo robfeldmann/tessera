@@ -1,0 +1,11 @@
+ZStack
+────────────────────────────────────────────────────────────────────────────────
+anatomy  alignment  order
+OKatus   ········   AAAA
+         ···Go···   AAAA
+         ········
+empty  priority
+[]     B
+────────────────────────────────────────────────────────────────────────────────
+alignment center, A on top
+a alignment   s swap order   q quit

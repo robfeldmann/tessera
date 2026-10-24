@@ -1,0 +1,23 @@
+# Two Spacers share what the row leaves: 77 cells at 80 columns, so the earlier takes the odd
+# cell (docs/design/primitives/stacks.md). `s` steps the spacing of the first row, `v` puts a
+# blank row between the lines of the three VStacks.
+app stacks
+size desktop
+
+expect text 2 "A B C spacing 1"
+expect node type=HStack nth=0 frame 0,2,15x1
+expect node type=Spacer nth=0 frame 1,13,78x0
+expect node type=Spacer nth=1 frame 1,15,39x0
+expect node type=Spacer nth=2 frame 41,15,38x0
+check
+shot desktop
+
+key s
+expect text 2 "A  B  C  spacing 2"
+expect node type=HStack nth=0 frame 0,2,18x1
+
+key v
+expect node type=VStack nth=2 frame 0,4,7x5
+expect node type=Spacer nth=0 frame 1,15,78x0
+check
+shot rows-apart

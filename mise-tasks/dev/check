@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Check one app against the invariant rules (tessera check NAME); not yet available"
+#MISE description="Check one app against the invariant rules (tessera check NAME [SIZE])"
 #USAGE arg "<name>" help="App name, as listed by `mise run dev:apps`"
 #USAGE arg "[size]" help="desktop, mobile, mobileScreen, or WxH; desktop when omitted"
 #USAGE flag "--json" help="Print one JSON object even on a terminal"

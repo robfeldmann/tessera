@@ -9,8 +9,8 @@ enum HelpText {
       run PATH...       run scenario files, or directories of them
       shot NAME [SIZE]  print one application's screen as text
       tree NAME [SIZE]  print one application's node tree
-      check NAME        check one application against the invariant rules (not yet available)
-      replay FILE       rerun a recorded trace (not yet available)
+      check NAME [SIZE] check one application against the invariant rules
+      replay FILE       rerun a recorded trace against an application
       help [COMMAND]    describe a command
 
     Every command exits 0 on success, 1 when an expectation failed, 2 on a usage or parse
@@ -34,9 +34,14 @@ enum HelpText {
     application finishes. The harness has no quit key of its own: the application decides
     which key quits. Exits 2 for an unknown name, and 3 for a duplicate registration or
     when standard input or output is not a terminal.
+
+    When the environment variable TESSERA_TRACE names a file, the session writes its trace
+    there, one JSON record per step, so `replay` can run it again. A file that cannot be
+    created is exit 3, before the terminal changes mode. The trace is not promised to stay
+    as it is.
     """,
     "run": """
-    usage: run PATH... [--record] [--repeat N] [--timing] [--json | --pretty]
+    usage: run PATH... [--record] [--repeat N] [--timing] [--trace DIR] [--json | --pretty]
 
     Runs scenario files. A PATH is a .scn file, or a directory whose .scn files, at any
     depth, run in sorted order. A path that is neither, or a directory with no scenarios, is
@@ -50,21 +55,25 @@ enum HelpText {
                    first.
       --timing     add the wall-clock seconds of each run to the report. Times differ from
                    run to run, so they are never golden.
+      --trace DIR  write each scenario's trace under DIR, as DIR/PATH.trace.jsonl, one JSON
+                   record per step: the event, why the frame was drawn (`reasons`), the
+                   nodes and rows that changed, and what the step cost. Read it to learn
+                   why a redraw happened. The trace is not promised to stay as it is.
 
     Exit codes: 0 every scenario passed, 1 an expectation failed, 2 a scenario did not parse
     or a path is not a scenario, 3 a harness error. When several apply, the highest wins.
 
     The JSON form is {"command": "run", "exitCode", "scenarios": [REPORT...]} with one
     REPORT per scenario: {"failures": [FAILURE...], "observations": [{"line", "verb",
-    "lines"} and, for a shot, "name"], "passed", "recorded" (only when --record wrote
-    goldens: [{"change": "created" or "updated", "path"}]), "scenario", "seconds" (only with
-    --timing)}. A FAILURE is {"line", "statement", "verb", "message"} and, when the
-    statement compares values, "expected", "actual", and "screen". A failure that belongs to
-    a file or a command, not a line, has "line" 0 and "statement" "" (a repeat failure's
-    statement is "--repeat N"). A shot whose golden is missing, is not UTF-8, or has CRLF
-    line endings has no "expected", "actual", or "screen": its observation holds the screen.
-    A scenario that does not parse is a failure with verb "parse". Fields are added, never
-    removed or renamed.
+    "lines"} and, for a shot, "name"; for a dump, "projection"], "passed", "recorded" (only
+    when --record wrote goldens: [{"change": "created" or "updated", "path"}]), "scenario",
+    "seconds" (only with --timing)}. A FAILURE is {"line", "statement", "verb", "message"}
+    and, when the statement compares values, "expected", "actual", and "screen"; a failed
+    `check` adds "rule" and "node". A failure that belongs to a file or a command, not a
+    line, has "line" 0 and "statement" "" (a repeat failure's statement is "--repeat N"). A
+    shot whose golden is missing, is not UTF-8, or has CRLF line endings has no "expected",
+    "actual", or "screen": its observation holds the screen. A scenario that does not parse
+    is a failure with verb "parse". Fields are added, never removed or renamed.
     """,
     "shot": """
     usage: shot NAME [SIZE] [--json | --pretty]
@@ -80,26 +89,36 @@ enum HelpText {
     usage: tree NAME [SIZE] [--json | --pretty]
 
     Prints the node tree of the registered application NAME, one line per node with its
-    identity, type, frame, and clip. SIZE is desktop, mobile, mobileScreen, or WxH, and
-    defaults to desktop. The JSON form is {"app", "command": "tree", "exitCode", "lines",
-    "size"}. The tree's text is for reading and is not promised to stay as it is. Errors are
-    those of `shot`.
+    identity, type, frame, and clip; a container with a layout algorithm shows it in
+    parentheses, as `_LayoutContainer(_FrameLayout)`. SIZE is desktop, mobile, mobileScreen,
+    or WxH, and defaults to desktop. The JSON form is {"app", "command": "tree", "exitCode",
+    "lines", "size"}. The tree's text is for reading and is not promised to stay as it is.
+    Errors are those of `shot`.
     """,
     "check": """
-    usage: check NAME [SIZE]
+    usage: check NAME [SIZE] [--json | --pretty]
 
-    Not yet available. `check` runs invariant rules over an application's node tree, and no
-    rule exists until the harness builds the projection they read. The command checks its
-    arguments first (an unknown NAME or a bad SIZE is the usage error `shot` gives), then
-    exits 2 and says so, rather than reporting a pass it did not check; a scenario's `check`
-    statement is refused the same way.
+    Runs every invariant rule over the registered application NAME at SIZE, with no input:
+    no-dirty-after-pass, frame-inside-clip, measured-within-proposal, siblings-disjoint, and
+    requirements-aggregate. SIZE is desktop, mobile, mobileScreen, or WxH, and defaults to
+    desktop. An error fails the command (exit 1); a warning (frame-inside-clip) is listed and
+    does not. The output names the rules that ran. The JSON form is {"app", "command":
+    "check", "exitCode", "rules", "size", "violations": [{"detail", "node", "rule",
+    "severity"}]}. Errors are those of `shot`. A scenario's `check` statement runs the same
+    rules after its input.
     """,
     "replay": """
-    usage: replay FILE --app NAME
+    usage: replay FILE --app NAME [--json | --pretty]
 
-    Not yet available. `replay` reruns a recorded trace as a scenario, and the harness
-    records no traces yet. The command checks its arguments first (an unknown NAME is a usage
-    error that lists the registered names), then exits 2 and says so.
+    Runs the trace FILE, written by `launch` under TESSERA_TRACE or by `run --trace`, again
+    against the registered application NAME: the same events, in order, at the size the
+    recording started at. After every step the replay is compared with the recording on why
+    the frame was drawn, the nodes and rows that changed, and the cost, which are the same
+    on any terminal; the bytes a frame wrote are not compared. A step that differs is a
+    `replay` failure (exit 1) that shows both. A trace that holds an event the scenario
+    grammar cannot say yet, or that is not a trace, is a usage error (exit 2). The output is
+    a run report, {"command": "replay", "exitCode", "scenarios": [REPORT]}, whose
+    observation holds the final screen.
     """,
     "help": """
     usage: help [COMMAND]

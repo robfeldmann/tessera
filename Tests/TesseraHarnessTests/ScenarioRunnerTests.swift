@@ -218,7 +218,9 @@ struct ScenarioRunnerFileTests {
     #expect(recorded.map(\.passed) == [true])
     #expect(
       recorded[0].recorded == [
-        GoldenChange(path: scratch.appending("stack/after-typing.txt"), change: .created)
+        GoldenChange(path: scratch.appending("stack/after-typing.txt"), change: .created),
+        GoldenChange(
+          path: scratch.appending("stack/after-typing.grid.txt"), change: .created),
       ])
     #expect(checked.map(\.passed) == [true])
     #expect(checked[0].recorded.isEmpty)
@@ -231,6 +233,21 @@ struct ScenarioRunnerFileTests {
         left                               right
         ────────────────────────────────────────
         40 columns
+
+        """)
+    #expect(
+      scratch.read("stack/after-typing.grid.txt")
+        == """
+        ── chars ──
+        Stack demo
+        ────────────────────────────────────────
+        Name: Rob
+        left                               right
+        ────────────────────────────────────────
+        40 columns
+        ── style ──
+        ── legend ──
+        .  default
 
         """)
   }
@@ -272,11 +289,92 @@ struct ScenarioRunnerFileTests {
     #expect(reports.map(\.passed) == [true])
     #expect(
       reports[0].recorded == [
-        GoldenChange(path: scratch.appending("stack/after-typing.txt"), change: .updated)
+        GoldenChange(path: scratch.appending("stack/after-typing.txt"), change: .updated),
+        GoldenChange(
+          path: scratch.appending("stack/after-typing.grid.txt"), change: .created),
       ])
     #expect(reports[0].description.contains("recorded"))
     #expect(reports[0].description.contains("(updated)"))
     #expect(scratch.read("stack/after-typing.txt")?.hasPrefix("Stack demo\n") == true)
+  }
+
+  @Test
+  func
+    `a drifted styled grid fails with the grid golden's path while the text still matches`()
+    async throws
+  {
+    let scratch = try ScratchDirectory()
+    try scratch.write("stack.scn", stackScenario)
+    _ = await runner(record: true).run(scratch.path)
+    try scratch.write(
+      "stack/after-typing.grid.txt",
+      (scratch.read("stack/after-typing.grid.txt") ?? "")
+        .replacingOccurrences(of: "── style ──\n", with: "── style ──\n.AA\n")
+        .replacingOccurrences(of: ".  default\n", with: ".  default\nA  bold\n"))
+
+    let reports = await runner().run(scratch.path)
+
+    let failure = try #require(reports.first?.failures.first)
+    #expect(failure.verb == "shot")
+    #expect(failure.message.contains("stack/after-typing.grid.txt"))
+    #expect(failure.expected == ".AA")
+    #expect(failure.actual == "── legend ──")
+  }
+
+  @Test
+  func `a missing grid golden fails the shot even when the text golden is there`()
+    async throws
+  {
+    let scratch = try ScratchDirectory()
+    try scratch.write("stack.scn", stackScenario)
+    _ = await runner(record: true).run(scratch.path)
+    try FileManager.default.removeItem(
+      atPath: scratch.appending("stack/after-typing.grid.txt"))
+
+    let reports = await runner().run(scratch.path)
+
+    let failure = try #require(reports.first?.failures.first)
+    #expect(failure.message.contains("has no golden at"))
+    #expect(failure.message.contains("after-typing.grid.txt"))
+    #expect(failure.screen == nil)
+  }
+
+  @Test
+  func `a styled screen records its styles in the grid`() async throws {
+    let scratch = try ScratchDirectory()
+    try scratch.write(
+      "styled.scn",
+      """
+      app styled
+      size 40x6
+      term colors=true
+      shot colours
+      """)
+
+    let reports = await ScenarioRunner(
+      registry: ProjectionFixtures.registry(), record: true
+    )
+    .run(scratch.path)
+
+    #expect(reports.map(\.passed) == [true])
+    #expect(scratch.read("styled/colours.txt") == "bold\nplain\nblue\n")
+    #expect(
+      scratch.read("styled/colours.grid.txt")
+        == """
+        ── chars ──
+        bold
+        plain
+        blue
+        ── style ──
+        AAAA
+
+        BBBB
+        ── legend ──
+        .  default
+        A  fg=#ff0000 bold
+        B  bg=indexed(4) underline
+
+        """)
   }
 
   @Test
@@ -411,7 +509,7 @@ struct ScenarioRunnerFileTests {
     let reports = await repeating.run(scratch.path)
 
     #expect(reports.map(\.passed) == [true])
-    #expect(reports[0].recorded.count == 1)
+    #expect(reports[0].recorded.count == 2)
   }
 
   @Test

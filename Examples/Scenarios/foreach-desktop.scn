@@ -1,0 +1,35 @@
+# `ForEach` between static rows lays its items out one under another. Plan 034 fixed the defect
+# that put every item on one frame; `check siblings-disjoint` is the rule that would have
+# caught it, and it runs after every change here. `id=` finds an item by its key, wherever it is.
+app foreach
+size desktop
+
+expect node id=swift frame 5,2,6x1
+expect node id=tui frame 12,2,4x1
+expect node id=a frame 0,4,7x1
+expect node id=b frame 0,5,7x1
+expect node id=c frame 0,6,9x1
+check
+shot desktop
+
+type "+"
+expect text 7 "d delta"
+expect node id=d frame 0,7,7x1
+expect text 9 "4 items"
+check
+
+# Reversed, the same four items sit in the opposite order: `d` is first and `a` last.
+type "r"
+expect node id=d frame 0,4,7x1
+expect node id=c frame 0,5,9x1
+expect node id=b frame 0,6,7x1
+expect node id=a frame 0,7,7x1
+expect text 9 "4 items, reversed"
+check
+shot reversed
+
+# Two items left, still reversed: `b` then `a`.
+type "--"
+expect node id=b frame 0,4,7x1
+expect node id=a frame 0,5,7x1
+check

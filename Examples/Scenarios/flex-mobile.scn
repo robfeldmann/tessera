@@ -1,0 +1,26 @@
+# At 40 columns row 1 gives 4, 30, and 4, the percentages 9 and 29 of the 39 cells after the
+# spacing, the ratio 13 and 26, two equal fills 20 and 19. The vertical Flex, seven rows high
+# with one spacing row between its three children, gives its fill 7 - 2 - 2 = 3 rows.
+app flex
+size mobile
+
+expect node type=Flex nth=0 frame 0,3,40x1
+expect node type=_LayoutValueModifier nth=1 frame 5,3,80x1
+expect node type=_LayoutValueModifier nth=2 frame 36,3,80x1
+expect node type=Flex nth=1 frame 0,5,39x1
+expect node type=_LayoutValueModifier nth=4 frame 10,5,80x1
+expect node type=_LayoutValueModifier nth=6 frame 14,7,80x1
+expect node type=_LayoutValueModifier nth=8 frame 21,9,1x1
+expect node type=_LayoutValueModifier nth=10 frame 39,11,1x1
+expect node type=_LayoutValueModifier nth=12 frame 0,14,1x12
+expect node type=_LayoutValueModifier nth=13 frame 0,18,1x12
+check no-dirty-after-pass requirements-aggregate
+shot mobile
+
+# Without spacing, row 1 gives its fill 32 cells and the vertical fill 5 rows.
+type "ss"
+expect text 20 "spacing 0"
+expect node type=_LayoutValueModifier nth=1 frame 4,3,80x1
+expect node type=_LayoutValueModifier nth=2 frame 36,3,80x1
+expect node type=_LayoutValueModifier nth=13 frame 0,18,1x12
+shot spacing-0

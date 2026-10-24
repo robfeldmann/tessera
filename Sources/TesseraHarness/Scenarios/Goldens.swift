@@ -1,29 +1,30 @@
 import Foundation
 
-/// The committed text goldens of one scenario: a `NAME.txt` file per `shot`, in a directory
-/// named like the scenario file without its extension (`counter.scn` keeps its goldens in
-/// `counter/`).
+/// The committed text goldens of one scenario: for each `shot`, `NAME.txt` and `NAME.grid.txt`
+/// in a directory named like the scenario file without its extension (`counter.scn` keeps its
+/// goldens in `counter/`).
 ///
-/// A golden is the screen as text: every row with its trailing spaces removed, trailing empty
-/// rows dropped, rows joined by `\n`, and one `\n` at the end. Comparison is byte for byte,
-/// so drift fails the `shot` statement; recording rewrites the files and says which changed.
+/// `NAME.txt` is the screen as text: every row with its trailing spaces removed, trailing empty
+/// rows dropped, rows joined by `\n`, and one `\n` at the end. `NAME.grid.txt` is the same
+/// screen as the catalog's styled grid (``ScreenGrid/styledGridText``): the characters, one
+/// style letter per cell, and the legend. Comparison is byte for byte, so drift in either file
+/// fails the `shot` statement; recording rewrites the files and says which changed.
 struct GoldenStore: Equatable, Sendable {
-  /// What checking one screen against its golden decided.
+  /// What checking one screen against its goldens decided.
   enum Outcome: Equatable {
-    /// The golden holds this screen.
+    /// Both goldens hold this screen.
     case matches
 
-    /// `record` wrote the golden, which was missing or different.
-    case recorded(GoldenChange)
+    /// `record` wrote the goldens that were missing or different.
+    case recorded([GoldenChange])
 
-    /// The screen differs from the golden.
+    /// The screen differs from a golden.
     case drifted(message: String, expected: String, actual: String)
 
-    /// There is nothing to compare the screen with: the golden is missing or is not an LF
-    /// file.
+    /// There is nothing to compare the screen with: a golden is missing or is not an LF file.
     case unusable(message: String)
 
-    /// The golden could not be written.
+    /// A golden could not be written.
     case failed(message: String)
   }
 
@@ -39,40 +40,73 @@ struct GoldenStore: Equatable, Sendable {
     self.record = record
   }
 
-  /// The text of a screen as a golden holds it.
+  /// The text of a screen as `NAME.txt` holds it.
   static func text(of rows: [String]) -> String {
     rows.dropTrailingEmptyRows().joined(separator: "\n") + "\n"
   }
 
+  /// The text golden of the shot `name`.
   func path(for name: String) -> String {
     "\(directory)/\(name).txt"
   }
 
-  /// Checks `rows`, the screen after statement `name`, against its golden, or records it.
-  func check(shot name: String, rows: [String]) -> Outcome {
-    let path = path(for: name)
-    let text = Self.text(of: rows)
-    let bytes = Data(text.utf8)
-    let existing = FileManager.default.contents(atPath: path)
-    if existing == bytes {
-      return .matches
-    }
+  /// The styled-grid golden of the shot `name`.
+  func gridPath(for name: String) -> String {
+    "\(directory)/\(name).grid.txt"
+  }
+
+  /// Checks `screen`, the screen after statement `name`, against its goldens, or records them.
+  ///
+  /// The text golden is compared first, and the first golden that differs or is missing is
+  /// the one reported.
+  func check(shot name: String, screen: ScreenGrid) -> Outcome {
+    let files = [
+      (path: path(for: name), text: Self.text(of: screen.textRows)),
+      (path: gridPath(for: name), text: screen.styledGridText),
+    ]
     if record {
+      return write(files)
+    }
+    for file in files {
+      let outcome = compare(shot: name, path: file.path, text: file.text)
+      if outcome != .matches {
+        return outcome
+      }
+    }
+    return .matches
+  }
+
+  /// Writes each file that is missing or different, and lists what it changed.
+  private func write(_ files: [(path: String, text: String)]) -> Outcome {
+    var changes: [GoldenChange] = []
+    for file in files {
+      let bytes = Data(file.text.utf8)
+      let existing = FileManager.default.contents(atPath: file.path)
+      if existing == bytes {
+        continue
+      }
       do {
         try FileManager.default.createDirectory(
           atPath: directory, withIntermediateDirectories: true)
-        try bytes.write(to: URL(fileURLWithPath: path), options: .atomic)
+        try bytes.write(to: URL(fileURLWithPath: file.path), options: .atomic)
       } catch {
-        return .failed(message: "cannot write the golden `\(path)`: \(error)")
+        return .failed(message: "cannot write the golden `\(file.path)`: \(error)")
       }
-      return .recorded(
-        GoldenChange(path: path, change: existing == nil ? .created : .updated))
+      changes.append(
+        GoldenChange(path: file.path, change: existing == nil ? .created : .updated))
     }
-    guard let existing else {
+    return changes.isEmpty ? .matches : .recorded(changes)
+  }
+
+  private func compare(shot name: String, path: String, text: String) -> Outcome {
+    guard let existing = FileManager.default.contents(atPath: path) else {
       return .unusable(
         message:
           "shot `\(name)` has no golden at `\(path)`; "
           + "run with --record to create it, and review the file")
+    }
+    if existing == Data(text.utf8) {
+      return .matches
     }
     guard let goldenText = String(validating: existing, as: UTF8.self) else {
       return .unusable(message: "golden `\(path)` is not UTF-8 text")

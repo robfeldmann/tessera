@@ -29,6 +29,12 @@ public struct ScenarioFailure: Equatable, Sendable {
   /// The screen at the failure, trailing blanks trimmed and trailing empty rows dropped.
   package let screen: [String]?  // swiftlint:disable:this discouraged_optional_collection
 
+  /// For a `check` failure, the id of the rule that did not hold.
+  package let rule: String?
+
+  /// For a `check` failure, the identity path of the node at fault.
+  package let node: String?
+
   // swiftlint:disable discouraged_optional_collection
   package init(
     line: Int,
@@ -37,7 +43,9 @@ public struct ScenarioFailure: Equatable, Sendable {
     message: String,
     expected: String? = nil,
     actual: String? = nil,
-    screen: [String]? = nil
+    screen: [String]? = nil,
+    rule: String? = nil,
+    node: String? = nil
   ) {
     self.line = line
     self.statement = statement
@@ -46,16 +54,21 @@ public struct ScenarioFailure: Equatable, Sendable {
     self.expected = expected
     self.actual = actual
     self.screen = screen
+    self.rule = rule
+    self.node = node
   }
   // swiftlint:enable discouraged_optional_collection
 }
 
-/// Output of an observation statement (`shot`, `tree`).
+/// Output of an observation statement (`shot`, `tree`, `dump`, `check`).
 package struct ScenarioObservation: Encodable, Equatable, Sendable {
   package var line: Int
   package var verb: String
   package var name: String?
   package var lines: [String]
+
+  /// For `dump`, the projection the statement saw.
+  package var projection: Projection?
 }
 
 /// A golden file `--record` wrote.
@@ -79,7 +92,7 @@ public struct ScenarioReport: CustomStringConvertible, Equatable, Sendable {
   /// one run reports them all.
   public let failures: [ScenarioFailure]
 
-  /// What the `shot` and `tree` statements saw, in order.
+  /// What the `shot`, `tree`, `dump`, and `check` statements saw, in order.
   package let observations: [ScenarioObservation]
 
   /// The goldens `--record` wrote.
@@ -87,6 +100,10 @@ public struct ScenarioReport: CustomStringConvertible, Equatable, Sendable {
 
   /// Wall-clock seconds, one per run, when `--timing` asked for them, and empty otherwise.
   package var seconds: [Double]
+
+  /// One record per step of the run, the first frame first. It is not part of the JSON
+  /// report: `run --trace` writes it as a file.
+  package var trace: [TraceRecord]
 
   /// Whether every statement held.
   public var passed: Bool {
@@ -116,7 +133,8 @@ public struct ScenarioReport: CustomStringConvertible, Equatable, Sendable {
 
   /// The report with everything that varies between two runs of the same scenario removed.
   var comparable: Self {
-    Self(scenario: scenario, failures: failures, observations: observations)
+    Self(
+      scenario: scenario, failures: failures, observations: observations, trace: trace)
   }
 
   private var timingText: String {
@@ -131,13 +149,15 @@ public struct ScenarioReport: CustomStringConvertible, Equatable, Sendable {
     failures: [ScenarioFailure],
     observations: [ScenarioObservation] = [],
     recorded: [GoldenChange] = [],
-    seconds: [Double] = []
+    seconds: [Double] = [],
+    trace: [TraceRecord] = []
   ) {
     self.scenario = scenario
     self.failures = failures
     self.observations = observations
     self.recorded = recorded
     self.seconds = seconds
+    self.trace = trace
   }
 
   /// A report for a scenario that could not be parsed.
@@ -198,6 +218,8 @@ struct ReportBody: Encodable {
     var expected: String?
     var actual: String?
     var screen: [String]?  // swiftlint:disable:this discouraged_optional_collection
+    var rule: String?
+    var node: String?
 
     init(_ failure: ScenarioFailure) {
       line = failure.line
@@ -207,6 +229,8 @@ struct ReportBody: Encodable {
       expected = failure.expected
       actual = failure.actual
       screen = failure.screen
+      rule = failure.rule
+      node = failure.node
     }
   }
 

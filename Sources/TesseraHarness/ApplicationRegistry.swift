@@ -29,7 +29,8 @@ public struct ApplicationRegistry {
         Viewport, TerminalProfile,
         @escaping @MainActor (any ScenarioHost) async throws -> Void
       ) async throws -> Void
-    let live: @MainActor (TerminalApplicationConfiguration) async throws -> Void
+    let live:
+      @MainActor (TerminalApplicationConfiguration, TraceWriter?) async throws -> Void
   }
 
   package private(set) var entries: [Entry] = []
@@ -61,8 +62,8 @@ public struct ApplicationRegistry {
           try await HeadlessHost<App>.run(
             name: name, viewport: viewport, profile: profile, make: make, body: body)
         },
-        live: { configuration in
-          try await LiveHost.run(make: make, configuration: configuration)
+        live: { configuration, trace in
+          try await LiveHost.run(make: make, configuration: configuration, trace: trace)
         }
       )
     )

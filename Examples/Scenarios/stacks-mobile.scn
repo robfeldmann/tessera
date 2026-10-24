@@ -1,0 +1,13 @@
+# At 40 columns the Spacers share 37 cells: the first of two takes 19 and the second 18, and a
+# priority-1 Spacer with its neighbours at priority 1 takes the whole 37 for itself.
+app stacks
+size mobile
+
+expect node type=Spacer nth=0 frame 1,13,38x0
+expect node type=Spacer nth=1 frame 1,15,19x0
+expect node type=Spacer nth=2 frame 21,15,18x0
+expect node type=Spacer nth=3 frame 1,17,37x0
+expect node type=Spacer nth=4 frame 39,17,0x0
+expect node type=VStack nth=4 frame 10,4,7x3
+check
+shot mobile

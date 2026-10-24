@@ -1,0 +1,15 @@
+── chars ──
+ZStack
+────────────────────────────────────────
+anatomy  alignment  order
+OKatus   ········   bbAA
+         ········   AAAA
+         ······Go
+empty  priority
+[]     B
+────────────────────────────────────────
+alignment bottomTrailing, bb on top
+a alignment   s swap order   q quit
+── style ──
+── legend ──
+.  default
