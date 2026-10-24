@@ -23,11 +23,27 @@ tessera() {
   "$tessera_binary" "$@"
 }
 
-# Shows what a `dev:*` task that needs an app name says when it is run without one: the
-# command's help, then the apps it can be given. It is help, not a failure, so mise does
-# not report the task as failed.
-tessera_help_with_apps() {
+# Ends a `dev:*` task that was run without what it needs, after the command's help has been
+# printed. A person at a terminal asked a question and got the answer, so the task succeeds
+# and mise reports no failure. In a pipe or a script nothing ran, which is `tessera`'s own
+# usage error, so the task exits 2 and an unset variable cannot pass for success.
+tessera_end_with_help() {
+  if [[ -t 1 ]]; then
+    exit 0
+  fi
+  exit 2
+}
+
+# Prints the help of `tessera COMMAND`, then ends the task.
+tessera_exit_with_help() {
+  tessera help "$1"
+  tessera_end_with_help
+}
+
+# Prints the help of `tessera COMMAND` and the apps it can be given, then ends the task.
+tessera_exit_with_help_and_apps() {
   tessera help "$1"
   echo
   tessera apps --pretty
+  tessera_end_with_help
 }

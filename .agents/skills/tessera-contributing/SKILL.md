@@ -15,7 +15,7 @@ Everything in the [`tessera` skill](../tessera/SKILL.md) applies here: the `tess
 | `mise run dev:apps` | `tessera apps` | List the registered demos: name, minimum size, viewports. |
 | `mise run dev:apps --json` or `--pretty` | `tessera apps --json` or `--pretty` | Force the JSON object or the text table. |
 | `mise run dev:launch NAME` | `tessera launch NAME` | Run one demo in this terminal until it quits. |
-| `mise run dev:launch` | `tessera help launch`, then `tessera apps` | With no name, print the command's help and the demos, and exit 0. |
+| `mise run dev:launch` | `tessera help launch`, then `tessera apps` | With no name, print the command's help and the demos. At a terminal that is the answer and the task exits 0; in a pipe or a script nothing ran and it exits 2, as `tessera` does. |
 
 `mise run dev:*` builds the `tessera` executable once, quietly (`swift build --quiet --package-path Examples --product tessera`), and runs the binary it built, so a build that succeeds prints nothing and one that fails still prints its errors; the binary keeps the task's terminal. It is the product of `Examples/Sources/TesseraDev`, whose registry is `Demos.registry()` from `Examples/Sources/DemoSupport`, so the apps it lists are Tessera's demos.
 
