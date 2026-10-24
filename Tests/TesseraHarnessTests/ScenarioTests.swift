@@ -1,4 +1,8 @@
+import CustomDump
 import Foundation
+import InlineSnapshotTesting
+import SnapshotTesting
+import SnapshotTestingCustomDump
 import TesseraCore
 import TesseraTerminalInput
 import Testing
@@ -7,6 +11,19 @@ import Testing
 
 private func parse(_ source: String, file: String = "t.scn") throws -> Scenario {
   try ScenarioParser.parse(source, file: file, knownApps: Fixtures.names)
+}
+
+/// The text of the parse error `source` raises, in the `FILE:LINE: error: message` form.
+private func parseFailure(of source: String) -> String {
+  do {
+    _ = try parse(source)
+    Issue.record("`\(source)` parsed without an error")
+  } catch let error as ScenarioParseError {
+    return error.description
+  } catch {
+    Issue.record(error, "`\(source)` raised a different error")
+  }
+  return ""
 }
 
 struct ScenarioParserTests {
@@ -21,10 +38,21 @@ struct ScenarioParserTests {
       """
     )
 
-    #expect(scenario.app == "stack")
-    #expect(scenario.viewport == .mobile)
-    #expect(scenario.lines.map(\.statement) == [.type("hi there")])
-    #expect(scenario.lines.first?.number == 4)
+    assertInlineSnapshot(of: scenario, as: .customDump) {
+      """
+      Scenario(
+        app: "stack",
+        viewport: .mobile,
+        lines: [
+          [0]: ScenarioLine(
+            number: 4,
+            source: #"type "hi there"  # trailing comment"#,
+            statement: .type("hi there")
+          )
+        ]
+      )
+      """
+    }
   }
 
   @Test
@@ -48,77 +76,84 @@ struct ScenarioParserTests {
 
   @Test
   func `size after a body statement names the resize verb`() {
-    let error = #expect(throws: ScenarioParseError.self) {
-      try parse("key Tab\nsize 10x10")
+    assertInlineSnapshot(of: parseFailure(of: "key Tab\nsize 10x10"), as: .lines) {
+      """
+      t.scn:2: error: `size` is a header statement; use `resize WxH` after the first body statement
+      """
     }
-
-    #expect(error?.line == 2)
-    #expect(error?.description.hasPrefix("t.scn:2: error: ") == true)
-    #expect(error?.message.contains("resize") == true)
   }
 
   @Test
   func `unknown statements list the accepted vocabulary`() {
-    let error = #expect(throws: ScenarioParseError.self) {
-      try parse("jump 3")
+    assertInlineSnapshot(of: parseFailure(of: "jump 3"), as: .lines) {
+      """
+      t.scn:1: error: unknown statement `jump`; accepted: app, size, resize, key, type, shot, tree, expect text, expect node
+      """
     }
-
-    #expect(error?.message.contains("accepted: app, size, resize, key") == true)
   }
 
   @Test
   func `reserved verbs are reported as not yet expressible`() {
-    let error = #expect(throws: ScenarioParseError.self) {
-      try parse("mouse click 3,4")
+    assertInlineSnapshot(of: parseFailure(of: "mouse click 3,4"), as: .lines) {
+      """
+      t.scn:1: error: `mouse` is not yet expressible in v0; accepted: app, size, resize, key, type, shot, tree, expect text, expect node
+      """
     }
-
-    #expect(error?.message.contains("not yet expressible") == true)
   }
 
   @Test
   func `unknown key names list the accepted set`() {
-    let error = #expect(throws: ScenarioParseError.self) {
-      try parse("key Hyperspace")
+    assertInlineSnapshot(of: parseFailure(of: "key Hyperspace"), as: .lines) {
+      """
+      t.scn:1: error: unknown key `Hyperspace`; accepted: ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Backspace, Delete, End, Enter, Escape, Home, PageDown, PageUp, Space, Tab, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, a single character; modifiers: Alt, Control, Ctrl, Meta, Shift, Super joined with `+`
+      """
     }
-
-    #expect(error?.message.contains("ArrowLeft") == true)
   }
 
   @Test
   func `chords and function keys parse into key events`() throws {
     let scenario = try parse("app stack\nkey Shift+Tab\nkey Ctrl+C\nkey F5\nkey Ctrl++")
-    let keys = scenario.lines.compactMap { line -> Key? in
-      if case .key(let key) = line.statement { key } else { nil }
-    }
 
-    #expect(keys[0] == Key(code: .tab, modifiers: .shift))
-    #expect(keys[1] == Key(code: .character("c"), modifiers: .control))
-    #expect(keys[2] == Key(code: .function(5)))
-    #expect(keys[3] == Key(code: .character("+"), modifiers: .control))
+    expectNoDifference(
+      scenario.lines.map(\.statement),
+      [
+        .key(Key(code: .tab, modifiers: .shift)),
+        .key(Key(code: .character("c"), modifiers: .control)),
+        .key(Key(code: .function(5))),
+        .key(Key(code: .character("+"), modifiers: .control)),
+      ]
+    )
   }
 
   @Test
-  func `frame expectations accept one token or the plan's two-token form`() throws {
+  func `frame expectations accept one token or a two-token form`() throws {
     let scenario = try parse(
       "app stack\nexpect node id=root frame 1,2,3x4\nexpect node id=root frame 1,2 3x4"
     )
 
-    #expect(scenario.lines[0].statement == scenario.lines[1].statement)
+    let expected = Statement.expectNode(
+      Locator(id: "root"),
+      FrameExpectation(column: 1, row: 2, columns: 3, rows: 4)
+    )
+
+    expectNoDifference(scenario.lines.map(\.statement), [expected, expected])
   }
 
   @Test
   func `unterminated quotes fail with the line number`() {
-    let error = #expect(throws: ScenarioParseError.self) {
-      try parse("\ntype \"oops")
+    assertInlineSnapshot(of: parseFailure(of: "\ntype \"oops"), as: .lines) {
+      """
+      t.scn:2: error: unterminated double quote
+      """
     }
-
-    #expect(error?.line == 2)
   }
 
   @Test
   func `duplicate shot names are rejected`() {
-    #expect(throws: ScenarioParseError.self) {
-      try parse("shot a\nshot a")
+    assertInlineSnapshot(of: parseFailure(of: "shot a\nshot a"), as: .lines) {
+      """
+      t.scn:2: error: duplicate shot name `a`
+      """
     }
   }
 }
@@ -135,11 +170,33 @@ struct ScenarioRunnerTests {
   func `a wrong row expectation reports expected actual and the screen`() async throws {
     let report = try await run("app stack\nsize 40x10\nexpect text 0 \"Stack demos\"")
 
-    #expect(report.passed == false)
-    let failure = try #require(report.failures.first)
-    #expect(failure.expected == "Stack demos")
-    #expect(failure.actual == "Stack demo")
-    #expect(failure.screen?.first == "Stack demo")
+    assertInlineSnapshot(of: report, as: .customDump) {
+      """
+      ScenarioReport(
+        scenario: "t.scn",
+        passed: false,
+        failures: [
+          [0]: ScenarioFailure(
+            line: 3,
+            statement: #"expect text 0 "Stack demos""#,
+            verb: "expect text",
+            message: "row 0 text differs",
+            expected: "Stack demos",
+            actual: "Stack demo",
+            screen: [
+              [0]: "Stack demo",
+              [1]: "────────────────────────────────────────",
+              [2]: "Name: -",
+              [3]: "left                               right",
+              [4]: "────────────────────────────────────────",
+              [5]: "40 columns"
+            ]
+          )
+        ],
+        observations: []
+      )
+      """
+    }
   }
 
   @Test
@@ -155,7 +212,33 @@ struct ScenarioRunnerTests {
       """
     )
 
-    #expect(report.failures.map(\.line) == [3, 6])
+    assertInlineSnapshot(of: report.human(), as: .lines) {
+      """
+      FAIL t.scn
+        line 3: expect text 0 "wrong"
+          row 0 text differs
+          expected: wrong
+          actual:   Stack demo
+          screen:
+            0| Stack demo
+            1| ────────────────────────────────────────
+            2| Name: -
+            3| left                               right
+            4| ────────────────────────────────────────
+            5| 40 columns
+        line 6: expect text 5 "wrong again"
+          row 5 text differs
+          expected: wrong again
+          actual:   40 columns
+          screen:
+            0| Stack demo
+            1| ────────────────────────────────────────
+            2| Name: x
+            3| left                               right
+            4| ────────────────────────────────────────
+            5| 40 columns
+      """
+    }
   }
 
   @Test
@@ -165,7 +248,22 @@ struct ScenarioRunnerTests {
     let report = try await run(
       "app stack\nsize 40x10\nexpect node type=Missing frame 0,0,1x1")
 
-    #expect(report.failures.first?.actual?.contains("VStack") == true)
+    assertInlineSnapshot(of: report.human(), as: .lines) {
+      """
+      FAIL t.scn
+        line 3: expect node type=Missing frame 0,0,1x1
+          locator `type=Missing` matches no node
+          expected: 0,0,1x1
+          actual:   (no node; types: TupleView, VStack, Text, Divider, HStack, Spacer)
+          screen:
+            0| Stack demo
+            1| ────────────────────────────────────────
+            2| Name: -
+            3| left                               right
+            4| ────────────────────────────────────────
+            5| 40 columns
+      """
+    }
   }
 
   @Test
@@ -173,7 +271,22 @@ struct ScenarioRunnerTests {
     let report = try await run(
       "app stack\nsize 40x10\nexpect node type=Text frame 0,0,1x1")
 
-    #expect(report.failures.first?.message.contains("add nth=") == true)
+    assertInlineSnapshot(of: report.human(), as: .lines) {
+      """
+      FAIL t.scn
+        line 3: expect node type=Text frame 0,0,1x1
+          locator `type=Text` matches 6 nodes; add nth=
+          expected: 0,0,1x1
+          actual:   root/index(0)/index(0), root/index(0)/index(2)/index(0), root/index(0)/index(2)/index(1), root/index(0)/index(3)/index(0), root/index(0)/index(3)/index(2), root/index(0)/index(5)
+          screen:
+            0| Stack demo
+            1| ────────────────────────────────────────
+            2| Name: -
+            3| left                               right
+            4| ────────────────────────────────────────
+            5| 40 columns
+      """
+    }
   }
 
   @Test
@@ -181,7 +294,7 @@ struct ScenarioRunnerTests {
     let report = try await run(
       "app stack\nsize 40x10\ntype \"Rob\"\nkey Backspace\nexpect text 2 \"Name: Ro\"")
 
-    #expect(report.passed)
+    expectNoDifference(report.failures, [])
   }
 
   @Test
@@ -210,7 +323,26 @@ struct ScenarioRunnerTests {
   {
     let report = try await run("app workspace\nsize mobile\nshot a")
 
-    #expect(report.failures.first?.verb == "size")
+    assertInlineSnapshot(of: report, as: .customDump) {
+      """
+      ScenarioReport(
+        scenario: "t.scn",
+        passed: false,
+        failures: [
+          [0]: ScenarioFailure(
+            line: 0,
+            statement: "app workspace",
+            verb: "size",
+            message: "`workspace` has no natural height: it measured 500 rows when offered 500 and 1000 when offered 1000. Use `size mobileScreen` (40x16) or an explicit WxH",
+            expected: nil,
+            actual: nil,
+            screen: nil
+          )
+        ],
+        observations: []
+      )
+      """
+    }
   }
 
   @Test
@@ -268,6 +400,7 @@ struct ScenarioCorpusTests {
     let first = try await report(for: file)
     let second = try await report(for: file)
 
+    expectNoDifference(first.failures, [])
     #expect(first.passed)
     #expect(first.json() == second.json())
   }
@@ -276,6 +409,54 @@ struct ScenarioCorpusTests {
   func `the failing scenario fails four expectations`() async throws {
     let report = try await report(for: "failing/mismatch.scn")
 
-    #expect(report.failures.map(\.line) == [6, 7, 8, 10])
+    assertInlineSnapshot(of: report.human(), as: .lines) {
+      """
+      FAIL failing/mismatch.scn
+        line 6: expect text 0 "Stack demos"
+          row 0 text differs
+          expected: Stack demos
+          actual:   Stack demo
+          screen:
+            0| Stack demo
+            1| ────────────────────────────────────────
+            2| Name: -
+            3| left                               right
+            4| ────────────────────────────────────────
+            5| 40 columns
+        line 7: expect text "no such text"
+          no screen row contains the text
+          expected: no such text
+          actual:   (not found in 10 rows)
+          screen:
+            0| Stack demo
+            1| ────────────────────────────────────────
+            2| Name: -
+            3| left                               right
+            4| ────────────────────────────────────────
+            5| 40 columns
+        line 8: expect node id=root frame 0,0,40x6
+          frame of `id=root` differs
+          expected: 0,0,40x6
+          actual:   0,0,40x10
+          screen:
+            0| Stack demo
+            1| ────────────────────────────────────────
+            2| Name: -
+            3| left                               right
+            4| ────────────────────────────────────────
+            5| 40 columns
+        line 10: expect node type=Missing frame 0,0,1x1
+          locator `type=Missing` matches no node
+          expected: 0,0,1x1
+          actual:   (no node; types: TupleView, VStack, Text, Divider, HStack, Spacer)
+          screen:
+            0| Stack demo
+            1| ────────────────────────────────────────
+            2| Name: -
+            3| left                               right
+            4| ────────────────────────────────────────
+            5| 40 columns
+      """
+    }
   }
 }

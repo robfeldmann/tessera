@@ -3,13 +3,13 @@ import TesseraTerminalCore
 import TesseraTerminalInput
 
 /// A rectangle written as `x,y,wxh` in `expect node … frame`.
-package struct FrameExpectation: Equatable, Sendable {
+package struct FrameExpectation: CustomStringConvertible, Equatable, Sendable {
   package var column: Int
   package var row: Int
   package var columns: Int
   package var rows: Int
 
-  var description: String {
+  package var description: String {
     "\(column),\(row),\(columns)x\(rows)"
   }
 }
@@ -54,7 +54,7 @@ package struct Scenario: Equatable, Sendable {
 }
 
 /// A fail-fast parse error that renders as `FILE:LINE: error: message`.
-package struct ScenarioParseError: Error, Equatable, Sendable, CustomStringConvertible {
+package struct ScenarioParseError: CustomStringConvertible, Equatable, Error, Sendable {
   package var file: String
   package var line: Int
   package var message: String
@@ -77,7 +77,7 @@ package struct ScenarioParseError: Error, Equatable, Sendable, CustomStringConve
 /// expect text ["ROW"] "…"     expect node SEL frame X,Y,WxH
 /// ```
 package enum ScenarioParser {
-  /// Verbs the plan reserves for later phases; named so the error is specific.
+  /// Verbs the grammar reserves but does not execute; named so the error is specific.
   static let deferredVerbs: Set<String> = [
     "bytes", "check", "dump", "focus", "mouse", "paste", "wait",
   ]
@@ -281,7 +281,7 @@ package enum ScenarioParser {
     return (columns, rows)
   }
 
-  /// Accepts `X,Y,WxH` (one token) or the plan's `X,Y WxH` (two tokens).
+  /// Accepts `X,Y,WxH` (one token) or `X,Y WxH` (two tokens).
   static func parseFrame(_ tokens: [String]) -> FrameExpectation? {
     let joined = tokens.joined(separator: ",")
     let parts = joined.split(separator: ",", omittingEmptySubsequences: false)

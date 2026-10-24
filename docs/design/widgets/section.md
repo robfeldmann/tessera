@@ -183,14 +183,10 @@ An empty section is header + 0 rows (height 1); a headerless section is rows onl
 
 ## Requirements
 
-- `header is not focusable and not selectable` (anatomy: callout 1; [List traversal](list.md#key-table))
 - `collapsed section renders header only` (anatomy: callout 5)
 - `empty section renders header and reserves no body space` (states: mobile callout 4)
 - `headerless section contributes rows only` (states: mobile callout 2)
 - `absent expansion binding means always expanded with no disclosure glyph` (state model: collapsibility)
-- `click on a collapsible header toggles expansion through the binding` (mouse table: header)
-- `click on a noninteractive header is not consumed` (mouse table: header, not collapsible)
-- `section forwards row focus input and bindings without interception` (mouse table: grouped rows; state model: rows)
 - `collapsing never mutates the host lists selection binding` (state model: expansion; [List state model](list.md#state-model))
 - `header truncates with the truncation mark at the floor` (states: min)
 - `header stays one row and tail-truncates under an inherited line limit` (anatomy: wrap exception; state model: header line limit)
@@ -198,6 +194,16 @@ An empty section is header + 0 rows (height 1); a headerless section is rows onl
 - `narrow width wraps the rows and keeps the header on one row` (sizing: 12 x nil)
 - `ascii disclosure glyphs substitute below capability` (states: degradation)
 - `disclosure glyph draws in secondary` (anatomy: callout 2; [marks](../tokens.md#marks))
+
+### Focus
+
+- `header is not focusable and not selectable` (anatomy: callout 1; [List traversal](list.md#key-table))
+
+### Pointer
+
+- `click on a collapsible header toggles expansion through the binding` (mouse table: header)
+- `click on a noninteractive header is not consumed` (mouse table: header, not collapsible)
+- `section forwards row focus input and bindings without interception` (mouse table: grouped rows; state model: rows)
 
 ## Degradation
 

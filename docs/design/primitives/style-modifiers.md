@@ -161,6 +161,10 @@ Every [role](../tokens.md#roles) is a complete `Style` value resolved through th
 - `style modifiers stay layout transparent at every proposal` (sizing: 4x1, 2x1, and 8x1)
 - `controls consume resolved complete semantic role Styles` (environment: `primary`, `secondary`, `accent`, `disabled`, and `destructive` rows)
 
+### Pointer
+
+- `style modifiers add no focus and no hit-testing behaviour` (Overview; Environment)
+
 ## Degradation
 
 Style wrappers preserve their merge and paint order at every capability tier. Color and attribute reduction follows the shared [degradation ladder](../tokens.md#degradation-ladder), including the 16-colour slots columns of [roles](../tokens.md#roles); no modifier-specific fallback is introduced.

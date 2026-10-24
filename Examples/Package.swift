@@ -154,6 +154,23 @@ package.targets.append(
   )
 )
 
+// MARK: Phase3ProtocolsDemo
+
+package.products.append(
+  .executable(name: "Phase3ProtocolsDemo", targets: ["Phase3ProtocolsDemo"])
+)
+
+package.targets.append(
+  .executableTarget(
+    name: "Phase3ProtocolsDemo",
+    dependencies: [
+      ExampleSupport,
+      Phase3ProtocolsDemoSupport,
+      TesseraTerminal,
+    ]
+  )
+)
+
 // MARK: Phase3ProtocolsDemoSupport
 
 package.targets.append(
@@ -169,23 +186,6 @@ package.targets.append(
   .testTarget(
     name: "Phase3ProtocolsDemoSupportTests",
     dependencies: [
-      Phase3ProtocolsDemoSupport,
-      TesseraTerminal,
-    ]
-  )
-)
-
-// MARK: Phase3ProtocolsDemo
-
-package.products.append(
-  .executable(name: "Phase3ProtocolsDemo", targets: ["Phase3ProtocolsDemo"])
-)
-
-package.targets.append(
-  .executableTarget(
-    name: "Phase3ProtocolsDemo",
-    dependencies: [
-      ExampleSupport,
       Phase3ProtocolsDemoSupport,
       TesseraTerminal,
     ]
@@ -228,10 +228,10 @@ for target in package.targets {
   }
   var settings = target.swiftSettings ?? []
   settings.append(contentsOf: [
-    .enableExperimentalFeature("Lifetimes"),
     .enableUpcomingFeature("ExistentialAny"),
     .enableUpcomingFeature("ForwardFromBuilder"),
     .enableUpcomingFeature("InferIsolatedConformances"),
+    .enableExperimentalFeature("Lifetimes"),
     .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
   ])
   target.swiftSettings = settings
