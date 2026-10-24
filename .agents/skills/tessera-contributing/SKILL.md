@@ -20,7 +20,7 @@ Everything in the [`tessera` skill](../tessera/SKILL.md) applies here: the `tess
 | `mise run dev:tree NAME [SIZE]` | `tessera tree NAME [SIZE]` | Print one demo's node tree. |
 | `mise run dev:help [COMMAND]` | `tessera help [COMMAND]` | Print the commands, or one command's usage. |
 
-`mise run dev:*` builds and runs the `tessera` executable (`swift run --package-path Examples tessera …`), and `--json` and `--pretty` go through to it. It is the product of `Examples/Sources/TesseraDev`, whose registry is `Demos.registry()` from `Examples/Sources/DemoSupport`, so the apps it lists are Tessera's demos.
+`mise run dev:*` builds the `tessera` executable once, quietly (`swift build --quiet --package-path Examples --product tessera`), and runs the binary it built, so a build that succeeds prints nothing and one that fails still prints its errors; the binary keeps the task's terminal, and `--json` and `--pretty` go through to it. It is the product of `Examples/Sources/TesseraDev`, whose registry is `Demos.registry()` from `Examples/Sources/DemoSupport`, so the apps it lists are Tessera's demos.
 
 With mise's shell completions enabled, `mise run dev:launch <Tab>` offers the demo names, `dev:shot` and `dev:tree` offer them too and then the sizes, and `dev:run` offers `.scn` files and directories. Completion never builds: `scripts/dev-app-names.sh` asks the `Examples/.build/debug/tessera` that an earlier `dev:*` run built, and offers nothing before there is one. Run `mise run dev:apps` once after a fresh checkout, or after registering a demo. To complete `tessera` itself in your shell, see the `tessera` skill.
 
