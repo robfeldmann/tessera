@@ -150,13 +150,13 @@ Sources/
     ApplicationRegistry.swift     // ApplicationRegistry (public) and its fail-closed reads (package)
     Viewport.swift                // Viewport (public)
     HarnessCLI.swift              // HarnessCLI.main(registry:) (public): apps, launch, help
-    Driver.swift                  // main-actor shell over the step (package)
-    HeadlessHost.swift            // a session over a headless device into one virtual terminal (package)
-    HeadlessTerminalDevice.swift  // the device under a headless session (package)
-    LiveHost.swift                // a session over the real terminal (package)
-    ActorHost.swift               // per-test actor shell over the same step (package)
-    NaturalHeight.swift           // the mobile natural-height probe (package)
-    StandardOutput.swift          // the one platform question the CLI asks (package)
+    Driver.swift                  // main-actor shell over the step (internal)
+    HeadlessHost.swift            // a session over a headless device into one virtual terminal (internal)
+    HeadlessTerminalDevice.swift  // the device under a headless session (internal)
+    LiveHost.swift                // a session over the real terminal (internal)
+    ActorHost.swift               // per-test actor shell over the same step (internal)
+    NaturalHeight.swift           // the mobile natural-height probe (internal)
+    StandardStreams.swift         // the one platform question the CLI asks: are stdin and stdout terminals (internal)
     Scenarios/                    // parser, runner, report
 
   TesseraCore/                  // declarative view values and explicit graph runtime

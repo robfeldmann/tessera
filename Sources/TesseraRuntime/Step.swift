@@ -9,7 +9,8 @@ import TesseraTerminalInput
 /// only ever touched from the host that owns it: a main-actor host passes `MainActor.shared`,
 /// which accepts an application with a main-actor isolated conformance, and a host on any
 /// other actor passes `self`, which rejects it at the call site. There is no default for the
-/// parameter, so a nonisolated caller cannot compile the call.
+/// parameter, so a caller must name an isolation: a synchronous nonisolated caller cannot
+/// compile the call, and an async caller that passes another actor hops to it.
 package enum Step {
   /// Delivers one input event to the graph and the application, then updates the graph.
   ///

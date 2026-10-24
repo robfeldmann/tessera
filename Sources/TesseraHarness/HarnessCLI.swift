@@ -24,7 +24,8 @@ public enum HarnessCLI {
     let output = await run(
       arguments: Array(CommandLine.arguments.dropFirst()),
       registry: registry,
-      outputIsTerminal: StandardOutput.isTerminal,
+      inputIsTerminal: StandardStreams.inputIsTerminal,
+      outputIsTerminal: StandardStreams.outputIsTerminal,
       configuration: .default
     )
     if !output.stdout.isEmpty {
@@ -46,20 +47,45 @@ struct CommandOutput: Equatable {
 
 extension HarnessCLI {
   private struct AppsListing: Encodable {
+    /// One application. `minimum` is written as `null` when the app declares none, so every
+    /// entry has the same three keys.
     struct App: Encodable {
+      enum CodingKeys: String, CodingKey {
+        case minimum, name, viewports
+      }
+
       var minimum: String?
       var name: String
       var viewports: [String]
+
+      func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(minimum, forKey: .minimum)
+        try container.encode(name, forKey: .name)
+        try container.encode(viewports, forKey: .viewports)
+      }
     }
 
     var apps: [App]
     var command = "apps"
   }
 
+  /// A failed command. `command` is written as `null` when the failure precedes naming one.
   private struct Failure: Encodable {
+    enum CodingKeys: String, CodingKey {
+      case command, exitCode, message
+    }
+
     var command: String?
     var exitCode: Int32
     var message: String
+
+    func encode(to encoder: any Encoder) throws {
+      var container = encoder.container(keyedBy: CodingKeys.self)
+      try container.encode(command, forKey: .command)
+      try container.encode(exitCode, forKey: .exitCode)
+      try container.encode(message, forKey: .message)
+    }
   }
 
   static let commands = ["apps", "launch", "help"]
@@ -83,8 +109,8 @@ extension HarnessCLI {
 
     Lists every registered application with the smallest size it declares and the
     viewports it is checked at. The JSON form is {"apps": [{"minimum", "name",
-    "viewports"}], "command": "apps"}, sorted by name. A name registered twice fails the
-    command with exit 3.
+    "viewports"}], "command": "apps"}, sorted by name, where "minimum" is null for an
+    application that declares none. A name registered twice fails the command with exit 3.
     """,
     "launch": """
     usage: launch NAME
@@ -92,7 +118,7 @@ extension HarnessCLI {
     Runs the named application in this terminal at the terminal's size, until the
     application finishes. The harness has no quit key of its own: the application decides
     which key quits. Exits 2 for an unknown name, and 3 for a duplicate registration or
-    when standard output or input is not a terminal.
+    when standard input or output is not a terminal.
     """,
     "help": """
     usage: help [COMMAND]
@@ -103,12 +129,14 @@ extension HarnessCLI {
 
   /// Runs one command and returns what it printed, without touching the process.
   ///
-  /// `launch` needs a terminal on both ends, so it refuses to start unless `outputIsTerminal`
-  /// is `true`; this keeps a test or a pipe from ever opening a live session.
+  /// `launch` needs a terminal on both ends, so it refuses to start unless `inputIsTerminal`
+  /// and `outputIsTerminal` are both `true`; this keeps a test or a pipe from ever opening a
+  /// live session, and fails before the terminal changes mode rather than after.
   @MainActor
   static func run(
     arguments: [String],
     registry: ApplicationRegistry,
+    inputIsTerminal: Bool,
     outputIsTerminal: Bool,
     configuration: TerminalApplicationConfiguration
   ) async -> CommandOutput {
@@ -138,7 +166,8 @@ extension HarnessCLI {
       return apps(rest, registry: registry, json: asJSON)
     case "launch":
       return await launch(
-        rest, registry: registry, json: asJSON, outputIsTerminal: outputIsTerminal,
+        rest, registry: registry, json: asJSON,
+        terminals: (input: inputIsTerminal, output: outputIsTerminal),
         configuration: configuration)
     case "help":
       return help(rest, json: asJSON)
@@ -199,7 +228,7 @@ extension HarnessCLI {
     _ arguments: [String],
     registry: ApplicationRegistry,
     json: Bool,
-    outputIsTerminal: Bool,
+    terminals: (input: Bool, output: Bool),
     configuration: TerminalApplicationConfiguration
   ) async -> CommandOutput {
     guard arguments.count == 1, let name = arguments.first, !name.hasPrefix("-") else {
@@ -216,9 +245,15 @@ extension HarnessCLI {
         }
       return failure(error.description, exitCode: exitCode, command: "launch", json: json)
     }
-    guard outputIsTerminal else {
+    guard terminals.input, terminals.output else {
+      let missing =
+        switch terminals {
+        case (false, false): "standard input and output are not terminals"
+        case (false, true): "standard input is not one"
+        default: "standard output is not one"
+        }
       return failure(
-        "`launch` runs an application in this terminal, and standard output is not one",
+        "`launch` runs an application in this terminal, and \(missing)",
         exitCode: 3, command: "launch", json: json)
     }
     do {

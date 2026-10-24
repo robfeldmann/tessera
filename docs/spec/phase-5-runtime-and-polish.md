@@ -73,7 +73,7 @@ static func run<App: Application>(
 }
 ```
 
-The `isolated` parameter is what makes the proof work. A main-actor host passes `MainActor.shared`, so a main-actor isolated conformance is accepted; an actor host passes `self`, and the same conformance is rejected at the call site. `Task`s the step may start in Phase 5 (app effects) are created inside this isolation and stay in it. There is no optional `#isolation` default: a nonisolated caller cannot compile the call.
+The `isolated` parameter is what makes the proof work. A main-actor host passes `MainActor.shared`, so a main-actor isolated conformance is accepted; an actor host passes `self`, and the same conformance is rejected at the call site. `Task`s the step may start in Phase 5 (app effects) are created inside this isolation and stay in it. There is no optional `#isolation` default, so a caller must name an isolation: a synchronous nonisolated caller cannot compile the call, and an async caller that passes another actor hops to it.
 
 ### Adopting it
 
@@ -136,12 +136,11 @@ Inside, `run` opens the session with `withApplicationTerminal` and hands its sco
 
 ```swift
 private func loop(in session: TerminalSession) async throws {
-  var size = TerminalSize(columns: 80, rows: 24)          // corrected by the first frame
+  let size = try await session.size
   let graph = ViewGraph(root: { [app] in app.body }, size: size)
-  try await session.draw { frame in
-    if frame.size != size { size = frame.size; graph.resize(to: size) }
-    graph.render(into: frame)
-  }
+  Step.run(app, graph: graph, event: .resize(size), isolation: MainActor.shared)  // the starting size
+  try await session.draw { frame in graph.render(into: frame) }
+  if app.isFinished { return }
   for await event in session.events {
     Step.run(app, graph: graph, event: event, isolation: MainActor.shared)
     if graph.needsRender { try await session.draw { frame in graph.render(into: frame) } }
@@ -149,6 +148,8 @@ private func loop(in session: TerminalSession) async throws {
   }
 }
 ```
+
+The app learns the size it starts at the way it learns every later size: as a `.resize` through the step, before the first frame. An app has no other way to know its size, and the harness's driver delivers the same event at the same point, so an app behaves the same under either host.
 
 What the runtime adds beyond the step is additive and arrives as a requirement with a default or as runtime configuration, never as a change to `apply`: a Tab focus policy the app opts into ([slice 4](phase-4/slice-04-focus-and-key-routing.md)), render scheduling and redraws driven by the aggregated tick requirement ([motion views](phase-4/motion-views-and-the-tick-requirement.md)), and a path for app work that completes after `apply` returns. That work is an effect: enqueued during `apply`, started after the step in the runtime's isolation, resumed there, and it edits the model without an `await`. Handlers stay synchronous inside `dispatch` (slice 4).
 

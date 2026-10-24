@@ -7,12 +7,18 @@ import Testing
 
 @MainActor
 struct HarnessCLITests {
+  /// Runs a command. `terminal` says standard output is a terminal and `input` says standard
+  /// input is; neither defaults to `true`, so no test opens a live session by accident.
   private func run(
-    _ arguments: String..., registry: ApplicationRegistry? = nil, terminal: Bool = false
+    _ arguments: String...,
+    registry: ApplicationRegistry? = nil,
+    terminal: Bool = false,
+    input: Bool = false
   ) async -> CommandOutput {
     await HarnessCLI.run(
       arguments: arguments,
       registry: registry ?? Fixtures.registry(),
+      inputIsTerminal: input,
       outputIsTerminal: terminal,
       configuration: .default
     )
@@ -38,9 +44,25 @@ struct HarnessCLITests {
     let counter = try #require(apps.first { $0["name"] as? String == "counter" })
     #expect(counter["minimum"] as? String == "20x1")
     #expect(counter["viewports"] as? [String] == ["desktop"])
+    #expect(Set(counter.keys) == ["minimum", "name", "viewports"])
     #expect(
       apps.compactMap { $0["name"] as? String }
         == apps.compactMap { $0["name"] as? String }.sorted())
+  }
+
+  @Test
+  func `an app with no declared minimum lists it as null so every entry has three keys`()
+    async throws
+  {
+    let output = await run("apps")
+
+    let object = try #require(
+      JSONSerialization.jsonObject(with: Data(output.stdout.utf8)) as? [String: Any])
+    let apps = try #require(object["apps"] as? [[String: Any]])
+    let stack = try #require(apps.first { $0["name"] as? String == "stack" })
+    #expect(Set(stack.keys) == ["minimum", "name", "viewports"])
+    #expect(stack["minimum"] is NSNull)
+    #expect(output.stdout.contains(#"{"minimum":null,"name":"greedy""#))
   }
 
   @Test
@@ -113,14 +135,48 @@ struct HarnessCLITests {
 
   @Test
   func `launch refuses to start unless stdout is a terminal`() async throws {
-    let output = await run("launch", "counter")
+    let output = await run("launch", "counter", input: true)
 
     #expect(output.exitCode == 3)
     let object = try #require(
       JSONSerialization.jsonObject(with: Data(output.stdout.utf8)) as? [String: Any])
     #expect(object["command"] as? String == "launch")
     #expect(object["exitCode"] as? Int == 3)
-    #expect((object["message"] as? String)?.contains("not one") == true)
+    #expect(
+      (object["message"] as? String)?.hasSuffix("standard output is not one") == true)
+  }
+
+  @Test
+  func
+    `launch refuses to start unless stdin is a terminal and says so before any session`()
+    async
+  {
+    let output = await run("launch", "counter", "--pretty", terminal: true, input: false)
+
+    #expect(output.exitCode == 3)
+    #expect(output.stdout.isEmpty)
+    #expect(
+      output.stderr
+        == "error: `launch` runs an application in this terminal, and standard input is not one\n"
+    )
+  }
+
+  @Test
+  func `launch names both streams when neither is a terminal`() async {
+    let output = await run("launch", "counter", "--pretty")
+
+    #expect(output.exitCode == 3)
+    #expect(output.stderr.contains("standard input and output are not terminals"))
+  }
+
+  @Test
+  func `an unknown command has a null command in its JSON failure`() async throws {
+    let output = await run("jump")
+
+    let object = try #require(
+      JSONSerialization.jsonObject(with: Data(output.stdout.utf8)) as? [String: Any])
+    #expect(object["command"] is NSNull)
+    #expect(object["exitCode"] as? Int == 2)
   }
 
   @Test

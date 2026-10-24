@@ -52,7 +52,7 @@ Read the diagram as one scenario run. `tessera run` and `swift test` are two way
 | --- | --- | --- | --- |
 | Demos and the registry | both | demos in `Examples/Sources/DemoSupport`, `ApplicationRegistry` in `TesseraHarness` | built; one demo so far, the counter |
 | The app contract (`Application`) | both | `TesseraRuntime`, re-exported by `Tessera` | built |
-| Headless driver (`Driver`) | both | `TesseraHarness` | built: one `Driver` under a headless host, a live host, and a per-test actor host, all `package` |
+| Headless driver (`Driver`) | both | `TesseraHarness` | built: one `Driver` under a headless host, a live host, and a per-test actor host, all internal to `TesseraHarness` (tests reach them with `@testable import`) |
 | Scenario language and runner | both | grammar in `Examples/Scenarios/README.md`, runner in `TesseraHarness` | designed; the spike's v0 parser, runner, and report are ported as `package` code and run over the registry |
 | `tessera` CLI and `mise run dev:*` | agents first | `Examples/Sources/TesseraDev`, `HarnessCLI` in `TesseraHarness`, `mise-tasks/dev/` | `apps`, `launch`, and `help` built; the other commands designed |
 | Projection and locators | agents first | `TesseraHarness` | designed |
@@ -174,7 +174,7 @@ The driver writes one JSONL record per step: sequence number, event, the pass's 
 
 Exit codes: 0 pass, 1 an expectation or check failed, 2 a usage or parse error, 3 a harness error. When stdout is not a terminal, each command writes one JSON object to stdout; `help COMMAND` prints real text. `mise run dev:run`, `dev:shot`, and the rest mirror the commands. CI runs `swift test --package-path Examples` and `tessera run Examples/Scenarios` on macOS, Linux, and Windows; goldens are checked out with LF line endings everywhere, so a Windows checkout cannot drift them.
 
-Built today: `apps`, `launch NAME`, and `help [COMMAND]`, with `--json` and `--pretty` forcing either form of `apps`. `apps` prints a name, minimum, and viewports table on a terminal, and otherwise one sorted-key JSON object, `{"apps": [{"minimum", "name", "viewports"}], "command": "apps"}`. `launch` refuses to start unless standard output is a terminal (exit 3), because it opens a live session; an unknown name is a usage error (exit 2) that lists the registered names. `HarnessCLI.main(registry:)` is the entry point an app author's executable calls; `Examples/Sources/TesseraDev` is Tessera's, over `Demos.registry()`, and its product is named `tessera` while its module is `TesseraDev`, so the executable and the `Tessera` library share no artifact name on a case-insensitive file system.
+Built today: `apps`, `launch NAME`, and `help [COMMAND]`, with `--json` and `--pretty` forcing either form of `apps`. `apps` prints a name, minimum, and viewports table on a terminal, and otherwise one sorted-key JSON object, `{"apps": [{"minimum", "name", "viewports"}], "command": "apps"}`, where `minimum` is `null` for an app that declares none. `launch` refuses to start unless standard input and output are both terminals (exit 3, before the terminal changes mode), because it opens a live session; an unknown name is a usage error (exit 2) that lists the registered names. `HarnessCLI.main(registry:)` is the entry point an app author's executable calls; `Examples/Sources/TesseraDev` is Tessera's, over `Demos.registry()`, and its product is named `tessera` while its module is `TesseraDev`, so the executable and the `Tessera` library share no artifact name on a case-insensitive file system.
 
 ### Stability
 

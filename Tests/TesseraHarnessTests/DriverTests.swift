@@ -134,6 +134,24 @@ struct DriverTests {
     #expect(rows.count == 12)
   }
 
+  @Test(arguments: [
+    ("counter", "Count: 1"),
+    ("main-actor-counter", "Main-actor count: 1"),
+    ("observed-counter", "Observed count: 1"),
+  ])
+  func `every adoption shape runs headless through the registry`(
+    name: String, expected: String
+  ) async throws {
+    var firstRow = ""
+
+    try await Fixtures.registry().withHeadlessHost(name, at: .desktop) { host in
+      try await host.send(.key(Key(code: .character("+"))))
+      firstRow = host.screenRows.first ?? ""
+    }
+
+    #expect(firstRow == expected)
+  }
+
   @Test
   func `the headless screen is what the live draw path wrote`() async throws {
     var rows: [String] = []
