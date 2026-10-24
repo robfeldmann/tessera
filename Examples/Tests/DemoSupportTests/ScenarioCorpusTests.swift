@@ -1,6 +1,6 @@
 import DemoSupport
-import Testing
 import TesseraHarness
+import Testing
 
 /// The corpus CI runs with `tessera run Examples/Scenarios`, run again here through the Swift
 /// entry point an app author's own tests use.
@@ -9,7 +9,7 @@ struct ScenarioCorpusTests {
   /// `Examples/Scenarios`, found from this file's own path: three components up (the file,
   /// `DemoSupportTests`, and `Tests`), split at either separator so a Windows path works.
   private static let corpus: String = {
-    var parts = #filePath.split(omittingEmptySubsequences: false) { $0 == "/" || $0 == "\\" }
+    var parts = #filePath.split(omittingEmptySubsequences: false) { "/\\".contains($0) }
     parts.removeLast(3)
     return (parts + ["Scenarios"]).joined(separator: "/")
   }()

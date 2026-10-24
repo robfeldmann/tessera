@@ -153,13 +153,15 @@ struct ScenarioParserTests {
       .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
       .appendingPathComponent("Examples/Scenarios/README.md")
     let text = try String(contentsOf: readme, encoding: .utf8)
-    let section = try #require(
-      text.components(separatedBy: "\n## ").first { $0.hasPrefix("Not yet expressible") })
+    // Lines split at the `\n` scalar, as the parser's are: a Windows checkout of this file may
+    // have CRLF endings, and a "\r\n" is one Character that Foundation's search would not see
+    // a "\n" in.
+    let lines = ScenarioParser.sourceLines(of: text)
+    let start = try #require(lines.firstIndex { $0.hasPrefix("## Not yet expressible") })
+    let section = lines[(start + 1)...].prefix { !$0.hasPrefix("## ") }
 
-    var forms: [String] = []
-    for line in section.components(separatedBy: "\n") where line.hasPrefix("| `") {
-      let cell = line.dropFirst(3)
-      forms.append(String(cell.prefix { $0 != "`" }))
+    let forms = section.filter { $0.hasPrefix("| `") }.map { line in
+      String(line.dropFirst(3).prefix { $0 != "`" })
     }
 
     #expect(forms.sorted() == ScenarioGrammar.notYetExpressible.map(\.form).sorted())
