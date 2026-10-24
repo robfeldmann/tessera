@@ -411,6 +411,90 @@ struct HarnessCLIScenarioTests {
     #expect(greedy.stderr.contains("mobileScreen"))
   }
 
+  @Test
+  func `run --pretty shows a bare check's warnings under the scenario's line`()
+    async throws
+  {
+    let scratch = try ScratchDirectory()
+    try scratch.write("w.scn", "app overflow\ncheck\n")
+
+    let output = await projectionRun("run", scratch.path, "--pretty")
+
+    #expect(output.exitCode == 1, "the error of the same check fails the run")
+    let lines = output.stdout.split(separator: "\n").map(String.init)
+    let warning = try #require(lines.firstIndex { $0.hasPrefix("  line 2: warning ") })
+    let failure = try #require(lines.firstIndex(of: "  line 2: check"))
+    #expect(lines[warning].contains("frame-inside-clip root"))
+    #expect(warning < failure, "the warnings come before the failures")
+    #expect(lines[failure + 1].hasPrefix("    measured-within-proposal at root"))
+  }
+
+  @Test
+  func `a scenario that passes with warnings prints them under its PASS line`() {
+    let report = ScenarioReport(
+      scenario: "flex.scn", failures: [],
+      observations: [
+        ScenarioObservation(
+          line: 7, verb: "check", name: nil,
+          lines: [
+            "ran no-dirty-after-pass, frame-inside-clip",
+            "warning frame-inside-clip root/a: shows 0,0,9x1",
+          ]),
+        ScenarioObservation(
+          line: 9, verb: "check", name: nil, lines: ["ran no-dirty-after-pass"]),
+        ScenarioObservation(
+          line: 3, verb: "shot", name: "a", lines: ["warning: not a check"]),
+      ])
+
+    #expect(
+      report.description
+        == "PASS flex.scn\n  line 7: warning frame-inside-clip root/a: shows 0,0,9x1")
+    #expect(report.json.contains("warning frame-inside-clip root/a"))
+  }
+
+  @Test
+  func `an empty path, name, or flag value is a usage error and nothing runs`()
+    async throws
+  {
+    let scratch = try ScratchDirectory()
+    try scratch.write("a.scn", passing)
+    let out = scratch.appending("traces")
+
+    let trace = await run("run", scratch.path, "--trace", "", "--pretty")
+    let path = await run("run", "", "--pretty")
+    let inside = await run("run", scratch.path, "", "--pretty")
+    let shot = await run("shot", "", "--pretty")
+    let tree = await run("tree", "", "--pretty")
+    let check = await run("check", "", "--pretty")
+    let file = await run("replay", "", "--app", "stack", "--pretty")
+    let app = await run("replay", "t.jsonl", "--app", "", "--pretty")
+    let json = await run("run", scratch.path, "--trace", "")
+
+    for output in [trace, path, inside, shot, tree, check, file, app, json] {
+      #expect(output.exitCode == 2, "\(output.stderr)\(output.stdout)")
+    }
+    #expect(trace.stderr == "error: `--trace` needs a value that is not empty\n")
+    #expect(trace.stdout.isEmpty, "no scenario ran")
+    #expect(
+      path.stderr == "error: an empty argument is not a path or an application name\n")
+    #expect(app.stderr == "error: `--app` needs a value that is not empty\n")
+    #expect(
+      try object(json)["message"] as? String
+        == "`--trace` needs a value that is not empty")
+    #expect(!FileManager.default.fileExists(atPath: out))
+  }
+
+  @Test
+  func `the help overview spells replay's required flag`() async {
+    let overview = await run("help")
+
+    #expect(overview.exitCode == 0)
+    #expect(
+      overview.stdout.contains(
+        "  replay FILE --app NAME  rerun a recorded trace against an application\n"))
+    #expect(overview.stdout.contains("  check NAME [SIZE]       check one application"))
+  }
+
   // MARK: trace and replay
 
   @Test

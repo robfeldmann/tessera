@@ -53,7 +53,7 @@ A scenario is `Examples/Scenarios/NAME.scn`: an `app`, a `size`, an optional `te
 
 1. Picture the state with `dev:shot` or `dev:tree`.
 2. Write the statements: `key`, `type`, `paste`, `bytes`, `resize` to drive; `expect text`, `expect screen <<EOF`, `expect node SEL frame`, `expect cost`, and `check` to assert; `shot NAME`, `tree`, and `dump` to observe.
-3. Address nodes by meaning: `type=Text`, `layout=_FrameLayout` (what `frame` and `padding` are), `id=a` (a `ForEach` key or an `.id`), `text="…"` (what the leaf shows), and `nth=N`. A selector that matches nothing fails and names the types and layouts present.
+3. Address nodes by meaning: `type=Text`, `layout=_FrameLayout` (what `frame` and `padding` are), `id=a` (a `ForEach` key or an `.id`), `text="…"` (a substring of what the leaf shows; an empty value is a parse error), and `nth=N`. A selector that matches nothing fails and names the types and layouts present.
 4. Run it. A scenario that uses a statement the harness cannot honour yet (`wait`, `mouse`, `focus`, `expect cell`, …) fails at that line with "not yet expressible"; do not work around it with a different statement.
 5. The first run of a new `shot` fails for lack of goldens. Run once with `--record`, open the two files it wrote (`shot reset` in `counter-basics.scn` writes `counter-basics/reset.txt` and `reset.grid.txt`, beside the scenario), and confirm they show what you meant.
 
@@ -70,7 +70,7 @@ An app that finishes ends the scenario, as it ends a live run: `key q` is the la
 | `no-dirty-after-pass` | error | a node still marked dirty after the pass that drew the screen |
 | `frame-inside-clip` | warning | a leaf whose frame reaches past its clip |
 | `measured-within-proposal` | error | a node that measured more than it was offered |
-| `siblings-disjoint` | error | two children that show the same cell (every `ForEach` item on one frame); `ZStack` is exempt |
+| `siblings-disjoint` | error | two children that show the same cell (every `ForEach` item on one frame); `ZStack` is exempt, also for the layers a `ForEach` or an `if` builds under it |
 | `requirements-aggregate` | error | a terminal requirement that does not roll up to the graph, or the reverse |
 
 An error fails the statement (exit 1); a warning is listed and does not fail a bare `check`, and a rule you name must hold. Some rules fire by contract: a fixed `frame(width:)` wider than its parent offered, a `Flex` child wider than its segment, and `Text` (which does not wrap yet) wider than the width it is offered all measure more than they were offered. When a scenario shows that on purpose, name the rules that must hold: `check no-dirty-after-pass siblings-disjoint requirements-aggregate`. A failing rule is the library's finding: fix the library and add a regression test, never the demo.
@@ -79,7 +79,7 @@ An error fails the statement (exit 1); a warning is listed and does not fail a b
 
 ## Read a trace
 
-`dev:run Examples/Scenarios/NAME-desktop.scn --trace /tmp/traces` writes `/tmp/traces/Examples/Scenarios/NAME-desktop.trace.jsonl`, one JSON line per step. Read each line's `event` and `reasons` first: they say why the frame was drawn (`layoutViewportChanged` for a resize, `layoutViewChanged` for a changed view). Stacks hand each child a rebuilt environment on every update, so `layoutEnvironmentChanged` and `renderEnvironmentChanged` appear on every step of an app that has a stack; read the other reasons. Then `drew` (a step that leaves the graph clean draws nothing), `nodes` (identity paths added, changed, removed), `rows` (screen rows whose text changed), and `cost`. A live session writes the same with `TESSERA_TRACE=/tmp/live.jsonl mise run dev:launch NAME`, and `dev:replay /tmp/live.jsonl --app NAME` runs it again headless and fails the first step that differs. The trace is not promised to stay as it is; each record has a `version`.
+`dev:run Examples/Scenarios/NAME-desktop.scn --trace /tmp/traces` writes `/tmp/traces/Examples/Scenarios/NAME-desktop.trace.jsonl`, one JSON line per step. Read each line's `event` and `reasons` first: they say why the frame was drawn (`layoutViewportChanged` for a resize, `layoutViewChanged` for a changed view). Stacks hand each child a rebuilt environment on every update, so `layoutEnvironmentChanged` and `renderEnvironmentChanged` appear on every step of an app that has a stack; read the other reasons. Then `drew` (a step that leaves the graph clean draws nothing), `nodes` (identity paths added, changed, removed), `rows` (screen rows whose text changed), and `cost`. A live session writes the same with `TESSERA_TRACE=/tmp/live.jsonl mise run dev:launch NAME`, and `dev:replay /tmp/live.jsonl --app NAME` runs it again headless and fails the first step that differs. Keys, pastes, resizes, and the terminal's focus changes (`focusGained`, `focusLost`) replay; a trace that holds a mouse event or a terminal reply is refused by name (exit 2). The trace is not promised to stay as it is; each record has a `version`.
 
 ## Run a demo
 

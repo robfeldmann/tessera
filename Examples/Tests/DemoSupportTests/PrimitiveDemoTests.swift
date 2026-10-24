@@ -157,15 +157,81 @@ struct PrimitiveDemoTests {
   }
 
   @Test
+  func `layers a ForEach and an if group build are layers that check does not flag`()
+    async throws
+  {
+    try await Demos.registry().withHeadlessHost("zstack", at: .desktop) { host in
+      // The two ForEach items share one frame under the ZStack, and `efcd` is that overlap.
+      let list = try #require(host.projection.nodes.first { $0.type == "ForEach" })
+      let frames = list.children.compactMap { host.projection.node(at: $0)?.frame }
+      #expect(frames.count == 2)
+      #expect(frames[0].column == frames[1].column && frames[0].row == frames[1].row)
+      #expect(host.screenRows[7].hasSuffix("efcd    base"))
+      #expect(Checker.run(CheckRule.allCases, on: host.projection).isEmpty)
+
+      // `g` adds an `if` group of two texts on one frame, over `base`.
+      try await host.send(key("g"))
+      #expect(host.screenRows[7].hasSuffix("efcd    hase"))
+      let group = host.projection.nodes.last { $0.type == "TupleView" }
+      #expect(group?.children.count == 2)
+      #expect(Checker.run(CheckRule.allCases, on: host.projection).isEmpty)
+    }
+  }
+
+  @Test
   func `the spacers of the stacks demo share what is left by the rules of the catalog`()
     async throws
   {
+    // The vertical Spacer is 0 columns wide. Then one spacer takes 78 cells, two share 77 as 39
+    // and 38, `minLength: 20` changes nothing at 80 columns, and the priority spacer takes 77
+    // while the unprioritised one gets nothing.
     try await Demos.registry().withHeadlessHost("stacks", at: .desktop) { host in
       let spacers = host.projection.nodes.filter { $0.type == "Spacer" }.map(
         \.frame.columns)
-      // One spacer takes 78 cells, two share 77 as 39 and 38, and the priority spacer takes
-      // 77 while the unprioritised one gets nothing.
-      #expect(spacers == [78, 39, 38, 77, 0])
+      #expect(spacers == [0, 78, 39, 38, 39, 38, 77, 0])
+    }
+    // At 40 columns the share would be 19, so the floor of 20 binds and the plain Spacer is
+    // left 17.
+    try await Demos.registry().withHeadlessHost("stacks", at: .mobile) { host in
+      let spacers = host.projection.nodes.filter { $0.type == "Spacer" }.map(
+        \.frame.columns)
+      #expect(spacers == [0, 38, 19, 18, 20, 17, 37, 0])
+    }
+  }
+
+  @Test
+  func `a spacer in a vstack takes the rows between its neighbours`() async throws {
+    try await Demos.registry().withHeadlessHost("stacks", at: .desktop) { host in
+      let vertical = host.projection.nodes.first { $0.type == "Spacer" }
+      #expect(vertical?.frame == Projection.Box(column: 24, row: 9, columns: 0, rows: 1))
+      #expect(host.screenRows[8].hasSuffix("A"))
+      #expect(host.screenRows[10].hasSuffix("B"))
+    }
+  }
+
+  @Test
+  func `flex page two shows a priority tier, an unflexed child, and the cross axis`()
+    async throws
+  {
+    try await Demos.registry().withHeadlessHost("flex", at: .desktop) { host in
+      try await host.send(key("n"))
+      let frames = Dictionary(
+        host.projection.nodes.compactMap { node in node.text.map { ($0, node.frame) } }
+      ) { first, _ in first }
+      #expect(host.screenRows[0] == "Flex: priority, defaults, cross axis")
+      // Three equal fills split 75 cells; with a priority tier the third takes them all.
+      #expect(frames["E"]?.column == 27)
+      #expect(frames["H"]?.column == 2)
+      #expect(frames["I"]?.column == 4)
+      // No flex value is weight 1 beside a fill(1): 38 cells each, the odd one to the first.
+      #expect(frames["K"]?.column == 41)
+      // A child smaller than the cross axis sits at the leading edge.
+      #expect(frames["•"] == Projection.Box(column: 2, row: 9, columns: 1, rows: 1))
+      #expect(frames["◦"]?.column == 0)
+      let violations = Checker.run(CheckRule.allCases, on: host.projection)
+      #expect(violations.isEmpty, "\(violations.map(\.text))")
+      try await host.send(key("n"))
+      #expect(host.screenRows[0] == "Flex: constraints")
     }
   }
 

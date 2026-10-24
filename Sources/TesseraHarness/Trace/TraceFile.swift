@@ -6,6 +6,11 @@ import Foundation
 /// `tessera run --trace DIR` writes one file for each scenario, a live session writes the file
 /// `TESSERA_TRACE` names, and `tessera replay` reads either.
 enum TraceFile {
+  /// The one field every schema version of a record keeps, read before the rest.
+  private struct VersionOnly: Decodable {
+    var version: Int
+  }
+
   /// A line of a trace file that cannot be read back.
   struct ReadError: Error, Equatable, CustomStringConvertible {
     /// The line's number, counted from 1.
@@ -59,19 +64,28 @@ enum TraceFile {
       if trimmed.isEmpty {
         continue
       }
+      // The version first: a later schema may rename or drop a key, and that line should say
+      // which version it is, not that a key is missing.
+      let version: Int
+      do {
+        version = try decoder.decode(VersionOnly.self, from: Data(trimmed.utf8)).version
+      } catch {
+        throw ReadError(
+          line: number, message: "this line is not a trace record (\(describe(error)))")
+      }
+      guard version == TraceRecord.currentVersion else {
+        throw ReadError(
+          line: number,
+          message:
+            "the record has version \(version); this harness reads version "
+            + "\(TraceRecord.currentVersion)")
+      }
       let record: TraceRecord
       do {
         record = try decoder.decode(TraceRecord.self, from: Data(trimmed.utf8))
       } catch {
         throw ReadError(
           line: number, message: "this line is not a trace record (\(describe(error)))")
-      }
-      guard record.version == TraceRecord.currentVersion else {
-        throw ReadError(
-          line: number,
-          message:
-            "the record has version \(record.version); this harness reads version "
-            + "\(TraceRecord.currentVersion)")
       }
       records.append(record)
     }

@@ -42,6 +42,11 @@ package struct Locator: Equatable, Sendable {
       }
       let key = String(token[..<equals])
       let value = String(token[token.index(after: equals)...])
+      // An empty `text=` would match every leaf that shows anything, and an empty `type=`,
+      // `layout=`, or `id=` nothing at all; either is a mistake in the scenario, not a query.
+      if value.isEmpty, ["type", "layout", "id", "text"].contains(key) {
+        throw Failure(message: "locator key `\(key)` needs a value that is not empty")
+      }
       switch key {
       case "type": locator.type = value
       case "layout": locator.layout = value
@@ -81,7 +86,8 @@ package struct Locator: Equatable, Sendable {
   /// - `id` is a node's full identity path, or the id the app gave it: the `X` of `.id(X)` or of
   ///   a `ForEach` key.
   /// - `text` is a substring of the text the node's own cells show, so a container has none and
-  ///   text that another node paints over does not match.
+  ///   text that another node paints over does not match: `text="atus"` finds `status` under
+  ///   `OK`, whose own cells show only `atus`, and `text="OKatus"` finds nothing.
   func resolve(in projection: Projection) -> Resolution {
     let matches = projection.nodes.filter { node in
       if let type, node.type != type {

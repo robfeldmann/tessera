@@ -88,6 +88,12 @@ private let overlappingContainers: Set<String> = ["ZStack"]
 /// container doing its job.
 private let scrollingContainers: Set<String> = ["ScrollView"]
 
+/// The node types that hold a view list, which layout looks through: it places a list's
+/// elements as though they were children of the list's own parent.
+private let listTypes: Set<String> = [
+  "ConditionalView", "EmptyView", "ForEach", "Optional", "TupleView",
+]
+
 /// One projection, indexed for the rules.
 private struct CheckContext {
   let projection: Projection
@@ -104,6 +110,18 @@ private struct CheckContext {
     Violation(
       rule: rule.rawValue, severity: rule.severity.rawValue, node: node.path,
       detail: detail)
+  }
+
+  /// The node whose layout places `node`'s children: `node` itself, or the nearest ancestor
+  /// that is not a view list when `node` is one.
+  func placingContainer(of node: Projection.Node) -> Projection.Node {
+    var current = node
+    while listTypes.contains(current.type),
+      let parent = current.parent.flatMap({ byPath[$0] })
+    {
+      current = parent
+    }
+    return current
   }
 
   /// A node still marked for layout or rendering once the pass that drew the screen is over.
@@ -172,12 +190,16 @@ private struct CheckContext {
   ///
   /// A child shows its frame clipped to its clip, so a child wider than its segment that is
   /// clipped to it (a `Flex` child whose content overflows) does not overlap its neighbour;
-  /// two children placed on one frame (the `ForEach` defect) do.
+  /// two children placed on one frame (the `ForEach` defect) do. Layout looks through a view
+  /// list (`ForEach`, `if`, a group of views) to its elements, so the container that decides
+  /// whether they overlap is the nearest ancestor that is not a list: the elements of a
+  /// `ForEach` under a `ZStack` are layers, and under a `VStack` they are not.
   func siblingsDisjoint() -> [Violation] {
     var violations: [Violation] = []
     for parent in projection.nodes where parent.children.count > 1 {
       let name = parent.layout ?? parent.type
-      guard !overlappingContainers.contains(name) else {
+      let container = placingContainer(of: parent)
+      guard !overlappingContainers.contains(container.layout ?? container.type) else {
         continue
       }
       let children = parent.children.compactMap { byPath[$0] }

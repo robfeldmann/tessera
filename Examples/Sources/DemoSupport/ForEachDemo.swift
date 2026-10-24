@@ -5,9 +5,10 @@ import TesseraHarness
 ///
 /// A row of tags is a `ForEach` inside an `HStack` after a label, and the items below are a
 /// `ForEach` inside a `VStack` between static rows. Both are the shape that once laid every
-/// item at the same frame, so the scenario for this demo runs `check siblings-disjoint` after
-/// each change. `+` adds an item and `-` removes the last, up to eight, and `r` reverses the
-/// order: an item keeps its identity, so `id=` finds it where it moved to. `q` quits.
+/// item at the same frame, so the scenario for this demo runs a bare `check` after each
+/// change, and `siblings-disjoint` is the rule among its five that would catch it. `+` adds an
+/// item and `-` removes the last, up to eight, and `r` reverses the order: an item keeps its
+/// identity, so `id=` finds it where it moved to. `q` quits.
 final class ForEachDemo: Demo {
   private struct Item: Identifiable {
     var id: String

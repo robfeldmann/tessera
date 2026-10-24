@@ -218,6 +218,116 @@ struct ChecksTests {
   }
 
   @Test
+  func `a ForEach's items are layers under a ZStack and overlap under a VStack`() {
+    func items(under container: String) -> [Violation] {
+      run(
+        .siblingsDisjoint,
+        projection([
+          node(
+            "root", children: ["root/index(0)"], type: container, frame: (0, 0, 4, 2)),
+          node(
+            "root/index(0)", parent: "root",
+            children: ["root/index(0)/id(a)", "root/index(0)/id(b)"], type: "ForEach",
+            frame: (0, 0, 4, 1)),
+          node("root/index(0)/id(a)", parent: "root/index(0)", frame: (0, 0, 4, 1)),
+          node("root/index(0)/id(b)", parent: "root/index(0)", frame: (0, 0, 2, 1)),
+        ]))
+    }
+
+    #expect(items(under: "ZStack").isEmpty)
+    #expect(items(under: "VStack").map(\.node) == ["root/index(0)/id(b)"])
+    #expect(items(under: "VStack").first?.detail.hasSuffix("under ForEach") == true)
+  }
+
+  @Test
+  func `the group of an if under a ZStack is looked through to the ZStack`() {
+    // `ZStack { Text("base"); if shown { Text("g"); Text("h") } }`: the two texts hang under
+    // a tuple under an optional, and layout places them as layers of the ZStack.
+    func tree(under container: String) -> Projection {
+      projection([
+        node(
+          "root", children: ["root/index(0)", "root/index(1)"], type: container,
+          frame: (0, 0, 4, 2)),
+        node("root/index(0)", parent: "root", frame: (0, 0, 4, 1)),
+        node(
+          "root/index(1)", parent: "root", children: ["root/index(1)/branch(true)"],
+          type: "Optional", frame: (0, 0, 1, 1)),
+        node(
+          "root/index(1)/branch(true)", parent: "root/index(1)",
+          children: [
+            "root/index(1)/branch(true)/index(0)", "root/index(1)/branch(true)/index(1)",
+          ],
+          type: "TupleView", frame: (0, 0, 1, 1)),
+        node(
+          "root/index(1)/branch(true)/index(0)", parent: "root/index(1)/branch(true)",
+          frame: (0, 0, 1, 1)),
+        node(
+          "root/index(1)/branch(true)/index(1)", parent: "root/index(1)/branch(true)",
+          frame: (0, 0, 1, 1)),
+      ])
+    }
+
+    #expect(run(.siblingsDisjoint, tree(under: "ZStack")).isEmpty)
+    // Under a stack the same two texts on one frame are the defect, and so is the text
+    // that the optional puts over `base`.
+    #expect(
+      run(.siblingsDisjoint, tree(under: "VStack")).map(\.node) == [
+        "root/index(1)",
+        "root/index(1)/branch(true)/index(1)",
+      ])
+  }
+
+  @Test
+  func
+    `a conditional branch and nested lists are looked through to the nearest container`()
+  {
+    func tree(under container: String, layout: String? = nil) -> Projection {
+      projection([
+        node(
+          "root", children: ["root/index(0)"], type: container, layout: layout,
+          frame: (0, 0, 4, 2)),
+        node(
+          "root/index(0)", parent: "root", children: ["root/index(0)/branch(false)"],
+          type: "ConditionalView", frame: (0, 0, 4, 1)),
+        node(
+          "root/index(0)/branch(false)", parent: "root/index(0)",
+          children: [
+            "root/index(0)/branch(false)/id(a)", "root/index(0)/branch(false)/id(b)",
+          ],
+          type: "TupleView", frame: (0, 0, 4, 1)),
+        node(
+          "root/index(0)/branch(false)/id(a)", parent: "root/index(0)/branch(false)",
+          frame: (0, 0, 4, 1)),
+        node(
+          "root/index(0)/branch(false)/id(b)", parent: "root/index(0)/branch(false)",
+          frame: (0, 0, 4, 1)),
+      ])
+    }
+
+    #expect(run(.siblingsDisjoint, tree(under: "ZStack")).isEmpty)
+    #expect(run(.siblingsDisjoint, tree(under: "HStack")).count == 1)
+    #expect(
+      run(.siblingsDisjoint, tree(under: "_LayoutContainer", layout: "Stagger")).count
+        == 1)
+  }
+
+  @Test
+  func `a list that is not under any container is held to disjoint items`() {
+    // The root itself is a tuple: with nothing above it, its elements are its siblings.
+    let found = run(
+      .siblingsDisjoint,
+      projection([
+        node(
+          "root", children: ["root/index(0)", "root/index(1)"], type: "TupleView",
+          frame: (0, 0, 4, 1)),
+        node("root/index(0)", parent: "root", frame: (0, 0, 4, 1)),
+        node("root/index(1)", parent: "root", frame: (0, 0, 4, 1)),
+      ]))
+
+    #expect(found.map(\.node) == ["root/index(1)"])
+  }
+
+  @Test
   func `a custom layout is held to disjoint children under its own name`() {
     let found = run(
       .siblingsDisjoint,

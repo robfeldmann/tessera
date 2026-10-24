@@ -137,18 +137,34 @@ struct TraceTests {
   }
 
   @Test
-  func `an event the grammar cannot say is recorded as other and cannot be replayed`() {
-    for event in [
-      InputEvent.focusGained, .focusLost, .unknown([0x1b, 0x5b]),
-      .primaryDeviceAttributes([1]),
-    ] {
+  func `an event neither the grammar nor replay can say is recorded as other`() {
+    for event in [InputEvent.unknown([0x1b, 0x5b]), .primaryDeviceAttributes([1])] {
       let recorded = TraceEvent(event)
       #expect(recorded.type == "other")
       #expect(recorded.inputEvent == nil)
+      #expect(recorded.summary.hasSuffix("(not replayable)"))
     }
     let capsLock = TraceEvent(.key(Key(code: .character("a"), modifiers: .capsLock)))
     #expect(capsLock.type == "other")
     #expect(capsLock.detail?.hasPrefix("key") == true)
+  }
+
+  @Test
+  func `a focus change of the terminal is recorded by name and delivers again`() throws {
+    let gained = TraceEvent(.focusGained)
+    let lost = TraceEvent(.focusLost)
+
+    #expect(gained.type == "focusGained")
+    #expect(lost.type == "focusLost")
+    #expect(gained.inputEvent == .focusGained)
+    #expect(lost.inputEvent == .focusLost)
+    #expect(gained.summary == "focus gained")
+    #expect(lost.summary == "focus lost")
+    // Nothing else rides along, so a record is just the type.
+    #expect(JSONText.string(for: gained) == #"{"type":"focusGained"}"#)
+    let decoded = try JSONDecoder().decode(
+      TraceEvent.self, from: Data(JSONText.string(for: lost).utf8))
+    #expect(decoded == lost)
   }
 
   @Test
@@ -157,7 +173,7 @@ struct TraceTests {
       .key(Key(code: .left)),
       .key(Key(code: .character("c"), modifiers: [.control, .alt])),
       .key(Key(code: .function(5))), .key(Key(code: .character("a"), kind: .release)),
-      .paste("x y"), .resize(TerminalSize(columns: 7, rows: 3)),
+      .paste("x y"), .resize(TerminalSize(columns: 7, rows: 3)), .focusGained, .focusLost,
     ]
 
     for event in events {
@@ -216,6 +232,28 @@ struct TraceTests {
     #expect(missing?.line == 2)
     #expect(later?.line == 1)
     #expect(later?.message.contains("version 2") == true)
+  }
+
+  @Test
+  func `a record of another version is named by its version even when its keys are gone`()
+    throws
+  {
+    // A later schema may rename or drop any key but `version`, so the version is read first.
+    let renamed = #expect(throws: TraceFile.ReadError.self) {
+      try TraceFile.records(in: #"{"version":2,"steps":[],"verdict":"new"}"# + "\n")
+    }
+    let older = #expect(throws: TraceFile.ReadError.self) {
+      try TraceFile.records(in: #"{"version":0}"# + "\n")
+    }
+    let noVersion = #expect(throws: TraceFile.ReadError.self) {
+      try TraceFile.records(in: #"{"seq":0}"# + "\n")
+    }
+
+    #expect(renamed?.line == 1)
+    #expect(renamed?.message == "the record has version 2; this harness reads version 1")
+    #expect(older?.message == "the record has version 0; this harness reads version 1")
+    #expect(noVersion?.message.contains("not a trace record") == true)
+    #expect(noVersion?.message.contains("version") == true)
   }
 
   @Test

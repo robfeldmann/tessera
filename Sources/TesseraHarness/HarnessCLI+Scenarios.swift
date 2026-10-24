@@ -27,6 +27,10 @@ struct CommandArguments {
         guard let value = iterator.next() else {
           throw Failure(message: "`\(argument)` needs a value")
         }
+        // An empty path would join to the filesystem root, and an empty name matches nothing.
+        guard !value.isEmpty else {
+          throw Failure(message: "`\(argument)` needs a value that is not empty")
+        }
         guard values.updateValue(value, forKey: argument) == nil else {
           throw Failure(message: "`\(argument)` is given twice")
         }
@@ -35,6 +39,8 @@ struct CommandArguments {
         throw Failure(
           message:
             "unknown flag `\(argument)`; accepted: \(accepted.joined(separator: ", "))")
+      } else if argument.isEmpty {
+        throw Failure(message: "an empty argument is not a path or an application name")
       } else {
         positional.append(argument)
       }

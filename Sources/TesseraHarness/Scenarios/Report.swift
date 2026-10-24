@@ -110,8 +110,9 @@ public struct ScenarioReport: CustomStringConvertible, Equatable, Sendable {
     failures.isEmpty
   }
 
-  /// The human form: `PASS` or `FAIL` and the scenario's path, then each failure with the
-  /// statement, what was expected, what was seen, and the screen.
+  /// The human form: `PASS` or `FAIL` and the scenario's path, then the warnings a bare
+  /// `check` listed, then each failure with the statement, what was expected, what was seen,
+  /// and the screen.
   ///
   /// A `parse` failure prints as `FILE:LINE: error: message`, the form editors and CI logs
   /// link.
@@ -119,6 +120,13 @@ public struct ScenarioReport: CustomStringConvertible, Equatable, Sendable {
     var lines = ["\(passed ? "PASS" : "FAIL") \(scenario)\(timingText)"]
     for change in recorded {
       lines.append("  recorded \(change.path) (\(change.change.rawValue))")
+    }
+    // A warning does not fail the scenario, so a person who reads only this form would never
+    // see it; the JSON form carries it in the observation.
+    for observation in observations where observation.verb == "check" {
+      for warning in observation.lines where warning.hasPrefix("warning ") {
+        lines.append("  line \(observation.line): \(warning)")
+      }
     }
     for failure in failures {
       lines += humanLines(for: failure)

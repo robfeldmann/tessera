@@ -1,6 +1,7 @@
 # `ForEach` between static rows lays its items out one under another. Plan 034 fixed the defect
-# that put every item on one frame; `check siblings-disjoint` is the rule that would have
-# caught it, and it runs after every change here. `id=` finds an item by its key, wherever it is.
+# that put every item on one frame; `siblings-disjoint`, one of the five rules a bare `check`
+# runs, is the rule that would have caught it, and the bare `check` runs after every change
+# here. `id=` finds an item by its key, wherever it is.
 app foreach
 size desktop
 

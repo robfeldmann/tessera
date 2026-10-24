@@ -6,8 +6,10 @@ import TesseraHarness
 /// The first sample is the catalog's anatomy, `Text("OK")` over `Text("status")`. The second
 /// places a `Text("Go")` in an 8x3 backdrop of dots with the alignment `a` cycles through. The
 /// third overlaps two blocks, and `s` swaps their source order: the later layer is the one
-/// that shows. The last two show an empty `ZStack`, which reports no size and paints nothing,
-/// and a `layoutPriority` that a `ZStack` ignores. `q` quits.
+/// that shows. The last four show an empty `ZStack`, which reports no size and paints nothing,
+/// a `layoutPriority` that a `ZStack` ignores, layers built by a `ForEach`, and a group of
+/// layers that `g` adds with an `if`; the layers of a list are still layers, so the later
+/// one shows. `q` quits.
 final class ZStackDemo: Demo {
   static let name = "zstack"
   static let minimum = TerminalSize(columns: 40, rows: 11)
@@ -24,8 +26,11 @@ final class ZStackDemo: Demo {
   private static let backdrop = Array(repeating: "········", count: 3).joined(
     separator: "\n")
 
+  private static let layers = ["abcd", "ef"]
+
   private var alignmentIndex = 0
   private var swapped = false
+  private var grouped = false
   private var quitRequested = false
 
   var isFinished: Bool {
@@ -81,10 +86,26 @@ final class ZStackDemo: Demo {
             Text("B")
           }
         }
+        sample("layers") {
+          ZStack {
+            ForEach(Self.layers, id: \.self) { layer in
+              Text(layer)
+            }
+          }
+        }
+        sample("group") {
+          ZStack {
+            Text("base")
+            if grouped {
+              Text("g")
+              Text("h")
+            }
+          }
+        }
       }
       Divider()
       Text("alignment \(alignment.name), \(swapped ? "A on top" : "bb on top")")
-      Text("a alignment   s swap order   q quit")
+      Text("a alignment   s swap   g group   q quit")
     }
   }
 
@@ -104,6 +125,7 @@ final class ZStackDemo: Demo {
     switch key.code {
     case .character("a"): alignmentIndex = (alignmentIndex + 1) % Self.alignments.count
     case .character("s"): swapped.toggle()
+    case .character("g"): grouped.toggle()
     default: break
     }
   }

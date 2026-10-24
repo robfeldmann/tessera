@@ -1,5 +1,5 @@
 ── chars ──
-Flex
+Flex: constraints
 ────────────────────────────────────────
 length(4) fill(1) max(4)
 AAAA BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB CCCC
@@ -20,7 +20,7 @@ B
 C
 ────────────────────────────────────────
 spacing 1
-w weights   s spacing   q quit
+w weights   s spacing   n page   q quit
 ── style ──
 ── legend ──
 .  default

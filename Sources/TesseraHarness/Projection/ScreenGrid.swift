@@ -24,6 +24,18 @@ package struct ScreenGrid: Equatable, Sendable {
     var style: String
   }
 
+  /// A screen that cannot be written as a grid.
+  package struct GridError: Error, Equatable, CustomStringConvertible {
+    /// How many distinct styles the screen has.
+    var styles: Int
+
+    package var description: String {
+      "the screen has \(styles) distinct styles, and a grid golden names at most "
+        + "\(ScreenGrid.alphabet.count) with one letter each; take the shot where fewer "
+        + "styles show, or compare the screen with `expect text` instead"
+    }
+  }
+
   /// The style letters, in the order a grid hands them out.
   private static let alphabet = Array(
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789")
@@ -66,49 +78,6 @@ package struct ScreenGrid: Equatable, Sendable {
       }
     }
     return runs
-  }
-
-  /// The grid as `NAME.grid.txt` holds it: the characters, an aligned row of style letters
-  /// for every character row, and the legend that names each letter.
-  ///
-  /// This is the catalog's styled-grid dialect (`docs/design.md`, "Styled grids"): three
-  /// sections in this order, one style letter per cell, `.` for the default style. Character
-  /// rows lose their trailing spaces and the grid loses its trailing empty rows, exactly as
-  /// `NAME.txt` does; a style row loses its trailing default cells, so a screen with no styled
-  /// cell has no style rows at all. A colour that no semantic role owns is spelled `#rrggbb`
-  /// or `indexed(N)`.
-  package var styledGridText: String {
-    var letters: [String: Character] = [:]
-    var order: [String] = []
-    var styleRows: [String] = []
-    for cells in rows {
-      var line = ""
-      for style in Self.columnStyles(of: cells) {
-        if style.isEmpty {
-          line.append(".")
-          continue
-        }
-        if letters[style] == nil {
-          letters[style] = Self.letter(at: order.count)
-          order.append(style)
-        }
-        line.append(letters[style] ?? "?")
-      }
-      while line.last == "." {
-        line.removeLast()
-      }
-      styleRows.append(line)
-    }
-
-    var lines = ["── chars ──"] + textRows.dropTrailingEmptyRows()
-    lines.append("── style ──")
-    lines += styleRows.dropTrailingEmptyRows()
-    lines.append("── legend ──")
-    lines.append(".  default")
-    for style in order {
-      lines.append("\(letters[style] ?? "?")  \(style)")
-    }
-    return lines.joined(separator: "\n") + "\n"
   }
 
   package init(_ snapshot: ScreenSnapshot) {
@@ -172,10 +141,6 @@ package struct ScreenGrid: Equatable, Sendable {
     return result
   }
 
-  private static func letter(at index: Int) -> Character {
-    alphabet.indices.contains(index) ? alphabet[index] : "?"
-  }
-
   /// The style of every column of a row; a continuation cell takes the style of the wide
   /// grapheme it continues, so a style letter sits under every cell the grapheme covers.
   private static func columnStyles(of cells: [GridCell]) -> [String] {
@@ -205,6 +170,66 @@ package struct ScreenGrid: Equatable, Sendable {
   private static func hex(_ byte: UInt8) -> String {
     let digits = String(byte, radix: 16)
     return digits.count == 1 ? "0" + digits : digits
+  }
+
+  /// The grid as `NAME.grid.txt` holds it: the characters, an aligned row of style letters
+  /// for every character row, and the legend that names each letter.
+  ///
+  /// This is the catalog's styled-grid dialect (`docs/design.md`, "Styled grids"): three
+  /// sections in this order, one style letter per cell, `.` for the default style. The rows
+  /// follow one rule, so the dialect's "no more style rows than chars rows" always holds: a
+  /// character row loses its trailing spaces, the chars section ends at the last row that has
+  /// text or a style (a blank row with a background keeps its place as an empty line, and
+  /// `NAME.txt` still ends at the last row with text), and the style section ends at the last
+  /// row that has a style, each style row losing its trailing default cells. A screen with no
+  /// styled cell has no style rows at all. The dialect names a colour only by role, so a
+  /// colour that no role owns is spelled `#rrggbb` or `indexed(N)`, which
+  /// `docs/architecture/developer-tooling.md` ("Shots and goldens") fixes.
+  ///
+  /// - Throws: ``GridError`` when the screen has more distinct styles than the 62 letters
+  ///   name, since a letter that stands for two styles would make the golden ambiguous.
+  package func styledGridText() throws(GridError) -> String {
+    let styled = rows.map(Self.columnStyles(of:))
+    let distinct = Set(styled.joined().filter { !$0.isEmpty })
+    guard distinct.count <= Self.alphabet.count else {
+      throw GridError(styles: distinct.count)
+    }
+
+    var letters: [String: Character] = [:]
+    var order: [String] = []
+    var styleRows: [String] = []
+    for styles in styled {
+      var line = ""
+      for style in styles {
+        if style.isEmpty {
+          line.append(".")
+          continue
+        }
+        let letter = letters[style] ?? Self.alphabet[order.count]
+        if letters[style] == nil {
+          letters[style] = letter
+          order.append(style)
+        }
+        line.append(letter)
+      }
+      while line.last == "." {
+        line.removeLast()
+      }
+      styleRows.append(line)
+    }
+
+    let text = textRows
+    let styledRows = styleRows.lastIndex { !$0.isEmpty }.map { $0 + 1 } ?? 0
+    let shownRows = max(text.dropTrailingEmptyRows().count, styledRows)
+    var lines = ["── chars ──"] + text.prefix(shownRows)
+    lines.append("── style ──")
+    lines += styleRows.prefix(styledRows)
+    lines.append("── legend ──")
+    lines.append(".  default")
+    for (index, style) in order.enumerated() {
+      lines.append("\(Self.alphabet[index])  \(style)")
+    }
+    return lines.joined(separator: "\n") + "\n"
   }
 
   /// The text of one row, without its trailing spaces.

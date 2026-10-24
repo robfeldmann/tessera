@@ -1,6 +1,7 @@
 # Sizes and paint order from docs/design/primitives/z-stack.md: `status` under `OK` is 6x1 and
 # reads `OKatus`, the later layer is the one that shows, and an empty ZStack is 0x0. `a` steps
-# the alignment of `Go` in its 8x3 backdrop, `s` swaps the source order of the two blocks.
+# the alignment of `Go` in its 8x3 backdrop, `s` swaps the source order of the two blocks, and
+# `g` adds an `if` group of layers.
 app zstack
 size desktop
 
@@ -11,6 +12,10 @@ expect node type=ZStack nth=1 frame 9,3,8x3
 expect node type=ZStack nth=2 frame 20,3,4x2
 expect node type=ZStack nth=3 frame 1,7,0x0
 expect text 3 "OKatus   Go······   bbAA"
+expect node type=ZStack nth=5 frame 17,7,4x1
+expect node id=abcd frame 17,7,4x1
+expect node id=ef frame 17,7,2x1
+expect text 7 "[]     B         efcd    base"
 check
 shot desktop
 
@@ -25,3 +30,13 @@ expect text 3 "OKatus   ········   AAAA"
 expect text 4 "         ···Go···   AAAA"
 shot swapped-center
 check
+
+# A `ForEach` and an `if` build layers too. The items `abcd` and `ef` share one frame under the
+# ZStack, so `ef` covers the start of `abcd`; `g` adds an `if` group whose `g` and `h` sit on
+# `base`'s first cell, and the later one shows. `siblings-disjoint` looks through the list to
+# the ZStack, so the bare `check` passes.
+type "g"
+expect text 7 "[]     B         efcd    hase"
+expect node type=Text text="h" frame 25,7,1x1
+check
+shot grouped

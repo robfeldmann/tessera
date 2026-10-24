@@ -150,7 +150,7 @@ struct ReplayTests {
   {
     var records = try await record("steady", [key("+"), key("+")])
     records[1] = TraceRecord(
-      seq: 1, event: TraceEvent(.focusGained), drew: false, reasons: [],
+      seq: 1, event: TraceEvent(.unknown([0x1b, 0x5b])), drew: false, reasons: [],
       nodes: .init(added: [], changed: [], removed: []), rows: [],
       cost: StepCost(bodies: 0, bytes: 0, measures: 0, placements: 0, renders: 0))
 
@@ -160,8 +160,26 @@ struct ReplayTests {
     let failure = try #require(report.failures.first)
     #expect(failure.verb == "usage")
     #expect(failure.line == 2)
-    #expect(failure.message.contains("focusGained"))
+    #expect(failure.message.contains("unknown"))
     #expect(report.observations.isEmpty, "nothing ran")
+  }
+
+  @Test
+  func `a trace with the terminal's focus changes replays like any other`() async throws {
+    // A live session records a focus change as it receives it, and that must not make the
+    // whole trace unreplayable.
+    let records = try await record(
+      "growing", [.focusGained, key("+"), .focusLost, key("+"), .focusGained])
+
+    #expect(
+      records.map(\.event.type) == [
+        "resize", "focusGained", "key", "focusLost", "key", "focusGained",
+      ])
+    let report = await replay(records, app: "growing")
+
+    #expect(report.passed, "\(report)")
+    #expect(report.trace.map(\.event) == records.map(\.event))
+    #expect(report.observations.first?.lines == ["a", "b", "c"])
   }
 
   @Test

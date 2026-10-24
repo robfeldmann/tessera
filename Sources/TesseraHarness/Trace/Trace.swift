@@ -47,11 +47,13 @@ package struct StepCost: Equatable, Codable, Sendable {
 
 /// The event a step delivered, in the words the scenario grammar uses.
 ///
-/// An event the grammar cannot say (a mouse event before pointer input exists, a terminal
-/// reply) is recorded as `other`, so the trace stays complete and `replay` can refuse it by
-/// name.
+/// A key, a paste, and a resize are the grammar's own words. A focus change of the terminal
+/// window has no statement yet, but a live session receives it, so it is recorded as
+/// `focusGained` or `focusLost` and replays like the others. An event neither the grammar nor
+/// replay can deliver (a mouse event before pointer input exists, a terminal reply) is
+/// recorded as `other`, so the trace stays complete and `replay` can refuse it by name.
 package struct TraceEvent: Equatable, Codable, Sendable {
-  /// `key`, `paste`, `resize`, or `other`.
+  /// `key`, `paste`, `resize`, `focusGained`, `focusLost`, or `other`.
   package var type: String
 
   /// For a key, its name as a `key` statement spells it.
@@ -89,6 +91,10 @@ package struct TraceEvent: Equatable, Codable, Sendable {
       return size.flatMap { ScenarioParser.parseDimensions($0) }.map {
         .resize(TerminalSize(columns: $0.0, rows: $0.1))
       }
+    case "focusGained":
+      return .focusGained
+    case "focusLost":
+      return .focusLost
     default:
       return nil
     }
@@ -100,6 +106,8 @@ package struct TraceEvent: Equatable, Codable, Sendable {
     case "key": "key \(key ?? "?")\(kind.map { " (\($0))" } ?? "")"
     case "paste": "paste \(text.map { "\"\($0)\"" } ?? "")"
     case "resize": "resize \(size ?? "?")"
+    case "focusGained": "focus gained"
+    case "focusLost": "focus lost"
     default: "\(detail ?? "other") (not replayable)"
     }
   }
@@ -126,9 +134,9 @@ package struct TraceEvent: Equatable, Codable, Sendable {
       type = "resize"
       self.size = "\(size.columns)x\(size.rows)"
     case .focusGained:
-      detail = "focusGained"
+      type = "focusGained"
     case .focusLost:
-      detail = "focusLost"
+      type = "focusLost"
     case .mouse:
       detail = "mouse"
     case .kittyGraphicsResponse, .kittyKeyboardEnhancementFlags, .primaryDeviceAttributes,

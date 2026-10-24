@@ -4,14 +4,14 @@ enum HelpText {
     usage: <executable> COMMAND [ARGUMENT...]
 
     commands:
-      apps              list the registered applications
-      launch NAME       run one application in this terminal
-      run PATH...       run scenario files, or directories of them
-      shot NAME [SIZE]  print one application's screen as text
-      tree NAME [SIZE]  print one application's node tree
-      check NAME [SIZE] check one application against the invariant rules
-      replay FILE       rerun a recorded trace against an application
-      help [COMMAND]    describe a command
+      apps                    list the registered applications
+      launch NAME             run one application in this terminal
+      run PATH...             run scenario files, or directories of them
+      shot NAME [SIZE]        print one application's screen as text
+      tree NAME [SIZE]        print one application's node tree
+      check NAME [SIZE]       check one application against the invariant rules
+      replay FILE --app NAME  rerun a recorded trace against an application
+      help [COMMAND]          describe a command
 
     Every command exits 0 on success, 1 when an expectation failed, 2 on a usage or parse
     error, and 3 on a harness error. When standard output is not a terminal each command
@@ -115,8 +115,9 @@ enum HelpText {
     recording started at. After every step the replay is compared with the recording on why
     the frame was drawn, the nodes and rows that changed, and the cost, which are the same
     on any terminal; the bytes a frame wrote are not compared. A step that differs is a
-    `replay` failure (exit 1) that shows both. A trace that holds an event the scenario
-    grammar cannot say yet, or that is not a trace, is a usage error (exit 2). The output is
+    `replay` failure (exit 1) that shows both. Keys, pastes, resizes, and the terminal's focus
+    changes replay; a trace that holds any other event (a mouse event, a terminal reply), or
+    that is not a trace, is a usage error (exit 2). The output is
     a run report, {"command": "replay", "exitCode", "scenarios": [REPORT]}, whose
     observation holds the final screen.
     """,

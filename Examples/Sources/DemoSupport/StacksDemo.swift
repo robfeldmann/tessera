@@ -6,13 +6,15 @@ import TesseraHarness
 ///
 /// The first row is an `HStack` whose spacing `s` cycles from 0 to 3. Below it, three `VStack`s
 /// show `.leading`, `.center`, and `.trailing` over the same three lines, three `HStack`s show
-/// `.top`, `.center`, and `.bottom` beside a three-line neighbour, and `v` switches the
-/// `VStack`s between no spacing and one blank row. The last block is the `Spacer` family: one
-/// `Spacer` takes everything, two share it and the earlier takes the odd cell, and a
-/// `layoutPriority` hands all of it to the higher priority. `q` quits.
+/// `.top`, `.center`, and `.bottom` beside a three-line neighbour, a `Spacer` fills the middle
+/// of a three-row `VStack`, and `v` switches the first `VStack`s between no spacing and one
+/// blank row. The last block is the `Spacer` family in a row: one `Spacer` takes everything,
+/// two share it and the earlier takes the odd cell, a `minLength` floor shows where it binds
+/// (at 40 columns, not at 80), and a `layoutPriority` hands all of it to the higher
+/// priority. `q` quits.
 final class StacksDemo: Demo {
   static let name = "stacks"
-  static let minimum = TerminalSize(columns: 40, rows: 20)
+  static let minimum = TerminalSize(columns: 40, rows: 22)
   static let viewports: [Viewport] = [.desktop, .mobile]
   static let fixtures: [DemoFixture<StacksDemo>] = []
 
@@ -45,6 +47,7 @@ final class StacksDemo: Demo {
         beside(.top, "top")
         beside(.center, "center")
         beside(.bottom, "bottom")
+        between()
       }
       Divider()
       Text("one Spacer")
@@ -57,6 +60,14 @@ final class StacksDemo: Demo {
       HStack(spacing: 0) {
         Text("L")
         Spacer()
+        Text("M")
+        Spacer()
+        Text("R")
+      }
+      Text("Spacer(minLength: 20), Spacer()")
+      HStack(spacing: 0) {
+        Text("L")
+        Spacer(minLength: 20)
         Text("M")
         Spacer()
         Text("R")
@@ -114,6 +125,19 @@ final class StacksDemo: Demo {
         Text("M")
         Text("x\ny\nz")
       }
+    }
+  }
+
+  /// A `Spacer` in a `VStack`: it takes the rows left in a three-row frame between two lines.
+  private func between() -> some View {
+    VStack(alignment: .leading, spacing: 0) {
+      Text("Spacer")
+      VStack(spacing: 0) {
+        Text("A")
+        Spacer()
+        Text("B")
+      }
+      .frame(height: 3)
     }
   }
 }

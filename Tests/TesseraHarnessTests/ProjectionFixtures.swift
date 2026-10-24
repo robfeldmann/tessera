@@ -143,6 +143,44 @@ final class GrowingApp: Application {
   }
 }
 
+/// Layers that a list and an `if` build under a `ZStack`: layout looks through both, so the
+/// items share one frame by contract.
+final class ListLayersApp: Application {
+  private let shown = true
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      ZStack {
+        ForEach(["abcd", "ef"], id: \.self) { layer in
+          Text(layer)
+        }
+      }
+      ZStack {
+        Text("base")
+        if shown {
+          Text("g")
+          Text("h")
+        }
+      }
+    }
+  }
+
+  func apply(_ event: InputEvent) {}
+}
+
+/// The same list under a layout that is not a `ZStack`: its items on one frame are the defect.
+final class ListOverlapApp: Application {
+  var body: some View {
+    Overlap {
+      ForEach(["a", "b"], id: \.self) { name in
+        Text(name)
+      }
+    }
+  }
+
+  func apply(_ event: InputEvent) {}
+}
+
 enum ProjectionFixtures {
   /// The apps the projection, check, and trace tests run, each at one registered name.
   @MainActor
@@ -155,6 +193,8 @@ enum ProjectionFixtures {
     registry.register("wide", viewports: [.desktop]) { WideApp() }
     registry.register("steady", viewports: [.desktop]) { SteadyApp() }
     registry.register("growing", viewports: [.desktop]) { GrowingApp() }
+    registry.register("list-layers", viewports: [.desktop]) { ListLayersApp() }
+    registry.register("list-overlap", viewports: [.desktop]) { ListOverlapApp() }
     return registry
   }
 }

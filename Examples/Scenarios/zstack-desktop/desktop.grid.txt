@@ -5,11 +5,11 @@ anatomy  alignment  order
 OKatus   Go······   bbAA
          ········   AAAA
          ········
-empty  priority
-[]     B
+empty  priority  layers  group
+[]     B         efcd    base
 ────────────────────────────────────────────────────────────────────────────────
 alignment topLeading, bb on top
-a alignment   s swap order   q quit
+a alignment   s swap   g group   q quit
 ── style ──
 ── legend ──
 .  default

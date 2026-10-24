@@ -1,0 +1,19 @@
+Flex: priority, defaults, cross axis
+────────────────────────────────────────
+fill(1) fill(1) fill(1)
+D             E             F
+the same, the third layoutPriority(1)
+G H I
+no flex value, fill(1)
+J                    K
+cross axis: 3-row child, 1-row child
+┃ •
+┃
+┃
+cross axis: 8-column child, 1-column
+########
+
+◦
+────────────────────────────────────────
+spacing 1
+w weights   s spacing   n page   q quit

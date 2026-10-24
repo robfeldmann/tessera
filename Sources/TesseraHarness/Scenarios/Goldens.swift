@@ -6,7 +6,7 @@ import Foundation
 ///
 /// `NAME.txt` is the screen as text: every row with its trailing spaces removed, trailing empty
 /// rows dropped, rows joined by `\n`, and one `\n` at the end. `NAME.grid.txt` is the same
-/// screen as the catalog's styled grid (``ScreenGrid/styledGridText``): the characters, one
+/// screen as the catalog's styled grid (``ScreenGrid/styledGridText()``): the characters, one
 /// style letter per cell, and the legend. Comparison is byte for byte, so drift in either file
 /// fails the `shot` statement; recording rewrites the files and says which changed.
 struct GoldenStore: Equatable, Sendable {
@@ -60,9 +60,16 @@ struct GoldenStore: Equatable, Sendable {
   /// The text golden is compared first, and the first golden that differs or is missing is
   /// the one reported.
   func check(shot name: String, screen: ScreenGrid) -> Outcome {
+    let grid: String
+    do {
+      grid = try screen.styledGridText()
+    } catch {
+      return .failed(
+        message: "shot `\(name)` cannot be compared with a grid golden: \(error)")
+    }
     let files = [
       (path: path(for: name), text: Self.text(of: screen.textRows)),
-      (path: gridPath(for: name), text: screen.styledGridText),
+      (path: gridPath(for: name), text: grid),
     ]
     if record {
       return write(files)

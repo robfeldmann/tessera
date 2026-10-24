@@ -11,7 +11,8 @@ private func parse(_ source: String) throws -> Scenario {
 
 extension ProjectionFixtures {
   static let names = [
-    "overlap", "overflow", "layers", "styled", "wide", "steady", "growing",
+    "overlap", "overflow", "layers", "styled", "wide", "steady", "growing", "list-layers",
+    "list-overlap",
   ]
 }
 
@@ -108,6 +109,20 @@ struct NewStatementParserTests {
       message("expect node colour=red frame 0,0,1x1")
         == "unknown locator key `colour`; accepted: type, layout, id, text, nth")
   }
+
+  @Test
+  func
+    `a locator key with an empty value is a parse error and not a query for everything`()
+  {
+    for key in ["type", "layout", "id", "text"] {
+      #expect(
+        message("expect node \(key)= frame 0,0,1x1")
+          == "locator key `\(key)` needs a value that is not empty")
+    }
+    #expect(
+      message(#"expect node text="" frame 0,0,1x1"#)
+        == "locator key `text` needs a value that is not empty")
+  }
 }
 
 // MARK: Playing
@@ -135,6 +150,38 @@ struct NewStatementPlayerTests {
         "ran no-dirty-after-pass, frame-inside-clip, measured-within-proposal, "
           + "siblings-disjoint, requirements-aggregate"
       ])
+  }
+
+  @Test
+  func `layers a ForEach and an if build under a ZStack pass siblings-disjoint`()
+    async throws
+  {
+    // The items really do share a frame, which is what makes this the case worth checking.
+    let report = try await play(
+      """
+      app list-layers
+      expect node id=abcd frame 0,0,4x1
+      expect node id=ef frame 0,0,2x1
+      expect node type=Text text="h" frame 0,1,1x1
+      check siblings-disjoint
+      check
+      """)
+
+    #expect(report.passed, "\(report)")
+    #expect(report.observations.count == 2)
+  }
+
+  @Test
+  func `a list on a layout that is not a ZStack still fails siblings-disjoint`()
+    async throws
+  {
+    let report = try await play("app list-overlap\ncheck siblings-disjoint")
+
+    let failure = try #require(report.failures.first)
+    #expect(report.failures.count == 1)
+    #expect(failure.rule == "siblings-disjoint")
+    #expect(failure.node?.hasSuffix("id(b)") == true)
+    #expect(failure.message.contains("under ForEach"))
   }
 
   @Test
