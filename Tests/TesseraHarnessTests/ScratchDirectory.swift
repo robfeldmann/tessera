@@ -17,8 +17,12 @@ func pathBesideSource(_ relative: String, file: String = #filePath) -> String {
 final class ScratchDirectory: Sendable {
   let path: String
 
+  /// Spelled with forward slashes on every platform: a backslash in a dumped string makes the
+  /// dump choose a different quoting, so a Windows path would not redact to the same text.
   init() throws {
-    path = NSTemporaryDirectory() + "tessera-harness-\(UUID().uuidString)"
+    path =
+      NSTemporaryDirectory().replacingOccurrences(of: "\\", with: "/")
+      + "tessera-harness-\(UUID().uuidString)"
     try FileManager.default.createDirectory(
       atPath: path, withIntermediateDirectories: true)
   }
@@ -48,15 +52,8 @@ final class ScratchDirectory: Sendable {
 
   /// `text` with this directory's path shown as `<scratch>`, so text that names a file in it is
   /// the same in every run.
-  ///
-  /// A path with backslashes appears in a dump with each one doubled, and in the JSON a dump
-  /// holds with each one doubled again, so every spelling of it is replaced, the longest first.
   func redacted(_ text: String) -> String {
-    [4, 2, 1].reduce(text) { text, factor in
-      let spelled = path.replacingOccurrences(
-        of: "\\", with: String(repeating: "\\", count: factor))
-      return text.replacingOccurrences(of: spelled, with: "<scratch>")
-    }
+    text.replacingOccurrences(of: path, with: "<scratch>")
   }
 
   /// `value` as a custom dump with the directory's path redacted.
