@@ -20,6 +20,7 @@ private final class _LayoutPlacementCollector {
 /// An explicit, synchronous runtime tree reconciled from declarative view values.
 public final class ViewGraph {
   private let makeRoot: () -> any View
+  private let now: () -> ContinuousClock.Instant
   private let baseEnvironment: EnvironmentValues
   private lazy var rootNode = buildNode(
     view: makeRoot(),
@@ -60,11 +61,22 @@ public final class ViewGraph {
   }
 
   /// Creates and lowers the initial root value immediately.
-  public init<Root: View>(
+  public convenience init<Root: View>(
     root: @escaping () -> Root,
     size: TerminalSize,
     environment: EnvironmentValues = EnvironmentValues()
   ) {
+    self.init(root: root, size: size, environment: environment) { .now }
+  }
+
+  /// Creates a graph that reads pass timings from `now` instead of the system clock.
+  package init<Root: View>(
+    root: @escaping () -> Root,
+    size: TerminalSize,
+    environment: EnvironmentValues = EnvironmentValues(),
+    now: @escaping () -> ContinuousClock.Instant
+  ) {
+    self.now = now
     makeRoot = root
     self.size = Self.sanitized(size)
     baseEnvironment = environment
@@ -78,15 +90,14 @@ extension ViewGraph {
   public func update() {
     statistics = GraphStatistics()
     statistics.record(.updateRequested)
-    let clock = ContinuousClock()
-    let start = clock.now
+    let start = now()
     rootNode = reconcile(
       node: rootNode,
       view: makeRoot(),
       environment: baseEnvironment,
       environmentOverrides: []
     )
-    statistics.updateDuration = start.duration(to: clock.now)
+    statistics.updateDuration = start.duration(to: now())
   }
 
   /// Measures and places dirty nodes using the graph's vertical composition rule.
@@ -96,15 +107,14 @@ extension ViewGraph {
     }
 
     statistics.beginLayoutPass()
-    let clock = ContinuousClock()
-    let start = clock.now
+    let start = now()
     layoutMeasurements.removeAll(keepingCapacity: true)
     let proposal = ProposedSize(width: size.columns, height: size.rows)
     _ = measure(rootNode, proposal: proposal)
     let rootFrame = Rect(column: 0, row: 0, columns: size.columns, rows: size.rows)
     place(rootNode, in: rootFrame, clip: rootFrame)
     clearLayoutFlags(rootNode)
-    statistics.layoutDuration = start.duration(to: clock.now)
+    statistics.layoutDuration = start.duration(to: now())
   }
 
   /// Renders through the borrowed frame capability, laying out first when required.
@@ -116,11 +126,10 @@ extension ViewGraph {
     }
     layoutIfNeeded()
 
-    let clock = ContinuousClock()
-    let start = clock.now
+    let start = now()
     render(rootNode, into: frame)
     clearRenderFlags(rootNode)
-    statistics.renderDuration = start.duration(to: clock.now)
+    statistics.renderDuration = start.duration(to: now())
   }
 
   /// Changes the graph viewport and invalidates layout only when the size changed.

@@ -32,6 +32,11 @@ public struct InMemoryTerminalSession: Sendable {
     )
   }
 
+  /// Creates a session around an existing device, such as one that stays open for resizes.
+  package init(device: InMemoryTerminalDevice) {
+    self.device = device
+  }
+
   /// Runs a body in an application terminal scope backed by this in-memory device.
   ///
   /// The terminal scope restores every acquired application mode before this method

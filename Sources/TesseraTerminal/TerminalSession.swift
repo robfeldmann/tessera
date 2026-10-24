@@ -5,6 +5,14 @@ import TesseraTerminalIO
 import TesseraTerminalInput
 import TesseraTerminalRendering
 
+func randomProbeImageID() -> KittyImageID {
+  KittyImageID(rawValue: UInt32.random(in: 1...UInt32.max))
+}
+
+func continuousClockSleep(_ duration: Duration) async throws {
+  try await ContinuousClock().sleep(for: duration)
+}
+
 func shouldCoalesceInputEvents(
   _ buffered: InputEvent,
   _ incoming: InputEvent
@@ -71,6 +79,21 @@ public enum TerminalSessionError: Error, Equatable, Sendable {
   case closed
 }
 
+/// The frame a ``TerminalSession`` last flushed to the terminal.
+///
+/// A harness seam: it carries what the terminal shows, so a mirror can read it without
+/// replaying output bytes.
+package struct DrawnFrame: Equatable, Sendable {
+  /// The cells the frame painted.
+  package let buffer: Buffer
+
+  /// The cursor position the frame requested, or `nil` when the cursor was hidden.
+  package let cursor: TerminalPosition?
+
+  /// The count of frames the session has flushed, starting at 1.
+  package let sequence: Int
+}
+
 /// A scoped live-terminal capability for Tessera applications.
 ///
 /// The session is closed when its `withApplicationTerminal` scope ends. After that, draw,
@@ -82,6 +105,15 @@ public actor TerminalSession {
     case focusEvents(Bool)
     case keyboardProtocol(KeyboardProtocolMode, kittyStatus: CapabilityStatus?)
     case mouseTracking(MouseTrackingMode)
+  }
+
+  /// The rendering policy fixed for one frame.
+  private struct FramePolicy: Sendable {
+    var size: TerminalSize
+    var colorCapability: ColorCapability
+    var hyperlinkRendering: HyperlinkRenderingMode
+    var synchronizedOutput: SynchronizedOutputPolicy
+    var underlineRendering: UnderlineRenderingPolicy
   }
 
   nonisolated private static let privateModeProbeModes = [
@@ -124,6 +156,23 @@ public actor TerminalSession {
   package var queuedModeSetterCount: Int {
     get async {
       await modeTransitionGate.waiterCount
+    }
+  }
+
+  /// The frame the terminal last received; a test and harness seam.
+  ///
+  /// A draw sets it once its flush succeeds, so a failed flush leaves the previous frame.
+  /// ``invalidateRenderer()`` does not clear it: the terminal still shows that frame.
+  package private(set) var lastDrawn: DrawnFrame?
+
+  /// Receives the encoded bytes of each draw just before they are written, in write order;
+  /// a test and harness seam.
+  package var outputTap: (@Sendable ([UInt8]) -> Void)?
+
+  /// The terminal's current size; a test and harness seam.
+  package var size: TerminalSize {
+    get async throws {
+      try await io.size()
     }
   }
 
@@ -250,11 +299,8 @@ public actor TerminalSession {
     keyboardProtocol: KeyboardProtocolMode = .legacyOnly,
     kittyKeyboardFlags: KittyKeyboardFlags = .tesseraDefault,
     activeProbeTimeout: Duration = .milliseconds(250),
-    probeImageID: KittyImageID = KittyImageID(
-      rawValue: UInt32.random(in: 1...UInt32.max)),
-    probeSleep: @escaping ActiveCapabilityProbeCoordinator.Sleep = { duration in
-      try await ContinuousClock().sleep(for: duration)
-    },
+    probeImageID: KittyImageID = randomProbeImageID(),
+    probeSleep: @escaping ActiveCapabilityProbeCoordinator.Sleep = continuousClockSleep,
     modeLifecycle: ModeLifecycle? = nil
   ) {
     let inputEvents = AsyncEventBuffer<InputEvent>(coalescing: shouldCoalesceInputEvents)
@@ -365,6 +411,8 @@ public actor TerminalSession {
     configuration: TerminalApplicationConfiguration,
     io: PlatformIO,
     environment: [String: String] = TerminalCapabilityDetector.currentEnvironment(),
+    probeImageID: KittyImageID = randomProbeImageID(),
+    probeSleep: @escaping ActiveCapabilityProbeCoordinator.Sleep = continuousClockSleep,
     _ body: (isolated TerminalSession) async throws -> sending R
   ) async throws -> sending R {
     let resolution = configuration.resolve(environment: environment)
@@ -398,6 +446,8 @@ public actor TerminalSession {
         keyboardProtocol: resolution.keyboardProtocol,
         kittyKeyboardFlags: resolution.kittyKeyboardFlags,
         activeProbeTimeout: resolution.activeProbeTimeout,
+        probeImageID: probeImageID,
+        probeSleep: probeSleep,
         modeLifecycle: lifecycle
       )
       session = constructedSession
@@ -652,42 +702,62 @@ public actor TerminalSession {
 
   /// Draws one frame and flushes it to terminal output.
   ///
-  /// Concurrent draws run one at a time, so each frame diffs against the frame the
-  /// terminal last received.
-  public func draw<R>(
-    _ body: (borrowing Frame) throws -> sending R
-  ) async throws -> sending R {
-    guard await drawGate.acquire() else {
+  /// The body runs in the caller's isolation, so a graph that lives with its host (the
+  /// main actor, another actor, or this session) renders where it lives; the session
+  /// serializes draws and commits the finished buffer. Concurrent draws run one at a
+  /// time, so each frame diffs against the frame the terminal last received.
+  nonisolated(nonsending) public func draw<R>(
+    _ body: (borrowing Frame) throws -> R
+  ) async throws -> R {
+    guard await acquireDrawGate() else {
       throw CancellationError()
     }
     do {
       let result = try await drawHoldingGate(body)
-      await drawGate.release()
+      await releaseDrawGate()
       return result
     } catch {
-      await drawGate.release()
+      await releaseDrawGate()
       throw error
     }
   }
 
-  private func drawHoldingGate<R>(
-    _ body: (borrowing Frame) throws -> sending R
-  ) async throws -> sending R {
+  private func acquireDrawGate() async -> Bool {
+    await drawGate.acquire()
+  }
+
+  private func releaseDrawGate() async {
+    await drawGate.release()
+  }
+
+  /// Reads the size and fixes the policy for the frame about to be rendered.
+  ///
+  /// This is the rendering policy commit point. It follows the size suspension and
+  /// precedes the synchronous frame body and encoding, so no setter can affect a frame
+  /// once its bytes begin to be constructed.
+  private func beginFrame() async throws -> FramePolicy {
     try checkOpen()
     let size = try await io.size()
-    // This is the rendering policy commit point. It follows the size suspension and
-    // precedes the synchronous frame body and encoding, so no setter can affect a frame
-    // once its bytes begin to be constructed.
-    let effectiveColorCapability = self.effectiveColorCapability
-    let hyperlinkRendering = self.hyperlinkRendering
-    let synchronizedOutput = self.synchronizedOutput
-    let underlineRendering = self.underlineRendering
+    return FramePolicy(
+      size: size,
+      colorCapability: effectiveColorCapability,
+      hyperlinkRendering: hyperlinkRendering,
+      synchronizedOutput: synchronizedOutput,
+      underlineRendering: underlineRendering
+    )
+  }
+
+  nonisolated(nonsending) private func drawHoldingGate<R>(
+    _ body: (borrowing Frame) throws -> R
+  ) async throws -> R {
+    let policy = try await beginFrame()
 
     // The frame is a borrowed, non-escapable view onto heap-owned buffer storage. The
-    // storage outlives the synchronous body call, and the body runs without suspension, so
-    // the frame cannot escape the transaction or be observed by other actor work.
+    // storage outlives the synchronous body call, and the body runs without suspension in
+    // the caller's isolation, so the frame cannot escape the transaction or be observed by
+    // other work.
     let storage = UnsafeMutablePointer<Buffer>.allocate(capacity: 1)
-    storage.initialize(to: Buffer(size: size))
+    storage.initialize(to: Buffer(size: policy.size))
     defer {
       storage.deinitialize(count: 1)
       storage.deallocate()
@@ -699,29 +769,48 @@ public actor TerminalSession {
       cursorStorage.deallocate()
     }
     let result = try body(Frame(buffer: storage, cursorPosition: cursorStorage))
-    let buffer = storage.pointee
+    try await commitFrame(storage.pointee, cursor: cursorStorage.pointee, policy: policy)
+    return result
+  }
+
+  /// Encodes the rendered buffer against the last drawn one and flushes the bytes.
+  ///
+  /// The body ran in the caller's isolation, so the scope that owns this session can have
+  /// closed since `beginFrame`; the check keeps a frame from reaching a terminal that has
+  /// already left its application modes.
+  private func commitFrame(
+    _ buffer: Buffer,
+    cursor: TerminalPosition?,
+    policy: FramePolicy
+  ) async throws {
+    try checkOpen()
     var bytes: [UInt8] = []
-    if synchronizedOutput == .enabled {
+    if policy.synchronizedOutput == .enabled {
       ControlSequence.enterSynchronizedOutput.encode(into: &bytes)
     }
     renderer.encodeFrame(
       previous: lastDrawnBuffer,
       current: buffer,
       wrapInSynchronizedOutput: false,
-      colorCapability: effectiveColorCapability,
-      underlineRendering: underlineRendering,
-      renderHyperlinks: hyperlinkRendering == .enabled,
+      colorCapability: policy.colorCapability,
+      underlineRendering: policy.underlineRendering,
+      renderHyperlinks: policy.hyperlinkRendering == .enabled,
       into: &bytes
     )
-    appendCursorState(cursorStorage.pointee, into: &bytes)
-    if synchronizedOutput == .enabled {
+    appendCursorState(cursor, into: &bytes)
+    if policy.synchronizedOutput == .enabled {
       ControlSequence.exitSynchronizedOutput.encode(into: &bytes)
     }
+    outputTap?(bytes)
     await io.write(bytes)
     do {
       try await io.flush()
       lastDrawnBuffer = buffer
-      return result
+      lastDrawn = DrawnFrame(
+        buffer: buffer,
+        cursor: cursor,
+        sequence: (lastDrawn?.sequence ?? 0) + 1
+      )
     } catch {
       // A failed flush may have written a prefix of the frame, so the next successful draw
       // must erase and repaint conservatively.
