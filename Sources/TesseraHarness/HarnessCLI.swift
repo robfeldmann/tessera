@@ -207,20 +207,33 @@ extension HarnessCLI {
     arguments.filter { !OutputForm.spellings.contains($0) }
   }
 
-  /// The usage error for a word that names no command, when the arguments hold one: the
-  /// first word, or the one after `help`. Arguments that start with an option hold none.
+  /// The usage error for words that name no command, when the arguments hold some: the first
+  /// word, or the words after `help`, which takes one. Arguments that start with an option
+  /// hold none.
   private static func unknownCommand(in arguments: [String], json: Bool) -> CommandOutput?
   {
     let words = withoutOutputFlags(arguments)
-    let afterHelp = words.first == "help"
-    guard let word = words.dropFirst(afterHelp ? 1 : 0).first, !word.hasPrefix("-"),
-      !commandNames.contains(word)
-    else {
+    let accepted = commandNames.joined(separator: ", ")
+    guard words.first == "help" else {
+      guard let word = words.first, !word.hasPrefix("-"), !commandNames.contains(word)
+      else {
+        return nil
+      }
+      return usage(
+        "unknown command `\(word)`; accepted: \(accepted)", command: nil, json: json)
+    }
+    // ArgumentParser's `help` takes any number of words and describes the first it knows.
+    let topics = words.dropFirst().filter { !$0.hasPrefix("-") }
+    if topics.count > 1 {
+      return usage(
+        "`help` takes one command, got `\(topics.joined(separator: " "))`; accepted: \(accepted)",
+        command: "help", json: json)
+    }
+    guard let topic = topics.first, !commandNames.contains(topic) else {
       return nil
     }
     return usage(
-      "unknown command `\(word)`; accepted: \(commandNames.joined(separator: ", "))",
-      command: afterHelp ? "help" : nil, json: json)
+      "unknown command `\(topic)`; accepted: \(accepted)", command: "help", json: json)
   }
 
   /// What ArgumentParser's error means here.

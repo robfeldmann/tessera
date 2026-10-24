@@ -14,7 +14,7 @@ Everything in the [`tessera` skill](../tessera/SKILL.md) applies here: the `tess
 | --- | --- | --- |
 | `mise run dev:apps` | `tessera apps` | List the registered demos: name, minimum size, viewports. |
 | `mise run dev:launch NAME` | `tessera launch NAME` | Run one demo in this terminal until it quits. With `TESSERA_TRACE=FILE` it writes the session's trace. |
-| `mise run dev:launch`, `dev:shot`, `dev:tree`, `dev:check`, or `dev:replay` | `tessera help COMMAND`, then `tessera apps` | With no name (or, for `dev:replay`, no file), print the command's help and the demos, and exit 0. `dev:run` with no path prints its help. |
+| `mise run dev:launch`, `dev:shot`, `dev:tree`, `dev:check`, or `dev:replay` | `tessera help COMMAND`, then `tessera apps` | With no name (or, for `dev:replay`, no file), print the command's help and the demos. At a terminal that is the answer and the task exits 0; in a pipe or a script nothing ran and it exits 2, as `tessera` does. `dev:run` with no path prints its help the same way. |
 | `mise run dev:run PATH...` | `tessera run PATH...` | Run scenario files or directories of them, with `--record`, `--repeat N`, `--timing`, and `--trace DIR`. |
 | `mise run dev:shot NAME [SIZE]` | `tessera shot NAME [SIZE]` | Print one demo's screen as text. |
 | `mise run dev:tree NAME [SIZE]` | `tessera tree NAME [SIZE]` | Print one demo's node tree. |
@@ -22,7 +22,7 @@ Everything in the [`tessera` skill](../tessera/SKILL.md) applies here: the `tess
 | `mise run dev:replay FILE --app NAME` | `tessera replay FILE --app NAME` | Run a recorded trace again against a demo and report what differs. |
 | `mise run dev:help [COMMAND]` | `tessera help [COMMAND]` | Print the commands, or one command's usage. |
 
-`mise run dev:*` builds and runs the `tessera` executable (`swift run --package-path Examples tessera …`), and `--json` and `--pretty` go through to it. It is the product of `Examples/Sources/TesseraDev`, whose registry is `Demos.registry()` from `Examples/Sources/DemoSupport`, so the apps it lists are Tessera's demos.
+`mise run dev:*` builds the `tessera` executable once, quietly (`swift build --quiet --package-path Examples --product tessera`), and runs the binary it built, so a build that succeeds prints nothing and one that fails still prints its errors; the binary keeps the task's terminal, and `--json` and `--pretty` go through to it. It is the product of `Examples/Sources/TesseraDev`, whose registry is `Demos.registry()` from `Examples/Sources/DemoSupport`, so the apps it lists are Tessera's demos.
 
 With mise's shell completions enabled, `mise run dev:launch <Tab>` offers the demo names, `dev:shot`, `dev:tree`, and `dev:check` offer them too and then the sizes, `dev:replay` offers them after `--app`, and `dev:run` offers `.scn` files and directories. Completion never builds: `scripts/dev-app-names.sh` asks the `Examples/.build/debug/tessera` that an earlier `dev:*` run built, and offers nothing before there is one. Run `mise run dev:apps` once after a fresh checkout, or after registering a demo. To complete `tessera` itself in your shell, see the `tessera` skill.
 

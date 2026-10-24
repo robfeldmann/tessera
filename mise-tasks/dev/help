@@ -3,4 +3,5 @@
 #USAGE arg "[command]" help="apps, launch, run, shot, tree, check, replay, or help"
 set -euo pipefail
 cd "$MISE_PROJECT_ROOT"
-swift run --only-use-versions-from-resolved-file --package-path Examples tessera help "$@"
+source scripts/dev-tessera.sh
+tessera help "$@"
