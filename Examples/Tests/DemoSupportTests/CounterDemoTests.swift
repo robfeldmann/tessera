@@ -1,3 +1,7 @@
+import CustomDump
+import InlineSnapshotTesting
+import SnapshotTesting
+import SnapshotTestingCustomDump
 import Tessera
 import Testing
 
@@ -12,9 +16,34 @@ struct CounterDemoTests {
   func `the counter renders at desktop`() async throws {
     try await Demos.registry().withHeadlessHost("counter", at: .desktop) { host in
       #expect(host.size == TerminalSize(columns: 80, rows: 24))
-      #expect(host.screenRows[0] == "Counter")
-      #expect(host.screenRows[2] == "Count" + String(repeating: " ", count: 74) + "0")
-      #expect(host.screenRows[4] == "+ up   - down   0 reset   q quit")
+      assertInlineSnapshot(of: host.screenRows.joined(separator: "\n"), as: .lines) {
+        """
+        Counter
+        ────────────────────────────────────────────────────────────────────────────────
+        Count                                                                          0
+        ────────────────────────────────────────────────────────────────────────────────
+        + up   - down   0 reset   q quit
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        """
+      }
     }
   }
 
@@ -22,21 +51,38 @@ struct CounterDemoTests {
   func `the counter renders at mobile in the rows its content needs`() async throws {
     try await Demos.registry().withHeadlessHost("counter", at: .mobile) { host in
       #expect(host.size == TerminalSize(columns: 40, rows: 5))
-      #expect(host.screenRows.count == 5)
-      #expect(host.screenRows[2] == "Count" + String(repeating: " ", count: 34) + "0")
+      assertInlineSnapshot(of: host.screenRows.joined(separator: "\n"), as: .lines) {
+        """
+        Counter
+        ────────────────────────────────────────
+        Count                                  0
+        ────────────────────────────────────────
+        + up   - down   0 reset   q quit
+        """
+      }
     }
   }
 
   @Test
   func `plus and minus step the count and zero resets it`() async throws {
     try await Demos.registry().withHeadlessHost("counter", at: .mobile) { host in
+      var counts: [String] = []
       try await host.send(plus)
       try await host.send(plus)
-      #expect(host.screenRows[2].hasSuffix("2"))
+      counts.append(host.screenRows[2])
       try await host.send(.key(Key(code: .character("-"))))
-      #expect(host.screenRows[2].hasSuffix("1"))
+      counts.append(host.screenRows[2])
       try await host.send(.key(Key(code: .character("0"))))
-      #expect(host.screenRows[2].hasSuffix("0"))
+      counts.append(host.screenRows[2])
+      assertInlineSnapshot(of: counts, as: .customDump) {
+        """
+        [
+          [0]: "Count                                  2",
+          [1]: "Count                                  1",
+          [2]: "Count                                  0"
+        ]
+        """
+      }
     }
   }
 
@@ -75,6 +121,6 @@ struct CounterDemoTests {
   func `the demo registry has no duplicate names`() throws {
     let names = try Demos.registry().names()
 
-    #expect(names == ["counter", "counter-high"])
+    expectNoDifference(names, ["counter", "counter-high"])
   }
 }

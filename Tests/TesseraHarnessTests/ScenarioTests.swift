@@ -57,21 +57,20 @@ struct ScenarioParserTests {
 
   @Test
   func `a scenario without an app header is a parse error naming the accepted apps`() {
-    let error = #expect(throws: ScenarioParseError.self) {
-      try parse("size desktop\nkey Tab")
+    assertInlineSnapshot(of: parseFailure(of: "size desktop\nkey Tab"), as: .lines) {
+      """
+      t.scn:1: error: a scenario names its app with an `app NAME` header; accepted: stack, workspace, greedy
+      """
     }
-
-    #expect(error?.message.contains("`app NAME` header") == true)
-    #expect(error?.message.contains("accepted: stack, workspace, greedy") == true)
   }
 
   @Test
   func `an app the registry does not hold is a parse error`() {
-    let error = #expect(throws: ScenarioParseError.self) {
-      try parse("app missing")
+    assertInlineSnapshot(of: parseFailure(of: "app missing"), as: .lines) {
+      """
+      t.scn:1: error: unknown app `missing`; accepted: stack, workspace, greedy
+      """
     }
-
-    #expect(error?.message.contains("unknown app `missing`") == true)
   }
 
   @Test
@@ -302,7 +301,7 @@ struct ScenarioRunnerTests {
     let report = try await run(
       "app stack\nsize mobile\nexpect node id=root frame 0,0,40x6")
 
-    #expect(report.passed)
+    expectNoDifference(report.failures, [])
   }
 
   @Test
@@ -311,10 +310,26 @@ struct ScenarioRunnerTests {
   {
     let report = try await run("app greedy\nsize mobile\nshot a")
 
-    let failure = try #require(report.failures.first)
-    #expect(failure.verb == "size")
-    #expect(failure.message.contains("mobileScreen"))
-    #expect(failure.message.contains("`greedy` has no natural height"))
+    assertInlineSnapshot(of: report, as: .customDump) {
+      """
+      ScenarioReport(
+        scenario: "t.scn",
+        passed: false,
+        failures: [
+          [0]: ScenarioFailure(
+            line: 0,
+            statement: "app greedy",
+            verb: "size",
+            message: "`greedy` has no natural height: it measured 500 rows when offered 500 and 1000 when offered 1000. Use `size mobileScreen` (40x16) or an explicit WxH",
+            expected: nil,
+            actual: nil,
+            screen: nil
+          )
+        ],
+        observations: []
+      )
+      """
+    }
   }
 
   @Test
@@ -350,7 +365,7 @@ struct ScenarioRunnerTests {
     let report = try await run(
       "app greedy\nsize mobileScreen\nexpect node id=root frame 0,0,40x16")
 
-    #expect(report.passed)
+    expectNoDifference(report.failures, [])
   }
 
   @Test
@@ -360,8 +375,26 @@ struct ScenarioRunnerTests {
     let report = await ScenarioRunner.run(
       scenario, name: "t.scn", registry: Fixtures.registry())
 
-    #expect(report.failures.first?.verb == "app")
-    #expect(report.failures.first?.message.contains("accepted: ") == true)
+    assertInlineSnapshot(of: report, as: .customDump) {
+      """
+      ScenarioReport(
+        scenario: "t.scn",
+        passed: false,
+        failures: [
+          [0]: ScenarioFailure(
+            line: 0,
+            statement: "app ghost",
+            verb: "app",
+            message: "unknown app `ghost`; accepted: counter, greedy, main-actor-counter, observed-counter, stack, workspace",
+            expected: nil,
+            actual: nil,
+            screen: nil
+          )
+        ],
+        observations: []
+      )
+      """
+    }
   }
 
   @Test
@@ -370,10 +403,27 @@ struct ScenarioRunnerTests {
     let workspace = NaturalHeight.measure(WorkspaceApp(), columns: 40)
     let greedy = NaturalHeight.measure(GreedyApp(), columns: 40)
 
-    #expect(stack.rows == 6)
-    #expect(stack.fillsProposal == false)
-    #expect(workspace.fillsProposal)
-    #expect(greedy.fillsProposal)
+    assertInlineSnapshot(of: [stack, workspace, greedy], as: .customDump) {
+      """
+      [
+        [0]: NaturalHeight(
+          rows: 6,
+          shortRows: 6,
+          tallRows: 6
+        ),
+        [1]: NaturalHeight(
+          rows: 34,
+          shortRows: 500,
+          tallRows: 1000
+        ),
+        [2]: NaturalHeight(
+          rows: 2,
+          shortRows: 500,
+          tallRows: 1000
+        )
+      ]
+      """
+    }
   }
 }
 

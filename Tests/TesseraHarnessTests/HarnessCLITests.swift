@@ -1,4 +1,8 @@
+import CustomDump
 import Foundation
+import InlineSnapshotTesting
+import SnapshotTesting
+import SnapshotTestingCustomDump
 import TesseraTerminal
 import TesseraTerminalCore
 import Testing
@@ -31,23 +35,21 @@ struct HarnessCLITests {
   }
 
   @Test
-  func `apps prints one JSON object when stdout is not a terminal`() async throws {
+  func `apps prints one JSON object when stdout is not a terminal`() async {
     let output = await run("apps")
 
-    #expect(output.exitCode == 0)
-    #expect(output.stderr.isEmpty)
-    #expect(output.stdout.hasSuffix("}\n"))
-    let object = try #require(
-      JSONSerialization.jsonObject(with: Data(output.stdout.utf8)) as? [String: Any])
-    #expect(object["command"] as? String == "apps")
-    let apps = try #require(object["apps"] as? [[String: Any]])
-    let counter = try #require(apps.first { $0["name"] as? String == "counter" })
-    #expect(counter["minimum"] as? String == "20x1")
-    #expect(counter["viewports"] as? [String] == ["desktop"])
-    #expect(Set(counter.keys) == ["minimum", "name", "viewports"])
-    #expect(
-      apps.compactMap { $0["name"] as? String }
-        == apps.compactMap { $0["name"] as? String }.sorted())
+    assertInlineSnapshot(of: output, as: .customDump) {
+      #"""
+      CommandOutput(
+        exitCode: 0,
+        stdout: """
+          {"apps":[{"minimum":"20x1","name":"counter","viewports":["desktop"]},{"minimum":null,"name":"greedy","viewports":["desktop","mobileScreen"]},{"minimum":null,"name":"main-actor-counter","viewports":["desktop"]},{"minimum":null,"name":"observed-counter","viewports":["desktop"]},{"minimum":null,"name":"stack","viewports":["desktop","mobile"]},{"minimum":null,"name":"workspace","viewports":["desktop","mobileScreen"]}],"command":"apps"}
+          
+          """,
+        stderr: ""
+      )
+      """#
+    }
   }
 
   @Test
@@ -60,28 +62,44 @@ struct HarnessCLITests {
       JSONSerialization.jsonObject(with: Data(output.stdout.utf8)) as? [String: Any])
     let apps = try #require(object["apps"] as? [[String: Any]])
     let stack = try #require(apps.first { $0["name"] as? String == "stack" })
-    #expect(Set(stack.keys) == ["minimum", "name", "viewports"])
+    expectNoDifference(
+      Set(apps.map { $0.keys.sorted() }), [["minimum", "name", "viewports"]])
     #expect(stack["minimum"] is NSNull)
-    #expect(output.stdout.contains(#"{"minimum":null,"name":"greedy""#))
   }
 
   @Test
   func `apps prints a table on a terminal and --json forces the object`() async {
     let table = await run("apps", terminal: true)
     let forced = await run("apps", "--json", terminal: true)
+    let piped = await run("apps")
 
-    #expect(table.stdout.hasPrefix("NAME"))
-    #expect(table.stdout.contains("counter"))
-    #expect(table.stdout.contains("20x1"))
-    #expect(table.stdout.contains("desktop, mobileScreen"))
-    #expect(forced.stdout.hasPrefix("{"))
+    assertInlineSnapshot(of: table, as: .customDump) {
+      #"""
+      CommandOutput(
+        exitCode: 0,
+        stdout: """
+          NAME                MINIMUM  VIEWPORTS
+          counter             20x1     desktop
+          greedy              -        desktop, mobileScreen
+          main-actor-counter  -        desktop
+          observed-counter    -        desktop
+          stack               -        desktop, mobile
+          workspace           -        desktop, mobileScreen
+          
+          """,
+        stderr: ""
+      )
+      """#
+    }
+    expectNoDifference(forced, piped)
   }
 
   @Test
   func `--pretty forces the table when stdout is not a terminal`() async {
     let output = await run("apps", "--pretty")
+    let table = await run("apps", terminal: true)
 
-    #expect(output.stdout.hasPrefix("NAME"))
+    expectNoDifference(output, table)
   }
 
   @Test
@@ -96,8 +114,18 @@ struct HarnessCLITests {
   func `an empty registry lists nothing`() async {
     let output = await run("apps", "--pretty", registry: ApplicationRegistry())
 
-    #expect(output.exitCode == 0)
-    #expect(output.stdout == "no applications are registered\n")
+    assertInlineSnapshot(of: output, as: .customDump) {
+      #"""
+      CommandOutput(
+        exitCode: 0,
+        stdout: """
+          no applications are registered
+          
+          """,
+        stderr: ""
+      )
+      """#
+    }
   }
 
   @Test
@@ -108,10 +136,28 @@ struct HarnessCLITests {
     let launch = await run(
       "launch", "stack", "--pretty", registry: registry, terminal: true)
 
-    #expect(apps.exitCode == 3)
-    #expect(apps.stderr.contains("registered more than once: `counter`"))
-    #expect(launch.exitCode == 3)
-    #expect(launch.stderr.contains("registered more than once: `counter`"))
+    assertInlineSnapshot(of: [apps, launch], as: .customDump) {
+      #"""
+      [
+        [0]: CommandOutput(
+          exitCode: 3,
+          stdout: "",
+          stderr: """
+            error: applications registered more than once: `counter`
+            
+            """
+        ),
+        [1]: CommandOutput(
+          exitCode: 3,
+          stdout: "",
+          stderr: """
+            error: applications registered more than once: `counter`
+            
+            """
+        )
+      ]
+      """#
+    }
   }
 
   @Test
@@ -120,30 +166,54 @@ struct HarnessCLITests {
   {
     let output = await run("launch", "ghost", "--pretty", terminal: true)
 
-    #expect(output.exitCode == 2)
-    #expect(output.stderr.contains("unknown app `ghost`; accepted: "))
-    #expect(output.stderr.contains("counter"))
+    assertInlineSnapshot(of: output, as: .customDump) {
+      #"""
+      CommandOutput(
+        exitCode: 2,
+        stdout: "",
+        stderr: """
+          error: unknown app `ghost`; accepted: counter, greedy, main-actor-counter, observed-counter, stack, workspace
+          
+          """
+      )
+      """#
+    }
   }
 
   @Test
   func `launch without a name is a usage error`() async {
     let output = await run("launch", "--pretty", terminal: true)
 
-    #expect(output.exitCode == 2)
-    #expect(output.stderr.contains("usage: launch NAME"))
+    assertInlineSnapshot(of: output, as: .customDump) {
+      #"""
+      CommandOutput(
+        exitCode: 2,
+        stdout: "",
+        stderr: """
+          error: usage: launch NAME
+          
+          """
+      )
+      """#
+    }
   }
 
   @Test
-  func `launch refuses to start unless stdout is a terminal`() async throws {
+  func `launch refuses to start unless stdout is a terminal`() async {
     let output = await run("launch", "counter", input: true)
 
-    #expect(output.exitCode == 3)
-    let object = try #require(
-      JSONSerialization.jsonObject(with: Data(output.stdout.utf8)) as? [String: Any])
-    #expect(object["command"] as? String == "launch")
-    #expect(object["exitCode"] as? Int == 3)
-    #expect(
-      (object["message"] as? String)?.hasSuffix("standard output is not one") == true)
+    assertInlineSnapshot(of: output, as: .customDump) {
+      #"""
+      CommandOutput(
+        exitCode: 3,
+        stdout: """
+          {"command":"launch","exitCode":3,"message":"`launch` runs an application in this terminal, and standard output is not one"}
+          
+          """,
+        stderr: ""
+      )
+      """#
+    }
   }
 
   @Test
@@ -153,66 +223,183 @@ struct HarnessCLITests {
   {
     let output = await run("launch", "counter", "--pretty", terminal: true, input: false)
 
-    #expect(output.exitCode == 3)
-    #expect(output.stdout.isEmpty)
-    #expect(
-      output.stderr
-        == "error: `launch` runs an application in this terminal, and standard input is not one\n"
-    )
+    assertInlineSnapshot(of: output, as: .customDump) {
+      #"""
+      CommandOutput(
+        exitCode: 3,
+        stdout: "",
+        stderr: """
+          error: `launch` runs an application in this terminal, and standard input is not one
+          
+          """
+      )
+      """#
+    }
   }
 
   @Test
   func `launch names both streams when neither is a terminal`() async {
     let output = await run("launch", "counter", "--pretty")
 
-    #expect(output.exitCode == 3)
-    #expect(output.stderr.contains("standard input and output are not terminals"))
+    assertInlineSnapshot(of: output, as: .customDump) {
+      #"""
+      CommandOutput(
+        exitCode: 3,
+        stdout: "",
+        stderr: """
+          error: `launch` runs an application in this terminal, and standard input and output are not terminals
+          
+          """
+      )
+      """#
+    }
   }
 
   @Test
-  func `an unknown command has a null command in its JSON failure`() async throws {
+  func `an unknown command has a null command in its JSON failure`() async {
     let output = await run("jump")
 
-    let object = try #require(
-      JSONSerialization.jsonObject(with: Data(output.stdout.utf8)) as? [String: Any])
-    #expect(object["command"] is NSNull)
-    #expect(object["exitCode"] as? Int == 2)
+    assertInlineSnapshot(of: output, as: .customDump) {
+      #"""
+      CommandOutput(
+        exitCode: 2,
+        stdout: """
+          {"command":null,"exitCode":2,"message":"unknown command `jump`; accepted: apps, launch, help"}
+          
+          """,
+        stderr: ""
+      )
+      """#
+    }
   }
 
   @Test
   func `an unknown command lists the accepted commands`() async {
     let output = await run("jump", "--pretty")
 
-    #expect(output.exitCode == 2)
-    #expect(
-      output.stderr == "error: unknown command `jump`; accepted: apps, launch, help\n")
+    assertInlineSnapshot(of: output, as: .customDump) {
+      #"""
+      CommandOutput(
+        exitCode: 2,
+        stdout: "",
+        stderr: """
+          error: unknown command `jump`; accepted: apps, launch, help
+          
+          """
+      )
+      """#
+    }
   }
 
   @Test
   func `no command is a usage error`() async {
     let output = await run("--pretty")
 
-    #expect(output.exitCode == 2)
-    #expect(output.stderr.contains("a command is required"))
+    assertInlineSnapshot(of: output, as: .customDump) {
+      #"""
+      CommandOutput(
+        exitCode: 2,
+        stdout: "",
+        stderr: """
+          error: a command is required; accepted: apps, launch, help
+          
+          """
+      )
+      """#
+    }
   }
 
   @Test
   func `help prints real text for each command whatever stdout is`() async {
-    for command in ["apps", "launch", "help"] {
-      let output = await run("help", command)
+    let outputs = [
+      await run("help"), await run("help", "apps"), await run("help", "launch"),
+      await run("help", "help"), await run("help", "ghost"),
+    ]
 
-      #expect(output.exitCode == 0)
-      #expect(output.stdout.hasPrefix("usage: \(command)"))
+    assertInlineSnapshot(of: outputs, as: .customDump) {
+      #"""
+      [
+        [0]: CommandOutput(
+          exitCode: 0,
+          stdout: """
+            usage: <executable> COMMAND [ARGUMENT]
+            
+            commands:
+              apps           list the registered applications
+              launch NAME    run one application in this terminal
+              help [COMMAND] describe a command
+            
+            Every command exits 0 on success, 2 on a usage error, and 3 on a harness error. When
+            standard output is not a terminal each command writes one JSON object to it; --json
+            forces that form and --pretty forces the text form.
+            
+            """,
+          stderr: ""
+        ),
+        [1]: CommandOutput(
+          exitCode: 0,
+          stdout: """
+            usage: apps [--json | --pretty]
+            
+            Lists every registered application with the smallest size it declares and the
+            viewports it is checked at. The JSON form is {"apps": [{"minimum", "name",
+            "viewports"}], "command": "apps"}, sorted by name, where "minimum" is null for an
+            application that declares none. A name registered twice fails the command with exit 3.
+            
+            """,
+          stderr: ""
+        ),
+        [2]: CommandOutput(
+          exitCode: 0,
+          stdout: """
+            usage: launch NAME
+            
+            Runs the named application in this terminal at the terminal's size, until the
+            application finishes. The harness has no quit key of its own: the application decides
+            which key quits. Exits 2 for an unknown name, and 3 for a duplicate registration or
+            when standard input or output is not a terminal.
+            
+            """,
+          stderr: ""
+        ),
+        [3]: CommandOutput(
+          exitCode: 0,
+          stdout: """
+            usage: help [COMMAND]
+            
+            Prints the commands, or one command's usage.
+            
+            """,
+          stderr: ""
+        ),
+        [4]: CommandOutput(
+          exitCode: 2,
+          stdout: """
+            {"command":"help","exitCode":2,"message":"unknown command `ghost`; accepted: apps, launch, help"}
+            
+            """,
+          stderr: ""
+        )
+      ]
+      """#
     }
-    let overview = await run("help")
-    #expect(overview.stdout.contains("launch NAME"))
-    #expect(await run("help", "ghost").exitCode == 2)
   }
 
   @Test
   func `--json and --pretty together are a usage error`() async {
     let output = await run("apps", "--json", "--pretty")
 
-    #expect(output.exitCode == 2)
+    assertInlineSnapshot(of: output, as: .customDump) {
+      #"""
+      CommandOutput(
+        exitCode: 2,
+        stdout: "",
+        stderr: """
+          error: `--json` and `--pretty` contradict each other
+          
+          """
+      )
+      """#
+    }
   }
 }

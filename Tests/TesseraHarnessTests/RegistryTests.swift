@@ -1,3 +1,7 @@
+import CustomDump
+import InlineSnapshotTesting
+import SnapshotTesting
+import SnapshotTestingCustomDump
 import TesseraTerminalCore
 import Testing
 
@@ -16,17 +20,40 @@ struct ApplicationRegistryTests {
   func `lookup returns the registration's name, minimum, and viewports`() throws {
     let entry = try Fixtures.registry().entry(named: "counter")
 
-    #expect(entry.name == "counter")
-    #expect(entry.minimum == TerminalSize(columns: 20, rows: 1))
-    #expect(entry.viewports == [.desktop])
+    assertInlineSnapshot(of: entry, as: .customDump) {
+      """
+      ApplicationRegistry.Entry(
+        name: "counter",
+        minimum: TerminalSize(
+          columns: 20,
+          rows: 1
+        ),
+        viewports: [
+          [0]: .desktop
+        ],
+        headless: (Function),
+        live: (Function)
+      )
+      """
+    }
   }
 
   @Test
   func `entries and names come back sorted by name`() throws {
     let names = try Fixtures.registry().names()
 
-    #expect(names == names.sorted())
-    #expect(names.contains("main-actor-counter"))
+    assertInlineSnapshot(of: names, as: .customDump) {
+      """
+      [
+        [0]: "counter",
+        [1]: "greedy",
+        [2]: "main-actor-counter",
+        [3]: "observed-counter",
+        [4]: "stack",
+        [5]: "workspace"
+      ]
+      """
+    }
   }
 
   @Test
@@ -35,13 +62,26 @@ struct ApplicationRegistryTests {
       try Fixtures.registry().entry(named: "ghost")
     }
 
-    guard case .unknown(let name, let accepted)? = error else {
-      Issue.record("expected an unknown-name error, got \(String(describing: error))")
-      return
+    assertInlineSnapshot(of: error, as: .customDump) {
+      """
+      RegistryError.unknown(
+        "ghost",
+        accepted: [
+          [0]: "counter",
+          [1]: "greedy",
+          [2]: "main-actor-counter",
+          [3]: "observed-counter",
+          [4]: "stack",
+          [5]: "workspace"
+        ]
+      )
+      """
     }
-    #expect(name == "ghost")
-    #expect(accepted.contains("counter"))
-    #expect(error?.description.hasPrefix("unknown app `ghost`; accepted: ") == true)
+    assertInlineSnapshot(of: error?.description, as: .lines) {
+      """
+      unknown app `ghost`; accepted: counter, greedy, main-actor-counter, observed-counter, stack, workspace
+      """
+    }
   }
 
   @Test
@@ -71,9 +111,26 @@ struct ApplicationRegistryTests {
 
     let report = await ScenarioRunner.run(scenario, name: "t.scn", registry: duplicated())
 
-    #expect(report.passed == false)
-    #expect(report.failures.first?.verb == "app")
-    #expect(report.failures.first?.message.contains("registered more than once") == true)
+    assertInlineSnapshot(of: report, as: .customDump) {
+      """
+      ScenarioReport(
+        scenario: "t.scn",
+        passed: false,
+        failures: [
+          [0]: ScenarioFailure(
+            line: 0,
+            statement: "app workspace",
+            verb: "app",
+            message: "applications registered more than once: `counter`, `stack`",
+            expected: nil,
+            actual: nil,
+            screen: nil
+          )
+        ],
+        observations: []
+      )
+      """
+    }
   }
 
   @Test
@@ -88,12 +145,19 @@ struct ApplicationRegistryTests {
 struct ViewportTests {
   @Test
   func `fixed viewports name their sizes and mobile has to be measured`() {
-    #expect(Viewport.desktop.fixedSize == TerminalSize(columns: 80, rows: 24))
-    #expect(Viewport.mobileScreen.fixedSize == TerminalSize(columns: 40, rows: 16))
-    #expect(
-      Viewport.custom(TerminalSize(columns: 30, rows: 9)).fixedSize
-        == TerminalSize(columns: 30, rows: 9))
-    #expect(Viewport.mobile.fixedSize == nil)
+    let viewports: [Viewport] = [
+      .desktop, .mobileScreen, .custom(TerminalSize(columns: 30, rows: 9)), .mobile,
+    ]
+
+    expectNoDifference(
+      viewports.map(\.fixedSize),
+      [
+        TerminalSize(columns: 80, rows: 24),
+        TerminalSize(columns: 40, rows: 16),
+        TerminalSize(columns: 30, rows: 9),
+        nil,
+      ]
+    )
   }
 
   @Test
@@ -102,8 +166,7 @@ struct ViewportTests {
       .desktop, .mobile, .mobileScreen, .custom(TerminalSize(columns: 30, rows: 9)),
     ]
 
-    #expect(viewports.count == 4)
-    #expect(
-      viewports.map(\.name).sorted() == ["30x9", "desktop", "mobile", "mobileScreen"])
+    expectNoDifference(
+      viewports.map(\.name).sorted(), ["30x9", "desktop", "mobile", "mobileScreen"])
   }
 }

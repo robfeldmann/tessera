@@ -69,7 +69,7 @@ public struct ApplicationRegistry {
 }
 
 /// Why the registry could not answer a question.
-package enum RegistryError: Error, Equatable, Sendable, CustomStringConvertible {
+package enum RegistryError: CustomStringConvertible, Equatable, Error, Sendable {
   /// Names registered more than once, each listed once, in sorted order.
   case duplicate([String])
 
