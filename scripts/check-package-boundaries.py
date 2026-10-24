@@ -28,12 +28,12 @@ ALLOWED_DIRECT_DEPENDENCIES: dict[str, frozenset[str]] = {
     "TesseraHarness": frozenset(
         {
             "TesseraCore",
-            "TesseraLayout",
             "TesseraRuntime",
+            "TesseraTerminal",
             "TesseraTerminalCore",
             "TesseraTerminalInput",
+            "TesseraTerminalIO",
             "TesseraTerminalSnapshotSupport",
-            "TesseraWidgets",
         }
     ),
 }

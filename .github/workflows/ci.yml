@@ -222,6 +222,12 @@ jobs:
         if: needs.ci-gate.outputs.vouch-only != 'true'
         run: swift test --only-use-versions-from-resolved-file --no-parallel
 
+      - name: Test Examples
+        if: needs.ci-gate.outputs.vouch-only != 'true'
+        run:
+          swift test --only-use-versions-from-resolved-file --no-parallel --package-path
+          Examples
+
       - name: Check the resolved files are unchanged
         if: needs.ci-gate.outputs.vouch-only != 'true'
         run: git diff --exit-code -- Package.resolved Examples/Package.resolved

@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Run one registered app in this terminal (tessera launch NAME)"
+#USAGE arg "<name>" help="App name, as listed by `mise run dev:apps`"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+swift run --only-use-versions-from-resolved-file --package-path Examples tessera launch "${usage_name:?}"

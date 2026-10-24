@@ -98,7 +98,9 @@ public protocol Application: AnyObject {
   /// Applies an input event the view graph left unhandled to the application's model.
   ///
   /// A host calls this for each event whose disposition is `.ignored`, and for every
-  /// resize: a resize is never routed to views, so it always reaches the application.
+  /// resize: a resize is never routed to views, so it always reaches the application. A
+  /// host also delivers the size the application starts at as a resize, before the first
+  /// frame, so the application learns its size the way it learns every later one.
   func apply(_ event: InputEvent)
 }
 
