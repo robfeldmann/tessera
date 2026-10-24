@@ -148,7 +148,8 @@ enum Replayer {
           line: offset + 1, statement: "step \(record.seq)", verb: "usage",
           message:
             "step \(record.seq) holds an event replay cannot deliver: "
-            + "\(record.event.summary); the scenario grammar has no statement for it yet")
+            + "\(record.event.summary); replay delivers keys, pastes, resizes, and focus changes"
+        )
       }
     }
     return nil

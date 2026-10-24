@@ -174,7 +174,7 @@ When several apply, the highest wins. `--repeat N` runs each scenario N times an
 
 ## Not yet expressible
 
-These forms are part of the language's design and the harness cannot honour them yet. Each one is a parse error that says what it waits for, never a statement that is skipped. A scenario that uses one fails loudly on a harness that does not have it.
+These forms are part of the language's design and the harness cannot honour them yet. Each one is a parse error that lists the accepted statements, never a statement that is skipped. A scenario that uses one fails loudly on a harness that does not have it.
 
 | Form | Waits for |
 | --- | --- |

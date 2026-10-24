@@ -2,9 +2,9 @@ import Foundation
 
 /// Runs scenario files against the applications in an ``ApplicationRegistry``.
 ///
-/// A scenario is a text file; the grammar is `Examples/Scenarios/README.md`. The runner is the
-/// Swift entry point to what `tessera run` does on the command line, so an app's tests and its
-/// command line run the same scenarios the same way:
+/// A scenario is a text file of statements, one per line; `tessera help run` lists them. The
+/// runner is the Swift entry point to what `tessera run` does on the command line, so an app's
+/// tests and its command line run the same scenarios the same way:
 ///
 /// ```swift
 /// @Test @MainActor

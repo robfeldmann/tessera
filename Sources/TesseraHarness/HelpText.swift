@@ -45,8 +45,15 @@ enum HelpText {
 
     Runs scenario files. A PATH is a .scn file, or a directory whose .scn files, at any
     depth, run in sorted order. A path that is neither, or a directory with no scenarios, is
-    a usage error. Each scenario starts a fresh application. The grammar is in
-    Examples/Scenarios/README.md.
+    a usage error. Each scenario starts a fresh application.
+
+    A scenario is a text file with one statement per line. The header statements are
+    `app NAME`, `size SIZE`, and `term colors=... theme=...`. The input statements are
+    `resize WxH`, `key NAME`, `type "text"`, `paste "text"`, and `bytes "..."`. `shot NAME`
+    compares the screen with golden files, `tree` adds the node tree to the report, and
+    `dump` adds the projection. The assertions are `expect text [ROW] "text"`,
+    `expect screen <<WORD`, `expect node SEL frame X,Y,WxH`, `expect cost NAME<=N...`, and
+    `check [RULE...]`. A statement outside this list is a parse error.
 
       --record     write the golden files that `shot` statements compare against, instead
                    of failing when one differs or is missing, and list what changed. Review

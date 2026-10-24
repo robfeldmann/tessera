@@ -265,7 +265,7 @@ struct HarnessCLITests {
       CommandOutput(
         exitCode: 2,
         stdout: """
-          {"command":null,"exitCode":2,"message":"unknown command `jump`; accepted: apps, launch, run, shot, tree, check, replay, help"}
+          {"command":null,"exitCode":2,"message":"unknown command `jump`; accepted: apps, launch, run, shot, tree, help"}
           
           """,
         stderr: ""
@@ -284,7 +284,7 @@ struct HarnessCLITests {
         exitCode: 2,
         stdout: "",
         stderr: """
-          error: unknown command `jump`; accepted: apps, launch, run, shot, tree, check, replay, help
+          error: unknown command `jump`; accepted: apps, launch, run, shot, tree, help
           
           """
       )
@@ -302,7 +302,7 @@ struct HarnessCLITests {
         exitCode: 2,
         stdout: "",
         stderr: """
-          error: a command is required; accepted: apps, launch, run, shot, tree, check, replay, help
+          error: a command is required; accepted: apps, launch, run, shot, tree, help
           
           """
       )
@@ -380,8 +380,15 @@ struct HarnessCLITests {
             
             Runs scenario files. A PATH is a .scn file, or a directory whose .scn files, at any
             depth, run in sorted order. A path that is neither, or a directory with no scenarios, is
-            a usage error. Each scenario starts a fresh application. The grammar is in
-            Examples/Scenarios/README.md.
+            a usage error. Each scenario starts a fresh application.
+            
+            A scenario is a text file with one statement per line. The header statements are
+            `app NAME`, `size SIZE`, and `term colors=... theme=...`. The input statements are
+            `resize WxH`, `key NAME`, `type "text"`, `paste "text"`, and `bytes "..."`. `shot NAME`
+            compares the screen with golden files, `tree` adds the node tree to the report, and
+            `dump` adds the projection. The assertions are `expect text [ROW] "text"`,
+            `expect screen <<WORD`, `expect node SEL frame X,Y,WxH`, `expect cost NAME<=N...`, and
+            `check [RULE...]`. A statement outside this list is a parse error.
             
               --record     write the golden files that `shot` statements compare against, instead
                            of failing when one differs or is missing, and list what changed. Review
@@ -446,42 +453,6 @@ struct HarnessCLITests {
         [6]: CommandOutput(
           exitCode: 0,
           stdout: """
-            usage: check NAME [SIZE] [--json | --pretty]
-            
-            Runs every invariant rule over the registered application NAME at SIZE, with no input:
-            no-dirty-after-pass, frame-inside-clip, measured-within-proposal, siblings-disjoint, and
-            requirements-aggregate. SIZE is desktop, mobile, mobileScreen, or WxH, and defaults to
-            desktop. An error fails the command (exit 1); a warning (frame-inside-clip) is listed and
-            does not. The output names the rules that ran. The JSON form is {"app", "command":
-            "check", "exitCode", "rules", "size", "violations": [{"detail", "node", "rule",
-            "severity"}]}. Errors are those of `shot`. A scenario's `check` statement runs the same
-            rules after its input.
-            
-            """,
-          stderr: ""
-        ),
-        [7]: CommandOutput(
-          exitCode: 0,
-          stdout: """
-            usage: replay FILE --app NAME [--json | --pretty]
-            
-            Runs the trace FILE, written by `launch` under TESSERA_TRACE or by `run --trace`, again
-            against the registered application NAME: the same events, in order, at the size the
-            recording started at. After every step the replay is compared with the recording on why
-            the frame was drawn, the nodes and rows that changed, and the cost, which are the same
-            on any terminal; the bytes a frame wrote are not compared. A step that differs is a
-            `replay` failure (exit 1) that shows both. Keys, pastes, resizes, and the terminal's focus
-            changes replay; a trace that holds any other event (a mouse event, a terminal reply), or
-            that is not a trace, is a usage error (exit 2). The output is
-            a run report, {"command": "replay", "exitCode", "scenarios": [REPORT]}, whose
-            observation holds the final screen.
-            
-            """,
-          stderr: ""
-        ),
-        [8]: CommandOutput(
-          exitCode: 0,
-          stdout: """
             usage: help [COMMAND]
             
             Prints the commands, or one command's usage.
@@ -489,16 +460,31 @@ struct HarnessCLITests {
             """,
           stderr: ""
         ),
-        [9]: CommandOutput(
+        [7]: CommandOutput(
           exitCode: 2,
           stdout: """
-            {"command":"help","exitCode":2,"message":"unknown command `ghost`; accepted: apps, launch, run, shot, tree, check, replay, help"}
+            {"command":"help","exitCode":2,"message":"unknown command `ghost`; accepted: apps, launch, run, shot, tree, help"}
             
             """,
           stderr: ""
         )
       ]
       """#
+    }
+  }
+
+  @Test
+  func `help and its errors name no repository path and promise no later work`() async {
+    var texts = [await run("help").stdout]
+    for command in HarnessCLI.commands {
+      texts.append(await run("help", command).stdout)
+    }
+    texts.append(await run("help", "ghost").stdout)
+    texts.append(await run("jump").stderr)
+
+    let banned = ["Examples/", "docs/", ".agents", "spikes/", "README", "yet", "later"]
+    for text in texts {
+      #expect(!banned.contains { text.contains($0) }, "\(text)")
     }
   }
 

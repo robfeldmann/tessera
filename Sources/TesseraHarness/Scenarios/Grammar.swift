@@ -1,38 +1,32 @@
 /// The vocabulary the parser accepts and the forms it names but refuses.
 ///
-/// `Examples/Scenarios/README.md` is the grammar's single source; a test holds its "Not yet
-/// expressible" table to ``notYetExpressible``, so the two cannot drift.
+/// The grammar's source document keeps a table of the forms a scenario may not use; a test
+/// holds it to ``notYetExpressible``, so the two cannot drift.
 package enum ScenarioGrammar {
-  /// A form the grammar names that the harness cannot honour yet.
+  /// A form the grammar names and a scenario may not use.
   package struct Deferred: Equatable, Sendable {
     /// The form as the README's table writes it.
     package var form: String
-
-    /// What the form waits for.
-    package var needs: String
   }
 
-  /// Every statement form that parses as "not yet expressible", never as a silent no-op.
+  /// Every named statement form that parses as a refusal, never as a silent no-op.
   package static let notYetExpressible: [Deferred] = [
-    Deferred(form: "wait", needs: "the schedulable clock"),
-    Deferred(form: "settle", needs: "the schedulable clock"),
-    Deferred(form: "focus", needs: "focus tracking and role and label locators"),
-    Deferred(form: "mouse", needs: "pointer input and hit testing"),
-    Deferred(form: "hit", needs: "pointer input and hit testing"),
-    Deferred(form: "expect cell", needs: "style and role assertions on cells"),
-    Deferred(form: "expect focused", needs: "focus tracking"),
-    Deferred(form: "expect wireframe", needs: "catalog conformance"),
-    Deferred(
-      form: "expect node SEL visible", needs: "the visibility rules of focus tooling"),
-    Deferred(
-      form: "expect node SEL clipped", needs: "the visibility rules of focus tooling"),
-    Deferred(
-      form: "expect node SEL count N", needs: "a later release of the locator language"),
-    Deferred(form: "shot NAME SEL", needs: "region shots, with catalog conformance"),
-    Deferred(form: "tree SEL", needs: "a later release of the locator language"),
-    Deferred(form: "term glyphs=", needs: "ASCII glyph fallbacks in the views"),
-    Deferred(form: "term keyboard=", needs: "key routing that depends on the protocol"),
-    Deferred(form: "term theme=probe", needs: "semantic roles"),
+    Deferred(form: "wait"),
+    Deferred(form: "settle"),
+    Deferred(form: "focus"),
+    Deferred(form: "mouse"),
+    Deferred(form: "hit"),
+    Deferred(form: "expect cell"),
+    Deferred(form: "expect focused"),
+    Deferred(form: "expect wireframe"),
+    Deferred(form: "expect node SEL visible"),
+    Deferred(form: "expect node SEL clipped"),
+    Deferred(form: "expect node SEL count N"),
+    Deferred(form: "shot NAME SEL"),
+    Deferred(form: "tree SEL"),
+    Deferred(form: "term glyphs="),
+    Deferred(form: "term keyboard="),
+    Deferred(form: "term theme=probe"),
   ]
 
   /// The statements a scenario may use, for the error that names the vocabulary.
@@ -40,12 +34,8 @@ package enum ScenarioGrammar {
     "app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, "
     + "expect text, expect screen, expect node, expect cost"
 
-  /// The refusal for a form that is named but not yet expressible.
+  /// The refusal for a form that is named and not supported.
   static func refusal(_ form: String) -> String {
-    let needs = notYetExpressible.first { $0.form == form }?.needs ?? "a later release"
-    return
-      "`\(form)` is not yet expressible: it needs \(needs). "
-      + "See the \"Not yet expressible\" table in Examples/Scenarios/README.md; "
-      + "accepted: \(acceptedStatements)"
+    "`\(form)` is not a statement a scenario can use; accepted: \(acceptedStatements)"
   }
 }

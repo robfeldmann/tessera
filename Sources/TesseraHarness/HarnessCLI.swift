@@ -96,7 +96,7 @@ extension HarnessCLI {
   }
 
   static let commands = [
-    "apps", "launch", "run", "shot", "tree", "check", "replay", "help",
+    "apps", "launch", "run", "shot", "tree", "help",
   ]
 
   /// Runs one command and returns what it printed, without touching the process.

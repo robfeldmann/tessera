@@ -197,22 +197,22 @@ struct ScenarioParserTests {
 
     assertInlineSnapshot(of: failures, as: .lines) {
       """
-      t.scn:2: error: `expect cell` is not yet expressible: it needs style and role assertions on cells. See the "Not yet expressible" table in Examples/Scenarios/README.md; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
-      t.scn:2: error: `expect focused` is not yet expressible: it needs focus tracking. See the "Not yet expressible" table in Examples/Scenarios/README.md; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
-      t.scn:2: error: `expect node SEL clipped` is not yet expressible: it needs the visibility rules of focus tooling. See the "Not yet expressible" table in Examples/Scenarios/README.md; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
-      t.scn:2: error: `expect node SEL count N` is not yet expressible: it needs a later release of the locator language. See the "Not yet expressible" table in Examples/Scenarios/README.md; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
-      t.scn:2: error: `expect node SEL visible` is not yet expressible: it needs the visibility rules of focus tooling. See the "Not yet expressible" table in Examples/Scenarios/README.md; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
-      t.scn:2: error: `expect wireframe` is not yet expressible: it needs catalog conformance. See the "Not yet expressible" table in Examples/Scenarios/README.md; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
-      t.scn:2: error: `focus` is not yet expressible: it needs focus tracking and role and label locators. See the "Not yet expressible" table in Examples/Scenarios/README.md; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
-      t.scn:2: error: `hit` is not yet expressible: it needs pointer input and hit testing. See the "Not yet expressible" table in Examples/Scenarios/README.md; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
-      t.scn:2: error: `mouse` is not yet expressible: it needs pointer input and hit testing. See the "Not yet expressible" table in Examples/Scenarios/README.md; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
-      t.scn:2: error: `settle` is not yet expressible: it needs the schedulable clock. See the "Not yet expressible" table in Examples/Scenarios/README.md; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
-      t.scn:2: error: `shot NAME SEL` is not yet expressible: it needs region shots, with catalog conformance. See the "Not yet expressible" table in Examples/Scenarios/README.md; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
-      t.scn:2: error: `term glyphs=` is not yet expressible: it needs ASCII glyph fallbacks in the views. See the "Not yet expressible" table in Examples/Scenarios/README.md; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
-      t.scn:2: error: `term keyboard=` is not yet expressible: it needs key routing that depends on the protocol. See the "Not yet expressible" table in Examples/Scenarios/README.md; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
-      t.scn:2: error: `term theme=probe` is not yet expressible: it needs semantic roles. See the "Not yet expressible" table in Examples/Scenarios/README.md; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
-      t.scn:2: error: `tree SEL` is not yet expressible: it needs a later release of the locator language. See the "Not yet expressible" table in Examples/Scenarios/README.md; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
-      t.scn:2: error: `wait` is not yet expressible: it needs the schedulable clock. See the "Not yet expressible" table in Examples/Scenarios/README.md; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
+      t.scn:2: error: `expect cell` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
+      t.scn:2: error: `expect focused` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
+      t.scn:2: error: `expect node SEL clipped` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
+      t.scn:2: error: `expect node SEL count N` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
+      t.scn:2: error: `expect node SEL visible` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
+      t.scn:2: error: `expect wireframe` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
+      t.scn:2: error: `focus` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
+      t.scn:2: error: `hit` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
+      t.scn:2: error: `mouse` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
+      t.scn:2: error: `settle` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
+      t.scn:2: error: `shot NAME SEL` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
+      t.scn:2: error: `term glyphs=` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
+      t.scn:2: error: `term keyboard=` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
+      t.scn:2: error: `term theme=probe` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
+      t.scn:2: error: `tree SEL` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
+      t.scn:2: error: `wait` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
       """
     }
   }
@@ -233,12 +233,11 @@ struct ScenarioParserTests {
     let start = try #require(lines.firstIndex { $0.hasPrefix("## Not yet expressible") })
     let section = lines[(start + 1)...].prefix { !$0.hasPrefix("## ") }
 
-    // Each row is `| `FORM` | NEEDS |`: the form and what it waits for must both match.
+    // Each row is `| `FORM` | NEEDS |`: the form must match.
     func deferred(_ line: String) -> ScenarioGrammar.Deferred {
       let cells = line.split(separator: "|", omittingEmptySubsequences: true)
       let form = cells[0].trimmingCharacters(in: .whitespaces).dropFirst().dropLast()
-      return ScenarioGrammar.Deferred(
-        form: String(form), needs: cells[1].trimmingCharacters(in: .whitespaces))
+      return ScenarioGrammar.Deferred(form: String(form))
     }
     let rows = section.filter { $0.hasPrefix("| `") }.map(deferred)
 

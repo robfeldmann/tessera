@@ -48,9 +48,9 @@ package struct StepCost: Codable, Equatable, Sendable {
 /// The event a step delivered, in the words the scenario grammar uses.
 ///
 /// A key, a paste, and a resize are the grammar's own words. A focus change of the terminal
-/// window has no statement yet, but a live session receives it, so it is recorded as
+/// window has no scenario statement, but a live session receives it, so it is recorded as
 /// `focusGained` or `focusLost` and replays like the others. An event neither the grammar nor
-/// replay can deliver (a mouse event before pointer input exists, a terminal reply) is
+/// replay can deliver (a mouse event, a terminal reply) is
 /// recorded as `other`, so the trace stays complete and `replay` can refuse it by name.
 package struct TraceEvent: Codable, Equatable, Sendable {
   /// `key`, `paste`, `resize`, `focusGained`, `focusLost`, or `other`.

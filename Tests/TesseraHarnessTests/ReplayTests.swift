@@ -282,7 +282,7 @@ struct ReplayTests {
             line: 2,
             statement: "step 1",
             verb: "usage",
-            message: "step 1 holds an event replay cannot deliver: unknown (not replayable); the scenario grammar has no statement for it yet",
+            message: "step 1 holds an event replay cannot deliver: unknown (not replayable); replay delivers keys, pastes, resizes, and focus changes",
             expected: nil,
             actual: nil,
             screen: nil,
