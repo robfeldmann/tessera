@@ -52,8 +52,13 @@ package actor ActiveCapabilityProbeCoordinator {
 
   package init() {}
 
+  /// The mode requests followed by one DA1 sentinel, which a terminal answers after every
+  /// reply it will give. An empty request asks nothing, so it needs no sentinel.
   private static func privateModeRequestBytes(_ modes: [Int]) -> [UInt8] {
-    modes.flatMap { Array("\u{1B}[?\($0)$p".utf8) }
+    guard !modes.isEmpty else {
+      return []
+    }
+    return modes.flatMap { Array("\u{1B}[?\($0)$p".utf8) } + [0x1B, 0x5B, 0x63]
   }
 
   private static func kittyGraphicsProbeBytes(id: KittyImageID) -> [UInt8] {
@@ -67,9 +72,11 @@ package actor ActiveCapabilityProbeCoordinator {
     case (.privateModes(let expected), .privateModeStatus(let status))
     where expected.contains(status.mode):
       evidence.privateModes[status.mode] = status.state
-      if expected.allSatisfy({ evidence.privateModes[$0] != nil }) {
-        resolveRound()
-      }
+
+    case (.privateModes, .primaryDeviceAttributes):
+      // DA1 ends the round. A mode with no reply by now stays unknown: an unanswered
+      // DECRQM is not a conclusive "unsupported".
+      resolveRound()
 
     case (.kittyKeyboard, .kittyKeyboardEnhancementFlags):
       evidence.kittyKeyboard = .supported
@@ -136,14 +143,19 @@ package actor ActiveCapabilityProbeCoordinator {
       round = .privateModes(Set(privateModes))
       roundResolved = privateModes.isEmpty
       try await emit(Self.privateModeRequestBytes(privateModes))
-      _ = await waitForRound(timeout: timeout, sleep: sleep)
+      let modesRoundCompleted = await waitForRound(timeout: timeout, sleep: sleep)
 
-      try Task.checkCancellation()
-      round = .kittyKeyboard
-      roundResponseObserved = false
-      roundResolved = false
-      try await emit(Self.kittyKeyboardProbeBytes)
-      let keyboardRoundCompleted = await waitForRound(timeout: timeout, sleep: sleep)
+      // A DA1 round that timed out may still have its DA1 in flight, so later rounds
+      // retire: a late reply could otherwise satisfy their sentinel.
+      var keyboardRoundCompleted = false
+      if modesRoundCompleted {
+        try Task.checkCancellation()
+        round = .kittyKeyboard
+        roundResponseObserved = false
+        roundResolved = false
+        try await emit(Self.kittyKeyboardProbeBytes)
+        keyboardRoundCompleted = await waitForRound(timeout: timeout, sleep: sleep)
+      }
 
       if keyboardRoundCompleted {
         round = .kittyGraphics(kittyImageID)

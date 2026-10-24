@@ -1284,7 +1284,6 @@ func `active app terminal probes without enabling Kitty keyboard`() async throws
       enterRawMode
       enterAltScreen
       flush: privateModeStatusProbes
-      flush: kittyKeyboardProbe
       flush: enableBracketedPaste(true)
       flush: enableFocusTracking(true)
       flush: cursorVisible(true)
@@ -2785,9 +2784,10 @@ private let kittyGraphicsTransmitBytes =
 private let kittyGraphicsQueryProbeBytes =
   Array("\u{1B}_Gi=17,s=1,v=1,a=q,t=d,f=24;AAAA\u{1B}\\\u{1B}[c".utf8)
 private let privateModeProbeModes = [2_004, 1_004, 1_002, 1_003, 1_006, 2_026]
-private let privateModeStatusProbeBytes = privateModeProbeModes.flatMap { mode in
-  Array("\u{1B}[?\(mode)$p".utf8)
-}
+private let privateModeStatusProbeBytes =
+  privateModeProbeModes.flatMap { mode in
+    Array("\u{1B}[?\(mode)$p".utf8)
+  } + Array("\u{1B}[c".utf8)
 private let serializedActiveProbeEvents: [InMemoryTerminalDeviceEvent] = [
   .flush(privateModeStatusProbeBytes),
   .flush(kittyKeyboardProbeBytes),
@@ -2867,6 +2867,7 @@ private actor KeyboardProbeResponseTerminalDevice {
       for mode in privateModeProbeModes {
         response.append(contentsOf: "\u{1B}[?\(mode);0$y".utf8)
       }
+      response.append(contentsOf: "\u{1B}[?1;2c".utf8)
       inputContinuation.yield(response)
     } else if bytes == kittyKeyboardProbeBytes {
       let response =
