@@ -13,9 +13,10 @@ import TesseraTerminal
 /// ```
 ///
 /// The commands are `apps` (list the registry), `launch NAME` (run one application in this
-/// terminal), `run PATH...` (run scenario files, with `--record`, `--repeat N`, and
-/// `--timing`), `shot NAME [SIZE]` and `tree NAME [SIZE]` (print one application's screen or
-/// node tree), and `help [COMMAND]`.
+/// terminal), `run PATH...` (run scenario files, with `--record`, `--repeat N`, `--timing`,
+/// and `--trace DIR`), `shot NAME [SIZE]`, `tree NAME [SIZE]`, and `check NAME [SIZE]` (print
+/// one application's screen or node tree, or check it against the invariant rules),
+/// `replay FILE --app NAME` (run a recorded trace again), and `help [COMMAND]`.
 ///
 /// Exit codes are 0 for success, 1 when an expectation failed, 2 for a usage or parse error,
 /// and 3 for a harness error. When standard output is not a terminal, each command writes one
@@ -26,7 +27,8 @@ import TesseraTerminal
 public enum HarnessCLI {
   /// Runs the command in the process's arguments and exits with its status.
   ///
-  /// - Parameter registry: The applications the commands can list and launch.
+  /// - Parameter registry: The applications the commands can list, launch, and run
+  ///   scenarios against.
   @MainActor
   public static func main(registry: ApplicationRegistry) async -> Never {
     let output = await run(
@@ -35,6 +37,7 @@ public enum HarnessCLI {
       inputIsTerminal: StandardStreams.inputIsTerminal,
       outputIsTerminal: StandardStreams.outputIsTerminal,
       configuration: .default,
+      environment: ProcessInfo.processInfo.environment,
       executableName: ProcessInfo.processInfo.processName,
       columns: nil
     )
@@ -88,7 +91,7 @@ extension HarnessCLI {
 
   static let commands: [any HarnessCommand.Type] = [
     AppsCommand.self, LaunchCommand.self, RunCommand.self, ShotCommand.self,
-    TreeCommand.self,
+    TreeCommand.self, CheckCommand.self, ReplayCommand.self,
   ]
 
   /// The words that name a command: the commands, then ArgumentParser's `help`.
@@ -105,6 +108,7 @@ extension HarnessCLI {
   /// live session, and fails before the terminal changes mode rather than after.
   ///
   /// - Parameters:
+  ///   - environment: The process's environment, which `launch` reads `TESSERA_TRACE` from.
   ///   - executableName: What usage and completion scripts call the executable.
   ///   - columns: The width help text wraps at, or `nil` for the terminal's width.
   @MainActor
@@ -114,6 +118,7 @@ extension HarnessCLI {
     inputIsTerminal: Bool,
     outputIsTerminal: Bool,
     configuration: TerminalApplicationConfiguration,
+    environment: [String: String] = [:],
     executableName: String = "tessera",
     columns: Int? = 80
   ) async -> CommandOutput {
@@ -142,6 +147,7 @@ extension HarnessCLI {
           in: Context(
             asJSON: asJSON,
             configuration: configuration,
+            environment: environment,
             registry: registry,
             terminals: (input: inputIsTerminal, output: outputIsTerminal)))
       case is Root:

@@ -267,7 +267,7 @@ struct HarnessCLITests {
       CommandOutput(
         exitCode: 2,
         stdout: """
-          {"command":null,"exitCode":2,"message":"unknown command `jump`; accepted: apps, launch, run, shot, tree, help"}
+          {"command":null,"exitCode":2,"message":"unknown command `jump`; accepted: apps, launch, run, shot, tree, check, replay, help"}
           
           """,
         stderr: ""
@@ -286,7 +286,7 @@ struct HarnessCLITests {
         exitCode: 2,
         stdout: "",
         stderr: """
-          error: unknown command `jump`; accepted: apps, launch, run, shot, tree, help
+          error: unknown command `jump`; accepted: apps, launch, run, shot, tree, check, replay, help
           
           """
       )
@@ -304,7 +304,7 @@ struct HarnessCLITests {
         exitCode: 2,
         stdout: "",
         stderr: """
-          error: a command is required; accepted: apps, launch, run, shot, tree, help
+          error: a command is required; accepted: apps, launch, run, shot, tree, check, replay, help
           
           """
       )
@@ -324,7 +324,7 @@ struct HarnessCLITests {
         [0]: CommandOutput(
           exitCode: 0,
           stdout: """
-            OVERVIEW: List, launch, run, and picture the registered applications.
+            OVERVIEW: List, launch, run, picture, and check the registered applications.
             
             Every command exits 0 on success, 1 when an expectation failed, 2 on a usage or
             parse error, and 3 on a harness error. When standard output is not a terminal
@@ -349,6 +349,8 @@ struct HarnessCLITests {
               run                     Run scenario files, or directories of them.
               shot                    Print one application's screen as text.
               tree                    Print one application's node tree.
+              check                   Check one application against the invariant rules.
+              replay                  Run a recorded trace again against an application.
             
               See 'tessera help <subcommand>' for detailed help.
             
@@ -389,6 +391,11 @@ struct HarnessCLITests {
             
             Exits 2 for an unknown name, and 3 for a duplicate registration or when
             standard input or output is not a terminal.
+            
+            When the environment variable TESSERA_TRACE names a file, the session writes
+            its trace there, one JSON record per step, so `replay` can run it again. A file
+            that cannot be created is exit 3, before the terminal changes mode. The trace
+            is not promised to stay as it is.
             
             USAGE: tessera launch [--json] [--pretty] <name>
             
@@ -455,7 +462,7 @@ struct HarnessCLITests {
         [0]: CommandOutput(
           exitCode: 2,
           stdout: """
-            {"command":"help","exitCode":2,"message":"unknown command `ghost`; accepted: apps, launch, run, shot, tree, help"}
+            {"command":"help","exitCode":2,"message":"unknown command `ghost`; accepted: apps, launch, run, shot, tree, check, replay, help"}
             
             """,
           stderr: ""
@@ -464,7 +471,7 @@ struct HarnessCLITests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: unknown command `ghost`; accepted: apps, launch, run, shot, tree, help
+            error: unknown command `ghost`; accepted: apps, launch, run, shot, tree, check, replay, help
             
             """
         )
