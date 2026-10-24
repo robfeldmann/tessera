@@ -7,7 +7,7 @@
 
 Pages are built on every request from `docs/design/primitives/*.md` and `docs/design/widgets/*.md`
 (each `wireframe` fence is one entry; a styled grid that follows it colours it) and show
-empty "Current" and "Previous" slots until `.build/tessera-dev/` holds renders of the real
+empty "Current" and "Previous" slots until `.build/tessera/` holds renders of the real
 widgets. Choose a colour theme with `?theme=` (see DevTools/gallery/themes.json). A banner
 offers a reload when those files change on disk.
 
