@@ -240,7 +240,7 @@ struct HarnessCLIScenarioTests {
       CommandOutput(
         exitCode: 2,
         stdout: """
-          {"command":"run","exitCode":2,"message":"Missing expected argument '<path> ...'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] [--trace <dir> ...] <path> ..."}
+          {"command":"run","exitCode":2,"message":"Missing expected argument '<path> ...'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] [--trace <dir>] <path> ..."}
           
           """,
         stderr: ""
@@ -270,7 +270,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: Unknown option '--frobnicate'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] [--trace <dir> ...] <path> ...
+            error: Unknown option '--frobnicate'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] [--trace <dir>] <path> ...
             
             """
         ),
@@ -278,7 +278,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: Missing value for '--repeat <n>'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] [--trace <dir> ...] <path> ...
+            error: Missing value for '--repeat <n>'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] [--trace <dir>] <path> ...
             
             """
         ),
@@ -286,7 +286,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: `--repeat` needs a whole number of at least 1, got `0`; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] [--trace <dir> ...] <path> ...
+            error: `--repeat` needs a whole number of at least 1, got `0`; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] [--trace <dir>] <path> ...
             
             """
         ),
@@ -294,7 +294,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: The value 'many' is invalid for '--repeat <n>'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] [--trace <dir> ...] <path> ...
+            error: The value 'many' is invalid for '--repeat <n>'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] [--trace <dir>] <path> ...
             
             """
         ),
@@ -302,7 +302,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: `--repeat` is given twice; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] [--trace <dir> ...] <path> ...
+            error: `--repeat` is given twice; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] [--trace <dir>] <path> ...
             
             """
         ),
@@ -310,7 +310,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: `--repeat` is given twice; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] [--trace <dir> ...] <path> ...
+            error: `--repeat` is given twice; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] [--trace <dir>] <path> ...
             
             """
         ),
@@ -318,11 +318,116 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: `--trace` is given twice; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] [--trace <dir> ...] <path> ...
+            error: `--trace` is given twice; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] [--trace <dir>] <path> ...
             
             """
         )
       ]
+      """#
+    }
+  }
+
+  @Test
+  func `a single-value option given twice is an error however it is spelled`() async {
+    let equals = await run("run", "x.scn", "--repeat=2", "--repeat=3", "--pretty")
+    let mixed = await run("run", "x.scn", "--repeat=2", "--repeat", "3", "--pretty")
+    let leading = await run("--pretty", "run", "x.scn", "--repeat", "2", "--repeat=3")
+    let json = await run("run", "x.scn", "--repeat", "2", "--repeat", "3")
+
+    assertInlineSnapshot(of: [equals, mixed, leading, json], as: .customDump) {
+      #"""
+      [
+        [0]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: `--repeat` is given twice; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] [--trace <dir>] <path> ...
+            
+            """
+        ),
+        [1]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: `--repeat` is given twice; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] [--trace <dir>] <path> ...
+            
+            """
+        ),
+        [2]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: `--repeat` is given twice; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] [--trace <dir>] <path> ...
+            
+            """
+        ),
+        [3]: CommandOutput(
+          exitCode: 2,
+          stdout: """
+            {"command":"run","exitCode":2,"message":"`--repeat` is given twice; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] [--trace <dir>] <path> ..."}
+            
+            """,
+          stderr: ""
+        )
+      ]
+      """#
+    }
+  }
+
+  @Test
+  func `--trace and --app given twice are errors, spelled either way`() async {
+    let trace = await run("run", "x.scn", "--trace=a", "--trace", "b", "--pretty")
+    let app = await run(
+      "replay", "t.jsonl", "--app=stack", "--app", "counter", "--pretty")
+    let afterSeparator = await run("run", "--pretty", "--", "--trace", "--trace")
+
+    assertInlineSnapshot(of: [trace, app], as: .customDump) {
+      #"""
+      [
+        [0]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: `--trace` is given twice; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] [--trace <dir>] <path> ...
+            
+            """
+        ),
+        [1]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: `--app` is given twice; usage: tessera replay [--json] [--pretty] <file> --app <name>
+            
+            """
+        )
+      ]
+      """#
+    }
+    #expect(!(afterSeparator.stdout + afterSeparator.stderr).contains("given twice"))
+  }
+
+  @Test
+  func `after the separator a repeated option name is a path, not an option`() async {
+    let output = await run("run", "--pretty", "--", "--repeat", "--repeat")
+
+    #expect(output.exitCode == 2)
+    #expect(!(output.stdout + output.stderr).contains("given twice"))
+  }
+
+  @Test
+  func `usage shows a single-value option once, with its value and no ellipsis`() async {
+    let output = await run("run", "x.scn", "--nope", "--pretty")
+
+    assertInlineSnapshot(of: output, as: .customDump) {
+      #"""
+      CommandOutput(
+        exitCode: 2,
+        stdout: "",
+        stderr: """
+          error: Unknown option '--nope'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] [--trace <dir>] <path> ...
+          
+          """
+      )
       """#
     }
   }
@@ -339,7 +444,7 @@ struct HarnessCLIScenarioTests {
         exitCode: 2,
         stdout: "",
         stderr: """
-          error: The value 'x.scn' is invalid for '--repeat <n>'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] [--trace <dir> ...] <path> ...
+          error: The value 'x.scn' is invalid for '--repeat <n>'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] [--trace <dir>] <path> ...
           
           """
       )
@@ -780,7 +885,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: `--trace` needs a value that is not empty; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] [--trace <dir> ...] <path> ...
+            error: `--trace` needs a value that is not empty; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] [--trace <dir>] <path> ...
             
             """
         ),
@@ -788,7 +893,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: an empty argument is not a path or an application name; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] [--trace <dir> ...] <path> ...
+            error: an empty argument is not a path or an application name; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] [--trace <dir>] <path> ...
             
             """
         ),
@@ -796,7 +901,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: an empty argument is not a path or an application name; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] [--trace <dir> ...] <path> ...
+            error: an empty argument is not a path or an application name; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] [--trace <dir>] <path> ...
             
             """
         ),
@@ -828,7 +933,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: an empty argument is not a path or an application name; usage: tessera replay [--json] [--pretty] <file> --app <name> ...
+            error: an empty argument is not a path or an application name; usage: tessera replay [--json] [--pretty] <file> --app <name>
             
             """
         ),
@@ -836,14 +941,14 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: `--app` needs a value that is not empty; usage: tessera replay [--json] [--pretty] <file> --app <name> ...
+            error: `--app` needs a value that is not empty; usage: tessera replay [--json] [--pretty] <file> --app <name>
             
             """
         ),
         [8]: CommandOutput(
           exitCode: 2,
           stdout: """
-            {"command":"run","exitCode":2,"message":"`--trace` needs a value that is not empty; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] [--trace <dir> ...] <path> ..."}
+            {"command":"run","exitCode":2,"message":"`--trace` needs a value that is not empty; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] [--trace <dir>] <path> ..."}
             
             """,
           stderr: ""
@@ -1076,7 +1181,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: Missing expected argument '<file>'; usage: tessera replay [--json] [--pretty] <file> --app <name> ...
+            error: Missing expected argument '<file>'; usage: tessera replay [--json] [--pretty] <file> --app <name>
             
             """
         ),
@@ -1084,7 +1189,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: Missing expected argument '--app <name> ...'; usage: tessera replay [--json] [--pretty] <file> --app <name> ...
+            error: Missing expected argument '--app <name>'; usage: tessera replay [--json] [--pretty] <file> --app <name>
             
             """
         ),
@@ -1125,7 +1230,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: `--app` is given twice; usage: tessera replay [--json] [--pretty] <file> --app <name> ...
+            error: `--app` is given twice; usage: tessera replay [--json] [--pretty] <file> --app <name>
             
             """
         )

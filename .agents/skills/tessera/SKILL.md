@@ -114,7 +114,7 @@ The factory closure runs on the main actor once per run, so every run starts fro
 
 Every command takes `--json` or `--pretty` to force the JSON object or the text form. Standard output is one JSON object when it is not a terminal, and text when it is. `apps` prints `{"apps": [{"minimum", "name", "viewports"}], "command": "apps"}`, sorted by name, where `minimum` is `null` for an app that declares none. A failed command prints `{"command", "exitCode", "message"}`.
 
-Exit codes: 0 success, 1 an expectation or check failed, 2 a usage or parse error (an unknown command, app name, or flag, a missing or extra argument, `--json` with `--pretty`, a bad path, a scenario that does not parse, a trace that is not one; the message lists the accepted commands or app names, or the command's usage), 3 a harness error (a name registered twice, `launch` without a terminal, a golden that cannot be written). `--json` and `--pretty` go after the command or before it.
+Exit codes: 0 success, 1 an expectation or check failed, 2 a usage or parse error (an unknown command, app name, or flag, a missing or extra argument, a flag that takes a value given twice, `--json` with `--pretty`, a bad path, a scenario that does not parse, a trace that is not one; the message lists the accepted commands or app names, or the command's usage), 3 a harness error (a name registered twice, `launch` without a terminal, a golden that cannot be written). `--json` and `--pretty` go after the command or before it.
 
 ## Complete commands and app names
 

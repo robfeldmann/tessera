@@ -59,16 +59,6 @@ extension HarnessCLI {
 private let emptyArgumentMessage =
   "an empty argument is not a path or an application name"
 
-/// Refuses a flag given more than once, as the command line always has.
-///
-/// ArgumentParser takes the last value of a repeated option, so an option that must be given
-/// at most once is declared as an array and checked here.
-private func refuseRepeats(of flag: String, given count: Int) throws {
-  guard count <= 1 else {
-    throw ValidationError("`\(flag)` is given twice")
-  }
-}
-
 /// `NAME [SIZE]`, the arguments `shot`, `tree`, and `check` take.
 struct PictureArguments: ParsableArguments {
   @Argument(
@@ -134,6 +124,8 @@ struct RunCommand: HarnessCommand {
       are added, never removed or renamed.
       """)
 
+  static let singleValueOptions = ["--repeat", "--trace"]
+
   @OptionGroup var output: OutputOptions
 
   @Flag(
@@ -149,7 +141,7 @@ struct RunCommand: HarnessCommand {
     help: ArgumentHelp(
       "Run each scenario N times, and fail a run whose report differs from the first.",
       valueName: "n"))
-  var repeatValues: [Int] = []
+  var repetitions = 1
 
   @Flag(
     help: """
@@ -168,26 +160,14 @@ struct RunCommand: HarnessCommand {
       is not promised to stay as it is.
       """,
       valueName: "dir"))
-  var traceValues: [String] = []
+  var trace: String?
 
   @Argument(
     help: ArgumentHelp("A .scn file, or a directory of them.", valueName: "path"),
     completion: .file(extensions: ["scn"]))
   var paths: [String]
 
-  /// The number of times to run each scenario: the one `--repeat` value, or 1.
-  private var repetitions: Int {
-    repeatValues.first ?? 1
-  }
-
-  /// The directory to write traces under: the one `--trace` value, if any.
-  private var trace: String? {
-    traceValues.first
-  }
-
   func validate() throws {
-    try refuseRepeats(of: "--repeat", given: repeatValues.count)
-    try refuseRepeats(of: "--trace", given: traceValues.count)
     guard repetitions >= 1 else {
       throw ValidationError(
         "`--repeat` needs a whole number of at least 1, got `\(repetitions)`")
@@ -396,6 +376,8 @@ struct ReplayCommand: HarnessCommand {
       "scenarios": [REPORT]}, whose observation holds the final screen.
       """)
 
+  static let singleValueOptions = ["--app"]
+
   @OptionGroup var output: OutputOptions
 
   @Argument(help: ArgumentHelp("The trace to run again.", valueName: "file"))
@@ -406,15 +388,9 @@ struct ReplayCommand: HarnessCommand {
     help: ArgumentHelp(
       "The application to replay it against, as `apps` lists it.", valueName: "name"),
     completion: HarnessCLI.appNameCompletion)
-  var appValues: [String]
-
-  /// The application to replay against: the one `--app` value.
-  private var app: String {
-    appValues.first ?? ""
-  }
+  var app: String
 
   func validate() throws {
-    try refuseRepeats(of: "--app", given: appValues.count)
     guard !file.isEmpty else {
       throw ValidationError(emptyArgumentMessage)
     }

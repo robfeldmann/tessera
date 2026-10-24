@@ -459,6 +459,28 @@ struct HarnessCLITests {
     #expect(output.stdout.contains("USAGE: mytool launch"))
   }
 
+  @Test(arguments: HarnessCLI.commandNames.filter { $0 != "help" })
+  func `a command lists every option it declares as a single-value option`(
+    name: String
+  ) throws {
+    let command = try #require(HarnessCLI.commands.first { $0._commandName == name })
+    let dump = try #require(
+      JSONSerialization.jsonObject(with: Data(HarnessCLI.Root._dumpHelp().utf8))
+        as? [String: Any])
+    let root = try #require(dump["command"] as? [String: Any])
+    let subcommands = try #require(root["subcommands"] as? [[String: Any]])
+    let entry = try #require(subcommands.first { $0["commandName"] as? String == name })
+    let arguments = try #require(entry["arguments"] as? [[String: Any]])
+    let options = arguments.filter { $0["kind"] as? String == "option" }
+
+    // An array option would repeat, and its usage would say so.
+    #expect(options.allSatisfy { $0["isRepeating"] as? Bool == false })
+    let spelled = options.compactMap {
+      ($0["preferredName"] as? [String: Any])?["name"] as? String
+    }.map { "--\($0)" }
+    expectNoDifference(Set(spelled), Set(command.singleValueOptions))
+  }
+
   @Test
   func `help and its errors name no repository path and promise no later work`() async {
     var texts = [await run("help").stdout]

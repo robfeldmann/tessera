@@ -135,6 +135,12 @@ extension HarnessCLI {
         return unknown
       }
 
+      // ArgumentParser keeps the last of a repeated option, so a single-value option given
+      // twice is a usage error found here, before it parses.
+      if let repeated = repeatedOption(in: arguments, json: asJSON) {
+        return repeated
+      }
+
       let parsed: any ParsableCommand
       do {
         parsed = try Root.parseAsRoot(arguments)
@@ -250,15 +256,71 @@ extension HarnessCLI {
     }
     // The message says what was wrong, on one line so the JSON form reads; the usage says
     // what is accepted where it was.
-    let command = commands.first {
-      $0._commandName == withoutOutputFlags(arguments).first
-    }
     let message = Root.message(for: error)
       .split(whereSeparator: \.isNewline)
       .map { $0.trimmingCharacters(in: .whitespaces) }
       .joined(separator: " ")
+    return usageFailure(
+      message, command: commandBeingRun(in: arguments)?.type, json: json)
+  }
+
+  /// The usage error for `message`, ending with the usage of `command`, or of the whole
+  /// command line when it names none.
+  private static func usageFailure(
+    _ message: String, command: (any HarnessCommand.Type)?, json: Bool
+  ) -> CommandOutput {
     let synopsis = command.map { Root.usageString(for: $0) } ?? Root.usageString()
     return usage(
       "\(message); usage: \(synopsis)", command: command?._commandName, json: json)
+  }
+
+  /// The command the arguments run and where its name stands: the first word that is not an
+  /// output flag, when it names a command.
+  private static func commandBeingRun(in arguments: [String])
+    -> (index: Int, type: any HarnessCommand.Type)?
+  {
+    guard let index = arguments.firstIndex(where: { !OutputForm.spellings.contains($0) }),
+      let type = commands.first(where: { $0._commandName == arguments[index] })
+    else {
+      return nil
+    }
+    return (index, type)
+  }
+
+  /// The usage error for a single-value option given more than once, when the arguments hold
+  /// one.
+  ///
+  /// ArgumentParser keeps the last value of a repeated option. Declaring the option as an
+  /// array would make it reject a second one, but its usage would then read `--repeat <n>
+  /// ...`, which tells a reader the option may repeat. So each command lists its
+  /// single-value options, and the raw arguments are checked before parsing: `--option value`
+  /// and `--option=value`, up to a `--`.
+  private static func repeatedOption(in arguments: [String], json: Bool) -> CommandOutput?
+  {
+    guard let (index, command) = commandBeingRun(in: arguments),
+      !command.singleValueOptions.isEmpty
+    else {
+      return nil
+    }
+    let options = command.singleValueOptions
+    var seen: Set<String> = []
+    var position = index + 1
+    while position < arguments.count, arguments[position] != "--" {
+      let argument = arguments[position]
+      guard
+        let option = options.first(where: {
+          argument == $0 || argument.hasPrefix("\($0)=")
+        })
+      else {
+        position += 1
+        continue
+      }
+      guard seen.insert(option).inserted else {
+        return usageFailure("`\(option)` is given twice", command: command, json: json)
+      }
+      // `--option value` also consumes its value.
+      position += argument == option ? 2 : 1
+    }
+    return nil
   }
 }
