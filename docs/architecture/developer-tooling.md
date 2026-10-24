@@ -5,7 +5,7 @@ description: What Tessera's developer tools are, how they fit together, and the 
 
 # Developer tooling
 
-This page describes Tessera's developer tools: what each one is, how they fit together, and the rules they follow. They serve two audiences: contributors building Tessera, and authors of apps built on Tessera, who drive and check their own apps with the same harness, scenarios, and checks. Each tool's status in [The tools](#the-tools) says whether it exists yet or is only designed. The how-to for using them is the `tessera-devtools` skill (and, later, a user guide); this page is the design they implement.
+This page describes Tessera's developer tools: what each one is, how they fit together, and the rules they follow. They serve two audiences: contributors building Tessera, and authors of apps built on Tessera, who drive and check their own apps with the same harness, scenarios, and checks. Each tool's status in [The tools](#the-tools) says whether it exists yet or is only designed. The how-to for using them is the `tessera` skill for app authors and `tessera-contributing` for contributors (and, later, a user guide); this page is the design they implement.
 
 ## Why the tools exist
 
@@ -50,11 +50,11 @@ Read the diagram as one scenario run. `tessera run` and `swift test` are two way
 
 | Tool | Who uses it | Where it lives | Status |
 | --- | --- | --- | --- |
-| Demos and the registry | both | demos in `Examples/Sources/DemoSupport`, `ApplicationRegistry` in `TesseraHarness` | designed |
+| Demos and the registry | both | demos in `Examples/Sources/DemoSupport`, `ApplicationRegistry` in `TesseraHarness` | built; one demo so far, the counter |
 | The app contract (`Application`) | both | `TesseraRuntime`, re-exported by `Tessera` | built |
-| Headless driver (`Driver`) | both | `TesseraHarness` | designed; the spike's driver is ported as `package` code |
-| Scenario language and runner | both | grammar in `Examples/Scenarios/README.md`, runner in `TesseraHarness` | designed; the spike's v0 parser, runner, and report are ported as `package` code |
-| `tessera` CLI and `mise run dev:*` | agents first | `Examples/Sources/TesseraDev`, `mise-tasks/dev/` | designed |
+| Headless driver (`Driver`) | both | `TesseraHarness` | built: one `Driver` under a headless host, a live host, and a per-test actor host, all internal to `TesseraHarness` (tests reach them with `@testable import`) |
+| Scenario language and runner | both | grammar in `Examples/Scenarios/README.md`, runner in `TesseraHarness` | designed; the spike's v0 parser, runner, and report are ported as `package` code and run over the registry |
+| `tessera` CLI and `mise run dev:*` | agents first | `Examples/Sources/TesseraDev`, `HarnessCLI` in `TesseraHarness`, `mise-tasks/dev/` | `apps`, `launch`, and `help` built; the other commands designed |
 | Projection and locators | agents first | `TesseraHarness` | designed |
 | Invariant checks (`check`) | both | `TesseraHarness` | designed |
 | Shots (text, grid, SVG) | both | goldens beside the scenario; pictures in `.build/tessera/` | designed |
@@ -64,7 +64,8 @@ Read the diagram as one scenario run. `tessera run` and `swift test` are two way
 | Pointer verbs and hit query | both | scenario `mouse`, `hit` | designed |
 | Schedulable clock | both | environment `Clock` plus scenario `wait`, `settle` | designed |
 | Live inspection socket | agents | `TESSERA_DEBUG_SOCKET`, `tessera attach` | designed |
-| `tessera-devtools` skill | agents | `.agents/skills/tessera-devtools/` | designed |
+| `tessera` skill | agents of app authors | `.agents/skills/tessera/` | built; covers each tool built above |
+| `tessera-contributing` skill | agents of contributors | `.agents/skills/tessera-contributing/` | built; covers the `mise` tasks and the demos, over the `tessera` skill |
 
 ### Demos
 
@@ -79,6 +80,8 @@ A demo has a registry name (kebab-case), a minimum size from its catalog doc, an
 
 The registry (`ApplicationRegistry`) is the one place apps, Tessera's demos among them, are selected; it fails closed on a duplicate name, and its factories are main-actor closures. `tessera launch NAME` runs an app live in your terminal; the same demo renders identically headless, so its renders are snapshot fixtures, and its snapshot test is a few lines. An intro app composes the per-component demos with navigation only; it adds no component behaviour. "Demo" is Tessera's word for its own per-component example apps; the CLI and the scenario header say `app`.
 
+Built today: `Demo` in `Examples/Sources/DemoSupport` is an `Application` that also declares its registry name, minimum size, viewports, and fixtures (further registrations of the same demo), none of them defaulted, and `Demos.registry()` registers every demo and fixture into one `ApplicationRegistry`. A demo quits on `q`, matched by `isQuitKey`, which compares the key's code, modifiers, and kind and never `Key` equality, so an enriched Kitty key still quits and a release or a repeat does not. The first demo is the counter. Registering a name twice is not an error where it is written; it makes every read of the registry fail (exit 3 from a command, a failing report from a scenario), so a later registration never replaces an earlier one. A demo's snapshot test is a few lines in `Examples/Tests/DemoSupportTests`: it opens the demo headless at a viewport, sends keys, and asserts rows of the screen.
+
 ### The headless driver
 
 `TesseraHarness` is a library in the root package, beside `TesseraTestSupport`. It lives there because it needs `package` seams that a separate package cannot see (`InMemoryTerminalDevice.deliverResize`, `TerminalSession.lastDrawn`, the output tap). App authors import it from their test and dev targets to drive and check their own apps, so its public names are chosen for them and are the ones [Stability](#stability) promises; libghostty-vt reaches apps as a prebuilt binary (see [libghostty-vt distribution](libghostty-vt-distribution.md)).
@@ -86,6 +89,8 @@ The registry (`ApplicationRegistry`) is the one place apps, Tessera's demos amon
 The harness drives anything that adopts `Application`, declared in `TesseraRuntime` and re-exported by `Tessera`: a reference type that owns its model, whose `body` is the root view (it reads the model and hands out `Binding`s so controlled controls can write back), whose `apply(_:)` receives each event the view graph left `.ignored` and every resize, and whose `isFinished` tells the host to stop. Every requirement uses only `Tessera` types, so an app written against `Tessera` alone conforms where the type is declared, or with `extension MyApp: Application {}` in a test or dev target when production code must stay free of the contract. The contract carries no isolation: the harness steps apps on the main actor, so an app whose model is main-actor isolated declares a main-actor isolated conformance (`: @MainActor Application`), and a nonisolated app runs on any host; a mismatch is a compile error, not a runtime trap. `ApplicationRegistry` names each app and holds a main-actor factory that the harness opens once per run, so each run starts fresh and a fixture is one more registration. `Demo` is `Application` plus the registry name, minimum size, and viewports; an app that adopts `Application` gets the same driver, scenarios, and checks as Tessera's own demos. The harness has no quit key: quitting is the app's `isFinished`. An app that runs its own event loop directly over `TerminalSession` keeps it in production, and that loop must match the canonical step below until the app adopts the Phase 5 runtime, which hosts the same protocol.
 
 `Driver` is a `@MainActor` shell over one nonisolated step that takes the host's isolation as an `isolated any Actor` parameter; the Phase 5 runtime is a second shell over the same step. `Driver.step(event)` runs the canonical step per input: resize the graph if the event is a resize, then `graph.dispatch`, then the app applies the event if the graph left it `.ignored` (a resize always reaches the app, because it is never routed), then `graph.update()`; then `TerminalSession.draw` runs its body in the driver's isolation and commits the frame into one persistent virtual terminal. The live runner is the same `Driver` over the real terminal device, so live and headless cannot drift; and because headless runs take the live drawing path, the session's colour, underline, and hyperlink policy and its differential rendering are exercised, not bypassed. The step is synchronous: when it returns, `apply` has run, the graph is updated, and the screen is rendered, so a scenario statement is one step and nothing sleeps. The full contract is the spec's [Runtime isolation](../spec/phase-5-runtime-and-polish.md#runtime-isolation) section.
+
+Built today: the driver delivers its starting size to the app as a `.resize` through the same step, before the first frame, because an app has no other way to learn the size it starts at. The headless host runs a session over a device of the harness's own (`HeadlessTerminalDevice`) and feeds every frame from the session's output tap to one persistent Ghostty virtual terminal; the harness does not use `InMemoryTerminalDevice` because that device lives in a module that links the snapshot-testing library, and an executable that links it cannot launch. The live host opens the real terminal and hands the session's scope a main-actor function value, so the app's conformance never leaves the main actor. Tessera's nonisolated demos can also be stepped on a per-test actor, which keeps parallel suites parallel. `mobile` is 40 columns at the height the app's content needs, which the harness measures with a package-level nil-height proposal on `ViewGraph` and confirms by measuring at two tall heights: an app whose root grows with the proposal has no natural height, and `size mobile` fails naming `mobileScreen`. Isolation is pinned by two compile-fail fixtures, each with a positive control, that `mise run quality:architecture` runs: an actor host given a main-actor app, and a default-main-actor type adopted from another module without `@MainActor` on the conformance.
 
 ### Scenarios
 
@@ -170,6 +175,12 @@ The driver writes one JSONL record per step: sequence number, event, the pass's 
 
 Exit codes: 0 pass, 1 an expectation or check failed, 2 a usage or parse error, 3 a harness error. When stdout is not a terminal, each command writes one JSON object to stdout; `help COMMAND` prints real text. `mise run dev:run`, `dev:shot`, and the rest mirror the commands. CI runs `swift test --package-path Examples` and `tessera run Examples/Scenarios` on macOS, Linux, and Windows; goldens are checked out with LF line endings everywhere, so a Windows checkout cannot drift them.
 
+Built today: `apps`, `launch NAME`, and `help [COMMAND]`, with `--json` and `--pretty` forcing either form of `apps`. `apps` prints a name, minimum, and viewports table on a terminal, and otherwise one sorted-key JSON object, `{"apps": [{"minimum", "name", "viewports"}], "command": "apps"}`, where `minimum` is `null` for an app that declares none. `launch` refuses to start unless standard input and output are both terminals (exit 3, before the terminal changes mode), because it opens a live session; an unknown name is a usage error (exit 2) that lists the registered names. `HarnessCLI.main(registry:)` is the entry point an app author's executable calls; `Examples/Sources/TesseraDev` is Tessera's, over `Demos.registry()`, and its product is named `tessera` while its module is `TesseraDev`, so the executable and the `Tessera` library share no artifact name on a case-insensitive file system.
+
+The commands and flags are declared with [swift-argument-parser](https://github.com/apple/swift-argument-parser), and only `TesseraHarness` depends on it (`scripts/check-package-boundaries.py` allowlists the one product), so the library, the runtime, and the terminal targets stay free of it. ArgumentParser parses the arguments and writes the help; `HarnessCLI` keeps the promises it would not: a usage error exits 2 where ArgumentParser exits 64, and the JSON or text form is read from the raw `--json` and `--pretty` before parsing, so a parse that fails is still reported in the form the caller asked for. A usage error says what is accepted where it happened: the commands for an unknown command, the app names for an unknown app, and the command's usage for a bad flag or argument. The executable prints a completion script for fish, zsh, and bash with `--generate-completion-script SHELL`, and `launch` completes the registered names by asking the executable at completion time, so no list can fall out of date. `HarnessCLI.main(registry:)` stays the only entry point, and no command depends on how the executable was found, so a prebuilt front end or a SwiftPM plugin can forward to an app's executable unchanged.
+
+Each `dev:*` task takes its app name as an optional argument. Run without one, it prints the command's help and the registered apps, where mise would report a missing argument. At a terminal that is the answer and the task exits 0; in a pipe or a script nothing ran, so the task exits 2, as `tessera` does, and an unset variable cannot pass for success. A `dev:*` task builds `tessera` once, quietly, and runs the binary it built, so a build that succeeds prints nothing and one that fails still prints its errors. `mise run dev:launch <Tab>` completes the app names, from the `Examples/.build/debug/tessera` an earlier run built; completion never builds, so it offers nothing until there is one.
+
 ### Stability
 
 Tessera 1.0 promises a small surface to app authors and their CI, and leaves everything else free to change. The public Swift names are `Application` (in `TesseraRuntime`, re-exported by `Tessera`) and, in `TesseraHarness`, `ApplicationRegistry`, `Viewport`, `HarnessCLI` (`main(registry:)`), `ScenarioRunner`, `ScenarioReport`, and `ScenarioFailure`. Everything else in the harness is `package` or internal, and there is no public stepping API: app authors drive an app through scenarios, run from `swift test` by `ScenarioRunner` or from their dev executable by `HarnessCLI`. Within a major version these stay as they are:
@@ -195,14 +206,16 @@ The gallery (`DevTools/gallery/`, served by `scripts/gallery-serve.py`) shows ea
 
 ## The development loop
 
-The loop the `tessera-devtools` skill teaches, for humans and agents alike:
+The loop the `tessera` skill teaches app authors, for humans and agents alike:
 
-1. `tessera launch NAME` to see the component.
-2. `tessera run Examples/Scenarios/NAME.scenario` and read the report (or its JSON).
+1. `tessera launch NAME` to see the app.
+2. `tessera run PATH` on the app's scenario, and read the report (or its JSON).
 3. `shot` to picture the failing state, `tree` to see the nodes and frames.
 4. Read the trace to learn why a redraw or a focus move happened.
 5. `check` to find the broken invariant.
-6. Fix the library, never the demo, and rerun.
+6. Fix the app and rerun; when the fault is Tessera's, report a Tessera bug and do not work around it.
+
+The `tessera-contributing` skill runs the same loop over Tessera's own demos: through `mise run dev:*`, on a scenario from `Examples/Scenarios`, and with step 6 as fix the library, add a regression test, and never bend the demo.
 
 ## Open questions
 
@@ -210,7 +223,7 @@ The loop the `tessera-devtools` skill teaches, for humans and agents alike:
 
 ## Keeping this page current
 
-This page is the index for the tools. A change that adds or changes a tool updates the matching section here, and the `tessera-devtools` skill, in the same change: what the tool is now, what it does not do yet, and its status in [The tools](#the-tools). When a tool grows past a section, its detail moves to its own page under `docs/architecture/developer-tooling/`, and this page keeps a summary and a link. How-tos belong in the skill and the user guide, not here.
+This page is the index for the tools. A change that adds or changes a tool updates the matching section here and the skills, in the same change: the `tessera` skill first, as an app author sees the tool, then `tessera-contributing` for what only a contributor has. The page says what the tool is now, what it does not do yet, and its status in [The tools](#the-tools); the skills describe only what exists. When a tool grows past a section, its detail moves to its own page under `docs/architecture/developer-tooling/`, and this page keeps a summary and a link. How-tos belong in the skill and the user guide, not here.
 
 ## Affected plans
 

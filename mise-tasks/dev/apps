@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+#MISE description="List the applications the tessera CLI can launch (tessera apps)"
+#USAGE flag "--json" help="Print one JSON object even on a terminal"
+#USAGE flag "--pretty" help="Print the text table even when output is not a terminal"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+source scripts/dev-tessera.sh
+args=()
+if [[ "${usage_json:-}" == "true" ]]; then
+  args+=(--json)
+fi
+if [[ "${usage_pretty:-}" == "true" ]]; then
+  args+=(--pretty)
+fi
+tessera apps ${args[@]+"${args[@]}"}

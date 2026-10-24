@@ -164,6 +164,27 @@ extension ViewGraph {
     lines.append("requirements requested=\(requirements) effective=unavailable")
     return lines.joined(separator: "\n")
   }
+
+  /// Measures the root under `proposal` without placing or drawing it.
+  ///
+  /// A layout pass always proposes the whole viewport, so no pass can ask a view for its
+  /// natural extent. A `nil` dimension in `proposal` does: a stack answers with its content,
+  /// and a view that fills whatever it is offered (a scrolling viewport, a spacer) answers
+  /// with its content or its minimum instead of the viewport. Proposing two different
+  /// heights and comparing the answers tells a view that fills its proposal from one that
+  /// does not.
+  ///
+  /// The measurement leaves the statistics as they were and invalidates layout, so the next
+  /// pass measures every node again from scratch.
+  package func measuredRootSize(proposing proposal: ProposedSize) -> TerminalSize {
+    let recorded = statistics
+    layoutMeasurements.removeAll(keepingCapacity: true)
+    let measured = measure(rootNode, proposal: proposal)
+    layoutMeasurements.removeAll(keepingCapacity: true)
+    statistics = recorded
+    markSubtreeNeedsLayout(rootNode)
+    return measured
+  }
 }
 
 extension ViewGraph {

@@ -3,15 +3,20 @@ import Foundation
 import InlineSnapshotTesting
 import SnapshotTesting
 import SnapshotTestingCustomDump
+import TesseraCore
 import TesseraTerminalInput
 import Testing
 
 @testable import TesseraHarness
 
+private func parse(_ source: String, file: String = "t.scn") throws -> Scenario {
+  try ScenarioParser.parse(source, file: file, knownApps: Fixtures.names)
+}
+
 /// The text of the parse error `source` raises, in the `FILE:LINE: error: message` form.
 private func parseFailure(of source: String) -> String {
   do {
-    _ = try ScenarioParser.parse(source, file: "t.scn")
+    _ = try parse(source)
     Issue.record("`\(source)` parsed without an error")
   } catch let error as ScenarioParseError {
     return error.description
@@ -24,14 +29,13 @@ private func parseFailure(of source: String) -> String {
 struct ScenarioParserTests {
   @Test
   func `header statements bind before the first body statement`() throws {
-    let scenario = try ScenarioParser.parse(
+    let scenario = try parse(
       """
       # comment
       app stack
       size mobile
       type "hi there"  # trailing comment
-      """,
-      file: "t.scn"
+      """
     )
 
     assertInlineSnapshot(of: scenario, as: .customDump) {
@@ -47,6 +51,24 @@ struct ScenarioParserTests {
           )
         ]
       )
+      """
+    }
+  }
+
+  @Test
+  func `a scenario without an app header is a parse error naming the accepted apps`() {
+    assertInlineSnapshot(of: parseFailure(of: "size desktop\nkey Tab"), as: .lines) {
+      """
+      t.scn:1: error: a scenario names its app with an `app NAME` header; accepted: stack, workspace, greedy
+      """
+    }
+  }
+
+  @Test
+  func `an app the registry does not hold is a parse error`() {
+    assertInlineSnapshot(of: parseFailure(of: "app missing"), as: .lines) {
+      """
+      t.scn:1: error: unknown app `missing`; accepted: stack, workspace, greedy
       """
     }
   }
@@ -89,10 +111,7 @@ struct ScenarioParserTests {
 
   @Test
   func `chords and function keys parse into key events`() throws {
-    let scenario = try ScenarioParser.parse(
-      "key Shift+Tab\nkey Ctrl+C\nkey F5\nkey Ctrl++",
-      file: "t.scn"
-    )
+    let scenario = try parse("app stack\nkey Shift+Tab\nkey Ctrl+C\nkey F5\nkey Ctrl++")
 
     expectNoDifference(
       scenario.lines.map(\.statement),
@@ -107,9 +126,8 @@ struct ScenarioParserTests {
 
   @Test
   func `frame expectations accept one token or a two-token form`() throws {
-    let scenario = try ScenarioParser.parse(
-      "expect node id=root frame 1,2,3x4\nexpect node id=root frame 1,2 3x4",
-      file: "t.scn"
+    let scenario = try parse(
+      "app stack\nexpect node id=root frame 1,2,3x4\nexpect node id=root frame 1,2 3x4"
     )
 
     let expected = Statement.expectNode(
@@ -139,14 +157,17 @@ struct ScenarioParserTests {
   }
 }
 
+@MainActor
 struct ScenarioRunnerTests {
-  private func run(_ source: String) throws -> ScenarioReport {
-    ScenarioRunner.run(try ScenarioParser.parse(source, file: "t.scn"), name: "t.scn")
+  private func run(_ source: String) async throws -> ScenarioReport {
+    let scenario = try parse(source)
+    return await ScenarioRunner.run(
+      scenario, name: "t.scn", registry: Fixtures.registry())
   }
 
   @Test
-  func `a wrong row expectation reports expected actual and the screen`() throws {
-    let report = try run("app stack\nsize 40x10\nexpect text 0 \"Stack demos\"")
+  func `a wrong row expectation reports expected actual and the screen`() async throws {
+    let report = try await run("app stack\nsize 40x10\nexpect text 0 \"Stack demos\"")
 
     assertInlineSnapshot(of: report, as: .customDump) {
       """
@@ -178,8 +199,8 @@ struct ScenarioRunnerTests {
   }
 
   @Test
-  func `the run continues after a failed expectation`() throws {
-    let report = try run(
+  func `the run continues after a failed expectation`() async throws {
+    let report = try await run(
       """
       app stack
       size 40x10
@@ -220,8 +241,11 @@ struct ScenarioRunnerTests {
   }
 
   @Test
-  func `a locator that matches nothing is a failure that names the node types`() throws {
-    let report = try run("app stack\nsize 40x10\nexpect node type=Missing frame 0,0,1x1")
+  func `a locator that matches nothing is a failure that names the node types`()
+    async throws
+  {
+    let report = try await run(
+      "app stack\nsize 40x10\nexpect node type=Missing frame 0,0,1x1")
 
     assertInlineSnapshot(of: report.human(), as: .lines) {
       """
@@ -229,7 +253,7 @@ struct ScenarioRunnerTests {
         line 3: expect node type=Missing frame 0,0,1x1
           locator `type=Missing` matches no node
           expected: 0,0,1x1
-          actual:   (no node; types: VStack, Text, Divider, HStack, Spacer)
+          actual:   (no node; types: TupleView, VStack, Text, Divider, HStack, Spacer)
           screen:
             0| Stack demo
             1| ────────────────────────────────────────
@@ -242,8 +266,9 @@ struct ScenarioRunnerTests {
   }
 
   @Test
-  func `an ambiguous locator asks for nth`() throws {
-    let report = try run("app stack\nsize 40x10\nexpect node type=Text frame 0,0,1x1")
+  func `an ambiguous locator asks for nth`() async throws {
+    let report = try await run(
+      "app stack\nsize 40x10\nexpect node type=Text frame 0,0,1x1")
 
     assertInlineSnapshot(of: report.human(), as: .lines) {
       """
@@ -251,7 +276,7 @@ struct ScenarioRunnerTests {
         line 3: expect node type=Text frame 0,0,1x1
           locator `type=Text` matches 6 nodes; add nth=
           expected: 0,0,1x1
-          actual:   root/index(0), root/index(2)/index(0), root/index(2)/index(1), root/index(3)/index(0), root/index(3)/index(2), root/index(5)
+          actual:   root/index(0)/index(0), root/index(0)/index(2)/index(0), root/index(0)/index(2)/index(1), root/index(0)/index(3)/index(0), root/index(0)/index(3)/index(2), root/index(0)/index(5)
           screen:
             0| Stack demo
             1| ────────────────────────────────────────
@@ -264,16 +289,26 @@ struct ScenarioRunnerTests {
   }
 
   @Test
-  func `type feeds one key event per character into demo state`() throws {
-    let report = try run(
+  func `type feeds one key event per character into app state`() async throws {
+    let report = try await run(
       "app stack\nsize 40x10\ntype \"Rob\"\nkey Backspace\nexpect text 2 \"Name: Ro\"")
 
     expectNoDifference(report.failures, [])
   }
 
   @Test
-  func `mobile fails for a demo that fills its proposal`() throws {
-    let report = try run("app workspace\nsize mobile\nshot a")
+  func `mobile is 40 columns at the natural height of an app with one`() async throws {
+    let report = try await run(
+      "app stack\nsize mobile\nexpect node id=root frame 0,0,40x6")
+
+    expectNoDifference(report.failures, [])
+  }
+
+  @Test
+  func `mobile fails for an app that fills its proposal and names mobileScreen`()
+    async throws
+  {
+    let report = try await run("app greedy\nsize mobile\nshot a")
 
     assertInlineSnapshot(of: report, as: .customDump) {
       """
@@ -283,9 +318,9 @@ struct ScenarioRunnerTests {
         failures: [
           [0]: ScenarioFailure(
             line: 0,
-            statement: "app workspace",
+            statement: "app greedy",
             verb: "size",
-            message: "`workspace` fills a 500-row proposal, so it has no natural height; use `size mobileScreen` or an explicit WxH",
+            message: "`greedy` has no natural height: it measured 500 rows when offered 500 and 1000 when offered 1000. Use `size mobileScreen` (40x16) or an explicit WxH",
             expected: nil,
             actual: nil,
             screen: nil
@@ -298,35 +333,122 @@ struct ScenarioRunnerTests {
   }
 
   @Test
-  func `mobile natural height is the root's measured rows under a tall proposal`() {
-    let stack = DemoRegistry.naturalHeight(app: "stack", width: 40)
-    let workspace = DemoRegistry.naturalHeight(app: "workspace", width: 40)
+  func `mobile fails for the workspace, whose viewport and split fill any height`()
+    async throws
+  {
+    let report = try await run("app workspace\nsize mobile\nshot a")
 
-    #expect(stack?.rows == 6)
-    #expect(stack?.fillsProposal == false)
-    #expect(workspace?.fillsProposal == true)
+    assertInlineSnapshot(of: report, as: .customDump) {
+      """
+      ScenarioReport(
+        scenario: "t.scn",
+        passed: false,
+        failures: [
+          [0]: ScenarioFailure(
+            line: 0,
+            statement: "app workspace",
+            verb: "size",
+            message: "`workspace` has no natural height: it measured 500 rows when offered 500 and 1000 when offered 1000. Use `size mobileScreen` (40x16) or an explicit WxH",
+            expected: nil,
+            actual: nil,
+            screen: nil
+          )
+        ],
+        observations: []
+      )
+      """
+    }
+  }
+
+  @Test
+  func `mobileScreen runs a greedy app at 40x16`() async throws {
+    let report = try await run(
+      "app greedy\nsize mobileScreen\nexpect node id=root frame 0,0,40x16")
+
+    expectNoDifference(report.failures, [])
+  }
+
+  @Test
+  func `an app the registry lacks fails the run with the app verb`() async throws {
+    let scenario = Scenario(app: "ghost", viewport: .desktop, lines: [])
+
+    let report = await ScenarioRunner.run(
+      scenario, name: "t.scn", registry: Fixtures.registry())
+
+    assertInlineSnapshot(of: report, as: .customDump) {
+      """
+      ScenarioReport(
+        scenario: "t.scn",
+        passed: false,
+        failures: [
+          [0]: ScenarioFailure(
+            line: 0,
+            statement: "app ghost",
+            verb: "app",
+            message: "unknown app `ghost`; accepted: counter, greedy, main-actor-counter, observed-counter, stack, workspace",
+            expected: nil,
+            actual: nil,
+            screen: nil
+          )
+        ],
+        observations: []
+      )
+      """
+    }
+  }
+
+  @Test
+  func `natural height is the root's measured rows when no height is proposed`() {
+    let stack = NaturalHeight.measure(StackApp(), columns: 40)
+    let workspace = NaturalHeight.measure(WorkspaceApp(), columns: 40)
+    let greedy = NaturalHeight.measure(GreedyApp(), columns: 40)
+
+    assertInlineSnapshot(of: [stack, workspace, greedy], as: .customDump) {
+      """
+      [
+        [0]: NaturalHeight(
+          rows: 6,
+          shortRows: 6,
+          tallRows: 6
+        ),
+        [1]: NaturalHeight(
+          rows: 34,
+          shortRows: 500,
+          tallRows: 1000
+        ),
+        [2]: NaturalHeight(
+          rows: 2,
+          shortRows: 500,
+          tallRows: 1000
+        )
+      ]
+      """
+    }
   }
 }
 
+@MainActor
 struct ScenarioCorpusTests {
   private static let scenarios = URL(fileURLWithPath: #filePath)
     .deletingLastPathComponent()
     .appendingPathComponent("Scenarios")
 
-  private func report(for relativePath: String) throws -> ScenarioReport {
+  private func report(for relativePath: String) async throws -> ScenarioReport {
     let url = Self.scenarios.appendingPathComponent(relativePath)
     let source = try String(contentsOf: url, encoding: .utf8)
-    let scenario = try ScenarioParser.parse(source, file: relativePath)
-    return ScenarioRunner.run(scenario, name: relativePath)
+    let scenario = try parse(source, file: relativePath)
+    return await ScenarioRunner.run(
+      scenario, name: relativePath, registry: Fixtures.registry())
   }
 
   @Test(arguments: [
     "workspace-desktop.scn", "workspace-input.scn", "workspace-compact.scn",
     "stack-mobile.scn",
   ])
-  func `corpus scenarios pass and render identical bytes twice`(file: String) throws {
-    let first = try report(for: file)
-    let second = try report(for: file)
+  func `corpus scenarios pass and render identical bytes twice`(file: String) async throws
+  {
+    let first = try await report(for: file)
+    let second = try await report(for: file)
 
     expectNoDifference(first.failures, [])
     #expect(first.passed)
@@ -334,8 +456,8 @@ struct ScenarioCorpusTests {
   }
 
   @Test
-  func `the failing scenario fails four expectations`() throws {
-    let report = try report(for: "failing/mismatch.scn")
+  func `the failing scenario fails four expectations`() async throws {
+    let report = try await report(for: "failing/mismatch.scn")
 
     assertInlineSnapshot(of: report.human(), as: .lines) {
       """
@@ -376,7 +498,7 @@ struct ScenarioCorpusTests {
         line 10: expect node type=Missing frame 0,0,1x1
           locator `type=Missing` matches no node
           expected: 0,0,1x1
-          actual:   (no node; types: VStack, Text, Divider, HStack, Spacer)
+          actual:   (no node; types: TupleView, VStack, Text, Divider, HStack, Spacer)
           screen:
             0| Stack demo
             1| ────────────────────────────────────────

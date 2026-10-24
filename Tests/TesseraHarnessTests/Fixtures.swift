@@ -1,14 +1,14 @@
+import Observation
 import TesseraCore
 import TesseraLayout
+import TesseraRuntime
 import TesseraTerminalCore
 import TesseraTerminalInput
 import TesseraWidgets
 
-/// A responsive workspace: header, a split of a scrolling catalog and an inspector, a
-/// status line. All input state is demo-owned because `ViewGraph.dispatch` routes no input to views.
-package final class WorkspaceApp: DemoApp {
-  package static let name = "workspace"
+@testable import TesseraHarness
 
+final class WorkspaceApp: Application {
   private static let catalogRows = 30
   private static let catalogText = (0..<catalogRows).map { "Item \($0)" }.joined(
     separator: "\n")
@@ -35,7 +35,7 @@ package final class WorkspaceApp: DemoApp {
     return panes
   }
 
-  package var root: some View {
+  var body: some View {
     let visiblePanes = visiblePanes
     return VStack(spacing: 0) {
       Text("Workspace \(size.columns)x\(size.rows)")
@@ -64,9 +64,7 @@ package final class WorkspaceApp: DemoApp {
     }
   }
 
-  package init() {}
-
-  package func apply(_ event: InputEvent) {
+  func apply(_ event: InputEvent) {
     switch event {
     case .resize(let newSize):
       size = newSize
@@ -114,14 +112,12 @@ package final class WorkspaceApp: DemoApp {
 }
 
 /// Natural-height content only: no greedy children, so a tall proposal does not stretch
-/// the root. This is the shape `mobile` natural-height measurement targets.
-package final class StackApp: DemoApp {
-  package static let name = "stack"
-
+/// the root.
+final class StackApp: Application {
   private var size = TerminalSize(columns: 80, rows: 24)
   private var typed = ""
 
-  package var root: some View {
+  var body: some View {
     VStack(spacing: 0) {
       Text("Stack demo")
       Divider()
@@ -139,9 +135,7 @@ package final class StackApp: DemoApp {
     }
   }
 
-  package init() {}
-
-  package func apply(_ event: InputEvent) {
+  func apply(_ event: InputEvent) {
     switch event {
     case .resize(let newSize):
       size = newSize
@@ -157,5 +151,122 @@ package final class StackApp: DemoApp {
     default:
       break
     }
+  }
+}
+
+/// A root that grows to any height it is offered: a vertical spacer takes what the content
+/// leaves, so `size mobile` has no natural height to use.
+final class GreedyApp: Application {
+  var body: some View {
+    VStack(spacing: 0) {
+      Text("Greedy")
+      Spacer()
+      Text("footer")
+    }
+  }
+
+  func apply(_ event: InputEvent) {}
+}
+
+/// A view whose equal replacement lets reconciliation skip the whole subtree.
+private struct StillLabel: Equatable, View {
+  var body: some View {
+    Text("Still")
+  }
+}
+
+/// An app whose body never changes, so no step leaves the graph needing a render.
+///
+/// The body returns its root explicitly: a view builder would wrap it in a tuple view, which
+/// is not equatable and so is dirty after every update.
+final class StillApp: Application {
+  var body: some View {
+    let label = StillLabel()
+    return label.equatable()
+  }
+
+  func apply(_ event: InputEvent) {}
+}
+
+/// A nonisolated counter: it runs on the main actor and on a per-test actor alike.
+final class CounterApp: Application {
+  private(set) var count = 0
+  private(set) var finished = false
+
+  var isFinished: Bool {
+    finished
+  }
+
+  var body: some View {
+    Text("Count: \(count)")
+  }
+
+  func apply(_ event: InputEvent) {
+    guard case .key(let key) = event, key.modifiers.isEmpty else {
+      return
+    }
+    switch key.code {
+    case .character("+"): count += 1
+    case .character("q"): finished = true
+    default: break
+    }
+  }
+}
+
+/// A counter whose model is main-actor isolated: it declares an isolated conformance, so
+/// only a main-actor host can use it.
+@MainActor
+final class MainActorCounterApp: @MainActor Application {
+  private(set) var count = 0
+
+  var body: some View {
+    Text("Main-actor count: \(count)")
+  }
+
+  func apply(_ event: InputEvent) {
+    if case .key(let key) = event, key.code == .character("+") {
+      count += 1
+    }
+  }
+}
+
+/// An `@Observable` model with the contract declared where the type is declared.
+@Observable
+final class ObservedCounterApp: Application {
+  private(set) var count = 0
+
+  var body: some View {
+    Text("Observed count: \(count)")
+  }
+
+  func apply(_ event: InputEvent) {
+    if case .key(let key) = event, key.code == .character("+") {
+      count += 1
+    }
+  }
+}
+
+enum Fixtures {
+  static let names = ["stack", "workspace", "greedy"]
+
+  /// Every fixture app, registered once under the name the scenario corpus uses.
+  @MainActor
+  static func registry() -> ApplicationRegistry {
+    var registry = ApplicationRegistry()
+    registry.register("stack", viewports: [.desktop, .mobile]) { StackApp() }
+    registry.register("workspace", viewports: [.desktop, .mobileScreen]) {
+      WorkspaceApp()
+    }
+    registry.register("greedy", viewports: [.desktop, .mobileScreen]) { GreedyApp() }
+    registry.register(
+      "counter", minimum: TerminalSize(columns: 20, rows: 1), viewports: [.desktop]
+    ) {
+      CounterApp()
+    }
+    registry.register("main-actor-counter", viewports: [.desktop]) {
+      MainActorCounterApp()
+    }
+    registry.register("observed-counter", viewports: [.desktop]) { ObservedCounterApp() }
+    return registry
   }
 }

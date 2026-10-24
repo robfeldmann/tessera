@@ -2,38 +2,87 @@ import TesseraCore
 import TesseraTerminalCore
 import TesseraTerminalInput
 
-/// Executes a parsed scenario against a ``DemoRegistry`` app.
+/// Executes a parsed scenario against an application in an ``ApplicationRegistry``.
 ///
 /// A failing `expect` is recorded with the screen at that moment and the run continues.
+@MainActor
 package enum ScenarioRunner {
-  package static func run(_ scenario: Scenario, name: String) -> ScenarioReport {
-    execute(scenario, name: name).report
+  /// What a played scenario collected.
+  private final class Outcome {
+    var artifacts: [ShotArtifact] = []
+    var failures: [ScenarioFailure] = []
+    var observations: [ScenarioObservation] = []
+  }
+
+  package static func run(
+    _ scenario: Scenario,
+    name: String,
+    registry: ApplicationRegistry
+  ) async -> ScenarioReport {
+    await execute(scenario, name: name, registry: registry).report
   }
 
   static func execute(
     _ scenario: Scenario,
-    name: String
-  ) -> (report: ScenarioReport, artifacts: [ShotArtifact]) {
-    let host: any ScenarioHost
-    do {
-      host = try DemoRegistry.makeHost(app: scenario.app, viewport: scenario.viewport)
-    } catch {
+    name: String,
+    registry: ApplicationRegistry
+  ) async -> (report: ScenarioReport, artifacts: [ShotArtifact]) {
+    func setupFailure(
+      verb: String, message: String
+    ) -> (report: ScenarioReport, artifacts: [ShotArtifact]) {
       let report = ScenarioReport(
         scenario: name,
         passed: false,
         failures: [
           ScenarioFailure(
-            line: 0, statement: "app \(scenario.app)", verb: error.verb,
-            message: error.message)
+            line: 0, statement: "app \(scenario.app)", verb: verb, message: message)
         ],
         observations: []
       )
       return (report, [])
     }
 
+    let entry: ApplicationRegistry.Entry
+    do {
+      entry = try registry.entry(named: scenario.app)
+    } catch {
+      return setupFailure(verb: "app", message: error.description)
+    }
+
+    let outcome = Outcome()
+    do {
+      try await entry.headless(scenario.viewport) { host in
+        await play(scenario, on: host, into: outcome)
+      }
+    } catch let error as HostError {
+      return setupFailure(verb: error.verb, message: error.message)
+    } catch {
+      return setupFailure(verb: "harness", message: "\(error)")
+    }
+
+    let report = ScenarioReport(
+      scenario: name,
+      passed: outcome.failures.isEmpty,
+      failures: outcome.failures,
+      observations: outcome.observations
+    )
+    return (report, outcome.artifacts)
+  }
+
+  /// Plays every statement against `host`, stopping early only when the host fails.
+  private static func play(
+    _ scenario: Scenario,
+    on host: any ScenarioHost,
+    into outcome: Outcome
+  ) async {
     var artifacts: [ShotArtifact] = []
     var failures: [ScenarioFailure] = []
     var observations: [ScenarioObservation] = []
+    defer {
+      outcome.artifacts = artifacts
+      outcome.failures = failures
+      outcome.observations = observations
+    }
 
     for line in scenario.lines {
       func failure(
@@ -50,16 +99,32 @@ package enum ScenarioRunner {
         )
       }
 
+      func deliver(_ event: InputEvent) async -> Bool {
+        do {
+          try await host.send(event)
+          return true
+        } catch {
+          failures.append(failure("the host could not deliver the event: \(error)"))
+          return false
+        }
+      }
+
       switch line.statement {
       case .resize(let columns, let rows):
-        host.send(.resize(TerminalSize(columns: columns, rows: rows)))
+        guard await deliver(.resize(TerminalSize(columns: columns, rows: rows))) else {
+          return
+        }
 
       case .key(let key):
-        host.send(.key(key))
+        guard await deliver(.key(key)) else {
+          return
+        }
 
       case .type(let text):
         for character in text {
-          host.send(.key(Key(code: .character(character))))
+          guard await deliver(.key(Key(code: .character(character)))) else {
+            return
+          }
         }
 
       case .shot(let shotName):
@@ -130,14 +195,6 @@ package enum ScenarioRunner {
         }
       }
     }
-
-    let report = ScenarioReport(
-      scenario: name,
-      passed: failures.isEmpty,
-      failures: failures,
-      observations: observations
-    )
-    return (report, artifacts)
   }
 
   /// Rows with trailing empty rows dropped, so a 500-row probe stays readable.
