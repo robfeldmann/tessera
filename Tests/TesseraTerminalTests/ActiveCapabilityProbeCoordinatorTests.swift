@@ -393,6 +393,224 @@ func `cancelled probe discards partial evidence and a later reconcile retries`()
 }
 
 @Test
+func `a cancelled generation's DA1 does not end the retry's DECRQM round`() async throws {
+  let coordinator = ActiveCapabilityProbeCoordinator()
+  let (sleepStarted, sleepStartedSignal) = AsyncStream<Void>.makeStream()
+  let cancelledProbe = Task {
+    try await coordinator.reconcile(
+      privateModes: [2_004],
+      kittyImageID: KittyImageID(rawValue: 7),
+      colorScope: .all,
+      timeout: .seconds(60),
+      sleep: { _ in
+        sleepStartedSignal.yield()
+        try await suspendUntilCancelled()
+      },
+      emit: { _ in }
+    )
+  }
+  for await _ in sleepStarted {
+    break
+  }
+  cancelledProbe.cancel()
+  await #expect(throws: CancellationError.self) {
+    try await cancelledProbe.value
+  }
+
+  try await expectRetryAttributesEverySentinel(
+    coordinator,
+    abandonedReplies: [
+      .privateModeStatus(PrivateModeStatus(mode: 2_004, state: .set)),
+      .primaryDeviceAttributes([1, 2]),
+    ]
+  )
+}
+
+@Test
+func `a failed emit's DA1 does not end the retry's DECRQM round`() async throws {
+  struct EmitFailure: Error, Equatable {}
+  let coordinator = ActiveCapabilityProbeCoordinator()
+  await #expect(throws: EmitFailure()) {
+    try await coordinator.reconcile(
+      privateModes: [2_004],
+      kittyImageID: KittyImageID(rawValue: 7),
+      colorScope: .all,
+      timeout: .seconds(60),
+      sleep: { _ in
+        Issue.record("a failed emit should not reach a timeout")
+      },
+      emit: { _ in throw EmitFailure() }
+    )
+  }
+
+  try await expectRetryAttributesEverySentinel(
+    coordinator,
+    abandonedReplies: [
+      .privateModeStatus(PrivateModeStatus(mode: 2_004, state: .set)),
+      .primaryDeviceAttributes([1, 2]),
+    ]
+  )
+}
+
+@Test
+func `a cancelled color round's DA1 does not end the retry's DECRQM round`() async throws
+{
+  let coordinator = ActiveCapabilityProbeCoordinator()
+  let (sleepStarted, sleepStartedSignal) = AsyncStream<Void>.makeStream()
+  // The terminal answers every round but the color round, which stays in flight.
+  let cancelledProbe = Task {
+    try await coordinator.reconcile(
+      privateModes: [2_004],
+      kittyImageID: KittyImageID(rawValue: 7),
+      colorScope: .all,
+      timeout: .seconds(60),
+      sleep: { _ in
+        sleepStartedSignal.yield()
+        try await suspendUntilCancelled()
+      },
+      emit: { bytes in
+        if bytes != colorProbeBytes {
+          await coordinator.observe(.primaryDeviceAttributes([1, 2]))
+        }
+      }
+    )
+  }
+  for await _ in sleepStarted {
+    break
+  }
+  cancelledProbe.cancel()
+  await #expect(throws: CancellationError.self) {
+    try await cancelledProbe.value
+  }
+
+  try await expectRetryAttributesEverySentinel(
+    coordinator,
+    abandonedReplies: [.primaryDeviceAttributes([1, 2])]
+  )
+}
+
+@Test
+func `a failed color write's DA1 does not end the retry's DECRQM round`() async throws {
+  struct EmitFailure: Error, Equatable {}
+  let coordinator = ActiveCapabilityProbeCoordinator()
+  await #expect(throws: EmitFailure()) {
+    try await coordinator.reconcile(
+      privateModes: [2_004],
+      kittyImageID: KittyImageID(rawValue: 7),
+      colorScope: .all,
+      timeout: .seconds(60),
+      sleep: { _ in
+        Issue.record("a failed color write should not reach a timeout")
+      },
+      emit: { bytes in
+        guard bytes != colorProbeBytes else {
+          throw EmitFailure()
+        }
+        await coordinator.observe(.primaryDeviceAttributes([1, 2]))
+      }
+    )
+  }
+
+  try await expectRetryAttributesEverySentinel(
+    coordinator,
+    abandonedReplies: [.primaryDeviceAttributes([1, 2])]
+  )
+}
+
+@Test
+func `a timed-out round's late DA1 does not end the color round`() async throws {
+  let coordinator = ActiveCapabilityProbeCoordinator()
+  let sleepCalls = SleepCallCounter()
+  let (colorRoundWaiting, colorRoundWaitingSignal) = AsyncStream<Void>.makeStream()
+
+  // The DECRQM round times out, so its DA1 is still in flight when the color round writes,
+  // and a terminal that answers in order delivers it right behind that write. The color
+  // round must keep waiting: it ends only at its own DA1, which this task delivers once
+  // the round is waiting on its sleep. A round that took the stale DA1 would end at once
+  // and never reach the sleep.
+  let ownReply = Task {
+    for await _ in colorRoundWaiting {
+      await coordinator.observe(.primaryDeviceAttributes([1, 2]))
+      return
+    }
+  }
+  let evidence = try await coordinator.reconcile(
+    privateModes: [2_004],
+    kittyImageID: KittyImageID(rawValue: 7),
+    colorScope: .all,
+    timeout: .seconds(60),
+    sleep: { _ in
+      let call = await sleepCalls.record()
+      if call == 1 {
+        return
+      }
+      colorRoundWaitingSignal.yield()
+      try await suspendUntilCancelled()
+    },
+    emit: { bytes in
+      if bytes == colorProbeBytes {
+        await coordinator.observe(.primaryDeviceAttributes([1, 2]))
+      }
+    }
+  )
+  colorRoundWaitingSignal.finish()
+  await ownReply.value
+
+  let sleepCallCount = await sleepCalls.count
+  expectNoDifference(sleepCallCount, 2)
+  expectNoDifference(evidence, ActiveCapabilityProbeEvidence())
+}
+
+@Test
+func `a cancelled color re-run's DA1 does not end the next re-run`() async throws {
+  let coordinator = ActiveCapabilityProbeCoordinator()
+  try await resolveGenerationWithNothingInFlight(coordinator)
+
+  let (sleepStarted, sleepStartedSignal) = AsyncStream<Void>.makeStream()
+  let cancelledRerun = Task {
+    try await coordinator.rerunColorRound(
+      scope: .all,
+      timeout: .seconds(60),
+      sleep: { _ in
+        sleepStartedSignal.yield()
+        try await suspendUntilCancelled()
+      },
+      emit: { _ in }
+    )
+  }
+  for await _ in sleepStarted {
+    break
+  }
+  cancelledRerun.cancel()
+  try await cancelledRerun.value
+
+  try await expectColorRerunOutlastsEarlierDA1(coordinator)
+}
+
+@Test
+func `a timed-out color round's late DA1 does not end the theme-change re-run`()
+  async throws
+{
+  let coordinator = ActiveCapabilityProbeCoordinator()
+  // Every round is answered but the color round, whose timeout elapses at once and leaves
+  // its DA1 in flight.
+  _ = try await coordinator.reconcile(
+    privateModes: [],
+    kittyImageID: KittyImageID(rawValue: 7),
+    colorScope: .all,
+    timeout: .seconds(60),
+    sleep: { _ in },
+    emit: { bytes in
+      if !bytes.isEmpty, bytes != colorProbeBytes {
+        await coordinator.observe(.primaryDeviceAttributes([1, 2]))
+      }
+    }
+  )
+
+  try await expectColorRerunOutlastsEarlierDA1(coordinator)
+}
+
+@Test
 func `semantic DECRQM events update live evidence without changing effective modes`()
   async throws
 {
@@ -543,7 +761,12 @@ func `colour re-runs queue behind the round in flight and coalesce`() async thro
     colorScope: .all,
     timeout: .zero,
     sleep: { _ in },
-    emit: { await recorder.append($0) }
+    emit: { bytes in
+      await recorder.append(bytes)
+      if !bytes.isEmpty {
+        await coordinator.observe(.primaryDeviceAttributes([1, 2]))
+      }
+    }
   )
   let generationEmissions = await recorder.count
 
@@ -679,11 +902,137 @@ private func suspendUntilCancelled() async throws {
   try Task.checkCancellation()
 }
 
+/// Replays the replies a terminal sends, in order, one batch per trigger.
+private actor ReplyWire {
+  private var batches: [[InputEvent]]
+
+  init(_ batches: [[InputEvent]]) {
+    self.batches = batches
+  }
+
+  func deliverNext(to coordinator: ActiveCapabilityProbeCoordinator) async {
+    guard !batches.isEmpty else {
+      return
+    }
+    for event in batches.removeFirst() {
+      await coordinator.observe(event)
+    }
+  }
+}
+
+/// Runs a generation in which the terminal answers every round with its DA1, so no DA1 is
+/// left in flight.
+private func resolveGenerationWithNothingInFlight(
+  _ coordinator: ActiveCapabilityProbeCoordinator
+) async throws {
+  _ = try await coordinator.reconcile(
+    privateModes: [],
+    kittyImageID: KittyImageID(rawValue: 7),
+    colorScope: .all,
+    timeout: .seconds(60),
+    sleep: { _ in
+      Issue.record("an answered round should not reach its timeout")
+    },
+    emit: { bytes in
+      if !bytes.isEmpty {
+        await coordinator.observe(.primaryDeviceAttributes([1, 2]))
+      }
+    }
+  )
+}
+
+/// Retries a generation whose first attempt already wrote a request and its DA1 that the
+/// abandoned attempt will never read. The terminal answers in order, and each reply batch
+/// arrives one step later than the write it answers, so the first batch belongs to the
+/// abandoned attempt and carries its DA1. The retry must not take that DA1 for any of its
+/// own sentinels: that would shift every later round by one and cache false `.unsupported`
+/// evidence for a terminal that supports both Kitty protocols.
+private func expectRetryAttributesEverySentinel(
+  _ coordinator: ActiveCapabilityProbeCoordinator,
+  abandonedReplies: [InputEvent]
+) async throws {
+  let imageID = KittyImageID(rawValue: 7)
+  let da1 = InputEvent.primaryDeviceAttributes([1, 2])
+  let status = InputEvent.privateModeStatus(PrivateModeStatus(mode: 2_004, state: .set))
+  let wire = ReplyWire([
+    abandonedReplies,
+    [status, da1],  // the retry's DECRQM replies
+    [.kittyKeyboardEnhancementFlags(7), da1],
+    [.kittyGraphicsResponse(KittyGraphicsResponse(id: imageID, message: "OK")), da1],
+    [da1],  // the retry's color round
+  ])
+  let (sleepStarted, sleepStartedSignal) = AsyncStream<Void>.makeStream()
+  // A round that is still waiting for its sentinel is waiting on the sleep, which is
+  // injected and never elapses, so the next reply batch arrives only through this task.
+  let lateReplies = Task {
+    for await _ in sleepStarted {
+      await wire.deliverNext(to: coordinator)
+    }
+  }
+
+  let evidence = try await coordinator.reconcile(
+    privateModes: [2_004],
+    kittyImageID: imageID,
+    colorScope: .all,
+    timeout: .seconds(60),
+    sleep: { _ in
+      sleepStartedSignal.yield()
+      try await suspendUntilCancelled()
+    },
+    emit: { _ in
+      await wire.deliverNext(to: coordinator)
+    }
+  )
+  lateReplies.cancel()
+
+  expectNoDifference(evidence.privateModes, [2_004: .set])
+  expectNoDifference(evidence.kittyKeyboard, .supported)
+  expectNoDifference(evidence.kittyGraphics, .supported)
+}
+
+/// Re-runs the color round while an earlier round's DA1 is still in flight. A terminal that
+/// answers in order delivers that DA1 right behind the re-run's write. The re-run must keep
+/// waiting for its own DA1, which this task delivers once the round is waiting on its sleep;
+/// a re-run that took the earlier DA1 would end at once and never reach the sleep.
+private func expectColorRerunOutlastsEarlierDA1(
+  _ coordinator: ActiveCapabilityProbeCoordinator
+) async throws {
+  let sleepCalls = SleepCallCounter()
+  let (rerunWaiting, rerunWaitingSignal) = AsyncStream<Void>.makeStream()
+  let ownReply = Task {
+    for await _ in rerunWaiting {
+      await coordinator.observe(.primaryDeviceAttributes([1, 2]))
+      return
+    }
+  }
+
+  try await coordinator.rerunColorRound(
+    scope: .all,
+    timeout: .seconds(60),
+    sleep: { _ in
+      await sleepCalls.record()
+      rerunWaitingSignal.yield()
+      try await suspendUntilCancelled()
+    },
+    emit: { _ in
+      await coordinator.observe(.primaryDeviceAttributes([1, 2]))
+    }
+  )
+  rerunWaitingSignal.finish()
+  await ownReply.value
+
+  let sleepCallCount = await sleepCalls.count
+  expectNoDifference(sleepCallCount, 1)
+}
+
 private actor SleepCallCounter {
   private(set) var count = 0
 
-  func record() {
+  /// Records one call and returns how many there have been, this one included.
+  @discardableResult
+  func record() -> Int {
     count += 1
+    return count
   }
 }
 

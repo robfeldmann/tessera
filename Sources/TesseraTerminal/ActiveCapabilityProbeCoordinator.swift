@@ -61,6 +61,11 @@ package actor ActiveCapabilityProbeCoordinator {
   private var inputIsClosed = false
   private var isClosed = false
   private var nextWaiterID: UInt64 = 0
+  /// DA1 queries written (or attempted) whose reply has not been observed. Every round
+  /// ends with one, the terminal answers them in order, and a round that timed out or a
+  /// generation or color re-run that was cancelled or failed leaves its own in flight, so
+  /// only the reply that brings this to zero can be the current round's sentinel.
+  private var pendingSentinels = 0
   private var round: Round = .none
   private let roundGate = ModeLifecycleTransitionGate()
   private var roundResponseObserved = false
@@ -106,6 +111,15 @@ package actor ActiveCapabilityProbeCoordinator {
   }
 
   package func observe(_ event: InputEvent) {
+    if case .primaryDeviceAttributes = event {
+      pendingSentinels = max(pendingSentinels - 1, 0)
+      guard pendingSentinels == 0 else {
+        // An earlier round's reply (a timed-out round's, or an abandoned attempt's): it
+        // precedes every reply to the current round.
+        return
+      }
+    }
+
     switch (round, event) {
     case (.privateModes(let expected), .privateModeStatus(let status))
     where expected.contains(status.mode):
@@ -194,7 +208,8 @@ package actor ActiveCapabilityProbeCoordinator {
     do {
       round = .privateModes(Set(privateModes))
       roundResolved = privateModes.isEmpty
-      try await emit(Self.privateModeRequestBytes(privateModes))
+      try await emitCountingSentinel(
+        Self.privateModeRequestBytes(privateModes), emit: emit)
       let modesRoundCompleted = await waitForRound(timeout: timeout, sleep: sleep)
 
       // A DA1 round that timed out may still have its DA1 in flight, so later rounds
@@ -205,7 +220,7 @@ package actor ActiveCapabilityProbeCoordinator {
         round = .kittyKeyboard
         roundResponseObserved = false
         roundResolved = false
-        try await emit(Self.kittyKeyboardProbeBytes)
+        try await emitCountingSentinel(Self.kittyKeyboardProbeBytes, emit: emit)
         keyboardRoundCompleted = await waitForRound(timeout: timeout, sleep: sleep)
       }
 
@@ -214,7 +229,8 @@ package actor ActiveCapabilityProbeCoordinator {
         roundResponseObserved = false
         try Task.checkCancellation()
         roundResolved = false
-        try await emit(Self.kittyGraphicsProbeBytes(id: kittyImageID))
+        try await emitCountingSentinel(
+          Self.kittyGraphicsProbeBytes(id: kittyImageID), emit: emit)
         _ = await waitForRound(timeout: timeout, sleep: sleep)
       }
 
@@ -235,7 +251,9 @@ package actor ActiveCapabilityProbeCoordinator {
       return evidence
     } catch {
       // Cancellation and emit failures mean the terminal was never fully asked, so a later
-      // reconcile retries from scratch. Timeouts do not reach here; they resolve permanently.
+      // reconcile retries from scratch, keeping `pendingSentinels` so the retry waits past
+      // the DA1 replies this attempt left in flight. Timeouts do not reach here; they
+      // resolve permanently.
       round = .none
       evidence = ActiveCapabilityProbeEvidence()
       generation = .idle
@@ -307,9 +325,20 @@ package actor ActiveCapabilityProbeCoordinator {
   ) async throws {
     round = .colors
     roundResolved = false
-    try await emit(Self.colorQueryBytes(scope: scope))
+    try await emitCountingSentinel(Self.colorQueryBytes(scope: scope), emit: emit)
     _ = await waitForRound(timeout: timeout, sleep: sleep)
     round = .none
+  }
+
+  /// Writes one round's request, counting its DA1 first. Counting before the write matters:
+  /// a write that throws part-way may still have sent its DA1, and a miscount that expects
+  /// a DA1 that never comes only costs a timeout, not a wrong answer. An empty request asks
+  /// nothing and sends no DA1.
+  private func emitCountingSentinel(_ bytes: [UInt8], emit: Emit) async throws {
+    if !bytes.isEmpty {
+      pendingSentinels += 1
+    }
+    try await emit(bytes)
   }
 
   private func waitForRound(
