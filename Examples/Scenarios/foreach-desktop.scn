@@ -16,6 +16,10 @@ type "+"
 expect text 7 "d delta"
 expect node id=d frame 0,7,7x1
 expect text 9 "4 items"
+# One more item costs a few rows of bytes, not a redraw of the whole screen. The bounds are
+# loose on purpose: they catch a change that makes the library do much more, and do not pin
+# today's numbers.
+expect cost bytes<=1000 renders<=24 placements<=48
 check
 
 # Reversed, the same four items sit in the opposite order: `d` is first and `a` last.
