@@ -66,7 +66,7 @@ Lines between `expect screen <<WORD` and the closing line are not tokenized: quo
 
 ### When the app finishes
 
-An app that reports it is finished (`isFinished`, which is how a demo quits) ends a live run: in a terminal nothing after it can happen. A scenario obeys the same rule. The statement that finishes the app, `key q` for the counter, is the last one that runs, and the rest of its input is not delivered, so `type "q+"` stops after the `q`. The next statement, whatever it is, fails with its own verb and a message that names the line that finished the app, and the run ends there: no later `expect`, `shot`, or `tree` is evaluated. An app that is already finished when the scenario starts fails its first statement the same way. Assert what the app shows before the statement that finishes it.
+An app that reports it is finished (`isFinished`, which is how a demo quits) ends a live run: in a terminal nothing after it can happen. A scenario obeys the same rule. The statement that finishes the app, `key q` for the counter, is the last one that runs, and the rest of its input is not delivered, so `type "q+"` stops after the `q`. Any statement after that fails with its own verb (statements that assert the finish itself may be added later), and its failure has a message that names the line that finished the app and carries no `screen`. The run ends there: no later `expect`, `shot`, or `tree` is evaluated. An app that is already finished when the scenario starts fails its first statement the same way. Assert what the app shows before the statement that finishes it.
 
 ### Key names
 
