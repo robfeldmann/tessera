@@ -374,6 +374,52 @@ func `cancelled probe discards partial evidence and a later reconcile retries`()
 }
 
 @Test
+func `a cancelled generation's DA1 does not end the retry's DECRQM round`() async throws {
+  let coordinator = ActiveCapabilityProbeCoordinator()
+  let (sleepStarted, sleepStartedSignal) = AsyncStream<Void>.makeStream()
+  let cancelledProbe = Task {
+    try await coordinator.reconcile(
+      privateModes: [2_004],
+      kittyImageID: KittyImageID(rawValue: 7),
+      timeout: .seconds(60),
+      sleep: { _ in
+        sleepStartedSignal.yield()
+        try await suspendUntilCancelled()
+      },
+      emit: { _ in }
+    )
+  }
+  for await _ in sleepStarted {
+    break
+  }
+  cancelledProbe.cancel()
+  await #expect(throws: CancellationError.self) {
+    try await cancelledProbe.value
+  }
+
+  try await expectRetryAttributesEverySentinel(coordinator)
+}
+
+@Test
+func `a failed emit's DA1 does not end the retry's DECRQM round`() async throws {
+  struct EmitFailure: Error, Equatable {}
+  let coordinator = ActiveCapabilityProbeCoordinator()
+  await #expect(throws: EmitFailure()) {
+    try await coordinator.reconcile(
+      privateModes: [2_004],
+      kittyImageID: KittyImageID(rawValue: 7),
+      timeout: .seconds(60),
+      sleep: { _ in
+        Issue.record("a failed emit should not reach a timeout")
+      },
+      emit: { _ in throw EmitFailure() }
+    )
+  }
+
+  try await expectRetryAttributesEverySentinel(coordinator)
+}
+
+@Test
 func `semantic DECRQM events update live evidence without changing effective modes`()
   async throws
 {
@@ -509,6 +555,69 @@ private func suspendUntilCancelled() async throws {
   for await _ in stream {}
   continuation.finish()
   try Task.checkCancellation()
+}
+
+/// Replays the replies a terminal sends, in order, one batch per trigger.
+private actor ReplyWire {
+  private var batches: [[InputEvent]]
+
+  init(_ batches: [[InputEvent]]) {
+    self.batches = batches
+  }
+
+  func deliverNext(to coordinator: ActiveCapabilityProbeCoordinator) async {
+    guard !batches.isEmpty else {
+      return
+    }
+    for event in batches.removeFirst() {
+      await coordinator.observe(event)
+    }
+  }
+}
+
+/// Retries a generation whose first attempt already wrote its DECRQM batch and DA1. The
+/// terminal answers in order, and each reply batch arrives one step later than the write
+/// it answers, so the first DA1 belongs to the abandoned attempt. The retry must not take
+/// it for any of its own sentinels: that would shift every later round by one and cache
+/// false `.unsupported` evidence for a terminal that supports both Kitty protocols.
+private func expectRetryAttributesEverySentinel(
+  _ coordinator: ActiveCapabilityProbeCoordinator
+) async throws {
+  let imageID = KittyImageID(rawValue: 7)
+  let da1 = InputEvent.primaryDeviceAttributes([1, 2])
+  let status = InputEvent.privateModeStatus(PrivateModeStatus(mode: 2_004, state: .set))
+  let wire = ReplyWire([
+    [status, da1],  // the abandoned attempt's replies
+    [status, da1],  // the retry's DECRQM replies
+    [.kittyKeyboardEnhancementFlags(7), da1],
+    [.kittyGraphicsResponse(KittyGraphicsResponse(id: imageID, message: "OK")), da1],
+  ])
+  let (sleepStarted, sleepStartedSignal) = AsyncStream<Void>.makeStream()
+  // A round that is still waiting for its sentinel is waiting on the sleep, which is
+  // injected and never elapses, so the next reply batch arrives only through this task.
+  let lateReplies = Task {
+    for await _ in sleepStarted {
+      await wire.deliverNext(to: coordinator)
+    }
+  }
+
+  let evidence = try await coordinator.reconcile(
+    privateModes: [2_004],
+    kittyImageID: imageID,
+    timeout: .seconds(60),
+    sleep: { _ in
+      sleepStartedSignal.yield()
+      try await suspendUntilCancelled()
+    },
+    emit: { _ in
+      await wire.deliverNext(to: coordinator)
+    }
+  )
+  lateReplies.cancel()
+
+  expectNoDifference(evidence.privateModes, [2_004: .set])
+  expectNoDifference(evidence.kittyKeyboard, .supported)
+  expectNoDifference(evidence.kittyGraphics, .supported)
 }
 
 private actor SleepCallCounter {
