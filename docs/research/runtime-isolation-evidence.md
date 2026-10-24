@@ -1,0 +1,42 @@
+---
+type: research
+observed: 2026-10-23
+status: open
+description: Architect's evidence for the runtime isolation spec section (Phase 5 spec), what it changes in Decision 9 (i), and its CLI naming recommendation.
+---
+
+# Runtime isolation: evidence and owner note
+
+The section itself is proposed in [Phase 5's Runtime isolation](../spec/phase-5-runtime-and-polish.md#runtime-isolation). Probes live in the untracked scratch worktree `decision-9-spike/spikes/Decision9Isolation/`, and the restructured `TerminalSession.draw` in the detached worktree `decision-9-isolation`; neither is committed.
+
+## Evidence
+
+Probes under `/Users/rob/Developer/robfeldmann/tessera/decision-9-spike/spikes/`, compiled and run on Swift 6.3.3 and 6.4 with identical results:
+
+- `Decision9Isolation/`: the contract without `SendableMetatype`; a `@MainActor` host and an actor host over one isolated-parameter step; a stand-in session actor with `nonisolated(nonsending) draw`; the registry with `@MainActor` factories; the four app shapes (`Counter`, `@Observable ObservedCounter`, `Notes` and `nonisolated Tool` in a `.defaultIsolation(MainActor.self)` module, `Browser: @MainActor Application` over a `@MainActor Store`), plus `Journal` adopted cross-module with `extension Journal: @MainActor Application {}`. `swift build --build-tests` is clean; `HostAll` prints every shape hosted on the main actor, nonisolated shapes on actor hosts, `apply` and every draw body seen on the main actor in the live loop, and on the session actor in the inside-session loop; `swift test`: 9 tests in 2 suites pass (50 parameterised runs on per-test actors). Failing probes: `ProbeActorHostsMainApp` ("main actor-isolated conformance of 'Browser' to 'Application' cannot be used in nonisolated context", and for the inferred `Notes` conformance; 6.4 adds "cannot be used in actor-isolated context"), `ProbeExtensionUnisolated` ("conformance of 'Journal' to protocol 'Application' crosses into main actor-isolated code and can cause data races"), `ProbeSendableFactory` ("call to main actor-isolated initializer 'init()' in a synchronous nonisolated context"; 6.4 also names the isolated conformance).
+- `/Users/rob/Developer/robfeldmann/tessera/decision-9-isolation/`: a detached worktree of `origin/main` with the `draw` restructure in `Sources/TesseraTerminal/TerminalSession.swift` (one file, +67/-28; `git diff` there). `swift build` clean; the full root suite passes on 6.3.3 (662 tests); `TerminalSessionTests` pass on 6.4 (94 tests); `swift build --package-path Examples` builds the Showcase and the other `isolated TerminalSession` loops unchanged.
+- `Decision9SessionDraw/` depends on that worktree: the senior's `ProbeMainActorDraw`, which failed against `main` with "sending value of non-Sendable type '(borrowing Frame) -> sending ()' risks causing data races", now compiles verbatim; `MainActorRuntime` is the `ApplicationRuntime` shape above over the real `TerminalSession`, with `Browser` as the app, and compiles on both toolchains with no warnings.
+
+## What the skill changed or confirmed in my earlier review
+
+- Confirmed: prefer a compile-time proof to a vouch (SKILL.md principle 13); the review's concern 4 was right that the session-isolated host forecloses main-actor models, but it framed the fix as a Phase 5 choice between two shapes. The *Designing for isolation* playbook settles it: the app is the nonisolated core, the host is the thin shell, and the shared step takes `isolated any Actor` ("Preferred: an isolated parameter on the entry point"). That removes the choice.
+- Changed: my review accepted `SendableMetatype` for Phase 4 as "what makes the session-isolated host safe". Under the shell/core split it is unnecessary and harmful: the isolated-conformance check already rejects a main-actor app on an actor host, and the refinement is what would forbid shapes 3 and 4. Drop it now, not in Phase 5.
+- Changed: the review left "where the app runs" to Phase 5 and asked only that the `draw` question be named. The playbook's "What crosses a shell boundary" rule (values cross, closures over foreign state do not) is exactly `draw`'s problem; the fix is to run the body in the caller's isolation and send the `Buffer`, and it is small enough, and source-compatible enough, to land in Phase 4.
+- Confirmed: the record's `@Sendable` factory was the one place a main-actor app could leak off the main actor (its "before `SendableMetatype`" trap). The skill's rule that the host constructs the core in its own isolation gives the fix: factories typed to the host's isolation.
+- Confirmed: *Deterministic concurrency tests* matches the Phase 5 text already there (explicit steps, bounded drain, injected clocks); the section above restates it in terms of the step and `draw`.
+
+## (a) What this changes in Decision 9 (i) and the amendment text
+
+1. `Application` is `AnyObject` only, in `TesseraRuntime`, re-exported by `Tessera` (as the owner accepted). Every amendment sentence that says "`AnyObject` and `SendableMetatype`", "the protocol refines `SendableMetatype`", "a `@MainActor` conformance to `Application` does not compile", or "dropping the refinement breaks no adopter" is replaced by: "`Application` carries no isolation; a nonisolated app runs on any host, and a main-actor app declares a main-actor isolated conformance that only the main-actor runtime and harness can use."
+2. The harness hosts apps on the main actor, not inside the session's isolation. Slice 4's `Driver` becomes the nonisolated step with an `isolated any Actor` parameter behind a `@MainActor` shell; "ported from the review loop's `ApplicationDriver`" keeps the step order and drops its `isolated TerminalSession` hosting. Live and headless still share the step and the `draw` path.
+3. `ApplicationRegistry.register` takes `make: @escaping @MainActor () -> App`, not `@Sendable`; "the host calls inside its own isolation" becomes "the harness opens factories on the main actor".
+4. The `draw` change lands in Phase 4, before Slice 4 needs it: Slice 2 is the slice that already touches `TerminalSession` (it is open now), so add it there, or make it the first step of Slice 4. It is one file and source-compatible (see Evidence). The Phase 5 open question about the runtime's isolation is closed by the section; the senior's Phase 5 replacement text is superseded by it.
+5. Slice 4's verify line: the compile-fail fixture pair becomes "an actor host given a main-actor app" and "a default-main-actor type adopted from another module without `@MainActor` on the conformance".
+6. Developer tooling, the headless-driver paragraph: replace "The app lives in its host's isolation domain; the protocol refines `SendableMetatype`, so a main-actor-isolated conformance is a compile error rather than a model touched off the main actor" with "The harness steps apps on the main actor; an app whose model is main-actor isolated declares a main-actor isolated conformance, and a nonisolated app runs anywhere. Factories are main-actor closures."
+7. Unchanged from the review: the slice 1 canonical-loop amendment (apply only on `.ignored`), the unconditional resize forward, the branch re-targeting, and the seven-name public surface.
+
+## (b) CLI naming
+
+Namespace: `tessera`, as the owner leans. It fits Decision 9 (iii) under every option, because the grammar is what is frozen, not the binary: a prebuilt front end named `tessera` forwards to the per-app executable, and Tessera's own repo names its dev executable `tessera` as well (product name in `Examples/Package.swift`; `mise run dev:*` unchanged), so every document reads `tessera run …`. Drop the `-dev` suffix everywhere now; it is cheap before Slice 4 and a 2.0 change after.
+
+Subcommand: not `demo`, and not `app` either. `demo` is Tessera's word for its own registry entries and reads wrong in an app author's tool; `app` is generic, as the owner says, and `tessera app run` stutters. Recommend `tessera apps` to list the registry and `tessera launch NAME` to run one live in this terminal, keeping `tessera run PATH...` for scenarios, `shot`, `tree`, `check`, `replay`, `coverage`, `conform`, and `attach` as designed. "launch" names the live run without colliding with `run`, and "apps" names what the registry holds for both audiences. Overloading `run` by argument shape (a registry name versus a path) is rejected: principle 5 wants a plain agent contract, and a name-or-path guess is not one. If the owner prefers one noun, `app list|run` remains acceptable; `demo` does not.
