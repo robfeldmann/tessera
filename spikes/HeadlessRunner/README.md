@@ -2,6 +2,8 @@
 
 Plan 033, Spike 1. A standalone package that depends on Tessera by path (`../..`) and uses public API only.
 
+The code has since been copied into the root package's `TesseraHarness` target and `TesseraHarnessTests` (plan 036 Slice 3), where it is maintained. This package stays as frozen evidence.
+
 ## Hypothesis
 
 A scenario file with `size`, `resize`, `key`, `type`, `shot`, `expect text`, `expect node … frame`, and `tree` can drive a HEAD app (Text, stacks, ScrollView, SplitView) through `ViewGraph` + `VirtualTerminal.snapshot`, emit the JSON and exit-code contract byte-identically across two runs, and derive `mobile` natural height from `GraphDiagnostics` under a tall proposal.

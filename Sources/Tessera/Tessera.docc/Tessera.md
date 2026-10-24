@@ -21,6 +21,10 @@ Import `Tessera` to explore the shared foundation. Its application-programming s
 
 - ``/TesseraTerminal``
 
+### Application contract
+
+- ``/TesseraRuntime``
+
 ### Test support
 
 - ``/TesseraTestSupport``

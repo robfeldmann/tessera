@@ -122,6 +122,8 @@ let TesseraCore: Target.Dependency = .byName(name: "TesseraCore")
 let TesseraTestSupport: Target.Dependency = .byName(name: "TesseraTestSupport")
 let TesseraLayout: Target.Dependency = .byName(name: "TesseraLayout")
 let TesseraWidgets: Target.Dependency = .byName(name: "TesseraWidgets")
+let TesseraRuntime: Target.Dependency = .byName(name: "TesseraRuntime")
+let TesseraHarness: Target.Dependency = .byName(name: "TesseraHarness")
 let TesseraTerminal: Target.Dependency = .byName(name: "TesseraTerminal")
 let TesseraTerminalANSI: Target.Dependency = .byName(name: "TesseraTerminalANSI")
 let TesseraTerminalBuffer: Target.Dependency = .byName(name: "TesseraTerminalBuffer")
@@ -144,6 +146,8 @@ let AllTesseraTargetNames: Set<String> = [
   "TesseraLayout",
   "TesseraTestSupport",
   "TesseraWidgets",
+  "TesseraRuntime",
+  "TesseraHarness",
   "TesseraTerminal",
   "TesseraTerminalANSI",
   "TesseraTerminalBuffer",
@@ -221,6 +225,7 @@ package.targets.append(
     dependencies: [
       TesseraCore,
       TesseraLayout,
+      TesseraRuntime,
       TesseraWidgets,
       TesseraTerminal,
     ]
@@ -299,6 +304,24 @@ package.targets.append(contentsOf: [
       TesseraTerminalBuffer,
       TesseraTerminalCore,
       TesseraWidgets,
+    ]
+  ),
+])
+
+// MARK: TesseraRuntime
+
+package.targets.append(contentsOf: [
+  .target(
+    name: "TesseraRuntime",
+    dependencies: [
+      TesseraCore,
+      TesseraTerminalInput,
+    ]
+  ),
+  .testTarget(
+    name: "TesseraRuntimeTests",
+    dependencies: [
+      Tessera
     ]
   ),
 ])
@@ -544,6 +567,33 @@ package.targets.append(
     ]
   )
 )
+
+// MARK: TesseraHarness
+
+package.products.append(.library(name: "TesseraHarness", targets: ["TesseraHarness"]))
+
+package.targets.append(contentsOf: [
+  .target(
+    name: "TesseraHarness",
+    dependencies: [
+      TesseraCore,
+      TesseraLayout,
+      TesseraRuntime,
+      TesseraTerminalCore,
+      TesseraTerminalInput,
+      TesseraTerminalSnapshotSupport,
+      TesseraWidgets,
+    ]
+  ),
+  .testTarget(
+    name: "TesseraHarnessTests",
+    dependencies: [
+      TesseraHarness,
+      TesseraTerminalInput,
+    ],
+    exclude: ["Scenarios"]
+  ),
+])
 
 // MARK: - ⚙️ Shared Swift Settings
 
