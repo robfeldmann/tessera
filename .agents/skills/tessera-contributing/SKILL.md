@@ -14,7 +14,7 @@ Everything in the [`tessera` skill](../tessera/SKILL.md) applies here: the `tess
 | --- | --- | --- |
 | `mise run dev:apps` | `tessera apps` | List the registered demos: name, minimum size, viewports. |
 | `mise run dev:launch NAME` | `tessera launch NAME` | Run one demo in this terminal until it quits. |
-| `mise run dev:launch` | `tessera help launch`, then `tessera apps` | With no name, print the command's help and the demos, and exit 0. |
+| `mise run dev:launch`, `dev:shot`, or `dev:tree` | `tessera help COMMAND`, then `tessera apps` | With no name, print the command's help and the demos, and exit 0. `dev:run` with no path prints its help. |
 | `mise run dev:run PATH...` | `tessera run PATH...` | Run scenario files or directories of them, with `--record`, `--repeat N`, and `--timing`. |
 | `mise run dev:shot NAME [SIZE]` | `tessera shot NAME [SIZE]` | Print one demo's screen as text. |
 | `mise run dev:tree NAME [SIZE]` | `tessera tree NAME [SIZE]` | Print one demo's node tree. |
@@ -22,7 +22,7 @@ Everything in the [`tessera` skill](../tessera/SKILL.md) applies here: the `tess
 
 `mise run dev:*` builds and runs the `tessera` executable (`swift run --package-path Examples tessera …`), and `--json` and `--pretty` go through to it. It is the product of `Examples/Sources/TesseraDev`, whose registry is `Demos.registry()` from `Examples/Sources/DemoSupport`, so the apps it lists are Tessera's demos.
 
-With mise's shell completions enabled, `mise run dev:launch <Tab>` offers the demo names. Completion never builds: `scripts/dev-app-names.sh` asks the `Examples/.build/debug/tessera` that an earlier `dev:*` run built, and offers nothing before there is one. Run `mise run dev:apps` once after a fresh checkout, or after registering a demo. To complete `tessera` itself in your shell, see the `tessera` skill.
+With mise's shell completions enabled, `mise run dev:launch <Tab>` offers the demo names, `dev:shot` and `dev:tree` offer them too and then the sizes, and `dev:run` offers `.scn` files and directories. Completion never builds: `scripts/dev-app-names.sh` asks the `Examples/.build/debug/tessera` that an earlier `dev:*` run built, and offers nothing before there is one. Run `mise run dev:apps` once after a fresh checkout, or after registering a demo. To complete `tessera` itself in your shell, see the `tessera` skill.
 
 ## Run a demo
 
