@@ -240,7 +240,7 @@ struct HarnessCLIScenarioTests {
       CommandOutput(
         exitCode: 2,
         stdout: """
-          {"command":"run","exitCode":2,"message":"Missing expected argument '<path> ...'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] [--trace <dir>] <path> ..."}
+          {"command":"run","exitCode":2,"message":"Missing expected argument '<path> ...'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] [--trace <dir> ...] <path> ..."}
           
           """,
         stderr: ""
@@ -258,9 +258,11 @@ struct HarnessCLIScenarioTests {
     let twice = await run("run", "x.scn", "--repeat", "2", "--repeat", "3", "--pretty")
     let sameTwice = await run(
       "run", "x.scn", "--repeat", "2", "--repeat", "2", "--pretty")
+    let traceTwice = await run(
+      "run", "x.scn", "--trace", "a", "--trace", "b", "--pretty")
 
     assertInlineSnapshot(
-      of: [unknown, noValue, zero, word, twice, sameTwice], as: .customDump
+      of: [unknown, noValue, zero, word, twice, sameTwice, traceTwice], as: .customDump
     ) {
       #"""
       [
@@ -268,7 +270,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: Unknown option '--frobnicate'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] [--trace <dir>] <path> ...
+            error: Unknown option '--frobnicate'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] [--trace <dir> ...] <path> ...
             
             """
         ),
@@ -276,7 +278,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: Missing value for '--repeat <n>'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] [--trace <dir>] <path> ...
+            error: Missing value for '--repeat <n>'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] [--trace <dir> ...] <path> ...
             
             """
         ),
@@ -284,7 +286,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: `--repeat` needs a whole number of at least 1, got `0`; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] [--trace <dir>] <path> ...
+            error: `--repeat` needs a whole number of at least 1, got `0`; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] [--trace <dir> ...] <path> ...
             
             """
         ),
@@ -292,7 +294,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: The value 'many' is invalid for '--repeat <n>'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] <path> ...
+            error: The value 'many' is invalid for '--repeat <n>'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] [--trace <dir> ...] <path> ...
             
             """
         ),
@@ -300,7 +302,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: `--repeat` is given twice; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] <path> ...
+            error: `--repeat` is given twice; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] [--trace <dir> ...] <path> ...
             
             """
         ),
@@ -308,7 +310,15 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: `--repeat` is given twice; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] <path> ...
+            error: `--repeat` is given twice; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] [--trace <dir> ...] <path> ...
+            
+            """
+        ),
+        [6]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: `--trace` is given twice; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] [--trace <dir> ...] <path> ...
             
             """
         )
@@ -329,7 +339,7 @@ struct HarnessCLIScenarioTests {
         exitCode: 2,
         stdout: "",
         stderr: """
-          error: The value 'x.scn' is invalid for '--repeat <n>'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] [--trace <dir>] <path> ...
+          error: The value 'x.scn' is invalid for '--repeat <n>'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] [--trace <dir> ...] <path> ...
           
           """
       )
@@ -770,7 +780,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: `--trace` needs a value that is not empty; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] [--trace <dir>] <path> ...
+            error: `--trace` needs a value that is not empty; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] [--trace <dir> ...] <path> ...
             
             """
         ),
@@ -778,7 +788,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: an empty argument is not a path or an application name; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] [--trace <dir>] <path> ...
+            error: an empty argument is not a path or an application name; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] [--trace <dir> ...] <path> ...
             
             """
         ),
@@ -786,7 +796,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: an empty argument is not a path or an application name; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] [--trace <dir>] <path> ...
+            error: an empty argument is not a path or an application name; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] [--trace <dir> ...] <path> ...
             
             """
         ),
@@ -818,7 +828,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: an empty argument is not a path or an application name; usage: tessera replay [--json] [--pretty] <file> --app <name>
+            error: an empty argument is not a path or an application name; usage: tessera replay [--json] [--pretty] <file> --app <name> ...
             
             """
         ),
@@ -826,14 +836,14 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: `--app` needs a value that is not empty; usage: tessera replay [--json] [--pretty] <file> --app <name>
+            error: `--app` needs a value that is not empty; usage: tessera replay [--json] [--pretty] <file> --app <name> ...
             
             """
         ),
         [8]: CommandOutput(
           exitCode: 2,
           stdout: """
-            {"command":"run","exitCode":2,"message":"`--trace` needs a value that is not empty; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] [--trace <dir>] <path> ..."}
+            {"command":"run","exitCode":2,"message":"`--trace` needs a value that is not empty; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] [--trace <dir> ...] <path> ..."}
             
             """,
           stderr: ""
@@ -1053,9 +1063,11 @@ struct HarnessCLIScenarioTests {
     let notUTF8 = await run("replay", binary, "--app", "stack", "--pretty")
     let notRecords = await run("replay", notTrace, "--app", "stack", "--pretty")
     let unknown = await run("replay", "run.trace", "--app", "ghost", "--pretty")
+    let appTwice = await run(
+      "replay", "run.trace", "--app", "stack", "--app", "counter", "--pretty")
 
     assertInlineSnapshot(
-      of: scratch.dump([noFile, noName, missing, notUTF8, notRecords, unknown]),
+      of: scratch.dump([noFile, noName, missing, notUTF8, notRecords, unknown, appTwice]),
       as: .lines
     ) {
       #"""
@@ -1064,7 +1076,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: Missing expected argument '<file>'; usage: tessera replay [--json] [--pretty] <file> --app <name>
+            error: Missing expected argument '<file>'; usage: tessera replay [--json] [--pretty] <file> --app <name> ...
             
             """
         ),
@@ -1072,7 +1084,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: Missing expected argument '--app <name>'; usage: tessera replay [--json] [--pretty] <file> --app <name>
+            error: Missing expected argument '--app <name> ...'; usage: tessera replay [--json] [--pretty] <file> --app <name> ...
             
             """
         ),
@@ -1106,6 +1118,14 @@ struct HarnessCLIScenarioTests {
           stdout: "",
           stderr: """
             error: unknown app `ghost`; accepted: counter, event-log, greedy, main-actor-counter, observed-counter, stack, workspace
+            
+            """
+        ),
+        [6]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: `--app` is given twice; usage: tessera replay [--json] [--pretty] <file> --app <name> ...
             
             """
         )

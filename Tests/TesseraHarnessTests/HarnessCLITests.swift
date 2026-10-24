@@ -17,6 +17,8 @@ private let completionRequests: [[String]] = [
   ["launch", "--", "positional@0", "2", "0", "tessera", "launch", ""],
   ["shot", "--", "positional@0", "2", "0", "tessera", "shot", ""],
   ["tree", "--", "positional@0", "2", "0", "tessera", "tree", ""],
+  ["check", "--", "positional@0", "2", "0", "tessera", "check", ""],
+  ["replay", "--", "--app", "4", "0", "tessera", "replay", "t.jsonl", "--app", ""],
 ]
 
 @MainActor
@@ -505,7 +507,7 @@ struct HarnessCLITests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: `help` takes one command, got `launch extra`; accepted: apps, launch, run, shot, tree, help
+            error: `help` takes one command, got `launch extra`; accepted: apps, launch, run, shot, tree, check, replay, help
             
             """
         ),
@@ -513,7 +515,7 @@ struct HarnessCLITests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: `help` takes one command, got `ghost launch`; accepted: apps, launch, run, shot, tree, help
+            error: `help` takes one command, got `ghost launch`; accepted: apps, launch, run, shot, tree, check, replay, help
             
             """
         )

@@ -159,6 +159,7 @@ struct RunCommand: HarnessCommand {
   var timing = false
 
   @Option(
+    name: .customLong("trace"),
     help: ArgumentHelp(
       """
       Write each scenario's trace under DIR, as DIR/PATH.trace.jsonl, one JSON record per \
@@ -167,7 +168,7 @@ struct RunCommand: HarnessCommand {
       is not promised to stay as it is.
       """,
       valueName: "dir"))
-  var trace: String?
+  var traceValues: [String] = []
 
   @Argument(
     help: ArgumentHelp("A .scn file, or a directory of them.", valueName: "path"),
@@ -179,8 +180,14 @@ struct RunCommand: HarnessCommand {
     repeatValues.first ?? 1
   }
 
+  /// The directory to write traces under: the one `--trace` value, if any.
+  private var trace: String? {
+    traceValues.first
+  }
+
   func validate() throws {
     try refuseRepeats(of: "--repeat", given: repeatValues.count)
+    try refuseRepeats(of: "--trace", given: traceValues.count)
     guard repetitions >= 1 else {
       throw ValidationError(
         "`--repeat` needs a whole number of at least 1, got `\(repetitions)`")
@@ -399,9 +406,15 @@ struct ReplayCommand: HarnessCommand {
     help: ArgumentHelp(
       "The application to replay it against, as `apps` lists it.", valueName: "name"),
     completion: HarnessCLI.appNameCompletion)
-  var app: String
+  var appValues: [String]
+
+  /// The application to replay against: the one `--app` value.
+  private var app: String {
+    appValues.first ?? ""
+  }
 
   func validate() throws {
+    try refuseRepeats(of: "--app", given: appValues.count)
     guard !file.isEmpty else {
       throw ValidationError(emptyArgumentMessage)
     }
