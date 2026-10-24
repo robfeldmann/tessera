@@ -238,7 +238,7 @@ struct HarnessCLIScenarioTests {
       CommandOutput(
         exitCode: 2,
         stdout: """
-          {"command":"run","exitCode":2,"message":"Missing expected argument '<path> ...'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] <path> ..."}
+          {"command":"run","exitCode":2,"message":"Missing expected argument '<path> ...'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] <path> ..."}
           
           """,
         stderr: ""
@@ -253,15 +253,20 @@ struct HarnessCLIScenarioTests {
     let noValue = await run("run", "x.scn", "--repeat", "--pretty")
     let zero = await run("run", "x.scn", "--repeat", "0", "--pretty")
     let word = await run("run", "x.scn", "--repeat", "many", "--pretty")
+    let twice = await run("run", "x.scn", "--repeat", "2", "--repeat", "3", "--pretty")
+    let sameTwice = await run(
+      "run", "x.scn", "--repeat", "2", "--repeat", "2", "--pretty")
 
-    assertInlineSnapshot(of: [unknown, noValue, zero, word], as: .customDump) {
+    assertInlineSnapshot(
+      of: [unknown, noValue, zero, word, twice, sameTwice], as: .customDump
+    ) {
       #"""
       [
         [0]: CommandOutput(
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: Unknown option '--frobnicate'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] <path> ...
+            error: Unknown option '--frobnicate'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] <path> ...
             
             """
         ),
@@ -269,7 +274,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: Missing value for '--repeat <n>'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] <path> ...
+            error: Missing value for '--repeat <n>'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] <path> ...
             
             """
         ),
@@ -277,7 +282,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: `--repeat` needs a whole number of at least 1, got `0`; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] <path> ...
+            error: `--repeat` needs a whole number of at least 1, got `0`; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] <path> ...
             
             """
         ),
@@ -285,7 +290,23 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: The value 'many' is invalid for '--repeat <n>'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] <path> ...
+            error: The value 'many' is invalid for '--repeat <n>'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] <path> ...
+            
+            """
+        ),
+        [4]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: `--repeat` is given twice; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] <path> ...
+            
+            """
+        ),
+        [5]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: `--repeat` is given twice; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] <path> ...
             
             """
         )
@@ -306,7 +327,7 @@ struct HarnessCLIScenarioTests {
         exitCode: 2,
         stdout: "",
         stderr: """
-          error: The value 'x.scn' is invalid for '--repeat <n>'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] <path> ...
+          error: The value 'x.scn' is invalid for '--repeat <n>'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] <path> ...
           
           """
       )

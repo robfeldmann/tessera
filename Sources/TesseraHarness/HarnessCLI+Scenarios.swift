@@ -47,6 +47,16 @@ extension HarnessCLI {
   }
 }
 
+/// Refuses a flag given more than once, as the command line always has.
+///
+/// ArgumentParser takes the last value of a repeated option, so an option that must be given
+/// at most once is declared as an array and checked here.
+private func refuseRepeats(of flag: String, given count: Int) throws {
+  guard count <= 1 else {
+    throw ValidationError("`\(flag)` is given twice")
+  }
+}
+
 /// `NAME [SIZE]`, the arguments `shot` and `tree` take.
 struct PictureArguments: ParsableArguments {
   @Argument(
@@ -129,7 +139,7 @@ struct RunCommand: HarnessCommand {
     help: ArgumentHelp(
       "Run each scenario N times, and fail a run whose report differs from the first.",
       valueName: "n"))
-  var repetitions = 1
+  var repeatValues: [Int] = []
 
   @Flag(
     help: """
@@ -143,7 +153,13 @@ struct RunCommand: HarnessCommand {
     completion: .file(extensions: ["scn"]))
   var paths: [String]
 
+  /// The number of times to run each scenario: the one `--repeat` value, or 1.
+  private var repetitions: Int {
+    repeatValues.first ?? 1
+  }
+
   func validate() throws {
+    try refuseRepeats(of: "--repeat", given: repeatValues.count)
     guard repetitions >= 1 else {
       throw ValidationError(
         "`--repeat` needs a whole number of at least 1, got `\(repetitions)`")

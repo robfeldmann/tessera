@@ -14,7 +14,9 @@ import Testing
 /// an option), the index of the word being completed, the cursor in it, and the words so
 /// far, the executable first.
 private let completionRequests: [[String]] = [
-  ["launch", "--", "positional@0", "2", "0", "tessera", "launch", ""]
+  ["launch", "--", "positional@0", "2", "0", "tessera", "launch", ""],
+  ["shot", "--", "positional@0", "2", "0", "tessera", "shot", ""],
+  ["tree", "--", "positional@0", "2", "0", "tessera", "tree", ""],
 ]
 
 @MainActor
@@ -496,7 +498,7 @@ struct HarnessCLITests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: `help` takes one command, got `launch extra`; accepted: apps, launch, help
+            error: `help` takes one command, got `launch extra`; accepted: apps, launch, run, shot, tree, help
             
             """
         ),
@@ -504,7 +506,7 @@ struct HarnessCLITests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: `help` takes one command, got `ghost launch`; accepted: apps, launch, help
+            error: `help` takes one command, got `ghost launch`; accepted: apps, launch, run, shot, tree, help
             
             """
         )
