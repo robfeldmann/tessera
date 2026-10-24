@@ -34,10 +34,21 @@ class PackageBoundaryTests(unittest.TestCase):
                 ],
                 "TesseraLayout": ["TesseraCore"],
                 "TesseraWidgets": ["TesseraCore", "TesseraLayout"],
+                "TesseraRuntime": ["TesseraCore", "TesseraTerminalInput"],
                 "Tessera": [
                     "TesseraCore",
                     "TesseraLayout",
+                    "TesseraRuntime",
                     "TesseraTerminal",
+                    "TesseraWidgets",
+                ],
+                "TesseraHarness": [
+                    "TesseraCore",
+                    "TesseraLayout",
+                    "TesseraRuntime",
+                    "TesseraTerminalCore",
+                    "TesseraTerminalInput",
+                    "TesseraTerminalSnapshotSupport",
                     "TesseraWidgets",
                 ],
                 "TesseraTestSupport": [
@@ -62,6 +73,22 @@ class PackageBoundaryTests(unittest.TestCase):
             [
                 "TesseraCore -> TesseraTerminalIO",
                 "TesseraWidgets -> TesseraTerminalRendering",
+            ],
+        )
+
+    def test_reports_forbidden_runtime_and_harness_edges(self) -> None:
+        package = self.valid_package()
+        targets = package["targets"]
+        assert isinstance(targets, list)
+        by_name = {target["name"]: target for target in targets}
+        by_name["TesseraRuntime"]["target_dependencies"].append("TesseraTerminalIO")
+        by_name["TesseraHarness"]["target_dependencies"].append("TesseraTerminal")
+
+        self.assertEqual(
+            checker.check_package_boundaries(package),
+            [
+                "TesseraRuntime -> TesseraTerminalIO",
+                "TesseraHarness -> TesseraTerminal",
             ],
         )
 
@@ -136,7 +163,9 @@ class PackageBoundaryTests(unittest.TestCase):
             "TesseraCore -> TesseraTerminalIO\n"
             "Missing required view-layer target: TesseraLayout\n"
             "Missing required view-layer target: TesseraWidgets\n"
+            "Missing required view-layer target: TesseraRuntime\n"
             "Missing required view-layer target: Tessera\n"
+            "Missing required view-layer target: TesseraHarness\n"
             "Missing required view-layer target: TesseraTestSupport\n",
         )
 

@@ -50,7 +50,7 @@ public protocol Application: AnyObject {
 }
 ```
 
-The protocol refines nothing but `AnyObject`. It is not `@MainActor`, and it does not refine `SendableMetatype`: that refinement would forbid isolated conformances (SE-0470), which are the compile-time proof this design rests on. The app is a reference type because `body` reads the model and hands out `Binding`s that write back to it.
+The protocol is class-only: it inherits from `AnyObject` and from no other protocol. It is not `@MainActor`, and it does not inherit from `SendableMetatype`, because that would forbid isolated conformances (SE-0470), which are the compile-time proof this design rests on. The app is a reference type because `body` reads the model and hands out `Binding`s that write back to it.
 
 ### The canonical step
 
@@ -111,7 +111,7 @@ nonisolated final class Tool: Application { /* nonisolated members */ }
 }
 ```
 
-When production code must stay free of the contract, a test or dev target adopts it with the isolation the type has: `extension Counter: Application {}` for a nonisolated type, `extension Notes: @MainActor Application {}` for a main-actor one. Writing the second without `@MainActor` is a compile error ("conformance of 'Notes' to protocol 'Application' crosses into main actor-isolated code and can cause data races"), not a trap.
+When production code must stay free of the contract, a test or dev target adopts it with the isolation the type has: `extension Counter: Application {}` for a nonisolated type, `extension Notes: @MainActor Application {}` for a main-actor one. Writing `@MainActor` on the conformance is accepted in every mode. Leaving it off depends on the compiler mode of the module that writes the extension, not on which module declares the type. In plain Swift 6 mode it is a compile error ("conformance of 'Notes' to protocol 'Application' crosses into main actor-isolated code and can cause data races"), not a trap. With the `InferIsolatedConformances` upcoming feature, or with default main-actor isolation in the extension's module, the compiler infers the isolated conformance instead and the line compiles. One corner differs by toolchain: under `InferIsolatedConformances` alone, Swift 6.3 infers it for a type declared `@MainActor` but not for a type that is main-actor isolated only through its own module's default isolation, while Swift 6.4 infers both. Either way no path is a runtime trap.
 
 ### The runtime
 

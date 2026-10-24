@@ -20,18 +20,18 @@ let package = Package(
 
 // MARK: - ⤵️ Dependencies
 
-// MARK: IssueReporting
+// MARK: CustomDump
 
 package.dependencies.append(
   .package(
-    url: "https://github.com/pointfreeco/xctest-dynamic-overlay",
-    from: "1.4.0"
+    url: "https://github.com/pointfreeco/swift-custom-dump",
+    from: "1.0.0"
   )
 )
 
-let IssueReporting: Target.Dependency = .product(
-  name: "IssueReporting",
-  package: "xctest-dynamic-overlay"
+let CustomDump: Target.Dependency = .product(
+  name: "CustomDump",
+  package: "swift-custom-dump"
 )
 
 // MARK: DisplayWidth
@@ -48,20 +48,6 @@ let DisplayWidth: Target.Dependency = .product(
   package: "swift-displaywidth"
 )
 
-// MARK: CustomDump
-
-package.dependencies.append(
-  .package(
-    url: "https://github.com/pointfreeco/swift-custom-dump",
-    from: "1.0.0"
-  )
-)
-
-let CustomDump: Target.Dependency = .product(
-  name: "CustomDump",
-  package: "swift-custom-dump"
-)
-
 // MARK: DocC
 
 #if !os(Windows)
@@ -72,6 +58,20 @@ let CustomDump: Target.Dependency = .product(
     )
   )
 #endif
+
+// MARK: IssueReporting
+
+package.dependencies.append(
+  .package(
+    url: "https://github.com/pointfreeco/xctest-dynamic-overlay",
+    from: "1.4.0"
+  )
+)
+
+let IssueReporting: Target.Dependency = .product(
+  name: "IssueReporting",
+  package: "xctest-dynamic-overlay"
+)
 
 // MARK: SnapshotTesting
 
@@ -119,9 +119,9 @@ let CTesseraTerminalPlatform: Target.Dependency = .byName(
 )
 let Tessera: Target.Dependency = .byName(name: "Tessera")
 let TesseraCore: Target.Dependency = .byName(name: "TesseraCore")
-let TesseraTestSupport: Target.Dependency = .byName(name: "TesseraTestSupport")
+let TesseraHarness: Target.Dependency = .byName(name: "TesseraHarness")
 let TesseraLayout: Target.Dependency = .byName(name: "TesseraLayout")
-let TesseraWidgets: Target.Dependency = .byName(name: "TesseraWidgets")
+let TesseraRuntime: Target.Dependency = .byName(name: "TesseraRuntime")
 let TesseraTerminal: Target.Dependency = .byName(name: "TesseraTerminal")
 let TesseraTerminalANSI: Target.Dependency = .byName(name: "TesseraTerminalANSI")
 let TesseraTerminalBuffer: Target.Dependency = .byName(name: "TesseraTerminalBuffer")
@@ -137,13 +137,15 @@ let TesseraTerminalSnapshotSupport: Target.Dependency = .byName(
 let TesseraTerminalTestSupport: Target.Dependency = .byName(
   name: "TesseraTerminalTestSupport"
 )
+let TesseraTestSupport: Target.Dependency = .byName(name: "TesseraTestSupport")
+let TesseraWidgets: Target.Dependency = .byName(name: "TesseraWidgets")
 
 let AllTesseraTargetNames: Set<String> = [
   "Tessera",
   "TesseraCore",
+  "TesseraHarness",
   "TesseraLayout",
-  "TesseraTestSupport",
-  "TesseraWidgets",
+  "TesseraRuntime",
   "TesseraTerminal",
   "TesseraTerminalANSI",
   "TesseraTerminalBuffer",
@@ -153,6 +155,8 @@ let AllTesseraTargetNames: Set<String> = [
   "TesseraTerminalRendering",
   "TesseraTerminalSnapshotSupport",
   "TesseraTerminalTestSupport",
+  "TesseraTestSupport",
+  "TesseraWidgets",
 ]
 
 // MARK: - 🎯 Products & Targets
@@ -170,6 +174,16 @@ package.targets.append(
       // the system libraries its static library needs.
       .linkedLibrary("ntdll", .when(platforms: [.windows]))
     ]
+  )
+)
+
+// MARK: CTesseraTerminalPlatform
+
+package.targets.append(
+  .target(
+    name: "CTesseraTerminalPlatform",
+    path: "Sources/CTesseraTerminalPlatform",
+    publicHeadersPath: "include"
   )
 )
 
@@ -201,16 +215,6 @@ if ProcessInfo.processInfo.environment["TESSERA_GHOSTTY_VT_BUNDLE"] == "local" {
   )
 }
 
-// MARK: CTesseraTerminalPlatform
-
-package.targets.append(
-  .target(
-    name: "CTesseraTerminalPlatform",
-    path: "Sources/CTesseraTerminalPlatform",
-    publicHeadersPath: "include"
-  )
-)
-
 // MARK: Tessera
 
 package.products.append(.library(name: "Tessera", targets: ["Tessera"]))
@@ -221,8 +225,9 @@ package.targets.append(
     dependencies: [
       TesseraCore,
       TesseraLayout,
-      TesseraWidgets,
+      TesseraRuntime,
       TesseraTerminal,
+      TesseraWidgets,
     ]
   )
 )
@@ -249,11 +254,42 @@ package.targets.append(contentsOf: [
     dependencies: [
       InlineSnapshotTesting,
       TesseraCore,
-      TesseraTestSupport,
       TesseraTerminalANSI,
       TesseraTerminalBuffer,
       TesseraTerminalCore,
+      TesseraTestSupport,
     ]
+  ),
+])
+
+// MARK: TesseraHarness
+
+package.products.append(.library(name: "TesseraHarness", targets: ["TesseraHarness"]))
+
+package.targets.append(contentsOf: [
+  .target(
+    name: "TesseraHarness",
+    dependencies: [
+      TesseraCore,
+      TesseraLayout,
+      TesseraRuntime,
+      TesseraTerminalCore,
+      TesseraTerminalInput,
+      TesseraTerminalSnapshotSupport,
+      TesseraWidgets,
+    ]
+  ),
+  .testTarget(
+    name: "TesseraHarnessTests",
+    dependencies: [
+      CustomDump,
+      InlineSnapshotTesting,
+      SnapshotTesting,
+      SnapshotTestingCustomDump,
+      TesseraHarness,
+      TesseraTerminalInput,
+    ],
+    exclude: ["Scenarios"]
   ),
 ])
 
@@ -272,33 +308,27 @@ package.targets.append(contentsOf: [
       InlineSnapshotTesting,
       TesseraCore,
       TesseraLayout,
-      TesseraTestSupport,
       TesseraTerminalBuffer,
       TesseraTerminalCore,
+      TesseraTestSupport,
     ]
   ),
 ])
 
-// MARK: TesseraWidgets
+// MARK: TesseraRuntime
 
 package.targets.append(contentsOf: [
   .target(
-    name: "TesseraWidgets",
+    name: "TesseraRuntime",
     dependencies: [
       TesseraCore,
-      TesseraLayout,
+      TesseraTerminalInput,
     ]
   ),
   .testTarget(
-    name: "TesseraWidgetsTests",
+    name: "TesseraRuntimeTests",
     dependencies: [
-      InlineSnapshotTesting,
-      TesseraCore,
-      TesseraLayout,
-      TesseraTestSupport,
-      TesseraTerminalBuffer,
-      TesseraTerminalCore,
-      TesseraWidgets,
+      Tessera
     ]
   ),
 ])
@@ -516,11 +546,11 @@ package.targets.append(
     dependencies: [
       CustomDump,
       SnapshotTesting,
+      TesseraTerminal,
       TesseraTerminalBuffer,
       TesseraTerminalInput,
       TesseraTerminalIO,
       TesseraTerminalSnapshotSupport,
-      TesseraTerminal,
     ]
   )
 )
@@ -545,6 +575,30 @@ package.targets.append(
   )
 )
 
+// MARK: TesseraWidgets
+
+package.targets.append(contentsOf: [
+  .target(
+    name: "TesseraWidgets",
+    dependencies: [
+      TesseraCore,
+      TesseraLayout,
+    ]
+  ),
+  .testTarget(
+    name: "TesseraWidgetsTests",
+    dependencies: [
+      InlineSnapshotTesting,
+      TesseraCore,
+      TesseraLayout,
+      TesseraTerminalBuffer,
+      TesseraTerminalCore,
+      TesseraTestSupport,
+      TesseraWidgets,
+    ]
+  ),
+])
+
 // MARK: - ⚙️ Shared Swift Settings
 
 for target in package.targets {
@@ -553,10 +607,10 @@ for target in package.targets {
   }
   var settings = target.swiftSettings ?? []
   settings.append(contentsOf: [
-    .enableExperimentalFeature("Lifetimes"),
     .enableUpcomingFeature("ExistentialAny"),
     .enableUpcomingFeature("ForwardFromBuilder"),
     .enableUpcomingFeature("InferIsolatedConformances"),
+    .enableExperimentalFeature("Lifetimes"),
     .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
   ])
   target.swiftSettings = settings

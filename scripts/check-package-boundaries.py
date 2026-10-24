@@ -15,8 +15,26 @@ ALLOWED_DIRECT_DEPENDENCIES: dict[str, frozenset[str]] = {
     ),
     "TesseraLayout": frozenset({"TesseraCore"}),
     "TesseraWidgets": frozenset({"TesseraCore", "TesseraLayout"}),
+    "TesseraRuntime": frozenset({"TesseraCore", "TesseraTerminalInput"}),
     "Tessera": frozenset(
-        {"TesseraCore", "TesseraLayout", "TesseraTerminal", "TesseraWidgets"}
+        {
+            "TesseraCore",
+            "TesseraLayout",
+            "TesseraRuntime",
+            "TesseraTerminal",
+            "TesseraWidgets",
+        }
+    ),
+    "TesseraHarness": frozenset(
+        {
+            "TesseraCore",
+            "TesseraLayout",
+            "TesseraRuntime",
+            "TesseraTerminalCore",
+            "TesseraTerminalInput",
+            "TesseraTerminalSnapshotSupport",
+            "TesseraWidgets",
+        }
     ),
 }
 ALLOWED_DIRECT_DEPENDENCIES["TesseraTestSupport"] = frozenset(

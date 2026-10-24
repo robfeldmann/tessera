@@ -1,0 +1,13 @@
+# Desktop layout of the workspace demo: header, split, status line.
+app workspace
+size desktop
+
+expect text 0 "Workspace 80x24"
+expect text "Item 0"
+expect text 2 "Item 0                          │Typed:"
+expect text 23 "focus=catalog scroll=0"
+expect node type=SplitView frame 0,2,80x20
+expect node id=root/index(4) frame 0,23,22x1
+expect node text="Typed:" type=Text frame 33,2,7x1
+shot desktop
+tree
