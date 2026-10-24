@@ -2673,6 +2673,44 @@ func `session size reads the terminal's current size`() async throws {
   #expect(try await session.size == TerminalSize(columns: 6, rows: 3))
 }
 
+@Test @MainActor
+func `a main-actor caller draws with a body that stays on the main actor`() async throws {
+  let size = TerminalSize(columns: 3, rows: 1)
+  let device = InMemoryTerminalDevice(size: size)
+  let session = await makeSession(device, synchronizedOutput: .disabled)
+  let host = MainActorFrameHost(text: "abc")
+
+  let result = try await host.draw(to: session)
+
+  var expectedBuffer = Buffer(size: size)
+  expectedBuffer.write("abc", at: TerminalPosition(column: 0, row: 0))
+  #expect(result == 1)
+  #expect(host.drawCount == 1)
+  #expect(await session.lastDrawn?.buffer == expectedBuffer)
+  #expect(await device.events.filter(\.isFlush).count == 1)
+}
+
+/// A host whose state is non-`Sendable` and lives on the main actor, standing in for a
+/// view graph: its draw body runs on the main actor and needs no `Sendable` capture.
+@MainActor
+private final class MainActorFrameHost {
+  let text: String
+  private(set) var drawCount = 0
+
+  init(text: String) {
+    self.text = text
+  }
+
+  func draw(to session: TerminalSession) async throws -> Int {
+    try await session.draw { frame in
+      MainActor.assertIsolated()
+      drawCount += 1
+      frame.write(text, at: TerminalPosition(column: 0, row: 0))
+      return drawCount
+    }
+  }
+}
+
 @Test
 func `resize delivered mid-session produces a second draw at the new size`() async throws
 {

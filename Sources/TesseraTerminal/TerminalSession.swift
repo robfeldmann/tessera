@@ -107,6 +107,15 @@ public actor TerminalSession {
     case mouseTracking(MouseTrackingMode)
   }
 
+  /// The rendering policy fixed for one frame.
+  private struct FramePolicy: Sendable {
+    var size: TerminalSize
+    var colorCapability: ColorCapability
+    var hyperlinkRendering: HyperlinkRenderingMode
+    var synchronizedOutput: SynchronizedOutputPolicy
+    var underlineRendering: UnderlineRenderingPolicy
+  }
+
   nonisolated private static let privateModeProbeModes = [
     2_004, 1_004, 1_002, 1_003, 1_006, 2_026,
   ]
@@ -693,42 +702,62 @@ public actor TerminalSession {
 
   /// Draws one frame and flushes it to terminal output.
   ///
-  /// Concurrent draws run one at a time, so each frame diffs against the frame the
-  /// terminal last received.
-  public func draw<R>(
-    _ body: (borrowing Frame) throws -> sending R
-  ) async throws -> sending R {
-    guard await drawGate.acquire() else {
+  /// The body runs in the caller's isolation, so a graph that lives with its host (the
+  /// main actor, another actor, or this session) renders where it lives; the session
+  /// serializes draws and commits the finished buffer. Concurrent draws run one at a
+  /// time, so each frame diffs against the frame the terminal last received.
+  nonisolated(nonsending) public func draw<R>(
+    _ body: (borrowing Frame) throws -> R
+  ) async throws -> R {
+    guard await acquireDrawGate() else {
       throw CancellationError()
     }
     do {
       let result = try await drawHoldingGate(body)
-      await drawGate.release()
+      await releaseDrawGate()
       return result
     } catch {
-      await drawGate.release()
+      await releaseDrawGate()
       throw error
     }
   }
 
-  private func drawHoldingGate<R>(
-    _ body: (borrowing Frame) throws -> sending R
-  ) async throws -> sending R {
+  private func acquireDrawGate() async -> Bool {
+    await drawGate.acquire()
+  }
+
+  private func releaseDrawGate() async {
+    await drawGate.release()
+  }
+
+  /// Reads the size and fixes the policy for the frame about to be rendered.
+  ///
+  /// This is the rendering policy commit point. It follows the size suspension and
+  /// precedes the synchronous frame body and encoding, so no setter can affect a frame
+  /// once its bytes begin to be constructed.
+  private func beginFrame() async throws -> FramePolicy {
     try checkOpen()
     let size = try await io.size()
-    // This is the rendering policy commit point. It follows the size suspension and
-    // precedes the synchronous frame body and encoding, so no setter can affect a frame
-    // once its bytes begin to be constructed.
-    let effectiveColorCapability = self.effectiveColorCapability
-    let hyperlinkRendering = self.hyperlinkRendering
-    let synchronizedOutput = self.synchronizedOutput
-    let underlineRendering = self.underlineRendering
+    return FramePolicy(
+      size: size,
+      colorCapability: effectiveColorCapability,
+      hyperlinkRendering: hyperlinkRendering,
+      synchronizedOutput: synchronizedOutput,
+      underlineRendering: underlineRendering
+    )
+  }
+
+  nonisolated(nonsending) private func drawHoldingGate<R>(
+    _ body: (borrowing Frame) throws -> R
+  ) async throws -> R {
+    let policy = try await beginFrame()
 
     // The frame is a borrowed, non-escapable view onto heap-owned buffer storage. The
-    // storage outlives the synchronous body call, and the body runs without suspension, so
-    // the frame cannot escape the transaction or be observed by other actor work.
+    // storage outlives the synchronous body call, and the body runs without suspension in
+    // the caller's isolation, so the frame cannot escape the transaction or be observed by
+    // other work.
     let storage = UnsafeMutablePointer<Buffer>.allocate(capacity: 1)
-    storage.initialize(to: Buffer(size: size))
+    storage.initialize(to: Buffer(size: policy.size))
     defer {
       storage.deinitialize(count: 1)
       storage.deallocate()
@@ -740,22 +769,31 @@ public actor TerminalSession {
       cursorStorage.deallocate()
     }
     let result = try body(Frame(buffer: storage, cursorPosition: cursorStorage))
-    let buffer = storage.pointee
+    try await commitFrame(storage.pointee, cursor: cursorStorage.pointee, policy: policy)
+    return result
+  }
+
+  /// Encodes the rendered buffer against the last drawn one and flushes the bytes.
+  private func commitFrame(
+    _ buffer: Buffer,
+    cursor: TerminalPosition?,
+    policy: FramePolicy
+  ) async throws {
     var bytes: [UInt8] = []
-    if synchronizedOutput == .enabled {
+    if policy.synchronizedOutput == .enabled {
       ControlSequence.enterSynchronizedOutput.encode(into: &bytes)
     }
     renderer.encodeFrame(
       previous: lastDrawnBuffer,
       current: buffer,
       wrapInSynchronizedOutput: false,
-      colorCapability: effectiveColorCapability,
-      underlineRendering: underlineRendering,
-      renderHyperlinks: hyperlinkRendering == .enabled,
+      colorCapability: policy.colorCapability,
+      underlineRendering: policy.underlineRendering,
+      renderHyperlinks: policy.hyperlinkRendering == .enabled,
       into: &bytes
     )
-    appendCursorState(cursorStorage.pointee, into: &bytes)
-    if synchronizedOutput == .enabled {
+    appendCursorState(cursor, into: &bytes)
+    if policy.synchronizedOutput == .enabled {
       ControlSequence.exitSynchronizedOutput.encode(into: &bytes)
     }
     outputTap?(bytes)
@@ -765,10 +803,9 @@ public actor TerminalSession {
       lastDrawnBuffer = buffer
       lastDrawn = DrawnFrame(
         buffer: buffer,
-        cursor: cursorStorage.pointee,
+        cursor: cursor,
         sequence: (lastDrawn?.sequence ?? 0) + 1
       )
-      return result
     } catch {
       // A failed flush may have written a prefix of the frame, so the next successful draw
       // must erase and repaint conservatively.

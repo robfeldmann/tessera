@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 - Changed `TerminalSession` to run its terminal teardown in an uncancellable task, so a cancelled body still leaves raw mode and the alternate screen, and to throw `TerminalSessionError.closed` from every writing call once `withApplicationTerminal` has returned; `events` and `nextEvent()` now drain one shared input queue, size changes keep only the newest value, and overlapping draws and flushes are serialized so each byte is sent once and frames diff against what the terminal received.
+- Changed `TerminalSession.draw` to a `nonisolated(nonsending)` entry point: the frame body runs in the caller's isolation, so a `@MainActor` host (or any actor) renders a non-`Sendable` graph where it lives, while the session still serializes draws and commits the finished buffer; the body and the result are no longer `sending`.
 - Changed `ModeLifecycle` to close after a successful `exit()`: `enter` and `apply` then throw `ModeLifecycleError.closed` before writing; `exit()` stays retryable. `PlatformIO.flush` no longer retries `writeWouldBlock`; a `TerminalDevice` write either blocks until it makes progress or throws.
 - Changed the POSIX input loop to run on a dedicated thread with cancellation through its pipe, and bounded terminal write waits to 50 ms slices that honor task cancellation.
 - Changed layout containers to lay out `ForEach`, conditional, optional, and tuple children element by element instead of as one overlapping child.
