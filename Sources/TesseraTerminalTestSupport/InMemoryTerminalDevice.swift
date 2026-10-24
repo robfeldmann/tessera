@@ -123,6 +123,10 @@ public actor InMemoryTerminalDevice {
   }
 
   /// Reports a new size and emits it on the size-change streams of an open device.
+  ///
+  /// Unlike `resize(to:)`, which changes only the size the device reports, this also
+  /// delivers a `.resize` event, so the reported size and the event stream agree. A closed
+  /// device has no size-change streams, so there it matches `resize(to:)`.
   package func deliverResize(to size: TerminalSize) {
     storedSize = size
     for continuation in sizeContinuations {

@@ -2711,6 +2711,42 @@ private final class MainActorFrameHost {
   }
 }
 
+@Test @MainActor
+func `a draw in flight across the scope's close throws closed and writes no frame`()
+  async throws
+{
+  let device = DelayedSizeTerminalDevice()
+  let io = PlatformIO(terminalDevice: await device.terminalDevice)
+  let configuration = TerminalApplicationConfiguration(
+    modes: [],
+    synchronizedOutput: .disabled,
+    colorCapability: .force(.noColor)
+  )
+  let host = MainActorFrameHost(text: "abc")
+
+  // The device holds the draw's size read, so the draw is in flight when the scope exits.
+  let drawing = try await TerminalSession.withApplicationTerminal(
+    configuration: configuration,
+    io: io,
+    environment: [:]
+  ) { terminal in
+    let drawing = Task { @MainActor in
+      try await host.draw(to: terminal)
+    }
+    await device.waitForSizeRequest()
+    return drawing
+  }
+  await device.resolveSize(TerminalSize(columns: 3, rows: 1))
+
+  await #expect(throws: TerminalSessionError.closed) {
+    try await drawing.value
+  }
+  // Only the scope's teardown reached the device (cursor restore, then the lifecycle's
+  // graphics cleanup): no frame followed it.
+  let teardownBytes = Array("\u{1B}[?25h".utf8) + kittyGraphicsDeleteAllBytes
+  #expect(await device.bytes == teardownBytes)
+}
+
 @Test
 func `a body isolated to the session draws in the session's own isolation`() async throws
 {
