@@ -12,9 +12,9 @@ import TesseraTerminalInput
 ///
 /// ## Isolation
 ///
-/// `Application` refines nothing but `AnyObject`. It is not `@MainActor`, and it does not
-/// refine `SendableMetatype`, because either would rule out one of the shapes below. A
-/// nonisolated application runs on any host. An application whose model is main-actor
+/// `Application` is class-only: it inherits from `AnyObject` and from no other protocol. It
+/// is not `@MainActor`, and it does not inherit from `SendableMetatype`, because either
+/// would rule out one of the shapes below. A nonisolated application runs on any host. An application whose model is main-actor
 /// isolated declares a main-actor isolated conformance, which only a main-actor host can use;
 /// a host on any other actor rejects it at compile time, so no path needs a runtime check of
 /// isolation. One application instance belongs to one host.

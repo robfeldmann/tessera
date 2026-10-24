@@ -5,7 +5,7 @@ import TesseraTerminalCore
 ///
 /// Every field filters; `nth` then picks one match by zero-based preorder position.
 /// Without `nth` the locator must match exactly one node.
-package struct Locator: Equatable, Sendable {
+package struct Locator: CustomStringConvertible, Equatable, Sendable {
   struct Failure: Error {
     var message: String
   }
@@ -23,7 +23,7 @@ package struct Locator: Equatable, Sendable {
   package var text: String?
   package var nth: Int?
 
-  var description: String {
+  package var description: String {
     var terms: [String] = []
     if let type { terms.append("type=\(type)") }
     if let id { terms.append("id=\(id)") }

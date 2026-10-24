@@ -5,9 +5,9 @@ import TesseraTerminalSnapshotSupport
 
 /// An application the headless runner can drive.
 ///
-/// `ViewGraph.dispatch` is a stub at HEAD (investigation 039), so input never reaches
-/// views. The app therefore owns its model: ``apply(_:)`` is the seam where a real
-/// runner would deliver the event after `graph.dispatch` returned `.ignored`.
+/// `ViewGraph.dispatch` routes no input and returns `.ignored` for every event, so input
+/// never reaches views. The app therefore owns its model: ``apply(_:)`` receives each
+/// event after `graph.dispatch` returned `.ignored`, as an `Application` host does.
 package protocol DemoApp: AnyObject {
   associatedtype Root: View
 

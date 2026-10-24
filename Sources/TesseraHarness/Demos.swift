@@ -5,7 +5,7 @@ import TesseraTerminalInput
 import TesseraWidgets
 
 /// A responsive workspace: header, a split of a scrolling catalog and an inspector, a
-/// status line. All input state is demo-owned because `ViewGraph.dispatch` is a stub.
+/// status line. All input state is demo-owned because `ViewGraph.dispatch` routes no input to views.
 package final class WorkspaceApp: DemoApp {
   package static let name = "workspace"
 
