@@ -104,7 +104,8 @@ struct ScenarioParserTests {
     }
 
     #expect(
-      error?.message == "unknown expectation `colour`; accepted: text, screen, node")
+      error?.message == "unknown expectation `colour`; accepted: text, screen, node, cost"
+    )
   }
 
   @Test
@@ -115,10 +116,7 @@ struct ScenarioParserTests {
       "focus": "focus role=button",
       "mouse": "mouse click 3,4",
       "hit": "hit 1,2",
-      "dump": "dump",
-      "check": "check",
       "expect cell": "expect cell 1,2 bold",
-      "expect cost": "expect cost bodies<=1",
       "expect focused": "expect focused role=button",
       "expect wireframe": "expect wireframe docs/design/a.md 1",
       "expect node SEL visible": "expect node type=Text visible",
@@ -160,11 +158,18 @@ struct ScenarioParserTests {
     let start = try #require(lines.firstIndex { $0.hasPrefix("## Not yet expressible") })
     let section = lines[(start + 1)...].prefix { !$0.hasPrefix("## ") }
 
-    let forms = section.filter { $0.hasPrefix("| `") }.map { line in
-      String(line.dropFirst(3).prefix { $0 != "`" })
+    // Each row is `| `FORM` | NEEDS |`: the form and what it waits for must both match.
+    func deferred(_ line: String) -> ScenarioGrammar.Deferred {
+      let cells = line.split(separator: "|", omittingEmptySubsequences: true)
+      let form = cells[0].trimmingCharacters(in: .whitespaces).dropFirst().dropLast()
+      return ScenarioGrammar.Deferred(
+        form: String(form), needs: cells[1].trimmingCharacters(in: .whitespaces))
     }
+    let rows = section.filter { $0.hasPrefix("| `") }.map(deferred)
 
-    #expect(forms.sorted() == ScenarioGrammar.notYetExpressible.map(\.form).sorted())
+    #expect(
+      rows.sorted { $0.form < $1.form }
+        == ScenarioGrammar.notYetExpressible.sorted { $0.form < $1.form })
   }
 
   @Test

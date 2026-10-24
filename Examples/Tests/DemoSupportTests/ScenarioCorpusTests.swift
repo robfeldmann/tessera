@@ -20,7 +20,7 @@ struct ScenarioCorpusTests {
 
     let failed = reports.filter { !$0.passed }
     #expect(failed.isEmpty, "\(failed.map(\.description).joined(separator: "\n"))")
-    #expect(reports.count >= 5)
+    #expect(reports.count >= 16)
   }
 
   @Test

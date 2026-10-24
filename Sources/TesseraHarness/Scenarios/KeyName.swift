@@ -98,4 +98,44 @@ enum KeyName {
     }
     return parts.joined(separator: "+")
   }
+
+  /// The name a scenario's `key` statement spells `key` with, or `nil` when the grammar cannot
+  /// say it: a modifier it has no name for (Caps Lock, Num Lock, Hyper), or a key code it has
+  /// none for. The name is checked by parsing it back to the same code and modifiers, so a
+  /// name that is returned replays as the key it came from.
+  static func name(of key: Key) -> String? {
+    var parts: [String] = []
+    for (name, flag) in [
+      ("Ctrl", Modifiers.control), ("Alt", .alt), ("Meta", .meta), ("Shift", .shift),
+      ("Super", .super),
+    ] where key.modifiers.contains(flag) {
+      parts.append(name)
+    }
+    switch key.code {
+    case .character(let character):
+      parts.append(character == " " ? "Space" : String(character))
+    case .function(let number): parts.append("F\(number)")
+    case .backspace: parts.append("Backspace")
+    case .delete: parts.append("Delete")
+    case .down: parts.append("ArrowDown")
+    case .end: parts.append("End")
+    case .enter: parts.append("Enter")
+    case .escape: parts.append("Escape")
+    case .home: parts.append("Home")
+    case .left: parts.append("ArrowLeft")
+    case .pageDown: parts.append("PageDown")
+    case .pageUp: parts.append("PageUp")
+    case .right: parts.append("ArrowRight")
+    case .tab: parts.append("Tab")
+    case .up: parts.append("ArrowUp")
+    default: return nil
+    }
+    let name = parts.joined(separator: "+")
+    guard let parsed = try? parse(name), parsed.code == key.code,
+      parsed.modifiers == key.modifiers
+    else {
+      return nil
+    }
+    return name
+  }
 }

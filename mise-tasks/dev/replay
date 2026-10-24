@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-#MISE description="Rerun a recorded trace as a scenario (tessera replay FILE --app NAME); not yet available"
-#USAGE arg "<file>" help="The recorded trace"
+#MISE description="Run a recorded trace again against an app (tessera replay FILE --app NAME)"
+#USAGE arg "<file>" help="A trace written by `launch` under TESSERA_TRACE or by `run --trace`"
 #USAGE flag "--app <name>" help="The app to replay it against"
 #USAGE flag "--json" help="Print one JSON object even on a terminal"
 #USAGE flag "--pretty" help="Print the text form even when output is not a terminal"

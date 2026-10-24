@@ -1,0 +1,10 @@
+ForEach
+────────────────────────────────────────
+tags #swift #tui #views
+────────────────────────────────────────
+a alpha
+b bravo
+c charlie
+────────────────────────────────────────
+3 items
++ add   - remove   r reverse   q quit

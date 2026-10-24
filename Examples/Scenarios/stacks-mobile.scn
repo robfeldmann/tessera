@@ -1,0 +1,18 @@
+# At 40 columns the Spacers share 37 cells: the first of two takes 19 and the second 18. With
+# `minLength: 20` on the first, its floor binds (a plain share would be 19), so it takes 20 and
+# the plain Spacer is left 17. A priority-1 Spacer with its neighbours at priority 1 takes the
+# whole 37 for itself. The Spacer in the three-row VStack takes the one row between `A` and `B`.
+app stacks
+size mobile
+
+expect node type=Spacer nth=0 frame 24,9,0x1
+expect node type=Spacer nth=1 frame 1,13,38x0
+expect node type=Spacer nth=2 frame 1,15,19x0
+expect node type=Spacer nth=3 frame 21,15,18x0
+expect node type=Spacer nth=4 frame 1,17,20x0
+expect node type=Spacer nth=5 frame 22,17,17x0
+expect node type=Spacer nth=6 frame 1,19,37x0
+expect node type=Spacer nth=7 frame 39,19,0x0
+expect node type=VStack nth=4 frame 10,4,7x3
+check
+shot mobile

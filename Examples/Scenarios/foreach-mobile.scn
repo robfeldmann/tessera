@@ -1,0 +1,10 @@
+# The tags are a ForEach inside an HStack, after a label. At 40 columns they fit on one row,
+# five cells after the label's four and its spacing.
+app foreach
+size mobile
+
+expect node id=swift frame 5,2,6x1
+expect node id=views frame 17,2,6x1
+expect node id=b frame 0,5,7x1
+check
+shot mobile

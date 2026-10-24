@@ -4,8 +4,8 @@ import TesseraTerminalInput
 
 /// Plays one parsed scenario against an application in an ``ApplicationRegistry``.
 ///
-/// A failing `expect` or `shot` is recorded with the screen at that moment and the run
-/// continues, so one run reports every failure. The run stops early only when the host
+/// A failing `expect`, `check`, or `shot` is recorded with the screen at that moment and the
+/// run continues, so one run reports every failure. The run stops early only when the host
 /// itself fails, because later statements would run against a broken session.
 @MainActor
 enum ScenarioPlayer {
@@ -14,18 +14,21 @@ enum ScenarioPlayer {
     var failures: [ScenarioFailure] = []
     var observations: [ScenarioObservation] = []
     var recorded: [GoldenChange] = []
+    var trace: [TraceRecord] = []
   }
 
-  /// What a one-off command reads from an application: its screen and its node tree.
+  /// What a one-off command reads from an application: its screen, its node tree, and the
+  /// projection both come from.
   struct Picture {
     var size: TerminalSize
     var rows: [String]
     var tree: [String]
+    var projection: Projection
   }
 
   /// Plays `scenario` and reports it under `name`.
   ///
-  /// With a `goldens` store, each `shot` is checked against its golden file or recorded;
+  /// With a `goldens` store, each `shot` is checked against its golden files or recorded;
   /// without one, a `shot` only observes.
   static func run(
     _ scenario: Scenario,
@@ -67,7 +70,8 @@ enum ScenarioPlayer {
       scenario: name,
       failures: outcome.failures,
       observations: outcome.observations,
-      recorded: outcome.recorded
+      recorded: outcome.recorded,
+      trace: outcome.trace
     )
   }
 
@@ -82,10 +86,12 @@ enum ScenarioPlayer {
     }
     let box = Box()
     try await registry.entry(named: name).headless(viewport, TerminalProfile()) { host in
+      let projection = host.projection
       box.picture = Picture(
         size: host.size,
         rows: host.screenRows.dropTrailingEmptyRows(),
-        tree: treeLines(host.diagnostics.nodes))
+        tree: treeLines(projection.nodes),
+        projection: projection)
     }
     guard let picture = box.picture else {
       throw HostError(verb: "harness", message: "the application never started")
@@ -107,11 +113,15 @@ enum ScenarioPlayer {
     goldens: GoldenStore?,
     into outcome: Outcome
   ) async {
+    defer {
+      outcome.trace = host.records
+    }
     var finisher: ScenarioLine?
     for line in scenario.lines {
       func failure(
         _ message: String, verb: String? = nil, expected: String? = nil,
-        actual: String? = nil, showsScreen: Bool = true
+        actual: String? = nil, showsScreen: Bool = true, rule: String? = nil,
+        node: String? = nil
       ) -> ScenarioFailure {
         ScenarioFailure(
           line: line.number,
@@ -120,7 +130,9 @@ enum ScenarioPlayer {
           message: message,
           expected: expected,
           actual: actual,
-          screen: showsScreen ? screenForReport(host.screenRows) : nil
+          screen: showsScreen ? screenForReport(host.screenRows) : nil,
+          rule: rule,
+          node: node
         )
       }
 
@@ -182,19 +194,19 @@ enum ScenarioPlayer {
         }
 
       case .shot(let shotName):
-        let rows = host.screenRows
+        let screen = host.screen
         outcome.observations.append(
           ScenarioObservation(
             line: line.number, verb: "shot", name: shotName,
-            lines: screenForReport(rows)))
+            lines: screenForReport(screen.textRows)))
         guard let goldens else {
           continue
         }
-        switch goldens.check(shot: shotName, rows: rows) {
+        switch goldens.check(shot: shotName, screen: screen) {
         case .matches:
           break
-        case .recorded(let change):
-          outcome.recorded.append(change)
+        case .recorded(let changes):
+          outcome.recorded.append(contentsOf: changes)
         case .drifted(let message, let expected, let actual):
           outcome.failures.append(failure(message, expected: expected, actual: actual))
         case .unusable(let message):
@@ -207,7 +219,35 @@ enum ScenarioPlayer {
         outcome.observations.append(
           ScenarioObservation(
             line: line.number, verb: "tree", name: nil,
-            lines: treeLines(host.diagnostics.nodes)))
+            lines: treeLines(host.projection.nodes)))
+
+      case .dump:
+        outcome.observations.append(
+          ScenarioObservation(
+            line: line.number, verb: "dump", name: nil, lines: [],
+            projection: host.projection))
+
+      case .check(let rules):
+        let ran = rules.isEmpty ? CheckRule.allCases : rules
+        let violations = Checker.run(ran, on: host.projection)
+        // A named rule is asked to hold, so a warning of it fails; a bare `check` reports
+        // warnings and fails only on errors.
+        let named = !rules.isEmpty
+        var warnings: [String] = []
+        for violation in violations {
+          if violation.severity == CheckRule.Severity.warning.rawValue, !named {
+            warnings.append(violation.text)
+            continue
+          }
+          outcome.failures.append(
+            failure(
+              "\(violation.rule) at \(violation.node): \(violation.detail)",
+              rule: violation.rule, node: violation.node))
+        }
+        outcome.observations.append(
+          ScenarioObservation(
+            line: line.number, verb: "check", name: nil,
+            lines: ["ran \(ran.map(\.rawValue).joined(separator: ", "))"] + warnings))
 
       case .expectText(let row, let text):
         if let message = expectText(row: row, text: text, rows: host.screenRows) {
@@ -226,12 +266,19 @@ enum ScenarioPlayer {
         }
 
       case .expectNode(let locator, let frame):
-        if let difference = nodeDifference(
-          locator: locator, frame: frame, host: host)
-        {
+        if let difference = nodeDifference(locator: locator, frame: frame, host: host) {
           outcome.failures.append(
             failure(
               difference.message, expected: frame.description, actual: difference.actual))
+        }
+
+      case .expectCost(let bounds):
+        if let difference = costDifference(bounds, record: host.lastRecord) {
+          outcome.failures.append(
+            failure(
+              difference.message,
+              expected: bounds.map(\.description).joined(separator: " "),
+              actual: difference.actual, showsScreen: false))
         }
       }
     }
@@ -283,25 +330,47 @@ enum ScenarioPlayer {
   private static func nodeDifference(
     locator: Locator, frame: FrameExpectation, host: any ScenarioHost
   ) -> (message: String, actual: String)? {
-    let nodes = host.diagnostics.nodes
-    switch locator.resolve(in: nodes, screenRows: host.screenRows) {
+    let projection = host.projection
+    switch locator.resolve(in: projection) {
     case .node(let node):
       let actual = FrameExpectation(
-        column: node.frame.origin.column, row: node.frame.origin.row,
-        columns: node.frame.size.columns, rows: node.frame.size.rows)
+        column: node.frame.column, row: node.frame.row,
+        columns: node.frame.columns, rows: node.frame.rows)
       return actual == frame
         ? nil : ("frame of `\(locator.description)` differs", actual.description)
     case .none:
       return (
         "locator `\(locator.description)` matches no node",
-        "(no node; types: \(distinctTypes(nodes)))"
+        "(no node; types: \(distinctTypes(projection.nodes))"
+          + "\(layoutsSuffix(projection.nodes)))"
       )
     case .ambiguous(let matches):
       return (
         "locator `\(locator.description)` matches \(matches.count) nodes; add nth=",
-        matches.map(\.identity.description).joined(separator: ", ")
+        matches.map(\.path).joined(separator: ", ")
       )
     }
+  }
+
+  /// The first bound the step's cost exceeds, with every count so the next bound can be
+  /// written from what the step took.
+  private static func costDifference(_ bounds: [CostBound], record: TraceRecord?)
+    -> (message: String, actual: String)?
+  {
+    guard let record else {
+      return ("no step has run to take the cost of", "(no step)")
+    }
+    for bound in bounds {
+      let count = record.cost.count(named: bound.counter) ?? 0
+      if count > bound.limit {
+        return (
+          "step \(record.seq) (\(record.event.summary)) took \(count) \(bound.counter), "
+            + "above the bound \(bound.limit)",
+          record.cost.text
+        )
+      }
+    }
+    return nil
   }
 
   // MARK: Output
@@ -311,34 +380,36 @@ enum ScenarioPlayer {
     rows.dropTrailingEmptyRows()
   }
 
-  static func distinctTypes(_ nodes: [NodeDiagnostics]) -> String {
+  static func distinctTypes(_ nodes: [Projection.Node]) -> String {
     var seen: [String] = []
-    for node in nodes {
-      let type = Locator.baseTypeName(node.viewType)
-      if !seen.contains(type) {
-        seen.append(type)
-      }
+    for node in nodes where !seen.contains(node.type) {
+      seen.append(node.type)
     }
     return seen.joined(separator: ", ")
   }
 
-  /// One line per node: indentation by depth, identity, base type, frame (and clip if it differs).
-  static func treeLines(_ nodes: [NodeDiagnostics]) -> [String] {
+  /// `; layouts: …` when some node has a layout algorithm, so a `layout=` locator that
+  /// matched nothing shows what it could have named.
+  private static func layoutsSuffix(_ nodes: [Projection.Node]) -> String {
+    var seen: [String] = []
+    for layout in nodes.compactMap(\.layout) where !seen.contains(layout) {
+      seen.append(layout)
+    }
+    return seen.isEmpty ? "" : "; layouts: \(seen.joined(separator: ", "))"
+  }
+
+  /// One line per node: indentation by depth, identity, type (with the layout algorithm of a
+  /// container that has one), frame, and clip if it differs from the frame.
+  static func treeLines(_ nodes: [Projection.Node]) -> [String] {
     nodes.map { node in
-      let identity = node.identity.description
-      let depth = identity.split(separator: "/").count - 1
+      let type = node.layout.map { "\(node.type)(\($0))" } ?? node.type
       var line =
-        String(repeating: "  ", count: depth)
-        + "\(identity) \(Locator.baseTypeName(node.viewType)) "
-        + "frame=\(rectText(node.frame))"
+        String(repeating: "  ", count: node.depth)
+        + "\(node.path) \(type) frame=\(node.frame.text)"
       if node.clip != node.frame {
-        line += " clip=\(rectText(node.clip))"
+        line += " clip=\(node.clip.text)"
       }
       return line
     }
-  }
-
-  private static func rectText(_ rect: Rect) -> String {
-    "\(rect.origin.column),\(rect.origin.row),\(rect.size.columns)x\(rect.size.rows)"
   }
 }

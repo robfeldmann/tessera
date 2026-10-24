@@ -4,6 +4,7 @@
 #USAGE flag "--record" help="Write the goldens that shot statements compare against, and list what changed"
 #USAGE flag "--repeat <n>" help="Run each scenario N times and fail a run that differs from the first"
 #USAGE flag "--timing" help="Add the wall-clock seconds of each run to the report"
+#USAGE flag "--trace <dir>" help="Write each scenario's trace, one JSON line per step, under this directory"
 #USAGE flag "--json" help="Print one JSON object even on a terminal"
 #USAGE flag "--pretty" help="Print the text form even when output is not a terminal"
 set -euo pipefail

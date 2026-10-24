@@ -11,8 +11,13 @@ public enum Demos {
   public static func registry() -> ApplicationRegistry {
     var registry = ApplicationRegistry()
     register(Counter.self, into: &registry)
-    register(Stack.self, into: &registry)
+    register(FlexDemo.self, into: &registry)
+    register(ForEachDemo.self, into: &registry)
+    register(FramePaddingDemo.self, into: &registry)
+    register(StacksDemo.self, into: &registry)
+    register(TextDemo.self, into: &registry)
     register(Workspace.self, into: &registry)
+    register(ZStackDemo.self, into: &registry)
     return registry
   }
 

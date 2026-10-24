@@ -10,17 +10,21 @@ import TesseraTerminal
 enum LiveHost {
   /// Builds the application, opens the terminal, and runs until the application finishes.
   ///
-  /// The factory runs once, on the main actor, before the terminal changes mode.
+  /// The factory runs once, on the main actor, before the terminal changes mode. When `trace`
+  /// is given, the driver writes it one record per step, so the session can be replayed.
   static func run<App: Application>(
     make: @MainActor () -> App,
-    configuration: TerminalApplicationConfiguration
+    configuration: TerminalApplicationConfiguration,
+    trace: TraceWriter? = nil
   ) async throws {
     let app = make()
 
     // The session's scope hands this function value, not the generic driver, to the main
     // actor, so the application's conformance never crosses out of it.
     let loop: @MainActor (TerminalSession) async throws -> Void = { session in
-      let driver = Driver(app: app, size: try await session.size, session: session)
+      let driver = Driver(
+        app: app, size: try await session.size, session: session
+      ) { trace?.append($0) }
       try await driver.start()
       guard !driver.isFinished else {
         return

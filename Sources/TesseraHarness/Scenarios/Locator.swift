@@ -1,24 +1,24 @@
-import TesseraCore
-import TesseraTerminalCore
-
-/// `key=value` node selector: `type=Text id=root/1/0 text="Submit" nth=2`.
+/// `key=value` node selector: `type=Text id=root/index(1) text="Submit" nth=2`.
 ///
-/// Every field filters; `nth` then picks one match by zero-based preorder position.
-/// Without `nth` the locator must match exactly one node.
+/// A selector addresses nodes by meaning and is re-resolved against a fresh ``Projection`` at
+/// every statement. Every key filters; `nth` then picks one match by zero-based position in tree
+/// order. Without `nth` the selector must match exactly one node, and a selector that matches
+/// nothing is an error, never an empty result.
 package struct Locator: Equatable, Sendable {
   struct Failure: Error {
     var message: String
   }
 
   enum Resolution {
-    case node(NodeDiagnostics)
+    case node(Projection.Node)
     case none
-    case ambiguous([NodeDiagnostics])
+    case ambiguous([Projection.Node])
   }
 
-  static let accepted = "type, id, text, nth"
+  static let accepted = "type, layout, id, text, nth"
 
   package var type: String?
+  package var layout: String?
   package var id: String?
   package var text: String?
   package var nth: Int?
@@ -26,6 +26,7 @@ package struct Locator: Equatable, Sendable {
   var description: String {
     var terms: [String] = []
     if let type { terms.append("type=\(type)") }
+    if let layout { terms.append("layout=\(layout)") }
     if let id { terms.append("id=\(id)") }
     if let text { terms.append("text=\"\(text)\"") }
     if let nth { terms.append("nth=\(nth)") }
@@ -41,8 +42,14 @@ package struct Locator: Equatable, Sendable {
       }
       let key = String(token[..<equals])
       let value = String(token[token.index(after: equals)...])
+      // An empty `text=` would match every leaf that shows anything, and an empty `type=`,
+      // `layout=`, or `id=` nothing at all; either is a mistake in the scenario, not a query.
+      if value.isEmpty, ["type", "layout", "id", "text"].contains(key) {
+        throw Failure(message: "locator key `\(key)` needs a value that is not empty")
+      }
       switch key {
       case "type": locator.type = value
+      case "layout": locator.layout = value
       case "id": locator.id = value
       case "text": locator.text = value
       case "nth":
@@ -57,34 +64,42 @@ package struct Locator: Equatable, Sendable {
     return locator
   }
 
-  /// `TesseraWidgets.ScrollView<Foo>` → `ScrollView`.
-  static func baseTypeName(_ viewType: String) -> String {
-    let withoutGenerics = viewType.prefix { $0 != "<" }
-    return String(withoutGenerics.split(separator: ".").last ?? withoutGenerics)
-  }
-
-  /// Screen text inside `frame`, rows joined by newline.
-  static func renderedText(in frame: Rect, rows: [String]) -> String {
-    var lines: [String] = []
-    for row in frame.rowRange where rows.indices.contains(row) {
-      let characters = Array(rows[row])
-      let lower = max(frame.origin.column, 0)
-      let upper = min(frame.maxColumn, characters.count)
-      lines.append(lower < upper ? String(characters[lower..<upper]) : "")
+  /// The identity path component that names a node by what the app wrote: `explicit(X)` for a
+  /// `.id(X)` modifier and `id(X)` for a `ForEach` key. `nil` for a positional component such as
+  /// `index(2)`.
+  static func userID(ofPath path: String) -> String? {
+    guard let last = path.split(separator: "/", omittingEmptySubsequences: true).last
+    else {
+      return nil
     }
-    return lines.joined(separator: "\n")
+    for prefix in ["explicit(", "id("] where last.hasPrefix(prefix) && last.hasSuffix(")")
+    {
+      return String(last.dropFirst(prefix.count).dropLast())
+    }
+    return nil
   }
 
-  /// Re-resolves against a fresh projection; `screenRows` are untrimmed screen rows.
-  func resolve(in nodes: [NodeDiagnostics], screenRows: [String]) -> Resolution {
-    let matches = nodes.filter { node in
-      if let type, Self.baseTypeName(node.viewType) != type {
+  /// Re-resolves against a fresh projection.
+  ///
+  /// - `type` is the short type name (`Text`, `_LayoutContainer`), `layout` the short name of a
+  ///   `_LayoutContainer`'s algorithm (`_FrameLayout`, `_PaddingLayout`).
+  /// - `id` is a node's full identity path, or the id the app gave it: the `X` of `.id(X)` or of
+  ///   a `ForEach` key.
+  /// - `text` is a substring of the text the node's own cells show, so a container has none and
+  ///   text that another node paints over does not match: `text="atus"` finds `status` under
+  ///   `OK`, whose own cells show only `atus`, and `text="OKatus"` finds nothing.
+  func resolve(in projection: Projection) -> Resolution {
+    let matches = projection.nodes.filter { node in
+      if let type, node.type != type {
         return false
       }
-      if let id, node.identity.description != id {
+      if let layout, node.layout != layout {
         return false
       }
-      if let text, !Self.renderedText(in: node.frame, rows: screenRows).contains(text) {
+      if let id, node.path != id, Self.userID(ofPath: node.path) != id {
+        return false
+      }
+      if let text, node.text?.contains(text) != true {
         return false
       }
       return true

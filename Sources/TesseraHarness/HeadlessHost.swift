@@ -19,24 +19,37 @@ package protocol ScenarioHost: AnyObject {
   /// The visible screen, one string per row, with trailing blanks trimmed.
   var screenRows: [String] { get }
 
+  /// The visible screen as cells, for the goldens and the projection.
+  var screen: ScreenGrid { get }
+
   /// The view graph's current diagnostics.
   var diagnostics: GraphDiagnostics { get }
+
+  /// The graph's diagnostics and the screen, joined as of the last completed step.
+  var projection: Projection { get }
+
+  /// The record of the last step, which is the first frame until an event has been sent.
+  var lastRecord: TraceRecord? { get }
+
+  /// The record of every step so far, the first frame first.
+  var records: [TraceRecord] { get }
 
   /// Delivers one event and returns once the resulting frame is committed.
   func send(_ event: InputEvent) async throws
 }
 
 extension ScreenSnapshot {
-  /// One string per row, with trailing blanks trimmed.
+  /// One string per row, with trailing blanks trimmed and a wide grapheme's continuation cell
+  /// left out.
   var trimmedRows: [String] {
-    cells.map { row in
-      var text = String(row.map(\.character))
-      while text.last == " " {
-        text.removeLast()
-      }
-      return text
-    }
+    ScreenGrid(self).textRows
   }
+}
+
+/// The records of a run, kept in step order.
+@MainActor
+private final class RecordLog {
+  var records: [TraceRecord] = []
 }
 
 /// Runs an application on a terminal session over a headless device and reads the result from
@@ -50,6 +63,7 @@ final class HeadlessHost<App: Application>: ScenarioHost {
   private let driver: Driver<App>
   private let device: HeadlessTerminalDevice
   private let terminal: VirtualTerminal
+  private let log: RecordLog
 
   var size: TerminalSize {
     driver.size
@@ -60,21 +74,41 @@ final class HeadlessHost<App: Application>: ScenarioHost {
   }
 
   var screenRows: [String] {
-    terminal.snapshot().trimmedRows
+    screen.textRows
+  }
+
+  var screen: ScreenGrid {
+    ScreenGrid(terminal.snapshot())
   }
 
   var diagnostics: GraphDiagnostics {
     driver.graph.diagnostics
   }
 
+  var projection: Projection {
+    Projection(
+      diagnostics: driver.graph.diagnostics, screen: screen,
+      pass: driver.lastRecord?.seq ?? 0)
+  }
+
+  var lastRecord: TraceRecord? {
+    driver.lastRecord
+  }
+
+  var records: [TraceRecord] {
+    log.records
+  }
+
   private init(
     driver: Driver<App>,
     device: HeadlessTerminalDevice,
-    terminal: VirtualTerminal
+    terminal: VirtualTerminal,
+    log: RecordLog
   ) {
     self.driver = driver
     self.device = device
     self.terminal = terminal
+    self.log = log
   }
 
   /// Builds the application, opens a headless session at `viewport`, and runs `body` against
@@ -105,9 +139,13 @@ final class HeadlessHost<App: Application>: ScenarioHost {
     // The session's scope hands this function value, not the generic driver, to the main
     // actor, so the application's conformance never crosses out of it.
     let scope: @MainActor (TerminalSession) async throws -> Void = { session in
-      let driver = Driver(app: app, size: size, session: session)
+      let log = RecordLog()
+      let driver = Driver(
+        app: app, size: size, session: session
+      ) { log.records.append($0) }
       try await driver.start()
-      try await body(HeadlessHost(driver: driver, device: device, terminal: terminal))
+      try await body(
+        HeadlessHost(driver: driver, device: device, terminal: terminal, log: log))
     }
     do {
       try await TerminalSession.withApplicationTerminal(

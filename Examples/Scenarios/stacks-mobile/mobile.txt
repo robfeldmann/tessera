@@ -1,0 +1,22 @@
+Stacks
+────────────────────────────────────────
+A B C spacing 1
+leading   center    trailing
+a            a            a
+bbbbbbb   bbbbbbb   bbbbbbb
+cc          cc           cc
+top   center   bottom   Spacer
+M x     x        x      A
+  y   M y        y
+  z     z      M z      B
+────────────────────────────────────────
+one Spacer
+L                                      R
+two Spacers: earlier gets the odd cell
+L                   M                  R
+Spacer(minLength: 20), Spacer()
+L                    M                 R
+priority 1: first Spacer and neighbours
+L                                     MR
+────────────────────────────────────────
+s spacing   v rows apart   q quit
