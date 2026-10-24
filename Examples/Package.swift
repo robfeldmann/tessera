@@ -19,46 +19,14 @@ let package = Package(
 
 // MARK: - ⤵️ Dependencies
 
-// MARK: SnapshotTesting
-
-package.dependencies.append(
-  .package(
-    url: "https://github.com/pointfreeco/swift-snapshot-testing",
-    exact: "1.19.6"
-  )
-)
-
-let InlineSnapshotTesting: Target.Dependency = .product(
-  name: "InlineSnapshotTesting",
-  package: "swift-snapshot-testing"
-)
-
-let SnapshotTesting: Target.Dependency = .product(
-  name: "SnapshotTesting",
-  package: "swift-snapshot-testing"
-)
-
 // MARK: Tessera
 
 package.dependencies.append(
   .package(name: "tessera", path: "..")
 )
 
-let Tessera: Target.Dependency = .product(
-  name: "Tessera",
-  package: "tessera"
-)
-
 let TesseraTerminal: Target.Dependency = .product(
   name: "TesseraTerminal",
-  package: "tessera"
-)
-let TesseraTerminalSnapshotSupport: Target.Dependency = .product(
-  name: "TesseraTerminalSnapshotSupport",
-  package: "tessera"
-)
-let TesseraTerminalTestSupport: Target.Dependency = .product(
-  name: "TesseraTerminalTestSupport",
   package: "tessera"
 )
 
@@ -74,7 +42,6 @@ let Phase3ProtocolsDemoSupport: Target.Dependency = .byName(
   name: "Phase3ProtocolsDemoSupport"
 )
 let RendererDemo: Target.Dependency = .byName(name: "RendererDemo")
-let TesseraShowcase: Target.Dependency = .byName(name: "TesseraShowcase")
 
 let AllTesseraExampleTargetNames: Set<String> = [
   "ANSIEncoderDemo",
@@ -85,7 +52,6 @@ let AllTesseraExampleTargetNames: Set<String> = [
   "Phase3ProtocolsDemo",
   "Phase3ProtocolsDemoSupport",
   "RendererDemo",
-  "TesseraShowcase",
 ]
 
 // MARK: - 🎯 Products & Targets
@@ -191,34 +157,6 @@ package.targets.append(
     ]
   )
 )
-
-// MARK: TesseraShowcase
-
-package.products.append(
-  .executable(name: "TesseraShowcase", targets: ["TesseraShowcase"])
-)
-
-package.targets.append(contentsOf: [
-  .executableTarget(
-    name: "TesseraShowcase",
-    dependencies: [
-      ExampleSupport,
-      Tessera,
-    ]
-  ),
-  .testTarget(
-    name: "TesseraShowcaseTests",
-    dependencies: [
-      InlineSnapshotTesting,
-      SnapshotTesting,
-      TesseraShowcase,
-      Tessera,
-      TesseraTerminal,
-      TesseraTerminalSnapshotSupport,
-      TesseraTerminalTestSupport,
-    ]
-  ),
-])
 
 // MARK: RendererDemo
 
