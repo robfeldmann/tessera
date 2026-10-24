@@ -14,7 +14,7 @@ Everything in the [`tessera` skill](../tessera/SKILL.md) applies here: the `tess
 | --- | --- | --- |
 | `mise run dev:apps` | `tessera apps` | List the registered demos: name, minimum size, viewports. |
 | `mise run dev:launch NAME` | `tessera launch NAME` | Run one demo in this terminal until it quits. |
-| `mise run dev:launch`, `dev:shot`, or `dev:tree` | `tessera help COMMAND`, then `tessera apps` | With no name, print the command's help and the demos, and exit 0. `dev:run` with no path prints its help. |
+| `mise run dev:launch`, `dev:shot`, or `dev:tree` | `tessera help COMMAND`, then `tessera apps` | With no name, print the command's help and the demos. At a terminal that is the answer and the task exits 0; in a pipe or a script nothing ran and it exits 2, as `tessera` does. `dev:run` with no path prints its help the same way. |
 | `mise run dev:run PATH...` | `tessera run PATH...` | Run scenario files or directories of them, with `--record`, `--repeat N`, and `--timing`. |
 | `mise run dev:shot NAME [SIZE]` | `tessera shot NAME [SIZE]` | Print one demo's screen as text. |
 | `mise run dev:tree NAME [SIZE]` | `tessera tree NAME [SIZE]` | Print one demo's node tree. |
