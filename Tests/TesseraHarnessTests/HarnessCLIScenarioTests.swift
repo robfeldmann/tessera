@@ -238,7 +238,7 @@ struct HarnessCLIScenarioTests {
       CommandOutput(
         exitCode: 2,
         stdout: """
-          {"command":"run","exitCode":2,"message":"Missing expected argument '<path> ...'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] <path> ..."}
+          {"command":"run","exitCode":2,"message":"Missing expected argument '<path> ...'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] <path> ..."}
           
           """,
         stderr: ""
@@ -266,7 +266,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: Unknown option '--frobnicate'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] <path> ...
+            error: Unknown option '--frobnicate'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] <path> ...
             
             """
         ),
@@ -274,7 +274,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: Missing value for '--repeat <n>'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] <path> ...
+            error: Missing value for '--repeat <n>'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] <path> ...
             
             """
         ),
@@ -282,7 +282,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: `--repeat` needs a whole number of at least 1, got `0`; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] <path> ...
+            error: `--repeat` needs a whole number of at least 1, got `0`; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] <path> ...
             
             """
         ),
@@ -290,7 +290,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: The value 'many' is invalid for '--repeat <n>'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] <path> ...
+            error: The value 'many' is invalid for '--repeat <n>'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] <path> ...
             
             """
         ),
@@ -298,7 +298,7 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: `--repeat` is given twice; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] <path> ...
+            error: `--repeat` is given twice; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] <path> ...
             
             """
         ),
@@ -306,11 +306,84 @@ struct HarnessCLIScenarioTests {
           exitCode: 2,
           stdout: "",
           stderr: """
-            error: `--repeat` is given twice; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] <path> ...
+            error: `--repeat` is given twice; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] <path> ...
             
             """
         )
       ]
+      """#
+    }
+  }
+
+  @Test
+  func `a single-value option given twice is an error however it is spelled`() async {
+    let equals = await run("run", "x.scn", "--repeat=2", "--repeat=3", "--pretty")
+    let mixed = await run("run", "x.scn", "--repeat=2", "--repeat", "3", "--pretty")
+    let leading = await run("--pretty", "run", "x.scn", "--repeat", "2", "--repeat=3")
+    let json = await run("run", "x.scn", "--repeat", "2", "--repeat", "3")
+
+    assertInlineSnapshot(of: [equals, mixed, leading, json], as: .customDump) {
+      #"""
+      [
+        [0]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: `--repeat` is given twice; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] <path> ...
+            
+            """
+        ),
+        [1]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: `--repeat` is given twice; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] <path> ...
+            
+            """
+        ),
+        [2]: CommandOutput(
+          exitCode: 2,
+          stdout: "",
+          stderr: """
+            error: `--repeat` is given twice; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] <path> ...
+            
+            """
+        ),
+        [3]: CommandOutput(
+          exitCode: 2,
+          stdout: """
+            {"command":"run","exitCode":2,"message":"`--repeat` is given twice; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] <path> ..."}
+            
+            """,
+          stderr: ""
+        )
+      ]
+      """#
+    }
+  }
+
+  @Test
+  func `after the separator a repeated option name is a path, not an option`() async {
+    let output = await run("run", "--pretty", "--", "--repeat", "--repeat")
+
+    #expect(output.exitCode == 2)
+    #expect(!(output.stdout + output.stderr).contains("given twice"))
+  }
+
+  @Test
+  func `usage shows a single-value option once, with its value and no ellipsis`() async {
+    let output = await run("run", "x.scn", "--nope", "--pretty")
+
+    assertInlineSnapshot(of: output, as: .customDump) {
+      #"""
+      CommandOutput(
+        exitCode: 2,
+        stdout: "",
+        stderr: """
+          error: Unknown option '--nope'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] <path> ...
+          
+          """
+      )
       """#
     }
   }
@@ -327,7 +400,7 @@ struct HarnessCLIScenarioTests {
         exitCode: 2,
         stdout: "",
         stderr: """
-          error: The value 'x.scn' is invalid for '--repeat <n>'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n> ...] [--timing] <path> ...
+          error: The value 'x.scn' is invalid for '--repeat <n>'; usage: tessera run [--json] [--pretty] [--record] [--repeat <n>] [--timing] <path> ...
           
           """
       )

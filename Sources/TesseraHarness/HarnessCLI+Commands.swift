@@ -8,9 +8,19 @@ import TesseraTerminal
 /// It stays apart from ArgumentParser's `run()` so that a command returns what it printed
 /// instead of printing it, which lets a test run one without a process.
 protocol HarnessCommand: ParsableCommand {
+  /// The options of the command that take one value and may be given at most once, spelled
+  /// with their dashes, such as `--repeat`. `HarnessCLI` rejects a second one before
+  /// ArgumentParser, which would keep the last, parses; a test fails when the command declares
+  /// an option that this does not list.
+  static var singleValueOptions: [String] { get }
+
   /// Runs the command and returns what it printed and how it ended.
   @MainActor
   func execute(in context: HarnessCLI.Context) async -> CommandOutput
+}
+
+extension HarnessCommand {
+  static var singleValueOptions: [String] { [] }
 }
 
 extension HarnessCLI {
