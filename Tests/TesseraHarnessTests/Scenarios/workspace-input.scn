@@ -1,0 +1,19 @@
+# key and type reach demo-owned state; ViewGraph.dispatch is a stub at HEAD.
+app workspace
+size 80x24
+
+type "hi"
+key Enter
+key Enter
+key Tab
+key ArrowDown
+key ArrowDown
+key Ctrl+C
+
+expect text 2 "Item 2                          │Typed: hi"
+expect text 3 "Item 3                          │Key: Ctrl+c"
+expect text 4 "Item 4                          │Count: 2"
+expect text 23 "focus=inspector scroll=2 quit"
+# The ScrollView content keeps its full height; only the clip is the viewport.
+expect node id=root/index(2)/id(catalog)/index(0)/index(0) frame 0,0,7x30
+shot after-input

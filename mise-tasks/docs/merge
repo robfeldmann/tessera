@@ -8,6 +8,7 @@ xcrun docc merge \
   .build/doccarchives/targets/Tessera.doccarchive \
   .build/doccarchives/targets/TesseraCore.doccarchive \
   .build/doccarchives/targets/TesseraLayout.doccarchive \
+  .build/doccarchives/targets/TesseraRuntime.doccarchive \
   .build/doccarchives/targets/TesseraTestSupport.doccarchive \
   .build/doccarchives/targets/TesseraTerminal.doccarchive \
   .build/doccarchives/targets/TesseraTerminalANSI.doccarchive \

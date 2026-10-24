@@ -11,8 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Added
 - Established the Swift Package Manager foundation with the `Tessera` and `TesseraTerminal` libraries, Swift 6 strict concurrency, and the `swift-system` and `swift-displaywidth` dependencies.
 - Added repository quality and development tooling with pinned npm markup checks, codespell, swift-format, SwiftLint, Lefthook Conventional Commit validation, Just workflows, cross-platform CI, DocC validation, environment diagnostics, and local-state documentation.
-- Added the Tessera design catalog and runnable Showcase, including component contracts, tokens, templates, wireframe validation, responsive compositions, and local diagnostics.
-- Added the declarative view and layout foundation with acyclic Core, Layout, and Widgets targets; persistent `ViewGraph` reconciliation and diagnostics; environments and styled text; snapshot support; stacks, modifiers, Divider, SplitView, and ScrollView; Flex constraints and pane negotiation; and responsive Showcase layouts.
+- Added the Tessera design catalog, including component contracts, tokens, templates, wireframe validation, responsive compositions, and local diagnostics.
+- Added the declarative view and layout foundation with acyclic Core, Layout, and Widgets targets; persistent `ViewGraph` reconciliation and diagnostics; environments and styled text; snapshot support; stacks, modifiers, Divider, SplitView, and ScrollView; and Flex constraints and pane negotiation.
 - Added comprehensive DocC catalogs, articles, symbol extensions, icons, and card artwork across the Tessera module family.
 - Added semantic terminal protocols for bracketed paste, focus events, SGR mouse tracking, Kitty keyboard input, OSC 8 hyperlinks, and capability detection, with lifecycle management, parser coverage, and protocol demo panels.
 - Added Kitty Graphics Protocol support with APC encoding and parsing, image query/transmission/deletion APIs, frame-scoped placement, cell pixel geometry, cleanup, Ghostty-backed inspection, and a graphics demo panel.
@@ -21,6 +21,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Added deterministic mode lifecycle handling, semantic SGR underline variants, colored underlines, renderer transitions, compatibility behavior, snapshots, and exact-byte coverage.
 - Added runtime protocol controls and capability reconciliation with bounded active probes, serialized failure-safe mode transactions, live policy changes, emergency cleanup storage, repaint behavior, and a runtime-control demo.
 - Added `package`-level seams the headless harness drives, with no new public API: `InMemoryTerminalDevice` can stay open and deliver `.resize` mid-session (`init(…keepsInputOpen:)`, `deliverResize(to:)`, `closeInput()`); `TerminalSession.withApplicationTerminal(configuration:io:…)` forwards `probeImageID` and `probeSleep`; `TerminalSession` exposes `lastDrawn`, `size`, and `outputTap`; and `ViewGraph` reads an injected clock.
+- Added the `TesseraRuntime` module with the `Application` protocol, re-exported by `Tessera`: a reference type that owns its model, whose `body` is the root view, whose `apply(_:)` receives each event the view graph left unhandled and every resize, and whose `isFinished` (default `false`) tells a host to stop. It refines nothing but `AnyObject`, so plain classes, `@Observable` models, default-main-actor types, and `@MainActor` models (through `: @MainActor Application`) all adopt it where the type is declared.
+- Added the `TesseraHarness` library product, the first home of the developer tooling: the scenario parser, runner, and report that the HeadlessRunner spike proved, ported with its scenario corpus and tests as `package` code. It declares no public API yet.
 - Added Windows Ghostty snapshot support with a static library, reproducible Zig build and cache tooling, Frost VM recipes, console mode setup and restoration, live terminal device I/O, focused cross-platform test recipes, and hosted CI coverage.
 - Added public issue, Discussion, and pull-request forms, private security and conduct reporting, solo-maintainer ownership metadata, and a fork-safe reviewed contributor vouch gate with tested trust parsing.
 - Added read-only DocC pull-request validation plus main-branch and manual GitHub Pages deployment for the combined static documentation site.
@@ -49,6 +51,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Removed
 - Removed the Frost Windows workflow (its scripts, `windows-frost:` tasks, guide, and the Homebrew `qemu`, `swtpm`, and `sshpass` dependencies); QEMU's Apple hypervisor backend aborts on the TPM device on macOS 27, and snapshots of the UTM guest replace Frost's disposable overlays.
+- Removed the Showcase example (`Examples/Sources/TesseraShowcase`, its tests and Xcode schemes) and the `core:showcase` task: each view component ships its own demo instead, and `mise run core:example` runs what remains in the Examples package.
 
 ### Fixed
 - Fixed `Package.resolved` churn between toolchains: the resolved files (root, `Examples`, and the workspace) are resolved with Swift 6.4, whose graph adds swift-issue-reporting, and every repository entry point passes `--only-use-versions-from-resolved-file`, so Swift 6.3.3 no longer prunes that pin; each CI test leg fails when a resolved file is out of date or a run changes it.

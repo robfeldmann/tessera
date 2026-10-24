@@ -1,0 +1,15 @@
+# Resizing below 60 columns collapses the catalog pane; the inspector takes the width.
+app workspace
+size desktop
+
+resize 50x12
+expect text 0 "Workspace 50x12"
+expect text 2 "Typed:"
+expect node type=SplitView frame 0,2,50x8
+expect node id=root/index(2)/id(inspector) frame 0,2,50x8
+expect node id=root/index(2)/id(catalog) frame 0,2,0x0
+shot compact
+
+resize 80x24
+expect text 2 "Item 0                          │Typed:"
+shot restored

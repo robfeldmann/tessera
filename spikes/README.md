@@ -1,6 +1,6 @@
 # Developer tooling spikes
 
-Time-boxed spikes for plan 033 (`docs/plans/developer-tooling.md`). Each is a standalone SwiftPM package that depends on the root package by path (`../..`) and uses public API only, so anything it could not reach is itself a finding. Nothing in the root package imports these; plan 033 step A.3 migrates the useful code by copy.
+Time-boxed spikes for plan 033 (`docs/plans/developer-tooling.md`). Each is a standalone SwiftPM package that depends on the root package by path (`../..`) and uses public API only, so anything it could not reach is itself a finding. Nothing in the root package imports these; plan 033 step A.3 migrates the useful code by copy, and nothing new goes into `spikes/`.
 
 | Spike | Question | Verdict |
 | --- | --- | --- |
@@ -18,6 +18,8 @@ GhosttyDistribution is not a path-dependent package: it is the saved sources of 
 ## Status
 
 The spikes are frozen evidence for plan 033: they are built by hand and stay out of CI (owner decision, 2026-10-21), so nothing guards them against drift in the root package. They were last built and tested on 2026-10-22 against the root package at that date, on both toolchain lanes (Xcode 26.6 and Xcode 27.1).
+
+HeadlessRunner's library code has been copied into the root package (`Sources/TesseraHarness` and `Tests/TesseraHarnessTests`, plan 036 Slice 3), where it is maintained from now on; its command line (`headless`, `CLI.swift`) was not copied, because plan 036 Slice 4 writes the `tessera` CLI fresh. The copy here stays as the record of what the spike proved and is no longer updated.
 
 ## Running
 

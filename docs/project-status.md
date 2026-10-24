@@ -28,7 +28,7 @@ Contributions that validate other OS versions, distributions, or architectures a
 
 ## Component Demos
 
-Each view component will ship with a small standalone demo that shows what it does and how to use it. The demos also render headlessly at fixed sizes, so they double as the snapshot fixtures that test each component, and they will later be assembled into an introductory demo app. They replace the earlier plan for a single Showcase app, whose example is being retired.
+Each view component will ship with a small standalone demo that shows what it does and how to use it. The demos also render headlessly at fixed sizes, so they double as the snapshot fixtures that test each component, and they will later be assembled into an introductory demo app.
 
 ## View Components (in development)
 

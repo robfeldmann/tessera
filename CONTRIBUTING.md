@@ -100,7 +100,7 @@ Tasks are grouped by area; run `mise tasks` to list them. The fastest inner-loop
 mise run core:build            # build the package
 mise run core:test             # full Swift test suite (non-parallel, as CI runs it)
 mise run core:test-parallel    # the same suite in parallel; must stay green
-mise run core:showcase         # run the Tessera Showcase example
+mise run core:example          # run an example from the Examples package
 ```
 
 Run the narrowest relevant check first, then widen:

@@ -51,8 +51,9 @@ Read the diagram as one scenario run. `tessera run` and `swift test` are two way
 | Tool | Who uses it | Where it lives | Status |
 | --- | --- | --- | --- |
 | Demos and the registry | both | demos in `Examples/Sources/DemoSupport`, `ApplicationRegistry` in `TesseraHarness` | designed |
-| Headless driver (`Driver`) and the app contract (`Application`) | both | `TesseraHarness`; `Application` in `TesseraRuntime` | designed |
-| Scenario language and runner | both | grammar in `Examples/Scenarios/README.md`, runner in `TesseraHarness` | designed |
+| The app contract (`Application`) | both | `TesseraRuntime`, re-exported by `Tessera` | built |
+| Headless driver (`Driver`) | both | `TesseraHarness` | designed; the spike's driver is ported as `package` code |
+| Scenario language and runner | both | grammar in `Examples/Scenarios/README.md`, runner in `TesseraHarness` | designed; the spike's v0 parser, runner, and report are ported as `package` code |
 | `tessera` CLI and `mise run dev:*` | agents first | `Examples/Sources/TesseraDev`, `mise-tasks/dev/` | designed |
 | Projection and locators | agents first | `TesseraHarness` | designed |
 | Invariant checks (`check`) | both | `TesseraHarness` | designed |
