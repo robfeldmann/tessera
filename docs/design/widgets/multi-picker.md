@@ -284,7 +284,7 @@ Callouts (9x4, 0-based):
 | cursor index | NodeState | `Int` | Position, not data (key D3). Keyboard position within the rows (options, typed rows, then the Other row). Starts as the open host list's cursor does, on the first chosen option or else the first option, because Picker's menu and host list share one start (key D9). Clamped to `0...(row count - 1)` on every reconciliation, including after a typed row disappears; never written to `selection`. When an accepted draft adds a typed row, the index moves with the Other row, so the cursor stays on it (owner decision, 2026-10-18). |
 | editing | NodeState | `Bool` | Interaction in flight (key D7). `true` after Space or a click starts the Other row. Ends on Enter with an accepted value, or on Escape. A rejected draft (`nil`) leaves it `true`. Reset to `false` when the custom row is removed. |
 | draft text | NodeState | `String` | An uncommitted draft (key D8): losing it loses unfinished input, never a committed value. Accepts typed text only while editing. Cleared when `customOption` accepts it and on Escape. |
-| scroll offset | NodeState | `Int` | Rows above the viewport that no binding owns (key D4), as in [Picker's menu](picker.md#menu-scrolling-in-rows); clamped to `0...max(0, content rows - visible rows)` on every reconciliation, then reveal re-applies to the cursor row. |
+| scroll offset | NodeState | `Int` | Rows above the viewport that no binding owns (key D4), as in [Picker's menu](picker.md#menu-scrolling-in-rows); clamped to `0...max(0, content rows - visible rows)` on every reconciliation, then reveal re-applies to the cursor row. PgUp and PgDn move it by `V` rows (the visible rows) and the cursor index by the same rows, so the cursor keeps its screen row (owner decision, 2026-10-23). |
 | is focused | Environment | `Bool` | Gates every key; the `❯` cursor and the focus treatment draw only while focused. |
 
 ### Radio group
@@ -314,7 +314,9 @@ The title is laid out as in [Picker's state model](picker.md#inline-cycling-row)
 
 | Key | Precondition | Effect | Consumed |
 | --- | --- | --- | --- |
-| Up, Down, PgUp, PgDn, Home, End | focused and is enabled and row count is positive and not editing | move the cursor as in [Picker's menu](picker.md#menu-2), including its edge clamping; PgUp and PgDn move by viewport rows; `selection` unchanged | yes |
+| Up, Down, Home, End | focused and is enabled and row count is positive and not editing | move cursor index as in [Picker's menu](picker.md#menu-2), including its edge clamping; `selection` unchanged | yes |
+| PgUp | focused and is enabled and row count is positive and not editing | moves scroll offset up `V` rows, clamped to 0, and moves cursor index up the same rows, to the row that contains the target content row, clamped to the first row (the rest of the way when the offset stops at 0), as in [Picker's menu](picker.md#menu-2); `selection` unchanged | yes |
+| PgDn | focused and is enabled and row count is positive and not editing | moves scroll offset down `V` rows, clamped to the maximum, and moves cursor index down the same rows, to the row that contains the target content row, clamped to the last row (the rest of the way when the offset stops at its maximum), as in [Picker's menu](picker.md#menu-2); `selection` unchanged | yes |
 | Space | focused and is enabled and not editing and cursor is on an option row or typed row | toggles that value's membership in `selection` via binding; the list stays open | yes |
 | Space | focused and is enabled and not editing and cursor is on the custom row | starts editing; `selection` unchanged | yes |
 | Enter | focused and is enabled and not editing | no handler; bubbles, so a default button can fire (owner decision, 2026-10-18) | no |
@@ -466,7 +468,7 @@ Callouts (40x5, 0-based):
 | Key | Precondition | Effect | Consumed |
 | --- | --- | --- | --- |
 | Up, Down | open and is enabled | moves cursor to the previous or next option; clamps without wrapping; `selection` unchanged | yes |
-| PgUp, PgDn, Home, End | open and is enabled | move cursor as the standalone menu keys do | yes |
+| PgUp, PgDn, Home, End | open and is enabled | move cursor index and scroll offset as the standalone menu keys do | yes |
 | Space | open and not editing and cursor on an option row | toggles the cursor option's membership via binding; the list stays open | yes |
 | Space | open and not editing and cursor on the custom row | starts editing | yes |
 | Enter | open and not editing | closes the list; nothing is written, because each toggle is already written (owner decision, 2026-10-18) | yes |
@@ -578,6 +580,9 @@ Menu in a host row:
 
 ### Focus
 
+- `multipicker left, right and unlisted keys bubble and an unfocused, disabled or empty group leaves keys unconsumed` (key table: menu; radio)
+- `multipicker draws its cursor and underlines checked chips only while focused` (state model: is focused)
+
 Menu:
 
 - `multipicker menu Space toggles the cursor option and keeps the list open` (key table: menu Space).
@@ -586,6 +591,9 @@ Menu:
 - `multipicker menu digit key toggles the Nth option and keeps the list open` (key table: menu digits).
 - `multipicker menu digit beyond the row count bubbles` (key table: menu digits).
 - `multipicker menu paste reaches the draft only while editing` (key table: menu, paste)
+- `multipicker menu up, down, home and end move the cursor with edge clamping and leave the selection unchanged` (key table: menu)
+- `multipicker menu escape outside editing bubbles` (key table: menu Esc)
+- `multipicker menu digit on the Other row moves the cursor and starts editing` (key table: menu digits)
 
 Custom option:
 
@@ -595,6 +603,8 @@ Custom option:
 - `multipicker unchecking a typed value removes it from the binding and its row` (state: typed values above the Other row; state model: typed rows).
 - `multipicker draft line stays one row and scrolls around the caret` (state: typing on the Other row; wrap exception).
 - `multipicker cursor stays on the unchecked Other row after an accepted draft` (state: typing on the Other row; state model: cursor index).
+- `multipicker empty draft Enter ends editing and escape clears the draft` (key table: menu Enter, editing; menu Esc)
+- `multipicker draft editing keys edit the draft and swallow all other keys` (key table: editing rows)
 
 Radio group:
 
@@ -602,6 +612,7 @@ Radio group:
 - `multipicker radio group Enter bubbles` (key table: radio Enter).
 - `multipicker radio group Left and Right move the cursor and wrap across rows` (key table: radio Left and Right).
 - `multipicker radio group leaves Up and Down unconsumed` (key table: radio Up and Down).
+- `multipicker radio group with no options installs no handler` (key table: radio)
 
 Menu in a host row:
 
@@ -612,26 +623,23 @@ Menu in a host row:
 - `multipicker host row Escape closes the list and toggles already written stay` (host keys: open list).
 - `multipicker host row focus loss closes the list` (state model: open).
 - `multipicker host row digit key toggles the Nth option and keeps the list open` (host keys: open list).
-
-- `multipicker menu up, down, home and end move the cursor with edge clamping and leave the selection unchanged` (key table: menu)
-- `multipicker empty draft Enter ends editing and escape clears the draft` (key table: menu Enter, editing; menu Esc)
-- `multipicker menu escape outside editing bubbles` (key table: menu Esc)
-- `multipicker draft editing keys edit the draft and swallow all other keys` (key table: editing rows)
-- `multipicker menu digit on the Other row moves the cursor and starts editing` (key table: menu digits)
-- `multipicker left, right and unlisted keys bubble and an unfocused, disabled or empty group leaves keys unconsumed` (key table: menu; radio)
-- `multipicker radio group with no options installs no handler` (key table: radio)
 - `multipicker closed host row bubbles keys other than enter and space` (host keys: closed)
 - `multipicker open host row clamps up and down, consumes left, right and unlisted keys, and bubbles tab and shift-tab` (host keys: open list)
 - `disabled multipicker host row is absent from focus and cannot open` (state model: open; host keys)
-- `multipicker draws its cursor and underlines checked chips only while focused` (state model: is focused)
 
 ### Pointer
+
+- `multipicker draws no hover and requests no pointer motion` (mouse table: no move row)
+- `a multipicker click that acts installs the multipicker's focus first` (mouse table; host mouse)
+- `disabled multipicker click leaves everything unchanged and unconsumed` (mouse table: disabled)
 
 Menu:
 
 - `multipicker menu click toggles the option and keeps the list open` (mouse table: menu option row).
 - `multipicker menu wheel moves the cursor and is consumed at list edges` (mouse table: menu wheel).
-- `multipicker draws no hover and requests no pointer motion` (mouse table: no move row)
+- `multipicker menu click while editing ends editing and discards the draft before it toggles` (mouse table: menu option row)
+- `multipicker menu click on the title row or below the last option bubbles` (mouse table: menu)
+- `multipicker menu wheel with zero options bubbles` (mouse table: menu wheel)
 
 Custom option:
 
@@ -640,13 +648,10 @@ Custom option:
 Radio group:
 
 - `multipicker radio group click toggles the chip` (mouse table: radio chip `i`).
-
-- `a multipicker click that acts installs the multipicker's focus first` (mouse table; host mouse)
-- `multipicker menu click while editing ends editing and discards the draft before it toggles` (mouse table: menu option row)
-- `multipicker menu click on the title row or below the last option bubbles` (mouse table: menu)
-- `multipicker menu wheel with zero options bubbles` (mouse table: menu wheel)
 - `multipicker radio group clicks outside chips, wheel and other mouse input bubble` (mouse table: radio)
-- `disabled multipicker click leaves everything unchanged and unconsumed` (mouse table: disabled)
+
+Menu in a host row:
+
 - `multipicker host row click opens a closed list and closes an open one` (host mouse)
 - `multipicker host row click on an option row moves the cursor and toggles with the list staying open` (host mouse)
 - `multipicker host row click outside closes the list without committing and bubbles` (host mouse)
@@ -654,11 +659,12 @@ Radio group:
 
 ### Scroll
 
-Menu:
-
 - `multipicker menu scrolls in rows under a fixed height` (sizing: 40x3; state model: scroll offset).
-
-- `multipicker menu page up and page down move the cursor by viewport rows` (key table: menu PgUp and PgDn)
+- `multipicker menu PgDn moves the offset one page and the cursor the same rows so the cursor keeps its screen row` (key table: menu PgDn; state model: scroll offset)
+- `multipicker menu PgUp moves the offset one page up and the cursor the same rows so the cursor keeps its screen row` (key table: menu PgUp; state model: scroll offset)
+- `multipicker menu PgDn near the end stops the offset at its maximum and moves the cursor the rest of the way to the last row` (key table: menu PgDn; state model: scroll offset)
+- `multipicker menu PgUp near the top stops the offset at 0 and moves the cursor the rest of the way to the first row` (key table: menu PgUp; state model: scroll offset)
+- `multipicker open host list page keys move the cursor and the offset like the standalone menu` (key table: host open list)
 - `multipicker menu scroll offset clamps to zero through the last content row` (state model: scroll offset)
 - `multipicker menu reveal re-applies to the cursor row by the fewest rows` (state model: scroll offset)
 - `multipicker option taller than the viewport aligns its first row with the top` (state model: scroll offset)

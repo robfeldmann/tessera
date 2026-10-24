@@ -106,8 +106,9 @@ List, Picker menus, and Form build on this contract whether they embed a ScrollV
 - **Unit:** the vertical offset, the indicator, and paging are measured in terminal rows, never in items. Offset `O` counts the content rows above the viewport; content extent `C` is the sum of every item's measured height; viewport extent `V` is the visible rows.
 - **Item heights vary.** Each item is measured at the content width with a `nil` height, so a wrapping item reports every row it needs. A width change re-measures every item.
 - **A partially visible item draws its visible rows.** An item cut by the top or bottom edge draws the rows that fall inside the viewport. It is not hidden, not snapped to an item boundary, and gets no truncation mark; the indicator is the overflow cue.
-- **Paging** moves the offset by `V` rows, whatever item boundaries it crosses.
-- **Reveal:** to bring an item into view (after a selection move, say), a collection changes the offset by the fewest rows that show every row of the item; an item taller than the viewport aligns its first row with the viewport's top.
+- **Paging** moves the offset by `V` rows, whatever item boundaries it crosses, clamped to `0...C - V`.
+- **Paging with a selection** (owner decision, 2026-10-23): in a collection that carries a selection or cursor (List, Table, Outline, the Picker and MultiPicker menus, the Form cursor), a page key moves the offset by a page first and the selection by the same number of rows, so the selection keeps its screen row. Near the end the offset stops at its maximum and the selection moves the rest of the way, landing on the last row. PgUp mirrors this at the top. A selection moves to the item that contains the target row, the row `V` rows below or above its first row. Without a selection binding the collection pages its offset by `V` rows exactly as ScrollView does. This replaces "move the selection one viewport, then reveal minimally", which scrolled one row on the first press and disagreed with the paging rule above.
+- **Reveal:** to bring an item into view after a move that carries no offset of its own (an arrow key, a Home or End key, a programmatic selection), a collection changes the offset by the fewest rows that show every row of the item; an item taller than the viewport aligns its first row with the viewport's top. A page key pages first, then applies reveal only when the item containing the target row is cut by an edge.
 - **Selection** belongs to the collection and covers every row of the selected item; a partially visible selected item paints its visible rows. ScrollView itself has no selection.
 - **Resize:** ScrollView only clamps the offset after a width change re-wraps the items; a collection with a selection then applies reveal to it.
 
@@ -405,8 +406,8 @@ These keys are handled by a ScrollView with a required `offset` binding that is 
 | Up | focused, axes contains vertical, effective offset is above 0 | decrements the effective vertical offset by one | yes |
 | Right | focused, axes contains horizontal, effective offset is below horizontal maximum | increments the effective horizontal offset by one | yes |
 | Left | focused, axes contains horizontal, effective offset is above 0 | decrements the effective horizontal offset by one | yes |
-| PgDn | focused, axes contains vertical, effective offset is below vertical maximum | increments the effective vertical offset by viewport height | yes |
-| PgUp | focused, axes contains vertical, effective offset is above 0 | decrements the effective vertical offset by viewport height | yes |
+| PgDn | focused, axes contains vertical, effective offset is below vertical maximum | increments the effective vertical offset by viewport height, clamped to the vertical maximum | yes |
+| PgUp | focused, axes contains vertical, effective offset is above 0 | decrements the effective vertical offset by viewport height, clamped to 0 | yes |
 | Home | focused, effective offset is not origin | sets every enabled component to 0 | yes |
 | End | focused, effective offset is below maximum offset | sets every enabled component to maximum offset | yes |
 | Down | focused, axes contains vertical, effective offset is at vertical maximum | leaves offset unchanged for ancestor routing | no |

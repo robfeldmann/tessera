@@ -392,7 +392,7 @@ Schema: [README](../../design.md#state-model-table).
 | selection | Binding | `Binding<ID?>` | app-owned; Outline writes it on the keys and clicks below; single selection, like List; a selection that names no node counts as not set; one hidden in a collapsed branch draws no selected row and stays the traversal anchor, as in List; Outline never writes the binding to repair either |
 | expansion | Binding | `Binding<Set<ID>>` | app-owned; Outline writes it on →, ←, Space, or an expander click (key C9); an ID that names no branch is ignored and never removed |
 | visible rows | derived | node, depth, and open state per row | flattened from the nodes and the expansion binding on every update; only the rows on screen are built (keys D10, G11); never stored |
-| scroll offset | NodeState | `Int` (rows above the viewport) | clamps to content bounds on every update; keeps the selection visible after a selection-moving key; wheel input moves it without touching the selection (keys D4, F7); rows are single-line, so one row is one node |
+| scroll offset | NodeState | `Int` (rows above the viewport) | clamps to content bounds on every update; keeps the selection visible after ↓, ↑, Home, or End; PgDn and PgUp move it by V rows and the selection by the same rows (owner decision, 2026-10-23); wheel input moves it without touching the selection (keys D4, F7); rows are single-line, so one row is one node |
 | is focused | Environment | `Bool` | injected below the explicit `.focusable` modifier from the FocusManager's live identity (key E1); the selection bar is `accent` while focused and `secondary` otherwise (key E2) |
 | guides | Environment | border set (`light`, `rounded`, `heavy`, `double`) or none | read on every render; none by default, which draws plain indentation like omp2's `Tree` without `guides`; path mode draws `light` like omp2's `Files`; guides draw in `border` (key K6); the modifier is unnamed (see Open questions) |
 | row line limit | Environment | `Int?` pinned to 1 | Outline pins `lineLimit(1)` on each label (Wrap exception); an inherited app `lineLimit` never changes the row count |
@@ -408,8 +408,10 @@ The omp2 `Tree` key handling ([tree.rs L516-L609](https://github.com/can1357/oh-
 | ↓ | focused, selection is set | moves selection to the next visible row via the selection binding | yes |
 | ↑ | focused, selection is set | moves selection to the previous visible row via the selection binding | yes |
 | ↓ | focused, selection not set | sets selection to the first visible row via the selection binding | yes |
-| PgDn | focused, selection is set | moves selection one viewport of rows down via the selection binding | yes |
-| PgUp | focused, selection is set | moves selection one viewport of rows up via the selection binding | yes |
+| PgDn | focused, selection is set | moves scroll offset in NodeState down V rows, clamped to the maximum, and moves selection down the same rows (rest of the way to the last visible row when the offset stops) via the selection binding | yes |
+| PgUp | focused, selection is set | moves scroll offset in NodeState up V rows, clamped to 0, and moves selection up the same rows (rest of the way to the first visible row when the offset stops) via the selection binding | yes |
+| PgDn | focused, selection not set | increments the scroll offset in NodeState by V rows, clamped to the maximum | yes |
+| PgUp | focused, selection not set | decrements the scroll offset in NodeState by V rows, clamped to 0 | yes |
 | Home | focused | moves selection to the first visible row via the selection binding | yes |
 | End | focused | moves selection to the last visible row via the selection binding | yes |
 | → | focused, selection is set | on a collapsed branch, expands it via the expansion binding; on an expanded branch, moves selection to its first child | conditional (not on a leaf) |
@@ -417,7 +419,7 @@ The omp2 `Tree` key handling ([tree.rs L516-L609](https://github.com/can1357/oh-
 | Space | focused, selection is set | toggles expansion of the selected branch via the expansion binding | conditional (not on a leaf) |
 | Enter | focused, selection is set | calls `onActivate` with the selected node | yes |
 
-↓ and ↑ saturate at the last and first visible row and stay consumed, as in List and Table; omp2 lets them bubble. PgUp and PgDn clamp to the first and last row, and every selection-moving key reveals the new row through the scroll offset. Enter and Space split as they do in omp2's `Tree`: Enter activates (key C8) and Space toggles a branch (key C9). omp2's Space on a leaf emits a toggle with no expansion, which has no counterpart, so Space on a leaf bubbles. → on a leaf bubbles too, because only Enter and a double-click call `onActivate` (key C8).
+↓ and ↑ saturate at the last and first visible row and stay consumed, as in List and Table; omp2 lets them bubble. ↓, ↑, Home, and End reveal the new row through the scroll offset by the fewest rows. PgDn and PgUp page instead (owner decision, 2026-10-23; [ScrollView](scroll-view.md#rows-and-variable-height-content)): the offset moves by `V` rows and the selection by the same rows, so the selection keeps its screen row. Rows are single-line, so the target is the row `V` rows below or above the selected row. Near the end the offset stops at its maximum and the selection moves the rest of the way, landing on the last visible row; PgUp mirrors this at the top. Page keys saturate and stay consumed. With nothing selected they page the offset only and never invent a selection. Enter and Space split as they do in omp2's `Tree`: Enter activates (key C8) and Space toggles a branch (key C9). omp2's Space on a leaf emits a toggle with no expansion, which has no counterpart, so Space on a leaf bubbles. → on a leaf bubbles too, because only Enter and a double-click call `onActivate` (key C8).
 
 ## Mouse table
 
@@ -517,7 +519,11 @@ Schema: [README](../../design.md#requirements-list). Traced to the states and ta
 
 - `scrolls itself without a ScrollView wrapper` (Scrolled)
 - `thumb length and row follow the scrolled formulas` (Scrolled)
-- `moves selection with Home, End, PgUp and PgDn` (Key table)
+- `moves selection with Home and End` (Key table: Home, End)
+- `page down moves the offset and the selection one page down so the selection keeps its screen row` (Key table: PgDn; State model: scroll offset)
+- `page up moves the offset and the selection one page up so the selection keeps its screen row` (Key table: PgUp; State model: scroll offset)
+- `page down near the end stops the offset at its maximum and moves the selection to the last visible row` (Key table: PgDn; State model: scroll offset)
+- `page keys without a selection scroll the offset one page and invent no selection` (Key table: PgDn, PgUp, selection not set)
 - `scrolls the rows on wheel-up and wheel-down without moving the selection` (Mouse table)
 - `leaves a wheel event at the scroll boundary unconsumed` (Mouse table: wheel-up, wheel-down)
 - `outline scroll offset clamps to the content bounds on every update` (State model: scroll offset)

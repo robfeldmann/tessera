@@ -847,7 +847,7 @@ Callouts (40x10, 0-based):
 
 #### Menu scrolling in rows
 
-When the menu's height is fixed, the title row stays pinned and the option rows scroll in a viewport beneath it, following the [ScrollView contract](scroll-view.md#rows-and-variable-height-content) (owner decision, 2026-10-18). The offset, the thumb, and paging count rows, not options. Here the own-rows fixture sits in a `40x6` menu: the viewport is `V = 5` rows and the options take `C = 2 + 2 + 3 + 2 = 9` rows. The offset is 3 rows, so us-east shows only its description row and sa-east only its label row. The indicator takes the last column, so content wraps at 39. The thumb is `max(1, floor(5 * 5 / 9)) = 2` rows starting at `floor(3 * (5 - 2) / (9 - 5)) = 2`. The cursor is on ap-south, which is wholly in view.
+When the menu's height is fixed, the title row stays pinned and the option rows scroll in a viewport beneath it, following the [ScrollView contract](scroll-view.md#rows-and-variable-height-content) (owner decision, 2026-10-18). The offset, the thumb, and paging count rows, not options. PgUp and PgDn page the offset by `V` rows and move the cursor by the same rows, so the cursor keeps its screen row; near the end the offset stops at its maximum and the cursor moves the rest of the way to the last option (owner decision, 2026-10-23). Here the own-rows fixture sits in a `40x6` menu: the viewport is `V = 5` rows and the options take `C = 2 + 2 + 3 + 2 = 9` rows. The offset is 3 rows, so us-east shows only its description row and sa-east only its label row. The indicator takes the last column, so content wraps at 39. The thumb is `max(1, floor(5 * 5 / 9)) = 2` rows starting at `floor(3 * (5 - 2) / (9 - 5)) = 2`. The cursor is on ap-south, which is wholly in view.
 
 ```wireframe 40x6
 Deploy region
@@ -909,7 +909,7 @@ The title, option set, and label builder are immutable widget configuration, not
 | cursor index | NodeState | `Int` | Keyboard position within the list, not business data and not written to `selection` (key D3). Clamped to `0...(option count - 1)` on every reconciliation. Starts on the chosen option, or on the first option when the value is absent (owner decision, 2026-10-10); that start is its reset rule (key D9). |
 | editing | NodeState | `Bool` | Interaction in flight (key D7). `true` after Enter or Space chooses the custom row. Ends on Enter with an accepted value or on Escape; a draft `customOption` rejects (`nil`) leaves it `true`. Reset to `false` when the custom row is removed. The custom row exists only when the initializer received `customOption`; without it `editing` is always `false` (owner decision, 2026-10-18). |
 | draft text | NodeState | `String` | An uncommitted draft (key D8): losing it loses unfinished input, never a committed value. Accepts typed text only while editing. Enter passes a nonempty draft to `customOption`; an accepted value is written to `selection`, a `nil` result keeps the draft and editing, and an empty draft ends editing and leaves `selection` unchanged. Escape clears the draft; a committed value stays (owner decision, 2026-10-10). The row shows the committed value through `content` when it is chosen. |
-| scroll offset | NodeState | `Int` | Rows above the viewport (owner decision, 2026-10-18); no binding owns it (key D4). Clamped to `0...max(0, content rows - visible rows)` on every reconciliation and after a width change re-wraps the options; then reveal re-applies to the cursor option, changing the offset by the fewest rows that show every row of it (an option taller than the viewport aligns its first row with the top). |
+| scroll offset | NodeState | `Int` | Rows above the viewport (owner decision, 2026-10-18); no binding owns it (key D4). Clamped to `0...max(0, content rows - visible rows)` on every reconciliation and after a width change re-wraps the options; then reveal re-applies to the cursor option, changing the offset by the fewest rows that show every row of it (an option taller than the viewport aligns its first row with the top). PgUp and PgDn move it by `V` rows (the visible rows) and the cursor by the same rows, so the cursor keeps its screen row (owner decision, 2026-10-23). |
 | option heights | derived | `[Int]` | A layout cache, never stored (key D10). Each option is measured at the content width with a nil height and re-measured on every width change; content extent is their sum. The title row is outside the scrolling region. |
 | description layout | derived | aligned or own rows | Recomputed per menu on every layout by [`ViewThatFits`](../primitives/view-that-fits.md) (key G10): aligned when every description fits whole in the cells after the column, otherwise own rows for every description (owner decision, 2026-10-18). Never stored. |
 | is focused | Environment | `Bool` | Gates every key in the key table; the cursor prefix is drawn while focused. |
@@ -977,8 +977,8 @@ Left and Right wrap modularly, as in omp2 radio (owner decision, 2026-10-10: wra
 | Up | focused and is enabled and option count is positive and not editing and cursor is on the first option | cursor unchanged; clamps without wrapping | no |
 | Down | focused and is enabled and option count is positive and not editing and cursor is above the last option | moves cursor to the next option; `selection` unchanged | yes |
 | Down | focused and is enabled and option count is positive and not editing and cursor is on the last option | cursor unchanged; clamps without wrapping | no |
-| PgUp | focused and is enabled and option count is positive and not editing | moves cursor up by the options that span one viewport of rows (`V` rows), clamped to the first option; reveal follows | yes |
-| PgDn | focused and is enabled and option count is positive and not editing | moves cursor down by the options that span one viewport of rows (`V` rows), clamped to the last option; reveal follows | yes |
+| PgUp | focused and is enabled and option count is positive and not editing | moves scroll offset up `V` rows, clamped to 0, and moves cursor up the same rows, to the option containing that row, clamped to the first option (the rest of the way to the first option when the offset stops at 0); `selection` unchanged | yes |
+| PgDn | focused and is enabled and option count is positive and not editing | moves scroll offset down `V` rows, clamped to the maximum, and moves cursor down the same rows, to the option containing that row, clamped to the last option (the rest of the way to the last option when the offset stops at its maximum); `selection` unchanged | yes |
 | Home | focused and is enabled and option count is positive and not editing | moves cursor to the first option; consumed even when the cursor is already there | yes |
 | End | focused and is enabled and option count is positive and not editing | moves cursor to the last option; consumed even when the cursor is already there | yes |
 | Enter | focused and is enabled and not editing and cursor is on an option other than the custom row | commits the cursor option via binding | yes |
@@ -1164,7 +1164,7 @@ The multi-select open list, with its Space toggles and Enter-closes keys, is [Mu
 | Key | Precondition | Effect | Consumed |
 | --- | --- | --- | --- |
 | Up, Down | open and is enabled | moves cursor to the previous or next option; clamps without wrapping; `selection` unchanged | yes |
-| PgUp, PgDn, Home, End | open and is enabled | move cursor as the Menu keys do | yes |
+| PgUp, PgDn, Home, End | open and is enabled | move cursor and scroll offset as the Menu keys do | yes |
 | Enter | open, not editing, cursor on an option | commits the cursor option via binding and closes the list; focus stays on the host row | yes |
 | Space | open, not editing, cursor on an option | commits the cursor option, as Enter does | yes |
 | Enter, Space | open, not editing, cursor on the custom row | starts editing, as in the Menu; the list stays open | yes |
@@ -1275,6 +1275,7 @@ Picker composes no [LabeledContent](labeled-content.md). It copies LabeledConten
 ## Requirements
 
 Schema: [README](../../design.md#requirements-list). Multi-select requirements live in [MultiPicker](multi-picker.md#requirements).
+
 Inline cycling row:
 
 - `picker renders its selected option between stable inline chevrons` (anatomy wireframe: inline cycling row).
@@ -1351,6 +1352,10 @@ Menu collapsed in a host row:
 - `picker advances on focused right and down keys` (key table: Right and Down below option count minus one).
 - `picker moves backward on focused left and up keys` (key table: Left and Up above zero).
 - `picker bubbles an unavailable endpoint cycle without changing selection` (key table: Right and Down at last option; Left and Up at first option).
+- `picker with no options or without focus leaves arrow keys unconsumed` (key table: inline)
+- `picker radio group and segmented control write the first option from an absent value` (key table: radio; segmented)
+- `picker radio group and segmented control with one option consume left and right and leave the selection unchanged` (key table: radio; segmented)
+- `picker inline row draws its focus in the focus role` (state model: is focused; focus presentation)
 
 Radio group:
 
@@ -1364,6 +1369,10 @@ Menu:
 - `picker menu clamps Up and Down at the list edges without wrapping` (key table: menu Up and Down).
 - `picker menu Enter commits the cursor option through the binding` (key table: menu Enter).
 - `picker menu paste while editing inserts into the draft with line breaks as spaces` (key table: menu, paste)
+- `picker menu home and end are consumed even when the cursor is already there` (key table: menu Home and End)
+- `picker menu space commits the cursor option through the binding` (key table: menu Enter and Space)
+- `picker menu escape outside editing bubbles unless the custom row is chosen` (key table: menu Esc)
+- `picker cursor starts on the chosen or first option and never writes the selection` (state model: cursor index)
 
 Custom option:
 
@@ -1373,6 +1382,7 @@ Custom option:
 - `picker menu Escape ends editing and clears the draft while a committed value stays` (key table: menu Escape; state: custom row after commit).
 - `picker menu keeps the custom row chosen with its committed value after Enter` (state: custom row after commit).
 - `picker menu draft line stays one row and scrolls around the caret` (state: custom row while typing; wrap exception).
+- `picker menu empty draft Enter ends editing` (key table: editing rows)
 
 Segmented control:
 
@@ -1385,6 +1395,7 @@ Menu digits and descriptions:
 - `picker menu digit key commits the Nth option` (key table: menu digits).
 - `picker menu digit beyond the option count bubbles` (key table: menu digits).
 - `picker menu digit is typed text while editing the custom row` (key table: editing rows).
+- `key legend shows 1-9 choose for a picker menu` (key table: menu digits; KeyLegend)
 
 Menu collapsed in a host row:
 
@@ -1395,19 +1406,8 @@ Menu collapsed in a host row:
 - `picker host row focus loss closes the list without committing` (state model: open flag).
 - `picker host row digit key commits the Nth option and closes` (key table: host open list).
 - `picker host row draws the title as the host's row label and no title row in the open list` (state: closed row; menu collapsed in a host row).
-
-- `picker with no options or without focus leaves arrow keys unconsumed` (key table: inline)
-- `picker radio group and segmented control write the first option from an absent value` (key table: radio; segmented)
-- `picker radio group and segmented control with one option consume left and right and leave the selection unchanged` (key table: radio; segmented)
-- `picker menu home and end are consumed even when the cursor is already there` (key table: menu Home and End)
-- `picker menu space commits the cursor option through the binding` (key table: menu Enter and Space)
-- `picker menu empty draft Enter ends editing` (key table: editing rows)
-- `picker menu escape outside editing bubbles unless the custom row is chosen` (key table: menu Esc)
 - `picker open host row clamps up and down, consumes left, right and unlisted keys, and bubbles tab and shift-tab` (key table: host open list)
 - `disabled picker host row is absent from focus and cannot open` (Menu collapsed in a host row; state model)
-- `picker inline row draws its focus in the focus role` (state model: is focused; focus presentation)
-- `picker cursor starts on the chosen or first option and never writes the selection` (state model: cursor index)
-- `key legend shows 1-9 choose for a picker menu` (key table: menu digits; KeyLegend)
 
 ### Pointer
 
@@ -1415,6 +1415,9 @@ Menu collapsed in a host row:
 - `picker leaves a last-option value-slot click unconsumed` (mouse table: value slot at last option).
 - `disabled picker is unfocusable and leaves input unconsumed` (state wireframe: disabled; mouse table: value slot not is enabled).
 - `picker draws no hover and requests no pointer motion in any presentation` (mouse table: no move row)
+- `a picker click that selects installs the picker's focus first in every presentation` (mouse table; host mouse)
+- `picker inline chevrons are not independently clickable` (mouse table: inline row)
+- `picker radio group and segmented control clicks outside chips and radio wheel input bubble` (mouse table: radio; segmented)
 
 Radio group:
 
@@ -1424,18 +1427,17 @@ Menu:
 
 - `picker menu wheel moves the cursor and is consumed at list edges` (mouse table: menu wheel).
 - `picker menu click on an option row moves the cursor then commits it` (mouse table: menu option row).
+- `picker menu click on the custom row starts or continues editing` (mouse table: menu custom row)
+- `picker menu click while editing ends editing and discards the draft before it commits` (mouse table: menu option row)
+- `picker menu click on the title row or below the last option bubbles` (mouse table: menu)
+- `picker menu wheel with zero options bubbles` (mouse table: menu wheel)
 
 Segmented control:
 
 - `picker segmented click on a segment sets selection and consumes the click` (mouse table: segment `i`).
 
-- `a picker click that selects installs the picker's focus first in every presentation` (mouse table; host mouse)
-- `picker inline chevrons are not independently clickable` (mouse table: inline row)
-- `picker radio group and segmented control clicks outside chips and radio wheel input bubble` (mouse table: radio; segmented)
-- `picker menu click on the custom row starts or continues editing` (mouse table: menu custom row)
-- `picker menu click while editing ends editing and discards the draft before it commits` (mouse table: menu option row)
-- `picker menu click on the title row or below the last option bubbles` (mouse table: menu)
-- `picker menu wheel with zero options bubbles` (mouse table: menu wheel)
+Menu collapsed in a host row:
+
 - `picker host row click opens a closed list and closes an open one without committing` (host mouse)
 - `picker host row click on an option row moves the cursor, commits and closes` (host mouse)
 - `picker host row click outside closes the list without committing and bubbles` (host mouse)
@@ -1443,13 +1445,13 @@ Segmented control:
 
 ### Scroll
 
-Menu:
-
 - `picker menu scrolls in rows and shows partial items at both edges` (state: menu scrolling in rows; state model: scroll offset).
 - `picker menu reveals the whole cursor item by the fewest rows` (state model: scroll offset).
-- `picker menu PgUp and PgDn move the cursor by viewport rows` (key table: menu PgUp and PgDn).
-
-- `picker open host list page and home and end keys move the cursor like the standalone menu` (key table: host open list)
+- `picker menu PgDn moves the offset one page and the cursor the same rows so the cursor keeps its screen row` (key table: menu PgDn; state model: scroll offset).
+- `picker menu PgUp moves the offset one page up and the cursor the same rows so the cursor keeps its screen row` (key table: menu PgUp; state model: scroll offset).
+- `picker menu PgDn near the end stops the offset at its maximum and moves the cursor the rest of the way to the last option` (key table: menu PgDn; state model: scroll offset).
+- `picker menu PgUp near the top stops the offset at 0 and moves the cursor the rest of the way to the first option` (key table: menu PgUp; state model: scroll offset).
+- `picker open host list page and home and end keys move the cursor and the offset like the standalone menu` (key table: host open list)
 - `picker menu scroll offset clamps to zero through the last content row and after a width re-wrap` (state model: menu scroll offset)
 - `picker option taller than the viewport aligns its first row with the top` (state model: menu scroll offset)
 - `picker title row stays outside the scrolling region` (Menu scrolling in rows)

@@ -1113,8 +1113,8 @@ Schema: [README](../../design.md#state-model-table).
 | State | Owner | Type | Reset or clamp rule |
 | --- | --- | --- | --- |
 | field values | Binding | `Binding` per field, typed per kind | App-owned: each row's control takes its own binding (key D1). Written only through the binding. The Form keeps no copy and harvests no values (key A10), so discarding its NodeState loses no data. |
-| cursor | NodeState | field index, `Int` | Starts on the first row when the Form node is created and keeps its row across focus changes; direction-aware entry is rejected (key D9). Clamped to the field count on every key. Chase keeps the cursor row visible. |
-| scroll offset | NodeState | rows above the viewport, `Int` | Clamped to content rows minus window rows on every render. Field heights vary: a stacked field is two or more rows, a wrapped value or validation message adds rows, an open dropdown adds its rows. A field partly in view draws its visible rows at the edge, with no mark. Chase changes the offset by the fewest rows that show the whole field; a field taller than the window top-aligns. One owner: the Form's NodeState (key D4). |
+| cursor | NodeState | field index, `Int` | Starts on the first row when the Form node is created and keeps its row across focus changes; direction-aware entry is rejected (key D9). Clamped to the field count on every key. Chase keeps the cursor row visible after ↑ and ↓; PgUp and PgDn move the cursor and the scroll offset together by one window of rows. |
+| scroll offset | NodeState | rows above the viewport, `Int` | Clamped to content rows minus window rows on every render. Field heights vary: a stacked field is two or more rows, a wrapped value or validation message adds rows, an open dropdown adds its rows. A field partly in view draws its visible rows at the edge, with no mark. Chase changes the offset by the fewest rows that show the whole field; a field taller than the window top-aligns. PgUp and PgDn move it by one window of rows and the cursor by the same rows, so the cursor keeps its screen row (owner decision, 2026-10-23). One owner: the Form's NodeState (key D4). |
 | open dropdown | NodeState | field index, `Int?` | Set when Picker's menu opens in a select or multi row (Enter, Space, or a click on the closed row). Cleared when it closes: Esc, Enter, a click outside, or focus loss. Focus loss closes without committing, as Esc does. The Form stores only the host row; Picker holds the list cursor and selection. (key D7) |
 | editing | NodeState | `Bool` | Set by Enter, Space, or a click on a text row. Cleared by Enter or Esc, and by focus loss (key D7). |
 | hovered row | derived | row index, `Int?` | Derived at render from the graph-owned hover point (key F4); never stored in NodeState or a binding. The graph clears it on focus loss and when motion tracking stops ([Slice 5](../../spec/phase-4/slice-05-mouse-and-hit-testing.md)). The row paints the `hover` role and no value changes. The Form requests move input for this hover (owner decision, 2026-10-10). |
@@ -1132,8 +1132,8 @@ Schema: [README](../../design.md#key-table). While a dropdown is open, its keys 
 | ↑ | focused, no dropdown open, cursor on the first row | No effect. | no |
 | ↓ | focused, no dropdown open, cursor above the last row | Mutates cursor: moves down one row; chase keeps it visible. | yes |
 | ↓ | focused, no dropdown open, cursor on the last row | No effect. | no |
-| PgUp | focused, no dropdown open | Mutates cursor: moves up one window, clamped to the first row. | yes |
-| PgDn | focused, no dropdown open | Mutates cursor: moves down one window, clamped to the last row. | yes |
+| PgUp | focused, no dropdown open | Mutates scroll offset and cursor: moves the offset up one window, clamped to 0, and the cursor up the same rows, to the field containing that row, clamped to the first row (the rest of the way when the offset stops at 0); the cursor keeps its screen row. | yes |
+| PgDn | focused, no dropdown open | Mutates scroll offset and cursor: moves the offset down one window, clamped to its maximum, and the cursor down the same rows, to the field containing that row, clamped to the last row (the rest of the way when the offset stops at its maximum); the cursor keeps its screen row. | yes |
 | ← | focused, no dropdown open, enum row | Mutates the enum value: cycles to the previous choice. | yes |
 | → | focused, no dropdown open, enum row | Mutates the enum value: cycles to the next choice. | yes |
 | ← | focused, no dropdown open, number row | Mutates the number value: steps down by the field's step, clamped to its minimum. | yes |
@@ -1312,7 +1312,10 @@ Backticked sentence-style test names, each traced to a table row or wireframe st
 - `form chase changes the offset by the fewest rows that show the whole field` (state model: scroll offset)
 - `form scrolls content taller than its proposed height inside the window` (Overflow: 40x4)
 - `wheel scrolls the viewport without moving the cursor` (mouse table: wheel-up, wheel-down)
-- `page up and page down move the form cursor one window and clamp` (key table: PgUp, PgDn)
+- `page down moves the offset one window and the form cursor the same rows so the cursor keeps its screen row` (key table: PgDn; state model: scroll offset)
+- `page up moves the offset one window up and the form cursor the same rows so the cursor keeps its screen row` (key table: PgUp; state model: scroll offset)
+- `page down near the end stops the offset at its maximum and moves the form cursor the rest of the way to the last row` (key table: PgDn; state model: scroll offset)
+- `page up near the top stops the offset at 0 and moves the form cursor the rest of the way to the first row` (key table: PgUp; state model: scroll offset)
 - `form scroll offset clamps to the content rows minus the window rows on every render` (state model: scroll offset)
 - `form field taller than the window top-aligns when chased` (state model: scroll offset)
 - `wheel at a form boundary is not consumed` (mouse table: wheel-up, wheel-down)
