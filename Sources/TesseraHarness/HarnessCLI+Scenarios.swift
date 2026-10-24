@@ -172,7 +172,7 @@ extension HarnessCLI {
         : picture.tree.map { $0 + "\n" }.joined())
   }
 
-  /// `NAME [SIZE]`, the words `shot`, `tree`, and `check` take.
+  /// `NAME [SIZE]`, the words `shot` and `tree` take.
   private static func appAndSize(_ arguments: [String], command: String)
     throws(CommandArguments.Failure) -> (name: String, viewport: Viewport)
   {
@@ -186,52 +186,5 @@ extension HarnessCLI {
         message: "bad size `\(size)`; expected WxH, desktop, mobile, or mobileScreen")
     }
     return (parsed.positional[0], viewport)
-  }
-
-  // MARK: check and replay
-
-  static func check(
-    _ arguments: [String], registry: ApplicationRegistry, json: Bool
-  ) -> CommandOutput {
-    let target: (name: String, viewport: Viewport)
-    do {
-      target = try appAndSize(arguments, command: "check")
-    } catch {
-      return usage(error.message, command: "check", json: json)
-    }
-    // The name is checked as `shot` checks it, so the refusal below is the only thing that
-    // changes when the rules exist.
-    do {
-      _ = try registry.entry(named: target.name)
-    } catch {
-      return registryFailure(error, command: "check", json: json)
-    }
-    return usage(
-      "`check` is not yet available: it runs invariant rules over the projection, and the "
-        + "harness builds neither yet, so it would pass without checking anything",
-      command: "check", json: json)
-  }
-
-  static func replay(
-    _ arguments: [String], registry: ApplicationRegistry, json: Bool
-  ) -> CommandOutput {
-    let parsed: CommandArguments
-    do {
-      parsed = try CommandArguments(arguments, valued: ["--app"])
-    } catch {
-      return usage(error.message, command: "replay", json: json)
-    }
-    guard parsed.positional.count == 1, let name = parsed.values["--app"] else {
-      return usage("usage: replay FILE --app NAME", command: "replay", json: json)
-    }
-    do {
-      _ = try registry.entry(named: name)
-    } catch {
-      return registryFailure(error, command: "replay", json: json)
-    }
-    return usage(
-      "`replay` is not yet available: it reruns a recorded trace, and the harness records "
-        + "no traces yet",
-      command: "replay", json: json)
   }
 }

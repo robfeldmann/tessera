@@ -1,9 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Rerun a recorded trace as a scenario (tessera replay FILE --app NAME); not yet available"
-#USAGE arg "<file>" help="The recorded trace"
-#USAGE flag "--app <name>" help="The app to replay it against"
-#USAGE flag "--json" help="Print one JSON object even on a terminal"
-#USAGE flag "--pretty" help="Print the text form even when output is not a terminal"
-set -euo pipefail
-cd "$MISE_PROJECT_ROOT"
-swift run --only-use-versions-from-resolved-file --package-path Examples tessera replay "$@"

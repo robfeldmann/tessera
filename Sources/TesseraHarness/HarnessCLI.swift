@@ -14,7 +14,7 @@ import TesseraTerminal
 /// The commands are `apps` (list the registry), `launch NAME` (run one application in this
 /// terminal), `run PATH...` (run scenario files, with `--record`, `--repeat N`, and
 /// `--timing`), `shot NAME [SIZE]` and `tree NAME [SIZE]` (print one application's screen or
-/// node tree), `check` and `replay` (named, and not yet available), and `help [COMMAND]`.
+/// node tree), and `help [COMMAND]`.
 ///
 /// Exit codes are 0 for success, 1 when an expectation failed, 2 for a usage or parse error,
 /// and 3 for a harness error. When standard output is not a terminal, each command writes one
@@ -94,7 +94,7 @@ extension HarnessCLI {
   }
 
   static let commands = [
-    "apps", "launch", "run", "shot", "tree", "check", "replay", "help",
+    "apps", "launch", "run", "shot", "tree", "help",
   ]
 
   /// Runs one command and returns what it printed, without touching the process.
@@ -143,10 +143,6 @@ extension HarnessCLI {
       return await runScenarios(rest, registry: registry, json: asJSON)
     case "shot", "tree":
       return await picture(command, rest, registry: registry, json: asJSON)
-    case "check":
-      return check(rest, registry: registry, json: asJSON)
-    case "replay":
-      return replay(rest, registry: registry, json: asJSON)
     case "help":
       return help(rest, json: asJSON)
     default:

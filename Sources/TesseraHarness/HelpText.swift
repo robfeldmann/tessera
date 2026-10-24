@@ -9,8 +9,6 @@ enum HelpText {
       run PATH...       run scenario files, or directories of them
       shot NAME [SIZE]  print one application's screen as text
       tree NAME [SIZE]  print one application's node tree
-      check NAME        check one application against the invariant rules (not yet available)
-      replay FILE       rerun a recorded trace (not yet available)
       help [COMMAND]    describe a command
 
     Every command exits 0 on success, 1 when an expectation failed, 2 on a usage or parse
@@ -40,8 +38,14 @@ enum HelpText {
 
     Runs scenario files. A PATH is a .scn file, or a directory whose .scn files, at any
     depth, run in sorted order. A path that is neither, or a directory with no scenarios, is
-    a usage error. Each scenario starts a fresh application. The grammar is in
-    Examples/Scenarios/README.md.
+    a usage error. Each scenario starts a fresh application.
+
+    A scenario is a text file with one statement per line. The header statements are
+    `app NAME`, `size SIZE`, and `term colors=... theme=...`. The input statements are
+    `resize WxH`, `key NAME`, `type "text"`, `paste "text"`, and `bytes "..."`. `shot NAME`
+    compares the screen with a golden file and `tree` adds the node tree to the report. The
+    assertions are `expect text [ROW] "text"`, `expect screen <<WORD`, and
+    `expect node SEL frame X,Y,WxH`. A statement outside this list is a parse error.
 
       --record     write the golden files that `shot` statements compare against, instead
                    of failing when one differs or is missing, and list what changed. Review
@@ -84,22 +88,6 @@ enum HelpText {
     defaults to desktop. The JSON form is {"app", "command": "tree", "exitCode", "lines",
     "size"}. The tree's text is for reading and is not promised to stay as it is. Errors are
     those of `shot`.
-    """,
-    "check": """
-    usage: check NAME [SIZE]
-
-    Not yet available. `check` runs invariant rules over an application's node tree, and no
-    rule exists until the harness builds the projection they read. The command checks its
-    arguments first (an unknown NAME or a bad SIZE is the usage error `shot` gives), then
-    exits 2 and says so, rather than reporting a pass it did not check; a scenario's `check`
-    statement is refused the same way.
-    """,
-    "replay": """
-    usage: replay FILE --app NAME
-
-    Not yet available. `replay` reruns a recorded trace as a scenario, and the harness
-    records no traces yet. The command checks its arguments first (an unknown NAME is a usage
-    error that lists the registered names), then exits 2 and says so.
     """,
     "help": """
     usage: help [COMMAND]

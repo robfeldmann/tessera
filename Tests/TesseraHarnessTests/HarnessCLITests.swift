@@ -265,7 +265,7 @@ struct HarnessCLITests {
       CommandOutput(
         exitCode: 2,
         stdout: """
-          {"command":null,"exitCode":2,"message":"unknown command `jump`; accepted: apps, launch, run, shot, tree, check, replay, help"}
+          {"command":null,"exitCode":2,"message":"unknown command `jump`; accepted: apps, launch, run, shot, tree, help"}
           
           """,
         stderr: ""
@@ -284,7 +284,7 @@ struct HarnessCLITests {
         exitCode: 2,
         stdout: "",
         stderr: """
-          error: unknown command `jump`; accepted: apps, launch, run, shot, tree, check, replay, help
+          error: unknown command `jump`; accepted: apps, launch, run, shot, tree, help
           
           """
       )
@@ -302,7 +302,7 @@ struct HarnessCLITests {
         exitCode: 2,
         stdout: "",
         stderr: """
-          error: a command is required; accepted: apps, launch, run, shot, tree, check, replay, help
+          error: a command is required; accepted: apps, launch, run, shot, tree, help
           
           """
       )
@@ -331,8 +331,6 @@ struct HarnessCLITests {
               run PATH...       run scenario files, or directories of them
               shot NAME [SIZE]  print one application's screen as text
               tree NAME [SIZE]  print one application's node tree
-              check NAME        check one application against the invariant rules (not yet available)
-              replay FILE       rerun a recorded trace (not yet available)
               help [COMMAND]    describe a command
             
             Every command exits 0 on success, 1 when an expectation failed, 2 on a usage or parse
@@ -375,8 +373,14 @@ struct HarnessCLITests {
             
             Runs scenario files. A PATH is a .scn file, or a directory whose .scn files, at any
             depth, run in sorted order. A path that is neither, or a directory with no scenarios, is
-            a usage error. Each scenario starts a fresh application. The grammar is in
-            Examples/Scenarios/README.md.
+            a usage error. Each scenario starts a fresh application.
+            
+            A scenario is a text file with one statement per line. The header statements are
+            `app NAME`, `size SIZE`, and `term colors=... theme=...`. The input statements are
+            `resize WxH`, `key NAME`, `type "text"`, `paste "text"`, and `bytes "..."`. `shot NAME`
+            compares the screen with a golden file and `tree` adds the node tree to the report. The
+            assertions are `expect text [ROW] "text"`, `expect screen <<WORD`, and
+            `expect node SEL frame X,Y,WxH`. A statement outside this list is a parse error.
             
               --record     write the golden files that `shot` statements compare against, instead
                            of failing when one differs or is missing, and list what changed. Review
@@ -436,32 +440,6 @@ struct HarnessCLITests {
         [6]: CommandOutput(
           exitCode: 0,
           stdout: """
-            usage: check NAME [SIZE]
-            
-            Not yet available. `check` runs invariant rules over an application's node tree, and no
-            rule exists until the harness builds the projection they read. The command checks its
-            arguments first (an unknown NAME or a bad SIZE is the usage error `shot` gives), then
-            exits 2 and says so, rather than reporting a pass it did not check; a scenario's `check`
-            statement is refused the same way.
-            
-            """,
-          stderr: ""
-        ),
-        [7]: CommandOutput(
-          exitCode: 0,
-          stdout: """
-            usage: replay FILE --app NAME
-            
-            Not yet available. `replay` reruns a recorded trace as a scenario, and the harness
-            records no traces yet. The command checks its arguments first (an unknown NAME is a usage
-            error that lists the registered names), then exits 2 and says so.
-            
-            """,
-          stderr: ""
-        ),
-        [8]: CommandOutput(
-          exitCode: 0,
-          stdout: """
             usage: help [COMMAND]
             
             Prints the commands, or one command's usage.
@@ -469,16 +447,31 @@ struct HarnessCLITests {
             """,
           stderr: ""
         ),
-        [9]: CommandOutput(
+        [7]: CommandOutput(
           exitCode: 2,
           stdout: """
-            {"command":"help","exitCode":2,"message":"unknown command `ghost`; accepted: apps, launch, run, shot, tree, check, replay, help"}
+            {"command":"help","exitCode":2,"message":"unknown command `ghost`; accepted: apps, launch, run, shot, tree, help"}
             
             """,
           stderr: ""
         )
       ]
       """#
+    }
+  }
+
+  @Test
+  func `help and its errors name no repository path and promise no later work`() async {
+    var texts = [await run("help").stdout]
+    for command in HarnessCLI.commands {
+      texts.append(await run("help", command).stdout)
+    }
+    texts.append(await run("help", "ghost").stdout)
+    texts.append(await run("jump").stderr)
+
+    let banned = ["Examples/", "docs/", ".agents", "spikes/", "README", "yet", "later"]
+    for text in texts {
+      #expect(!banned.contains { text.contains($0) }, "\(text)")
     }
   }
 
