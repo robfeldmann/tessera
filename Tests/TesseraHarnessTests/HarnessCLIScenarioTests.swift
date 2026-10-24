@@ -520,7 +520,7 @@ struct HarnessCLIScenarioTests {
   func `help describes every command, and the overview names each one`() async {
     let overview = await run("help")
 
-    for command in HarnessCLI.commands {
+    for command in HarnessCLI.commandNames {
       #expect(overview.stdout.contains(command), "\(command)")
       let help = await run("help", command)
       #expect(help.stdout.hasPrefix("usage: \(command)"), "\(command)")
