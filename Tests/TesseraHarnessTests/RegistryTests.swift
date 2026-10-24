@@ -66,13 +66,13 @@ struct ApplicationRegistryTests {
   }
 
   @Test
-  func `a duplicate name fails the scenario runner with the app verb`() async throws {
-    let scenario = Scenario(app: "workspace", viewport: .desktop, lines: [])
+  func `a duplicate name fails the scenario player with the harness verb`() async throws {
+    let scenario = Scenario(app: "workspace")
 
-    let report = await ScenarioRunner.run(scenario, name: "t.scn", registry: duplicated())
+    let report = await ScenarioPlayer.run(scenario, name: "t.scn", registry: duplicated())
 
     #expect(report.passed == false)
-    #expect(report.failures.first?.verb == "app")
+    #expect(report.failures.first?.verb == "harness")
     #expect(report.failures.first?.message.contains("registered more than once") == true)
   }
 

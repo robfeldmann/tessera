@@ -47,15 +47,6 @@ extension ScreenSnapshot {
 /// virtual terminal, so the screen the host reports is what a terminal would show.
 @MainActor
 final class HeadlessHost<App: Application>: ScenarioHost {
-  /// No terminal modes, no synchronized output, and no colour: a headless frame is plain cells.
-  private static var configuration: TerminalApplicationConfiguration {
-    TerminalApplicationConfiguration(
-      modes: [],
-      synchronizedOutput: .disabled,
-      colorCapability: .force(.noColor)
-    )
-  }
-
   private let driver: Driver<App>
   private let device: HeadlessTerminalDevice
   private let terminal: VirtualTerminal
@@ -89,19 +80,27 @@ final class HeadlessHost<App: Application>: ScenarioHost {
   /// Builds the application, opens a headless session at `viewport`, and runs `body` against
   /// it once the first frame is drawn.
   ///
-  /// The factory runs once, on the main actor, so every run starts from a fresh application.
-  /// The session closes when `body` returns or throws.
+  /// The session renders with the profile's colour level and gets the profile's colours when
+  /// it asks for them. The factory runs once, on the main actor, so every run starts from a
+  /// fresh application. The session closes when `body` returns or throws.
   static func run(
     name: String,
     viewport: Viewport,
+    profile: TerminalProfile = TerminalProfile(),
     make: @MainActor () -> App,
     body: @escaping @MainActor (any ScenarioHost) async throws -> Void
   ) async throws {
     let app = make()
     let size = try viewport.size(for: app, named: name)
-    let device = HeadlessTerminalDevice(size: size)
+    let device = HeadlessTerminalDevice(size: size, theme: profile.theme)
     let terminal = VirtualTerminal.ghosttyOrUnavailable(
       cols: size.columns, rows: size.rows)
+    // No terminal modes and no synchronized output: a headless frame is plain cells.
+    let configuration = TerminalApplicationConfiguration(
+      modes: [],
+      synchronizedOutput: .disabled,
+      colorCapability: profile.colors.override
+    )
 
     // The session's scope hands this function value, not the generic driver, to the main
     // actor, so the application's conformance never crosses out of it.
@@ -110,14 +109,20 @@ final class HeadlessHost<App: Application>: ScenarioHost {
       try await driver.start()
       try await body(HeadlessHost(driver: driver, device: device, terminal: terminal))
     }
-    try await TerminalSession.withApplicationTerminal(
-      configuration: Self.configuration,
-      io: PlatformIO(terminalDevice: device.seam),
-      environment: [:]
-    ) { session in
-      session.outputTap = { terminal.feed($0) }
-      try await scope(session)
+    do {
+      try await TerminalSession.withApplicationTerminal(
+        configuration: configuration,
+        io: PlatformIO(terminalDevice: device.seam),
+        environment: [:]
+      ) { session in
+        session.outputTap = { terminal.feed($0) }
+        try await scope(session)
+      }
+    } catch {
+      await device.finish()
+      throw error
     }
+    await device.finish()
   }
 
   func send(_ event: InputEvent) async throws {

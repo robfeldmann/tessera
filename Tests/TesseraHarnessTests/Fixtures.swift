@@ -246,8 +246,27 @@ final class ObservedCounterApp: Application {
   }
 }
 
+/// Shows the last events it received, one per line with the newest last, so a scenario can
+/// assert what `key`, `type`, `paste`, and `bytes` delivered.
+final class EventLogApp: Application {
+  private var log: [String] = []
+
+  var body: some View {
+    Text(log.suffix(6).joined(separator: "\n"))
+  }
+
+  func apply(_ event: InputEvent) {
+    switch event {
+    case .key(let key): log.append("key \(KeyName.describe(key))")
+    case .paste(let text): log.append("paste \(text)")
+    case .resize(let size): log.append("resize \(size.columns)x\(size.rows)")
+    default: log.append("other")
+    }
+  }
+}
+
 enum Fixtures {
-  static let names = ["stack", "workspace", "greedy"]
+  static let names = ["stack", "workspace", "greedy", "event-log"]
 
   /// Every fixture app, registered once under the name the scenario corpus uses.
   @MainActor
@@ -267,6 +286,7 @@ enum Fixtures {
       MainActorCounterApp()
     }
     registry.register("observed-counter", viewports: [.desktop]) { ObservedCounterApp() }
+    registry.register("event-log", viewports: [.desktop, .mobileScreen]) { EventLogApp() }
     return registry
   }
 }

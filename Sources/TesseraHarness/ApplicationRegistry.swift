@@ -26,7 +26,8 @@ public struct ApplicationRegistry {
 
     let headless:
       @MainActor (
-        Viewport, @escaping @MainActor (any ScenarioHost) async throws -> Void
+        Viewport, TerminalProfile,
+        @escaping @MainActor (any ScenarioHost) async throws -> Void
       ) async throws -> Void
     let live: @MainActor (TerminalApplicationConfiguration) async throws -> Void
   }
@@ -56,9 +57,9 @@ public struct ApplicationRegistry {
         name: name,
         minimum: minimum,
         viewports: viewports,
-        headless: { viewport, body in
+        headless: { viewport, profile, body in
           try await HeadlessHost<App>.run(
-            name: name, viewport: viewport, make: make, body: body)
+            name: name, viewport: viewport, profile: profile, make: make, body: body)
         },
         live: { configuration in
           try await LiveHost.run(make: make, configuration: configuration)
@@ -121,7 +122,8 @@ extension ApplicationRegistry {
 }
 
 extension ApplicationRegistry {
-  /// Runs `body` against the application registered as `name`, headless at `viewport`.
+  /// Runs `body` against the application registered as `name`, headless at `viewport`, on a
+  /// terminal described by `terminal`.
   ///
   /// The factory runs once, on the main actor, and the session closes when `body` returns or
   /// throws. A snapshot test is a call to this, a few sends, and an assertion on the screen.
@@ -129,8 +131,9 @@ extension ApplicationRegistry {
   package func withHeadlessHost(
     _ name: String,
     at viewport: Viewport,
+    terminal: TerminalProfile = TerminalProfile(),
     _ body: @escaping @MainActor (any ScenarioHost) async throws -> Void
   ) async throws {
-    try await entry(named: name).headless(viewport, body)
+    try await entry(named: name).headless(viewport, terminal, body)
   }
 }

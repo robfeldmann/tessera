@@ -185,7 +185,9 @@ struct HarnessCLITests {
 
     #expect(output.exitCode == 2)
     #expect(
-      output.stderr == "error: unknown command `jump`; accepted: apps, launch, help\n")
+      output.stderr
+        == "error: unknown command `jump`; accepted: apps, launch, run, shot, tree, check, "
+        + "replay, help\n")
   }
 
   @Test
@@ -198,7 +200,7 @@ struct HarnessCLITests {
 
   @Test
   func `help prints real text for each command whatever stdout is`() async {
-    for command in ["apps", "launch", "help"] {
+    for command in HarnessCLI.commands {
       let output = await run("help", command)
 
       #expect(output.exitCode == 0)

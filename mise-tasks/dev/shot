@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+#MISE description="Print one app's screen as text (tessera shot NAME [SIZE])"
+#USAGE arg "<name>" help="App name, as listed by `mise run dev:apps`"
+#USAGE arg "[size]" help="desktop, mobile, mobileScreen, or WxH; desktop when omitted"
+#USAGE flag "--json" help="Print one JSON object even on a terminal"
+#USAGE flag "--pretty" help="Print the text form even when output is not a terminal"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+swift run --only-use-versions-from-resolved-file --package-path Examples tessera shot "$@"
