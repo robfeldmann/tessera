@@ -19,7 +19,7 @@ GhosttyDistribution is not a path-dependent package: it is the saved sources of 
 
 The spikes are frozen evidence for plan 033: they are built by hand and stay out of CI (owner decision, 2026-10-21), so nothing guards them against drift in the root package. They were last built and tested on 2026-10-22 against the root package at that date, on both toolchain lanes (Xcode 26.6 and Xcode 27.1).
 
-HeadlessRunner's code has been copied into the root package (`Sources/TesseraHarness` and `Tests/TesseraHarnessTests`, plan 036 Slice 3), where it is maintained from now on. The copy here stays as the record of what the spike proved and is no longer updated.
+HeadlessRunner's library code has been copied into the root package (`Sources/TesseraHarness` and `Tests/TesseraHarnessTests`, plan 036 Slice 3), where it is maintained from now on; its command line (`headless`, `CLI.swift`) was not copied, because plan 036 Slice 4 writes the `tessera` CLI fresh. The copy here stays as the record of what the spike proved and is no longer updated.
 
 ## Running
 

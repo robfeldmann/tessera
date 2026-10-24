@@ -25,6 +25,11 @@ package.dependencies.append(
   .package(name: "tessera", path: "..")
 )
 
+let Tessera: Target.Dependency = .product(
+  name: "Tessera",
+  package: "tessera"
+)
+
 let TesseraTerminal: Target.Dependency = .product(
   name: "TesseraTerminal",
   package: "tessera"
@@ -33,6 +38,7 @@ let TesseraTerminal: Target.Dependency = .product(
 // MARK: - 🚛 Forward Module Declarations
 
 let ANSIEncoderDemo: Target.Dependency = .byName(name: "ANSIEncoderDemo")
+let ApplicationConsumer: Target.Dependency = .byName(name: "ApplicationConsumer")
 let ExampleSupport: Target.Dependency = .byName(name: "ExampleSupport")
 let HelloTessera: Target.Dependency = .byName(name: "HelloTessera")
 let InputInspector: Target.Dependency = .byName(name: "InputInspector")
@@ -45,6 +51,7 @@ let RendererDemo: Target.Dependency = .byName(name: "RendererDemo")
 
 let AllTesseraExampleTargetNames: Set<String> = [
   "ANSIEncoderDemo",
+  "ApplicationConsumer",
   "ExampleSupport",
   "HelloTessera",
   "InputInspector",
@@ -66,6 +73,17 @@ package.targets.append(
     name: "ANSIEncoderDemo",
     dependencies: [
       TesseraTerminal
+    ]
+  )
+)
+
+// MARK: ApplicationConsumer
+
+package.targets.append(
+  .target(
+    name: "ApplicationConsumer",
+    dependencies: [
+      Tessera
     ]
   )
 )

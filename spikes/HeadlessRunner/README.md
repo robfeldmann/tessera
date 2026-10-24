@@ -2,7 +2,7 @@
 
 Plan 033, Spike 1. A standalone package that depends on Tessera by path (`../..`) and uses public API only.
 
-The code has since been copied into the root package's `TesseraHarness` target and `TesseraHarnessTests` (plan 036 Slice 3), where it is maintained. This package stays as frozen evidence.
+The library code has since been copied into the root package's `TesseraHarness` target and `TesseraHarnessTests` (plan 036 Slice 3), where it is maintained; the `headless` command line was not copied, because plan 036 Slice 4 writes the `tessera` CLI fresh. This package stays as frozen evidence.
 
 ## Hypothesis
 
