@@ -44,3 +44,5 @@ Research records answer one question each: what was observed, with citations tha
 - 041 (2026-10-19) [TUI Devtools Prior Art](research/tui-devtools-prior-art.md)
 - 042 (2026-10-22) [libghostty-vt distribution for version-based consumers](research/libghostty-vt-distribution.md)
 - 043 (2026-10-23) [Catalog capability requirements audit](research/catalog-capability-requirements-audit.md)
+- 044 (2026-10-23) [Decision 9 (i): the app contract and the harness's 1.0 surface](research/decision-9i-application-contract.md)
+- 045 (2026-10-23) [Decision 9 (i): architect review](research/decision-9i-architect-review.md)
