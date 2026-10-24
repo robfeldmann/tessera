@@ -197,6 +197,18 @@ struct HarnessCLIScenarioTests {
   }
 
   @Test
+  func `a path taken as the repeat count reports the repeat value, not a missing path`()
+    async
+  {
+    let output = await run("run", "--repeat", "x.scn", "--pretty")
+
+    #expect(output.exitCode == 2)
+    #expect(
+      output.stderr
+        == "error: `--repeat` needs a whole number of at least 1, got `x.scn`\n")
+  }
+
+  @Test
   func `record, repeat, and timing reach the runner`() async throws {
     let scratch = try ScratchDirectory()
     try scratch.write("a.scn", "app stack\nsize 40x10\nshot s")
@@ -340,6 +352,23 @@ struct HarnessCLIScenarioTests {
     #expect(noName.stderr == "error: usage: replay FILE --app NAME\n")
   }
 
+  @Test
+  func `check and replay name an unknown app before they refuse`() async {
+    var duplicated = Fixtures.registry()
+    duplicated.register("stack", viewports: [.desktop]) { StackApp() }
+
+    let check = await run("check", "ghost", "--pretty")
+    let replay = await run("replay", "run.trace", "--app", "ghost", "--pretty")
+    let duplicate = await run("check", "stack", "--pretty", registry: duplicated)
+
+    #expect(check.exitCode == 2)
+    #expect(check.stderr.hasPrefix("error: unknown app `ghost`; accepted: "))
+    #expect(replay.exitCode == 2)
+    #expect(replay.stderr.hasPrefix("error: unknown app `ghost`; accepted: "))
+    #expect(duplicate.exitCode == 3)
+    #expect(duplicate.stderr.contains("registered more than once"))
+  }
+
   // MARK: help
 
   @Test
@@ -355,6 +384,9 @@ struct HarnessCLIScenarioTests {
     let runHelp = await run("help", "run")
     for flag in ["--record", "--repeat N", "--timing", "--json", "--pretty"] {
       #expect(runHelp.stdout.contains(flag), "\(flag)")
+    }
+    for field in [#""change": "created" or "updated""#, #""line" 0"#, #""--repeat N""#] {
+      #expect(runHelp.stdout.contains(field), "\(field)")
     }
   }
 }

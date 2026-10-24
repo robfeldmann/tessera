@@ -55,11 +55,16 @@ enum HelpText {
     or a path is not a scenario, 3 a harness error. When several apply, the highest wins.
 
     The JSON form is {"command": "run", "exitCode", "scenarios": [REPORT...]} with one
-    REPORT per scenario: {"failures": [{"line", "statement", "verb", "message"} and, when
-    the statement compares values, "expected", "actual", and "screen"], "observations":
-    [{"line", "verb", "name", "lines"}], "passed", "recorded" (only when --record wrote
-    goldens), "scenario", "seconds" (only with --timing)}. A scenario that does not parse is
-    a failure with verb "parse". Fields are added, never removed or renamed.
+    REPORT per scenario: {"failures": [FAILURE...], "observations": [{"line", "verb",
+    "lines"} and, for a shot, "name"], "passed", "recorded" (only when --record wrote
+    goldens: [{"change": "created" or "updated", "path"}]), "scenario", "seconds" (only with
+    --timing)}. A FAILURE is {"line", "statement", "verb", "message"} and, when the
+    statement compares values, "expected", "actual", and "screen". A failure that belongs to
+    a file or a command, not a line, has "line" 0 and "statement" "" (a repeat failure's
+    statement is "--repeat N"). A shot whose golden is missing, is not UTF-8, or has CRLF
+    line endings has no "expected", "actual", or "screen": its observation holds the screen.
+    A scenario that does not parse is a failure with verb "parse". Fields are added, never
+    removed or renamed.
     """,
     "shot": """
     usage: shot NAME [SIZE] [--json | --pretty]
@@ -84,15 +89,17 @@ enum HelpText {
     usage: check NAME [SIZE]
 
     Not yet available. `check` runs invariant rules over an application's node tree, and no
-    rule exists until the harness builds the projection they read. The command exits 2 and
-    says so, rather than reporting a pass it did not check; a scenario's `check` statement is
-    refused the same way.
+    rule exists until the harness builds the projection they read. The command checks its
+    arguments first (an unknown NAME or a bad SIZE is the usage error `shot` gives), then
+    exits 2 and says so, rather than reporting a pass it did not check; a scenario's `check`
+    statement is refused the same way.
     """,
     "replay": """
     usage: replay FILE --app NAME
 
     Not yet available. `replay` reruns a recorded trace as a scenario, and the harness
-    records no traces yet. The command exits 2 and says so.
+    records no traces yet. The command checks its arguments first (an unknown NAME is a usage
+    error that lists the registered names), then exits 2 and says so.
     """,
     "help": """
     usage: help [COMMAND]

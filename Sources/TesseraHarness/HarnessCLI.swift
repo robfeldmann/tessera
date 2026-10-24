@@ -144,9 +144,9 @@ extension HarnessCLI {
     case "shot", "tree":
       return await picture(command, rest, registry: registry, json: asJSON)
     case "check":
-      return check(rest, json: asJSON)
+      return check(rest, registry: registry, json: asJSON)
     case "replay":
-      return replay(rest, json: asJSON)
+      return replay(rest, registry: registry, json: asJSON)
     case "help":
       return help(rest, json: asJSON)
     default:

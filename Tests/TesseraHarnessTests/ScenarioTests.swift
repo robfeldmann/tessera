@@ -208,10 +208,28 @@ struct ScenarioParserTests {
   }
 
   @Test
-  func `duplicate shot names are rejected`() {
-    #expect(throws: ScenarioParseError.self) {
+  func `duplicate shot names are rejected, naming the first line`() {
+    let error = #expect(throws: ScenarioParseError.self) {
       try parse("app stack\nshot a\nshot a")
     }
+
+    #expect(error?.line == 3)
+    #expect(error?.message == "duplicate shot name `a` (first used on line 2)")
+  }
+
+  @Test
+  func `shot names that differ only by case collide, because goldens are files`() {
+    let error = #expect(throws: ScenarioParseError.self) {
+      try parse("app stack\nshot a\ntype \"+\"\nshot A")
+    }
+
+    #expect(error?.line == 4)
+    #expect(error?.source == "shot A")
+    #expect(
+      error?.description.hasPrefix("t.scn:4: error: shot name `A` collides with `a`")
+        == true)
+    #expect(error?.message.contains("on line 2") == true)
+    #expect(error?.message.contains("fold case") == true)
   }
 
   @Test
@@ -311,6 +329,28 @@ struct ScenarioParserTests {
 
     #expect(error?.line == 2)
     #expect(error?.message.contains("missing its closing `EOF` line") == true)
+  }
+
+  @Test
+  func `the closing line of expect screen may carry trailing spaces or tabs`() throws {
+    for closer in ["EOF ", "EOF\t", "EOF \t ", "EOF\r"] {
+      let scenario = try parse("app stack\nexpect screen <<EOF\nrow\n\(closer)\nkey Tab")
+
+      #expect(scenario.lines.map(\.number) == [2, 5], "\(closer.debugDescription)")
+      #expect(scenario.lines[0].statement == .expectScreen(rows: ["row"]))
+    }
+  }
+
+  @Test
+  func `a closing line with leading blanks or other text is still a row`() {
+    for closer in [" EOF", "EOF.", "EOFX"] {
+      let error = #expect(throws: ScenarioParseError.self) {
+        try parse("app stack\nexpect screen <<EOF\nrow\n\(closer)\n")
+      }
+
+      #expect(
+        error?.message.contains("missing its closing `EOF` line") == true, "\(closer)")
+    }
   }
 
   @Test
@@ -566,6 +606,76 @@ struct ScenarioPlayerTests {
 
     #expect(report.failures.first?.verb == "harness")
     #expect(report.failures.first?.line == 1)
+  }
+
+  @Test
+  func `a statement after the app finishes fails and names the line that finished it`()
+    async throws
+  {
+    let report = try await run(
+      """
+      app counter
+      key q
+      expect text 0 "Count: 0"
+      shot after
+      """
+    )
+
+    #expect(report.failures.count == 1)
+    let failure = try #require(report.failures.first)
+    #expect(failure.line == 3)
+    #expect(failure.verb == "expect text")
+    #expect(failure.message.hasPrefix("the application finished at line 2 (`key q`)"))
+    #expect(failure.message.contains("nothing after it runs"))
+    #expect(failure.screen == nil)
+    #expect(report.observations.isEmpty)
+  }
+
+  @Test
+  func `the statement that finishes the app is the last that runs, and passes`()
+    async throws
+  {
+    let report = try await run(
+      "app counter\ntype \"+\"\nexpect text 0 \"Count: 1\"\nkey q")
+
+    #expect(report.passed, "\(report)")
+  }
+
+  @Test
+  func `a finished app gets no more input from the statement that finished it`()
+    async throws
+  {
+    var registry = Fixtures.registry()
+    registry.register("quitter", viewports: [.desktop]) { QuitterApp() }
+    Delivered.characters = []
+
+    let scenario = try ScenarioParser.parse(
+      "app quitter\ntype \"abqcd\"\ntype \"e\"", file: "t.scn", knownApps: ["quitter"])
+    let report = await ScenarioPlayer.run(scenario, name: "t.scn", registry: registry)
+
+    #expect(Delivered.characters == ["a", "b", "q"])
+    #expect(report.failures.map(\.line) == [3])
+    #expect(report.failures.first?.verb == "type")
+    #expect(
+      report.failures.first?.message.hasPrefix("the application finished at line 2")
+        == true)
+  }
+
+  @Test
+  func `an app that is finished before the scenario starts fails its first statement`()
+    async throws
+  {
+    var registry = Fixtures.registry()
+    registry.register("done", viewports: [.desktop]) { FinishedApp() }
+
+    let scenario = try ScenarioParser.parse(
+      "app done\nexpect text 0 \"Finished\"\nkey Tab", file: "t.scn", knownApps: ["done"])
+    let report = await ScenarioPlayer.run(scenario, name: "t.scn", registry: registry)
+
+    #expect(report.failures.map(\.line) == [2])
+    #expect(
+      report.failures.first?.message.hasPrefix(
+        "the application had already finished when the scenario started") == true)
   }
 
   @Test

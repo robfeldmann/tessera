@@ -83,7 +83,10 @@ struct GoldenStore: Equatable, Sendable {
   private func drift(shot name: String, path: String, goldenText: String, text: String)
     -> Outcome
   {
-    if goldenText.replacingOccurrences(of: "\r\n", with: "\n") == text {
+    // A screen row never holds a carriage return, so one in a golden means CRLF line endings,
+    // whether or not the screen has also changed; say so before the rows are compared, or the
+    // difference reported would be a row ending in an invisible `\r`.
+    if goldenText.unicodeScalars.contains("\r") {
       return .unusable(
         message:
           "golden `\(path)` has CRLF line endings; goldens are LF files, so check them out "

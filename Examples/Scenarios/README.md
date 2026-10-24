@@ -58,11 +58,15 @@ One statement per line. Blank lines are ignored.
 
 Words are separated by whitespace. `"…"` groups a word and accepts the escapes `\n`, `\t`, `\"`, `\\`, and `\xHH`, where HH is two hex digits from 00 to 7f. `'…'` groups a word literally. A `#` at the start of a word begins a comment that runs to the end of the line. Lines end at `\n`, and a `\r` before it is whitespace, so a file checked out with CRLF line endings parses as one with LF; a leading byte order mark is ignored.
 
-Lines between `expect screen <<WORD` and the closing `WORD` are not tokenized: quotes, `#`, and leading spaces are part of the row. Pick a WORD (letters, digits, `_`) that no row equals.
+Lines between `expect screen <<WORD` and the closing line are not tokenized: quotes, `#`, and leading spaces are part of the row. The closing line holds only WORD, and trailing spaces or tabs after it are ignored. Pick a WORD (letters, digits, `_`) that no row equals, since a row that equals it ends the screen.
 
 ### Input is events, not bytes
 
 `key`, `type`, and `paste` deliver typed input events, the same ones the terminal's input parser produces, so a scenario states what happened and not how a particular terminal encoded it. `bytes` is the escape hatch for the case where the encoding is the point: its text is parsed by the same parser a live session uses, and a lone `\x1b` at the end becomes the Escape key. `type` sends characters as key presses, not as a paste.
+
+### When the app finishes
+
+An app that reports it is finished (`isFinished`, which is how a demo quits) ends a live run: in a terminal nothing after it can happen. A scenario obeys the same rule. The statement that finishes the app, `key q` for the counter, is the last one that runs, and the rest of its input is not delivered, so `type "q+"` stops after the `q`. The next statement, whatever it is, fails with its own verb and a message that names the line that finished the app, and the run ends there: no later `expect`, `shot`, or `tree` is evaluated. An app that is already finished when the scenario starts fails its first statement the same way. Assert what the app shows before the statement that finishes it.
 
 ### Key names
 
@@ -94,13 +98,13 @@ The harness answers colour queries itself, from these fixed values and never fro
 
 ## Goldens
 
-`shot NAME` takes the screen after the statements before it and compares it with a committed text file, its golden. For a scenario `counter-basics.scn`, the goldens are in a directory named like the file without its extension, beside it: `counter-basics/NAME.txt`. A shot name is letters, digits, `.`, `_`, and `-`, and is unique within its scenario.
+`shot NAME` takes the screen after the statements before it and compares it with a committed text file, its golden. For a scenario `counter-basics.scn`, the goldens are in a directory named like the file without its extension, beside it: `counter-basics/NAME.txt`. A shot name is letters, digits, `.`, `_`, and `-`, and is unique within its scenario ignoring case: goldens are files, and the file systems CI runs on (macOS and Windows) fold case, so `shot a` and `shot A` in one scenario is a parse error.
 
 A golden is the screen as text: every row with its trailing spaces removed, trailing empty rows dropped, rows joined by `\n`, and one `\n` at the end. It holds no colours or styles. Text goldens are the only artefacts a scenario run commits.
 
-- **Drift fails.** If the screen differs from the golden, the `shot` statement fails with the first differing row, the expected and actual text of that row, and the whole screen. A `shot` with no golden fails the same way. Nothing is rewritten.
-- **`--record` writes goldens.** `tessera run --record` creates or replaces the goldens of the `shot` statements it runs and lists what changed. Review the diff of what it wrote. Never record to make a failing run pass: a failing run means the app changed, and the question is whether the change is intended.
-- **LF line endings.** Goldens are LF files and are compared byte for byte. A golden checked out with CRLF fails with a message that says so, so a repository sets `*.txt text eol=lf` for its golden directories and `*.scn text eol=lf` for scenarios, as this one does in `.gitattributes`. A library rendering change (a widget drawing differently) drifts goldens like any other change; the release notes say so.
+- **Drift fails.** If the screen differs from the golden, the `shot` statement fails with the first differing row, the expected and actual text of that row, and the whole screen. Nothing is rewritten. A `shot` with no golden, or whose golden is not UTF-8 text, fails too, with a message that says what to do and no `expected`, `actual`, or `screen`, since there is nothing to compare; the screen is in the shot's observation.
+- **`--record` writes goldens.** `tessera run --record` creates or replaces the goldens of the `shot` statements it runs and lists what changed. It records every `shot` the run reaches, including one after a failed expectation; the run still fails, so recording never turns a failing run green, but review the files it wrote. Never record to make a failing run pass: a failing run means the app changed, and the question is whether the change is intended.
+- **LF line endings.** Goldens are LF files and are compared byte for byte. A golden checked out with CRLF fails with a message that says so, whether or not the screen has also changed, so a repository sets `*.txt text eol=lf` for its golden directories and `*.scn text eol=lf` for scenarios, as this one does in `.gitattributes`. A library rendering change (a widget drawing differently) drifts goldens like any other change; the release notes say so.
 
 ## Reports and exit codes
 
@@ -122,7 +126,7 @@ FAIL Examples/Scenarios/workspace-desktop.scn
 {"command":"run","exitCode":1,"scenarios":[{"failures":[{"actual":"…","expected":"…","line":12,"message":"…","screen":["…"],"statement":"shot desktop","verb":"shot"}],"observations":[{"line":12,"lines":["…"],"name":"desktop","verb":"shot"}],"passed":false,"scenario":"Examples/Scenarios/workspace-desktop.scn"}]}
 ```
 
-The object has `command`, `exitCode`, and `scenarios`, one report per scenario in the order they ran. A report has `scenario` (the file's path, as the command was given it), `passed`, `failures`, and `observations`, plus `recorded` (the goldens `--record` wrote, each with a `path` and `created` or `updated`) when it wrote any, and `seconds` (one per run) under `--timing`. A failure has `line`, `statement`, `verb`, and `message`, plus `expected`, `actual`, and `screen` when the statement compares values. An observation has `line`, `verb` (`shot` or `tree`), the shot's `name`, and the `lines` it saw. Fields are sorted by name, and nothing in the output varies from run to run, so two runs of the same scenarios give the same bytes; only `--timing` adds numbers that differ.
+The object has `command`, `exitCode`, and `scenarios`, one report per scenario in the order they ran. A report has `scenario` (the file's path, as the command was given it), `passed`, `failures`, and `observations`, plus `recorded` when `--record` wrote goldens (a list of `{"change": "created" or "updated", "path": …}`) and `seconds` (one per run) under `--timing`. A failure has `line`, `statement`, `verb`, and `message`, plus `expected`, `actual`, and `screen` when the statement compares values (`expect text`, `expect screen`, `expect node`, and a drifted `shot`). A failure that belongs to a file or a command rather than to a line (a path that is not a scenario, a file that cannot be read, a name registered twice) has `line` 0 and an empty `statement`, and a `repeat` failure has `line` 0 and `--repeat N` as its `statement`. An observation has `line`, `verb` (`shot` or `tree`), the `lines` it saw, and, for a shot, its `name`. Fields are sorted by name, and nothing in the output varies from run to run, so two runs of the same scenarios give the same bytes; only `--timing` adds numbers that differ.
 
 A scenario that does not parse is not run. Its report is one failure with `verb` `parse`, the line, the offending `statement`, and the message; the human form prints it as `FILE:LINE: error: message`. The first error ends the parse, so a file with several mistakes reports them one at a time.
 

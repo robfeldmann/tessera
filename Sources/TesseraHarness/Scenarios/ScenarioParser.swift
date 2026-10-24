@@ -85,7 +85,7 @@ private struct Parse {
   private var sawTerm = false
   private var profile = TerminalProfile()
   private var body: [ScenarioLine] = []
-  private var shotNames: Set<String> = []
+  private var shotNames: [String: (name: String, line: Int)] = [:]
 
   init(file: String, knownApps: [String], lines: [String]) {
     self.file = file
@@ -139,7 +139,7 @@ private struct Parse {
     case "expect" where arguments.first == "screen":
       return try parseExpectScreen(arguments, at: offset, fail: fail)
     default:
-      let statement = try parseBody(verb, arguments, fail: fail)
+      let statement = try parseBody(verb, arguments, line: number, fail: fail)
       body.append(ScenarioLine(number: number, source: text, statement: statement))
     }
     return 1
@@ -237,6 +237,7 @@ private struct Parse {
   private mutating func parseBody(
     _ verb: String,
     _ arguments: [String],
+    line number: Int,
     fail: (String) -> ScenarioParseError
   ) throws -> Statement {
     switch verb {
@@ -277,10 +278,16 @@ private struct Parse {
       guard arguments.count == 1, ScenarioParser.isShotName(arguments[0]) else {
         throw fail("usage: shot NAME (letters, digits, `.`, `_`, `-`)")
       }
-      guard shotNames.insert(arguments[0]).inserted else {
-        throw fail("duplicate shot name `\(arguments[0])`")
+      let name = arguments[0]
+      if let first = shotNames[name.lowercased()] {
+        throw fail(
+          first.name == name
+            ? "duplicate shot name `\(name)` (first used on line \(first.line))"
+            : "shot name `\(name)` collides with `\(first.name)` on line \(first.line): "
+              + "goldens are files, and the file systems CI runs on fold case")
       }
-      return .shot(name: arguments[0])
+      shotNames[name.lowercased()] = (name, number)
+      return .shot(name: name)
 
     case "tree":
       guard arguments.isEmpty else {
@@ -389,7 +396,8 @@ private struct Parse {
       if row.hasSuffix("\r") {
         row.removeLast()
       }
-      if row == delimiter {
+      let closer = String(row.reversed().drop { $0 == " " || $0 == "\t" }.reversed())
+      if closer == delimiter {
         let text = rawLines[offset].trimmingCharacters(in: .whitespacesAndNewlines)
         body.append(
           ScenarioLine(

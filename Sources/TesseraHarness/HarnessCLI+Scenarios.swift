@@ -94,14 +94,11 @@ extension HarnessCLI {
     } catch {
       return usage(error.message, command: "run", json: json)
     }
-    guard !parsed.positional.isEmpty else {
-      return usage(
-        "usage: run PATH... [--record] [--repeat N] [--timing]", command: "run",
-        json: json)
-    }
     var runner = ScenarioRunner(
       registry: registry, record: parsed.flags.contains("--record"))
     runner.measuresTime = parsed.flags.contains("--timing")
+    // The value first: `run --repeat x.scn` read `x.scn` as the count, and that is the mistake
+    // to report, not the missing path it leaves behind.
     if let value = parsed.values["--repeat"] {
       guard let count = Int(value), count >= 1 else {
         return usage(
@@ -109,6 +106,11 @@ extension HarnessCLI {
           json: json)
       }
       runner.repetitions = count
+    }
+    guard !parsed.positional.isEmpty else {
+      return usage(
+        "usage: run PATH... [--record] [--repeat N] [--timing]", command: "run",
+        json: json)
     }
 
     let reports = await runner.run(paths: parsed.positional)
@@ -188,11 +190,21 @@ extension HarnessCLI {
 
   // MARK: check and replay
 
-  static func check(_ arguments: [String], json: Bool) -> CommandOutput {
+  static func check(
+    _ arguments: [String], registry: ApplicationRegistry, json: Bool
+  ) -> CommandOutput {
+    let target: (name: String, viewport: Viewport)
     do {
-      _ = try appAndSize(arguments, command: "check")
+      target = try appAndSize(arguments, command: "check")
     } catch {
       return usage(error.message, command: "check", json: json)
+    }
+    // The name is checked as `shot` checks it, so the refusal below is the only thing that
+    // changes when the rules exist.
+    do {
+      _ = try registry.entry(named: target.name)
+    } catch {
+      return registryFailure(error, command: "check", json: json)
     }
     return usage(
       "`check` is not yet available: it runs invariant rules over the projection, and the "
@@ -200,15 +212,22 @@ extension HarnessCLI {
       command: "check", json: json)
   }
 
-  static func replay(_ arguments: [String], json: Bool) -> CommandOutput {
+  static func replay(
+    _ arguments: [String], registry: ApplicationRegistry, json: Bool
+  ) -> CommandOutput {
     let parsed: CommandArguments
     do {
       parsed = try CommandArguments(arguments, valued: ["--app"])
     } catch {
       return usage(error.message, command: "replay", json: json)
     }
-    guard parsed.positional.count == 1, parsed.values["--app"] != nil else {
+    guard parsed.positional.count == 1, let name = parsed.values["--app"] else {
       return usage("usage: replay FILE --app NAME", command: "replay", json: json)
+    }
+    do {
+      _ = try registry.entry(named: name)
+    } catch {
+      return registryFailure(error, command: "replay", json: json)
     }
     return usage(
       "`replay` is not yet available: it reruns a recorded trace, and the harness records "

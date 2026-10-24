@@ -311,6 +311,32 @@ struct ScenarioRunnerFileTests {
   }
 
   @Test
+  func `a CRLF golden that has also drifted says CRLF and not a difference at row 0`()
+    async throws
+  {
+    let scratch = try ScratchDirectory()
+    try scratch.write("stack.scn", stackScenario)
+    _ = await runner(record: true).run(scratch.path)
+    let lf = try #require(scratch.read("stack/after-typing.txt"))
+    try scratch.write(
+      "stack/after-typing.txt",
+      lf.replacingOccurrences(of: "Name: Rob", with: "Name: Bob")
+        .replacingOccurrences(of: "\n", with: "\r\n"))
+
+    let reports = await runner().run(scratch.path)
+    let recorded = await runner(record: true).run(scratch.path)
+
+    let failure = try #require(reports.first?.failures.first)
+    #expect(failure.verb == "shot")
+    #expect(failure.message.contains("CRLF line endings"))
+    #expect(failure.expected == nil)
+    #expect(failure.actual == nil)
+    #expect(failure.screen == nil)
+    #expect(recorded.map(\.passed) == [true])
+    #expect(scratch.read("stack/after-typing.txt") == lf)
+  }
+
+  @Test
   func `a golden is the trimmed screen with trailing empty rows dropped`() {
     #expect(GoldenStore.text(of: ["a", "", "b", "", ""]) == "a\n\nb\n")
     #expect(GoldenStore.text(of: []) == "\n")

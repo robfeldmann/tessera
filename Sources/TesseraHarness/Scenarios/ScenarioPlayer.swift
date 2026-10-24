@@ -93,13 +93,21 @@ enum ScenarioPlayer {
     return picture
   }
 
-  /// Plays every statement against `host`, stopping early only when the host fails.
+  /// Plays every statement against `host`, stopping early when the host fails or the app
+  /// finishes.
+  ///
+  /// A live host returns the moment the application reports `isFinished`, so nothing after
+  /// that can happen in a terminal. The statement that finishes the application is the last
+  /// one that runs, and the rest of its input is not delivered; the next statement, whatever it
+  /// is, fails with a message that names the line that finished the application, and the run
+  /// ends there.
   private static func play(
     _ scenario: Scenario,
     on host: any ScenarioHost,
     goldens: GoldenStore?,
     into outcome: Outcome
   ) async {
+    var finisher: ScenarioLine?
     for line in scenario.lines {
       func failure(
         _ message: String, verb: String? = nil, expected: String? = nil,
@@ -125,8 +133,24 @@ enum ScenarioPlayer {
               failure("the host could not deliver the event: \(error)", verb: "harness"))
             return false
           }
+          if host.isFinished {
+            finisher = line
+            break
+          }
         }
         return true
+      }
+
+      if host.isFinished {
+        let cause =
+          finisher.map {
+            "the application finished at line \($0.number) (`\($0.source)`)"
+          }
+          ?? "the application had already finished when the scenario started"
+        outcome.failures.append(
+          failure("\(cause), and in a terminal nothing after it runs", showsScreen: false)
+        )
+        return
       }
 
       switch line.statement {

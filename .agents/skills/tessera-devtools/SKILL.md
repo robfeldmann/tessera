@@ -47,6 +47,8 @@ A scenario is `Examples/Scenarios/NAME.scn`: an `app`, a `size`, an optional `te
 
 Goldens are text and are the only artefacts a scenario commits. When a golden drifts, the app changed: decide whether the change is intended. If it is, rerun with `--record` and review the diff. **Never use `--record` to make a failing run pass**, and never edit a golden by hand to match a run.
 
+An app that finishes ends the scenario, as it ends a live run: `key q` is the last statement that runs against the counter, and the next statement fails with "the application finished at line N". Assert what the app shows before the statement that quits it, and give each `shot` a name that differs from the others by more than case.
+
 ## Run a demo
 
 `mise run dev:launch counter` opens the counter in your terminal. The harness has no quit key: each demo quits on `q`, matched by `isQuitKey` in `Examples/Sources/DemoSupport`. A run needs a real terminal on standard input and output. An agent without one runs it under a pty:
