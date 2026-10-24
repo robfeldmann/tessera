@@ -76,6 +76,10 @@ ZStack consumes no environment token and has no mutable state model. Common boun
 - `empty zstack reports zero size and paints nothing` (variants: Empty `ZStack`).
 - `zstack ignores layout priority during overlay placement` (allocation and diagnostics: `6x1`: `Text("A").layoutPriority(9)`, `Text("B")`; variants: children with `.layoutPriority(...)`).
 
+### Pointer
+
+- `zstack hit testing visits children topmost first with later children over earlier` (Allocation; Decisions: Slice 5 hit testing)
+
 ## Degradation
 
 ZStack uses no glyph, color, or capability token. ASCII-only and reduced-color terminals preserve its integer bounds, source-order overwriting, alignment, and clipping.

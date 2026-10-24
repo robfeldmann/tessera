@@ -467,10 +467,8 @@ Tokens consumed, each defined in [tokens.md](../tokens.md) unless marked.
 
 Schema: [README](../../design.md#requirements-list). Traced to the states and tables above.
 
-- `scrolls itself without a ScrollView wrapper` (Scrolled)
 - `reserves the last column for the vertical indicator when rows overflow` (Scrolled)
 - `stops the selection highlight one column before the indicator` (Scrolled)
-- `thumb length and row follow the scrolled formulas` (Scrolled)
 - `draws the selected row with selection.bar and selection.fill` (Scrolled)
 - `draws the selection bar cell with the selection fill when derived and on the terminal background where selection.fill is reverse video` (Scrolled: callouts 3-4)
 - `shows a folder icon before the root slash in Nerd Font and ASCII; Unicode draws no folder icon` (Anatomy; Icon charsets)
@@ -485,21 +483,9 @@ Schema: [README](../../design.md#requirements-list). Traced to the states and ta
 - `builds only the visible rows` (state model: visible rows)
 - `shows one cell of thumb in a three-row viewport at the declared minimum` (Declared minimum)
 - `folds single-child directory chains into one row` (Path mode)
-- `uses the tree keys and mouse in path mode` (Path mode)
 - `renders expanders as - and + and icons as [O], [D] and [F] in ASCII` (ASCII)
 - `draws ASCII guides as +- and |` (Degradation: ASCII)
 - `binds selection as Binding<ID?> and expansion as Binding<Set<ID>>, both app-owned` (State model)
-- `moves selection with the up and down arrows` (Key table)
-- `saturates up and down at the last and first row and keeps them consumed` (Key table: ↓, ↑)
-- `selects the first visible row on down when nothing is selected` (Key table: ↓, selection not set)
-- `moves selection with Home, End, PgUp and PgDn` (Key table)
-- `expands, collapses and moves selection with the left and right arrows` (Key table)
-- `toggles a branch on Space and lets Space on a leaf bubble` (Key table: Space)
-- `calls onActivate with the selected node on Enter` (Key table: Enter)
-- `selects a row on click and toggles a branch on expander click` (Mouse table)
-- `selects the row and calls onActivate on double-click` (Mouse table: double-click)
-- `scrolls the rows on wheel-up and wheel-down without moving the selection` (Mouse table)
-- `leaves a wheel event at the scroll boundary unconsumed` (Mouse table: wheel-up, wheel-down)
 - `draws no selected row for a selection hidden in a collapsed branch and leaves the binding unchanged` (state model: selection)
 - `ignores an expansion ID that names no branch` (state model: expansion)
 - `sizes a nil x nil proposal to the widest row by the row count` (Sizing)
@@ -508,6 +494,34 @@ Schema: [README](../../design.md#requirements-list). Traced to the states and ta
 - `sizes a tight-fit proposal to the ideal with no indicator column` (Sizing: 39 x 9)
 - `fills an over-maximum proposal and leaves rows below the content blank` (Sizing: 80 x 20)
 - `draws git status letters as plain text under NO_COLOR with nothing added` (Degradation: NO_COLOR)
+
+### Focus
+
+- `moves selection with the up and down arrows` (Key table)
+- `saturates up and down at the last and first row and keeps them consumed` (Key table: ↓, ↑)
+- `selects the first visible row on down when nothing is selected` (Key table: ↓, selection not set)
+- `expands, collapses and moves selection with the left and right arrows` (Key table)
+- `toggles a branch on Space and lets Space on a leaf bubble` (Key table: Space)
+- `calls onActivate with the selected node on Enter` (Key table: Enter)
+- `outline joins focus only through an explicit focusable id` (State model; Key table)
+- `outline selection bar is accent while focused and secondary otherwise` (State model: is focused; Anatomy)
+- `right on a leaf and left on a root row bubble` (Key table: Right, Left)
+
+### Pointer
+
+- `uses the tree keys and mouse in path mode` (Path mode)
+- `selects a row on click and toggles a branch on expander click` (Mouse table)
+- `selects the row and calls onActivate on double-click` (Mouse table: double-click)
+
+### Scroll
+
+- `scrolls itself without a ScrollView wrapper` (Scrolled)
+- `thumb length and row follow the scrolled formulas` (Scrolled)
+- `moves selection with Home, End, PgUp and PgDn` (Key table)
+- `scrolls the rows on wheel-up and wheel-down without moving the selection` (Mouse table)
+- `leaves a wheel event at the scroll boundary unconsumed` (Mouse table: wheel-up, wheel-down)
+- `outline scroll offset clamps to the content bounds on every update` (State model: scroll offset)
+- `selection-moving keys reveal the new row by the fewest rows` (State model: scroll offset; Key table)
 
 ## Degradation
 

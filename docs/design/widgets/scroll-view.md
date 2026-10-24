@@ -507,40 +507,62 @@ The semantic environment roles are complete `Style` values named `primary`, `sec
 - `vertical scroll view proposes its content viewport width so content wraps` (cross-axis proposal: vertical only; sizing: `40xnil` and `40x16`)
 - `vertical indicator reservation re-measures the child one column narrower` (cross-axis proposal; sizing: `40x6` and `12x4`; states: degraded and declared minimum)
 - `horizontal scrolling proposes a nil width so content keeps its source lines` (cross-axis proposal: horizontal only; states: horizontal only; sizing: `.horizontal`, `52x6`)
-- `vertical offset indicator and paging count rows not items` (rows and variable-height content: unit and paging; key table: PgDn and PgUp)
 - `partially visible items draw their visible rows without a mark` (rows and variable-height content: Partial item, top and Partial item, bottom; states: mobile)
-- `reveal scrolls the fewest rows that show a whole item and top-aligns a taller one` (rows and variable-height content: reveal)
 - `a width change re-measures items and clamps the offset` (rows and variable-height content: item heights and resize; state model: content extent)
 - `controlled offsets clamp without rewriting app state` (state model: controlled offset)
 - `disabled axes always render and retain zero offset components` (state model: axes)
-- `focused arrow keys move one cell on their enabled axis` (key table: Down and Right)
-- `page home and end keys clamp to the viewport bounds` (key table: PgDn, PgUp, Home, End)
-- `keyboard input bubbles from a focusable scroll view at its boundary` (key table: boundary rows)
 - `no-overflow child renders with no reserved indicator edge` (states: no overflow and empty child)
-- `focused scroll view delegates a foreground-only box border while retaining key ownership and its edge-riding indicator` (focus appearance)
-- `focused fitting scroll view shows no local treatment without an indicator` (focus appearance; states: no overflow and empty child)
-- `focused viewport paints indicator thumbs in focus (bold default foreground) without restyling content` (focus appearance)
-- `owned focus identity registers and withdraws as layout settles` (state model: owned focus eligibility)
-- `owned focus identity requires an offset binding` (state model: owned focus eligibility)
-- `key repeats scroll exactly like presses` (key table preamble)
-- `unconsumed scroll keys bubble to a focus-within ancestor viewport` (state model: is focus-within)
 - `indicator reservation preserves one content cell per axis` (states: declared minimum; sizing: `10x3`)
 - `empty loading and error child states remain app-owned` (states: no overflow and empty child)
 - `minimum viewport clips without a negative proposal or layout failure` (states: declared minimum; sizing: `10x3`)
-- `ascii degradation preserves scroll geometry and boundary routing` (states: degraded)
-- `scroll view exposes no zoom or smooth animation transition` (state model: motion model)
 - `standard preset paints an accent block thumb on a border track` (Indicator styles: standard)
 - `a preset fixes its thumb and track glyphs and keeps the proportional geometry` (Indicator styles; ScrollIndicator Variants)
 - `thumbOnly preset paints no track cells` (ScrollIndicator Variants: presets)
 - `the indicator look is set only by a curated preset; no thumb or track parameter exists` (Indicator styles)
 - `in-border placement draws the thumb over the box's right border without reserving a column` (Indicator styles: placement; state model: indicator placement)
 - `in-border placement applies only under a nearest bordered Box ancestor` (Indicator styles: placement; state model: indicator placement)
+
+### Focus
+
+- `focused scroll view delegates a foreground-only box border while retaining key ownership and its edge-riding indicator` (focus appearance)
+- `focused fitting scroll view shows no local treatment without an indicator` (focus appearance; states: no overflow and empty child)
+- `focused viewport paints indicator thumbs in focus (bold default foreground) without restyling content` (focus appearance)
+- `owned focus identity registers and withdraws as layout settles` (state model: owned focus eligibility)
+- `owned focus identity requires an offset binding` (state model: owned focus eligibility)
+- `an explicit external focus identity registers unconditionally` (state model: owned focus eligibility)
+- `scroll view without an offset binding or focus identity receives no keyboard scroll events` (Key table)
+- `scroll view leaves tab and unlisted keys unconsumed` (Key table)
+- `disabled scroll view is not focus eligible` (state model: owned focus eligibility)
+
+### Pointer
+
+- `clicks and drags on indicators and the corner return ignored` (mouse table: indicator and corner rows)
+- `click on viewport content gets click-to-focus and the scroll view returns ignored without reinterpreting it` (Mouse table: click)
+- `scroll view introduces no pointer capture or second gesture recognizer` (Decisions; Mouse table)
+
+### Scroll
+
+- `vertical offset indicator and paging count rows not items` (rows and variable-height content: unit and paging; key table: PgDn and PgUp)
+- `reveal scrolls the fewest rows that show a whole item and top-aligns a taller one` (rows and variable-height content: reveal)
+- `focused arrow keys move one cell on their enabled axis` (key table: Down and Right)
+- `page home and end keys clamp to the viewport bounds` (key table: PgDn, PgUp, Home, End)
+- `keyboard input bubbles from a focusable scroll view at its boundary` (key table: boundary rows)
+- `key repeats scroll exactly like presses` (key table preamble)
+- `unconsumed scroll keys bubble to a focus-within ancestor viewport` (state model: is focus-within)
+- `ascii degradation preserves scroll geometry and boundary routing` (states: degraded)
 - `unbound scroll view stays at the origin` (state model: effective offset)
 - `wheel moves one row or column through the offset binding` (mouse table: wheel rows below the maximum and above 0)
 - `wheel at a boundary or without a binding bubbles to an enclosing viewport` (mouse table: boundary wheel rows)
 - `wheel on an axis the viewport does not scroll bubbles` (mouse table: unlisted events)
-- `clicks and drags on indicators and the corner return ignored` (mouse table: indicator and corner rows)
 - `focus moving into hidden content reveals it through the offset binding` (key table: reveal on focus change; rows and variable-height content: reveal)
+- `focus reveal moves nothing without a controlled offset` (Key table: reveal on focus change)
+- `scroll view ignores shift-wheel and signed wheel deltas` (Mouse table)
+- `an inner scroll view receives the wheel before an enclosing one` (Mouse table; Decisions)
+- `the next user movement writes from the effective value of an out-of-range controlled offset` (state model: controlled offset)
+
+### Clock
+
+- `scroll view exposes no zoom or smooth animation transition` (state model: motion model)
 
 ## Degradation
 

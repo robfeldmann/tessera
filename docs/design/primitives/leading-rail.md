@@ -109,6 +109,10 @@ Schema: [README](../../design.md#sizing-table). Mandatory rows: nil x nil, tight
 - `leading rail ASCII charset draws a pipe at column 0` (Variants: ASCII fixture)
 - `leading rail draws in the caller's role` (Variants)
 
+### Pointer
+
+- `leading rail takes no focus and handles no key or pointer input` (Overview)
+
 ## Degradation
 
 - ASCII-only: the rail is `|` at column 0; the glyph is selected from the [degradation ladder](../tokens.md#degradation-ladder).

@@ -550,60 +550,119 @@ Title and style:
 Menu:
 
 - `multipicker menu draws a check mark on every chosen option` (state: anatomy).
-- `multipicker menu Space toggles the cursor option and keeps the list open` (key table: menu Space).
-- `multipicker menu Enter bubbles in place` (key table: menu Enter, not editing).
-- `multipicker menu Enter never toggles the cursor option` (key table: menu Enter).
-- `multipicker menu digit key toggles the Nth option and keeps the list open` (key table: menu digits).
-- `multipicker menu digit beyond the row count bubbles` (key table: menu digits).
 - `multipicker menu draws no digit labels on rows` (state: anatomy).
-- `multipicker menu click toggles the option and keeps the list open` (mouse table: menu option row).
-- `multipicker menu wheel moves the cursor and is consumed at list edges` (mouse table: menu wheel).
-- `multipicker menu paste reaches the draft only while editing` (key table: menu, paste)
-- `multipicker draws no hover and requests no pointer motion` (mouse table: no move row)
 - `multipicker menu draws bracketed marks under ASCII-only` (state: menu, ASCII; degradation).
 - `multipicker menu wraps a long option label and indents continuation rows under the label` (sizing: 20x7).
 - `multipicker menu floor is the prefix plus the widest label word` (state: minimum; sizing: 11x5).
-- `multipicker menu scrolls in rows under a fixed height` (sizing: 40x3; state model: scroll offset).
 - `multipicker menu lineLimit one tail-truncates an option label` (environment).
 - `multipicker plain initializer keeps set elements without a supplied option in the binding` (state model: menu selection).
 
 Custom option:
 
 - `multipicker draws no Other row without a customOption closure` (API direction).
-- `multipicker Other row starts editing on Space and a click` (key table: menu Space on the custom row; mouse table: custom row).
+- `multipicker typed values draw as checked rows above Other in binding order` (state: typed values above the Other row).
+- `multipicker radio group draws no Other row` (API direction).
+
+Radio group:
+
+- `multipicker radio group wraps chips onto more rows and indents under the first chip` (state: radio group).
+- `multipicker radio group floor is the gutter plus the widest chip` (state: floor and narrow radio group; sizing: 9x4).
+
+Menu in a host row:
+
+- `multipicker host row shows the summary with an open marker` (state: closed row).
+- `multipicker host row summary shows the first two chosen names and a count` (state model: summary).
+- `multipicker host row summary wraps its names under the value column and keeps the count` (state: closed row, wrapped summary; sizing: collapsed host row 24 x nil).
+- `multipicker host row summary under a fixed one-row host truncates names before the count` (state model: summary; sizing: collapsed host row 24x1).
+- `multipicker host row empty set summary reads none` (state model: summary).
+
+### Focus
+
+Menu:
+
+- `multipicker menu Space toggles the cursor option and keeps the list open` (key table: menu Space).
+- `multipicker menu Enter bubbles in place` (key table: menu Enter, not editing).
+- `multipicker menu Enter never toggles the cursor option` (key table: menu Enter).
+- `multipicker menu digit key toggles the Nth option and keeps the list open` (key table: menu digits).
+- `multipicker menu digit beyond the row count bubbles` (key table: menu digits).
+- `multipicker menu paste reaches the draft only while editing` (key table: menu, paste)
+
+Custom option:
+
 - `multipicker custom draft Enter adds the accepted value to the binding` (key table: menu Enter, editing).
 - `multipicker custom draft rejected by customOption keeps editing` (key table: menu Enter, editing).
-- `multipicker typed values draw as checked rows above Other in binding order` (state: typed values above the Other row).
 - `multipicker never inserts a duplicate typed value` (key table: menu Enter, editing).
 - `multipicker unchecking a typed value removes it from the binding and its row` (state: typed values above the Other row; state model: typed rows).
 - `multipicker draft line stays one row and scrolls around the caret` (state: typing on the Other row; wrap exception).
 - `multipicker cursor stays on the unchecked Other row after an accepted draft` (state: typing on the Other row; state model: cursor index).
-- `multipicker radio group draws no Other row` (API direction).
 
 Radio group:
 
 - `multipicker radio group Space toggles the cursor chip` (key table: radio Space).
 - `multipicker radio group Enter bubbles` (key table: radio Enter).
 - `multipicker radio group Left and Right move the cursor and wrap across rows` (key table: radio Left and Right).
-- `multipicker radio group click toggles the chip` (mouse table: radio chip `i`).
-- `multipicker radio group wraps chips onto more rows and indents under the first chip` (state: radio group).
-- `multipicker radio group floor is the gutter plus the widest chip` (state: floor and narrow radio group; sizing: 9x4).
 - `multipicker radio group leaves Up and Down unconsumed` (key table: radio Up and Down).
 
 Menu in a host row:
 
-- `multipicker host row shows the summary with an open marker` (state: closed row).
 - `multipicker host row draws the title as the host's row label and no title row in the open list` (state: closed row; menu in a host row).
 - `multipicker host row Enter and Space open the list below the row` (host keys: closed).
 - `multipicker host row Space toggles and keeps the list open` (host keys: open list).
 - `multipicker host row Enter closes the list without writing` (host keys: open list).
 - `multipicker host row Escape closes the list and toggles already written stay` (host keys: open list).
 - `multipicker host row focus loss closes the list` (state model: open).
-- `multipicker host row summary shows the first two chosen names and a count` (state model: summary).
-- `multipicker host row summary wraps its names under the value column and keeps the count` (state: closed row, wrapped summary; sizing: collapsed host row 24 x nil).
-- `multipicker host row summary under a fixed one-row host truncates names before the count` (state model: summary; sizing: collapsed host row 24x1).
-- `multipicker host row empty set summary reads none` (state model: summary).
 - `multipicker host row digit key toggles the Nth option and keeps the list open` (host keys: open list).
+
+- `multipicker menu up, down, home and end move the cursor with edge clamping and leave the selection unchanged` (key table: menu)
+- `multipicker empty draft Enter ends editing and escape clears the draft` (key table: menu Enter, editing; menu Esc)
+- `multipicker menu escape outside editing bubbles` (key table: menu Esc)
+- `multipicker draft editing keys edit the draft and swallow all other keys` (key table: editing rows)
+- `multipicker menu digit on the Other row moves the cursor and starts editing` (key table: menu digits)
+- `multipicker left, right and unlisted keys bubble and an unfocused, disabled or empty group leaves keys unconsumed` (key table: menu; radio)
+- `multipicker radio group with no options installs no handler` (key table: radio)
+- `multipicker closed host row bubbles keys other than enter and space` (host keys: closed)
+- `multipicker open host row clamps up and down, consumes left, right and unlisted keys, and bubbles tab and shift-tab` (host keys: open list)
+- `disabled multipicker host row is absent from focus and cannot open` (state model: open; host keys)
+- `multipicker draws its cursor and underlines checked chips only while focused` (state model: is focused)
+
+### Pointer
+
+Menu:
+
+- `multipicker menu click toggles the option and keeps the list open` (mouse table: menu option row).
+- `multipicker menu wheel moves the cursor and is consumed at list edges` (mouse table: menu wheel).
+- `multipicker draws no hover and requests no pointer motion` (mouse table: no move row)
+
+Custom option:
+
+- `multipicker Other row starts editing on Space and a click` (key table: menu Space on the custom row; mouse table: custom row).
+
+Radio group:
+
+- `multipicker radio group click toggles the chip` (mouse table: radio chip `i`).
+
+- `a multipicker click that acts installs the multipicker's focus first` (mouse table; host mouse)
+- `multipicker menu click while editing ends editing and discards the draft before it toggles` (mouse table: menu option row)
+- `multipicker menu click on the title row or below the last option bubbles` (mouse table: menu)
+- `multipicker menu wheel with zero options bubbles` (mouse table: menu wheel)
+- `multipicker radio group clicks outside chips, wheel and other mouse input bubble` (mouse table: radio)
+- `disabled multipicker click leaves everything unchanged and unconsumed` (mouse table: disabled)
+- `multipicker host row click opens a closed list and closes an open one` (host mouse)
+- `multipicker host row click on an option row moves the cursor and toggles with the list staying open` (host mouse)
+- `multipicker host row click outside closes the list without committing and bubbles` (host mouse)
+- `multipicker host row wheel in an open list clamps at the edges and is consumed` (host mouse)
+
+### Scroll
+
+Menu:
+
+- `multipicker menu scrolls in rows under a fixed height` (sizing: 40x3; state model: scroll offset).
+
+- `multipicker menu page up and page down move the cursor by viewport rows` (key table: menu PgUp and PgDn)
+- `multipicker menu scroll offset clamps to zero through the last content row` (state model: scroll offset)
+- `multipicker menu reveal re-applies to the cursor row by the fewest rows` (state model: scroll offset)
+- `multipicker option taller than the viewport aligns its first row with the top` (state model: scroll offset)
+- `multipicker title row stays outside the scrolling region` (state model: scroll offset; Menu)
 
 ## Degradation
 

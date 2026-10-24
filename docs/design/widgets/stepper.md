@@ -368,29 +368,38 @@ Stepper consumes `isEnabled` and resolves its arrows from semantic roles: an ava
 
 ## Requirements
 
-- `stepper increments its binding from an interior value` (key table: Up).
-- `stepper decrements its binding from an interior value` (key table: Down).
-- `stepper leaves an increment key unconsumed at maximum` (key table: Up with increment unavailable).
-- `stepper leaves a decrement key unconsumed at minimum` (key table: Down with decrement unavailable).
-- `stepper clamps a non-divisible final increment exactly to maximum` (state model: stepped value; key table: Up).
-- `stepper clamps a non-divisible final decrement exactly to minimum` (state model: stepped value; key table: Down).
 - `stepper displays an app-supplied out-of-range value verbatim until user activation` (Out-of-range binding value wireframe; state model: formatted value).
-- `stepper clamps an out-of-range value through its binding on user activation` (state model: stepped value; key table: Up or Down).
-- `stepper applies a positive non-unit stride through its binding` (state model: stepped value; key table: Up).
 - `stepper renders a bound value with its supplied format style` (state model: formatted value).
-- `stepper keeps both arrows visible while unfocused` (Row states wireframe: unfocused rows; Anatomy).
-- `stepper draws an arrow at its limit in the disabled role and keeps its place` (Minimum wireframe; Maximum wireframe; Row states: focused at minimum, focused at maximum, unfocused at minimum).
 - `stepper draws both in-range arrows in the secondary role` (Interior value wireframe; Row states: focused in range, unfocused in range).
-- `stepper marks focus with the host row's cursor and focus-role label, not the arrows` (Row states: focused rows; state model: is focused).
-- `stepper focuses before increment-arrow activation` (mouse table: click increment arrow).
-- `stepper leaves endpoint-arrow clicks unconsumed` (mouse table: click increment or decrement arrow when unavailable).
-- `disabled stepper renders every part in the disabled role and leaves keys and clicks unconsumed` (Disabled wireframe; Row states: disabled row; key and mouse tables).
 - `stepper reports its 5x1 ideal and tight size` (sizing: nil x nil with value `7`; sizing: 6x1).
 - `stepper retains both arrows and a value cell at its declared 5x1 floor` (Minimum wireframe; sizing: 4x1).
 - `stepper value never wraps or truncates and the label gives way first` (Wrap exception; Row label wrapping wireframe; sizing: 19x nil host row).
 - `stepper floor is four cells plus the whole formatted value width` (Minimum wireframe; sizing: 4x1 with value `42`).
 
 > Deferred: compact-style rendering and its ASCII degradation are post-1.0 with the `.compact` style (see [API direction](#api-direction)).
+
+### Focus
+
+- `stepper increments its binding from an interior value` (key table: Up).
+- `stepper decrements its binding from an interior value` (key table: Down).
+- `stepper leaves an increment key unconsumed at maximum` (key table: Up with increment unavailable).
+- `stepper leaves a decrement key unconsumed at minimum` (key table: Down with decrement unavailable).
+- `stepper clamps a non-divisible final increment exactly to maximum` (state model: stepped value; key table: Up).
+- `stepper clamps a non-divisible final decrement exactly to minimum` (state model: stepped value; key table: Down).
+- `stepper clamps an out-of-range value through its binding on user activation` (state model: stepped value; key table: Up or Down).
+- `stepper applies a positive non-unit stride through its binding` (state model: stepped value; key table: Up).
+- `stepper keeps both arrows visible while unfocused` (Row states wireframe: unfocused rows; Anatomy).
+- `stepper draws an arrow at its limit in the disabled role and keeps its place` (Minimum wireframe; Maximum wireframe; Row states: focused at minimum, focused at maximum, unfocused at minimum).
+- `stepper marks focus with the host row's cursor and focus-role label, not the arrows` (Row states: focused rows; state model: is focused).
+- `stepper treats right as increment and left as decrement like up and down` (key table: Right, Left)
+
+### Pointer
+
+- `stepper focuses before increment-arrow activation` (mouse table: click increment arrow).
+- `stepper leaves endpoint-arrow clicks unconsumed` (mouse table: click increment or decrement arrow when unavailable).
+- `disabled stepper renders every part in the disabled role and leaves keys and clicks unconsumed` (Disabled wireframe; Row states: disabled row; key and mouse tables).
+- `stepper pressed affordance sets only on a valid primary down or phased key down and clears on release, cancellation, focus loss, disablement, removal or an unavailable affordance` (state model: pressed affordance)
+- `click on the stepper value slot or separators has no handler and is unconsumed` (mouse table)
 
 ## Degradation
 

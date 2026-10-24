@@ -374,7 +374,6 @@ This primitive is the single resolution of the shared ScrollView/List/Table indi
 - `reserved placement reserves exactly one trailing column or bottom row` (Variants: placement; Anatomy: mobile allocations)
 - `mobile forty column horizontal allocation preserves exact thumb geometry` (Anatomy: mobile allocations, `40x1`)
 - `ascii indicator preserves full capability geometry with canonical glyph replacements` (Variants; Degradation: ASCII-only)
-- `scroll indicator installs no focus binding input or drag handler` (Overview; Parent contract and absence states)
 - `scroll view list and table use identical indicator geometry for equal metrics` (Dependencies and readiness cutover)
 - `each preset renders its fixed thumb and track pair at identical geometry on both axes` (Variants: preset table and strips)
 - `thumbOnly preset paints no track cells on either axis` (Variants: preset strips)
@@ -386,6 +385,14 @@ This primitive is the single resolution of the shared ScrollView/List/Table indi
 - `border placement without a box ancestor falls back to reserved placement` (Variants: placement)
 - `box paints the border placement thumb on its ring` (Parent contract and absence states; Sizing: `.border` placement)
 - `style and placement modifiers set their subtree's environment value` (Inputs and geometry: environment values)
+
+### Pointer
+
+- `scroll indicator installs no focus binding input or drag handler` (Overview; Parent contract and absence states)
+
+### Clock
+
+- `scroll indicator draws no animation` (Overview)
 
 ## Degradation
 
