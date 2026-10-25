@@ -10,6 +10,7 @@ One plan per piece of work, in order. This page is rendered from each plan's fro
 ## Next
 
 1. [Build the Phase 4 view layer with the tooling that proves it](plans/phase-4-view-layer-and-developer-tooling.md): Build the Phase 4 view layer from the omp2-reviewed catalog and the developer tooling that drives, pictures, and checks it, in one slice order where each component lands with its demo, its scenario, and the harness capability it needs.
+2. [Run the file-level quality checks as hk steps](plans/hk-quality-steps.md): Replace the hand-written changed-file and pre-commit quality scripts with hk steps that the hook, `hk check`, and the full gate in CI share, so commits work from any shell.
 
 ## Done
 

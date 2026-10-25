@@ -3,4 +3,12 @@
 set -euo pipefail
 cd "$MISE_PROJECT_ROOT"
 hk install
+# Git cannot stash while a file is intent-to-add (`git add -N`), and hk stashes
+# unstaged work before its pre-commit checks. Where `git-ita-lift` is installed,
+# it wraps that run: it lifts the marks and restores them afterwards. Without it
+# the hook stays exactly as hk wrote it.
+if lift=$(command -v git-ita-lift); then
+  cmd=$(git config --local --get hook.hk-pre-commit.command)
+  git config --local hook.hk-pre-commit.command "${cmd/ hk run pre-commit/ $lift hk run pre-commit}"
+fi
 echo "✅ hk hooks installed"
