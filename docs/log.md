@@ -1,5 +1,9 @@
 # Log
 
+## 2026-10-25
+
+- Adopted an [API deprecation](architecture/api-deprecation.md) policy modeled on the Composable Architecture ([research](research/tca-deprecation-practice.md)): hard deprecation for one minor release before 1.0 and until the next major release after it, `unavailable` stubs until the next major release, one banner-grouped `Deprecations.swift` per module, DocC deprecation articles and cumulative migration guides, and package traits documented as the option for staging a major release.
+
 ## 2026-10-23
 
 - Shipped libghostty-vt as a prebuilt SE-0482 artifact bundle ([plan](plans/libghostty-vt-binary-distribution.md), [architecture](architecture/libghostty-vt-distribution.md)): `.github/workflows/ghostty-vt.yml` publishes the `ghostty-vt-f54340ad7781` prerelease (republished as `-r2` with the linked licenses) with seven variants, `Package.swift` links it by URL and checksum with the Ghostty headers committed and no `unsafeFlags`, CI and the VM tasks stop building Zig, and a `version consumer` job proves a by-version dependency on macOS, Linux, and Windows. [Updating Ghostty VT](guides/updating-ghostty-vt.md) covers pin bumps.
