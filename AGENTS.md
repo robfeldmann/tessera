@@ -15,16 +15,16 @@
 - Sort protocol conformances alphabetically, e.g. `Equatable, Sendable`.
 - Confine platform divergence (`#if os(...)`) to leaf seams: a single syscall/import shim, small typed platform values, or whole-file `sources:` splits in `Package.swift`. Keep shared logic and call sites platform-free instead of wrapping file bodies in `#if`.
 - After code changes, run the narrowest relevant validation first, e.g. `swift test --filter <TargetOrTestName>` or `swift build`.
-- During iteration, run focused checks (`swift test --filter ...`, `mise run quality:changed`).
+- During iteration, run focused checks (`swift test --filter ...`; `hk check` for the file-level checks on changed files and `hk check --staged` on staged ones, as `mise exec -- hk check` when mise is not activated). The checks are hk steps declared in `hk.pkl`, which the pre-commit hook and `mise run quality:lint` run too.
 - Before handing work off for review or committing, run this gate in order and make every step pass. It is required, not optional — never hand off or commit on the strength of focused checks alone:
-  1. `mise run quality:format` to auto-apply formatting fixes (swift-format, SwiftLint `--fix`, Prettier for YAML and JSON, `rumdl check --fix` for Markdown). Prefer this over hand-fixing individual lint findings. It is repo-wide and mutating; committing everything it touches is fine, including formatter-only changes unrelated to your work.
+  1. `mise run quality:format` to auto-apply fixes (`hk fix --all`: SwiftLint `--fix`, swift-format, Prettier for YAML and JSON, `rumdl check --fix` for Markdown, codespell's corrections). Prefer this over hand-fixing individual lint findings. It is repo-wide and mutating; committing everything it touches is fine, including formatter-only changes unrelated to your work.
   2. The complete `swift test` suite, through `mise run core:test` (or `swift test --only-use-versions-from-resolved-file`), so Swift 6.3 does not rewrite the Swift 6.4 `Package.resolved`; discard any `Package.resolved` change a plain SwiftPM command makes.
-  3. `mise run quality:lint` (strict formatting and linting, including Markdown).
+  3. `mise run quality:lint` (`hk check --all` plus the repository-wide checks: strict formatting and linting, including Markdown, spelling, and DocC on macOS).
 - Pull request titles must use conventional commit style.
-- After editing Markdown, validate with rumdl (pinned in `mise.toml`):
+- After editing Markdown, validate with the hk `rumdl` step (rumdl is pinned in `mise.toml`):
 
   ```fish
-  mise exec -- rumdl check <path>
+  mise exec -- hk check <path>
   ```
 
 - Commit only after validation passes, unless explicitly asked otherwise.

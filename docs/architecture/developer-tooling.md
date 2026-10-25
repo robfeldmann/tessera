@@ -66,6 +66,7 @@ Read the diagram as one scenario run. `tessera run` and `swift test` are two way
 | Live inspection socket | agents | `TESSERA_DEBUG_SOCKET`, `tessera attach` | designed |
 | `tessera` skill | agents of app authors | `.agents/skills/tessera/` | built; covers each tool built above |
 | `tessera-contributing` skill | agents of contributors | `.agents/skills/tessera-contributing/` | built; covers the `mise` tasks and the demos, over the `tessera` skill |
+| File-level quality checks | contributors | steps in `hk.pkl`, run by the pre-commit hook, `hk check`, and `mise run quality:lint` | built |
 
 ### Demos
 
@@ -214,6 +215,12 @@ The gallery (`DevTools/gallery/`, served by `scripts/gallery-serve.py`) shows ea
 
 `TesseraCore` serializes nothing. A dev runner outside the library may, when `TESSERA_DEBUG_SOCKET=<path>` is set, open a local Unix-domain NDJSON endpoint (owner-only permissions, peer UID checked, one request per connection) that answers `text`, `grid`, `tree [SEL]`, `stats`, and `shot`, and injects `key`, `type`, `mouse`, `resize`, and `quit` through the normal step path. `tessera attach` is its client. Every scenario runs both in-process and over the socket with identical reports, so the two transports cannot drift. The endpoint is off unless the variable is set, never listens on a network port, and is not available on Windows. Nothing else depends on it; without it, a live session is inspected through the trace and `lastDrawn` dumps, with input sent through the pty or tmux.
 
+### File-level quality checks
+
+Each file-level check is one step in `hk.pkl`, declared once with the files it applies to: `swiftlint` and `swift-format` on the Swift sources, tests, and Examples package, `prettier` on YAML, JSON, and the few script and stylesheet files, `rumdl` on Markdown, `codespell` on every text file, and `docc` on DocC catalogs (macOS only, one `mise run docs:lint` for however many files changed). Nothing else declares them. The pre-commit hook runs the steps on the staged files, `hk check` on the changed files (`hk check --staged` on the staged ones), and `hk check --all` on every file, which is what `mise run quality:lint` and CI run beside the repository-wide checks (wireframes, architecture, plans hub, release notes, vouch, TOML); `mise run quality:format` is `hk fix --all`.
+
+The hook runs in the checkout, not in a copy of the index. hk stashes unstaged changes before the pre-commit steps (`stash = "git"`), so each step sees only the staged content in place, and `mise run setup:hooks` points the hook at `mise x -- hk run pre-commit`, so every tool resolves from the checkout's trusted `mise.toml` whichever shell made the commit. An earlier script checked the index out into a temporary directory instead, and a commit from a shell where mise was not activated failed there, because mise has never trusted the copy's `mise.toml`. The same setup wraps the hook in `git-ita-lift` where it is installed, because Git cannot stash while a file is intent-to-add.
+
 ## The development loop
 
 The loop the `tessera` skill teaches app authors, for humans and agents alike:
@@ -239,3 +246,4 @@ This page is the index for the tools. A change that adds or changes a tool updat
 
 - [Build the Phase 4 view layer with the tooling that proves it](../plans/phase-4-view-layer-and-developer-tooling.md), which builds these tools.
 - [Developer tooling for agents and humans](../plans/developer-tooling.md) (cancelled), where the design, spikes, and decisions were made.
+- [Run the file-level quality checks as hk steps](../plans/hk-quality-steps.md), which moved the file-level checks into `hk.pkl`.

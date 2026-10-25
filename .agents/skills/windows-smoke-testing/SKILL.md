@@ -132,8 +132,8 @@ For non-trivial Windows terminal changes:
 4. Run an automated PTY smoke when possible.
 5. Run the app in the UTM GUI when the behavior is visual or glyph-width-sensitive.
 6. Run the narrowest relevant Swift test filter, on Windows if the code is Windows-only.
-7. Run changed-file quality before yielding:
+7. Run the file-level checks on changed files before yielding (`hk check --staged` for staged files; `mise exec -- hk check` when mise is not activated):
 
    ```sh
-   mise run quality:changed
+   hk check
    ```
