@@ -12,11 +12,11 @@ Goal: each file-level check (swift-format, SwiftLint, Prettier, rumdl, codespell
 
 ## Progress
 
-- [ ] 1 hk steps for the file-level checks, and the pre-commit hook runs them
+- [x] 1 hk steps for the file-level checks, and the pre-commit hook runs them - `7a07779`; `mise run setup:hooks` sets `PATH="$HOME/.local/bin:$PATH" git-ita-lift mise x -- hk run pre-commit --from-hook`; `hk check --all --skip-step docc` passes on the tree (2 s). Scratch commits made with `env -i HOME=$HOME PATH=/usr/bin:/bin:/opt/homebrew/bin:$HOME/.local/bin:$HOME/.local/share/mise/shims git commit` and dropped with `git reset`: a staged Markdown and YAML file ran rumdl, prettier, and codespell and passed, and the same three ran from `fish -c 'mise activate fish | source; git commit'`; a staged Swift file with spacing findings failed on swift-format (`[Spacing] remove 1 space`, exit 1); a file staged clean under an unstaged violating edit committed, and the edit was back in the working tree after; an intent-to-add file beside another file's unstaged edit committed (stash of 2 files ran) and was still intent-to-add after; a staged `.docc` file ran `docs:lint` once and passed (44 s warm).
 - [ ] 2 The full gate and local iteration run the same steps; the old scripts and `quality:changed` go
 - [ ] 3 Docs and conventions follow
 
-Next: start slice 1.
+Next: start slice 2.
 
 ## Approach
 
@@ -74,11 +74,25 @@ Delivers: `CONTRIBUTING.md`, `AGENTS.md`, `.agents/commands/phase-slice-workflow
 - 2026-10-25 Run the full gate's file-level checks through `hk check --all`, in CI as well (through `mise run quality:lint`), so `hk.pkl` is the only declaration of them. (owner)
 - 2026-10-25 Remove `quality:changed`; docs and agent instructions name `hk check` and `hk check --staged` directly. (owner)
 - 2026-10-25 `mise run setup:hooks` sets the pre-commit hook to `mise x -- hk run pre-commit --from-hook` (keeping `git-ita-lift`), as Ternbook's bootstrap does, so tools resolve from the checkout's `mise.toml` in any shell. (owner)
+- 2026-10-25 The Swift steps cover what the Swift gates covered, not every `**/*.swift`: `Sources/**`, `Tests/**`, `Examples/Sources/**`, `Package.swift`, and `Examples/Package.swift`, so `hk check --all` passes on the tree and the hook enforces what the gate does (strict swift-format, as the gate was).
+- 2026-10-25 The `prettier` step covers `.yaml`, `.yml`, `.json`, `.cjs`, `.js`, and `.css`, and excludes `package-lock.json`: everything `prettier --check .` formatted, so the full gate loses nothing.
+- 2026-10-25 The `rumdl` step includes DocC Markdown, where the plan's End state excludes it: the full gate checked it and it passes, and Acceptance says no check enforces less.
+- 2026-10-25 The `codespell` step globs every file (binary files are dropped by hk) except `package-lock.json`, the union of what `quality:spelling` and the classifier covered.
+- 2026-10-25 `swift-format` depends on `swiftlint`, so a fix applies SwiftLint's corrections before swift-format settles the layout, as `quality:format` ordered them; checks run in sequence for the same reason.
+- 2026-10-25 The `fix` hook runs every step but `docc`, and `codespell` has a `fix` (`--write-changes`), so `hk fix --all` also applies spelling corrections that `quality:spelling-fix` applied.
+- 2026-10-25 The `docc` step runs `env -u SDKROOT mise run docs:lint`, so the SDK is the one `DEVELOPER_DIR` selects whichever Git launched the hook.
 
 ## Discoveries
 
 - A commit from a T3 Code thread (Claude Code, `/bin/zsh` without mise activated) failed in `staged-quality` with `Config files in …/tessera-pre-commit.XXXXXX/mise.toml are not trusted`; `mise exec -- git commit` passed. The failing call is the `rumdl` mise shim run from the temporary copy; with the tools of the trusted checkout first on `PATH`, the same script passed — owner's inbox capture `tessera-pre-commit-rumdl-untrusted-temp-checkout`, reproduced with a shim-only `PATH`, 2026-10-25.
 - Ternbook's hook (`mise x -- hk run pre-commit`, steps run in the checkout) passed its `rumdl` step with the same shim-only `PATH` — `hk check --step rumdl README.md`, 2026-10-25.
+- The plan's Verify says a staged Markdown file runs prettier. It does not under the step globs: `.prettierignore` hands Markdown to rumdl, so the `prettier` step matches YAML, JSON, and script files only, and runs for a staged YAML file. The old hook never ran Prettier on anything but Markdown (the classifier passed `check-markup.sh` only `*.md` files, which Prettier skips), so a staged YAML or JSON file was only spell-checked; the new hook enforces more there, 2026-10-25.
+- `**/*.swift` is wider than the Swift gates. `quality:swift-format` and `quality:swiftlint` cover `Sources`, `Tests`, `Package.swift`, `Examples/Sources`, and `Examples/Package.swift` (`.swiftlint.yml` `included`, which SwiftLint ignores for explicit file arguments). Strict swift-format and SwiftLint on the other 86 tracked Swift files report 133 and 201 findings in `spikes/` and 2 swift-format findings in `Examples/Tests`; `DevTools/` is clean. The old hook linted any staged Swift file, but with non-strict swift-format, which fails only on errors, so it checked less than the gate, 2026-10-25.
+- `prettier --check .`, the full gate's Prettier call, also formats `.github/scripts/*.cjs`, `DevTools/gallery/gallery.js`, and `DevTools/gallery/gallery.css`, not only YAML and JSON, 2026-10-25.
+- The full gate's `rumdl check .` covers the 37 DocC Markdown files, and they pass; the classifier left them out of the Markdown list, so the old hook never checked them with rumdl, 2026-10-25.
+- `quality:spelling` covered every text file under `Sources`, `Tests`, `Examples`, `docs`, and `.github` (`.h`, `.svg`, `.txt`, `.scn`, `.cjs`, `.toml`, `.td`, and others), while the classifier named Swift, Markdown, JSON, YAML, and Python anywhere. Neither is the other's subset; codespell passes on every tracked file except `package-lock.json`, 2026-10-25.
+- `hk fix` runs a step that has only a `check` as a check: a throwaway step with no `fix` ran its command under `hk fix --all`. The DocC step would have run `docs:lint` inside every `quality:format`, 2026-10-25.
+- Apple's `/usr/bin/git`, first on the shim-only `PATH`, exports `SDKROOT` for the system-selected Xcode (27.1) to its hooks, while `mise.toml` selects 26.6 through `DEVELOPER_DIR`. A `.docc` file staged in a commit made that way failed `docs:lint` in the hook with `this SDK is not supported by the compiler`; the same step passed under `hk check --step docc --all`. Homebrew's git (first on `PATH` in an interactive shell) does not set it, 2026-10-25.
 
 ## Outcome
 
