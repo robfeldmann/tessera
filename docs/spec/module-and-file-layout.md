@@ -150,15 +150,18 @@ Sources/
     ApplicationRegistry.swift     // ApplicationRegistry (public) and its fail-closed reads (package)
     Viewport.swift                // Viewport (public)
     HarnessCLI.swift              // HarnessCLI.main(registry:) (public): parsing, dispatch, exit codes
-    HarnessCLI+Commands.swift     // the commands and their ArgumentParser declarations (internal)
+    HarnessCLI+Commands.swift     // apps, launch, and the ArgumentParser declarations they share (internal)
+    HarnessCLI+Scenarios.swift    // run, shot, and tree (internal)
     Driver.swift                  // main-actor shell over the step (internal)
     HeadlessHost.swift            // a session over a headless device into one virtual terminal (internal)
-    HeadlessTerminalDevice.swift  // the device under a headless session (internal)
+    HeadlessTerminalDevice.swift  // the device under a headless session; answers its terminal queries (internal)
+    TerminalProfile.swift         // what a scenario's `term` header names: colour level and theme (internal)
+    TerminalAnswerer.swift        // answers OSC 10, 11, 4 and DA1 queries from the theme (internal)
     LiveHost.swift                // a session over the real terminal (internal)
     ActorHost.swift               // per-test actor shell over the same step (internal)
     NaturalHeight.swift           // the mobile natural-height probe (internal)
     StandardStreams.swift         // the one platform question the CLI asks: are stdin and stdout terminals (internal)
-    Scenarios/                    // parser, runner, report
+    Scenarios/                    // statement types, tokenizer, parser, player, goldens, file discovery, report; ScenarioRunner, ScenarioReport, and ScenarioFailure are public
 
   TesseraCore/                  // declarative view values and explicit graph runtime
     Views/

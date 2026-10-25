@@ -103,6 +103,8 @@ mise run core:test-parallel    # the same suite in parallel; must stay green
 mise run core:example          # run an example from the Examples package
 mise run dev:apps              # list the demos the tessera CLI can launch
 mise run dev:launch counter    # run one demo in this terminal (q quits)
+mise run dev:run Examples/Scenarios   # run the scenario corpus CI runs (add --pretty for the text form)
+mise run dev:shot counter mobile      # print one demo's screen as text
 ```
 
 Run the narrowest relevant check first, then widen:

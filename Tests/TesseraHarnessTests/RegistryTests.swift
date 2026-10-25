@@ -46,11 +46,12 @@ struct ApplicationRegistryTests {
       """
       [
         [0]: "counter",
-        [1]: "greedy",
-        [2]: "main-actor-counter",
-        [3]: "observed-counter",
-        [4]: "stack",
-        [5]: "workspace"
+        [1]: "event-log",
+        [2]: "greedy",
+        [3]: "main-actor-counter",
+        [4]: "observed-counter",
+        [5]: "stack",
+        [6]: "workspace"
       ]
       """
     }
@@ -68,18 +69,19 @@ struct ApplicationRegistryTests {
         "ghost",
         accepted: [
           [0]: "counter",
-          [1]: "greedy",
-          [2]: "main-actor-counter",
-          [3]: "observed-counter",
-          [4]: "stack",
-          [5]: "workspace"
+          [1]: "event-log",
+          [2]: "greedy",
+          [3]: "main-actor-counter",
+          [4]: "observed-counter",
+          [5]: "stack",
+          [6]: "workspace"
         ]
       )
       """
     }
     assertInlineSnapshot(of: error?.description, as: .lines) {
       """
-      unknown app `ghost`; accepted: counter, greedy, main-actor-counter, observed-counter, stack, workspace
+      unknown app `ghost`; accepted: counter, event-log, greedy, main-actor-counter, observed-counter, stack, workspace
       """
     }
   }
@@ -106,28 +108,29 @@ struct ApplicationRegistryTests {
   }
 
   @Test
-  func `a duplicate name fails the scenario runner with the app verb`() async throws {
-    let scenario = Scenario(app: "workspace", viewport: .desktop, lines: [])
+  func `a duplicate name fails the scenario player with the harness verb`() async throws {
+    let scenario = Scenario(app: "workspace")
 
-    let report = await ScenarioRunner.run(scenario, name: "t.scn", registry: duplicated())
+    let report = await ScenarioPlayer.run(scenario, name: "t.scn", registry: duplicated())
 
     assertInlineSnapshot(of: report, as: .customDump) {
       """
       ScenarioReport(
         scenario: "t.scn",
-        passed: false,
         failures: [
           [0]: ScenarioFailure(
-            line: 0,
-            statement: "app workspace",
-            verb: "app",
+            line: 1,
+            statement: "",
+            verb: "harness",
             message: "applications registered more than once: `counter`, `stack`",
             expected: nil,
             actual: nil,
             screen: nil
           )
         ],
-        observations: []
+        observations: [],
+        recorded: [],
+        seconds: []
       )
       """
     }

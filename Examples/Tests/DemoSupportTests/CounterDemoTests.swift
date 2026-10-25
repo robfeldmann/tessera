@@ -121,6 +121,6 @@ struct CounterDemoTests {
   func `the demo registry has no duplicate names`() throws {
     let names = try Demos.registry().names()
 
-    expectNoDifference(names, ["counter", "counter-high"])
+    expectNoDifference(names, ["counter", "counter-high", "stack", "workspace"])
   }
 }

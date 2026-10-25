@@ -13,9 +13,13 @@ import TesseraTerminal
 /// ```
 ///
 /// The commands are `apps` (list the registry), `launch NAME` (run one application in this
-/// terminal), and `help [COMMAND]`. Exit codes are 0 for success, 2 for a usage error, and 3
-/// for a harness error. When standard output is not a terminal, each command writes one JSON
-/// object to it; `--json` forces that form and `--pretty` forces the text form.
+/// terminal), `run PATH...` (run scenario files, with `--record`, `--repeat N`, and
+/// `--timing`), `shot NAME [SIZE]` and `tree NAME [SIZE]` (print one application's screen or
+/// node tree), and `help [COMMAND]`.
+///
+/// Exit codes are 0 for success, 1 when an expectation failed, 2 for a usage or parse error,
+/// and 3 for a harness error. When standard output is not a terminal, each command writes one
+/// JSON object to it; `--json` forces that form and `--pretty` forces the text form.
 ///
 /// The executable also prints a completion script for fish, zsh, and bash, which completes
 /// the registered application names: `--generate-completion-script SHELL`.
@@ -82,7 +86,10 @@ extension HarnessCLI {
     }
   }
 
-  static let commands: [any HarnessCommand.Type] = [AppsCommand.self, LaunchCommand.self]
+  static let commands: [any HarnessCommand.Type] = [
+    AppsCommand.self, LaunchCommand.self, RunCommand.self, ShotCommand.self,
+    TreeCommand.self,
+  ]
 
   /// The words that name a command: the commands, then ArgumentParser's `help`.
   static var commandNames: [String] {
@@ -123,6 +130,12 @@ extension HarnessCLI {
         return unknown
       }
 
+      // ArgumentParser keeps the last of a repeated option, so a single-value option given
+      // twice is a usage error found here, before it parses.
+      if let repeated = repeatedOption(in: arguments, json: asJSON) {
+        return repeated
+      }
+
       let parsed: any ParsableCommand
       do {
         parsed = try Root.parseAsRoot(arguments)
@@ -157,15 +170,24 @@ extension HarnessCLI {
   // MARK: Output
 
   static func encode(_ value: some Encodable) -> String {
-    let encoder = JSONEncoder()
-    encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-    let data = (try? encoder.encode(value)) ?? Data()
-    // swiftlint:disable:next optional_data_string_conversion
-    return String(decoding: data, as: UTF8.self)
+    JSONText.string(for: value)
   }
 
   static func usage(_ message: String, command: String?, json: Bool) -> CommandOutput {
     failure(message, exitCode: 2, command: command, json: json)
+  }
+
+  /// The failure for a name the registry cannot answer: an unknown name is a usage error and
+  /// a duplicate registration a harness error.
+  static func registryFailure(_ error: RegistryError, command: String, json: Bool)
+    -> CommandOutput
+  {
+    let exitCode: Int32 =
+      switch error {
+      case .duplicate: 3
+      case .unknown: 2
+      }
+    return failure(error.description, exitCode: exitCode, command: command, json: json)
   }
 
   static func failure(
@@ -228,15 +250,71 @@ extension HarnessCLI {
     }
     // The message says what was wrong, on one line so the JSON form reads; the usage says
     // what is accepted where it was.
-    let command = commands.first {
-      $0._commandName == withoutOutputFlags(arguments).first
-    }
     let message = Root.message(for: error)
       .split(whereSeparator: \.isNewline)
       .map { $0.trimmingCharacters(in: .whitespaces) }
       .joined(separator: " ")
+    return usageFailure(
+      message, command: commandBeingRun(in: arguments)?.type, json: json)
+  }
+
+  /// The usage error for `message`, ending with the usage of `command`, or of the whole
+  /// command line when it names none.
+  private static func usageFailure(
+    _ message: String, command: (any HarnessCommand.Type)?, json: Bool
+  ) -> CommandOutput {
     let synopsis = command.map { Root.usageString(for: $0) } ?? Root.usageString()
     return usage(
       "\(message); usage: \(synopsis)", command: command?._commandName, json: json)
+  }
+
+  /// The command the arguments run and where its name stands: the first word that is not an
+  /// output flag, when it names a command.
+  private static func commandBeingRun(in arguments: [String])
+    -> (index: Int, type: any HarnessCommand.Type)?
+  {
+    guard let index = arguments.firstIndex(where: { !OutputForm.spellings.contains($0) }),
+      let type = commands.first(where: { $0._commandName == arguments[index] })
+    else {
+      return nil
+    }
+    return (index, type)
+  }
+
+  /// The usage error for a single-value option given more than once, when the arguments hold
+  /// one.
+  ///
+  /// ArgumentParser keeps the last value of a repeated option. Declaring the option as an
+  /// array would make it reject a second one, but its usage would then read `--repeat <n>
+  /// ...`, which tells a reader the option may repeat. So each command lists its
+  /// single-value options, and the raw arguments are checked before parsing: `--option value`
+  /// and `--option=value`, up to a `--`.
+  private static func repeatedOption(in arguments: [String], json: Bool) -> CommandOutput?
+  {
+    guard let (index, command) = commandBeingRun(in: arguments),
+      !command.singleValueOptions.isEmpty
+    else {
+      return nil
+    }
+    let options = command.singleValueOptions
+    var seen: Set<String> = []
+    var position = index + 1
+    while position < arguments.count, arguments[position] != "--" {
+      let argument = arguments[position]
+      guard
+        let option = options.first(where: {
+          argument == $0 || argument.hasPrefix("\($0)=")
+        })
+      else {
+        position += 1
+        continue
+      }
+      guard seen.insert(option).inserted else {
+        return usageFailure("`\(option)` is given twice", command: command, json: json)
+      }
+      // `--option value` also consumes its value.
+      position += argument == option ? 2 : 1
+    }
+    return nil
   }
 }

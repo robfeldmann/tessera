@@ -13,17 +13,27 @@ private func parse(_ source: String, file: String = "t.scn") throws -> Scenario 
   try ScenarioParser.parse(source, file: file, knownApps: Fixtures.names)
 }
 
-/// The text of the parse error `source` raises, in the `FILE:LINE: error: message` form.
-private func parseFailure(of source: String) -> String {
+/// The parse error `source` raises.
+private func parseError(of source: String) -> ScenarioParseError? {
   do {
     _ = try parse(source)
     Issue.record("`\(source)` parsed without an error")
   } catch let error as ScenarioParseError {
-    return error.description
+    return error
   } catch {
     Issue.record(error, "`\(source)` raised a different error")
   }
-  return ""
+  return nil
+}
+
+/// The text of the parse error `source` raises, in the `FILE:LINE: error: message` form.
+private func parseFailure(of source: String) -> String {
+  parseError(of: source)?.description ?? ""
+}
+
+/// The failure text of each source, one per line, for tests that check a family of inputs.
+private func parseFailures(of sources: [String]) -> String {
+  sources.map(parseFailure(of:)).joined(separator: "\n")
 }
 
 struct ScenarioParserTests {
@@ -34,6 +44,7 @@ struct ScenarioParserTests {
       # comment
       app stack
       size mobile
+      term colors=16 theme=light
       type "hi there"  # trailing comment
       """
     )
@@ -42,10 +53,22 @@ struct ScenarioParserTests {
       """
       Scenario(
         app: "stack",
+        appLine: SourceLine(
+          number: 2,
+          text: "app stack"
+        ),
         viewport: .mobile,
+        sizeLine: SourceLine(
+          number: 3,
+          text: "size mobile"
+        ),
+        terminal: TerminalProfile(
+          colors: .ansi16,
+          theme: .light
+        ),
         lines: [
           [0]: ScenarioLine(
-            number: 4,
+            number: 5,
             source: #"type "hi there"  # trailing comment"#,
             statement: .type("hi there")
           )
@@ -56,10 +79,36 @@ struct ScenarioParserTests {
   }
 
   @Test
+  func `a scenario without a term header runs on plain cells with unknown colours`()
+    throws
+  {
+    let scenario = try parse("app stack")
+
+    assertInlineSnapshot(of: scenario, as: .customDump) {
+      """
+      Scenario(
+        app: "stack",
+        appLine: SourceLine(
+          number: 1,
+          text: "app stack"
+        ),
+        viewport: .desktop,
+        sizeLine: nil,
+        terminal: TerminalProfile(
+          colors: .none,
+          theme: nil
+        ),
+        lines: []
+      )
+      """
+    }
+  }
+
+  @Test
   func `a scenario without an app header is a parse error naming the accepted apps`() {
     assertInlineSnapshot(of: parseFailure(of: "size desktop\nkey Tab"), as: .lines) {
       """
-      t.scn:1: error: a scenario names its app with an `app NAME` header; accepted: stack, workspace, greedy
+      t.scn:1: error: a scenario names its app with an `app NAME` header; accepted: stack, workspace, greedy, event-log, counter
       """
     }
   }
@@ -68,43 +117,140 @@ struct ScenarioParserTests {
   func `an app the registry does not hold is a parse error`() {
     assertInlineSnapshot(of: parseFailure(of: "app missing"), as: .lines) {
       """
-      t.scn:1: error: unknown app `missing`; accepted: stack, workspace, greedy
+      t.scn:1: error: unknown app `missing`; accepted: stack, workspace, greedy, event-log, counter
       """
     }
   }
 
   @Test
   func `size after a body statement names the resize verb`() {
-    assertInlineSnapshot(of: parseFailure(of: "key Tab\nsize 10x10"), as: .lines) {
+    assertInlineSnapshot(of: parseError(of: "key Tab\nsize 10x10"), as: .customDump) {
       """
-      t.scn:2: error: `size` is a header statement; use `resize WxH` after the first body statement
+      ScenarioParseError(
+        file: "t.scn",
+        line: 2,
+        source: "size 10x10",
+        message: "`size` is a header statement; use `resize WxH` after the first body statement"
+      )
+      """
+    }
+  }
+
+  @Test
+  func `app and term after a body statement are header errors`() {
+    let failures = parseFailures(
+      of: ["app stack", "term colors=16"].map { "app stack\nkey Tab\n\($0)" })
+
+    assertInlineSnapshot(of: failures, as: .lines) {
+      """
+      t.scn:3: error: `app` is a header statement and must precede the first body statement
+      t.scn:3: error: `term` is a header statement and must precede the first body statement
       """
     }
   }
 
   @Test
   func `unknown statements list the accepted vocabulary`() {
-    assertInlineSnapshot(of: parseFailure(of: "jump 3"), as: .lines) {
+    assertInlineSnapshot(of: parseFailure(of: "app stack\njump 3"), as: .lines) {
       """
-      t.scn:1: error: unknown statement `jump`; accepted: app, size, resize, key, type, shot, tree, expect text, expect node
+      t.scn:2: error: unknown statement `jump`; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
       """
     }
   }
 
   @Test
-  func `reserved verbs are reported as not yet expressible`() {
-    assertInlineSnapshot(of: parseFailure(of: "mouse click 3,4"), as: .lines) {
+  func `unknown expectations list the accepted kinds`() {
+    assertInlineSnapshot(of: parseFailure(of: "app stack\nexpect colour red"), as: .lines)
+    {
       """
-      t.scn:1: error: `mouse` is not yet expressible in v0; accepted: app, size, resize, key, type, shot, tree, expect text, expect node
+      t.scn:2: error: unknown expectation `colour`; accepted: text, screen, node
       """
     }
+  }
+
+  @Test
+  func `every statement form the grammar defers is refused by name`() {
+    let samples: [String: String] = [
+      "wait": "wait",
+      "settle": "settle",
+      "focus": "focus role=button",
+      "mouse": "mouse click 3,4",
+      "hit": "hit 1,2",
+      "dump": "dump",
+      "check": "check",
+      "expect cell": "expect cell 1,2 bold",
+      "expect cost": "expect cost bodies<=1",
+      "expect focused": "expect focused role=button",
+      "expect wireframe": "expect wireframe docs/design/a.md 1",
+      "expect node SEL visible": "expect node type=Text visible",
+      "expect node SEL clipped": "expect node type=Text clipped",
+      "expect node SEL count N": "expect node type=Text count 2",
+      "shot NAME SEL": "shot a type=Text",
+      "tree SEL": "tree type=Text",
+      "term glyphs=": "term glyphs=ascii",
+      "term keyboard=": "term keyboard=kitty",
+      "term theme=probe": "term theme=probe",
+    ]
+    expectNoDifference(
+      samples.keys.sorted(), ScenarioGrammar.notYetExpressible.map(\.form).sorted())
+
+    let failures = parseFailures(
+      of: samples.sorted { $0.key < $1.key }.map { "app stack\n" + $0.value })
+
+    assertInlineSnapshot(of: failures, as: .lines) {
+      """
+      t.scn:2: error: `check` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
+      t.scn:2: error: `dump` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
+      t.scn:2: error: `expect cell` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
+      t.scn:2: error: `expect cost` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
+      t.scn:2: error: `expect focused` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
+      t.scn:2: error: `expect node SEL clipped` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
+      t.scn:2: error: `expect node SEL count N` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
+      t.scn:2: error: `expect node SEL visible` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
+      t.scn:2: error: `expect wireframe` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
+      t.scn:2: error: `focus` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
+      t.scn:2: error: `hit` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
+      t.scn:2: error: `mouse` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
+      t.scn:2: error: `settle` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
+      t.scn:2: error: `shot NAME SEL` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
+      t.scn:2: error: `term glyphs=` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
+      t.scn:2: error: `term keyboard=` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
+      t.scn:2: error: `term theme=probe` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
+      t.scn:2: error: `tree SEL` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
+      t.scn:2: error: `wait` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
+      """
+    }
+  }
+
+  @Test
+  func
+    `the README's not-yet-expressible table lists exactly the forms the parser refuses`()
+    throws
+  {
+    let readme = URL(fileURLWithPath: #filePath)
+      .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+      .appendingPathComponent("Examples/Scenarios/README.md")
+    let text = try String(contentsOf: readme, encoding: .utf8)
+    // Lines split at the `\n` scalar, as the parser's are: a Windows checkout of this file may
+    // have CRLF endings, and a "\r\n" is one Character that Foundation's search would not see
+    // a "\n" in.
+    let lines = ScenarioParser.sourceLines(of: text)
+    let start = try #require(lines.firstIndex { $0.hasPrefix("## Not yet expressible") })
+    let section = lines[(start + 1)...].prefix { !$0.hasPrefix("## ") }
+
+    let forms = section.filter { $0.hasPrefix("| `") }.map { line in
+      String(line.dropFirst(3).prefix { $0 != "`" })
+    }
+
+    expectNoDifference(
+      forms.sorted(), ScenarioGrammar.notYetExpressible.map(\.form).sorted())
   }
 
   @Test
   func `unknown key names list the accepted set`() {
-    assertInlineSnapshot(of: parseFailure(of: "key Hyperspace"), as: .lines) {
+    assertInlineSnapshot(of: parseFailure(of: "app stack\nkey Hyperspace"), as: .lines) {
       """
-      t.scn:1: error: unknown key `Hyperspace`; accepted: ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Backspace, Delete, End, Enter, Escape, Home, PageDown, PageUp, Space, Tab, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, a single character; modifiers: Alt, Control, Ctrl, Meta, Shift, Super joined with `+`
+      t.scn:2: error: unknown key `Hyperspace`; accepted: ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Backspace, Delete, End, Enter, Escape, Home, PageDown, PageUp, Space, Tab, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, a single character; modifiers: Alt, Control, Ctrl, Meta, Shift, Super joined with `+`
       """
     }
   }
@@ -125,7 +271,7 @@ struct ScenarioParserTests {
   }
 
   @Test
-  func `frame expectations accept one token or a two-token form`() throws {
+  func `frame expectations accept one token or the two-token form`() throws {
     let scenario = try parse(
       "app stack\nexpect node id=root frame 1,2,3x4\nexpect node id=root frame 1,2 3x4"
     )
@@ -140,29 +286,302 @@ struct ScenarioParserTests {
 
   @Test
   func `unterminated quotes fail with the line number`() {
-    assertInlineSnapshot(of: parseFailure(of: "\ntype \"oops"), as: .lines) {
+    assertInlineSnapshot(of: parseFailure(of: "app stack\n\ntype \"oops"), as: .lines) {
       """
-      t.scn:2: error: unterminated double quote
+      t.scn:3: error: unterminated double quote
       """
     }
   }
 
   @Test
-  func `duplicate shot names are rejected`() {
-    assertInlineSnapshot(of: parseFailure(of: "shot a\nshot a"), as: .lines) {
+  func `duplicate shot names are rejected, naming the first line`() {
+    assertInlineSnapshot(of: parseFailure(of: "app stack\nshot a\nshot a"), as: .lines) {
       """
-      t.scn:2: error: duplicate shot name `a`
+      t.scn:3: error: duplicate shot name `a` (first used on line 2)
+      """
+    }
+  }
+
+  @Test
+  func `shot names that differ only by case collide, because goldens are files`() {
+    assertInlineSnapshot(
+      of: parseError(of: "app stack\nshot a\ntype \"+\"\nshot A"), as: .customDump
+    ) {
+      """
+      ScenarioParseError(
+        file: "t.scn",
+        line: 4,
+        source: "shot A",
+        message: "shot name `A` collides with `a` on line 2: goldens are files, and the file systems CI runs on fold case"
+      )
+      """
+    }
+  }
+
+  @Test
+  func `a CRLF file parses as an LF file does, with the same line numbers`() throws {
+    let lf = "# header\napp stack\nsize 40x10\ntype \"hi\"\nexpect text 0 \"x\"\n"
+    let crlf = lf.replacingOccurrences(of: "\n", with: "\r\n")
+
+    let fromLF = try parse(lf)
+    let fromCRLF = try parse(crlf)
+
+    expectNoDifference(fromCRLF, fromLF)
+    assertInlineSnapshot(of: fromCRLF.lines, as: .customDump) {
+      """
+      [
+        [0]: ScenarioLine(
+          number: 4,
+          source: #"type "hi""#,
+          statement: .type("hi")
+        ),
+        [1]: ScenarioLine(
+          number: 5,
+          source: #"expect text 0 "x""#,
+          statement: .expectText(
+            row: 0,
+            text: "x"
+          )
+        )
+      ]
+      """
+    }
+  }
+
+  @Test
+  func `a parse error in a CRLF file reports the right line`() {
+    assertInlineSnapshot(
+      of: parseError(of: "app stack\r\nsize 40x10\r\nblink\r\n"), as: .customDump
+    ) {
+      """
+      ScenarioParseError(
+        file: "t.scn",
+        line: 3,
+        source: "blink",
+        message: "unknown statement `blink`; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node"
+      )
+      """
+    }
+  }
+
+  @Test
+  func `bytes, hex escapes, and paste carry their text`() throws {
+    let scenario = try parse(
+      #"""
+      app stack
+      bytes "\x1b[A"
+      paste "a b\nc"
+      type "A\x42"
+      """#
+    )
+
+    expectNoDifference(
+      scenario.lines.map(\.statement),
+      [.bytes([0x1B, 0x5B, 0x41]), .paste("a b\nc"), .type("AB")]
+    )
+  }
+
+  @Test
+  func `bad escapes name what is accepted`() {
+    let lines = [#"type "\x1""#, #"type "\xZZ""#, #"type "\x80""#, #"type "\q""#]
+
+    assertInlineSnapshot(
+      of: parseFailures(of: lines.map { "app stack\n" + $0 }), as: .lines
+    ) {
+      #"""
+      t.scn:2: error: `\x` needs two hex digits, as in `\x1b`
+      t.scn:2: error: `\x` needs two hex digits, as in `\x1b`
+      t.scn:2: error: `\x` escapes are ASCII (00 to 7f); write a non-ASCII character itself
+      t.scn:2: error: unknown escape `\q`; accepted: \n \t \" \\ \xHH
+      """#
+    }
+  }
+
+  @Test
+  func `expect screen reads its rows up to the delimiter line`() throws {
+    let scenario = try parse(
+      """
+      app stack
+      expect screen <<END
+      Stack demo
+        # not a comment
+
+      last   \u{20}
+      END
+      key Tab
+      """
+    )
+
+    assertInlineSnapshot(of: scenario.lines, as: .customDump) {
+      """
+      [
+        [0]: ScenarioLine(
+          number: 2,
+          source: "expect screen <<END",
+          statement: .expectScreen(
+            rows: [
+              [0]: "Stack demo",
+              [1]: "  # not a comment",
+              [2]: "",
+              [3]: "last    "
+            ]
+          )
+        ),
+        [1]: ScenarioLine(
+          number: 8,
+          source: "key Tab",
+          statement: .key(
+            Key(
+              code: .tab,
+              modifiers: Modifiers(rawValue: 0),
+              kind: .press,
+              shiftedCode: nil,
+              baseLayoutCode: nil,
+              associatedText: nil
+            )
+          )
+        )
+      ]
+      """
+    }
+  }
+
+  @Test
+  func `expect screen strips the carriage returns of a CRLF file`() throws {
+    let scenario = try parse("app stack\r\nexpect screen <<EOF\r\na\r\nb\r\nEOF\r\n")
+
+    expectNoDifference(
+      scenario.lines.map(\.statement), [.expectScreen(rows: ["a", "b"])])
+  }
+
+  @Test
+  func `expect screen without its closing line fails at the statement`() {
+    assertInlineSnapshot(
+      of: parseFailure(of: "app stack\nexpect screen <<EOF\nrow\n"), as: .lines
+    ) {
+      """
+      t.scn:2: error: `expect screen` is missing its closing `EOF` line
+      """
+    }
+  }
+
+  @Test
+  func `the closing line of expect screen may carry trailing spaces or tabs`() throws {
+    let closers = ["EOF ", "EOF\t", "EOF \t ", "EOF\r"]
+
+    let parsed = try closers.map {
+      try parse("app stack\nexpect screen <<EOF\nrow\n\($0)\nkey Tab").lines
+    }
+
+    let expected = try #require(parsed.first)
+    expectNoDifference(parsed, Array(repeating: expected, count: closers.count))
+    assertInlineSnapshot(of: expected, as: .customDump) {
+      """
+      [
+        [0]: ScenarioLine(
+          number: 2,
+          source: "expect screen <<EOF",
+          statement: .expectScreen(
+            rows: [
+              [0]: "row"
+            ]
+          )
+        ),
+        [1]: ScenarioLine(
+          number: 5,
+          source: "key Tab",
+          statement: .key(
+            Key(
+              code: .tab,
+              modifiers: Modifiers(rawValue: 0),
+              kind: .press,
+              shiftedCode: nil,
+              baseLayoutCode: nil,
+              associatedText: nil
+            )
+          )
+        )
+      ]
+      """
+    }
+  }
+
+  @Test
+  func `a closing line with leading blanks or other text is still a row`() {
+    let failures = parseFailures(
+      of: [" EOF", "EOF.", "EOFX"].map { "app stack\nexpect screen <<EOF\nrow\n\($0)\n" })
+
+    assertInlineSnapshot(of: failures, as: .lines) {
+      """
+      t.scn:2: error: `expect screen` is missing its closing `EOF` line
+      t.scn:2: error: `expect screen` is missing its closing `EOF` line
+      t.scn:2: error: `expect screen` is missing its closing `EOF` line
+      """
+    }
+  }
+
+  @Test
+  func `expect screen needs a heredoc delimiter`() {
+    let lines = [
+      "expect screen", "expect screen EOF", "expect screen <<", "expect screen <<a-b",
+    ]
+
+    assertInlineSnapshot(
+      of: parseFailures(of: lines.map { "app stack\n" + $0 }), as: .lines
+    ) {
+      """
+      t.scn:2: error: usage: expect screen <<EOF, then the rows, then a line holding only EOF
+      t.scn:2: error: usage: expect screen <<EOF, then the rows, then a line holding only EOF
+      t.scn:2: error: usage: expect screen <<EOF, then the rows, then a line holding only EOF
+      t.scn:2: error: the delimiter after `<<` is letters, digits, and `_`, got `a-b`
+      """
+    }
+  }
+
+  @Test
+  func `term options validate their values and name the accepted ones`() {
+    let lines = [
+      "term colors=blue", "term theme=sepia", "term colors", "term colors=16 colors=256",
+      "term width=3",
+    ]
+
+    assertInlineSnapshot(
+      of: parseFailures(of: lines.map { "app stack\n" + $0 }), as: .lines
+    ) {
+      """
+      t.scn:2: error: bad colors `blue`; expected none, 16, 256, true
+      t.scn:2: error: bad theme `sepia`; expected light, dark
+      t.scn:2: error: term option `colors` is not key=value; accepted keys: colors, theme
+      t.scn:2: error: duplicate `term` option `colors`
+      t.scn:2: error: unknown term option `width`; accepted keys: colors, theme
+      """
+    }
+  }
+
+  @Test
+  func `a second term or size or app header is an error`() {
+    let failures = parseFailures(
+      of: ["term colors=16", "size desktop", "app stack"].map {
+        "app stack\n\($0)\n\($0)"
+      })
+
+    assertInlineSnapshot(of: failures, as: .lines) {
+      """
+      t.scn:3: error: duplicate `term` header
+      t.scn:3: error: duplicate `size` header
+      t.scn:2: error: duplicate `app` header
       """
     }
   }
 }
 
 @MainActor
-struct ScenarioRunnerTests {
-  private func run(_ source: String) async throws -> ScenarioReport {
+struct ScenarioPlayerTests {
+  private func run(
+    _ source: String, registry: ApplicationRegistry = Fixtures.registry()
+  ) async throws -> ScenarioReport {
     let scenario = try parse(source)
-    return await ScenarioRunner.run(
-      scenario, name: "t.scn", registry: Fixtures.registry())
+    return await ScenarioPlayer.run(scenario, name: "t.scn", registry: registry)
   }
 
   @Test
@@ -173,7 +592,6 @@ struct ScenarioRunnerTests {
       """
       ScenarioReport(
         scenario: "t.scn",
-        passed: false,
         failures: [
           [0]: ScenarioFailure(
             line: 3,
@@ -192,7 +610,9 @@ struct ScenarioRunnerTests {
             ]
           )
         ],
-        observations: []
+        observations: [],
+        recorded: [],
+        seconds: []
       )
       """
     }
@@ -211,7 +631,7 @@ struct ScenarioRunnerTests {
       """
     )
 
-    assertInlineSnapshot(of: report.human(), as: .lines) {
+    assertInlineSnapshot(of: report.description, as: .lines) {
       """
       FAIL t.scn
         line 3: expect text 0 "wrong"
@@ -247,7 +667,7 @@ struct ScenarioRunnerTests {
     let report = try await run(
       "app stack\nsize 40x10\nexpect node type=Missing frame 0,0,1x1")
 
-    assertInlineSnapshot(of: report.human(), as: .lines) {
+    assertInlineSnapshot(of: report.description, as: .lines) {
       """
       FAIL t.scn
         line 3: expect node type=Missing frame 0,0,1x1
@@ -270,7 +690,7 @@ struct ScenarioRunnerTests {
     let report = try await run(
       "app stack\nsize 40x10\nexpect node type=Text frame 0,0,1x1")
 
-    assertInlineSnapshot(of: report.human(), as: .lines) {
+    assertInlineSnapshot(of: report.description, as: .lines) {
       """
       FAIL t.scn
         line 3: expect node type=Text frame 0,0,1x1
@@ -314,11 +734,10 @@ struct ScenarioRunnerTests {
       """
       ScenarioReport(
         scenario: "t.scn",
-        passed: false,
         failures: [
           [0]: ScenarioFailure(
-            line: 0,
-            statement: "app greedy",
+            line: 2,
+            statement: "size mobile",
             verb: "size",
             message: "`greedy` has no natural height: it measured 500 rows when offered 500 and 1000 when offered 1000. Use `size mobileScreen` (40x16) or an explicit WxH",
             expected: nil,
@@ -326,7 +745,9 @@ struct ScenarioRunnerTests {
             screen: nil
           )
         ],
-        observations: []
+        observations: [],
+        recorded: [],
+        seconds: []
       )
       """
     }
@@ -342,11 +763,10 @@ struct ScenarioRunnerTests {
       """
       ScenarioReport(
         scenario: "t.scn",
-        passed: false,
         failures: [
           [0]: ScenarioFailure(
-            line: 0,
-            statement: "app workspace",
+            line: 2,
+            statement: "size mobile",
             verb: "size",
             message: "`workspace` has no natural height: it measured 500 rows when offered 500 and 1000 when offered 1000. Use `size mobileScreen` (40x16) or an explicit WxH",
             expected: nil,
@@ -354,7 +774,9 @@ struct ScenarioRunnerTests {
             screen: nil
           )
         ],
-        observations: []
+        observations: [],
+        recorded: [],
+        seconds: []
       )
       """
     }
@@ -369,29 +791,276 @@ struct ScenarioRunnerTests {
   }
 
   @Test
-  func `an app the registry lacks fails the run with the app verb`() async throws {
-    let scenario = Scenario(app: "ghost", viewport: .desktop, lines: [])
+  func `bytes parse into keys, a bare escape, and a bracketed paste`() async throws {
+    let report = try await run(
+      #"""
+      app event-log
+      size 30x8
+      bytes "\x1b[B"
+      bytes "\x1b[1;5C"
+      bytes "\x1b"
+      bytes "\x1b[200~x y\x1b[201~"
+      expect screen <<EOF
+      resize 30x8
+      key ArrowDown
+      key Ctrl+ArrowRight
+      key Escape
+      paste x y
+      EOF
+      """#
+    )
 
-    let report = await ScenarioRunner.run(
-      scenario, name: "t.scn", registry: Fixtures.registry())
+    expectNoDifference(report.failures, [])
+  }
+
+  @Test
+  func `key, type, and paste reach the app as the events they name`() async throws {
+    let report = try await run(
+      """
+      app event-log
+      size 30x8
+      key Shift+Tab
+      type "ab"
+      paste "a b"
+      expect screen <<EOF
+      resize 30x8
+      key Shift+Tab
+      key a
+      key b
+      paste a b
+      EOF
+      """
+    )
+
+    expectNoDifference(report.failures, [])
+  }
+
+  @Test
+  func `expect screen compares trimmed rows and ignores trailing empty rows`()
+    async throws
+  {
+    let report = try await run(
+      """
+      app stack
+      size 40x10
+      expect screen <<EOF
+      Stack demo
+      ────────────────────────────────────────
+      Name: -
+      left                               right
+      ────────────────────────────────────────
+      40 columns
+      EOF
+      """
+    )
+
+    expectNoDifference(report.failures, [])
+  }
+
+  @Test
+  func `a wrong expect screen names the first differing row`() async throws {
+    let report = try await run(
+      """
+      app stack
+      size 40x10
+      expect screen <<EOF
+      Stack demo
+      ────────────────────────────────────────
+      Name: nobody
+      EOF
+      """
+    )
+
+    assertInlineSnapshot(of: report.description, as: .lines) {
+      """
+      FAIL t.scn
+        line 3: expect screen <<EOF
+          screen differs at row 2: expected 3 rows, the screen has 6
+          expected: Name: nobody
+          actual:   Name: -
+          screen:
+            0| Stack demo
+            1| ────────────────────────────────────────
+            2| Name: -
+            3| left                               right
+            4| ────────────────────────────────────────
+            5| 40 columns
+      """
+    }
+  }
+
+  @Test
+  func `a shot only observes when no goldens are attached`() async throws {
+    let report = try await run("app stack\nsize 40x10\nshot first")
 
     assertInlineSnapshot(of: report, as: .customDump) {
       """
       ScenarioReport(
         scenario: "t.scn",
-        passed: false,
+        failures: [],
+        observations: [
+          [0]: ScenarioObservation(
+            line: 3,
+            verb: "shot",
+            name: "first",
+            lines: [
+              [0]: "Stack demo",
+              [1]: "────────────────────────────────────────",
+              [2]: "Name: -",
+              [3]: "left                               right",
+              [4]: "────────────────────────────────────────",
+              [5]: "40 columns"
+            ]
+          )
+        ],
+        recorded: [],
+        seconds: []
+      )
+      """
+    }
+  }
+
+  @Test
+  func `a duplicate-name registry fails the player with the harness verb`() async throws {
+    var registry = Fixtures.registry()
+    registry.register("stack", viewports: [.desktop]) { StackApp() }
+
+    let report = try await run("app stack", registry: registry)
+
+    assertInlineSnapshot(of: report, as: .customDump) {
+      """
+      ScenarioReport(
+        scenario: "t.scn",
         failures: [
           [0]: ScenarioFailure(
-            line: 0,
-            statement: "app ghost",
-            verb: "app",
-            message: "unknown app `ghost`; accepted: counter, greedy, main-actor-counter, observed-counter, stack, workspace",
+            line: 1,
+            statement: "app stack",
+            verb: "harness",
+            message: "applications registered more than once: `stack`",
             expected: nil,
             actual: nil,
             screen: nil
           )
         ],
-        observations: []
+        observations: [],
+        recorded: [],
+        seconds: []
+      )
+      """
+    }
+  }
+
+  @Test
+  func `a statement after the app finishes fails and names the line that finished it`()
+    async throws
+  {
+    let report = try await run(
+      """
+      app counter
+      key q
+      expect text 0 "Count: 0"
+      shot after
+      """
+    )
+
+    assertInlineSnapshot(of: report, as: .customDump) {
+      """
+      ScenarioReport(
+        scenario: "t.scn",
+        failures: [
+          [0]: ScenarioFailure(
+            line: 3,
+            statement: #"expect text 0 "Count: 0""#,
+            verb: "expect text",
+            message: "the application finished at line 2 (`key q`), and in a terminal nothing after it runs",
+            expected: nil,
+            actual: nil,
+            screen: nil
+          )
+        ],
+        observations: [],
+        recorded: [],
+        seconds: []
+      )
+      """
+    }
+  }
+
+  @Test
+  func `the statement that finishes the app is the last that runs, and passes`()
+    async throws
+  {
+    let report = try await run(
+      "app counter\ntype \"+\"\nexpect text 0 \"Count: 1\"\nkey q")
+
+    expectNoDifference(report.failures, [])
+  }
+
+  @Test
+  func `a finished app gets no more input from the statement that finished it`()
+    async throws
+  {
+    var registry = Fixtures.registry()
+    registry.register("quitter", viewports: [.desktop]) { QuitterApp() }
+    Delivered.characters = []
+
+    let scenario = try ScenarioParser.parse(
+      "app quitter\ntype \"abqcd\"\ntype \"e\"", file: "t.scn", knownApps: ["quitter"])
+    let report = await ScenarioPlayer.run(scenario, name: "t.scn", registry: registry)
+
+    expectNoDifference(Delivered.characters, ["a", "b", "q"])
+    assertInlineSnapshot(of: report, as: .customDump) {
+      """
+      ScenarioReport(
+        scenario: "t.scn",
+        failures: [
+          [0]: ScenarioFailure(
+            line: 3,
+            statement: #"type "e""#,
+            verb: "type",
+            message: #"the application finished at line 2 (`type "abqcd"`), and in a terminal nothing after it runs"#,
+            expected: nil,
+            actual: nil,
+            screen: nil
+          )
+        ],
+        observations: [],
+        recorded: [],
+        seconds: []
+      )
+      """
+    }
+  }
+
+  @Test
+  func `an app that is finished before the scenario starts fails its first statement`()
+    async throws
+  {
+    var registry = Fixtures.registry()
+    registry.register("done", viewports: [.desktop]) { FinishedApp() }
+
+    let scenario = try ScenarioParser.parse(
+      "app done\nexpect text 0 \"Finished\"\nkey Tab", file: "t.scn", knownApps: ["done"])
+    let report = await ScenarioPlayer.run(scenario, name: "t.scn", registry: registry)
+
+    assertInlineSnapshot(of: report, as: .customDump) {
+      """
+      ScenarioReport(
+        scenario: "t.scn",
+        failures: [
+          [0]: ScenarioFailure(
+            line: 2,
+            statement: #"expect text 0 "Finished""#,
+            verb: "expect text",
+            message: "the application had already finished when the scenario started, and in a terminal nothing after it runs",
+            expected: nil,
+            actual: nil,
+            screen: nil
+          )
+        ],
+        observations: [],
+        recorded: [],
+        seconds: []
       )
       """
     }
@@ -422,90 +1091,6 @@ struct ScenarioRunnerTests {
           tallRows: 1000
         )
       ]
-      """
-    }
-  }
-}
-
-@MainActor
-struct ScenarioCorpusTests {
-  private static let scenarios = URL(fileURLWithPath: #filePath)
-    .deletingLastPathComponent()
-    .appendingPathComponent("Scenarios")
-
-  private func report(for relativePath: String) async throws -> ScenarioReport {
-    let url = Self.scenarios.appendingPathComponent(relativePath)
-    let source = try String(contentsOf: url, encoding: .utf8)
-    let scenario = try parse(source, file: relativePath)
-    return await ScenarioRunner.run(
-      scenario, name: relativePath, registry: Fixtures.registry())
-  }
-
-  @Test(arguments: [
-    "workspace-desktop.scn", "workspace-input.scn", "workspace-compact.scn",
-    "stack-mobile.scn",
-  ])
-  func `corpus scenarios pass and render identical bytes twice`(file: String) async throws
-  {
-    let first = try await report(for: file)
-    let second = try await report(for: file)
-
-    expectNoDifference(first.failures, [])
-    #expect(first.passed)
-    #expect(first.json() == second.json())
-  }
-
-  @Test
-  func `the failing scenario fails four expectations`() async throws {
-    let report = try await report(for: "failing/mismatch.scn")
-
-    assertInlineSnapshot(of: report.human(), as: .lines) {
-      """
-      FAIL failing/mismatch.scn
-        line 6: expect text 0 "Stack demos"
-          row 0 text differs
-          expected: Stack demos
-          actual:   Stack demo
-          screen:
-            0| Stack demo
-            1| ────────────────────────────────────────
-            2| Name: -
-            3| left                               right
-            4| ────────────────────────────────────────
-            5| 40 columns
-        line 7: expect text "no such text"
-          no screen row contains the text
-          expected: no such text
-          actual:   (not found in 10 rows)
-          screen:
-            0| Stack demo
-            1| ────────────────────────────────────────
-            2| Name: -
-            3| left                               right
-            4| ────────────────────────────────────────
-            5| 40 columns
-        line 8: expect node id=root frame 0,0,40x6
-          frame of `id=root` differs
-          expected: 0,0,40x6
-          actual:   0,0,40x10
-          screen:
-            0| Stack demo
-            1| ────────────────────────────────────────
-            2| Name: -
-            3| left                               right
-            4| ────────────────────────────────────────
-            5| 40 columns
-        line 10: expect node type=Missing frame 0,0,1x1
-          locator `type=Missing` matches no node
-          expected: 0,0,1x1
-          actual:   (no node; types: TupleView, VStack, Text, Divider, HStack, Spacer)
-          screen:
-            0| Stack demo
-            1| ────────────────────────────────────────
-            2| Name: -
-            3| left                               right
-            4| ────────────────────────────────────────
-            5| 40 columns
       """
     }
   }

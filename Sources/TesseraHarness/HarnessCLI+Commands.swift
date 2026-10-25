@@ -8,9 +8,19 @@ import TesseraTerminal
 /// It stays apart from ArgumentParser's `run()` so that a command returns what it printed
 /// instead of printing it, which lets a test run one without a process.
 protocol HarnessCommand: ParsableCommand {
+  /// The options of the command that take one value and may be given at most once, spelled
+  /// with their dashes, such as `--repeat`. `HarnessCLI` rejects a second one before
+  /// ArgumentParser, which would keep the last, parses; a test fails when the command declares
+  /// an option that this does not list.
+  static var singleValueOptions: [String] { get }
+
   /// Runs the command and returns what it printed and how it ended.
   @MainActor
   func execute(in context: HarnessCLI.Context) async -> CommandOutput
+}
+
+extension HarnessCommand {
+  static var singleValueOptions: [String] { [] }
 }
 
 extension HarnessCLI {
@@ -28,11 +38,12 @@ extension HarnessCLI {
     static var configuration: CommandConfiguration {
       CommandConfiguration(
         commandName: Invocation.current.executableName,
-        abstract: "List and launch the registered applications.",
+        abstract: "List, launch, run, and picture the registered applications.",
         discussion: """
-          Every command exits 0 on success, 2 on a usage error, and 3 on a harness error. \
-          When standard output is not a terminal each command writes one JSON object to it; \
-          --json forces that form and --pretty forces the text form.
+          Every command exits 0 on success, 1 when an expectation failed, 2 on a usage or \
+          parse error, and 3 on a harness error. When standard output is not a terminal each \
+          command writes one JSON object to it; --json forces that form and --pretty forces \
+          the text form.
 
           `--generate-completion-script SHELL` prints a completion script for fish, zsh, or \
           bash. It completes the commands, their flags, and the registered application names.
@@ -41,6 +52,12 @@ extension HarnessCLI {
     }
 
     @OptionGroup var output: OutputOptions
+  }
+
+  /// Completes an argument that names a registered application, by asking the executable at
+  /// completion time, so no list can fall out of date.
+  static let appNameCompletion = CompletionKind.custom { _, _, _ in
+    Invocation.current.appNames
   }
 }
 
@@ -172,7 +189,7 @@ struct LaunchCommand: HarnessCommand {
 
   @Argument(
     help: "The application to run, as `apps` lists it.",
-    completion: .custom { _, _, _ in HarnessCLI.Invocation.current.appNames })
+    completion: HarnessCLI.appNameCompletion)
   var name: String
 
   @MainActor
@@ -181,13 +198,7 @@ struct LaunchCommand: HarnessCommand {
     do {
       entry = try context.registry.entry(named: name)
     } catch {
-      let exitCode: Int32 =
-        switch error {
-        case .duplicate: 3
-        case .unknown: 2
-        }
-      return HarnessCLI.failure(
-        error.description, exitCode: exitCode, command: "launch", json: context.asJSON)
+      return HarnessCLI.registryFailure(error, command: "launch", json: context.asJSON)
     }
     guard context.terminals.input, context.terminals.output else {
       let missing =

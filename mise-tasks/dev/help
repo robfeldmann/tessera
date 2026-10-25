@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#MISE description="Describe the tessera commands, or one command (tessera help [COMMAND])"
+#USAGE arg "[command]" help="apps, launch, run, shot, tree, check, replay, or help"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+source scripts/dev-tessera.sh
+tessera help "$@"
