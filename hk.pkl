@@ -1,38 +1,122 @@
 amends "package://github.com/jdx/hk/releases/download/v2.8.0/hk@2.8.0#/Config.pkl"
 import "package://github.com/jdx/hk/releases/download/v2.8.0/hk@2.8.0#/Builtins.pkl"
 
-// Repository hooks (plan 035 Step 5.5, replacing Lefthook). `mise run setup:hooks` installs
-// them. The pre-commit hook runs the changed-file quality gate on the staged tree and
-// never rewrites staged content; the commit-msg hook validates Conventional Commit
-// subjects (the owner's global Git hook does the same, so a commit is checked twice and
-// refused once). `hk check` and `hk fix` run the full gates on demand.
+// Repository hooks (plan 035 Step 5.5, replacing Lefthook; plan 039 moved the file-level
+// checks here). `mise run setup:hooks` installs them. Each file-level check is one step
+// below, declared once with the files it applies to: the pre-commit hook runs the steps
+// on the staged files, `hk check` on the changed ones (`--staged` for the staged ones),
+// and `hk check --all` on every file, which is how `mise run quality:lint` and CI run
+// them. The hook runs in the checkout (`mise x -- hk run pre-commit`, set by
+// `setup:hooks`), so its tools resolve from the trusted `mise.toml` in any shell, and
+// never rewrites staged content; `hk fix` applies the fixes on demand. The commit-msg
+// hook validates Conventional Commit subjects (the owner's global Git hook does the same,
+// so a commit is checked twice and refused once).
 
-local full = new Mapping<String, Step | Group> {
-    ["quality"] {
-        check = "mise run quality:lint"
-        fix = "mise run quality:format && mise run quality:lint"
-    }
+// swift-format and SwiftLint cover what `.swiftlint.yml` includes: the package, its tests,
+// and the Examples package. spikes/, DevTools/, and Examples/Tests are outside both gates.
+local swiftFiles = List(
+    "Sources/**/*.swift",
+    "Tests/**/*.swift",
+    "Examples/Sources/**/*.swift",
+    "Package.swift",
+    "Examples/Package.swift"
+)
+
+// SwiftLint's corrections come first: swift-format then settles the layout they leave.
+local swiftlint = new Step {
+    glob = swiftFiles
+    check = "swiftlint lint --strict --config .swiftlint.yml {{files}}"
+    fix = "swiftlint lint --fix --quiet --config .swiftlint.yml {{files}}"
 }
 
-local staged = new Mapping<String, Step | Group> {
-    ["staged-quality"] {
-        check = "scripts/pre-commit-lint-staged.sh"
-    }
+// The selected Xcode's swift-format (scripts/swift-format.sh); `--strict` makes every
+// finding fail, as the full gate always did.
+local swiftFormat = new Step {
+    glob = swiftFiles
+    depends = "swiftlint"
+    check = "scripts/swift-format.sh lint --strict --configuration .swift-format {{files}}"
+    fix = "scripts/swift-format.sh format --configuration .swift-format --in-place {{files}}"
+}
+
+local requirePrettier = "test -x node_modules/.bin/prettier || { echo \"Missing local markup tools. Run 'npm ci' first.\" >&2; exit 1; }"
+
+// Prettier formats what `.prettierignore` leaves it: YAML and JSON, plus the few script
+// and stylesheet files (.cjs, .js, .css). Markdown is rumdl's.
+local prettier = new Step {
+    glob = List(
+        "**/*.yaml",
+        "**/*.yml",
+        "**/*.json",
+        "**/*.cjs",
+        "**/*.js",
+        "**/*.css"
+    )
+    exclude = List("package-lock.json")
+    check = "\(requirePrettier) && node_modules/.bin/prettier --check {{files}}"
+    fix = "\(requirePrettier) && node_modules/.bin/prettier --write {{files}}"
+}
+
+local rumdl = new Step {
+    glob = List("**/*.md")
+    check = "rumdl check {{files}}"
+    // rumdl returns 1 when it fixed findings; re-check so unfixable violations are
+    // reported rather than passing as a successful fix.
+    fix = """
+        status=0
+        rumdl check --fix {{files}} || status=$?
+        if [ "$status" -gt 1 ]; then exit "$status"; fi
+        rumdl check {{files}}
+        """
+}
+
+// Every text file: codespell skips binaries itself, and `.codespellrc` carries the
+// ignored words and the wireframe pattern. package-lock.json holds integrity hashes.
+local codespell = new Step {
+    glob = List("**/*")
+    exclude = List("package-lock.json")
+    check = "codespell --config .codespellrc {{files}}"
+    fix = "codespell --config .codespellrc --write-changes {{files}}"
+}
+
+// DocC builds every archive in one pass (`mise run docs:lint`), so the step runs it once
+// for however many catalog files changed, never per file. It needs Xcode's docc. Apple's
+// /usr/bin/git hands its hooks an SDKROOT for the system-selected Xcode, which disagrees
+// with the DEVELOPER_DIR that mise.toml selects and fails the manifest build, so the step
+// drops it and lets DEVELOPER_DIR choose.
+local docc = new Step {
+    glob = List("**/*.docc/**")
+    step_condition = "exec_ok('test \"$(uname)\" = Darwin')"
+    check = "env -u SDKROOT mise run docs:lint"
+}
+
+// `hk fix` runs a step that has no `fix` as a check, so the fix hook leaves DocC out:
+// formatting never builds the documentation.
+local formatSteps = new Mapping<String, Step | Group> {
+    ["swiftlint"] = swiftlint
+    ["swift-format"] = swiftFormat
+    ["prettier"] = prettier
+    ["rumdl"] = rumdl
+    ["codespell"] = codespell
+}
+
+local repositorySteps = new Mapping<String, Step | Group> {
+    ...formatSteps
+    ["docc"] = docc
 }
 
 hooks {
     ["check"] {
-        steps = full
+        steps = repositorySteps
     }
     ["fix"] {
         fix = true
-        steps = full
+        steps = formatSteps
     }
     ["pre-commit"] {
         // Never rewrite a commit's staged content. Run `hk fix` first.
         fix = false
         stash = "git"
-        steps = staged
+        steps = repositorySteps
     }
     ["commit-msg"] {
         steps {
