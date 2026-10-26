@@ -92,7 +92,8 @@ struct PrimitiveDemoTests {
   func `text measures wide and clustered content in cells`() async throws {
     try await Demos.registry().withHeadlessHost("text", at: .desktop) { host in
       let wide = host.projection.nodes.first { $0.text == "東京 中文 한글" }
-      expectNoDifference(wide?.frame, Projection.Box(column: 9, row: 3, columns: 14, rows: 1))
+      expectNoDifference(
+        wide?.frame, Projection.Box(column: 9, row: 3, columns: 14, rows: 1))
       #expect(host.screenRows[3] == "wide     東京 中文 한글")
       var probes: [[Int]] = []
       for _ in ["wide", "emoji", "combining", "halfwidth"] {
@@ -112,7 +113,8 @@ struct PrimitiveDemoTests {
       let paddings = projection.nodes.filter { $0.layout == "_PaddingLayout" }.map(
         \.frame)
 
-      expectNoDifference(frames[0], Projection.Box(column: 0, row: 3, columns: 8, rows: 3))
+      expectNoDifference(
+        frames[0], Projection.Box(column: 0, row: 3, columns: 8, rows: 3))
       expectNoDifference(frames[1...3].map(\.columns), [6, 4, 12])
       expectNoDifference(paddings.map(\.columns), [4, 5, 4, 10])
       expectNoDifference(paddings.map(\.rows), [3, 2, 3, 3])
@@ -137,7 +139,8 @@ struct PrimitiveDemoTests {
         try await host.send(key("-"))
       }
       let none = host.projection.nodes.first { $0.layout == "_PaddingLayout" }
-      expectNoDifference(none?.frame, Projection.Box(column: 0, row: 7, columns: 2, rows: 1))
+      expectNoDifference(
+        none?.frame, Projection.Box(column: 0, row: 7, columns: 2, rows: 1))
     }
   }
 
@@ -220,9 +223,11 @@ struct PrimitiveDemoTests {
       #expect(host.screenRows[0] == "Flex: priority, defaults, cross axis")
       // Three equal fills split 75 cells; with a priority tier the third takes them all.
       // No flex value is weight 1 beside a fill(1): 38 cells each, the odd one to the first.
-      expectNoDifference(["E", "H", "I", "K", "◦"].map { frames[$0]?.column }, [27, 2, 4, 41, 0])
+      expectNoDifference(
+        ["E", "H", "I", "K", "◦"].map { frames[$0]?.column }, [27, 2, 4, 41, 0])
       // A child smaller than the cross axis sits at the leading edge.
-      expectNoDifference(frames["•"], Projection.Box(column: 2, row: 9, columns: 1, rows: 1))
+      expectNoDifference(
+        frames["•"], Projection.Box(column: 2, row: 9, columns: 1, rows: 1))
       let violations = Checker.run(CheckRule.allCases, on: host.projection)
       #expect(violations.isEmpty, "\(violations.map(\.text))")
       try await host.send(key("n"))
