@@ -14,13 +14,14 @@ import "package://github.com/jdx/hk/releases/download/v2.8.0/hk@2.8.0#/Builtins.
 // refused once).
 
 // swift-format and SwiftLint cover what `.swiftlint.yml` includes: the package and its
-// tests, the Examples package and its tests, and both manifests. spikes/ stays out as
-// frozen evidence, and DevTools/ has no Swift gate.
+// tests, the Examples package and its tests, the DevTools package, and the manifests.
+// spikes/ stays out as frozen evidence.
 local swiftFiles = List(
     "Sources/**/*.swift",
     "Tests/**/*.swift",
     "Examples/Sources/**/*.swift",
     "Examples/Tests/**/*.swift",
+    "DevTools/**/*.swift",
     "Package.swift",
     "Examples/Package.swift"
 )
