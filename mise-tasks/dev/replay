@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+#MISE description="Run a recorded trace again against an app (tessera replay FILE --app NAME)"
+#USAGE arg "[file]" help="A trace written by `launch` under TESSERA_TRACE or by `run --trace`; without one, shows the help and the apps"
+#USAGE flag "--app <name>" help="The app to replay it against"
+#USAGE complete "name" run=#""$(git rev-parse --show-toplevel)/scripts/dev-app-names.sh""#
+#USAGE flag "--json" help="Print one JSON object even on a terminal"
+#USAGE flag "--pretty" help="Print the text form even when output is not a terminal"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+source scripts/dev-tessera.sh
+if [[ -z "${usage_file:-}" ]]; then
+  tessera_exit_with_help_and_apps replay
+fi
+tessera replay "$@"

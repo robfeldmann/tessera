@@ -13,9 +13,27 @@ package struct FrameExpectation: CustomStringConvertible, Equatable, Sendable {
   }
 }
 
+/// One bound of an `expect cost` statement: `bodies<=5`.
+package struct CostBound: CustomStringConvertible, Equatable, Sendable {
+  /// The counter, one of ``StepCost/names``.
+  package var counter: String
+
+  /// The most the counter may be.
+  package var limit: Int
+
+  package var description: String {
+    "\(counter)<=\(limit)"
+  }
+}
+
 /// One executable scenario statement.
 package enum Statement: Equatable, Sendable {
   case bytes([UInt8])
+
+  /// `check [RULE...]`; an empty list runs every rule.
+  case check(rules: [CheckRule])
+  case dump
+  case expectCost([CostBound])
   case expectNode(Locator, FrameExpectation)
   case expectScreen(rows: [String])
   case expectText(row: Int?, text: String)
@@ -30,6 +48,9 @@ package enum Statement: Equatable, Sendable {
   package var verb: String {
     switch self {
     case .bytes: "bytes"
+    case .check: "check"
+    case .dump: "dump"
+    case .expectCost: "expect cost"
     case .expectNode: "expect node"
     case .expectScreen: "expect screen"
     case .expectText: "expect text"

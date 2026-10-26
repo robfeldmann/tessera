@@ -117,12 +117,15 @@ struct ScenarioRunnerFileTests {
               message: "no such file or directory",
               expected: nil,
               actual: nil,
-              screen: nil
+              screen: nil,
+              rule: nil,
+              node: nil
             )
           ],
           observations: [],
           recorded: [],
-          seconds: []
+          seconds: [],
+          trace: []
         ),
         [1]: ScenarioReport(
           scenario: "<scratch>/plain.txt",
@@ -134,12 +137,15 @@ struct ScenarioRunnerFileTests {
               message: "scenario files end in `.scn`",
               expected: nil,
               actual: nil,
-              screen: nil
+              screen: nil,
+              rule: nil,
+              node: nil
             )
           ],
           observations: [],
           recorded: [],
-          seconds: []
+          seconds: [],
+          trace: []
         ),
         [2]: ScenarioReport(
           scenario: "<scratch>/empty",
@@ -151,19 +157,79 @@ struct ScenarioRunnerFileTests {
               message: "no scenario files (*.scn) under this directory",
               expected: nil,
               actual: nil,
-              screen: nil
+              screen: nil,
+              rule: nil,
+              node: nil
             )
           ],
           observations: [],
           recorded: [],
-          seconds: []
+          seconds: [],
+          trace: []
         ),
         [3]: ScenarioReport(
           scenario: "<scratch>/ok.scn",
           failures: [],
           observations: [],
           recorded: [],
-          seconds: []
+          seconds: [],
+          trace: [
+            [0]: TraceRecord(
+              version: 1,
+              seq: 0,
+              event: TraceEvent(
+                type: "resize",
+                key: nil,
+                kind: nil,
+                text: nil,
+                size: "40x10",
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [
+                  [0]: "root",
+                  [1]: "root/index(0)",
+                  [2]: "root/index(0)/index(0)",
+                  [3]: "root/index(0)/index(1)",
+                  [4]: "root/index(0)/index(2)",
+                  [5]: "root/index(0)/index(2)/index(0)",
+                  [6]: "root/index(0)/index(2)/index(1)",
+                  [7]: "root/index(0)/index(3)",
+                  [8]: "root/index(0)/index(3)/index(0)",
+                  [9]: "root/index(0)/index(3)/index(1)",
+                  [10]: "root/index(0)/index(3)/index(2)",
+                  [11]: "root/index(0)/index(4)",
+                  [12]: "root/index(0)/index(5)"
+                ],
+                changed: [],
+                removed: []
+              ),
+              rows: [
+                [0]: 0,
+                [1]: 1,
+                [2]: 2,
+                [3]: 3,
+                [4]: 4,
+                [5]: 5
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 639,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            )
+          ]
         )
       ]
       """
@@ -203,7 +269,9 @@ struct ScenarioRunnerFileTests {
             [3]: "left                               right",
             [4]: "────────────────────────────────────────",
             [5]: "40 columns"
-          ]
+          ],
+          rule: nil,
+          node: nil
         ),
         [1]: ScenarioFailure(
           line: 7,
@@ -219,7 +287,9 @@ struct ScenarioRunnerFileTests {
             [3]: "left                               right",
             [4]: "────────────────────────────────────────",
             [5]: "40 columns"
-          ]
+          ],
+          rule: nil,
+          node: nil
         ),
         [2]: ScenarioFailure(
           line: 8,
@@ -235,7 +305,9 @@ struct ScenarioRunnerFileTests {
             [3]: "left                               right",
             [4]: "────────────────────────────────────────",
             [5]: "40 columns"
-          ]
+          ],
+          rule: nil,
+          node: nil
         ),
         [3]: ScenarioFailure(
           line: 10,
@@ -251,7 +323,9 @@ struct ScenarioRunnerFileTests {
             [3]: "left                               right",
             [4]: "────────────────────────────────────────",
             [5]: "40 columns"
-          ]
+          ],
+          rule: nil,
+          node: nil
         )
       ]
       """
@@ -280,22 +354,82 @@ struct ScenarioRunnerFileTests {
               line: 3,
               statement: "blink 3",
               verb: "parse",
-              message: "unknown statement `blink`; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node",
+              message: "unknown statement `blink`; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost",
               expected: nil,
               actual: nil,
-              screen: nil
+              screen: nil,
+              rule: nil,
+              node: nil
             )
           ],
           observations: [],
           recorded: [],
-          seconds: []
+          seconds: [],
+          trace: []
         ),
         [1]: ScenarioReport(
           scenario: "<scratch>/b-good.scn",
           failures: [],
           observations: [],
           recorded: [],
-          seconds: []
+          seconds: [],
+          trace: [
+            [0]: TraceRecord(
+              version: 1,
+              seq: 0,
+              event: TraceEvent(
+                type: "resize",
+                key: nil,
+                kind: nil,
+                text: nil,
+                size: "40x10",
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [
+                  [0]: "root",
+                  [1]: "root/index(0)",
+                  [2]: "root/index(0)/index(0)",
+                  [3]: "root/index(0)/index(1)",
+                  [4]: "root/index(0)/index(2)",
+                  [5]: "root/index(0)/index(2)/index(0)",
+                  [6]: "root/index(0)/index(2)/index(1)",
+                  [7]: "root/index(0)/index(3)",
+                  [8]: "root/index(0)/index(3)/index(0)",
+                  [9]: "root/index(0)/index(3)/index(1)",
+                  [10]: "root/index(0)/index(3)/index(2)",
+                  [11]: "root/index(0)/index(4)",
+                  [12]: "root/index(0)/index(5)"
+                ],
+                changed: [],
+                removed: []
+              ),
+              rows: [
+                [0]: 0,
+                [1]: 1,
+                [2]: 2,
+                [3]: 3,
+                [4]: 4,
+                [5]: 5
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 639,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            )
+          ]
         )
       ]
       """
@@ -303,12 +437,12 @@ struct ScenarioRunnerFileTests {
     assertInlineSnapshot(of: scratch.redacted(reports[0].description), as: .lines) {
       """
       FAIL <scratch>/a-bad.scn
-      <scratch>/a-bad.scn:3: error: unknown statement `blink`; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
+      <scratch>/a-bad.scn:3: error: unknown statement `blink`; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
       """
     }
     assertInlineSnapshot(of: scratch.redacted(reports[0].json), as: .lines) {
       """
-      {"failures":[{"line":3,"message":"unknown statement `blink`; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node","statement":"blink 3","verb":"parse"}],"observations":[],"passed":false,"scenario":"<scratch>/a-bad.scn"}
+      {"failures":[{"line":3,"message":"unknown statement `blink`; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost","statement":"blink 3","verb":"parse"}],"observations":[],"passed":false,"scenario":"<scratch>/a-bad.scn"}
       """
     }
   }
@@ -349,12 +483,15 @@ struct ScenarioRunnerFileTests {
               message: "applications registered more than once: `stack`",
               expected: nil,
               actual: nil,
-              screen: nil
+              screen: nil,
+              rule: nil,
+              node: nil
             )
           ],
           observations: [],
           recorded: [],
-          seconds: []
+          seconds: [],
+          trace: []
         )
       ]
       """
@@ -385,7 +522,9 @@ struct ScenarioRunnerFileTests {
               message: "shot `after-typing` has no golden at `<scratch>/stack/after-typing.txt`; run with --record to create it, and review the file",
               expected: nil,
               actual: nil,
-              screen: nil
+              screen: nil,
+              rule: nil,
+              node: nil
             )
           ],
           observations: [
@@ -400,11 +539,183 @@ struct ScenarioRunnerFileTests {
                 [3]: "left                               right",
                 [4]: "────────────────────────────────────────",
                 [5]: "40 columns"
-              ]
+              ],
+              projection: nil
             )
           ],
           recorded: [],
-          seconds: []
+          seconds: [],
+          trace: [
+            [0]: TraceRecord(
+              version: 1,
+              seq: 0,
+              event: TraceEvent(
+                type: "resize",
+                key: nil,
+                kind: nil,
+                text: nil,
+                size: "40x10",
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [
+                  [0]: "root",
+                  [1]: "root/index(0)",
+                  [2]: "root/index(0)/index(0)",
+                  [3]: "root/index(0)/index(1)",
+                  [4]: "root/index(0)/index(2)",
+                  [5]: "root/index(0)/index(2)/index(0)",
+                  [6]: "root/index(0)/index(2)/index(1)",
+                  [7]: "root/index(0)/index(3)",
+                  [8]: "root/index(0)/index(3)/index(0)",
+                  [9]: "root/index(0)/index(3)/index(1)",
+                  [10]: "root/index(0)/index(3)/index(2)",
+                  [11]: "root/index(0)/index(4)",
+                  [12]: "root/index(0)/index(5)"
+                ],
+                changed: [],
+                removed: []
+              ),
+              rows: [
+                [0]: 0,
+                [1]: 1,
+                [2]: 2,
+                [3]: 3,
+                [4]: 4,
+                [5]: 5
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 639,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            ),
+            [1]: TraceRecord(
+              version: 1,
+              seq: 1,
+              event: TraceEvent(
+                type: "key",
+                key: "R",
+                kind: nil,
+                text: nil,
+                size: nil,
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [],
+                changed: [],
+                removed: []
+              ),
+              rows: [
+                [0]: 2
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 17,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            ),
+            [2]: TraceRecord(
+              version: 1,
+              seq: 2,
+              event: TraceEvent(
+                type: "key",
+                key: "o",
+                kind: nil,
+                text: nil,
+                size: nil,
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [],
+                changed: [
+                  [0]: "root/index(0)/index(2)",
+                  [1]: "root/index(0)/index(2)/index(1)"
+                ],
+                removed: []
+              ),
+              rows: [
+                [0]: 2
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 11,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            ),
+            [3]: TraceRecord(
+              version: 1,
+              seq: 3,
+              event: TraceEvent(
+                type: "key",
+                key: "b",
+                kind: nil,
+                text: nil,
+                size: nil,
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [],
+                changed: [
+                  [0]: "root/index(0)/index(2)",
+                  [1]: "root/index(0)/index(2)/index(1)"
+                ],
+                removed: []
+              ),
+              rows: [
+                [0]: 2
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 11,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            )
+          ]
         )
       ]
       """
@@ -439,16 +750,192 @@ struct ScenarioRunnerFileTests {
                 [3]: "left                               right",
                 [4]: "────────────────────────────────────────",
                 [5]: "40 columns"
-              ]
+              ],
+              projection: nil
             )
           ],
           recorded: [
             [0]: GoldenChange(
               path: "<scratch>/stack/after-typing.txt",
               change: .created
+            ),
+            [1]: GoldenChange(
+              path: "<scratch>/stack/after-typing.grid.txt",
+              change: .created
             )
           ],
-          seconds: []
+          seconds: [],
+          trace: [
+            [0]: TraceRecord(
+              version: 1,
+              seq: 0,
+              event: TraceEvent(
+                type: "resize",
+                key: nil,
+                kind: nil,
+                text: nil,
+                size: "40x10",
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [
+                  [0]: "root",
+                  [1]: "root/index(0)",
+                  [2]: "root/index(0)/index(0)",
+                  [3]: "root/index(0)/index(1)",
+                  [4]: "root/index(0)/index(2)",
+                  [5]: "root/index(0)/index(2)/index(0)",
+                  [6]: "root/index(0)/index(2)/index(1)",
+                  [7]: "root/index(0)/index(3)",
+                  [8]: "root/index(0)/index(3)/index(0)",
+                  [9]: "root/index(0)/index(3)/index(1)",
+                  [10]: "root/index(0)/index(3)/index(2)",
+                  [11]: "root/index(0)/index(4)",
+                  [12]: "root/index(0)/index(5)"
+                ],
+                changed: [],
+                removed: []
+              ),
+              rows: [
+                [0]: 0,
+                [1]: 1,
+                [2]: 2,
+                [3]: 3,
+                [4]: 4,
+                [5]: 5
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 639,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            ),
+            [1]: TraceRecord(
+              version: 1,
+              seq: 1,
+              event: TraceEvent(
+                type: "key",
+                key: "R",
+                kind: nil,
+                text: nil,
+                size: nil,
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [],
+                changed: [],
+                removed: []
+              ),
+              rows: [
+                [0]: 2
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 17,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            ),
+            [2]: TraceRecord(
+              version: 1,
+              seq: 2,
+              event: TraceEvent(
+                type: "key",
+                key: "o",
+                kind: nil,
+                text: nil,
+                size: nil,
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [],
+                changed: [
+                  [0]: "root/index(0)/index(2)",
+                  [1]: "root/index(0)/index(2)/index(1)"
+                ],
+                removed: []
+              ),
+              rows: [
+                [0]: 2
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 11,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            ),
+            [3]: TraceRecord(
+              version: 1,
+              seq: 3,
+              event: TraceEvent(
+                type: "key",
+                key: "b",
+                kind: nil,
+                text: nil,
+                size: nil,
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [],
+                changed: [
+                  [0]: "root/index(0)/index(2)",
+                  [1]: "root/index(0)/index(2)/index(1)"
+                ],
+                removed: []
+              ),
+              rows: [
+                [0]: 2
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 11,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            )
+          ]
         )
       ]
       """
@@ -471,11 +958,183 @@ struct ScenarioRunnerFileTests {
                 [3]: "left                               right",
                 [4]: "────────────────────────────────────────",
                 [5]: "40 columns"
-              ]
+              ],
+              projection: nil
             )
           ],
           recorded: [],
-          seconds: []
+          seconds: [],
+          trace: [
+            [0]: TraceRecord(
+              version: 1,
+              seq: 0,
+              event: TraceEvent(
+                type: "resize",
+                key: nil,
+                kind: nil,
+                text: nil,
+                size: "40x10",
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [
+                  [0]: "root",
+                  [1]: "root/index(0)",
+                  [2]: "root/index(0)/index(0)",
+                  [3]: "root/index(0)/index(1)",
+                  [4]: "root/index(0)/index(2)",
+                  [5]: "root/index(0)/index(2)/index(0)",
+                  [6]: "root/index(0)/index(2)/index(1)",
+                  [7]: "root/index(0)/index(3)",
+                  [8]: "root/index(0)/index(3)/index(0)",
+                  [9]: "root/index(0)/index(3)/index(1)",
+                  [10]: "root/index(0)/index(3)/index(2)",
+                  [11]: "root/index(0)/index(4)",
+                  [12]: "root/index(0)/index(5)"
+                ],
+                changed: [],
+                removed: []
+              ),
+              rows: [
+                [0]: 0,
+                [1]: 1,
+                [2]: 2,
+                [3]: 3,
+                [4]: 4,
+                [5]: 5
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 639,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            ),
+            [1]: TraceRecord(
+              version: 1,
+              seq: 1,
+              event: TraceEvent(
+                type: "key",
+                key: "R",
+                kind: nil,
+                text: nil,
+                size: nil,
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [],
+                changed: [],
+                removed: []
+              ),
+              rows: [
+                [0]: 2
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 17,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            ),
+            [2]: TraceRecord(
+              version: 1,
+              seq: 2,
+              event: TraceEvent(
+                type: "key",
+                key: "o",
+                kind: nil,
+                text: nil,
+                size: nil,
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [],
+                changed: [
+                  [0]: "root/index(0)/index(2)",
+                  [1]: "root/index(0)/index(2)/index(1)"
+                ],
+                removed: []
+              ),
+              rows: [
+                [0]: 2
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 11,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            ),
+            [3]: TraceRecord(
+              version: 1,
+              seq: 3,
+              event: TraceEvent(
+                type: "key",
+                key: "b",
+                kind: nil,
+                text: nil,
+                size: nil,
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [],
+                changed: [
+                  [0]: "root/index(0)/index(2)",
+                  [1]: "root/index(0)/index(2)/index(1)"
+                ],
+                removed: []
+              ),
+              rows: [
+                [0]: 2
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 11,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            )
+          ]
         )
       ]
       """
@@ -488,6 +1147,21 @@ struct ScenarioRunnerFileTests {
       left                               right
       ────────────────────────────────────────
       40 columns
+
+      """
+    }
+    assertInlineSnapshot(of: scratch.read("stack/after-typing.grid.txt"), as: .lines) {
+      """
+      ── chars ──
+      Stack demo
+      ────────────────────────────────────────
+      Name: Rob
+      left                               right
+      ────────────────────────────────────────
+      40 columns
+      ── style ──
+      ── legend ──
+      .  default
 
       """
     }
@@ -527,7 +1201,9 @@ struct ScenarioRunnerFileTests {
                 [3]: "left                               right",
                 [4]: "────────────────────────────────────────",
                 [5]: "40 columns"
-              ]
+              ],
+              rule: nil,
+              node: nil
             )
           ],
           observations: [
@@ -542,11 +1218,183 @@ struct ScenarioRunnerFileTests {
                 [3]: "left                               right",
                 [4]: "────────────────────────────────────────",
                 [5]: "40 columns"
-              ]
+              ],
+              projection: nil
             )
           ],
           recorded: [],
-          seconds: []
+          seconds: [],
+          trace: [
+            [0]: TraceRecord(
+              version: 1,
+              seq: 0,
+              event: TraceEvent(
+                type: "resize",
+                key: nil,
+                kind: nil,
+                text: nil,
+                size: "40x10",
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [
+                  [0]: "root",
+                  [1]: "root/index(0)",
+                  [2]: "root/index(0)/index(0)",
+                  [3]: "root/index(0)/index(1)",
+                  [4]: "root/index(0)/index(2)",
+                  [5]: "root/index(0)/index(2)/index(0)",
+                  [6]: "root/index(0)/index(2)/index(1)",
+                  [7]: "root/index(0)/index(3)",
+                  [8]: "root/index(0)/index(3)/index(0)",
+                  [9]: "root/index(0)/index(3)/index(1)",
+                  [10]: "root/index(0)/index(3)/index(2)",
+                  [11]: "root/index(0)/index(4)",
+                  [12]: "root/index(0)/index(5)"
+                ],
+                changed: [],
+                removed: []
+              ),
+              rows: [
+                [0]: 0,
+                [1]: 1,
+                [2]: 2,
+                [3]: 3,
+                [4]: 4,
+                [5]: 5
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 639,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            ),
+            [1]: TraceRecord(
+              version: 1,
+              seq: 1,
+              event: TraceEvent(
+                type: "key",
+                key: "R",
+                kind: nil,
+                text: nil,
+                size: nil,
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [],
+                changed: [],
+                removed: []
+              ),
+              rows: [
+                [0]: 2
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 17,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            ),
+            [2]: TraceRecord(
+              version: 1,
+              seq: 2,
+              event: TraceEvent(
+                type: "key",
+                key: "o",
+                kind: nil,
+                text: nil,
+                size: nil,
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [],
+                changed: [
+                  [0]: "root/index(0)/index(2)",
+                  [1]: "root/index(0)/index(2)/index(1)"
+                ],
+                removed: []
+              ),
+              rows: [
+                [0]: 2
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 11,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            ),
+            [3]: TraceRecord(
+              version: 1,
+              seq: 3,
+              event: TraceEvent(
+                type: "key",
+                key: "b",
+                kind: nil,
+                text: nil,
+                size: nil,
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [],
+                changed: [
+                  [0]: "root/index(0)/index(2)",
+                  [1]: "root/index(0)/index(2)/index(1)"
+                ],
+                removed: []
+              ),
+              rows: [
+                [0]: 2
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 11,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            )
+          ]
         )
       ]
       """#
@@ -580,16 +1428,192 @@ struct ScenarioRunnerFileTests {
                 [3]: "left                               right",
                 [4]: "────────────────────────────────────────",
                 [5]: "40 columns"
-              ]
+              ],
+              projection: nil
             )
           ],
           recorded: [
             [0]: GoldenChange(
               path: "<scratch>/stack/after-typing.txt",
               change: .updated
+            ),
+            [1]: GoldenChange(
+              path: "<scratch>/stack/after-typing.grid.txt",
+              change: .created
             )
           ],
-          seconds: []
+          seconds: [],
+          trace: [
+            [0]: TraceRecord(
+              version: 1,
+              seq: 0,
+              event: TraceEvent(
+                type: "resize",
+                key: nil,
+                kind: nil,
+                text: nil,
+                size: "40x10",
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [
+                  [0]: "root",
+                  [1]: "root/index(0)",
+                  [2]: "root/index(0)/index(0)",
+                  [3]: "root/index(0)/index(1)",
+                  [4]: "root/index(0)/index(2)",
+                  [5]: "root/index(0)/index(2)/index(0)",
+                  [6]: "root/index(0)/index(2)/index(1)",
+                  [7]: "root/index(0)/index(3)",
+                  [8]: "root/index(0)/index(3)/index(0)",
+                  [9]: "root/index(0)/index(3)/index(1)",
+                  [10]: "root/index(0)/index(3)/index(2)",
+                  [11]: "root/index(0)/index(4)",
+                  [12]: "root/index(0)/index(5)"
+                ],
+                changed: [],
+                removed: []
+              ),
+              rows: [
+                [0]: 0,
+                [1]: 1,
+                [2]: 2,
+                [3]: 3,
+                [4]: 4,
+                [5]: 5
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 639,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            ),
+            [1]: TraceRecord(
+              version: 1,
+              seq: 1,
+              event: TraceEvent(
+                type: "key",
+                key: "R",
+                kind: nil,
+                text: nil,
+                size: nil,
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [],
+                changed: [],
+                removed: []
+              ),
+              rows: [
+                [0]: 2
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 17,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            ),
+            [2]: TraceRecord(
+              version: 1,
+              seq: 2,
+              event: TraceEvent(
+                type: "key",
+                key: "o",
+                kind: nil,
+                text: nil,
+                size: nil,
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [],
+                changed: [
+                  [0]: "root/index(0)/index(2)",
+                  [1]: "root/index(0)/index(2)/index(1)"
+                ],
+                removed: []
+              ),
+              rows: [
+                [0]: 2
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 11,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            ),
+            [3]: TraceRecord(
+              version: 1,
+              seq: 3,
+              event: TraceEvent(
+                type: "key",
+                key: "b",
+                kind: nil,
+                text: nil,
+                size: nil,
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [],
+                changed: [
+                  [0]: "root/index(0)/index(2)",
+                  [1]: "root/index(0)/index(2)/index(1)"
+                ],
+                removed: []
+              ),
+              rows: [
+                [0]: 2
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 11,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            )
+          ]
         )
       ]
       """
@@ -598,9 +1622,516 @@ struct ScenarioRunnerFileTests {
       """
       PASS <scratch>/stack.scn
         recorded <scratch>/stack/after-typing.txt (updated)
+        recorded <scratch>/stack/after-typing.grid.txt (created)
       """
     }
     #expect(scratch.read("stack/after-typing.txt")?.hasPrefix("Stack demo\n") == true)
+  }
+
+  @Test
+  func
+    `a drifted styled grid fails with the grid golden's path while the text still matches`()
+    async throws
+  {
+    let scratch = try ScratchDirectory()
+    try scratch.write("stack.scn", stackScenario)
+    _ = await runner(record: true).run(scratch.path)
+    try scratch.write(
+      "stack/after-typing.grid.txt",
+      (scratch.read("stack/after-typing.grid.txt") ?? "")
+        .replacingOccurrences(of: "── style ──\n", with: "── style ──\n.AA\n")
+        .replacingOccurrences(of: ".  default\n", with: ".  default\nA  bold\n"))
+
+    let reports = await runner().run(scratch.path)
+
+    assertInlineSnapshot(of: scratch.dump(reports), as: .lines) {
+      #"""
+      [
+        [0]: ScenarioReport(
+          scenario: "<scratch>/stack.scn",
+          failures: [
+            [0]: ScenarioFailure(
+              line: 5,
+              statement: "shot after-typing",
+              verb: "shot",
+              message: "shot `after-typing` differs from `<scratch>/stack/after-typing.grid.txt` at row 8: the golden has 12 rows and the screen has 10. If the new rendering is intended, rerun with --record and review the golden\'s diff",
+              expected: ".AA",
+              actual: "── legend ──",
+              screen: [
+                [0]: "Stack demo",
+                [1]: "────────────────────────────────────────",
+                [2]: "Name: Rob",
+                [3]: "left                               right",
+                [4]: "────────────────────────────────────────",
+                [5]: "40 columns"
+              ],
+              rule: nil,
+              node: nil
+            )
+          ],
+          observations: [
+            [0]: ScenarioObservation(
+              line: 5,
+              verb: "shot",
+              name: "after-typing",
+              lines: [
+                [0]: "Stack demo",
+                [1]: "────────────────────────────────────────",
+                [2]: "Name: Rob",
+                [3]: "left                               right",
+                [4]: "────────────────────────────────────────",
+                [5]: "40 columns"
+              ],
+              projection: nil
+            )
+          ],
+          recorded: [],
+          seconds: [],
+          trace: [
+            [0]: TraceRecord(
+              version: 1,
+              seq: 0,
+              event: TraceEvent(
+                type: "resize",
+                key: nil,
+                kind: nil,
+                text: nil,
+                size: "40x10",
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [
+                  [0]: "root",
+                  [1]: "root/index(0)",
+                  [2]: "root/index(0)/index(0)",
+                  [3]: "root/index(0)/index(1)",
+                  [4]: "root/index(0)/index(2)",
+                  [5]: "root/index(0)/index(2)/index(0)",
+                  [6]: "root/index(0)/index(2)/index(1)",
+                  [7]: "root/index(0)/index(3)",
+                  [8]: "root/index(0)/index(3)/index(0)",
+                  [9]: "root/index(0)/index(3)/index(1)",
+                  [10]: "root/index(0)/index(3)/index(2)",
+                  [11]: "root/index(0)/index(4)",
+                  [12]: "root/index(0)/index(5)"
+                ],
+                changed: [],
+                removed: []
+              ),
+              rows: [
+                [0]: 0,
+                [1]: 1,
+                [2]: 2,
+                [3]: 3,
+                [4]: 4,
+                [5]: 5
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 639,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            ),
+            [1]: TraceRecord(
+              version: 1,
+              seq: 1,
+              event: TraceEvent(
+                type: "key",
+                key: "R",
+                kind: nil,
+                text: nil,
+                size: nil,
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [],
+                changed: [],
+                removed: []
+              ),
+              rows: [
+                [0]: 2
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 17,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            ),
+            [2]: TraceRecord(
+              version: 1,
+              seq: 2,
+              event: TraceEvent(
+                type: "key",
+                key: "o",
+                kind: nil,
+                text: nil,
+                size: nil,
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [],
+                changed: [
+                  [0]: "root/index(0)/index(2)",
+                  [1]: "root/index(0)/index(2)/index(1)"
+                ],
+                removed: []
+              ),
+              rows: [
+                [0]: 2
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 11,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            ),
+            [3]: TraceRecord(
+              version: 1,
+              seq: 3,
+              event: TraceEvent(
+                type: "key",
+                key: "b",
+                kind: nil,
+                text: nil,
+                size: nil,
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [],
+                changed: [
+                  [0]: "root/index(0)/index(2)",
+                  [1]: "root/index(0)/index(2)/index(1)"
+                ],
+                removed: []
+              ),
+              rows: [
+                [0]: 2
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 11,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            )
+          ]
+        )
+      ]
+      """#
+    }
+  }
+
+  @Test
+  func `a missing grid golden fails the shot even when the text golden is there`()
+    async throws
+  {
+    let scratch = try ScratchDirectory()
+    try scratch.write("stack.scn", stackScenario)
+    _ = await runner(record: true).run(scratch.path)
+    try FileManager.default.removeItem(
+      atPath: scratch.appending("stack/after-typing.grid.txt"))
+
+    let reports = await runner().run(scratch.path)
+
+    assertInlineSnapshot(of: scratch.dump(reports), as: .lines) {
+      """
+      [
+        [0]: ScenarioReport(
+          scenario: "<scratch>/stack.scn",
+          failures: [
+            [0]: ScenarioFailure(
+              line: 5,
+              statement: "shot after-typing",
+              verb: "shot",
+              message: "shot `after-typing` has no golden at `<scratch>/stack/after-typing.grid.txt`; run with --record to create it, and review the file",
+              expected: nil,
+              actual: nil,
+              screen: nil,
+              rule: nil,
+              node: nil
+            )
+          ],
+          observations: [
+            [0]: ScenarioObservation(
+              line: 5,
+              verb: "shot",
+              name: "after-typing",
+              lines: [
+                [0]: "Stack demo",
+                [1]: "────────────────────────────────────────",
+                [2]: "Name: Rob",
+                [3]: "left                               right",
+                [4]: "────────────────────────────────────────",
+                [5]: "40 columns"
+              ],
+              projection: nil
+            )
+          ],
+          recorded: [],
+          seconds: [],
+          trace: [
+            [0]: TraceRecord(
+              version: 1,
+              seq: 0,
+              event: TraceEvent(
+                type: "resize",
+                key: nil,
+                kind: nil,
+                text: nil,
+                size: "40x10",
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [
+                  [0]: "root",
+                  [1]: "root/index(0)",
+                  [2]: "root/index(0)/index(0)",
+                  [3]: "root/index(0)/index(1)",
+                  [4]: "root/index(0)/index(2)",
+                  [5]: "root/index(0)/index(2)/index(0)",
+                  [6]: "root/index(0)/index(2)/index(1)",
+                  [7]: "root/index(0)/index(3)",
+                  [8]: "root/index(0)/index(3)/index(0)",
+                  [9]: "root/index(0)/index(3)/index(1)",
+                  [10]: "root/index(0)/index(3)/index(2)",
+                  [11]: "root/index(0)/index(4)",
+                  [12]: "root/index(0)/index(5)"
+                ],
+                changed: [],
+                removed: []
+              ),
+              rows: [
+                [0]: 0,
+                [1]: 1,
+                [2]: 2,
+                [3]: 3,
+                [4]: 4,
+                [5]: 5
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 639,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            ),
+            [1]: TraceRecord(
+              version: 1,
+              seq: 1,
+              event: TraceEvent(
+                type: "key",
+                key: "R",
+                kind: nil,
+                text: nil,
+                size: nil,
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [],
+                changed: [],
+                removed: []
+              ),
+              rows: [
+                [0]: 2
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 17,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            ),
+            [2]: TraceRecord(
+              version: 1,
+              seq: 2,
+              event: TraceEvent(
+                type: "key",
+                key: "o",
+                kind: nil,
+                text: nil,
+                size: nil,
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [],
+                changed: [
+                  [0]: "root/index(0)/index(2)",
+                  [1]: "root/index(0)/index(2)/index(1)"
+                ],
+                removed: []
+              ),
+              rows: [
+                [0]: 2
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 11,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            ),
+            [3]: TraceRecord(
+              version: 1,
+              seq: 3,
+              event: TraceEvent(
+                type: "key",
+                key: "b",
+                kind: nil,
+                text: nil,
+                size: nil,
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [],
+                changed: [
+                  [0]: "root/index(0)/index(2)",
+                  [1]: "root/index(0)/index(2)/index(1)"
+                ],
+                removed: []
+              ),
+              rows: [
+                [0]: 2
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 11,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            )
+          ]
+        )
+      ]
+      """
+    }
+  }
+
+  @Test
+  func `a styled screen records its styles in the grid`() async throws {
+    let scratch = try ScratchDirectory()
+    try scratch.write(
+      "styled.scn",
+      """
+      app styled
+      size 40x6
+      term colors=true
+      shot colours
+      """)
+
+    let reports = await ScenarioRunner(
+      registry: ProjectionFixtures.registry(), record: true
+    )
+    .run(scratch.path)
+
+    #expect(reports.map(\.passed) == [true])
+    assertInlineSnapshot(of: scratch.read("styled/colours.txt"), as: .lines) {
+      """
+      bold
+      plain
+      blue
+
+      """
+    }
+    assertInlineSnapshot(of: scratch.read("styled/colours.grid.txt"), as: .lines) {
+      """
+      ── chars ──
+      bold
+      plain
+      blue
+      ── style ──
+      AAAA
+
+      BBBB
+      ── legend ──
+      .  default
+      A  fg=#ff0000 bold
+      B  bg=indexed(4) underline
+
+      """
+    }
   }
 
   @Test
@@ -642,7 +2173,9 @@ struct ScenarioRunnerFileTests {
               message: "golden `<scratch>/stack/after-typing.txt` has CRLF line endings; goldens are LF files, so check them out with LF (`*.txt text eol=lf` in .gitattributes)",
               expected: nil,
               actual: nil,
-              screen: nil
+              screen: nil,
+              rule: nil,
+              node: nil
             )
           ],
           observations: [
@@ -657,11 +2190,183 @@ struct ScenarioRunnerFileTests {
                 [3]: "left                               right",
                 [4]: "────────────────────────────────────────",
                 [5]: "40 columns"
-              ]
+              ],
+              projection: nil
             )
           ],
           recorded: [],
-          seconds: []
+          seconds: [],
+          trace: [
+            [0]: TraceRecord(
+              version: 1,
+              seq: 0,
+              event: TraceEvent(
+                type: "resize",
+                key: nil,
+                kind: nil,
+                text: nil,
+                size: "40x10",
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [
+                  [0]: "root",
+                  [1]: "root/index(0)",
+                  [2]: "root/index(0)/index(0)",
+                  [3]: "root/index(0)/index(1)",
+                  [4]: "root/index(0)/index(2)",
+                  [5]: "root/index(0)/index(2)/index(0)",
+                  [6]: "root/index(0)/index(2)/index(1)",
+                  [7]: "root/index(0)/index(3)",
+                  [8]: "root/index(0)/index(3)/index(0)",
+                  [9]: "root/index(0)/index(3)/index(1)",
+                  [10]: "root/index(0)/index(3)/index(2)",
+                  [11]: "root/index(0)/index(4)",
+                  [12]: "root/index(0)/index(5)"
+                ],
+                changed: [],
+                removed: []
+              ),
+              rows: [
+                [0]: 0,
+                [1]: 1,
+                [2]: 2,
+                [3]: 3,
+                [4]: 4,
+                [5]: 5
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 639,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            ),
+            [1]: TraceRecord(
+              version: 1,
+              seq: 1,
+              event: TraceEvent(
+                type: "key",
+                key: "R",
+                kind: nil,
+                text: nil,
+                size: nil,
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [],
+                changed: [],
+                removed: []
+              ),
+              rows: [
+                [0]: 2
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 17,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            ),
+            [2]: TraceRecord(
+              version: 1,
+              seq: 2,
+              event: TraceEvent(
+                type: "key",
+                key: "o",
+                kind: nil,
+                text: nil,
+                size: nil,
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [],
+                changed: [
+                  [0]: "root/index(0)/index(2)",
+                  [1]: "root/index(0)/index(2)/index(1)"
+                ],
+                removed: []
+              ),
+              rows: [
+                [0]: 2
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 11,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            ),
+            [3]: TraceRecord(
+              version: 1,
+              seq: 3,
+              event: TraceEvent(
+                type: "key",
+                key: "b",
+                kind: nil,
+                text: nil,
+                size: nil,
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [],
+                changed: [
+                  [0]: "root/index(0)/index(2)",
+                  [1]: "root/index(0)/index(2)/index(1)"
+                ],
+                removed: []
+              ),
+              rows: [
+                [0]: 2
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 11,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            )
+          ]
         )
       ]
       """
@@ -697,7 +2402,9 @@ struct ScenarioRunnerFileTests {
               message: "golden `<scratch>/stack/after-typing.txt` has CRLF line endings; goldens are LF files, so check them out with LF (`*.txt text eol=lf` in .gitattributes)",
               expected: nil,
               actual: nil,
-              screen: nil
+              screen: nil,
+              rule: nil,
+              node: nil
             )
           ],
           observations: [
@@ -712,11 +2419,183 @@ struct ScenarioRunnerFileTests {
                 [3]: "left                               right",
                 [4]: "────────────────────────────────────────",
                 [5]: "40 columns"
-              ]
+              ],
+              projection: nil
             )
           ],
           recorded: [],
-          seconds: []
+          seconds: [],
+          trace: [
+            [0]: TraceRecord(
+              version: 1,
+              seq: 0,
+              event: TraceEvent(
+                type: "resize",
+                key: nil,
+                kind: nil,
+                text: nil,
+                size: "40x10",
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [
+                  [0]: "root",
+                  [1]: "root/index(0)",
+                  [2]: "root/index(0)/index(0)",
+                  [3]: "root/index(0)/index(1)",
+                  [4]: "root/index(0)/index(2)",
+                  [5]: "root/index(0)/index(2)/index(0)",
+                  [6]: "root/index(0)/index(2)/index(1)",
+                  [7]: "root/index(0)/index(3)",
+                  [8]: "root/index(0)/index(3)/index(0)",
+                  [9]: "root/index(0)/index(3)/index(1)",
+                  [10]: "root/index(0)/index(3)/index(2)",
+                  [11]: "root/index(0)/index(4)",
+                  [12]: "root/index(0)/index(5)"
+                ],
+                changed: [],
+                removed: []
+              ),
+              rows: [
+                [0]: 0,
+                [1]: 1,
+                [2]: 2,
+                [3]: 3,
+                [4]: 4,
+                [5]: 5
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 639,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            ),
+            [1]: TraceRecord(
+              version: 1,
+              seq: 1,
+              event: TraceEvent(
+                type: "key",
+                key: "R",
+                kind: nil,
+                text: nil,
+                size: nil,
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [],
+                changed: [],
+                removed: []
+              ),
+              rows: [
+                [0]: 2
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 17,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            ),
+            [2]: TraceRecord(
+              version: 1,
+              seq: 2,
+              event: TraceEvent(
+                type: "key",
+                key: "o",
+                kind: nil,
+                text: nil,
+                size: nil,
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [],
+                changed: [
+                  [0]: "root/index(0)/index(2)",
+                  [1]: "root/index(0)/index(2)/index(1)"
+                ],
+                removed: []
+              ),
+              rows: [
+                [0]: 2
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 11,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            ),
+            [3]: TraceRecord(
+              version: 1,
+              seq: 3,
+              event: TraceEvent(
+                type: "key",
+                key: "b",
+                kind: nil,
+                text: nil,
+                size: nil,
+                detail: nil
+              ),
+              drew: true,
+              reasons: [
+                [0]: "layoutEnvironmentChanged",
+                [1]: "layoutViewChanged",
+                [2]: "renderEnvironmentChanged",
+                [3]: "renderRequested",
+                [4]: "renderViewChanged",
+                [5]: "updateRequested"
+              ],
+              nodes: TraceRecord.NodeChanges(
+                added: [],
+                changed: [
+                  [0]: "root/index(0)/index(2)",
+                  [1]: "root/index(0)/index(2)/index(1)"
+                ],
+                removed: []
+              ),
+              rows: [
+                [0]: 2
+              ],
+              cost: StepCost(
+                bodies: 0,
+                bytes: 11,
+                measures: 65,
+                placements: 13,
+                renders: 8
+              )
+            )
+          ]
         )
       ]
       """
@@ -793,7 +2672,9 @@ struct ScenarioRunnerFileTests {
           message: "run 2 of 3 differs from run 1: it has 1 failures where run 1 has 0",
           expected: nil,
           actual: nil,
-          screen: nil
+          screen: nil,
+          rule: nil,
+          node: nil
         ),
         [1]: ScenarioFailure(
           line: 0,
@@ -802,7 +2683,9 @@ struct ScenarioRunnerFileTests {
           message: "run 3 of 3 differs from run 1: it has 1 failures where run 1 has 0",
           expected: nil,
           actual: nil,
-          screen: nil
+          screen: nil,
+          rule: nil,
+          node: nil
         )
       ]
       """
@@ -819,7 +2702,20 @@ struct ScenarioRunnerFileTests {
     let reports = await repeating.run(scratch.path)
 
     #expect(reports.map(\.passed) == [true])
-    #expect(reports[0].recorded.count == 1)
+    assertInlineSnapshot(of: scratch.dump(reports[0].recorded), as: .lines) {
+      """
+      [
+        [0]: GoldenChange(
+          path: "<scratch>/stack/after-typing.txt",
+          change: .created
+        ),
+        [1]: GoldenChange(
+          path: "<scratch>/stack/after-typing.grid.txt",
+          change: .created
+        )
+      ]
+      """
+    }
   }
 
   @Test
@@ -930,7 +2826,9 @@ struct ScenarioReportShapeTests {
           message: "unknown",
           expected: nil,
           actual: nil,
-          screen: nil
+          screen: nil,
+          rule: nil,
+          node: nil
         )
       ]
       """

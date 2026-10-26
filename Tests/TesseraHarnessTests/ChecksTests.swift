@@ -1,0 +1,645 @@
+import CustomDump
+import InlineSnapshotTesting
+import SnapshotTesting
+import SnapshotTestingCustomDump
+import Testing
+
+@testable import TesseraHarness
+
+struct ChecksTests {
+  private typealias Rect4 = (column: Int, row: Int, columns: Int, rows: Int)
+
+  private func box(_ rect: Rect4) -> Projection.Box {
+    Projection.Box(
+      column: rect.column, row: rect.row, columns: rect.columns, rows: rect.rows)
+  }
+
+  private func node(
+    _ path: String,
+    parent: String? = nil,
+    children: [String] = [],
+    type: String = "Text",
+    layout: String? = nil,
+    list: Bool = false,
+    frame: Rect4,
+    clip: Rect4? = nil,
+    proposal: (width: Int?, height: Int?)? = nil,
+    measured: (columns: Int, rows: Int)? = nil,
+    dirty: (layout: Bool, render: Bool) = (false, false),
+    requirements: [String] = [],
+    text: String? = nil
+  ) -> Projection.Node {
+    Projection.Node(
+      path: path, parent: parent, children: children, depth: 0, paintOrder: 0, type: type,
+      layout: layout, isList: list,
+      proposal: proposal.map { Projection.Proposal(width: $0.width, height: $0.height) },
+      measured: measured.map { Projection.Extent(columns: $0.columns, rows: $0.rows) },
+      frame: box(frame), clip: box(clip ?? frame), needsLayout: dirty.layout,
+      needsRender: dirty.render, environmentOverrides: [], handlerKinds: [],
+      requirements: requirements, text: text)
+  }
+
+  private func projection(
+    _ nodes: [Projection.Node], requested: [String] = [], pass: Int = 3
+  ) -> Projection {
+    Projection(
+      pass: pass, nodes: nodes,
+      requirements: Projection.Requirements(effective: nil, requested: requested),
+      screen: Projection.Screen(
+        columns: 10, cursor: Projection.Screen.Cursor(column: 0, row: 0), rows: [],
+        styles: []),
+      statistics: Projection.Statistics(
+        bodyEvaluations: 0, equatableSkips: 0, focusChanges: 0, invalidationReasons: [],
+        leafUpdates: 0, measurements: 0, nodesCreated: 0, nodesDestroyed: 0,
+        nodesUpdated: 0,
+        placements: 0, renderedNodes: 0, terminalRequirementChanges: 0))
+  }
+
+  private func run(_ rule: CheckRule, _ projection: Projection) -> [Violation] {
+    Checker.run([rule], on: projection)
+  }
+
+  // MARK: no-dirty-after-pass
+
+  @Test
+  func
+    `a node still dirty after the pass is a violation that names the pass and the flags`()
+  {
+    let found = run(
+      .noDirtyAfterPass,
+      projection([
+        node("root", children: ["root/a"], type: "VStack", frame: (0, 0, 4, 1)),
+        node(
+          "root/a", parent: "root", frame: (0, 0, 4, 1),
+          dirty: (layout: true, render: true)),
+      ]))
+
+    expectNoDifference(
+      found,
+      [
+        Violation(
+          rule: "no-dirty-after-pass", severity: "error", node: "root/a",
+          detail: "still dirty after pass 3: needsLayout, needsRender")
+      ]
+    )
+  }
+
+  @Test
+  func `a clean graph has no dirty node`() {
+    #expect(
+      run(.noDirtyAfterPass, projection([node("root", frame: (0, 0, 4, 1))])).isEmpty)
+  }
+
+  // MARK: frame-inside-clip
+
+  @Test
+  func `a leaf whose frame reaches past its clip is a warning that quotes what shows`() {
+    let found = run(
+      .frameInsideClip,
+      projection([
+        node("root", frame: (0, 0, 10, 1), clip: (0, 0, 4, 1), text: "Hello, world")
+      ]))
+
+    assertInlineSnapshot(of: found, as: .customDump) {
+      """
+      [
+        [0]: Violation(
+          rule: "frame-inside-clip",
+          severity: "warning",
+          node: "root",
+          detail: "frame 0,0,10x1 is clipped to 0,0,4x1 (visible text `Hello, world`)"
+        )
+      ]
+      """
+    }
+  }
+
+  @Test
+  func `a clip that leaves nothing of the frame says so`() {
+    let found = run(
+      .frameInsideClip,
+      projection([node("root", frame: (5, 0, 3, 1), clip: (0, 0, 4, 1))]))
+
+    assertInlineSnapshot(of: found, as: .customDump) {
+      """
+      [
+        [0]: Violation(
+          rule: "frame-inside-clip",
+          severity: "warning",
+          node: "root",
+          detail: "frame 5,0,3x1 is clipped to nothing"
+        )
+      ]
+      """
+    }
+  }
+
+  @Test
+  func `containers, empty frames, and scrolled leaves are not clipped content`() {
+    let found = run(
+      .frameInsideClip,
+      projection([
+        node(
+          "root", children: ["root/box", "root/scroll"], type: "VStack",
+          frame: (0, 0, 10, 4), clip: (0, 0, 2, 2)),
+        node("root/box", parent: "root", frame: (0, 0, 0, 0), clip: (0, 0, 0, 0)),
+        node(
+          "root/scroll", parent: "root", children: ["root/scroll/text"],
+          type: "ScrollView",
+          frame: (0, 0, 10, 2)),
+        node(
+          "root/scroll/text", parent: "root/scroll", frame: (0, 0, 10, 30),
+          clip: (0, 0, 10, 2)),
+      ]))
+
+    #expect(found.isEmpty)
+  }
+
+  // MARK: measured-within-proposal
+
+  @Test
+  func `a node that measured more than it was offered names each axis it overflowed`() {
+    let found = run(
+      .measuredWithinProposal,
+      projection([
+        node(
+          "root", frame: (0, 0, 12, 3), proposal: (width: 4, height: 1),
+          measured: (columns: 12, rows: 3))
+      ]))
+
+    assertInlineSnapshot(of: found, as: .customDump) {
+      """
+      [
+        [0]: Violation(
+          rule: "measured-within-proposal",
+          severity: "error",
+          node: "root",
+          detail: "measured 12 columns where 4 were offered and 3 rows where 1 were offered"
+        )
+      ]
+      """
+    }
+  }
+
+  @Test
+  func `an axis nobody constrained cannot be overflowed`() {
+    let found = run(
+      .measuredWithinProposal,
+      projection([
+        node(
+          "root", frame: (0, 0, 80, 40), proposal: (width: nil, height: nil),
+          measured: (columns: 80, rows: 40)),
+        node(
+          "root/b", frame: (0, 0, 80, 1), proposal: (width: 80, height: nil),
+          measured: (columns: 80, rows: 1)),
+      ]))
+
+    #expect(found.isEmpty)
+  }
+
+  @Test
+  func `a node that was never placed keeps a stale measurement and is skipped`() {
+    let found = run(
+      .measuredWithinProposal,
+      projection([
+        node(
+          "root", frame: (0, 0, 0, 0), proposal: (width: 0, height: 0),
+          measured: (columns: 7, rows: 1))
+      ]))
+
+    #expect(found.isEmpty)
+  }
+
+  // MARK: siblings-disjoint
+
+  @Test
+  func `two children placed on one frame are a violation on the later one`() {
+    let found = run(
+      .siblingsDisjoint,
+      projection([
+        node(
+          "root", children: ["root/id(a)", "root/id(b)"], type: "VStack",
+          frame: (0, 0, 4, 2)),
+        node("root/id(a)", parent: "root", frame: (0, 0, 4, 1)),
+        node("root/id(b)", parent: "root", frame: (0, 0, 4, 1)),
+      ]))
+
+    expectNoDifference(
+      found,
+      [
+        Violation(
+          rule: "siblings-disjoint", severity: "error", node: "root/id(b)",
+          detail:
+            "shows 0,0,4x1, which overlaps sibling root/id(a) showing 0,0,4x1 under VStack"
+        )
+      ]
+    )
+  }
+
+  @Test
+  func `a ZStack lays its children over one another by contract`() {
+    let found = run(
+      .siblingsDisjoint,
+      projection([
+        node(
+          "root", children: ["root/a", "root/b"], type: "ZStack", frame: (0, 0, 6, 1)),
+        node("root/a", parent: "root", frame: (0, 0, 6, 1)),
+        node("root/b", parent: "root", frame: (0, 0, 2, 1)),
+      ]))
+
+    #expect(found.isEmpty)
+  }
+
+  @Test
+  func `a ForEach's items are layers under a ZStack and overlap under a VStack`() {
+    func items(under container: String) -> [Violation] {
+      run(
+        .siblingsDisjoint,
+        projection([
+          node(
+            "root", children: ["root/index(0)"], type: container, frame: (0, 0, 4, 2)),
+          node(
+            "root/index(0)", parent: "root",
+            children: ["root/index(0)/id(a)", "root/index(0)/id(b)"], type: "ForEach",
+            list: true, frame: (0, 0, 4, 1)),
+          node("root/index(0)/id(a)", parent: "root/index(0)", frame: (0, 0, 4, 1)),
+          node("root/index(0)/id(b)", parent: "root/index(0)", frame: (0, 0, 2, 1)),
+        ]))
+    }
+
+    #expect(items(under: "ZStack").isEmpty)
+    assertInlineSnapshot(of: items(under: "VStack"), as: .customDump) {
+      """
+      [
+        [0]: Violation(
+          rule: "siblings-disjoint",
+          severity: "error",
+          node: "root/index(0)/id(b)",
+          detail: "shows 0,0,2x1, which overlaps sibling root/index(0)/id(a) showing 0,0,4x1 under ForEach"
+        )
+      ]
+      """
+    }
+  }
+
+  @Test
+  func `the group of an if under a ZStack is looked through to the ZStack`() {
+    // `ZStack { Text("base"); if shown { Text("g"); Text("h") } }`: the two texts hang under
+    // a tuple under an optional, and layout places them as layers of the ZStack.
+    func tree(under container: String) -> Projection {
+      projection([
+        node(
+          "root", children: ["root/index(0)", "root/index(1)"], type: container,
+          frame: (0, 0, 4, 2)),
+        node("root/index(0)", parent: "root", frame: (0, 0, 4, 1)),
+        node(
+          "root/index(1)", parent: "root", children: ["root/index(1)/branch(true)"],
+          type: "Optional", list: true, frame: (0, 0, 1, 1)),
+        node(
+          "root/index(1)/branch(true)", parent: "root/index(1)",
+          children: [
+            "root/index(1)/branch(true)/index(0)", "root/index(1)/branch(true)/index(1)",
+          ],
+          type: "TupleView", list: true, frame: (0, 0, 1, 1)),
+        node(
+          "root/index(1)/branch(true)/index(0)", parent: "root/index(1)/branch(true)",
+          frame: (0, 0, 1, 1)),
+        node(
+          "root/index(1)/branch(true)/index(1)", parent: "root/index(1)/branch(true)",
+          frame: (0, 0, 1, 1)),
+      ])
+    }
+
+    #expect(run(.siblingsDisjoint, tree(under: "ZStack")).isEmpty)
+    // Under a stack the same two texts on one frame are the defect, and so is the text
+    // that the optional puts over `base`.
+    assertInlineSnapshot(
+      of: run(.siblingsDisjoint, tree(under: "VStack")), as: .customDump
+    ) {
+      """
+      [
+        [0]: Violation(
+          rule: "siblings-disjoint",
+          severity: "error",
+          node: "root/index(1)",
+          detail: "shows 0,0,1x1, which overlaps sibling root/index(0) showing 0,0,4x1 under VStack"
+        ),
+        [1]: Violation(
+          rule: "siblings-disjoint",
+          severity: "error",
+          node: "root/index(1)/branch(true)/index(1)",
+          detail: "shows 0,0,1x1, which overlaps sibling root/index(1)/branch(true)/index(0) showing 0,0,1x1 under TupleView"
+        )
+      ]
+      """
+    }
+  }
+
+  @Test
+  func
+    `a conditional branch and nested lists are looked through to the nearest container`()
+  {
+    func tree(under container: String, layout: String? = nil) -> Projection {
+      projection([
+        node(
+          "root", children: ["root/index(0)"], type: container, layout: layout,
+          frame: (0, 0, 4, 2)),
+        node(
+          "root/index(0)", parent: "root", children: ["root/index(0)/branch(false)"],
+          type: "ConditionalView", list: true, frame: (0, 0, 4, 1)),
+        node(
+          "root/index(0)/branch(false)", parent: "root/index(0)",
+          children: [
+            "root/index(0)/branch(false)/id(a)", "root/index(0)/branch(false)/id(b)",
+          ],
+          type: "TupleView", list: true, frame: (0, 0, 4, 1)),
+        node(
+          "root/index(0)/branch(false)/id(a)", parent: "root/index(0)/branch(false)",
+          frame: (0, 0, 4, 1)),
+        node(
+          "root/index(0)/branch(false)/id(b)", parent: "root/index(0)/branch(false)",
+          frame: (0, 0, 4, 1)),
+      ])
+    }
+
+    #expect(run(.siblingsDisjoint, tree(under: "ZStack")).isEmpty)
+    #expect(run(.siblingsDisjoint, tree(under: "HStack")).count == 1)
+    #expect(
+      run(.siblingsDisjoint, tree(under: "_LayoutContainer", layout: "Stagger")).count
+        == 1)
+  }
+
+  @Test
+  func `a list that is not under any container is held to disjoint items`() {
+    // The root itself is a tuple: with nothing above it, its elements are its siblings.
+    let found = run(
+      .siblingsDisjoint,
+      projection([
+        node(
+          "root", children: ["root/index(0)", "root/index(1)"], type: "TupleView",
+          list: true, frame: (0, 0, 4, 1)),
+        node("root/index(0)", parent: "root", frame: (0, 0, 4, 1)),
+        node("root/index(1)", parent: "root", frame: (0, 0, 4, 1)),
+      ]))
+
+    assertInlineSnapshot(of: found, as: .customDump) {
+      """
+      [
+        [0]: Violation(
+          rule: "siblings-disjoint",
+          severity: "error",
+          node: "root/index(1)",
+          detail: "shows 0,0,4x1, which overlaps sibling root/index(0) showing 0,0,4x1 under TupleView"
+        )
+      ]
+      """
+    }
+  }
+
+  @Test
+  func `a view of an app's own that is named like a list is not looked through`() {
+    // The app's `ForEach` is a composite with one child, here the tuple of its body `Text;
+    // Text`. Layout does not look through a composite, so the two texts overlap by the
+    // library's own placement, and the rule must report them under `ZStack` as it would
+    // anywhere else. Only the tuple is the library's list.
+    func tree(userViewIsList: Bool) -> Projection {
+      projection([
+        node("root", children: ["root/index(0)"], type: "ZStack", frame: (0, 0, 4, 1)),
+        node(
+          "root/index(0)", parent: "root", children: ["root/index(0)/index(0)"],
+          type: "ForEach", list: userViewIsList, frame: (0, 0, 4, 1)),
+        node(
+          "root/index(0)/index(0)", parent: "root/index(0)",
+          children: [
+            "root/index(0)/index(0)/index(0)", "root/index(0)/index(0)/index(1)",
+          ],
+          type: "TupleView", list: true, frame: (0, 0, 4, 1)),
+        node(
+          "root/index(0)/index(0)/index(0)", parent: "root/index(0)/index(0)",
+          frame: (0, 0, 4, 1)),
+        node(
+          "root/index(0)/index(0)/index(1)", parent: "root/index(0)/index(0)",
+          frame: (0, 0, 2, 1)),
+      ])
+    }
+
+    assertInlineSnapshot(
+      of: run(.siblingsDisjoint, tree(userViewIsList: false)), as: .customDump
+    ) {
+      """
+      [
+        [0]: Violation(
+          rule: "siblings-disjoint",
+          severity: "error",
+          node: "root/index(0)/index(0)/index(1)",
+          detail: "shows 0,0,2x1, which overlaps sibling root/index(0)/index(0)/index(0) showing 0,0,4x1 under TupleView"
+        )
+      ]
+      """
+    }
+    #expect(
+      run(.siblingsDisjoint, tree(userViewIsList: true)).isEmpty,
+      "the library's own ForEach in that place is a list, and is looked through")
+  }
+
+  @Test
+  func `a custom layout is held to disjoint children under its own name`() {
+    let found = run(
+      .siblingsDisjoint,
+      projection([
+        node(
+          "root", children: ["root/a", "root/b"], type: "_LayoutContainer",
+          layout: "Stagger",
+          frame: (0, 0, 6, 2)),
+        node("root/a", parent: "root", frame: (0, 0, 4, 1)),
+        node("root/b", parent: "root", frame: (2, 0, 4, 1)),
+      ]))
+
+    assertInlineSnapshot(of: found, as: .customDump) {
+      """
+      [
+        [0]: Violation(
+          rule: "siblings-disjoint",
+          severity: "error",
+          node: "root/b",
+          detail: "shows 2,0,4x1, which overlaps sibling root/a showing 0,0,4x1 under Stagger"
+        )
+      ]
+      """
+    }
+  }
+
+  @Test
+  func `children that overflow their segments but are clipped to them do not overlap`() {
+    let found = run(
+      .siblingsDisjoint,
+      projection([
+        node("root", children: ["root/a", "root/b"], type: "Flex", frame: (0, 0, 10, 1)),
+        node("root/a", parent: "root", frame: (0, 0, 80, 1), clip: (0, 0, 4, 1)),
+        node("root/b", parent: "root", frame: (5, 0, 80, 1), clip: (5, 0, 5, 1)),
+      ]))
+
+    #expect(found.isEmpty)
+  }
+
+  @Test
+  func `a child that shows nothing overlaps nothing`() {
+    let found = run(
+      .siblingsDisjoint,
+      projection([
+        node(
+          "root", children: ["root/a", "root/b"], type: "HStack", frame: (0, 0, 4, 1)),
+        node("root/a", parent: "root", frame: (0, 0, 4, 1)),
+        node(
+          "root/b", parent: "root", type: "Spacer", frame: (2, 0, 2, 0),
+          clip: (2, 0, 0, 0)),
+      ]))
+
+    #expect(found.isEmpty)
+  }
+
+  // MARK: requirements-aggregate
+
+  @Test
+  func `a requirement a node asks for and the graph does not request is a violation`() {
+    let found = run(
+      .requirementsAggregate,
+      projection(
+        [
+          node("root", children: ["root/a"], type: "VStack", frame: (0, 0, 4, 1)),
+          node("root/a", parent: "root", frame: (0, 0, 4, 1), requirements: ["mouse"]),
+        ], requested: []))
+
+    expectNoDifference(
+      found,
+      [
+        Violation(
+          rule: "requirements-aggregate", severity: "error", node: "root/a",
+          detail: "asks for `mouse`, which the graph does not request")
+      ]
+    )
+  }
+
+  @Test
+  func
+    `a requirement the graph requests and no node asks for is a violation at the root`()
+  {
+    let found = run(
+      .requirementsAggregate,
+      projection([node("root", frame: (0, 0, 4, 1))], requested: ["focus"]))
+
+    assertInlineSnapshot(of: found, as: .customDump) {
+      """
+      [
+        [0]: Violation(
+          rule: "requirements-aggregate",
+          severity: "error",
+          node: "root",
+          detail: "the graph requests `focus` and no node asks for it"
+        )
+      ]
+      """
+    }
+  }
+
+  @Test
+  func `requirements that roll up are consistent`() {
+    let found = run(
+      .requirementsAggregate,
+      projection(
+        [
+          node("root", children: ["root/a"], type: "VStack", frame: (0, 0, 4, 1)),
+          node(
+            "root/a", parent: "root", frame: (0, 0, 4, 1),
+            requirements: ["keyboard", "mouse"]),
+        ], requested: ["keyboard", "mouse"]))
+
+    #expect(found.isEmpty)
+  }
+
+  // MARK: The runner
+
+  @Test
+  func `rules run in the order given and each violation carries its rule's severity`() {
+    let crafted = projection([
+      node(
+        "root", children: ["root/a", "root/b"], type: "VStack", frame: (0, 0, 4, 2),
+        dirty: (layout: true, render: false)),
+      node("root/a", parent: "root", frame: (0, 0, 4, 1), clip: (0, 0, 2, 1)),
+      node("root/b", parent: "root", frame: (0, 0, 4, 1)),
+    ])
+
+    let forward = Checker.run(
+      [.noDirtyAfterPass, .frameInsideClip, .siblingsDisjoint], on: crafted)
+    let backward = Checker.run(
+      [.siblingsDisjoint, .frameInsideClip, .noDirtyAfterPass], on: crafted)
+
+    assertInlineSnapshot(of: forward, as: .customDump) {
+      """
+      [
+        [0]: Violation(
+          rule: "no-dirty-after-pass",
+          severity: "error",
+          node: "root",
+          detail: "still dirty after pass 3: needsLayout"
+        ),
+        [1]: Violation(
+          rule: "frame-inside-clip",
+          severity: "warning",
+          node: "root/a",
+          detail: "frame 0,0,4x1 is clipped to 0,0,2x1"
+        ),
+        [2]: Violation(
+          rule: "siblings-disjoint",
+          severity: "error",
+          node: "root/b",
+          detail: "shows 0,0,4x1, which overlaps sibling root/a showing 0,0,2x1 under VStack"
+        )
+      ]
+      """
+    }
+    assertInlineSnapshot(of: backward, as: .customDump) {
+      """
+      [
+        [0]: Violation(
+          rule: "siblings-disjoint",
+          severity: "error",
+          node: "root/b",
+          detail: "shows 0,0,4x1, which overlaps sibling root/a showing 0,0,2x1 under VStack"
+        ),
+        [1]: Violation(
+          rule: "frame-inside-clip",
+          severity: "warning",
+          node: "root/a",
+          detail: "frame 0,0,4x1 is clipped to 0,0,2x1"
+        ),
+        [2]: Violation(
+          rule: "no-dirty-after-pass",
+          severity: "error",
+          node: "root",
+          detail: "still dirty after pass 3: needsLayout"
+        )
+      ]
+      """
+    }
+    #expect(Checker.run([], on: crafted).isEmpty)
+  }
+
+  @Test
+  func `the rule ids are the five the catalog names, in the order bare check runs them`()
+  {
+    expectNoDifference(
+      CheckRule.allCases.map(\.rawValue),
+      [
+        "no-dirty-after-pass", "frame-inside-clip", "measured-within-proposal",
+        "siblings-disjoint", "requirements-aggregate",
+      ]
+    )
+    #expect(
+      CheckRule.accepted
+        == "no-dirty-after-pass, frame-inside-clip, measured-within-proposal, "
+        + "siblings-disjoint, requirements-aggregate")
+    expectNoDifference(
+      CheckRule.allCases.filter { $0.severity == .warning }, [.frameInsideClip])
+  }
+}

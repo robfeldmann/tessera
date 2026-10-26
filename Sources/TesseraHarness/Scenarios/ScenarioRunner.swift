@@ -30,6 +30,9 @@ public struct ScenarioRunner {
   /// Whether each report carries the wall-clock time of its runs.
   package var measuresTime = false
 
+  /// The directory `run --trace` writes each scenario's trace into, or `nil` to write none.
+  package var traceDirectory: String?
+
   /// Creates a runner over `registry`.
   ///
   /// - Parameters:
@@ -60,6 +63,12 @@ public struct ScenarioRunner {
     }
     if let index = first.observations.firstDifference(from: run.observations) {
       return "observation \(index + 1), at line \(run.observations[index].line), differs"
+    }
+    if run.trace.count != first.trace.count {
+      return "it took \(run.trace.count) steps where run 1 took \(first.trace.count)"
+    }
+    if let index = first.trace.firstDifference(from: run.trace) {
+      return "step \(index) of the trace differs"
     }
     return "the reports differ"
   }
@@ -149,12 +158,24 @@ public struct ScenarioRunner {
       seconds.append(Self.seconds(started.duration(to: clock.now)))
       reports.append(report)
     }
-    return combined(reports, seconds: seconds)
+    var traceFailure: ScenarioFailure?
+    if let traceDirectory {
+      do {
+        try TraceFile.write(reports[0].trace, forScenario: path, into: traceDirectory)
+      } catch {
+        traceFailure = ScenarioFailure(
+          line: 0, statement: "", verb: "harness",
+          message:
+            "cannot write the trace of `\(path)` into `\(traceDirectory)`: \(error)")
+      }
+    }
+    return combined(reports, seconds: seconds, traceFailure: traceFailure)
   }
 
   /// The first run's report, with a `repeat` failure for each later run that differs.
-  private func combined(_ reports: [ScenarioReport], seconds: [Double]) -> ScenarioReport
-  {
+  private func combined(
+    _ reports: [ScenarioReport], seconds: [Double], traceFailure: ScenarioFailure?
+  ) -> ScenarioReport {
     let first = reports[0]
     var failures = first.failures
     for (offset, report) in reports.enumerated().dropFirst()
@@ -166,12 +187,16 @@ public struct ScenarioRunner {
             "run \(offset + 1) of \(reports.count) differs from run 1: "
             + Self.divergence(of: report, from: first)))
     }
+    if let traceFailure {
+      failures.append(traceFailure)
+    }
     return ScenarioReport(
       scenario: first.scenario,
       failures: failures,
       observations: first.observations,
       recorded: first.recorded,
-      seconds: measuresTime ? seconds : []
+      seconds: measuresTime ? seconds : [],
+      trace: first.trace
     )
   }
 }

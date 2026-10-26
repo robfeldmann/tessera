@@ -1,0 +1,32 @@
+# Sizes from docs/design/primitives/frame.md and padding.md: `Text("Go")` in a fixed 8x3 frame
+# reports 8x3; `padding(1)` makes 4x3; `padding(1).frame(width: 8)` is 8x3 and
+# `frame(width: 8).padding(1)` is 10x3, so modifier order is observable. `a` steps the frame's
+# alignment through all nine placements, and `+` and `-` change the uniform padding.
+app frame-padding
+size desktop
+
+expect node layout=_FrameLayout nth=0 frame 0,3,8x3
+expect node type=Text text="Go" nth=0 frame 0,3,2x1
+expect node layout=_FrameLayout nth=1 frame 11,3,6x1
+expect node layout=_FrameLayout nth=2 frame 19,3,4x1
+expect node layout=_FrameLayout nth=3 frame 19,3,12x1
+expect node layout=_PaddingLayout nth=0 frame 0,7,4x3
+expect node layout=_PaddingLayout nth=1 frame 7,7,5x2
+expect node layout=_FrameLayout nth=4 frame 15,7,8x3
+expect node layout=_PaddingLayout nth=2 frame 15,7,4x3
+expect node layout=_PaddingLayout nth=3 frame 26,7,10x3
+shot desktop
+
+# bottomTrailing is the ninth alignment: `Go` sits in the last two cells of the last row.
+type "aaaaaaaa"
+expect text 11 "alignment bottomTrailing"
+expect node type=Text text="Go" nth=0 frame 6,5,2x1
+expect node layout=_FrameLayout nth=0 frame 0,3,8x3
+shot alignment-bottom-trailing
+
+# Two more cells of padding on each edge make 2 + 4 columns and 1 + 4 rows.
+type "+"
+expect node layout=_PaddingLayout nth=0 frame 0,7,6x5
+type "---"
+expect node layout=_PaddingLayout nth=0 frame 0,7,2x1
+check no-dirty-after-pass siblings-disjoint requirements-aggregate

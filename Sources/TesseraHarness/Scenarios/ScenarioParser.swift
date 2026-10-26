@@ -295,6 +295,15 @@ private struct Parse {
       }
       return .tree
 
+    case "dump":
+      guard arguments.isEmpty else {
+        throw fail("usage: dump (the whole projection; it takes no argument)")
+      }
+      return .dump
+
+    case "check":
+      return .check(rules: try parseCheckRules(arguments, fail: fail))
+
     case "expect":
       return try parseExpect(arguments, fail: fail)
 
@@ -313,7 +322,8 @@ private struct Parse {
   ) throws -> Statement {
     guard let kind = arguments.first else {
       throw fail(
-        "usage: expect text … | expect screen <<EOF | expect node SEL frame X,Y,WxH")
+        "usage: expect text … | expect screen <<EOF | expect node SEL frame X,Y,WxH | "
+          + "expect cost NAME<=N…")
     }
     let rest = Array(arguments.dropFirst())
     switch kind {
@@ -333,12 +343,15 @@ private struct Parse {
     case "node":
       return try parseExpectNode(rest, fail: fail)
 
+    case "cost":
+      return .expectCost(try parseCostBounds(rest, fail: fail))
+
     default:
       if ScenarioGrammar.notYetExpressible.contains(where: { $0.form == "expect \(kind)" }
       ) {
         throw fail(ScenarioGrammar.refusal("expect \(kind)"))
       }
-      throw fail("unknown expectation `\(kind)`; accepted: text, screen, node")
+      throw fail("unknown expectation `\(kind)`; accepted: text, screen, node, cost")
     }
   }
 
@@ -369,6 +382,57 @@ private struct Parse {
       throw fail("bad frame; expected `X,Y,WxH` or `X,Y WxH`")
     }
     return .expectNode(locator, frame)
+  }
+
+  /// `bodies<=5 bytes<=40`: one word for each bound, each a counter, `<=`, and a whole number.
+  private func parseCostBounds(
+    _ words: [String],
+    fail: (String) -> ScenarioParseError
+  ) throws -> [CostBound] {
+    let counters = StepCost.names.joined(separator: ", ")
+    guard !words.isEmpty else {
+      throw fail("usage: expect cost NAME<=N… (counters: \(counters))")
+    }
+    var bounds: [CostBound] = []
+    for word in words {
+      guard let operatorRange = word.range(of: "<=") else {
+        throw fail(
+          "cost bound `\(word)` is not NAME<=N, written without spaces; only `<=` is "
+            + "accepted, because the counts are the library's work and change with it "
+            + "(counters: \(counters))")
+      }
+      let counter = String(word[..<operatorRange.lowerBound])
+      let value = String(word[operatorRange.upperBound...])
+      guard StepCost.names.contains(counter) else {
+        throw fail("unknown cost counter `\(counter)`; accepted: \(counters)")
+      }
+      guard let limit = Int(value), limit >= 0 else {
+        throw fail("cost bound `\(word)` needs a non-negative whole number after `<=`")
+      }
+      guard !bounds.contains(where: { $0.counter == counter }) else {
+        throw fail("cost counter `\(counter)` is bounded twice")
+      }
+      bounds.append(CostBound(counter: counter, limit: limit))
+    }
+    return bounds
+  }
+
+  /// The rules a `check` statement names, or none for every rule.
+  private func parseCheckRules(
+    _ words: [String],
+    fail: (String) -> ScenarioParseError
+  ) throws -> [CheckRule] {
+    var rules: [CheckRule] = []
+    for word in words {
+      guard let rule = CheckRule(rawValue: word) else {
+        throw fail("unknown check rule `\(word)`; accepted: \(CheckRule.accepted)")
+      }
+      guard !rules.contains(rule) else {
+        throw fail("check rule `\(word)` is named twice")
+      }
+      rules.append(rule)
+    }
+    return rules
   }
 
   /// `expect screen <<WORD`, the rows up to a line that is exactly `WORD`, and no more.

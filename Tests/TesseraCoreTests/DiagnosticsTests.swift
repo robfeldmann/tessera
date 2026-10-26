@@ -152,3 +152,29 @@ func `diagnostics are immutable local snapshots with explicit requirements`() {
   #expect(!String(describing: initial).contains("one"))
   #expect(!String(describing: updated).contains("two"))
 }
+
+@Test
+func `a resize before the update still names the viewport as a cause of the pass`() {
+  let size = TerminalSize(columns: 4, rows: 1)
+  let graph = ViewGraph(root: { Text("one") }, size: size)
+  _ = withTestFrame(size: size) { graph.render(into: $0) }
+
+  graph.update()
+  #expect(
+    !graph.statistics.invalidationReasons.values.contains(.layoutViewportChanged),
+    "an update with no resize before it has no viewport reason")
+
+  let resized = TerminalSize(columns: 6, rows: 1)
+  graph.resize(to: resized)
+  graph.update()
+  let reasons = graph.statistics.invalidationReasons.values
+  #expect(reasons.contains(.layoutViewportChanged))
+  #expect(reasons.contains(.renderViewportChanged))
+  #expect(reasons.contains(.updateRequested))
+
+  _ = withTestFrame(size: resized) { graph.render(into: $0) }
+  graph.update()
+  #expect(
+    !graph.statistics.invalidationReasons.values.contains(.layoutViewportChanged),
+    "the render pass that drew the new size ends the viewport's claim on later passes")
+}

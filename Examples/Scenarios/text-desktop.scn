@@ -1,0 +1,31 @@
+# `Text` measures terminal cells at grapheme boundaries (docs/design/primitives/text.md): 東京
+# is four columns, an emoji cluster two, a combining mark none, and a second source line a
+# second row. `n` steps the probe at the bottom through one sample at a time.
+app text
+size desktop
+
+expect text 0 "Text"
+expect text 3 "wide     東京 中文 한글"
+expect text 12 "Minh: Tiếng Việt — cảm ơn!"
+expect node text="東京 中文 한글" frame 9,3,14x1
+expect node text="first source line" frame 9,6,18x2
+check
+shot desktop
+
+# The probe's frame container takes the width of the sample and a fixed two rows, so its frame
+# is the sample's measured size: 4 cells for 東京, 2 for the cluster, 1 for a letter and its
+# accent, 3 for the half-width katakana, and 7x2 for two source lines.
+key n
+expect node layout=_FrameLayout nth=6 frame 0,15,4x2
+expect text 17 "wide: measures 4x1"
+key n
+expect node layout=_FrameLayout nth=6 frame 0,15,2x2
+shot probe-emoji
+key n
+expect node layout=_FrameLayout nth=6 frame 0,15,1x2
+key n
+expect node layout=_FrameLayout nth=6 frame 0,15,3x2
+key n
+expect node layout=_FrameLayout nth=6 frame 0,15,7x2
+expect text 17 "lines: measures 7x2"
+check

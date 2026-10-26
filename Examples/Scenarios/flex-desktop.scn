@@ -1,0 +1,54 @@
+# Allocations from docs/design/primitives/flex.md, at 80 columns. A bar is wider than any
+# allocation, so the origin of a child shows the cells the children before it were given.
+# `length(4) fill(1) max(4)` gives 4, 70 (what 80 columns leave after 4, 4, and two spacing cells),
+# and 4. The percentages are floors of 79, the cells left after one spacing cell: 19 and 59. The
+# ratio is a third of 79 rounded down, 26. Two equal fills over short children split the 77 cells
+# left after their own two into 39 and 38 extra, the earlier child keeping the odd cell. `w`
+# changes the fill weights, `s` the spacing.
+app flex
+size desktop
+
+expect node type=Flex nth=0 frame 0,3,80x1
+expect node type=_LayoutValueModifier nth=1 frame 5,3,80x1
+expect node type=_LayoutValueModifier nth=2 frame 76,3,80x1
+expect node type=Flex nth=1 frame 0,5,79x1
+expect node type=_LayoutValueModifier nth=4 frame 20,5,80x1
+expect node type=_LayoutValueModifier nth=6 frame 27,7,80x1
+expect node type=_LayoutValueModifier nth=8 frame 41,9,1x1
+expect node type=_LayoutValueModifier nth=10 frame 79,11,1x1
+check no-dirty-after-pass siblings-disjoint requirements-aggregate
+shot desktop
+
+# Weights 1:2 share the same 77 cells as 26 and 51 extra, the odd cell to the earlier child:
+# `A` is 27 wide, so `B` starts at 28.
+type "w"
+expect text 8 "fill(1) fill(2)"
+expect node type=_LayoutValueModifier nth=8 frame 28,9,1x1
+shot weights-1-2
+
+# The second page, at spacing 1. Three equal fills over short children split the 75 cells left
+# after their own three and two spacing cells, 25 each, so `E` starts at 27 and `F` at 54. With
+# `layoutPriority(1)` on the third, the higher tier takes all 75 and the others keep one cell
+# each: `H` starts at 2 and `I` at 4. A child with no `.flex` value shares the surplus with a
+# `fill(1)` as weight 1 against weight 1, 77 cells as 38 each with the odd one to the earlier
+# child, so `K` starts at 41. A child smaller than the cross axis sits at the leading edge,
+# because `Flex` takes no alignment: `•` is on the top row of the three-row `┃`, and `◦` is at
+# the left edge of the eight-column bar's column.
+type "n"
+expect text 0 "Flex: priority, defaults, cross axis"
+expect node type=Text text="E" frame 27,3,1x1
+expect node type=Text text="H" frame 2,5,1x1
+expect node type=Text text="I" frame 4,5,1x1
+expect node type=Text text="K" frame 41,7,1x1
+expect node type=Text text="┃" frame 0,9,1x3
+expect node type=Text text="•" frame 2,9,1x1
+expect node type=Text text="◦" frame 0,15,1x1
+check
+shot variants
+
+# Back on the first page, spacing 2 takes two more cells from row 1's fill: 80 - 4 - 4 - 4 = 68,
+# and `B` starts after the first child's four cells and two spacing cells.
+type "ns"
+expect node type=_LayoutValueModifier nth=1 frame 6,3,80x1
+expect text 20 "spacing 2"
+check no-dirty-after-pass siblings-disjoint requirements-aggregate

@@ -2632,6 +2632,47 @@ func `a failed flush leaves the last drawn frame unchanged`() async throws {
 }
 
 @Test
+func `bytes drawn adds the byte count of each flushed frame`() async throws {
+  let size = TerminalSize(columns: 3, rows: 1)
+  let device = InMemoryTerminalDevice(size: size)
+  let session = await makeSession(device, synchronizedOutput: .disabled)
+  #expect(await session.bytesDrawn == 0)
+
+  try await session.draw { frame in
+    frame.write("abc", at: TerminalPosition(column: 0, row: 0))
+  }
+  let afterFirst = await session.bytesDrawn
+  #expect(afterFirst > 0)
+  #expect(afterFirst == (await device.bytes).count)
+
+  try await session.draw { frame in
+    frame.write("axc", at: TerminalPosition(column: 0, row: 0))
+  }
+  #expect(await session.bytesDrawn > afterFirst)
+  #expect(await session.bytesDrawn == (await device.bytes).count)
+}
+
+@Test
+func `a failed flush does not count its bytes as drawn`() async throws {
+  let size = TerminalSize(columns: 1, rows: 1)
+  let device = FailOnceTerminalDevice(size: size)
+  let session = TerminalSession(
+    io: PlatformIO(terminalDevice: await device.terminalDevice))
+
+  await #expect(throws: PlatformIOError.writeFailed(errno: .ioError)) {
+    try await session.draw { frame in
+      frame.write("x", at: TerminalPosition(column: 0, row: 0))
+    }
+  }
+  #expect(await session.bytesDrawn == 0)
+
+  try await session.draw { frame in
+    frame.write("y", at: TerminalPosition(column: 0, row: 0))
+  }
+  #expect(await session.bytesDrawn > 0)
+}
+
+@Test
 func `output tap receives each draw's bytes until it is cleared`() async throws {
   let session = InMemoryTerminalSession(size: TerminalSize(columns: 3, rows: 1))
   let (tapped, tap) = AsyncStream.makeStream(of: [UInt8].self)

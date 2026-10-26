@@ -153,7 +153,7 @@ struct ScenarioParserTests {
   func `unknown statements list the accepted vocabulary`() {
     assertInlineSnapshot(of: parseFailure(of: "app stack\njump 3"), as: .lines) {
       """
-      t.scn:2: error: unknown statement `jump`; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
+      t.scn:2: error: unknown statement `jump`; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
       """
     }
   }
@@ -163,9 +163,10 @@ struct ScenarioParserTests {
     assertInlineSnapshot(of: parseFailure(of: "app stack\nexpect colour red"), as: .lines)
     {
       """
-      t.scn:2: error: unknown expectation `colour`; accepted: text, screen, node
+      t.scn:2: error: unknown expectation `colour`; accepted: text, screen, node, cost
       """
     }
+
   }
 
   @Test
@@ -176,10 +177,7 @@ struct ScenarioParserTests {
       "focus": "focus role=button",
       "mouse": "mouse click 3,4",
       "hit": "hit 1,2",
-      "dump": "dump",
-      "check": "check",
       "expect cell": "expect cell 1,2 bold",
-      "expect cost": "expect cost bodies<=1",
       "expect focused": "expect focused role=button",
       "expect wireframe": "expect wireframe docs/design/a.md 1",
       "expect node SEL visible": "expect node type=Text visible",
@@ -199,25 +197,22 @@ struct ScenarioParserTests {
 
     assertInlineSnapshot(of: failures, as: .lines) {
       """
-      t.scn:2: error: `check` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
-      t.scn:2: error: `dump` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
-      t.scn:2: error: `expect cell` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
-      t.scn:2: error: `expect cost` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
-      t.scn:2: error: `expect focused` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
-      t.scn:2: error: `expect node SEL clipped` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
-      t.scn:2: error: `expect node SEL count N` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
-      t.scn:2: error: `expect node SEL visible` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
-      t.scn:2: error: `expect wireframe` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
-      t.scn:2: error: `focus` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
-      t.scn:2: error: `hit` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
-      t.scn:2: error: `mouse` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
-      t.scn:2: error: `settle` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
-      t.scn:2: error: `shot NAME SEL` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
-      t.scn:2: error: `term glyphs=` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
-      t.scn:2: error: `term keyboard=` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
-      t.scn:2: error: `term theme=probe` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
-      t.scn:2: error: `tree SEL` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
-      t.scn:2: error: `wait` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node
+      t.scn:2: error: `expect cell` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
+      t.scn:2: error: `expect focused` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
+      t.scn:2: error: `expect node SEL clipped` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
+      t.scn:2: error: `expect node SEL count N` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
+      t.scn:2: error: `expect node SEL visible` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
+      t.scn:2: error: `expect wireframe` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
+      t.scn:2: error: `focus` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
+      t.scn:2: error: `hit` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
+      t.scn:2: error: `mouse` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
+      t.scn:2: error: `settle` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
+      t.scn:2: error: `shot NAME SEL` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
+      t.scn:2: error: `term glyphs=` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
+      t.scn:2: error: `term keyboard=` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
+      t.scn:2: error: `term theme=probe` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
+      t.scn:2: error: `tree SEL` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
+      t.scn:2: error: `wait` is not a statement a scenario can use; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost
       """
     }
   }
@@ -238,12 +233,17 @@ struct ScenarioParserTests {
     let start = try #require(lines.firstIndex { $0.hasPrefix("## Not yet expressible") })
     let section = lines[(start + 1)...].prefix { !$0.hasPrefix("## ") }
 
-    let forms = section.filter { $0.hasPrefix("| `") }.map { line in
-      String(line.dropFirst(3).prefix { $0 != "`" })
+    // Each row is `| `FORM` | NEEDS |`: the form must match.
+    func deferred(_ line: String) -> ScenarioGrammar.Deferred {
+      let cells = line.split(separator: "|", omittingEmptySubsequences: true)
+      let form = cells[0].trimmingCharacters(in: .whitespaces).dropFirst().dropLast()
+      return ScenarioGrammar.Deferred(form: String(form))
     }
+    let rows = section.filter { $0.hasPrefix("| `") }.map(deferred)
 
     expectNoDifference(
-      forms.sorted(), ScenarioGrammar.notYetExpressible.map(\.form).sorted())
+      rows.sorted { $0.form < $1.form },
+      ScenarioGrammar.notYetExpressible.sorted { $0.form < $1.form })
   }
 
   @Test
@@ -358,7 +358,7 @@ struct ScenarioParserTests {
         file: "t.scn",
         line: 3,
         source: "blink",
-        message: "unknown statement `blink`; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, expect text, expect screen, expect node"
+        message: "unknown statement `blink`; accepted: app, size, term, resize, key, type, paste, bytes, shot, tree, dump, check, expect text, expect screen, expect node, expect cost"
       )
       """
     }
@@ -607,12 +607,71 @@ struct ScenarioPlayerTests {
               [3]: "left                               right",
               [4]: "────────────────────────────────────────",
               [5]: "40 columns"
-            ]
+            ],
+            rule: nil,
+            node: nil
           )
         ],
         observations: [],
         recorded: [],
-        seconds: []
+        seconds: [],
+        trace: [
+          [0]: TraceRecord(
+            version: 1,
+            seq: 0,
+            event: TraceEvent(
+              type: "resize",
+              key: nil,
+              kind: nil,
+              text: nil,
+              size: "40x10",
+              detail: nil
+            ),
+            drew: true,
+            reasons: [
+              [0]: "layoutEnvironmentChanged",
+              [1]: "layoutViewChanged",
+              [2]: "renderEnvironmentChanged",
+              [3]: "renderRequested",
+              [4]: "renderViewChanged",
+              [5]: "updateRequested"
+            ],
+            nodes: TraceRecord.NodeChanges(
+              added: [
+                [0]: "root",
+                [1]: "root/index(0)",
+                [2]: "root/index(0)/index(0)",
+                [3]: "root/index(0)/index(1)",
+                [4]: "root/index(0)/index(2)",
+                [5]: "root/index(0)/index(2)/index(0)",
+                [6]: "root/index(0)/index(2)/index(1)",
+                [7]: "root/index(0)/index(3)",
+                [8]: "root/index(0)/index(3)/index(0)",
+                [9]: "root/index(0)/index(3)/index(1)",
+                [10]: "root/index(0)/index(3)/index(2)",
+                [11]: "root/index(0)/index(4)",
+                [12]: "root/index(0)/index(5)"
+              ],
+              changed: [],
+              removed: []
+            ),
+            rows: [
+              [0]: 0,
+              [1]: 1,
+              [2]: 2,
+              [3]: 3,
+              [4]: 4,
+              [5]: 5
+            ],
+            cost: StepCost(
+              bodies: 0,
+              bytes: 639,
+              measures: 65,
+              placements: 13,
+              renders: 8
+            )
+          )
+        ]
       )
       """
     }
@@ -742,12 +801,15 @@ struct ScenarioPlayerTests {
             message: "`greedy` has no natural height: it measured 500 rows when offered 500 and 1000 when offered 1000. Use `size mobileScreen` (40x16) or an explicit WxH",
             expected: nil,
             actual: nil,
-            screen: nil
+            screen: nil,
+            rule: nil,
+            node: nil
           )
         ],
         observations: [],
         recorded: [],
-        seconds: []
+        seconds: [],
+        trace: []
       )
       """
     }
@@ -771,12 +833,15 @@ struct ScenarioPlayerTests {
             message: "`workspace` has no natural height: it measured 500 rows when offered 500 and 1000 when offered 1000. Use `size mobileScreen` (40x16) or an explicit WxH",
             expected: nil,
             actual: nil,
-            screen: nil
+            screen: nil,
+            rule: nil,
+            node: nil
           )
         ],
         observations: [],
         recorded: [],
-        seconds: []
+        seconds: [],
+        trace: []
       )
       """
     }
@@ -910,11 +975,69 @@ struct ScenarioPlayerTests {
               [3]: "left                               right",
               [4]: "────────────────────────────────────────",
               [5]: "40 columns"
-            ]
+            ],
+            projection: nil
           )
         ],
         recorded: [],
-        seconds: []
+        seconds: [],
+        trace: [
+          [0]: TraceRecord(
+            version: 1,
+            seq: 0,
+            event: TraceEvent(
+              type: "resize",
+              key: nil,
+              kind: nil,
+              text: nil,
+              size: "40x10",
+              detail: nil
+            ),
+            drew: true,
+            reasons: [
+              [0]: "layoutEnvironmentChanged",
+              [1]: "layoutViewChanged",
+              [2]: "renderEnvironmentChanged",
+              [3]: "renderRequested",
+              [4]: "renderViewChanged",
+              [5]: "updateRequested"
+            ],
+            nodes: TraceRecord.NodeChanges(
+              added: [
+                [0]: "root",
+                [1]: "root/index(0)",
+                [2]: "root/index(0)/index(0)",
+                [3]: "root/index(0)/index(1)",
+                [4]: "root/index(0)/index(2)",
+                [5]: "root/index(0)/index(2)/index(0)",
+                [6]: "root/index(0)/index(2)/index(1)",
+                [7]: "root/index(0)/index(3)",
+                [8]: "root/index(0)/index(3)/index(0)",
+                [9]: "root/index(0)/index(3)/index(1)",
+                [10]: "root/index(0)/index(3)/index(2)",
+                [11]: "root/index(0)/index(4)",
+                [12]: "root/index(0)/index(5)"
+              ],
+              changed: [],
+              removed: []
+            ),
+            rows: [
+              [0]: 0,
+              [1]: 1,
+              [2]: 2,
+              [3]: 3,
+              [4]: 4,
+              [5]: 5
+            ],
+            cost: StepCost(
+              bodies: 0,
+              bytes: 639,
+              measures: 65,
+              placements: 13,
+              renders: 8
+            )
+          )
+        ]
       )
       """
     }
@@ -939,12 +1062,15 @@ struct ScenarioPlayerTests {
             message: "applications registered more than once: `stack`",
             expected: nil,
             actual: nil,
-            screen: nil
+            screen: nil,
+            rule: nil,
+            node: nil
           )
         ],
         observations: [],
         recorded: [],
-        seconds: []
+        seconds: [],
+        trace: []
       )
       """
     }
@@ -975,12 +1101,85 @@ struct ScenarioPlayerTests {
             message: "the application finished at line 2 (`key q`), and in a terminal nothing after it runs",
             expected: nil,
             actual: nil,
-            screen: nil
+            screen: nil,
+            rule: nil,
+            node: nil
           )
         ],
         observations: [],
         recorded: [],
-        seconds: []
+        seconds: [],
+        trace: [
+          [0]: TraceRecord(
+            version: 1,
+            seq: 0,
+            event: TraceEvent(
+              type: "resize",
+              key: nil,
+              kind: nil,
+              text: nil,
+              size: "80x24",
+              detail: nil
+            ),
+            drew: true,
+            reasons: [
+              [0]: "layoutViewChanged",
+              [1]: "renderRequested",
+              [2]: "renderViewChanged",
+              [3]: "updateRequested"
+            ],
+            nodes: TraceRecord.NodeChanges(
+              added: [
+                [0]: "root",
+                [1]: "root/index(0)"
+              ],
+              changed: [],
+              removed: []
+            ),
+            rows: [
+              [0]: 0
+            ],
+            cost: StepCost(
+              bodies: 0,
+              bytes: 2097,
+              measures: 2,
+              placements: 2,
+              renders: 1
+            )
+          ),
+          [1]: TraceRecord(
+            version: 1,
+            seq: 1,
+            event: TraceEvent(
+              type: "key",
+              key: "q",
+              kind: nil,
+              text: nil,
+              size: nil,
+              detail: nil
+            ),
+            drew: true,
+            reasons: [
+              [0]: "layoutViewChanged",
+              [1]: "renderRequested",
+              [2]: "renderViewChanged",
+              [3]: "updateRequested"
+            ],
+            nodes: TraceRecord.NodeChanges(
+              added: [],
+              changed: [],
+              removed: []
+            ),
+            rows: [],
+            cost: StepCost(
+              bodies: 0,
+              bytes: 10,
+              measures: 2,
+              placements: 2,
+              renders: 1
+            )
+          )
+        ]
       )
       """
     }
@@ -1021,12 +1220,149 @@ struct ScenarioPlayerTests {
             message: #"the application finished at line 2 (`type "abqcd"`), and in a terminal nothing after it runs"#,
             expected: nil,
             actual: nil,
-            screen: nil
+            screen: nil,
+            rule: nil,
+            node: nil
           )
         ],
         observations: [],
         recorded: [],
-        seconds: []
+        seconds: [],
+        trace: [
+          [0]: TraceRecord(
+            version: 1,
+            seq: 0,
+            event: TraceEvent(
+              type: "resize",
+              key: nil,
+              kind: nil,
+              text: nil,
+              size: "80x24",
+              detail: nil
+            ),
+            drew: true,
+            reasons: [
+              [0]: "layoutViewChanged",
+              [1]: "renderRequested",
+              [2]: "renderViewChanged",
+              [3]: "updateRequested"
+            ],
+            nodes: TraceRecord.NodeChanges(
+              added: [
+                [0]: "root",
+                [1]: "root/index(0)"
+              ],
+              changed: [],
+              removed: []
+            ),
+            rows: [
+              [0]: 0
+            ],
+            cost: StepCost(
+              bodies: 0,
+              bytes: 2097,
+              measures: 2,
+              placements: 2,
+              renders: 1
+            )
+          ),
+          [1]: TraceRecord(
+            version: 1,
+            seq: 1,
+            event: TraceEvent(
+              type: "key",
+              key: "a",
+              kind: nil,
+              text: nil,
+              size: nil,
+              detail: nil
+            ),
+            drew: true,
+            reasons: [
+              [0]: "layoutViewChanged",
+              [1]: "renderRequested",
+              [2]: "renderViewChanged",
+              [3]: "updateRequested"
+            ],
+            nodes: TraceRecord.NodeChanges(
+              added: [],
+              changed: [],
+              removed: []
+            ),
+            rows: [],
+            cost: StepCost(
+              bodies: 0,
+              bytes: 10,
+              measures: 2,
+              placements: 2,
+              renders: 1
+            )
+          ),
+          [2]: TraceRecord(
+            version: 1,
+            seq: 2,
+            event: TraceEvent(
+              type: "key",
+              key: "b",
+              kind: nil,
+              text: nil,
+              size: nil,
+              detail: nil
+            ),
+            drew: true,
+            reasons: [
+              [0]: "layoutViewChanged",
+              [1]: "renderRequested",
+              [2]: "renderViewChanged",
+              [3]: "updateRequested"
+            ],
+            nodes: TraceRecord.NodeChanges(
+              added: [],
+              changed: [],
+              removed: []
+            ),
+            rows: [],
+            cost: StepCost(
+              bodies: 0,
+              bytes: 10,
+              measures: 2,
+              placements: 2,
+              renders: 1
+            )
+          ),
+          [3]: TraceRecord(
+            version: 1,
+            seq: 3,
+            event: TraceEvent(
+              type: "key",
+              key: "q",
+              kind: nil,
+              text: nil,
+              size: nil,
+              detail: nil
+            ),
+            drew: true,
+            reasons: [
+              [0]: "layoutViewChanged",
+              [1]: "renderRequested",
+              [2]: "renderViewChanged",
+              [3]: "updateRequested"
+            ],
+            nodes: TraceRecord.NodeChanges(
+              added: [],
+              changed: [],
+              removed: []
+            ),
+            rows: [],
+            cost: StepCost(
+              bodies: 0,
+              bytes: 10,
+              measures: 2,
+              placements: 2,
+              renders: 1
+            )
+          )
+        ]
       )
       """
     }
@@ -1055,12 +1391,53 @@ struct ScenarioPlayerTests {
             message: "the application had already finished when the scenario started, and in a terminal nothing after it runs",
             expected: nil,
             actual: nil,
-            screen: nil
+            screen: nil,
+            rule: nil,
+            node: nil
           )
         ],
         observations: [],
         recorded: [],
-        seconds: []
+        seconds: [],
+        trace: [
+          [0]: TraceRecord(
+            version: 1,
+            seq: 0,
+            event: TraceEvent(
+              type: "resize",
+              key: nil,
+              kind: nil,
+              text: nil,
+              size: "80x24",
+              detail: nil
+            ),
+            drew: true,
+            reasons: [
+              [0]: "layoutViewChanged",
+              [1]: "renderRequested",
+              [2]: "renderViewChanged",
+              [3]: "updateRequested"
+            ],
+            nodes: TraceRecord.NodeChanges(
+              added: [
+                [0]: "root",
+                [1]: "root/index(0)"
+              ],
+              changed: [],
+              removed: []
+            ),
+            rows: [
+              [0]: 0
+            ],
+            cost: StepCost(
+              bodies: 0,
+              bytes: 2097,
+              measures: 2,
+              placements: 2,
+              renders: 1
+            )
+          )
+        ]
       )
       """
     }

@@ -32,6 +32,9 @@ public final class ViewGraph {
   )
   private var size: TerminalSize
   private var layoutMeasurements: [_LayoutMeasurementKey: TerminalSize] = [:]
+  /// Whether a resize has changed the size since the last render pass drew it, so the update
+  /// that starts the next pass still names the viewport as a cause.
+  private var viewportChangedSinceRender = false
   /// Work recorded by the most recently completed graph passes.
   public private(set) var statistics = GraphStatistics()
 
@@ -90,6 +93,10 @@ extension ViewGraph {
   public func update() {
     statistics = GraphStatistics()
     statistics.record(.updateRequested)
+    if viewportChangedSinceRender {
+      statistics.record(.layoutViewportChanged)
+      statistics.record(.renderViewportChanged)
+    }
     let start = now()
     rootNode = reconcile(
       node: rootNode,
@@ -130,6 +137,7 @@ extension ViewGraph {
     render(rootNode, into: frame)
     clearRenderFlags(rootNode)
     statistics.renderDuration = start.duration(to: now())
+    viewportChangedSinceRender = false
   }
 
   /// Changes the graph viewport and invalidates layout only when the size changed.
@@ -139,6 +147,7 @@ extension ViewGraph {
       return
     }
     self.size = size
+    viewportChangedSinceRender = true
     statistics.record(.layoutViewportChanged)
     statistics.record(.renderViewportChanged)
     markSubtreeNeedsLayout(rootNode)

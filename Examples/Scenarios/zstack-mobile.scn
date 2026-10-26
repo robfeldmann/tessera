@@ -1,0 +1,28 @@
+# Layers share their bounds whatever the viewport: the ZStack takes the largest child, 4x2 for
+# the block of A's, and the `priority` sample's two layers sit on one frame because a ZStack
+# ignores layout priority.
+app zstack
+size mobile
+
+expect node type=ZStack nth=2 frame 20,3,4x2
+expect node type=ZStack nth=4 frame 7,7,1x1
+expect text 3 "OKatus   Go······   bbAA"
+check
+shot mobile
+
+# The last alignment puts `Go` in the corner: the last two cells of the last backdrop row.
+type "aaaaaaaa"
+expect node type=Text text="Go" frame 15,5,2x1
+shot alignment-bottom-trailing
+
+# A `ForEach` and an `if` also build layers. The `ForEach` items `abcd` and `ef` share one
+# frame under the ZStack, and `g` adds an `if` group whose two Texts do too; `siblings-disjoint`
+# looks through the list to the ZStack, so `check` still passes.
+type "g"
+expect node type=ZStack nth=5 frame 17,7,4x1
+expect node id=abcd frame 17,7,4x1
+expect node id=ef frame 17,7,2x1
+expect text 7 "[]     B         efcd    hase"
+expect node type=Text text="h" frame 25,7,1x1
+check
+shot grouped

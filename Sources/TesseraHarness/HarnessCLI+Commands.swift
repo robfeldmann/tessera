@@ -28,6 +28,7 @@ extension HarnessCLI {
   struct Context {
     var asJSON: Bool
     var configuration: TerminalApplicationConfiguration
+    var environment: [String: String]
     var registry: ApplicationRegistry
     var terminals: (input: Bool, output: Bool)
   }
@@ -38,7 +39,7 @@ extension HarnessCLI {
     static var configuration: CommandConfiguration {
       CommandConfiguration(
         commandName: Invocation.current.executableName,
-        abstract: "List, launch, run, and picture the registered applications.",
+        abstract: "List, launch, run, picture, and check the registered applications.",
         discussion: """
           Every command exits 0 on success, 1 when an expectation failed, 2 on a usage or \
           parse error, and 3 on a harness error. When standard output is not a terminal each \
@@ -183,6 +184,11 @@ struct LaunchCommand: HarnessCommand {
 
       Exits 2 for an unknown name, and 3 for a duplicate registration or when standard \
       input or output is not a terminal.
+
+      When the environment variable TESSERA_TRACE names a file, the session writes its \
+      trace there, one JSON record per step, so `replay` can run it again. A file that \
+      cannot be created is exit 3, before the terminal changes mode. The trace is not \
+      promised to stay as it is.
       """)
 
   @OptionGroup var output: OutputOptions
@@ -211,12 +217,27 @@ struct LaunchCommand: HarnessCommand {
         "`launch` runs an application in this terminal, and \(missing)",
         exitCode: 3, command: "launch", json: context.asJSON)
     }
+    var trace: TraceWriter?
+    if let path = context.environment["TESSERA_TRACE"], !path.isEmpty {
+      do {
+        trace = try TraceWriter(path: path)
+      } catch {
+        return HarnessCLI.failure(
+          error.description, exitCode: 3, command: "launch", json: context.asJSON)
+      }
+    }
     do {
-      try await entry.live(context.configuration)
+      try await entry.live(context.configuration, trace)
     } catch {
+      trace?.close()
       return HarnessCLI.failure(
         "`launch \(name)` could not run in this terminal: \(error)",
         exitCode: 3, command: "launch", json: context.asJSON)
+    }
+    trace?.close()
+    if let message = trace?.failure {
+      return HarnessCLI.failure(
+        message, exitCode: 3, command: "launch", json: context.asJSON)
     }
     return CommandOutput(exitCode: 0)
   }

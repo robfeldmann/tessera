@@ -52,8 +52,14 @@ final class ScratchDirectory: Sendable {
 
   /// `text` with this directory's path shown as `<scratch>`, so text that names a file in it is
   /// the same in every run.
+  ///
+  /// A trace file's name mirrors the path of its scenario under the trace directory, with a
+  /// drive letter's colon replaced, so that spelling of the path is redacted too.
   func redacted(_ text: String) -> String {
-    text.replacingOccurrences(of: path, with: "<scratch>")
+    let mirrored = TraceFile.path(forScenario: path, in: "").dropLast(
+      ".trace.jsonl".count)
+    return text.replacingOccurrences(of: mirrored, with: "<scratch>")
+      .replacingOccurrences(of: path, with: "<scratch>")
   }
 
   /// `value` as a custom dump with the directory's path redacted.

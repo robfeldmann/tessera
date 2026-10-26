@@ -1,0 +1,22 @@
+Flex: constraints
+────────────────────────────────────────────────────────────────────────────────
+length(4) fill(1) max(4)
+AAAA BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB CCCC
+percentage(25) percentage(75)
+AAAAAAAAAAAAAAAAAAA BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+ratio(1, 3) fill(1)
+AAAAAAAAAAAAAAAAAAAAAAAAAA BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+fill(1) fill(1)
+A                                        B
+min(10) length(1)
+A                                                                              B
+A  vertical: length(1) fill(1) length(1)
+
+B
+B
+B
+
+C
+────────────────────────────────────────────────────────────────────────────────
+spacing 1
+w weights   s spacing   n page   q quit

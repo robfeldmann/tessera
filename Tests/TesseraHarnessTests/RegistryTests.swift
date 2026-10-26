@@ -125,12 +125,15 @@ struct ApplicationRegistryTests {
             message: "applications registered more than once: `counter`, `stack`",
             expected: nil,
             actual: nil,
-            screen: nil
+            screen: nil,
+            rule: nil,
+            node: nil
           )
         ],
         observations: [],
         recorded: [],
-        seconds: []
+        seconds: [],
+        trace: []
       )
       """
     }

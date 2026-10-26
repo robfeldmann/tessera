@@ -1,6 +1,7 @@
 import TesseraCore
 import TesseraRuntime
 import TesseraTerminal
+import TesseraTerminalBuffer
 import TesseraTerminalCore
 import TesseraTerminalInput
 
@@ -12,6 +13,11 @@ import TesseraTerminalInput
 /// both drive an application through this type, so what a scenario renders is what a terminal
 /// shows. The session is an actor that receives finished frames; the frame itself is drawn
 /// here, in the main actor's isolation, because the graph lives here.
+///
+/// After every step the driver records one ``TraceRecord``: the event, why the frame was drawn,
+/// which nodes and rows changed, and what the step cost. It hands the record to `onRecord` and
+/// keeps the latest, so a host decides whether to keep every record (a scenario run), write
+/// each to a file (a live session), or drop them.
 ///
 /// The driver has no quit key and no focus policy. It stops being useful when the application
 /// reports ``isFinished``, and the host decides what to do about that.
@@ -26,7 +32,15 @@ final class Driver<App: Application> {
   /// The size the graph was last laid out at.
   private(set) var size: TerminalSize
 
+  /// The record of the latest step, or `nil` before ``start()`` has drawn the first frame.
+  private(set) var lastRecord: TraceRecord?
+
   private let session: TerminalSession
+  private let onRecord: (@MainActor (TraceRecord) -> Void)?
+  private var steps = 0
+  private var nodesBefore: [NodeDiagnostics] = []
+  private var rowsBefore: [String] = []
+  private var bytesBefore = 0
 
   /// Whether the application has asked its host to stop.
   var isFinished: Bool {
@@ -34,15 +48,20 @@ final class Driver<App: Application> {
   }
 
   /// Creates a driver whose graph starts at `size` and draws through `session`.
+  ///
+  /// - Parameter onRecord: Called with each step's record, on the main actor, before the step
+  ///   returns.
   init(
     app: App,
     size: TerminalSize,
     session: TerminalSession,
-    environment: EnvironmentValues = EnvironmentValues()
+    environment: EnvironmentValues = EnvironmentValues(),
+    onRecord: (@MainActor (TraceRecord) -> Void)? = nil
   ) {
     self.app = app
     self.size = size
     self.session = session
+    self.onRecord = onRecord
     graph = ViewGraph(root: { app.body }, size: size, environment: environment)
   }
 
@@ -51,8 +70,10 @@ final class Driver<App: Application> {
   /// The size reaches the application as a resize event, through the same step as every
   /// later event, because an application has no other way to learn the size it starts at.
   func start() async throws {
-    Step.run(app, graph: graph, event: .resize(size), isolation: MainActor.shared)
+    let event = InputEvent.resize(size)
+    Step.run(app, graph: graph, event: event, isolation: MainActor.shared)
     try await present()
+    await record(event, drew: true)
   }
 
   /// Delivers one event, then draws a frame if anything changed.
@@ -66,9 +87,11 @@ final class Driver<App: Application> {
     }
     let disposition = Step.run(
       app, graph: graph, event: event, isolation: MainActor.shared)
-    if graph.needsRender {
+    let drew = graph.needsRender
+    if drew {
       try await present()
     }
+    await record(event, drew: drew)
     return disposition
   }
 
@@ -76,6 +99,53 @@ final class Driver<App: Application> {
     let graph = graph
     try await session.draw { frame in
       graph.render(into: frame)
+    }
+  }
+
+  /// Records the step that has just finished: its statistics are the pass's, since the graph
+  /// resets them at every update.
+  private func record(_ event: InputEvent, drew: Bool) async {
+    let nodes = graph.diagnostics.nodes
+    var rows = rowsBefore
+    if drew, let frame = await session.lastDrawn {
+      rows = frame.buffer.textRows
+    }
+    let bytesDrawn = await session.bytesDrawn
+    let record = TraceRecord(
+      seq: steps,
+      event: event,
+      drew: drew,
+      statistics: graph.statistics,
+      bytes: bytesDrawn - bytesBefore,
+      nodes: TraceRecord.NodeChanges(from: nodesBefore, to: nodes),
+      rowsBefore: rowsBefore,
+      rowsAfter: rows)
+    nodesBefore = nodes
+    rowsBefore = rows
+    bytesBefore = bytesDrawn
+    steps += 1
+    lastRecord = record
+    onRecord?(record)
+  }
+}
+
+extension Buffer {
+  /// The text of every row, as the cells hold it: a continuation cell adds nothing, a cell
+  /// with no text adds a space, and a row loses its trailing spaces.
+  fileprivate var textRows: [String] {
+    (0..<size.rows).map { row in
+      var text = ""
+      for column in 0..<size.columns {
+        switch self[row, column].content {
+        case .blank, .raw: text.append(" ")
+        case .continuation: continue
+        case .grapheme(let grapheme): text += grapheme
+        }
+      }
+      while text.last == " " {
+        text.removeLast()
+      }
+      return text
     }
   }
 }

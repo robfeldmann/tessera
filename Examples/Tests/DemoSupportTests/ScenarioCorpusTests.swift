@@ -20,7 +20,7 @@ struct ScenarioCorpusTests {
     let reports = await ScenarioRunner(registry: Demos.registry()).run(Self.corpus)
 
     expectNoDifference(reports.filter { !$0.passed }, [])
-    #expect(reports.count >= 5)
+    #expect(reports.count >= 16)
   }
 
   @Test
