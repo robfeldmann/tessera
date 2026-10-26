@@ -32,7 +32,8 @@ func `Ghostty all-keys text reports still route demo controls`() throws {
       Issue.record("Ghostty tab report did not parse as a key: \(event)")
       continue
     }
-    #expect(DemoControls.action(for: key, panel: .capabilities) == .selectPanel(tab.panel))
+    #expect(
+      DemoControls.action(for: key, panel: .capabilities) == .selectPanel(tab.panel))
   }
 }
 
@@ -212,7 +213,8 @@ func `color capability cycle covers detect and every concrete depth`() {
   for (current, expected) in zip(values, values.dropFirst() + [values[0]]) {
     #expect(DemoControls.nextColorCapability(after: current) == expected)
   }
-  #expect(DemoControls.nextColorCapability(after: .force(.unknown)) == .force(.indexed256))
+  #expect(
+    DemoControls.nextColorCapability(after: .force(.unknown)) == .force(.indexed256))
 }
 
 @Test

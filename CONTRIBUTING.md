@@ -81,7 +81,7 @@ Then bootstrap the repository-local tooling and git hooks:
 ```sh
 mise install               # every pinned tool in mise.toml (mise.lock records the versions)
 npm ci                     # pinned Prettier (YAML and JSON)
-mise run setup:hooks       # hk: staged quality gate and Conventional Commit checks
+mise run setup:hooks       # hk: the pre-commit quality steps and Conventional Commit checks
 ```
 
 Run tasks with `mise run <task>` (`mise tasks` lists them, grouped as `core:`, `quality:`, `docs:`, `ci:`, `linux:`, `vm:`, and `setup:`), or [activate mise](https://mise.jdx.dev/getting-started.html#activate-mise) in your shell so the tools are on `PATH` and your shell completes every task and its arguments.
@@ -111,7 +111,7 @@ Run the narrowest relevant check first, then widen:
 
 ```sh
 swift test --filter TesseraTerminalTests   # focused tests
-mise run quality:changed                        # strict checks on changed files only
+hk check                                   # the file-level steps on changed files only (hk check --staged: the staged ones)
 ```
 
 ### The quality gate
@@ -124,9 +124,11 @@ mise run core:test             # 2. the complete Swift test suite
 mise run quality:lint          # 3. strict format, lint, Markdown, spelling, wireframe, and architecture checks
 ```
 
-Steps 2 and 3 are bundled as `mise run ci:check` if you prefer one command. On macOS, also run `mise run docs:lint` when DocC or reference documentation changes (DocC validation is macOS-only). After editing Markdown, validate it with `npm run check:markup <path>`.
+Steps 2 and 3 are bundled as `mise run ci:check` if you prefer one command. On macOS, also run `mise run docs:lint` when a change touches `.docc` files, public API doc comments, or reference documentation (DocC validation is macOS-only): `quality:lint` skips the `docc` step, and CI's Documentation workflow runs it. After editing Markdown, validate it with `hk check <path>`.
 
-Only `mise run quality:format` (and `mise run quality:spelling-fix`) mutate files — review their diffs. Committing everything the formatter touches is fine, including formatter-only changes. Hooks run non-mutating checks only and never autoformat.
+The file-level checks are hk steps declared once in `hk.pkl`, each with the files it applies to: `swiftlint` and `swift-format` (Swift sources and tests of the package, the Examples package, and the DevTools package, and the manifests), `prettier` (YAML, JSON, and the few script and stylesheet files), `rumdl` (Markdown), `codespell` (every text file), and `docc` (DocC catalogs, macOS only, one `mise run docs:lint` for however many files changed). The pre-commit hook runs them on the staged files, `hk check` on the changed files, `hk check --staged` on the staged files, and `hk check --all` on every file; `mise run quality:lint` and CI run that last form, without the `docc` step, beside the repository-wide checks (wireframes, architecture, plans hub, release notes, vouch, TOML). `mise run setup:hooks` installs the hook so that it runs `mise x -- hk run pre-commit` in your checkout: the tools resolve from its trusted `mise.toml` whether or not mise is activated in the shell that commits. Where mise is not activated, run `mise exec -- hk check` for the same checks by hand.
+
+Only `mise run quality:format` (which runs `hk fix --all`, spelling corrections included) and `hk fix` mutate files — review their diffs. Committing everything the formatter touches is fine, including formatter-only changes. Hooks run non-mutating checks only and never autoformat.
 
 If a checkout or worktree behaves unexpectedly, run `mise run core:doctor` and see [Local development state](docs/guides/local-development-state.md), which explains which artifacts are per-checkout, machine-global, or VM-local.
 
@@ -153,7 +155,7 @@ Release-note labels are `breaking-change`, `enhancement`, `bug`, `documentation`
 
 The project's documents live in one [IWE](https://iwe.md) workspace, `docs/`, mapped by [`docs/index.md`](docs/index.md): the [spec](docs/spec.md) (one page per section), [plans](docs/plans.md), [research records](docs/research.md), [architecture decisions](docs/architecture.md), the [design catalog](docs/design.md), and [contributor guides](docs/guides.md). Each directory has a frontmatter schema in `docs/.iwe/schemas/`; `iwe schema validate` from `docs/` checks every page, and `iwe find --fuzzy <terms>` and `iwe retrieve -k <key>` search and read it. `docs/plans.md` is rendered from the plans' frontmatter by `scripts/plans.py` and the quality gate fails while it is stale, so edit a plan's `stage`, `order`, or `description` and re-run the script rather than the hub.
 
-DocC catalogs beside the sources (`Sources/*/*.docc`) stay the reference for the public API; `mise run docs:lint` validates them. Markdown prose is one paragraph per line (no hard wrapping) with relative `.md` links and no raw HTML, because `iwe normalize` rewrites pages into that shape; Swift code keeps the formatter's 90-column width. [rumdl](https://github.com/rvben/rumdl) lints every Markdown file (`.rumdl.toml`; `mise exec -- rumdl check <path>`, or `mise run quality:format` to apply its fixes) and no formatter rewraps prose. Prettier stays for YAML and JSON only, because nothing else in the repository formats those.
+DocC catalogs beside the sources (`Sources/*/*.docc`) stay the reference for the public API; `mise run docs:lint` validates them. Markdown prose is one paragraph per line (no hard wrapping) with relative `.md` links and no raw HTML, because `iwe normalize` rewrites pages into that shape; Swift code keeps the formatter's 90-column width. [rumdl](https://github.com/rvben/rumdl) lints every Markdown file (`.rumdl.toml`; `hk check <path>`, or `mise run quality:format` to apply its fixes) and no formatter rewraps prose. Prettier stays for YAML and JSON only, because nothing else in the repository formats those.
 
 ## Coding standards
 

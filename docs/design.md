@@ -299,10 +299,10 @@ This migration step is part of the component's implementation definition of done
 
 ```fish
 mise run quality:wireframes
-npm run check:markup
+hk check docs/design.md docs/design
 ```
 
-These repository-local commands run the pinned wireframe and Markdown-formatting gates; do not substitute globally installed `pnpx`, `prettier`, or markdownlint commands.
+These repository-local commands run the pinned wireframe check and the hk Markdown and spelling steps; do not substitute globally installed `pnpx`, `prettier`, or markdownlint commands.
 
 ## Component gallery
 

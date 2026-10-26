@@ -65,16 +65,16 @@ During implementation:
    swift build --package-path Examples --product HelloTessera
    ```
 
-2. Run changed-file lint while iterating:
+2. Run the file-level checks on changed files while iterating (`hk check --staged` for the staged ones; add `mise exec --` when mise is not activated):
 
    ```fish
-   mise run quality:changed
+   hk check
    ```
 
-3. Run Markdown lint for edited Markdown files:
+3. Run them on one edited file, for example a Markdown file:
 
    ```fish
-   mise exec -- rumdl check <path>
+   hk check <path>
    ```
 
 4. Run targeted DocC generation when public symbols or DocC pages change.
