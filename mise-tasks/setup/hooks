@@ -12,6 +12,10 @@ hk install
 # pre-commit checks. Where `git-ita-lift` is installed, it wraps that run: it lifts the
 # marks and restores them afterwards. Without it the hook is the same command bare.
 hook_mise_dir=$(dirname "$(command -v mise)")
-lift=$(command -v git-ita-lift || true)
-git config --local hook.hk-pre-commit.command 'test "${HK:-1}" = "0" || PATH="'"$hook_mise_dir"':$PATH" '"${lift:+$lift }"'mise x -- hk run pre-commit --from-hook'
+# Quoted in the command like the mise directory, so a path with a space stays one word.
+lift=
+if lift_path=$(command -v git-ita-lift); then
+  lift="\"$lift_path\" "
+fi
+git config --local hook.hk-pre-commit.command 'test "${HK:-1}" = "0" || PATH="'"$hook_mise_dir"':$PATH" '"$lift"'mise x -- hk run pre-commit --from-hook'
 echo "✅ hk hooks installed"

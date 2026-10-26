@@ -13,12 +13,14 @@ import "package://github.com/jdx/hk/releases/download/v2.8.0/hk@2.8.0#/Builtins.
 // subjects (the owner's global Git hook does the same, so a commit is checked twice and
 // refused once).
 
-// swift-format and SwiftLint cover what `.swiftlint.yml` includes: the package, its tests,
-// and the Examples package. spikes/, DevTools/, and Examples/Tests are outside both gates.
+// swift-format and SwiftLint cover what `.swiftlint.yml` includes: the package and its
+// tests, the Examples package and its tests, and both manifests. spikes/ stays out as
+// frozen evidence, and DevTools/ has no Swift gate.
 local swiftFiles = List(
     "Sources/**/*.swift",
     "Tests/**/*.swift",
     "Examples/Sources/**/*.swift",
+    "Examples/Tests/**/*.swift",
     "Package.swift",
     "Examples/Package.swift"
 )

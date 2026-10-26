@@ -129,6 +129,7 @@ included:
   - Tests
   - Package.swift
   - Examples/Sources
+  - Examples/Tests
   - Examples/Package.swift
 
 excluded:
