@@ -2,7 +2,7 @@
 
 ## 2026-10-25
 
-- Moved the file-level quality checks into hk steps ([plan](plans/hk-quality-steps.md), [architecture](architecture/developer-tooling.md#file-level-quality-checks)): `hk.pkl` declares `swiftlint`, `swift-format`, `prettier`, `rumdl`, `codespell`, and `docc` once, and the pre-commit hook (run in the checkout through `mise x -- hk run pre-commit`, so a commit from a shell without mise activated passes the same checks), `hk check` and `hk check --staged`, and `mise run quality:lint` (`hk check --all`, in CI too) run them from there. The changed-file task and runner, the staged-snapshot hook script, the markup wrappers, and the per-tool SwiftLint, swift-format, and spelling tasks are gone; `quality:format` is `hk fix --all`.
+- Moved the file-level quality checks into hk steps ([plan](plans/hk-quality-steps.md), [architecture](architecture/developer-tooling.md#file-level-quality-checks)): `hk.pkl` declares `swiftlint`, `swift-format`, `prettier`, `rumdl`, `codespell`, and `docc` once, and the pre-commit hook (run in the checkout through `mise x -- hk run pre-commit`, so a commit from a shell without mise activated passes the same checks), `hk check` and `hk check --staged`, and `mise run quality:lint` (`hk check --all` without the `docc` step, in CI too) run them from there. The changed-file task and runner, the staged-snapshot hook script, the markup wrappers, and the per-tool SwiftLint, swift-format, and spelling tasks are gone; `quality:format` is `hk fix --all`.
 
 ## 2026-10-23
 

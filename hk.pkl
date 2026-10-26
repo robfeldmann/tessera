@@ -6,11 +6,12 @@ import "package://github.com/jdx/hk/releases/download/v2.8.0/hk@2.8.0#/Builtins.
 // below, declared once with the files it applies to: the pre-commit hook runs the steps
 // on the staged files, `hk check` on the changed ones (`--staged` for the staged ones),
 // and `hk check --all` on every file, which is how `mise run quality:lint` and CI run
-// them. The hook runs in the checkout (`mise x -- hk run pre-commit`, set by
-// `setup:hooks`), so its tools resolve from the trusted `mise.toml` in any shell, and
-// never rewrites staged content; `hk fix` applies the fixes on demand. The commit-msg
-// hook validates Conventional Commit subjects (the owner's global Git hook does the same,
-// so a commit is checked twice and refused once).
+// them, less the docc step (the Documentation workflow builds DocC). The hook runs in the
+// checkout (`mise x -- hk run pre-commit`, set by `setup:hooks`), so its tools resolve
+// from the trusted `mise.toml` in any shell, and never rewrites staged content; `hk fix`
+// applies the fixes on demand. The commit-msg hook validates Conventional Commit
+// subjects (the owner's global Git hook does the same, so a commit is checked twice and
+// refused once).
 
 // swift-format and SwiftLint cover what `.swiftlint.yml` includes: the package, its tests,
 // and the Examples package. spikes/, DevTools/, and Examples/Tests are outside both gates.
