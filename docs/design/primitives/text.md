@@ -419,4 +419,4 @@ Each is deferred to the plan step that lands it:
 
 ## Inspiration
 
-The Text demo renders ordinary, wide, emoji, combining, half-width, and multiline Text fixtures at both viewports before it introduces focusable controls. Wrapped, budget-truncated, and mode-truncated fixtures join it when wrapping and truncation land with the styling slice (Slice 8 of [plan 036](../../plans/phase-4-view-layer-and-developer-tooling.md)); `Text` neither wraps nor truncates before then. Text has no demo-only behavior; the demo proves the public leaf through a real `ViewGraph` and `Frame`.
+The Text demo renders ordinary, wide, emoji, combining, half-width, and multiline Text fixtures at both viewports before it introduces focusable controls. Wrapped, budget-truncated, and mode-truncated fixtures join it when wrapping and truncation land with the styling slice (Slice 9 of [plan 036](../../plans/phase-4-view-layer-and-developer-tooling.md)); `Text` neither wraps nor truncates before then. Text has no demo-only behavior; the demo proves the public leaf through a real `ViewGraph` and `Frame`.
