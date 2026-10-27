@@ -138,6 +138,11 @@ public struct TerminalApplicationConfiguration: Equatable, Sendable {
   /// Whether capability detection runs before startup.
   public var capabilityDetection: CapabilityDetectionMode
   /// Maximum time to await each serialized active-probe round, one second by default.
+  ///
+  /// A round ends sooner, after one round trip, when the terminal answers the round's DA1
+  /// query. A terminal that answers nothing waits out the timeout twice at startup: once
+  /// for the private-mode round, whose timeout skips the Kitty rounds, and once for the
+  /// color round.
   public var activeProbeTimeout: Duration
 
   /// OSC 52 clipboard write policy.

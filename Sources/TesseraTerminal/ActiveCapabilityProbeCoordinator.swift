@@ -61,6 +61,11 @@ package actor ActiveCapabilityProbeCoordinator {
   private var inputIsClosed = false
   private var isClosed = false
   private var nextWaiterID: UInt64 = 0
+  /// DA1 queries written (or attempted) whose reply has not been observed. Every round
+  /// ends with one, the terminal answers them in order, and a round that timed out or a
+  /// generation or color re-run that was cancelled or failed leaves its own in flight, so
+  /// only the reply that brings this to zero can be the current round's sentinel.
+  private var pendingSentinels = 0
   private var round: Round = .none
   private let roundGate = ModeLifecycleTransitionGate()
   private var roundResponseObserved = false
@@ -69,8 +74,13 @@ package actor ActiveCapabilityProbeCoordinator {
 
   package init() {}
 
+  /// The mode requests followed by one DA1 sentinel, which a terminal answers after every
+  /// reply it will give. An empty request asks nothing, so it needs no sentinel.
   private static func privateModeRequestBytes(_ modes: [Int]) -> [UInt8] {
-    modes.flatMap { Array("\u{1B}[?\($0)$p".utf8) }
+    guard !modes.isEmpty else {
+      return []
+    }
+    return modes.flatMap { Array("\u{1B}[?\($0)$p".utf8) } + [0x1B, 0x5B, 0x63]
   }
 
   private static func kittyGraphicsProbeBytes(id: KittyImageID) -> [UInt8] {
@@ -101,13 +111,24 @@ package actor ActiveCapabilityProbeCoordinator {
   }
 
   package func observe(_ event: InputEvent) {
+    if case .primaryDeviceAttributes = event {
+      pendingSentinels = max(pendingSentinels - 1, 0)
+      guard pendingSentinels == 0 else {
+        // An earlier round's reply (a timed-out round's, or an abandoned attempt's): it
+        // precedes every reply to the current round.
+        return
+      }
+    }
+
     switch (round, event) {
     case (.privateModes(let expected), .privateModeStatus(let status))
     where expected.contains(status.mode):
       evidence.privateModes[status.mode] = status.state
-      if expected.allSatisfy({ evidence.privateModes[$0] != nil }) {
-        resolveRound()
-      }
+
+    case (.privateModes, .primaryDeviceAttributes):
+      // DA1 ends the round. A mode with no reply by now stays unknown: an unanswered
+      // DECRQM is not a conclusive "unsupported".
+      resolveRound()
 
     case (.kittyKeyboard, .kittyKeyboardEnhancementFlags):
       evidence.kittyKeyboard = .supported
@@ -187,22 +208,29 @@ package actor ActiveCapabilityProbeCoordinator {
     do {
       round = .privateModes(Set(privateModes))
       roundResolved = privateModes.isEmpty
-      try await emit(Self.privateModeRequestBytes(privateModes))
-      _ = await waitForRound(timeout: timeout, sleep: sleep)
+      try await emitCountingSentinel(
+        Self.privateModeRequestBytes(privateModes), emit: emit)
+      let modesRoundCompleted = await waitForRound(timeout: timeout, sleep: sleep)
 
-      try Task.checkCancellation()
-      round = .kittyKeyboard
-      roundResponseObserved = false
-      roundResolved = false
-      try await emit(Self.kittyKeyboardProbeBytes)
-      let keyboardRoundCompleted = await waitForRound(timeout: timeout, sleep: sleep)
+      // A DA1 round that timed out may still have its DA1 in flight, so later rounds
+      // retire: a late reply could otherwise satisfy their sentinel.
+      var keyboardRoundCompleted = false
+      if modesRoundCompleted {
+        try Task.checkCancellation()
+        round = .kittyKeyboard
+        roundResponseObserved = false
+        roundResolved = false
+        try await emitCountingSentinel(Self.kittyKeyboardProbeBytes, emit: emit)
+        keyboardRoundCompleted = await waitForRound(timeout: timeout, sleep: sleep)
+      }
 
       if keyboardRoundCompleted {
         round = .kittyGraphics(kittyImageID)
         roundResponseObserved = false
         try Task.checkCancellation()
         roundResolved = false
-        try await emit(Self.kittyGraphicsProbeBytes(id: kittyImageID))
+        try await emitCountingSentinel(
+          Self.kittyGraphicsProbeBytes(id: kittyImageID), emit: emit)
         _ = await waitForRound(timeout: timeout, sleep: sleep)
       }
 
@@ -223,7 +251,9 @@ package actor ActiveCapabilityProbeCoordinator {
       return evidence
     } catch {
       // Cancellation and emit failures mean the terminal was never fully asked, so a later
-      // reconcile retries from scratch. Timeouts do not reach here; they resolve permanently.
+      // reconcile retries from scratch, keeping `pendingSentinels` so the retry waits past
+      // the DA1 replies this attempt left in flight. Timeouts do not reach here; they
+      // resolve permanently.
       round = .none
       evidence = ActiveCapabilityProbeEvidence()
       generation = .idle
@@ -295,9 +325,23 @@ package actor ActiveCapabilityProbeCoordinator {
   ) async throws {
     round = .colors
     roundResolved = false
-    try await emit(Self.colorQueryBytes(scope: scope))
+    try await emitCountingSentinel(Self.colorQueryBytes(scope: scope), emit: emit)
     _ = await waitForRound(timeout: timeout, sleep: sleep)
     round = .none
+  }
+
+  /// Writes one round's request, counting its DA1 first, because a write that throws
+  /// part-way may still have sent it, and an uncounted DA1 would let its reply end a later
+  /// round early. The count never heals: a DA1 that is counted but never answered (dropped
+  /// buffered output, a reply the parser rejects, input lost across a suspend) leaves it
+  /// one too high for the session, so every later round ends by timeout, a generation
+  /// still to run caches Kitty keyboard and graphics as unknown, and each color re-run
+  /// waits out its timeout. An empty request asks nothing and sends no DA1.
+  private func emitCountingSentinel(_ bytes: [UInt8], emit: Emit) async throws {
+    if !bytes.isEmpty {
+      pendingSentinels += 1
+    }
+    try await emit(bytes)
   }
 
   private func waitForRound(

@@ -533,7 +533,7 @@ private actor ColorTerminalDevice {
     } else if bytes.starts(with: Array("\u{1B}[?2004$p".utf8)) {
       let modes = [2_004, 1_004, 1_002, 1_003, 1_006, 2_026]
       inputContinuation.yield(
-        Array(modes.map { "\u{1B}[?\($0);1$y" }.joined().utf8)
+        Array(modes.map { "\u{1B}[?\($0);1$y" }.joined().utf8) + da1
       )
     } else if bytes == Array("\u{1B}[?u\u{1B}[c".utf8) {
       inputContinuation.yield(da1)

@@ -1293,7 +1293,6 @@ func `active app terminal probes without enabling Kitty keyboard`() async throws
       enterAltScreen
       flush: enableColorSchemeNotifications(true)
       flush: privateModeStatusProbes
-      flush: kittyKeyboardProbe
       flush: colorRoundProbe
       flush: enableBracketedPaste(true)
       flush: enableFocusTracking(true)
@@ -2951,12 +2950,12 @@ func `injected probe sleep stands in for the probe timeout`() async throws {
     probeSleep: recordingSleep
   ) { _ in }
 
-  // The open device answers nothing, so the private-mode round, the keyboard round, and the
-  // color round each wait on the timeout; an unanswered keyboard round skips the graphics
-  // round, but the color round still runs. A closed device would end every round at once,
+  // The open device answers nothing, so the private-mode round and the color round each
+  // wait on the timeout; an unanswered private-mode round skips the keyboard and graphics
+  // rounds, but the color round still runs. A closed device would end every round at once,
   // without reading the sleep.
   let durations = await sleeps.durations
-  expectNoDifference(durations, [.seconds(3_600), .seconds(3_600), .seconds(3_600)])
+  expectNoDifference(durations, [.seconds(3_600), .seconds(3_600)])
   await device.closeInput()
 }
 
@@ -3200,9 +3199,10 @@ private let kittyGraphicsTransmitBytes =
 private let kittyGraphicsQueryProbeBytes =
   Array("\u{1B}_Gi=17,s=1,v=1,a=q,t=d,f=24;AAAA\u{1B}\\\u{1B}[c".utf8)
 private let privateModeProbeModes = [2_004, 1_004, 1_002, 1_003, 1_006, 2_026]
-private let privateModeStatusProbeBytes = privateModeProbeModes.flatMap { mode in
-  Array("\u{1B}[?\(mode)$p".utf8)
-}
+private let privateModeStatusProbeBytes =
+  privateModeProbeModes.flatMap { mode in
+    Array("\u{1B}[?\(mode)$p".utf8)
+  } + Array("\u{1B}[c".utf8)
 private let colorSchemeNotificationsEnableBytes = Array("\u{1B}[?2031h".utf8)
 private let colorSchemeNotificationsDisableBytes = Array("\u{1B}[?2031l".utf8)
 private let colorRoundProbeBytes = Array(
@@ -3289,6 +3289,7 @@ private actor KeyboardProbeResponseTerminalDevice {
       for mode in privateModeProbeModes {
         response.append(contentsOf: "\u{1B}[?\(mode);0$y".utf8)
       }
+      response.append(contentsOf: "\u{1B}[?1;2c".utf8)
       inputContinuation.yield(response)
     } else if bytes == kittyKeyboardProbeBytes {
       let response =
