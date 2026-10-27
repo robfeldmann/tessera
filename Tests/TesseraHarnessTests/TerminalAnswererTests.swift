@@ -14,20 +14,6 @@ private func text(_ bytes: [UInt8]) -> String {
   String(validating: bytes, as: UTF8.self) ?? ""
 }
 
-/// The device a headless run is built over: open, and answering from `theme`.
-private func headlessDevice(
-  size: TerminalSize,
-  theme: TerminalTheme? = nil
-) -> InMemoryTerminalDevice {
-  let answerer = TerminalAnswerer(theme: theme)
-  return InMemoryTerminalDevice(
-    size: size,
-    cellPixelSize: nil,
-    inputBytes: [],
-    keepsInputOpen: true
-  ) { answerer.replies(to: $0) }
-}
-
 /// The bytes a session writes for one colour round: OSC 10, OSC 11, OSC 4 for slots 0
 /// through 15, then the round's single DA1.
 private let colourRound: String =
@@ -159,23 +145,27 @@ struct TerminalProfileTests {
 struct HeadlessDeviceTests {
   @Test
   func `the device answers a colour round written through its seam`() async throws {
-    let device = headlessDevice(size: TerminalSize(columns: 20, rows: 4), theme: .dark)
+    let device = InMemoryTerminalDevice.headless(
+      size: TerminalSize(columns: 20, rows: 4), theme: .dark)
     let seam = await device.terminalDevice
-    var replies = seam.bytes().makeAsyncIterator()
-
     let written = try await seam.write(bytes(colourRound))
-    let reply = await replies.next()
+    await device.closeInput()
+    var reply: [UInt8] = []
+    for await chunk in seam.bytes() {
+      reply += chunk
+    }
 
     #expect(written == colourRound.utf8.count)
-    #expect(reply.map(text)?.hasPrefix("\u{1B}]10;rgb:d4d4/d4d4/d4d4\u{1B}\\") == true)
-    #expect(reply.map(text)?.hasSuffix("\u{1B}[?62;22c") == true)
+    #expect(text(reply).hasPrefix("\u{1B}]10;rgb:d4d4/d4d4/d4d4\u{1B}\\"))
+    #expect(text(reply).hasSuffix("\u{1B}[?62;22c"))
   }
 
   @Test
   func `a frame written through the seam draws no reply, and finishing ends the input`()
     async throws
   {
-    let device = headlessDevice(size: TerminalSize(columns: 20, rows: 4), theme: .light)
+    let device = InMemoryTerminalDevice.headless(
+      size: TerminalSize(columns: 20, rows: 4), theme: .light)
     let seam = await device.terminalDevice
     var replies = seam.bytes().makeAsyncIterator()
 
@@ -187,7 +177,8 @@ struct HeadlessDeviceTests {
 
   @Test
   func `the device reports its size and a resize changes it`() async throws {
-    let device = headlessDevice(size: TerminalSize(columns: 20, rows: 4))
+    let device = InMemoryTerminalDevice.headless(
+      size: TerminalSize(columns: 20, rows: 4), theme: nil)
 
     #expect(try await device.terminalDevice.size() == TerminalSize(columns: 20, rows: 4))
     await device.resize(to: TerminalSize(columns: 30, rows: 5))

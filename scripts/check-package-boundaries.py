@@ -37,6 +37,9 @@ ALLOWED_DIRECT_DEPENDENCIES: dict[str, frozenset[str]] = {
         }
     ),
 }
+ALLOWED_DIRECT_DEPENDENCIES["TesseraTerminalInMemory"] = frozenset(
+    {"TesseraTerminal", "TesseraTerminalCore", "TesseraTerminalIO"}
+)
 ALLOWED_DIRECT_DEPENDENCIES["TesseraTestSupport"] = frozenset(
     {"TesseraCore", "TesseraTerminalTestSupport"}
 )

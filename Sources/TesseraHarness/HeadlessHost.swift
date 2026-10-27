@@ -6,6 +6,25 @@ import TesseraTerminalInMemory
 import TesseraTerminalInput
 import TesseraTerminalSnapshotSupport
 
+extension InMemoryTerminalDevice {
+  /// The device a headless run is built over.
+  ///
+  /// It never finishes its input until the run closes it, and it answers a session's colour
+  /// queries from `theme`, so the colours a session learns come from the scenario and never
+  /// from the virtual terminal's own defaults.
+  static func headless(size: TerminalSize, theme: TerminalTheme?)
+    -> InMemoryTerminalDevice
+  {
+    let answerer = TerminalAnswerer(theme: theme)
+    return InMemoryTerminalDevice(
+      size: size,
+      cellPixelSize: nil,
+      inputBytes: [],
+      keepsInputOpen: true
+    ) { answerer.replies(to: $0) }
+  }
+}
+
 /// What a scenario runner or a snapshot test needs from a running application, without its
 /// type.
 @MainActor
@@ -126,16 +145,7 @@ final class HeadlessHost<App: Application>: ScenarioHost {
   ) async throws {
     let app = make()
     let size = try viewport.size(for: app, named: name)
-    // The device never finishes its input until the run ends, and answers a session's colour
-    // queries from the profile's theme, so the colours a session learns come from the
-    // scenario and never from the virtual terminal's own defaults.
-    let answerer = TerminalAnswerer(theme: profile.theme)
-    let device = InMemoryTerminalDevice(
-      size: size,
-      cellPixelSize: nil,
-      inputBytes: [],
-      keepsInputOpen: true
-    ) { answerer.replies(to: $0) }
+    let device = InMemoryTerminalDevice.headless(size: size, theme: profile.theme)
     let terminal = VirtualTerminal.ghosttyOrUnavailable(
       cols: size.columns, rows: size.rows)
     // No terminal modes and no synchronized output: a headless frame is plain cells.

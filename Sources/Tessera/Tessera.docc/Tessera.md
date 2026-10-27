@@ -28,5 +28,6 @@ Import `Tessera` to explore the shared foundation. Its application-programming s
 ### Test support
 
 - ``/TesseraTestSupport``
+- ``/TesseraTerminalInMemory``
 - ``/TesseraTerminalSnapshotSupport``
 - ``/TesseraTerminalTestSupport``
