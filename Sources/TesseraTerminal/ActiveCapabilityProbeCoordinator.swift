@@ -330,10 +330,13 @@ package actor ActiveCapabilityProbeCoordinator {
     round = .none
   }
 
-  /// Writes one round's request, counting its DA1 first. Counting before the write matters:
-  /// a write that throws part-way may still have sent its DA1, and a miscount that expects
-  /// a DA1 that never comes only costs a timeout, not a wrong answer. An empty request asks
-  /// nothing and sends no DA1.
+  /// Writes one round's request, counting its DA1 first, because a write that throws
+  /// part-way may still have sent it, and an uncounted DA1 would let its reply end a later
+  /// round early. The count never heals: a DA1 that is counted but never answered (dropped
+  /// buffered output, a reply the parser rejects, input lost across a suspend) leaves it
+  /// one too high for the session, so every later round ends by timeout, a generation
+  /// still to run caches Kitty keyboard and graphics as unknown, and each color re-run
+  /// waits out its timeout. An empty request asks nothing and sends no DA1.
   private func emitCountingSentinel(_ bytes: [UInt8], emit: Emit) async throws {
     if !bytes.isEmpty {
       pendingSentinels += 1
