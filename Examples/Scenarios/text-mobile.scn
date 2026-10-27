@@ -1,0 +1,15 @@
+# At 40 columns every row of the sheet fits, wide and emoji rows included, and the ruler
+# counts exactly the viewport's width.
+app text
+size mobile
+
+expect node text="東京 中文 한글" frame 9,3,14x1
+expect text 10 "Ari 👩🏽‍💻: I’m building a diff tool"
+expect text 18 "0123456789012345678901234567890123456789"
+check
+shot mobile
+
+key p
+expect node layout=_FrameLayout nth=6 frame 0,15,7x2
+expect text 17 "lines: measures 7x2"
+shot probe-lines

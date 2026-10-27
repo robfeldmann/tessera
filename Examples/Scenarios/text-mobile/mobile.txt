@@ -1,0 +1,20 @@
+Text
+────────────────────────────────────────
+ascii    Hello, Tessera
+wide     東京 中文 한글
+emoji    👩🏽‍💻 🧑🏿‍🚀 🇯🇵
+marks    Tiếng Việt
+lines    first source line
+         second source line
+empty
+────────────────────────────────────────
+Ari 👩🏽‍💻: I’m building a diff tool
+Chen 陈: 我在做终端布局探针
+Minh: Tiếng Việt — cảm ơn!
+Bo 🧑🏿‍🚀: https://tessera.dev/labs
+────────────────────────────────────────
+Hello
+
+ascii: measures 5x1
+0123456789012345678901234567890123456789
+n next   p previous   q quit

@@ -340,12 +340,22 @@ p  fg=contrast bg=focus bold
 - `one by one box paints only the corner and drops the title` (anatomy: declared minimum; sizing: 1x1)
 - `zero area box paints nothing` (anatomy: declared minimum)
 - `ascii degradation renders the ascii ring and truncation mark` (degradation: ASCII-only)
+
+### Focus
+
 - `self focus paints the heavy set in the focus role without moving the ring` (focus: self focus; focus border: rule 1)
 - `focus within tints the nearest bordered ring at normal weight` (focus: focus within; focus border: rule 2)
 - `focus within title takes the bold focus role` (focus: focus within)
 - `nested focus tints only the nearest bordered ancestor` (focus: nested)
 - `box with nothing focusable inside never changes` (focus: focus within)
 - `focus within is off under focusSection or focusWithinBorder(false)` (state model: tint switch)
+- `box joins focus only through an explicit focusable id` (focus: self focus; state model)
+- `focus paints only the foreground of the ring and title and leaves backgrounds and title position unchanged` (focus: self focus; Decisions)
+- `focusable box owns no key routing and gains no press behaviour` (State model; Decisions)
+
+### Pointer
+
+- `box names no hit region` (Decisions: hit testing deferred to Slice 5)
 
 ## Degradation
 

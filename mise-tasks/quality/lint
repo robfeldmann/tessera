@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-#MISE description="Strict portable quality gate: formatting, SwiftLint, Markdown, spelling, wireframes, architecture, plans hub, release notes, vouch"
-#MISE depends=["quality:swift-format", "quality:swiftlint", "quality:markdown", "quality:spelling", "quality:wireframes", "quality:architecture", "quality:plans", "quality:release-notes", "quality:vouch"]
+#MISE description="Strict portable quality gate: the hk file-level steps on every file (DocC aside), plus TOML, wireframes, architecture, plans hub, release notes, vouch"
+#MISE depends=["quality:markdown", "quality:wireframes", "quality:architecture", "quality:plans", "quality:release-notes", "quality:vouch"]
 set -euo pipefail
 cd "$MISE_PROJECT_ROOT"
+# Report every failing step in one run, not only the first. The docc step builds every
+# DocC archive; the Documentation workflow and `mise run docs:lint` cover it.
+hk check --all --no-fail-fast --skip-step docc
 echo "✅ Portable lint checks passed"

@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+#MISE description="Check one app against the invariant rules (tessera check NAME [SIZE])"
+#USAGE arg "[name]" help="App name, as listed by `mise run dev:apps`; without one, shows the help and the apps"
+#USAGE arg "[size]" help="desktop, mobile, mobileScreen, or WxH; desktop when omitted"
+#USAGE complete "name" run=#""$(git rev-parse --show-toplevel)/scripts/dev-app-names.sh""#
+#USAGE complete "size" run=#"printf '%s\n' desktop mobile mobileScreen"#
+#USAGE flag "--json" help="Print one JSON object even on a terminal"
+#USAGE flag "--pretty" help="Print the text form even when output is not a terminal"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+source scripts/dev-tessera.sh
+if [[ -z "${usage_name:-}" ]]; then
+  tessera_exit_with_help_and_apps check
+fi
+tessera check "$@"

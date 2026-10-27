@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Strict swift-format gate; every formatter finding fails"
-set -euo pipefail
-cd "$MISE_PROJECT_ROOT"
-scripts/swift-format.sh lint --strict --configuration .swift-format -r Sources Tests Package.swift Examples/Sources Examples/Package.swift

@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+#MISE description="Run scenario files or directories of them (tessera run PATH...)"
+#USAGE arg "[path]" help="A .scn file or a directory of them, such as Examples/Scenarios; without one, shows the help" var=#true
+#USAGE complete "path" type="path:scn"
+#USAGE flag "--record" help="Write the goldens that shot statements compare against, and list what changed"
+#USAGE flag "--repeat <n>" help="Run each scenario N times and fail a run that differs from the first"
+#USAGE flag "--timing" help="Add the wall-clock seconds of each run to the report"
+#USAGE flag "--trace <dir>" help="Write each scenario's trace, one JSON line per step, under this directory"
+#USAGE flag "--json" help="Print one JSON object even on a terminal"
+#USAGE flag "--pretty" help="Print the text form even when output is not a terminal"
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+source scripts/dev-tessera.sh
+if [[ -z "${usage_path:-}" ]]; then
+  tessera_exit_with_help run
+fi
+# The words go to tessera as typed: it owns the flags, and the lines above document them.
+tessera run "$@"

@@ -44,6 +44,32 @@ Tokens consumed, each defined in [tokens.md](../tokens.md).
 
 Backticked sentence-style test names, each traced. Schema: [README](../../design.md#requirements-list).
 
+The plain list holds the requirements no capability owns: layout, sizing, anatomy, and degradation. Capability requirements go under the `Focus`, `Pointer`, `Scroll`, and `Clock` subsections below, in that order. Keep a subsection only if the primitive needs that capability, and delete the others; a primitive with no input and no motion keeps none. A requirement that needs several capabilities goes under the one that lands last.
+
+- `TODO` (trace)
+
+### Focus
+
+Keyboard handling and focused appearance.
+
+- `TODO` (trace)
+
+### Pointer
+
+Clicks, drags, hover, hit testing, and wheel that does not scroll.
+
+- `TODO` (trace)
+
+### Scroll
+
+Interactive scrolling: offset, reveal, paging, and wheel scrolling.
+
+- `TODO` (trace)
+
+### Clock
+
+Time and animation.
+
 - `TODO` (trace)
 
 ## Degradation

@@ -1,0 +1,13 @@
+Frame and padding
+────────────────────────────────────────
+fixed 8x3  min 6   max 4
+········   Go····  ────
+···Go···
+········
+pad 1  insets  pad+frame  frame+pad
+····   ···Go   ········   ··········
+·Go·   ·····   ·Go·····   ·Go·······
+····           ········   ··········
+────────────────────────────────────────
+alignment center
+a alignment   + - padding   q quit

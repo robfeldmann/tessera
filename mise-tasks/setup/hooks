@@ -1,6 +1,21 @@
 #!/usr/bin/env bash
-#MISE description="Install the hk Git hooks (pre-commit quality gate, commit-msg Conventional Commits)"
+#MISE description="Install the hk Git hooks (pre-commit quality steps, commit-msg Conventional Commits)"
 set -euo pipefail
 cd "$MISE_PROJECT_ROOT"
 hk install
+# hk writes a bare `hk` into the pre-commit hook, found through mise's shims. Run it
+# through `mise x --` instead: the steps then execute in this checkout against its
+# trusted mise.toml, so every tool resolves the same way in any shell (an agent harness
+# or a GUI Git client does not activate mise). The hook puts mise's own directory first
+# on PATH because those clients start hooks with a PATH that lacks it. Git cannot stash
+# while a file is intent-to-add (`git add -N`), and hk stashes unstaged work before its
+# pre-commit checks. Where `git-ita-lift` is installed, it wraps that run: it lifts the
+# marks and restores them afterwards. Without it the hook is the same command bare.
+hook_mise_dir=$(dirname "$(command -v mise)")
+# Quoted in the command like the mise directory, so a path with a space stays one word.
+lift=
+if lift_path=$(command -v git-ita-lift); then
+  lift="\"$lift_path\" "
+fi
+git config --local hook.hk-pre-commit.command 'test "${HK:-1}" = "0" || PATH="'"$hook_mise_dir"':$PATH" '"$lift"'mise x -- hk run pre-commit --from-hook'
 echo "✅ hk hooks installed"

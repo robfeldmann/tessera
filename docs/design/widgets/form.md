@@ -1113,8 +1113,8 @@ Schema: [README](../../design.md#state-model-table).
 | State | Owner | Type | Reset or clamp rule |
 | --- | --- | --- | --- |
 | field values | Binding | `Binding` per field, typed per kind | App-owned: each row's control takes its own binding (key D1). Written only through the binding. The Form keeps no copy and harvests no values (key A10), so discarding its NodeState loses no data. |
-| cursor | NodeState | field index, `Int` | Starts on the first row when the Form node is created and keeps its row across focus changes; direction-aware entry is rejected (key D9). Clamped to the field count on every key. Chase keeps the cursor row visible. |
-| scroll offset | NodeState | rows above the viewport, `Int` | Clamped to content rows minus window rows on every render. Field heights vary: a stacked field is two or more rows, a wrapped value or validation message adds rows, an open dropdown adds its rows. A field partly in view draws its visible rows at the edge, with no mark. Chase changes the offset by the fewest rows that show the whole field; a field taller than the window top-aligns. One owner: the Form's NodeState (key D4). |
+| cursor | NodeState | field index, `Int` | Starts on the first row when the Form node is created and keeps its row across focus changes; direction-aware entry is rejected (key D9). Clamped to the field count on every key. Chase keeps the cursor row visible after ↑ and ↓; PgUp and PgDn move the cursor and the scroll offset together by one window of rows. |
+| scroll offset | NodeState | rows above the viewport, `Int` | Clamped to content rows minus window rows on every render. Field heights vary: a stacked field is two or more rows, a wrapped value or validation message adds rows, an open dropdown adds its rows. A field partly in view draws its visible rows at the edge, with no mark. Chase changes the offset by the fewest rows that show the whole field; a field taller than the window top-aligns. PgUp and PgDn move it by one window of rows and the cursor by the same rows, so the cursor keeps its screen row (owner decision, 2026-10-23). One owner: the Form's NodeState (key D4). |
 | open dropdown | NodeState | field index, `Int?` | Set when Picker's menu opens in a select or multi row (Enter, Space, or a click on the closed row). Cleared when it closes: Esc, Enter, a click outside, or focus loss. Focus loss closes without committing, as Esc does. The Form stores only the host row; Picker holds the list cursor and selection. (key D7) |
 | editing | NodeState | `Bool` | Set by Enter, Space, or a click on a text row. Cleared by Enter or Esc, and by focus loss (key D7). |
 | hovered row | derived | row index, `Int?` | Derived at render from the graph-owned hover point (key F4); never stored in NodeState or a binding. The graph clears it on focus loss and when motion tracking stops ([Slice 5](../../spec/phase-4/slice-05-mouse-and-hit-testing.md)). The row paints the `hover` role and no value changes. The Form requests move input for this hover (owner decision, 2026-10-10). |
@@ -1132,8 +1132,8 @@ Schema: [README](../../design.md#key-table). While a dropdown is open, its keys 
 | ↑ | focused, no dropdown open, cursor on the first row | No effect. | no |
 | ↓ | focused, no dropdown open, cursor above the last row | Mutates cursor: moves down one row; chase keeps it visible. | yes |
 | ↓ | focused, no dropdown open, cursor on the last row | No effect. | no |
-| PgUp | focused, no dropdown open | Mutates cursor: moves up one window, clamped to the first row. | yes |
-| PgDn | focused, no dropdown open | Mutates cursor: moves down one window, clamped to the last row. | yes |
+| PgUp | focused, no dropdown open | Mutates scroll offset and cursor: moves the offset up one window, clamped to 0, and the cursor up the same rows, to the field containing that row, clamped to the first row (the rest of the way when the offset stops at 0); the cursor keeps its screen row. | yes |
+| PgDn | focused, no dropdown open | Mutates scroll offset and cursor: moves the offset down one window, clamped to its maximum, and the cursor down the same rows, to the field containing that row, clamped to the last row (the rest of the way when the offset stops at its maximum); the cursor keeps its screen row. | yes |
 | ← | focused, no dropdown open, enum row | Mutates the enum value: cycles to the previous choice. | yes |
 | → | focused, no dropdown open, enum row | Mutates the enum value: cycles to the next choice. | yes |
 | ← | focused, no dropdown open, number row | Mutates the number value: steps down by the field's step, clamped to its minimum. | yes |
@@ -1232,30 +1232,15 @@ Tokens consumed: [roles](../tokens.md#roles); focus, fill and hue rules are in [
 Backticked sentence-style test names, each traced to a table row or wireframe state. Schema: [README](../../design.md#requirements-list).
 
 - `form paints each label in a column sized to the widest label plus two cells` (anatomy callout 3)
-- `form paints the cursor glyph and the bold focus label on the focused row only` (anatomy callouts 1-2; focus border rule 3)
-- `form draws the cursor only while focused` (anatomy callout 1)
-- `form draws no cursor and no bold label while unfocused` (Unfocused)
-- `form writes a field value only through its binding` (state model: field values)
-- `form derives its hovered row from graph-owned hover, requests move input for it, and changes no value on move` (state model: hovered row; mouse table: move)
 - `bool row paints success when true and secondary when false as text` (anatomy callout 4)
 - `enum, select, and multi values paint info; select and multi show a secondary dropdown glyph` (anatomy callouts 5, 7, 8)
 - `select and multi values wrap under the value column with the dropdown glyph after the last word` (anatomy callouts 7-8; Narrow: long values wrap, callouts 6-8)
-- `focused enum row paints its value between secondary arrows, as the number row does` (Focused: the enum field)
 - `empty multi value paints none in info` (anatomy callout 8; MultiPicker summary)
 - `multi value joins the first two checked labels with a comma and adds +N for the rest` (anatomy callout 8; MultiPicker summary)
 - `multi summary wraps its names rather than truncating and keeps the +N count` (Narrow: long values wrap; Sizing: 18 x nil, long value)
 - `absent select value paints an em dash in info` (Picker summary)
-- `number value paints primary and shows its arrows on every number row, focused or not` (anatomy callout 9)
-- `number arrows paint secondary and stay in place around the value` (Focused: the number field)
-- `select row opens Picker's menu below its row, with the cursor on the chosen option` (Select dropdown open; Picker closed keys)
-- `multi row opens MultiPicker's menu below its row, with a checkbox per choice` (Multi dropdown open; Picker closed keys)
-- `picked radio and checked box paint accent; unpicked radio paints secondary` (Select dropdown open, callouts 5-6; Multi dropdown open, callout 4)
-- `dropdown choices indent four cells under their field` (Select dropdown open; Picker menu collapsed in a host row)
-- `ASCII cursor is > and number arrows are < and >` (Focused, ASCII)
-- `ASCII checkbox and radio marks are [x] [ ] and (*) ( )` (Select dropdown open, ASCII; Multi dropdown open, ASCII)
 - `ASCII error icon is ! and a space inside the two-cell gutter` (Validation: inline message, ASCII)
 - `failing field paints its label in error with the error icon in the gutter` (Validation: inline message, callouts 4-5)
-- `focused failing field keeps the cursor and paints its label bold error` (Validation: inline message, callouts 1-2)
 - `validation message paints after the value with a two-cell gap` (Validation: inline message, callout 7)
 - `required message paints at the value column when the value is blank` (Validation: inline message, callout 3)
 - `validation message uses the app's wording and builds one from the label when omitted` (Validation: inline message, default wording in its prose)
@@ -1276,21 +1261,64 @@ Backticked sentence-style test names, each traced to a table row or wireframe st
 - `form floor is the cursor gutter plus the widest label, and one more for the scrollbar column when it overflows` (Minimum, overflowing; Sizing: 8x6)
 - `form reports every row for a nil height proposal, with no ideal-height cap` (Sizing: nil x nil; 17 x nil)
 - `form ideal width is its widest side-by-side row, plus the scrollbar column only when the rows overflow` (Sizing: nil x nil; nil x 4)
-- `form draws the visible rows of a partly visible field at the viewport edge, with no mark` (Overflow, stacked)
-- `form chase changes the offset by the fewest rows that show the whole field` (state model: scroll offset)
 - `form reserves its scrollbar column only when its rows overflow its height` (anatomy callout 10; Overflow: 40x4; Overflow, stacked; Sizing: 18x6, 17x6)
-- `form scrolls content taller than its proposed height inside the window` (Overflow: 40x4)
+
+### Focus
+
+- `form paints the cursor glyph and the bold focus label on the focused row only` (anatomy callouts 1-2; focus border rule 3)
+- `form draws the cursor only while focused` (anatomy callout 1)
+- `form draws no cursor and no bold label while unfocused` (Unfocused)
+- `form writes a field value only through its binding` (state model: field values)
+- `focused enum row paints its value between secondary arrows, as the number row does` (Focused: the enum field)
+- `number value paints primary and shows its arrows on every number row, focused or not` (anatomy callout 9)
+- `number arrows paint secondary and stay in place around the value` (Focused: the number field)
+- `select row opens Picker's menu below its row, with the cursor on the chosen option` (Select dropdown open; Picker closed keys)
+- `multi row opens MultiPicker's menu below its row, with a checkbox per choice` (Multi dropdown open; Picker closed keys)
+- `picked radio and checked box paint accent; unpicked radio paints secondary` (Select dropdown open, callouts 5-6; Multi dropdown open, callout 4)
+- `dropdown choices indent four cells under their field` (Select dropdown open; Picker menu collapsed in a host row)
+- `ASCII cursor is > and number arrows are < and >` (Focused, ASCII)
+- `ASCII checkbox and radio marks are [x] [ ] and (*) ( )` (Select dropdown open, ASCII; Multi dropdown open, ASCII)
+- `focused failing field keeps the cursor and paints its label bold error` (Validation: inline message, callouts 1-2)
 - `up on the first row and down on the last row are not consumed` (key table)
 - `enter or space on a select or multi row opens Picker's menu` (key table)
 - `keys while a dropdown is open are handled by Picker's menu` (key table)
 - `focus loss closes an open dropdown without committing` (key table; state model: open dropdown)
-- `clicking a row sets the cursor and closes a dropdown open on another row` (mouse table: row)
-- `clicks in an open dropdown are handled by Picker's menu` (mouse table)
 - `form height is the content rows plus the rows of an open dropdown` (Sizing: 40x6, 40x9)
-- `wheel scrolls the viewport without moving the cursor` (mouse table: wheel-up, wheel-down)
-- `form leaves clicks and drags on its scrollbar unconsumed` (mouse table: scrollbar)
 - `form cursor starts on the first row and keeps its row across focus changes` (state model: cursor)
 - `form ends text editing on focus loss` (state model: editing)
+- `form is one focus stop and tab moves past it` (State model; Key table; Overview)
+- `form cursor clamps to the field count when fields disappear` (state model: cursor)
+- `left and right cycle an enum row and step a number row clamped to its range` (key table: Left, Right)
+- `left and right on other row kinds are not consumed` (key table: Left, Right)
+- `enter or space toggles a bool row and cycles an enum row forward` (key table: Enter, Space)
+- `enter or space starts editing on a text row and does nothing on a number row` (key table: Enter, Space)
+- `editing keys insert, delete and clear text on a text row and all other keys do nothing` (key table: editing text)
+- `enter or escape stops editing a text row` (key table: editing text)
+- `paste appends to a text row being edited with line breaks and tabs as spaces and is ignored otherwise` (key table: paste)
+
+### Pointer
+
+- `form derives its hovered row from graph-owned hover, requests move input for it, and changes no value on move` (state model: hovered row; mouse table: move)
+- `clicking a row sets the cursor and closes a dropdown open on another row` (mouse table: row)
+- `clicks in an open dropdown are handled by Picker's menu` (mouse table)
+- `form leaves clicks and drags on its scrollbar unconsumed` (mouse table: scrollbar)
+- `clicking a form row focuses the form first and activates the row as enter does` (mouse table: row)
+- `a click outside the open row clears the editing and open flags` (state model: editing and open flags)
+- `form hovered row clears on focus loss and when motion tracking stops` (state model: hovered row; mouse table: move)
+
+### Scroll
+
+- `form draws the visible rows of a partly visible field at the viewport edge, with no mark` (Overflow, stacked)
+- `form chase changes the offset by the fewest rows that show the whole field` (state model: scroll offset)
+- `form scrolls content taller than its proposed height inside the window` (Overflow: 40x4)
+- `wheel scrolls the viewport without moving the cursor` (mouse table: wheel-up, wheel-down)
+- `page down moves the offset one window and the form cursor the same rows so the cursor keeps its screen row` (key table: PgDn; state model: scroll offset)
+- `page up moves the offset one window up and the form cursor the same rows so the cursor keeps its screen row` (key table: PgUp; state model: scroll offset)
+- `page down near the end stops the offset at its maximum and moves the form cursor the rest of the way to the last row` (key table: PgDn; state model: scroll offset)
+- `page up near the top stops the offset at 0 and moves the form cursor the rest of the way to the first row` (key table: PgUp; state model: scroll offset)
+- `form scroll offset clamps to the content rows minus the window rows on every render` (state model: scroll offset)
+- `form field taller than the window top-aligns when chased` (state model: scroll offset)
+- `wheel at a form boundary is not consumed` (mouse table: wheel-up, wheel-down)
 
 ## Degradation
 

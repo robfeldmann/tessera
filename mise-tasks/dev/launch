@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+#MISE description="Run one registered app in this terminal (tessera launch NAME)"
+#USAGE arg "[name]" help="App name, as listed by `mise run dev:apps`; without one, shows the help and the apps"
+#USAGE complete "name" run=#""$(git rev-parse --show-toplevel)/scripts/dev-app-names.sh""#
+set -euo pipefail
+cd "$MISE_PROJECT_ROOT"
+source scripts/dev-tessera.sh
+if [[ -z "${usage_name:-}" ]]; then
+  tessera_exit_with_help_and_apps launch
+fi
+tessera launch "$usage_name"

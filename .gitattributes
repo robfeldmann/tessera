@@ -1,0 +1,7 @@
+# Scenario files are parsed on "\n" and compared byte for byte, so every platform checks them
+# out with LF, whatever core.autocrlf says (a Windows checkout would otherwise read "\r\n").
+*.scn text eol=lf
+
+# Goldens are text files that a run compares with the screen byte for byte, and the runner
+# writes them with LF, so a CRLF checkout would drift every one of them.
+Examples/Scenarios/**/*.txt text eol=lf

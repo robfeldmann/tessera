@@ -1,0 +1,26 @@
+# The counter steps on `+` and `-`, resets on `0`, and ignores everything else.
+# `bytes` feeds raw terminal input through the input parser, as a terminal would send it;
+# `paste` is one paste event, which the counter does not treat as typing.
+app counter
+size mobile
+term colors=256 theme=dark
+
+expect screen <<EOF
+Counter
+────────────────────────────────────────
+Count                                  0
+────────────────────────────────────────
++ up   - down   0 reset   q quit
+EOF
+
+type "++"
+bytes "+\x1b[A"
+paste "+++"
+expect text 2 "Count                                  3"
+
+type "-"
+expect text 2 "Count                                  2"
+
+type "0"
+expect text 2 "Count                                  0"
+shot reset

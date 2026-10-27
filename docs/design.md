@@ -81,7 +81,7 @@ Every wireframe is a fenced block tagged with its exact size and, optionally, a 
 ```
 ````
 
-`NAME` in `id=NAME` is lowercase words joined by hyphens (`[a-z0-9]+(-[a-z0-9]+)*`) and unique within its doc. A wireframe's identity is its doc's file name plus its `id`, or, when it has none, its 0-based position among the doc's `wireframe` fences. Tests and gallery renders (`.build/tessera-dev/<slug>/<id-or-index>-current.svg`) are keyed by that identity: give an `id` to any wireframe a test pins, because inserting a wireframe shifts every later position.
+`NAME` in `id=NAME` is lowercase words joined by hyphens (`[a-z0-9]+(-[a-z0-9]+)*`) and unique within its doc. A wireframe's identity is its doc's file name plus its `id`, or, when it has none, its 0-based position among the doc's `wireframe` fences. Tests and gallery renders (`.build/tessera/<slug>/<id-or-index>-current.svg`) are keyed by that identity: give an `id` to any wireframe a test pins, because inserting a wireframe shifts every later position.
 
 Rules, enforced by `scripts/check-wireframes.py`:
 
@@ -220,6 +220,51 @@ Not a table, but schema'd: each entry is a backticked sentence-style Swift Testi
 - `selection stays visible when table scrolls` (key table: Down; state: scroll offset)
 ```
 
+A page opens `## Requirements` with a plain list of the requirements that no capability owns: layout, sizing, anatomy, and degradation. Capability requirements follow under optional `###` subsections (owner decision, 2026-10-23). The phase 4 capability slices (focus, pointer, scroll, and clock) each work through the matching subsection of every already-built component, so a slice has one place to look in every doc.
+
+```text
+## Requirements
+
+- `table fills its proposal on both axes` (sizing: 26 x 12)
+
+### Focus
+
+- `down moves selection to the next row via the binding` (key table: Down)
+
+### Pointer
+
+- `click on a data row sets selection` (mouse table: click)
+
+### Scroll
+
+- `page down moves the offset and the selection one page` (key table: PgDn)
+
+### Clock
+
+- `spinner advances one frame per tick` (state model: frame)
+```
+
+The rules:
+
+1. **Closed names, fixed order.** The only subsections are `### Focus`, `### Pointer`, `### Scroll`, and `### Clock`, each at most once, in that order. No other `###` heading, and no deeper heading, sits under `## Requirements`. `iwe schema validate` enforces the names, the order, and the single use of each (`docs/.iwe/schemas/design.yaml`).
+2. **What each capability covers.**
+   - `Focus`: all keyboard handling (every key table row) and how a focused component looks. A key requirement that also needs scrolling goes under `Scroll` by rule 4.
+   - `Pointer`: clicks, drags, hover, hit testing, and any wheel handling that does not scroll an offset.
+   - `Scroll`: interactive scrolling only: offsets, reveal, paging, wheel scrolling and boundary bubbling, and indicators that follow the offset. A static viewport or a clipped fixture belongs in the plain list.
+   - `Clock`: time and animation: tick-driven state, timers, spinners, and the absence of them.
+3. **Present only when needed.** A subsection exists only where the component needs the capability. An empty heading, or one that holds only "none", is a defect. A component with no requirement for a capability has no subsection for it.
+4. **Latest-landing rule.** A requirement that needs several capabilities goes under the one that lands last: Focus, then Pointer, then Scroll, then Clock. A requirement about paging a selection with PgDn belongs under `Scroll`, not `Focus`.
+5. **Negatives belong too.** A negative assertion (`... receives no keyboard scroll events`, `... draws no hover`) goes in the subsection of the capability it denies.
+6. **Group labels** may subdivide a list (`Menu:`, `Radio group:`) when a page presents several controls. A label heads a group of one or more entries and is repeated per subsection only where that subsection has entries for it.
+
+A capability slice finds its work with the IWE query:
+
+```fish
+iwe find --blocks '{ $section: Focus }'
+```
+
+Swap the name for `Pointer`, `Scroll`, or `Clock`.
+
 ## Prior art
 
 Every doc cites concrete sources in its prior-art section. Local references first:
@@ -254,10 +299,10 @@ This migration step is part of the component's implementation definition of done
 
 ```fish
 mise run quality:wireframes
-npm run check:markup
+hk check docs/design.md docs/design
 ```
 
-These repository-local commands run the pinned wireframe and Markdown-formatting gates; do not substitute globally installed `pnpx`, `prettier`, or markdownlint commands.
+These repository-local commands run the pinned wireframe check and the hk Markdown and spelling steps; do not substitute globally installed `pnpx`, `prettier`, or markdownlint commands.
 
 ## Component gallery
 
@@ -267,7 +312,7 @@ python3 scripts/gallery-serve.py   # http://127.0.0.1:8790/
 
 The gallery lists every catalog doc by slug, grouped by folder, with its status, and shows each doc's wireframes. It reads the `wireframe` fences of `primitives/*.md` and `widgets/*.md` directly, so there is no second copy to keep in step, and a banner offers a reload when a doc changes. Each fence is one entry, labelled with the nearest heading, its `WxH` and its [viewport](design/tokens.md#viewports) name. A styled grid that belongs to the fence colours it for the theme chosen with `?theme=` (the five review themes in `DevTools/gallery/themes.json`), and its callouts show under it. `/tokens` draws the role swatches of [tokens.md](design/tokens.md) in its three tiers beside catalog samples on every theme. The script needs only the standard library; `--port` and `--host` change where it listens.
 
-Each entry also has empty **Current** and **Previous** slots for the renders of the real widgets. Later they read `.build/tessera-dev/<slug>/<id-or-index>-current.svg` and `<id-or-index>-previous.svg` as `tessera-dev` writes them (plan 033, Phase C), and say "not built yet" until then; the stem is the fence's `id` when it has one, else its 0-based position among the doc's `wireframe` fences. The gallery only displays files; it never decides pass or fail. A `standalone` styled grid has no wireframe to compare, so it is drawn as its own entry after the doc's wireframes, without slots. What the gallery cannot honour (a grid that matches no wireframe, an unknown legend token, a style letter the legend does not define) shows as a warning badge on the entry; the checker above is the gate.
+Each entry also has empty **Current** and **Previous** slots for the renders of the real widgets. Later they read `.build/tessera/<slug>/<id-or-index>-current.svg` and `<id-or-index>-previous.svg` as `tessera` writes them (plan 033, Phase C), and say "not built yet" until then; the stem is the fence's `id` when it has one, else its 0-based position among the doc's `wireframe` fences. The gallery only displays files; it never decides pass or fail. A `standalone` styled grid has no wireframe to compare, so it is drawn as its own entry after the doc's wireframes, without slots. What the gallery cannot honour (a grid that matches no wireframe, an unknown legend token, a style letter the legend does not define) shows as a warning badge on the entry; the checker above is the gate.
 
 ## Index
 

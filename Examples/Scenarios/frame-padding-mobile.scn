@@ -1,0 +1,13 @@
+# At 40 columns the sheet's widest row is 36 cells, so nothing is clipped by the viewport.
+app frame-padding
+size mobile
+
+expect node layout=_FrameLayout nth=0 frame 0,3,8x3
+expect node layout=_PaddingLayout nth=3 frame 26,7,10x3
+expect text 7 "····   ···Go   ········   ··········"
+shot mobile
+
+# Centred, an 8x3 frame with a two-cell child leaves three cells on each side and one row above.
+type "aaaa"
+expect node type=Text text="Go" nth=0 frame 3,4,2x1
+shot alignment-center

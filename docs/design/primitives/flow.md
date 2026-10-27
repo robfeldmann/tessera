@@ -310,8 +310,20 @@ Schema: [README](../../design.md#requirements-list).
 - `flow wraps within its allocation in a stack` (in stacks and Flex: `14 x nil`; anatomy: in-stack)
 - `flow keeps its lines when a stack re-proposes its reported width` (in stacks and Flex: `14 x nil`)
 - `flow paints items in source order` (placement: paint order)
-- `flow item node state survives a reflow` (identity and focus; sizing: 16 x nil and 10 x nil)
 - `flow publishes a horizontal stack axis to its items` (environment: descendant `stackAxis`)
+
+### Focus
+
+- `flow item node state survives a reflow` (identity and focus; sizing: 16 x nil and 10 x nil)
+- `flow focus order follows source order and agrees with reading order` (Identity and focus)
+
+### Pointer
+
+- `flow takes no focus and handles no key or pointer input` (Identity and focus)
+
+### Scroll
+
+- `flow never scrolls` (Line breaking; Overview)
 
 ## Degradation
 

@@ -19,12 +19,26 @@ let package = Package(
 
 // MARK: - ⤵️ Dependencies
 
+// MARK: CustomDump
+
+package.dependencies.append(
+  .package(
+    url: "https://github.com/pointfreeco/swift-custom-dump",
+    from: "1.0.0"
+  )
+)
+
+let CustomDump: Target.Dependency = .product(
+  name: "CustomDump",
+  package: "swift-custom-dump"
+)
+
 // MARK: SnapshotTesting
 
 package.dependencies.append(
   .package(
     url: "https://github.com/pointfreeco/swift-snapshot-testing",
-    exact: "1.19.3"
+    exact: "1.19.6"
   )
 )
 
@@ -35,6 +49,11 @@ let InlineSnapshotTesting: Target.Dependency = .product(
 
 let SnapshotTesting: Target.Dependency = .product(
   name: "SnapshotTesting",
+  package: "swift-snapshot-testing"
+)
+
+let SnapshotTestingCustomDump: Target.Dependency = .product(
+  name: "SnapshotTestingCustomDump",
   package: "swift-snapshot-testing"
 )
 
@@ -49,22 +68,20 @@ let Tessera: Target.Dependency = .product(
   package: "tessera"
 )
 
+let TesseraHarness: Target.Dependency = .product(
+  name: "TesseraHarness",
+  package: "tessera"
+)
+
 let TesseraTerminal: Target.Dependency = .product(
   name: "TesseraTerminal",
-  package: "tessera"
-)
-let TesseraTerminalSnapshotSupport: Target.Dependency = .product(
-  name: "TesseraTerminalSnapshotSupport",
-  package: "tessera"
-)
-let TesseraTerminalTestSupport: Target.Dependency = .product(
-  name: "TesseraTerminalTestSupport",
   package: "tessera"
 )
 
 // MARK: - 🚛 Forward Module Declarations
 
 let ANSIEncoderDemo: Target.Dependency = .byName(name: "ANSIEncoderDemo")
+let DemoSupport: Target.Dependency = .byName(name: "DemoSupport")
 let ExampleSupport: Target.Dependency = .byName(name: "ExampleSupport")
 let HelloTessera: Target.Dependency = .byName(name: "HelloTessera")
 let InputInspector: Target.Dependency = .byName(name: "InputInspector")
@@ -74,10 +91,11 @@ let Phase3ProtocolsDemoSupport: Target.Dependency = .byName(
   name: "Phase3ProtocolsDemoSupport"
 )
 let RendererDemo: Target.Dependency = .byName(name: "RendererDemo")
-let TesseraShowcase: Target.Dependency = .byName(name: "TesseraShowcase")
+let TesseraDev: Target.Dependency = .byName(name: "TesseraDev")
 
 let AllTesseraExampleTargetNames: Set<String> = [
   "ANSIEncoderDemo",
+  "DemoSupport",
   "ExampleSupport",
   "HelloTessera",
   "InputInspector",
@@ -85,7 +103,7 @@ let AllTesseraExampleTargetNames: Set<String> = [
   "Phase3ProtocolsDemo",
   "Phase3ProtocolsDemoSupport",
   "RendererDemo",
-  "TesseraShowcase",
+  "TesseraDev",
 ]
 
 // MARK: - 🎯 Products & Targets
@@ -103,6 +121,30 @@ package.targets.append(
     ]
   )
 )
+
+// MARK: DemoSupport
+
+package.targets.append(contentsOf: [
+  .target(
+    name: "DemoSupport",
+    dependencies: [
+      Tessera,
+      TesseraHarness,
+    ]
+  ),
+  .testTarget(
+    name: "DemoSupportTests",
+    dependencies: [
+      CustomDump,
+      DemoSupport,
+      InlineSnapshotTesting,
+      SnapshotTesting,
+      SnapshotTestingCustomDump,
+      Tessera,
+      TesseraHarness,
+    ]
+  ),
+])
 
 // MARK: ExampleSupport
 
@@ -154,6 +196,23 @@ package.targets.append(
   )
 )
 
+// MARK: Phase3ProtocolsDemo
+
+package.products.append(
+  .executable(name: "Phase3ProtocolsDemo", targets: ["Phase3ProtocolsDemo"])
+)
+
+package.targets.append(
+  .executableTarget(
+    name: "Phase3ProtocolsDemo",
+    dependencies: [
+      ExampleSupport,
+      Phase3ProtocolsDemoSupport,
+      TesseraTerminal,
+    ]
+  )
+)
+
 // MARK: Phase3ProtocolsDemoSupport
 
 package.targets.append(
@@ -175,51 +234,6 @@ package.targets.append(
   )
 )
 
-// MARK: Phase3ProtocolsDemo
-
-package.products.append(
-  .executable(name: "Phase3ProtocolsDemo", targets: ["Phase3ProtocolsDemo"])
-)
-
-package.targets.append(
-  .executableTarget(
-    name: "Phase3ProtocolsDemo",
-    dependencies: [
-      ExampleSupport,
-      Phase3ProtocolsDemoSupport,
-      TesseraTerminal,
-    ]
-  )
-)
-
-// MARK: TesseraShowcase
-
-package.products.append(
-  .executable(name: "TesseraShowcase", targets: ["TesseraShowcase"])
-)
-
-package.targets.append(contentsOf: [
-  .executableTarget(
-    name: "TesseraShowcase",
-    dependencies: [
-      ExampleSupport,
-      Tessera,
-    ]
-  ),
-  .testTarget(
-    name: "TesseraShowcaseTests",
-    dependencies: [
-      InlineSnapshotTesting,
-      SnapshotTesting,
-      TesseraShowcase,
-      Tessera,
-      TesseraTerminal,
-      TesseraTerminalSnapshotSupport,
-      TesseraTerminalTestSupport,
-    ]
-  ),
-])
-
 // MARK: RendererDemo
 
 package.products.append(.executable(name: "RendererDemo", targets: ["RendererDemo"]))
@@ -234,6 +248,20 @@ package.targets.append(
   )
 )
 
+// MARK: TesseraDev
+
+package.products.append(.executable(name: "tessera", targets: ["TesseraDev"]))
+
+package.targets.append(
+  .executableTarget(
+    name: "TesseraDev",
+    dependencies: [
+      DemoSupport,
+      TesseraHarness,
+    ]
+  )
+)
+
 // MARK: - ⚙️ Shared Swift Settings
 
 for target in package.targets {
@@ -242,10 +270,10 @@ for target in package.targets {
   }
   var settings = target.swiftSettings ?? []
   settings.append(contentsOf: [
-    .enableExperimentalFeature("Lifetimes"),
     .enableUpcomingFeature("ExistentialAny"),
     .enableUpcomingFeature("ForwardFromBuilder"),
     .enableUpcomingFeature("InferIsolatedConformances"),
+    .enableExperimentalFeature("Lifetimes"),
     .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
   ])
   target.swiftSettings = settings

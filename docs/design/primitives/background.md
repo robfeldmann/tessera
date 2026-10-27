@@ -144,7 +144,11 @@ Background consumes no token and introduces no state. It forwards the same envir
 - `background leaves cells untouched when its background view is sparse` (anatomy: sparse background cells; untouched interior cells)
 - `background paints the primary over the background in one by one bounds` (anatomy: 1x1 primary final bounds, background layer, and primary content)
 - `background paints nothing when the primary has zero area` (sizing: 0x0 zero-area primary)
+
+### Pointer
+
 - `decorative backgrounds require explicit allows hit testing false` (anatomy: opaque background; primary final bounds and clipped background layer)
+- `background hit testing is clipped to the primary child's final bounds` (anatomy: opaque background; primary final bounds and clipped background layer)
 
 ## Degradation
 

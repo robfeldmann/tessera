@@ -1,0 +1,16 @@
+── chars ──
+Workspace 50x12
+──────────────────────────────────────────────────
+Typed:
+Key: none
+Count: 0
+
+
+
+
+
+──────────────────────────────────────────────────
+focus=catalog scroll=0
+── style ──
+── legend ──
+.  default

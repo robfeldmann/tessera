@@ -233,7 +233,7 @@ Empty data renders the List's static structure (declared Section headers) and ze
 | selection | Binding | `Element.ID?` (optional param) | List never invents a value; if the ID vanishes from data or its section collapses, selection renders nowhere and the binding is not mutated; arrows move it directly, with no separate cursor (keys D1 and D3) |
 | selection presence | derived | `Bool` | structural: binding supplied at init reserves the gutter and enables selection keys; absent binding reserves no gutter and arrows scroll |
 | section expansion | Binding | `Bool` per collapsible Section | forwarded to each [Section](section.md); List reads it to flatten rows and writes it only for the Left/Right and header-click rows below |
-| scroll offset | NodeState | `Int` (content rows above the viewport) | counts rows, not items; a partly visible item at either edge draws its visible rows; clamps to `0...maximum scroll offset` on every update, including after a width change re-wraps the items; selection-moving keys reveal the selected item: the fewest rows that show every row of it, aligning its first row with the viewport top when it is taller than the viewport (key D4) |
+| scroll offset | NodeState | `Int` (content rows above the viewport) | counts rows, not items; a partly visible item at either edge draws its visible rows; clamps to `0...maximum scroll offset` on every update, including after a width change re-wraps the items; arrows, Home, and End reveal the selected item: the fewest rows that show every row of it, aligning its first row with the viewport top when it is taller than the viewport (key D4); PgDn and PgUp move it by V rows and the selection by the same rows (owner decision, 2026-10-23) |
 | maximum scroll offset | derived | `Int` | `max(0, C - V)` for C content rows (the sum of row heights) and V viewport rows; recomputed per layout pass; never stored |
 | row line limit | Environment | `Int?` (`lineLimit`) | default nil, so rows wrap; `.lineLimit(1)` on a row or on the List restores single-line rows; chrome (headers, badges) pins its own value |
 | header styling | Environment | `secondary` | Section header default; see [Section](section.md) |
@@ -256,8 +256,10 @@ With a selection binding, arrows auto-commit through the binding -- no Enter or 
 | Down | focused, selection binding present, selection set | moves selection to next visible selectable row via binding | yes |
 | Up | focused, selection binding present, selection set | moves selection to previous visible selectable row via binding | yes |
 | Down | focused, selection binding present, selection not set | sets selection to first visible selectable row via binding | yes |
-| PgDn | focused, selection binding present | moves selection one viewport of rows down via binding | yes |
-| PgUp | focused, selection binding present | moves selection one viewport of rows up via binding | yes |
+| PgDn | focused, selection binding present, selection set | moves NodeState scroll offset down V rows, clamped to the maximum, and moves selection down the same rows (rest of the way to the last selectable row when the offset stops) via binding | yes |
+| PgUp | focused, selection binding present, selection set | moves NodeState scroll offset up V rows, clamped to 0, and moves selection up the same rows (rest of the way to the first selectable row when the offset stops) via binding | yes |
+| PgDn | focused, selection binding present, selection not set | increments NodeState scroll offset by V rows, clamped to the maximum | yes |
+| PgUp | focused, selection binding present, selection not set | decrements NodeState scroll offset by V rows, clamped to 0 | yes |
 | Home | focused, selection binding present | moves selection to first selectable row via binding | yes |
 | End | focused, selection binding present | moves selection to last selectable row via binding | yes |
 | Enter | focused, selection is set | calls `onActivate` with the selected element | yes |
@@ -265,8 +267,12 @@ With a selection binding, arrows auto-commit through the binding -- no Enter or 
 | Right | focused, selection set, its section collapsible, collapsed | expands the selection's section via its expansion binding | yes |
 | Down | focused, selection binding absent, offset below maximum | increments NodeState scroll offset | yes |
 | Up | focused, selection binding absent, offset above 0 | decrements NodeState scroll offset | yes |
+| PgDn | focused, selection binding absent, offset below maximum | increments NodeState scroll offset by V rows, clamped to the maximum | yes |
+| PgUp | focused, selection binding absent, offset above 0 | decrements NodeState scroll offset by V rows, clamped to 0 | yes |
 
-Up and Down at the first and last selectable row saturate and stay consumed (Table parity): selection keys never leak to ancestors while the List is focused. A hidden selection (collapsed section) stays the traversal anchor: Down and Up move to the nearest visible selectable row after or before its flattened position. Without a selection binding, boundary arrows follow ScrollView: unchanged offset, not consumed, for ancestor routing. Every selection-moving effect also updates the `NodeState` scroll offset by reveal (see the state model). Selection keys move by item; only the offset is in rows, so PgUp and PgDn move the selection to the item containing the row one viewport (V rows) above or below the selected item's first row, clamped to the first and last selectable item.
+Up and Down at the first and last selectable row saturate and stay consumed (Table parity): selection keys never leak to ancestors while the List is focused. A hidden selection (collapsed section) stays the traversal anchor: Down and Up move to the nearest visible selectable row after or before its flattened position. Without a selection binding, boundary arrows follow ScrollView: unchanged offset, not consumed, for ancestor routing. Every selection-moving effect that carries no offset of its own (arrows, Home, End) also updates the `NodeState` scroll offset by reveal (see the state model).
+
+PgDn and PgUp page (owner decision, 2026-10-23; [ScrollView](scroll-view.md#rows-and-variable-height-content)): the offset moves by `V` rows and the selection by the same rows, so the selection keeps its screen row. The target is the row `V` rows below or above the selected item's first row; the selection lands on the selectable item containing it, or on the nearest selectable item after it going down and before it going up. Near the end the offset stops at its maximum and the selection moves the rest of the way, clamped to the last selectable item; PgUp mirrors this at the top. When the item at the target is cut by an edge, reveal then shows all its rows. With a selection binding, page keys saturate and stay consumed like Up and Down; with the binding present and nothing selected they page the offset only and never invent a selection. Without a binding they page the offset like ScrollView and bubble at the boundary.
 
 ## Mouse table
 
@@ -319,49 +325,71 @@ List is greedy on both axes when proposed; its ideal is content-driven. Numbers 
 ## Requirements
 
 - `rows recompute from data and expansion bindings on every update without storage` (state model: rows)
-- `arrow selection auto-commits through the binding without enter` (key table: Down)
-- `down with no selection selects the first visible selectable row` (key table: Down, selection not set)
-- `selection traversal skips section headers by construction` (key table: Down; anatomy: callout 1)
-- `selection stays visible when moved past the viewport edge` (key table: Down; state: scroll offset)
-- `wheel scrolling moves viewport without changing selection` (mouse table: wheel-down)
-- `boundary wheel events pass to ancestors unconsumed` (mouse table: wheel-down precondition)
 - `vanished selection id renders no selection and does not mutate the binding` (state model: selection)
-- `collapsing the selected rows section hides selection without mutating the binding` (state model: selection; key table: Left)
-- `arrows from a hidden selection move to the nearest visible selectable row` (key table: Down)
-- `left collapses and right expands the selections section via its binding` (key table: Left, Right)
-- `re-expansion renders the preserved selection without auto-scrolling` (state model: selection)
-- `scroll offset clamps when app shrinks data` (state model: scroll offset)
 - `selected multi-line row paints the bar on every line` (states: mobile)
-- `absent selection binding reserves no gutter and arrows scroll` (state model: selection presence; key table: Down, binding absent)
-- `enter activates the selected element` (key table: Enter)
-- `double click selects then activates` (mouse table: double-click)
-- `click on a data row selects it through the binding` (mouse table: click)
-- `click on a collapsible header toggles expansion through its binding` (mouse table: section header)
 - `list fills its proposal on both axes` (sizing: 26 x 12)
 - `nil x nil fits all rows without an indicator reservation` (sizing: nil x nil)
-- `unfocused selection renders the inactive tint` (state model: selection style)
 - `ascii degradation preserves geometry` (states: degraded)
 - `row badge trails the row content at the trailing edge` (row badges)
 - `rows wrap at the content width and take every row they need` (states: wrapped)
 - `selection highlight covers every row of a wrapped item` (states: wrapped; anatomy: callout 3)
-- `selection bar is accent when focused and secondary when unfocused` (anatomy: callout 3)
 - `selection bar cell draws on the terminal background where selection fill is reverse video` (anatomy: callout 3)
-- `partly visible items draw their visible rows at the top and bottom edges without a mark` (states: wrapped)
-- `scroll offset thumb and paging count rows not items` (state model: scroll offset; sizing: 34 x 8)
-- `reveal scrolls the fewest rows that show the whole selected item` (state model: scroll offset; key table: Down)
-- `item taller than the viewport top-aligns when revealed` (state model: scroll offset)
-- `width change re-measures item heights and clamps the offset` (state model: row heights; scroll offset)
 - `line limit of one restores single-line tail-truncated rows` (states: single-line)
 - `section headers stay one row under an inherited line limit` (anatomy: callout 1; state model: row line limit)
-- `page down moves selection to the item one viewport of rows below` (key table: PgDn)
 - `nil height proposal takes every wrapped row and reserves no indicator` (sizing: 34 x nil)
 - `narrow width breaks words between graphemes, scrolls the viewport and draws no mark` (sizing: 6 x 2)
+
+### Focus
+
+- `arrow selection auto-commits through the binding without enter` (key table: Down)
+- `down with no selection selects the first visible selectable row` (key table: Down, selection not set)
+- `selection traversal skips section headers by construction` (key table: Down; anatomy: callout 1)
+- `collapsing the selected rows section hides selection without mutating the binding` (state model: selection; key table: Left)
+- `arrows from a hidden selection move to the nearest visible selectable row` (key table: Down)
+- `left collapses and right expands the selections section via its binding` (key table: Left, Right)
+- `enter activates the selected element` (key table: Enter)
+- `unfocused selection renders the inactive tint` (state model: selection style)
+- `selection bar is accent when focused and secondary when unfocused` (anatomy: callout 3)
+- `list is one focus stop and tab moves past the whole widget` (Anatomy; State model; Key table)
+- `list leaves its focus treatment to a hosting box and without a selection binding follows the scroll view's delegated focus appearance` (state model: selection style; scroll-view focus appearance)
+- `up and down at the first and last selectable row saturate and stay consumed` (key table: Up, Down)
+- `home and end select the first and last selectable row` (key table: Home, End)
+
+### Pointer
+
+- `double click selects then activates` (mouse table: double-click)
+- `click on a data row selects it through the binding` (mouse table: click)
+- `click on a collapsible header toggles expansion through its binding` (mouse table: section header)
 - `row under the pointer takes the hover fill; a selected row keeps selection.fill under the pointer` (Anatomy callout 9; state model: hovered row)
 - `rows request pointer motion only while the list is live in the graph` (state model: hover enabled; [Slice 5](../../spec/phase-4/slice-05-mouse-and-hit-testing.md))
 - `.rowHover(.disabled) removes the hover fill and the motion request` (state model: hover enabled; Environment: hover)
 - `pointer motion moves the derived hovered row without changing selection or scroll offset` (mouse table: move; state model: hovered row)
 - `the hovered row clears on focus loss and when motion tracking stops` (state model: hovered row)
 - `slots, NO_COLOR and 16-colour show hover as an underline on the row label` (Degradation: hover)
+- `click on a data row focuses the list before it selects and is consumed` (mouse table: click)
+- `right and middle clicks have no list use` (mouse table)
+- `click or drag on the list scroll indicator is not routed` (mouse table: scroll indicator)
+
+### Scroll
+
+- `selection stays visible when moved past the viewport edge` (key table: Down; state: scroll offset)
+- `wheel scrolling moves viewport without changing selection` (mouse table: wheel-down)
+- `boundary wheel events pass to ancestors unconsumed` (mouse table: wheel-down precondition)
+- `re-expansion renders the preserved selection without auto-scrolling` (state model: selection)
+- `scroll offset clamps when app shrinks data` (state model: scroll offset)
+- `absent selection binding reserves no gutter and arrows scroll` (state model: selection presence; key table: Down, binding absent)
+- `partly visible items draw their visible rows at the top and bottom edges without a mark` (states: wrapped)
+- `scroll offset thumb and paging count rows not items` (state model: scroll offset; sizing: 34 x 8)
+- `reveal scrolls the fewest rows that show the whole selected item` (state model: scroll offset; key table: Down)
+- `item taller than the viewport top-aligns when revealed` (state model: scroll offset)
+- `width change re-measures item heights and clamps the offset` (state model: row heights; scroll offset)
+- `page down moves the offset and the selection one page down so the selection keeps its screen row` (key table: PgDn; state: scroll offset)
+- `page up moves the offset and the selection one page up so the selection keeps its screen row` (key table: PgUp; state: scroll offset)
+- `page down near the end stops the offset at its maximum and moves the selection the rest of the way to the last row` (key table: PgDn; state: maximum scroll offset)
+- `page up near the top stops the offset at 0 and moves the selection the rest of the way to the first row` (key table: PgUp; state: scroll offset)
+- `page keys without a selection binding scroll the offset one page like a scroll view` (key table: PgDn, PgUp, binding absent)
+- `without a selection binding boundary arrows leave the offset unchanged and are not consumed` (key table: Down, binding absent)
+- `selection scrolled out of view by the wheel draws no bar or fill until it returns` (state model: scroll offset)
 
 ## Degradation
 

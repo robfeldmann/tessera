@@ -322,8 +322,15 @@ Schema: [README](../../design.md#sizing-table). Mandatory rows: nil x nil, tight
 - `badge never grows past its natural width` (Sizing: 80x24)
 - `count badge never truncates or wraps and reports its natural width` (Sizing: count rows; anatomy: callout 2; Wrap exception)
 - `row badge trails the row content at the trailing edge` (in context: callout 1)
-- `badge takes no focus and consumes no keys` (primitive: no key table)
 - `neutral tone draws solid(secondary) and each hue tone draws solid(R) for its same-named role` (Tones table; [composite styles](../tokens.md#composite-styles))
+
+### Focus
+
+- `badge takes no focus and consumes no keys` (primitive: no key table)
+
+### Pointer
+
+- `badge takes no pointer input` (primitive: no mouse table)
 
 ## Degradation
 

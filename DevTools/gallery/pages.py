@@ -3,11 +3,11 @@ Tokens page. Pages are built on every request, so edits to the catalog show on r
 
 Each wireframe fence of a catalog doc is one entry with three slots: the catalog wireframe,
 and the `Current` and `Previous` renders of the real widget. The slots read
-`.build/tessera-dev/<slug>/<key>-current.svg` and `<key>-previous.svg`, where `<slug>` is the
+`.build/tessera/<slug>/<key>-current.svg` and `<key>-previous.svg`, where `<slug>` is the
 doc's file name without `.md` and `<key>` is the fence's `id=NAME` when its header has one
 and its 0-based position among the doc's `wireframe` fences otherwise (`catalog.Wireframe.key`);
 a missing file shows "not built yet". This layout is a provisional guess pending plan 033
-Phase C, which decides where `tessera-dev` writes its renders; the gallery only displays what
+Phase C, which decides where `tessera` writes its renders; the gallery only displays what
 it finds and never judges it.
 
 A styled grid whose fence opens with `text standalone` illustrates no wireframe, so it has no
@@ -29,7 +29,7 @@ from . import catalog, colors, wireframe
 from .colors import TIERS, Theme, contrast, hs, paint, resolve
 
 ASSETS = Path(__file__).parent
-BUILD = catalog.REPO / ".build" / "tessera-dev"
+BUILD = catalog.REPO / ".build" / "tessera"
 RENDER = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*-(?:current|previous)\.svg")
 SLOTS = (("current", "Current"), ("previous", "Previous"))
 
@@ -56,7 +56,7 @@ def pick_theme(requested: str | None) -> Theme:
 
 
 def stamp() -> str:
-    """Changes when a catalog doc, the theme file or a render under `.build/tessera-dev`
+    """Changes when a catalog doc, the theme file or a render under `.build/tessera`
     changes on disk."""
     paths = [*catalog.source_paths(), colors.THEMES_FILE, *sorted(BUILD.glob("*/*.svg"))]
     digest = hashlib.sha1()
@@ -129,8 +129,8 @@ def index_page(theme: Theme) -> str:
         f"<p>{len(docs)} catalog components and {total} wireframes, read from the "
         "<code>wireframe</code> fences of <code>docs/design/primitives</code> and "
         "<code>docs/design/widgets</code>. Each wireframe sits beside empty Current and "
-        "Previous slots for the renders <code>tessera-dev</code> will write to "
-        "<code>.build/tessera-dev/</code>.</p>",
+        "Previous slots for the renders <code>tessera</code> will write to "
+        "<code>.build/tessera/</code>.</p>",
         theme_picker(theme),
     ]
     for folder, title in catalog.GROUPS:

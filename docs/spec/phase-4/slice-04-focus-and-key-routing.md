@@ -48,7 +48,7 @@ content.onKey(.tab) { context in context.focusAdvance(.forward) }
 2. While `.ignored`, bubble through ancestors' handlers up to the root.
 3. Return the final disposition; the app decides what unhandled events mean (quit keys, global shortcuts). The graph never exits the process.
 
-Non-key events: `.resize` is the app's job to forward to `resize(to:)`; paste events route like key events to the focused node; mouse is slice 5; focus-in/out terminal events are surfaced as graph-level callbacks, not routed.
+Non-key events: `.resize` is never routed. The host calls `resize(to:)` and then hands the event to the app, so the app sees every resize through `apply` whatever `dispatch` returned (the [canonical step](../phase-5-runtime-and-polish.md#the-canonical-step)), and routing work cannot take resizes away from apps; paste events route like key events to the focused node; mouse is slice 5; focus-in/out terminal events are surfaced as graph-level callbacks, not routed.
 
 ## Handler modifiers and `ResponderContext`
 

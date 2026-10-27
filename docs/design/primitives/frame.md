@@ -91,6 +91,10 @@ Frame consumes no environment token and has no state model. Alignment is a Slice
 - `odd centered slack assigns the extra cell to trailing and bottom` (alignment fixture: fixed `6x2`, `.center`, `Go`).
 - `padding and frame preserve modifier order` (composition fixtures: `Text("Go").padding(1).frame(width: 8)` and `Text("Go").frame(width: 8).padding(1)`).
 
+### Pointer
+
+- `frame clips hit testing of a non-text child to its final allocated frame` (Overview; Sizing: bounded frame)
+
 ## Degradation
 
 Frame draws no glyphs and consumes no style or terminal capability. Its integer sizing, alignment, and clipping remain unchanged in ASCII-only and no-color modes.

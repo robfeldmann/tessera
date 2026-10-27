@@ -300,7 +300,6 @@ Schema: [README](../../design.md#requirements-list).
 - `view that fits without candidates reports zero and places nothing` (variants: no candidates)
 - `empty views and absent branches contribute no candidate` (variants: `EmptyView()`, an absent `if` branch, or an empty ForEach)
 - `view that fits places only the chosen candidate at its top leading corner` (selection rule: step 5; anatomy: beside)
-- `unchosen candidates get a zero frame and render and hit test nothing` (passes table: render, hit testing, and `dump()`; anatomy: unchosen candidate)
 - `view that fits stops measuring at the chosen candidate` (selection rule: step 3; measurement cost)
 - `view that fits measures each candidate once per fit test proposal in a layout pass` (measurement cost: `k + 1` measurements and shared probes)
 - `view that fits keeps its choice when a stack re-proposes its reported size` (allocation fixtures: every row)
@@ -309,12 +308,27 @@ Schema: [README](../../design.md#requirements-list).
 - `view that fits ignores layout priority on its candidates` (variants: `.layoutPriority(_:)` on a candidate)
 - `view that fits stores no node state` (state model: chosen candidate)
 - `switching candidates creates and destroys no nodes` (state model: candidate state; passes table: update)
+- `view that fits publishes no stack axis` (environment: descendant `stackAxis`)
+
+### Focus
+
 - `an unchosen candidate keeps its node state until it is chosen again` (state model: candidate state)
 - `unchosen candidates are left out of the focus order` (focus table: traversal row; state model: focus membership)
 - `focus stays on a focus id that the newly chosen candidate also holds` (focus table: same `id` row)
 - `focus clears when the newly chosen candidate lacks the focused id` (focus table: no focusable with `id` row)
 - `unchosen candidates still contribute terminal requirements` (passes table: terminal requirements)
-- `view that fits publishes no stack axis` (environment: descendant `stackAxis`)
+- `a switch that drops the focused id clears focus without guessing a neighbour and records it in statistics` (Identity, state, and focus: focus table, no focusable with id row)
+- `a focusable around the whole choice keeps focus across a switch` (Identity, state, and focus: focus table)
+- `a focus id held by two candidates is listed once for the chosen one` (Identity, state, and focus: focus table; state model: focus membership)
+
+### Pointer
+
+- `unchosen candidates get a zero frame and render and hit test nothing` (passes table: render, hit testing, and `dump()`; anatomy: unchosen candidate)
+- `view that fits takes no focus and handles no input of its own` (Identity, state, and focus)
+
+### Scroll
+
+- `a chosen-again scroll view candidate clamps its kept offset on its next layout` (state model: candidate state)
 
 ## Degradation
 

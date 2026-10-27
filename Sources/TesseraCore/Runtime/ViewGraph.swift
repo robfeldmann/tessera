@@ -20,6 +20,7 @@ private final class _LayoutPlacementCollector {
 /// An explicit, synchronous runtime tree reconciled from declarative view values.
 public final class ViewGraph {
   private let makeRoot: () -> any View
+  private let now: () -> ContinuousClock.Instant
   private let baseEnvironment: EnvironmentValues
   private lazy var rootNode = buildNode(
     view: makeRoot(),
@@ -31,6 +32,9 @@ public final class ViewGraph {
   )
   private var size: TerminalSize
   private var layoutMeasurements: [_LayoutMeasurementKey: TerminalSize] = [:]
+  /// Whether a resize has changed the size since the last render pass drew it, so the update
+  /// that starts the next pass still names the viewport as a cause.
+  private var viewportChangedSinceRender = false
   /// Work recorded by the most recently completed graph passes.
   public private(set) var statistics = GraphStatistics()
 
@@ -60,11 +64,22 @@ public final class ViewGraph {
   }
 
   /// Creates and lowers the initial root value immediately.
-  public init<Root: View>(
+  public convenience init<Root: View>(
     root: @escaping () -> Root,
     size: TerminalSize,
     environment: EnvironmentValues = EnvironmentValues()
   ) {
+    self.init(root: root, size: size, environment: environment) { .now }
+  }
+
+  /// Creates a graph that reads pass timings from `now` instead of the system clock.
+  package init<Root: View>(
+    root: @escaping () -> Root,
+    size: TerminalSize,
+    environment: EnvironmentValues = EnvironmentValues(),
+    now: @escaping () -> ContinuousClock.Instant
+  ) {
+    self.now = now
     makeRoot = root
     self.size = Self.sanitized(size)
     baseEnvironment = environment
@@ -78,15 +93,18 @@ extension ViewGraph {
   public func update() {
     statistics = GraphStatistics()
     statistics.record(.updateRequested)
-    let clock = ContinuousClock()
-    let start = clock.now
+    if viewportChangedSinceRender {
+      statistics.record(.layoutViewportChanged)
+      statistics.record(.renderViewportChanged)
+    }
+    let start = now()
     rootNode = reconcile(
       node: rootNode,
       view: makeRoot(),
       environment: baseEnvironment,
       environmentOverrides: []
     )
-    statistics.updateDuration = start.duration(to: clock.now)
+    statistics.updateDuration = start.duration(to: now())
   }
 
   /// Measures and places dirty nodes using the graph's vertical composition rule.
@@ -96,15 +114,14 @@ extension ViewGraph {
     }
 
     statistics.beginLayoutPass()
-    let clock = ContinuousClock()
-    let start = clock.now
+    let start = now()
     layoutMeasurements.removeAll(keepingCapacity: true)
     let proposal = ProposedSize(width: size.columns, height: size.rows)
     _ = measure(rootNode, proposal: proposal)
     let rootFrame = Rect(column: 0, row: 0, columns: size.columns, rows: size.rows)
     place(rootNode, in: rootFrame, clip: rootFrame)
     clearLayoutFlags(rootNode)
-    statistics.layoutDuration = start.duration(to: clock.now)
+    statistics.layoutDuration = start.duration(to: now())
   }
 
   /// Renders through the borrowed frame capability, laying out first when required.
@@ -116,11 +133,11 @@ extension ViewGraph {
     }
     layoutIfNeeded()
 
-    let clock = ContinuousClock()
-    let start = clock.now
+    let start = now()
     render(rootNode, into: frame)
     clearRenderFlags(rootNode)
-    statistics.renderDuration = start.duration(to: clock.now)
+    statistics.renderDuration = start.duration(to: now())
+    viewportChangedSinceRender = false
   }
 
   /// Changes the graph viewport and invalidates layout only when the size changed.
@@ -130,6 +147,7 @@ extension ViewGraph {
       return
     }
     self.size = size
+    viewportChangedSinceRender = true
     statistics.record(.layoutViewportChanged)
     statistics.record(.renderViewportChanged)
     markSubtreeNeedsLayout(rootNode)
@@ -154,6 +172,27 @@ extension ViewGraph {
     )
     lines.append("requirements requested=\(requirements) effective=unavailable")
     return lines.joined(separator: "\n")
+  }
+
+  /// Measures the root under `proposal` without placing or drawing it.
+  ///
+  /// A layout pass always proposes the whole viewport, so no pass can ask a view for its
+  /// natural extent. A `nil` dimension in `proposal` does: a stack answers with its content,
+  /// and a view that fills whatever it is offered (a scrolling viewport, a spacer) answers
+  /// with its content or its minimum instead of the viewport. Proposing two different
+  /// heights and comparing the answers tells a view that fills its proposal from one that
+  /// does not.
+  ///
+  /// The measurement leaves the statistics as they were and invalidates layout, so the next
+  /// pass measures every node again from scratch.
+  package func measuredRootSize(proposing proposal: ProposedSize) -> TerminalSize {
+    let recorded = statistics
+    layoutMeasurements.removeAll(keepingCapacity: true)
+    let measured = measure(rootNode, proposal: proposal)
+    layoutMeasurements.removeAll(keepingCapacity: true)
+    statistics = recorded
+    markSubtreeNeedsLayout(rootNode)
+    return measured
   }
 }
 

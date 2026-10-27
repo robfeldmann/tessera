@@ -129,11 +129,14 @@ included:
   - Tests
   - Package.swift
   - Examples/Sources
+  - Examples/Tests
+  - DevTools
   - Examples/Package.swift
 
 excluded:
   - .build
   - Examples/.build
+  - DevTools/.build
   - Packages
 
 # Rule configurations

@@ -1,5 +1,9 @@
 # Log
 
+## 2026-10-25
+
+- Moved the file-level quality checks into hk steps ([plan](plans/hk-quality-steps.md), [architecture](architecture/developer-tooling.md#file-level-quality-checks)): `hk.pkl` declares `swiftlint`, `swift-format`, `prettier`, `rumdl`, `codespell`, and `docc` once, and the pre-commit hook (run in the checkout through `mise x -- hk run pre-commit`, so a commit from a shell without mise activated passes the same checks), `hk check` and `hk check --staged`, and `mise run quality:lint` (`hk check --all` without the `docc` step, in CI too) run them from there. The changed-file task and runner, the staged-snapshot hook script, the markup wrappers, and the per-tool SwiftLint, swift-format, and spelling tasks are gone; `quality:format` is `hk fix --all`.
+
 ## 2026-10-23
 
 - Shipped libghostty-vt as a prebuilt SE-0482 artifact bundle ([plan](plans/libghostty-vt-binary-distribution.md), [architecture](architecture/libghostty-vt-distribution.md)): `.github/workflows/ghostty-vt.yml` publishes the `ghostty-vt-f54340ad7781` prerelease (republished as `-r2` with the linked licenses) with seven variants, `Package.swift` links it by URL and checksum with the Ghostty headers committed and no `unsafeFlags`, CI and the VM tasks stop building Zig, and a `version consumer` job proves a by-version dependency on macOS, Linux, and Windows. [Updating Ghostty VT](guides/updating-ghostty-vt.md) covers pin bumps.

@@ -99,10 +99,10 @@ enum TerminalGreeting {
 }
 ```
 
-Want to see more from a checkout? Run the Showcase:
+Want to see more from a checkout? Run one of the examples:
 
 ```sh
-mise run core:showcase        # or: swift run --package-path Examples TesseraShowcase
+mise run core:example         # pick an executable from the Examples package
 ```
 
 ## Architecture
@@ -147,12 +147,14 @@ The supported/tested OS-version range widens as the view layer matures. Contribu
 | `TesseraTerminal` | Terminal session lifecycle, input, buffers, ANSI/OSC output, and modern protocols. |
 | `Tessera` | Umbrella product for the emerging shared view/app abstractions (pre-API). |
 | `TesseraTerminalSnapshotSupport` | Ghostty-backed virtual-terminal support for output snapshot testing. |
-| `TesseraTerminalTestSupport` | Fixtures and utilities for terminal-behavior tests. |
+| `TesseraTerminalInMemory` | An in-memory terminal device and session that record a terminal's lifecycle and output; links no test framework, so an executable can use it. |
+| `TesseraTerminalTestSupport` | Fixtures and utilities for terminal-behavior tests; re-exports `TesseraTerminalInMemory`. |
 | `TesseraTestSupport` | General Tessera test and snapshot support. |
+| `TesseraHarness` | Register, launch, drive, and check Tessera apps from test and development targets: `ApplicationRegistry`, `Viewport`, `HarnessCLI`, and `ScenarioRunner`, which runs text scenarios and returns `ScenarioReport`s (`ScenarioFailure` describes each failed statement). |
 
 ## Roadmap
 
-The next body of work completes the view and application-programming layer, then uses it to exercise the substrate in integrated applications — including the Showcase app — and to broaden the OS versions Tessera supports and tests. See [Project status](docs/project-status.md).
+The next body of work completes the view and application-programming layer, then uses it to exercise the substrate in integrated applications and to broaden the OS versions Tessera supports and tests. See [Project status](docs/project-status.md).
 
 ## Contributing
 
@@ -161,7 +163,7 @@ Contributions are welcome — please read [CONTRIBUTING.md](CONTRIBUTING.md) fir
 ```sh
 mise run core:build       # build the package
 mise run core:test        # full Swift test suite
-mise run core:showcase    # run the Showcase example
+mise run core:example     # run an example from the Examples package
 mise run docs:preview     # build and serve DocC locally
 mise run quality:format   # auto-apply formatting
 mise run quality:lint     # strict format + lint gate

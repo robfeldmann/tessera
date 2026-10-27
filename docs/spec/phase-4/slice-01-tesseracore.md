@@ -136,7 +136,7 @@ public final class ViewGraph {
 }
 ```
 
-`GraphStatistics` includes counts for nodes created/destroyed/updated, body evaluations, equatable skips, leaf updates, `sizeThatFits` calls, placements, rendered nodes, focus changes, terminal requirement changes, debug-only invalidation reasons, and pass durations. Anything developers need print statements to answer belongs here or in `dump()`.
+`GraphStatistics` includes counts for nodes created/destroyed/updated, body evaluations, equatable skips, leaf updates, `sizeThatFits` calls, placements, rendered nodes, focus changes, terminal requirement changes, debug-only invalidation reasons, and pass durations. Anything developers need print statements to answer belongs here or in `dump()`. Each `update()` starts a fresh set of statistics, but a `resize(to:)` that changed the size since the last render pass keeps `layoutViewportChanged` and `renderViewportChanged` for the update that follows it, because the canonical loop resizes before it updates and the viewport is a cause of that pass.
 
 `ViewGraph` is non-`Sendable` and unisolated; whoever creates it owns it. The canonical immediate-mode loop (the Phase 5 runtime automates exactly this, nothing more):
 
@@ -145,15 +145,23 @@ let session = try await TerminalSession(configuration: config)
 let graph = ViewGraph(root: { AppView(model: model) }, size: await session.size)
 
 for await event in await session.events {
-    if case .resize(let size) = event { graph.resize(to: size) }
-    _ = graph.dispatch(event)
-    model.apply(event)            // app-owned state, app-owned architecture
+    var isResize = false
+    if case .resize(let size) = event {
+        isResize = true
+        graph.resize(to: size)
+    }
+    let disposition = graph.dispatch(event)
+    if disposition == .ignored || isResize {
+        model.apply(event)        // app-owned state, app-owned architecture: only what the tree left unhandled, and every resize
+    }
     graph.update()
     if graph.needsRender {
         try await session.draw { frame in graph.render(into: frame) }
     }
 }
 ```
+
+The app sees an event only when the graph left it `.ignored`, and every resize (a resize is never routed, [slice 4](slice-04-focus-and-key-routing.md#event-routing-normative)). The Phase 5 runtime and the developer harness run exactly this body as one nonisolated step that takes the host's isolation as a parameter ([Runtime isolation](../phase-5-runtime-and-polish.md#the-canonical-step)), so a hand-written loop and the hosts cannot drift. This example runs in the session's isolation; a loop in any other isolation passes `draw` a body in its own isolation, since `draw` runs the body in the caller's.
 
 `RuntimeNode` (internal class; its _shape_ is spec'd so dumps and tests are stable): identity, view type id, stored view value (`any View`), `NodeState` box, children, environment snapshot, `frame: Rect` (absolute), cached `sizeThatFits` memo (cleared each layout pass), `needsLayout`/`needsRender` flags, registered handlers (slices 4–5).
 

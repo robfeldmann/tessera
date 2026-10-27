@@ -6,9 +6,5 @@
     "node": ">=24.14.0 <25"
   },
   "name": "tessera-tooling",
-  "private": true,
-  "scripts": {
-    "check:markup": "scripts/check-markup.sh",
-    "format:markup": "scripts/format-markup.sh"
-  }
+  "private": true
 }

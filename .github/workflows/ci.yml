@@ -222,6 +222,22 @@ jobs:
         if: needs.ci-gate.outputs.vouch-only != 'true'
         run: swift test --only-use-versions-from-resolved-file --no-parallel
 
+      - name: Test Examples
+        if: needs.ci-gate.outputs.vouch-only != 'true'
+        run:
+          swift test --only-use-versions-from-resolved-file --no-parallel --package-path
+          Examples
+
+      # The behaviour corpus (docs/architecture/developer-tooling.md): every leg, Windows
+      # included, runs the scenarios in Examples/Scenarios against their committed goldens,
+      # which are checked out with LF (.gitattributes). A drifted golden or a failed
+      # expectation fails the leg.
+      - name: Run the scenario corpus
+        if: needs.ci-gate.outputs.vouch-only != 'true'
+        run:
+          swift run --only-use-versions-from-resolved-file --package-path Examples tessera
+          run --pretty Examples/Scenarios
+
       - name: Check the resolved files are unchanged
         if: needs.ci-gate.outputs.vouch-only != 'true'
         run: git diff --exit-code -- Package.resolved Examples/Package.resolved

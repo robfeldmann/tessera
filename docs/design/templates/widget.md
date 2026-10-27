@@ -77,7 +77,33 @@ Link every primitive this widget composes; note missing ones -- the `ready` gate
 
 Backticked sentence-style test names, each traced to a table row or wireframe state. Schema: [README](../../design.md#requirements-list).
 
+The plain list holds the requirements no capability owns: sizing, anatomy, and degradation. Capability requirements go under the `Focus`, `Pointer`, `Scroll`, and `Clock` subsections below, in that order. Keep a subsection only if the widget needs that capability, and delete the others. A requirement that needs several capabilities goes under the one that lands last.
+
 - `TODO` (trace)
+
+### Focus
+
+Keyboard handling and focused appearance.
+
+- `TODO` (key table row)
+
+### Pointer
+
+Clicks, drags, hover, and wheel that does not scroll.
+
+- `TODO` (mouse table row)
+
+### Scroll
+
+Interactive scrolling: offset, reveal, paging, and wheel scrolling.
+
+- `TODO` (state model row)
+
+### Clock
+
+Time and animation.
+
+- `TODO` (state model row)
 
 ## Degradation
 

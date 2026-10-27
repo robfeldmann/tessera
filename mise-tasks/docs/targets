@@ -6,10 +6,12 @@ echo "▶ Building documentation for Tessera targets..."
 base_targets=(
   TesseraCore
   TesseraLayout
+  TesseraRuntime
   TesseraTestSupport
   TesseraTerminalANSI
   TesseraTerminalBuffer
   TesseraTerminalCore
+  TesseraTerminalInMemory
   TesseraTerminalInput
   TesseraTerminalIO
   TesseraTerminalRendering

@@ -346,12 +346,18 @@ Before these land, app-supplied columns may be static content only. They must no
 - `two-column construction omits inspector instead of rendering a blank pane` (two-column missing-inspector state; state: available columns)
 - `custom tier breakpoints recompose presentation at the configured widths` (state: presentation tier)
 - `column width declarations forward to split view pane sizing` (sizing)
-- `tier change moves focus to a rendered column without mutating business bindings` (state: tier focus continuity)
-- `container consumes no keys and installs no pointer handlers` (key table; mouse table)
-- `divider drag changes the side pane on its first press` (mouse table: leading divider; sizing)
-- `sidebar selection dims to inactive when its column loses focus` (anatomy callout 5; environment)
 - `under-minimum proposal presents a resize guard without hidden column state` (sizing: 22 x 10; state: presentation tier)
 - `ascii degradation preserves column structure and divider junctions` (degradation)
+
+### Focus
+
+- `tier change moves focus to a rendered column without mutating business bindings` (state: tier focus continuity)
+- `sidebar selection dims to inactive when its column loses focus` (anatomy callout 5; environment)
+
+### Pointer
+
+- `container consumes no keys and installs no pointer handlers` (key table; mouse table)
+- `divider drag changes the side pane on its first press` (mouse table: leading divider; sizing)
 
 ## Degradation
 
