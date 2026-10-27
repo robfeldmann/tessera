@@ -1,6 +1,7 @@
 import CustomDump
 import TesseraTerminal
 import TesseraTerminalCore
+import TesseraTerminalInMemory
 import Testing
 
 @testable import TesseraHarness
@@ -11,6 +12,20 @@ private func bytes(_ text: String) -> ArraySlice<UInt8> {
 
 private func text(_ bytes: [UInt8]) -> String {
   String(validating: bytes, as: UTF8.self) ?? ""
+}
+
+/// The device a headless run is built over: open, and answering from `theme`.
+private func headlessDevice(
+  size: TerminalSize,
+  theme: TerminalTheme? = nil
+) -> InMemoryTerminalDevice {
+  let answerer = TerminalAnswerer(theme: theme)
+  return InMemoryTerminalDevice(
+    size: size,
+    cellPixelSize: nil,
+    inputBytes: [],
+    keepsInputOpen: true
+  ) { answerer.replies(to: $0) }
 }
 
 /// The bytes a session writes for one colour round: OSC 10, OSC 11, OSC 4 for slots 0
@@ -144,9 +159,8 @@ struct TerminalProfileTests {
 struct HeadlessDeviceTests {
   @Test
   func `the device answers a colour round written through its seam`() async throws {
-    let device = HeadlessTerminalDevice(
-      size: TerminalSize(columns: 20, rows: 4), theme: .dark)
-    let seam = device.seam
+    let device = headlessDevice(size: TerminalSize(columns: 20, rows: 4), theme: .dark)
+    let seam = await device.terminalDevice
     var replies = seam.bytes().makeAsyncIterator()
 
     let written = try await seam.write(bytes(colourRound))
@@ -161,24 +175,23 @@ struct HeadlessDeviceTests {
   func `a frame written through the seam draws no reply, and finishing ends the input`()
     async throws
   {
-    let device = HeadlessTerminalDevice(
-      size: TerminalSize(columns: 20, rows: 4), theme: .light)
-    let seam = device.seam
+    let device = headlessDevice(size: TerminalSize(columns: 20, rows: 4), theme: .light)
+    let seam = await device.terminalDevice
     var replies = seam.bytes().makeAsyncIterator()
 
     _ = try await seam.write(bytes("\u{1B}[2;1Hhello"))
-    await device.finish()
+    await device.closeInput()
 
     #expect(await replies.next() == nil)
   }
 
   @Test
   func `the device reports its size and a resize changes it`() async throws {
-    let device = HeadlessTerminalDevice(size: TerminalSize(columns: 20, rows: 4))
+    let device = headlessDevice(size: TerminalSize(columns: 20, rows: 4))
 
-    #expect(try await device.seam.size() == TerminalSize(columns: 20, rows: 4))
+    #expect(try await device.terminalDevice.size() == TerminalSize(columns: 20, rows: 4))
     await device.resize(to: TerminalSize(columns: 30, rows: 5))
-    #expect(try await device.seam.size() == TerminalSize(columns: 30, rows: 5))
+    #expect(try await device.terminalDevice.size() == TerminalSize(columns: 30, rows: 5))
   }
 
   @Test

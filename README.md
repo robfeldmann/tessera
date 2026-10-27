@@ -147,7 +147,8 @@ The supported/tested OS-version range widens as the view layer matures. Contribu
 | `TesseraTerminal` | Terminal session lifecycle, input, buffers, ANSI/OSC output, and modern protocols. |
 | `Tessera` | Umbrella product for the emerging shared view/app abstractions (pre-API). |
 | `TesseraTerminalSnapshotSupport` | Ghostty-backed virtual-terminal support for output snapshot testing. |
-| `TesseraTerminalTestSupport` | Fixtures and utilities for terminal-behavior tests. |
+| `TesseraTerminalInMemory` | An in-memory terminal device and session that record a terminal's lifecycle and output; links no test framework, so an executable can use it. |
+| `TesseraTerminalTestSupport` | Fixtures and utilities for terminal-behavior tests; re-exports `TesseraTerminalInMemory`. |
 | `TesseraTestSupport` | General Tessera test and snapshot support. |
 | `TesseraHarness` | Register, launch, drive, and check Tessera apps from test and development targets: `ApplicationRegistry`, `Viewport`, `HarnessCLI`, and `ScenarioRunner`, which runs text scenarios and returns `ScenarioReport`s (`ScenarioFailure` describes each failed statement). |
 

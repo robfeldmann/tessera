@@ -24,6 +24,7 @@ public actor InMemoryTerminalDevice {
   private var inputContinuations: [AsyncStream<[UInt8]>.Continuation] = []
   private var isInputClosed = false
   private let keepsInputOpen: Bool
+  private let replies: (@Sendable (ArraySlice<UInt8>) -> [UInt8])?
   private var recordedEvents: [InMemoryTerminalDeviceEvent] = []
   private var sizeContinuations: [AsyncStream<TerminalSize>.Continuation] = []
   private var storedBytes: [UInt8] = []
@@ -92,13 +93,20 @@ public actor InMemoryTerminalDevice {
   /// Creates a device whose input and size-change streams stay open until `closeInput()`.
   ///
   /// An open device can deliver `.resize` mid-session through `deliverResize(to:)`.
+  ///
+  /// A device given `replies` answers what is written to it: each write is passed to the
+  /// closure, and a non-empty result is delivered on the byte streams of an open device, as
+  /// a terminal answers a query. A closed device has no byte streams to deliver on, so it
+  /// drops the reply.
   package init(
     size: TerminalSize,
     cellPixelSize: CellPixelSize?,
     inputBytes: [UInt8],
-    keepsInputOpen: Bool
+    keepsInputOpen: Bool,
+    replies: (@Sendable (ArraySlice<UInt8>) -> [UInt8])? = nil
   ) {
     self.keepsInputOpen = keepsInputOpen
+    self.replies = replies
     self.storedInputBytes = inputBytes
     self.storedCellPixelSize = cellPixelSize
     self.storedSize = size
@@ -171,9 +179,14 @@ public actor InMemoryTerminalDevice {
   }
 
   private func write(_ bytes: ArraySlice<UInt8>) throws -> Int {
-    let bytes = Array(bytes)
-    recordedEvents.append(.flush(bytes))
+    let count = bytes.count
+    recordedEvents.append(.flush(Array(bytes)))
     storedBytes.append(contentsOf: bytes)
-    return bytes.count
+    if let reply = replies?(bytes), !reply.isEmpty {
+      for continuation in inputContinuations {
+        continuation.yield(reply)
+      }
+    }
+    return count
   }
 }

@@ -6,21 +6,7 @@ This module is deliberately test support. Production code owns its terminal sess
 
 ## Start with deterministic device evidence
 
-``InMemoryTerminalDevice`` starts with a chosen terminal size, optional cell-pixel size, and input bytes. Code running through its test seam records mode changes and each output flush. Read ``InMemoryTerminalDevice/events`` to assert lifecycle ordering, or ``InMemoryTerminalDevice/bytes`` to inspect the complete output stream.
-
-```swift
-let device = InMemoryTerminalDevice(
-  size: TerminalSize(columns: 80, rows: 24),
-  inputBytes: Array("q".utf8)
-)
-
-// Exercise the terminal-owning code with its in-memory device seam.
-
-let events = await device.events
-let bytes = await device.bytes
-```
-
-The event list distinguishes entering and leaving raw input or the alternate screen from a ``InMemoryTerminalDeviceEvent/flush(_:)``. This lets a test check protocol lifecycle behavior without coupling it to scheduler timing.
+For I/O behavior, run the code over an `InMemoryTerminalDevice` and assert its `events` for lifecycle ordering or its `bytes` for the complete output stream. The device lives in `TesseraTerminalInMemory`, which this module re-exports; that module's Recording Terminal Output article covers it.
 
 ## Snapshot the layer that failed
 

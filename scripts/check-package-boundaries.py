@@ -31,8 +31,8 @@ ALLOWED_DIRECT_DEPENDENCIES: dict[str, frozenset[str]] = {
             "TesseraRuntime",
             "TesseraTerminal",
             "TesseraTerminalCore",
+            "TesseraTerminalInMemory",
             "TesseraTerminalInput",
-            "TesseraTerminalIO",
             "TesseraTerminalSnapshotSupport",
         }
     ),

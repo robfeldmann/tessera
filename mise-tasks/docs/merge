@@ -14,6 +14,7 @@ xcrun docc merge \
   .build/doccarchives/targets/TesseraTerminalANSI.doccarchive \
   .build/doccarchives/targets/TesseraTerminalBuffer.doccarchive \
   .build/doccarchives/targets/TesseraTerminalCore.doccarchive \
+  .build/doccarchives/targets/TesseraTerminalInMemory.doccarchive \
   .build/doccarchives/targets/TesseraTerminalInput.doccarchive \
   .build/doccarchives/targets/TesseraTerminalIO.doccarchive \
   .build/doccarchives/targets/TesseraTerminalRendering.doccarchive \

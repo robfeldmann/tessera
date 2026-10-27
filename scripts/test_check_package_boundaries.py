@@ -47,8 +47,8 @@ class PackageBoundaryTests(unittest.TestCase):
                     "TesseraRuntime",
                     "TesseraTerminal",
                     "TesseraTerminalCore",
+                    "TesseraTerminalInMemory",
                     "TesseraTerminalInput",
-                    "TesseraTerminalIO",
                     "TesseraTerminalSnapshotSupport",
                 ],
                 "TesseraTestSupport": [
@@ -89,6 +89,23 @@ class PackageBoundaryTests(unittest.TestCase):
             [
                 "TesseraRuntime -> TesseraTerminalIO",
                 "TesseraHarness -> TesseraTerminalRendering",
+            ],
+        )
+
+    def test_the_harness_may_take_the_in_memory_terminal_but_not_test_support(self) -> None:
+        package = self.valid_package()
+        targets = package["targets"]
+        assert isinstance(targets, list)
+        by_name = {target["name"]: target for target in targets}
+        by_name["TesseraHarness"]["target_dependencies"].extend(
+            ["TesseraTerminalTestSupport", "TesseraTestSupport"]
+        )
+
+        self.assertEqual(
+            checker.check_package_boundaries(package),
+            [
+                "TesseraHarness -> TesseraTerminalTestSupport",
+                "TesseraHarness -> TesseraTestSupport",
             ],
         )
 
