@@ -20,6 +20,7 @@ Recommended product/target shape:
 Products:
   Tessera                  // public view/runtime product
   TesseraTerminal          // public terminal-foundation product
+  TesseraTerminalInMemory  // public in-memory terminal device and session; links no test framework
   TesseraTestSupport       // public view-layer test and snapshot support
   TesseraHarness           // public harness: registry, scenarios, CLI; for test and dev targets
 
@@ -36,6 +37,7 @@ Targets:
   TesseraTerminalANSI
   TesseraTerminalBuffer
   TesseraTerminalCore
+  TesseraTerminalInMemory  // in-memory device and session; no snapshot or test-framework dependency
   TesseraTerminalIO
   TesseraTerminalInput
   TesseraTerminalRendering
@@ -43,7 +45,7 @@ Targets:
   TesseraTerminalTestSupport
 ```
 
-The `TesseraTerminal` targets are relatively concrete because Phases 1–3 define their responsibilities in detail. `TesseraTerminalTestSupport` owns terminal-specific fixtures, in-memory sessions, virtual-terminal snapshot helpers, and renderer diagnostics without making live-terminal escape hatches public. `TesseraTestSupport` is the elevated testing surface for view graphs, layouts, and widgets. It depends on `TesseraCore`, re-exports `TesseraTerminalTestSupport`, and owns stable high-level snapshot strategies rather than placing them in individual test files. The production `Tessera` targets follow the Phase 4 slice plan: `TesseraCore` for the view protocol, graph, environment, and responder system; `TesseraLayout` for the layout protocol, containers, and decoration; `TesseraWidgets` for the standard widget set; and `TesseraRuntime` for the app contract (`Application`, created in Phase 4 and re-exported by `Tessera`) and, in Phase 5, the optional convenience loop. `TesseraHarness` drives an app headlessly and live for tests and dev executables; app authors import it from those targets, never from production code, and it does not re-export `TesseraRuntime`. The isolation rules for the contract, the runtime, and the harness are the [Runtime isolation](phase-5-runtime-and-polish.md#runtime-isolation) section of Phase 5.
+The `TesseraTerminal` targets are relatively concrete because Phases 1–3 define their responsibilities in detail. `TesseraTerminalInMemory` owns the in-memory terminal device and session (`InMemoryTerminalDevice`, `InMemoryTerminalSession`) and depends only on `TesseraTerminal`, `TesseraTerminalCore`, and `TesseraTerminalIO`, so an executable can link it. `TesseraTerminalTestSupport` re-exports it and owns terminal-specific fixtures, virtual-terminal snapshot helpers, and renderer diagnostics without making live-terminal escape hatches public. `TesseraTestSupport` is the elevated testing surface for view graphs, layouts, and widgets. It depends on `TesseraCore`, re-exports `TesseraTerminalTestSupport`, and owns stable high-level snapshot strategies rather than placing them in individual test files. The production `Tessera` targets follow the Phase 4 slice plan: `TesseraCore` for the view protocol, graph, environment, and responder system; `TesseraLayout` for the layout protocol, containers, and decoration; `TesseraWidgets` for the standard widget set; and `TesseraRuntime` for the app contract (`Application`, created in Phase 4 and re-exported by `Tessera`) and, in Phase 5, the optional convenience loop. `TesseraHarness` drives an app headlessly and live for tests and dev executables; app authors import it from those targets, never from production code, and it does not re-export `TesseraRuntime`. The isolation rules for the contract, the runtime, and the harness are the [Runtime isolation](phase-5-runtime-and-polish.md#runtime-isolation) section of Phase 5.
 
 Swift SPI may be used sparingly when SwiftPM visibility is not expressive enough:
 
@@ -111,6 +113,10 @@ Sources/
     MouseEvent.swift
     TerminalCapabilities.swift
 
+  TesseraTerminalInMemory/      // in-memory terminal for tests and development executables
+    InMemoryTerminalDevice.swift
+    InMemoryTerminalSession.swift
+
   TesseraTerminalIO/            // Phase 2 platform/lifecycle; Phase 3 mode cleanup
     PlatformIO.swift
     PlatformIO+POSIX.swift
@@ -126,8 +132,7 @@ Sources/
     SnapshotFixtures.swift
 
   TesseraTerminalTestSupport/
-    TesseraTerminalTestSupport.swift
-    InMemoryTerminalSession.swift
+    TesseraTerminalTestSupport.swift  // re-exports TesseraTerminalInMemory
     BufferSnapshotting.swift
     VirtualTerminalSnapshotting.swift
 
@@ -153,8 +158,7 @@ Sources/
     HarnessCLI+Commands.swift     // apps, launch, and the ArgumentParser declarations they share (internal)
     HarnessCLI+Scenarios.swift    // run, shot, tree, check, and replay (internal)
     Driver.swift                  // main-actor shell over the step (internal)
-    HeadlessHost.swift            // a session over a headless device into one virtual terminal (internal)
-    HeadlessTerminalDevice.swift  // the device under a headless session; answers its terminal queries (internal)
+    HeadlessHost.swift            // a session over an in-memory device into one virtual terminal (internal)
     TerminalProfile.swift         // what a scenario's `term` header names: colour level and theme (internal)
     TerminalAnswerer.swift        // answers OSC 10, 11, 4 and DA1 queries from the theme (internal)
     LiveHost.swift                // a session over the real terminal (internal)
@@ -293,6 +297,7 @@ Suggested dependency direction inside `TesseraTerminal`:
 - `TesseraTerminalInput` should be pure parser/event code; it should not own file descriptors or tasks.
 - `TesseraTerminalIO` owns file descriptors, console handles, lifecycle, cleanup, and async streams. It may depend on ANSI and Input but should keep OS-specific code local.
 - `TesseraTerminalSnapshotSupport` may depend on ANSI, Buffer, and Rendering, but production targets should not depend on snapshot helpers.
+- `TesseraTerminalInMemory` may depend on `TesseraTerminal`, Core, and IO, and nothing that links a test framework (no swift-snapshot-testing, no CustomDump), so executables such as the harness can link it. `TesseraTerminalTestSupport` depends on it and re-exports it.
 
 Dependency direction inside `Tessera`:
 
@@ -300,7 +305,7 @@ Dependency direction inside `Tessera`:
 - `TesseraLayout` builds only on `TesseraCore`: the `Layout` protocol, containers, styling modifiers, and decoration.
 - `TesseraWidgets` builds only on `TesseraCore` + `TesseraLayout`. It starts in Slice 2 rather than waiting for Slice 7 so ScrollView and SplitView do not require a temporary target.
 - `TesseraRuntime` depends on `TesseraCore` and `TesseraTerminalInput` for the contract in Phase 4, and on the whole view layer plus `TesseraTerminal` once the Phase 5 runtime lands.
-- `TesseraHarness` depends on `TesseraRuntime`, `TesseraCore`, `TesseraTerminal`, and the narrow terminal modules it imports (`TesseraTerminalIO` to build the device under a headless session, `TesseraTerminalSnapshotSupport` for its virtual terminal), and may use their `package` seams; it re-exports none of them. It also takes swift-argument-parser's `ArgumentParser` for the command line, and no other target does. It never depends on `TesseraTerminalTestSupport` or `TesseraTestSupport`: those link the snapshot-testing library, and an executable that links it cannot launch (`dyld` cannot load `Testing.framework`), while the harness is linked into development executables.
+- `TesseraHarness` depends on `TesseraRuntime`, `TesseraCore`, `TesseraTerminal`, and the narrow terminal modules it imports (`TesseraTerminalInMemory` for the device under a headless session, `TesseraTerminalSnapshotSupport` for its virtual terminal), and may use their `package` seams; it re-exports none of them. It also takes swift-argument-parser's `ArgumentParser` for the command line, and no other target does. It never depends on `TesseraTerminalTestSupport` or `TesseraTestSupport`: those link the snapshot-testing library, and an executable that links it cannot launch (`dyld` cannot load `Testing.framework`), while the harness is linked into development executables.
 - The `Tessera` target re-exports the public view-layer modules, `TesseraRuntime`, and `TesseraTerminal` for app authors.
 
 Prefer Swift's access control to model intent:

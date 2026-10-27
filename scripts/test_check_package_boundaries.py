@@ -47,9 +47,14 @@ class PackageBoundaryTests(unittest.TestCase):
                     "TesseraRuntime",
                     "TesseraTerminal",
                     "TesseraTerminalCore",
+                    "TesseraTerminalInMemory",
                     "TesseraTerminalInput",
-                    "TesseraTerminalIO",
                     "TesseraTerminalSnapshotSupport",
+                ],
+                "TesseraTerminalInMemory": [
+                    "TesseraTerminal",
+                    "TesseraTerminalCore",
+                    "TesseraTerminalIO",
                 ],
                 "TesseraTestSupport": [
                     "TesseraCore",
@@ -89,6 +94,46 @@ class PackageBoundaryTests(unittest.TestCase):
             [
                 "TesseraRuntime -> TesseraTerminalIO",
                 "TesseraHarness -> TesseraTerminalRendering",
+            ],
+        )
+
+    def test_the_harness_may_take_the_in_memory_terminal_but_not_test_support(self) -> None:
+        package = self.valid_package()
+        targets = package["targets"]
+        assert isinstance(targets, list)
+        by_name = {target["name"]: target for target in targets}
+        by_name["TesseraHarness"]["target_dependencies"].extend(
+            ["TesseraTerminalTestSupport", "TesseraTestSupport"]
+        )
+
+        self.assertEqual(
+            checker.check_package_boundaries(package),
+            [
+                "TesseraHarness -> TesseraTerminalTestSupport",
+                "TesseraHarness -> TesseraTestSupport",
+            ],
+        )
+
+    def test_the_in_memory_terminal_links_no_snapshot_or_test_support_target(self) -> None:
+        package = self.valid_package()
+        targets = package["targets"]
+        assert isinstance(targets, list)
+        by_name = {target["name"]: target for target in targets}
+        by_name["TesseraTerminalInMemory"]["product_dependencies"] = [
+            "SnapshotTesting",
+            "CustomDump",
+        ]
+        by_name["TesseraTerminalInMemory"]["target_dependencies"].extend(
+            ["TesseraTerminalSnapshotSupport", "TesseraTerminalTestSupport"]
+        )
+
+        self.assertEqual(
+            checker.check_package_boundaries(package),
+            [
+                "TesseraTerminalInMemory -> TesseraTerminalSnapshotSupport",
+                "TesseraTerminalInMemory -> TesseraTerminalTestSupport",
+                "TesseraTerminalInMemory -> product CustomDump",
+                "TesseraTerminalInMemory -> product SnapshotTesting",
             ],
         )
 
@@ -180,6 +225,7 @@ class PackageBoundaryTests(unittest.TestCase):
             "Missing required view-layer target: TesseraRuntime\n"
             "Missing required view-layer target: Tessera\n"
             "Missing required view-layer target: TesseraHarness\n"
+            "Missing required view-layer target: TesseraTerminalInMemory\n"
             "Missing required view-layer target: TesseraTestSupport\n",
         )
 

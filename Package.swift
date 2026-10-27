@@ -140,6 +140,9 @@ let TesseraTerminal: Target.Dependency = .byName(name: "TesseraTerminal")
 let TesseraTerminalANSI: Target.Dependency = .byName(name: "TesseraTerminalANSI")
 let TesseraTerminalBuffer: Target.Dependency = .byName(name: "TesseraTerminalBuffer")
 let TesseraTerminalCore: Target.Dependency = .byName(name: "TesseraTerminalCore")
+let TesseraTerminalInMemory: Target.Dependency = .byName(
+  name: "TesseraTerminalInMemory"
+)
 let TesseraTerminalInput: Target.Dependency = .byName(name: "TesseraTerminalInput")
 let TesseraTerminalIO: Target.Dependency = .byName(name: "TesseraTerminalIO")
 let TesseraTerminalRendering: Target.Dependency = .byName(
@@ -164,6 +167,7 @@ let AllTesseraTargetNames: Set<String> = [
   "TesseraTerminalANSI",
   "TesseraTerminalBuffer",
   "TesseraTerminalCore",
+  "TesseraTerminalInMemory",
   "TesseraTerminalInput",
   "TesseraTerminalIO",
   "TesseraTerminalRendering",
@@ -289,8 +293,8 @@ package.targets.append(contentsOf: [
       TesseraRuntime,
       TesseraTerminal,
       TesseraTerminalCore,
+      TesseraTerminalInMemory,
       TesseraTerminalInput,
-      TesseraTerminalIO,
       TesseraTerminalSnapshotSupport,
     ]
   ),
@@ -307,6 +311,7 @@ package.targets.append(contentsOf: [
       TesseraRuntime,
       TesseraTerminal,
       TesseraTerminalCore,
+      TesseraTerminalInMemory,
       TesseraTerminalInput,
       TesseraTerminalSnapshotSupport,
       TesseraTerminalTestSupport,
@@ -449,6 +454,25 @@ package.targets.append(contentsOf: [
   ),
 ])
 
+// MARK: TesseraTerminalInMemory
+package.products.append(
+  .library(
+    name: "TesseraTerminalInMemory",
+    targets: ["TesseraTerminalInMemory"]
+  )
+)
+
+package.targets.append(
+  .target(
+    name: "TesseraTerminalInMemory",
+    dependencies: [
+      TesseraTerminal,
+      TesseraTerminalCore,
+      TesseraTerminalIO,
+    ]
+  )
+)
+
 // MARK: TesseraTerminalInput
 
 package.targets.append(contentsOf: [
@@ -569,10 +593,8 @@ package.targets.append(
     dependencies: [
       CustomDump,
       SnapshotTesting,
-      TesseraTerminal,
       TesseraTerminalBuffer,
-      TesseraTerminalInput,
-      TesseraTerminalIO,
+      TesseraTerminalInMemory,
       TesseraTerminalSnapshotSupport,
     ]
   )

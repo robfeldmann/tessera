@@ -1,6 +1,7 @@
 import CustomDump
 import TesseraTerminal
 import TesseraTerminalCore
+import TesseraTerminalInMemory
 import Testing
 
 @testable import TesseraHarness
@@ -144,41 +145,44 @@ struct TerminalProfileTests {
 struct HeadlessDeviceTests {
   @Test
   func `the device answers a colour round written through its seam`() async throws {
-    let device = HeadlessTerminalDevice(
+    let device = InMemoryTerminalDevice.headless(
       size: TerminalSize(columns: 20, rows: 4), theme: .dark)
-    let seam = device.seam
-    var replies = seam.bytes().makeAsyncIterator()
-
+    let seam = await device.terminalDevice
     let written = try await seam.write(bytes(colourRound))
-    let reply = await replies.next()
+    await device.closeInput()
+    var reply: [UInt8] = []
+    for await chunk in seam.bytes() {
+      reply += chunk
+    }
 
     #expect(written == colourRound.utf8.count)
-    #expect(reply.map(text)?.hasPrefix("\u{1B}]10;rgb:d4d4/d4d4/d4d4\u{1B}\\") == true)
-    #expect(reply.map(text)?.hasSuffix("\u{1B}[?62;22c") == true)
+    #expect(text(reply).hasPrefix("\u{1B}]10;rgb:d4d4/d4d4/d4d4\u{1B}\\"))
+    #expect(text(reply).hasSuffix("\u{1B}[?62;22c"))
   }
 
   @Test
   func `a frame written through the seam draws no reply, and finishing ends the input`()
     async throws
   {
-    let device = HeadlessTerminalDevice(
+    let device = InMemoryTerminalDevice.headless(
       size: TerminalSize(columns: 20, rows: 4), theme: .light)
-    let seam = device.seam
+    let seam = await device.terminalDevice
     var replies = seam.bytes().makeAsyncIterator()
 
     _ = try await seam.write(bytes("\u{1B}[2;1Hhello"))
-    await device.finish()
+    await device.closeInput()
 
     #expect(await replies.next() == nil)
   }
 
   @Test
   func `the device reports its size and a resize changes it`() async throws {
-    let device = HeadlessTerminalDevice(size: TerminalSize(columns: 20, rows: 4))
+    let device = InMemoryTerminalDevice.headless(
+      size: TerminalSize(columns: 20, rows: 4), theme: nil)
 
-    #expect(try await device.seam.size() == TerminalSize(columns: 20, rows: 4))
+    #expect(try await device.terminalDevice.size() == TerminalSize(columns: 20, rows: 4))
     await device.resize(to: TerminalSize(columns: 30, rows: 5))
-    #expect(try await device.seam.size() == TerminalSize(columns: 30, rows: 5))
+    #expect(try await device.terminalDevice.size() == TerminalSize(columns: 30, rows: 5))
   }
 
   @Test

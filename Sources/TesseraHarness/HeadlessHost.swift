@@ -2,9 +2,28 @@ import TesseraCore
 import TesseraRuntime
 import TesseraTerminal
 import TesseraTerminalCore
-import TesseraTerminalIO
+import TesseraTerminalInMemory
 import TesseraTerminalInput
 import TesseraTerminalSnapshotSupport
+
+extension InMemoryTerminalDevice {
+  /// The device a headless run is built over.
+  ///
+  /// It never finishes its input until the run closes it, and it answers a session's colour
+  /// queries from `theme`, so the colours a session learns come from the scenario and never
+  /// from the virtual terminal's own defaults.
+  static func headless(size: TerminalSize, theme: TerminalTheme?)
+    -> InMemoryTerminalDevice
+  {
+    let answerer = TerminalAnswerer(theme: theme)
+    return InMemoryTerminalDevice(
+      size: size,
+      cellPixelSize: nil,
+      inputBytes: [],
+      keepsInputOpen: true
+    ) { answerer.replies(to: $0) }
+  }
+}
 
 /// What a scenario runner or a snapshot test needs from a running application, without its
 /// type.
@@ -52,7 +71,7 @@ private final class RecordLog {
   var records: [TraceRecord] = []
 }
 
-/// Runs an application on a terminal session over a headless device and reads the result from
+/// Runs an application on a terminal session over an in-memory device and reads the result from
 /// one persistent virtual terminal.
 ///
 /// The session is the live one: frames reach it through the same ``Driver`` and the same
@@ -61,7 +80,7 @@ private final class RecordLog {
 @MainActor
 final class HeadlessHost<App: Application>: ScenarioHost {
   private let driver: Driver<App>
-  private let device: HeadlessTerminalDevice
+  private let device: InMemoryTerminalDevice
   private let terminal: VirtualTerminal
   private let log: RecordLog
 
@@ -101,7 +120,7 @@ final class HeadlessHost<App: Application>: ScenarioHost {
 
   private init(
     driver: Driver<App>,
-    device: HeadlessTerminalDevice,
+    device: InMemoryTerminalDevice,
     terminal: VirtualTerminal,
     log: RecordLog
   ) {
@@ -126,7 +145,7 @@ final class HeadlessHost<App: Application>: ScenarioHost {
   ) async throws {
     let app = make()
     let size = try viewport.size(for: app, named: name)
-    let device = HeadlessTerminalDevice(size: size, theme: profile.theme)
+    let device = InMemoryTerminalDevice.headless(size: size, theme: profile.theme)
     let terminal = VirtualTerminal.ghosttyOrUnavailable(
       cols: size.columns, rows: size.rows)
     // No terminal modes and no synchronized output: a headless frame is plain cells.
@@ -148,19 +167,18 @@ final class HeadlessHost<App: Application>: ScenarioHost {
         HeadlessHost(driver: driver, device: device, terminal: terminal, log: log))
     }
     do {
-      try await TerminalSession.withApplicationTerminal(
+      try await InMemoryTerminalSession(device: device).withApplicationTerminal(
         configuration: configuration,
-        io: PlatformIO(terminalDevice: device.seam),
         environment: [:]
       ) { session in
         session.outputTap = { terminal.feed($0) }
         try await scope(session)
       }
     } catch {
-      await device.finish()
+      await device.closeInput()
       throw error
     }
-    await device.finish()
+    await device.closeInput()
   }
 
   func send(_ event: InputEvent) async throws {

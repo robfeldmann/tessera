@@ -11,6 +11,7 @@ base_targets=(
   TesseraTerminalANSI
   TesseraTerminalBuffer
   TesseraTerminalCore
+  TesseraTerminalInMemory
   TesseraTerminalInput
   TesseraTerminalIO
   TesseraTerminalRendering

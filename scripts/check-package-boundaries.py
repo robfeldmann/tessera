@@ -31,12 +31,15 @@ ALLOWED_DIRECT_DEPENDENCIES: dict[str, frozenset[str]] = {
             "TesseraRuntime",
             "TesseraTerminal",
             "TesseraTerminalCore",
+            "TesseraTerminalInMemory",
             "TesseraTerminalInput",
-            "TesseraTerminalIO",
             "TesseraTerminalSnapshotSupport",
         }
     ),
 }
+ALLOWED_DIRECT_DEPENDENCIES["TesseraTerminalInMemory"] = frozenset(
+    {"TesseraTerminal", "TesseraTerminalCore", "TesseraTerminalIO"}
+)
 ALLOWED_DIRECT_DEPENDENCIES["TesseraTestSupport"] = frozenset(
     {"TesseraCore", "TesseraTerminalTestSupport"}
 )
