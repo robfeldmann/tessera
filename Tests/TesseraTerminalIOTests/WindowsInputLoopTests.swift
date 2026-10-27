@@ -208,6 +208,47 @@
       #expect(event == .resize(size))
       #expect(end == nil)
     }
+
+    @Test
+    func `platform io parses a color reply and DA1 delivered one key record per byte`()
+      async
+    {
+      // The console delivers a VT reply as one key record per character, so the parser
+      // sees ESC, `]`, the digits, and BEL as separate one-byte chunks.
+      let reply =
+        Array("\u{1B}]11;rgb:1010/1212/1818".utf8) + [0x07] + Array("\u{1B}[?1;2c".utf8)
+      let records = reply.map { WindowsInputRecord.key([$0]) }
+      let state = WindowsInputState(
+        waitResults: [WindowsWaitStatus.object, WindowsWaitStatus.failed],
+        peekResults: [.success(records)],
+        readConsoleResults: [.success(records)]
+      )
+
+      let io = WindowsConsoleSystem.$override.withValue(state.system) {
+        PlatformIO(
+          terminalDevice: .live(
+            handles: PlatformHandles(inputHandle: 0x10, outputHandle: 0x20)
+          )
+        )
+      }
+      var iterator = io.events.makeAsyncIterator()
+
+      let color = await iterator.next()
+      let sentinel = await iterator.next()
+      let end = await iterator.next()
+
+      #expect(
+        color
+          == .colorReport(
+            TerminalColorReply(
+              role: .background,
+              color: TerminalRGBColor(red: 16, green: 18, blue: 24)
+            )
+          )
+      )
+      #expect(sentinel == .primaryDeviceAttributes([1, 2]))
+      #expect(end == nil)
+    }
   }
 
   private func firstBytes(from stream: AsyncStream<[UInt8]>) async -> [UInt8] {

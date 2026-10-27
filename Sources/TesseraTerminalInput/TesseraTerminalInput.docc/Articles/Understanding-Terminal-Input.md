@@ -56,8 +56,12 @@ Some terminal replies are not user input, but they still arrive in the same byte
 - ``InputEvent/privateModeStatus(_:)`` carries a ``PrivateModeStatus``, whose
   ``PrivateModeStatus/state`` is a ``PrivateModeState``.
 - ``InputEvent/kittyGraphicsResponse(_:)`` carries a Kitty Graphics Protocol response.
+- ``InputEvent/colorReport(_:)`` carries a ``TerminalColorReply``: one of the terminal's colors, scaled to 8 bits per channel, from an OSC 10, 11, or 4 reply. The reply may end in BEL or `ESC \`, and `rgb:` and `rgba:` bodies with one to four hex digits per channel decode alike.
+- ``InputEvent/colorSchemeChanged(_:)`` carries a ``TerminalColorScheme`` from a color-scheme notification (`CSI ? 997 ; Ps n`).
 
 Dispatch these cases alongside keyboard, paste, focus, and mouse input. Bytes that do not form a recognized event are surfaced as ``InputEvent/unknown(_:)``, allowing the byte-stream owner to make its own diagnostic or compatibility decision.
+
+`ESC ]` starts an OSC reply, and it is also how a legacy-encoded Alt+`]` arrives. The parser reads a reply only while the bytes can still be one, starting with a digit; any other byte abandons it, so typing after Alt+`]` is never swallowed. ``InputParser/flush()`` resolves a pending `ESC ]` as Alt+`]`, and the session's input loop does the same when input goes idle.
 
 ## Topics
 

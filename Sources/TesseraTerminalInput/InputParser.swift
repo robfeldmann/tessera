@@ -8,6 +8,7 @@ public struct InputParser: Sendable {
     case csi(accumulated: [UInt8])
     case escape
     case ground
+    case osc(accumulated: [UInt8])
     case ss3(accumulated: [UInt8])
     case utf8(expectedCount: Int, accumulated: [UInt8])
   }
@@ -77,17 +78,28 @@ public struct InputParser: Sendable {
   ]
 
   private static let apcByteCap = 4_096
+  /// The longest OSC reply the parser buffers: `4;15;rgba:ffff/ffff/ffff/ffff` is 29
+  /// bytes after the introducer, so anything longer is not a color reply.
+  private static let oscByteCap = 64
+  private static let oscIntroducer: [UInt8] = [0x1B, 0x5D]
+  private static let altRightBracketKey = InputEvent.key(
+    Key(code: .character("]"), modifiers: .alt)
+  )
 
   private var state: State = .ground
   private var bracketedPasteBuffer: [UInt8] = []
 
-  /// Whether the parser is waiting to disambiguate a bare Escape byte.
+  /// Whether the parser is waiting to disambiguate a bare Escape byte, or an Escape
+  /// followed by `]`, which is either Alt+`]` or the start of an OSC reply.
   package var isWaitingForEscape: Bool {
-    if case .escape = state {
-      return true
+    switch state {
+    case .escape:
+      true
+    case .osc(let accumulated):
+      accumulated == Self.oscIntroducer
+    case .apc, .bracketedPaste, .csi, .ground, .ss3, .utf8:
+      false
     }
-
-    return false
   }
 
   /// Creates an empty parser.
@@ -118,6 +130,9 @@ public struct InputParser: Sendable {
 
     case .csi(let accumulated):
       return parseCSI(byte, accumulated: accumulated)
+
+    case .osc(let accumulated):
+      return parseOSC(byte, accumulated: accumulated)
 
     case .escape:
       return parseEscape(byte)
@@ -174,21 +189,20 @@ public struct InputParser: Sendable {
           events.append(event)
         }
 
-      case .apc, .csi, .escape, .ground, .ss3, .utf8:
+      case .apc, .csi, .escape, .ground, .osc, .ss3, .utf8:
         events.append(contentsOf: feed(byte))
       }
     }
     return events
   }
 
-  /// Flushes a pending bare Escape byte, if present.
+  /// Flushes a pending bare Escape byte, or a pending Escape and `]`, if present.
   package mutating func flushPendingEscape() -> [InputEvent] {
     guard isWaitingForEscape else {
       return []
     }
 
-    state = .ground
-    return [.key(Key(code: .escape))]
+    return flush()
   }
 
   /// Flushes any pending partial input.
@@ -208,6 +222,13 @@ public struct InputParser: Sendable {
     case .csi(let accumulated), .ss3(let accumulated):
       state = .ground
       return [.unknown(accumulated)]
+
+    case .osc(let accumulated):
+      state = .ground
+      guard accumulated == Self.oscIntroducer else {
+        return [.unknown(accumulated)]
+      }
+      return [Self.altRightBracketKey]
 
     case .escape:
       state = .ground
@@ -289,6 +310,64 @@ public struct InputParser: Sendable {
       return .unknown(sequence)
     }
     return .kittyGraphicsResponse(response)
+  }
+
+  /// Collects an OSC reply, `ESC ] body` ended by BEL or `ESC \`.
+  ///
+  /// `ESC ]` is also Alt+`]`, and a user's typing must not disappear into a reply that
+  /// never ends, so the parser buffers only what a color reply can contain: a digit
+  /// first, then digits, `;`, `:`, `/`, hex digits, and the letters of `rgb` and `rgba`.
+  /// Any other byte abandons the reply as `.unknown` and is parsed again from ground.
+  private mutating func parseOSC(_ byte: UInt8, accumulated: [UInt8]) -> [InputEvent] {
+    if accumulated == Self.oscIntroducer {
+      guard byte.isASCIIDigit else {
+        state = .ground
+        return [Self.altRightBracketKey] + feed(byte)
+      }
+    } else if accumulated.last == 0x1B {
+      state = .ground
+      guard byte == 0x5C else {
+        var events: [InputEvent] = [.unknown(Array(accumulated.dropLast()))]
+        events.append(contentsOf: feed(0x1B))
+        events.append(contentsOf: feed(byte))
+        return events
+      }
+      return [decodeOSC(accumulated + [byte])]
+    }
+
+    switch byte {
+    case 0x07:
+      state = .ground
+      return [decodeOSC(accumulated + [byte])]
+
+    case 0x1B:
+      state = .osc(accumulated: accumulated + [byte])
+      return []
+
+    case _ where byte.isOSCColorReplyByte:
+      let sequence = accumulated + [byte]
+      guard sequence.count < Self.oscByteCap else {
+        state = .ground
+        return [.unknown(sequence)]
+      }
+      state = .osc(accumulated: sequence)
+      return []
+
+    default:
+      state = .ground
+      return [.unknown(accumulated)] + feed(byte)
+    }
+  }
+
+  /// Decodes a terminated OSC reply; `sequence` is the whole reply, introducer and
+  /// terminator included.
+  private func decodeOSC(_ sequence: [UInt8]) -> InputEvent {
+    let terminatorLength = sequence.last == 0x07 ? 1 : 2
+    let body = sequence.dropFirst(2).dropLast(terminatorLength)
+    guard let reply = TerminalColorReply(oscBody: body) else {
+      return .unknown(sequence)
+    }
+    return .colorReport(reply)
   }
 
   private func csiCode(finalByte: UInt8, params: String, parameterBytes: [UInt8]) -> Key?
@@ -496,6 +575,9 @@ public struct InputParser: Sendable {
         }
         return [.mouse(event)]
       }
+      if byte == 0x6E, let event = colorSchemeNotificationEvent(params) {
+        return [event]
+      }
       if byte == 0x63, let event = primaryDeviceAttributesEvent(params) {
         return [event]
       }
@@ -527,6 +609,10 @@ public struct InputParser: Sendable {
 
     case 0x4F:
       state = .ss3(accumulated: [0x1B, byte])
+      return []
+
+    case 0x5D:
+      state = .osc(accumulated: Self.oscIntroducer)
       return []
 
     case 0x5F:
@@ -980,9 +1066,132 @@ extension KittyGraphicsResponse {
   }
 }
 
+extension TerminalColorReply {
+  /// Decodes an OSC 10, OSC 11, or OSC 4 reply body: `10;SPEC`, `11;SPEC`, or `4;N;SPEC`.
+  fileprivate init?(oscBody body: ArraySlice<UInt8>) {
+    let fields = body.split(
+      separator: 0x3B, maxSplits: 2, omittingEmptySubsequences: false)
+    guard let command = fields.first.flatMap(Self.decimal) else {
+      return nil
+    }
+
+    switch (command, fields.count) {
+    case (10, 2), (11, 2):
+      guard let color = TerminalRGBColor(oscColorSpec: fields[1]) else {
+        return nil
+      }
+      self.init(role: command == 10 ? .foreground : .background, color: color)
+
+    case (4, 3):
+      guard let slot = Self.decimal(fields[1]), (0...15).contains(slot),
+        let color = TerminalRGBColor(oscColorSpec: fields[2])
+      else {
+        return nil
+      }
+      self.init(role: .slot(slot), color: color)
+
+    default:
+      return nil
+    }
+  }
+
+  private static func decimal(_ field: ArraySlice<UInt8>) -> Int? {
+    guard (1...4).contains(field.count), field.allSatisfy(\.isASCIIDigit) else {
+      return nil
+    }
+    return field.reduce(0) { $0 * 10 + Int($1 - 0x30) }
+  }
+}
+
+extension TerminalRGBColor {
+  /// Decodes `rgb:R/G/B` or `rgba:R/G/B/A`, each channel 1 to 4 hex digits, scaling the
+  /// color channels to 8 bits as `round(v * 255 / (16^d - 1))` for `d` digits. The alpha
+  /// channel is validated and ignored.
+  fileprivate init?(oscColorSpec spec: ArraySlice<UInt8>) {
+    let channelFields: ArraySlice<UInt8>
+    let expectedChannelCount: Int
+    if spec.starts(with: "rgb:".utf8) {
+      channelFields = spec.dropFirst(4)
+      expectedChannelCount = 3
+    } else if spec.starts(with: "rgba:".utf8) {
+      channelFields = spec.dropFirst(5)
+      expectedChannelCount = 4
+    } else {
+      return nil
+    }
+
+    let channels = channelFields.split(separator: 0x2F, omittingEmptySubsequences: false)
+    guard channels.count == expectedChannelCount else {
+      return nil
+    }
+    var scaled: [UInt8] = []
+    for channel in channels {
+      guard let value = Self.scaledChannel(channel) else {
+        return nil
+      }
+      scaled.append(value)
+    }
+    self.init(red: scaled[0], green: scaled[1], blue: scaled[2])
+  }
+
+  private static func scaledChannel(_ digits: ArraySlice<UInt8>) -> UInt8? {
+    guard (1...4).contains(digits.count) else {
+      return nil
+    }
+    var value = 0
+    for digit in digits {
+      guard let nibble = digit.hexValue else {
+        return nil
+      }
+      value = value << 4 | nibble
+    }
+    let maximum = (1 << (4 * digits.count)) - 1
+    return UInt8((2 * value * 255 + maximum) / (2 * maximum))
+  }
+}
+
+private func colorSchemeNotificationEvent(_ params: String) -> InputEvent? {
+  switch params {
+  case "?997;1":
+    .colorSchemeChanged(.dark)
+  case "?997;2":
+    .colorSchemeChanged(.light)
+  default:
+    nil
+  }
+}
+
 extension UInt8 {
   fileprivate var isUTF8Continuation: Bool {
     (0x80...0xBF).contains(self)
+  }
+
+  fileprivate var isASCIIDigit: Bool {
+    (0x30...0x39).contains(self)
+  }
+
+  /// Whether this byte can appear in an OSC color reply body.
+  fileprivate var isOSCColorReplyByte: Bool {
+    switch self {
+    case 0x30...0x39, 0x3A, 0x3B, 0x2F, 0x41...0x46, 0x61...0x66, 0x67, 0x72:
+      true
+    default:
+      false
+    }
+  }
+
+  /// The value of this byte as a hexadecimal digit, or nil when it is not one.
+  fileprivate var hexValue: Int? {
+    switch self {
+    case 0x30...0x39:
+      Int(self - 0x30)
+    case 0x41...0x46:
+      Int(self - 0x41 + 10)
+    case 0x61...0x66:
+      Int(self - 0x61 + 10)
+    default:
+      nil
+    }
   }
 }
 

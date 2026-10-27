@@ -139,8 +139,8 @@ package struct TraceEvent: Codable, Equatable, Sendable {
       type = "focusLost"
     case .mouse:
       detail = "mouse"
-    case .kittyGraphicsResponse, .kittyKeyboardEnhancementFlags, .primaryDeviceAttributes,
-      .privateModeStatus:
+    case .colorReport, .colorSchemeChanged, .kittyGraphicsResponse,
+      .kittyKeyboardEnhancementFlags, .primaryDeviceAttributes, .privateModeStatus:
       detail = "terminalReply"
     case .unknown:
       detail = "unknown"

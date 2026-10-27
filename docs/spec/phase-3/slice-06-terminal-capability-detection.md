@@ -86,7 +86,7 @@ In particular, underline rendering is application-selected output policy, not de
 > - crossterm has a narrow internal capability-query precedent: it parses keyboard enhancement flag responses and primary device attributes into `InternalEvent`s (`crossterm` `src/event/sys/unix/parse.rs`, lines 258-292), and filters for those internal responses separately from public input (`crossterm` `src/event/filter.rs`, lines 22-35). Tessera should use the same separation if it adds active queries.
 > - Ratatui's flex demo reads `TERM_PROGRAM` / `TERM_PROGRAM_VERSION` only as local example behavior, not as core terminal policy (`examples/apps/flex/src/main.rs`, lines 602-607). Tessera can centralize that kind of passive hinting in `TerminalCapabilities`.
 
-Implemented active queries include KGP `a=q` + DA1, Kitty keyboard query + DA1, and DECRQM (`CSI ? Ps $ p`) for the DEC private modes Tessera uses (`2004`, `1004`, `1000`, `1002`, `1003`, `1006`, and `2026`). Primary/secondary device attributes and terminfo-style queries such as XTGETTCAP remain possible future inputs, but they must not become terminal-name allowlists. The OSC 10/11/4 color round is specified in [Terminal color reports](#terminal-color-reports) and is not yet implemented.
+Implemented active queries include KGP `a=q` + DA1, Kitty keyboard query + DA1, DECRQM (`CSI ? Ps $ p`) for the DEC private modes Tessera uses (`2004`, `1004`, `1000`, `1002`, `1003`, `1006`, and `2026`), and the OSC 10/11/4 color round ([Terminal color reports](#terminal-color-reports)). Primary/secondary device attributes and terminfo-style queries such as XTGETTCAP remain possible future inputs, but they must not become terminal-name allowlists.
 
 ## Startup behavior
 
@@ -105,20 +105,20 @@ An active run exposes `.probing` while probes are in flight, `.supported` only a
 
 ## Terminal color reports
 
-Amendment (owner decisions, 2026-10-19), not yet implemented: the active generation also asks the terminal for its own colors, so the view layer can derive shades from the user's palette instead of fixed values. [docs/design/tokens.md](../../design/tokens.md#probe) owns the full probe contract and the color arithmetic that consumes it; this section is the terminal-substrate half.
+Owner decisions, 2026-10-19: the active generation also asks the terminal for its own colors, so the view layer can derive shades from the user's palette instead of fixed values. [docs/design/tokens.md](../../design/tokens.md#probe) owns the full probe contract and the color arithmetic that consumes it; this section is the terminal-substrate half. Everything below is implemented except the fixtures bullet.
 
-- **Round.** OSC 10/11/4 color queries join the generation as one DA1-terminated round: one write of `OSC 10 ; ? ST`, `OSC 11 ; ? ST`, and `OSC 4 ; n ; ? ST` for each slot `n` from 0 to 15, then the round's single DA1. The round ends at the DA1 reply or at `activeProbeTimeout`, whichever comes first; an input with no reply by then is unknown, not a failure. The timeout default rises from 250 ms to 1 s because SSH links need it; the DA1 reply still ends the round after one round trip on any terminal that answers DA1. `.passive` and `.disabled` detection send no color queries, so every color input stays unknown.
+- **Round.** OSC 10/11/4 color queries join the generation as its last round, one DA1-terminated round: one write of `OSC 10 ; ? ST`, `OSC 11 ; ? ST`, and `OSC 4 ; n ; ? ST` for each slot `n` from 0 to 15, then the round's single DA1. The round ends at the DA1 reply or at `activeProbeTimeout`, whichever comes first; an input with no reply by then is unknown, not a failure. The timeout default is 1 s, up from 250 ms, because SSH links need it; the DA1 reply still ends the round after one round trip on any terminal that answers DA1. `.passive` and `.disabled` detection send no color queries, so every color input stays unknown. The round runs even when an earlier round timed out, so a slow link still gets its colors as late replies.
 - **`NO_COLOR`.** The round asks only for the background (OSC 11), because the color scheme, which Image's density ramp follows, still needs it.
 - **First frame.** The first frame waits for the round, so it paints in its final color tier.
-- **Late replies.** A color reply that arrives after its round ended is still consumed and applied as an update: the reported colors change, the view layer re-resolves its roles, and the screen repaints.
-- **Theme changes.** Startup enables color-scheme notifications (DEC private mode 2031, `CSI ? 2031 h`) and registers `CSI ? 2031 l` with cleanup. Each notification (`CSI ? 997 ; 1 n` for dark, `CSI ? 997 ; 2 n` for light) re-runs the color round. A terminal that does not know mode 2031 ignores it.
-- **Resume.** The session re-runs the color round on resume after a suspend.
+- **Late replies.** A color reply that arrives after its round ended is still consumed and applied as an update: the session updates `TerminalCapabilities.colorReport` first and then delivers the reply on the input queue as `InputEvent.colorReport`, so the view layer can re-resolve its roles and repaint from the event.
+- **Theme changes.** Active detection's startup enables color-scheme notifications (DEC private mode 2031, `CSI ? 2031 h`, the session-fixed `ModeLifecycle.Mode.colorSchemeNotifications`, acquired with raw mode and the alternate screen) and registers `CSI ? 2031 l` with cleanup. `.passive` and `.disabled` detection never enable it, because a notification only re-runs a round they never send. Each notification (`CSI ? 997 ; 1 n` for dark, `CSI ? 997 ; 2 n` for light, delivered as `InputEvent.colorSchemeChanged`) re-runs the color round without blocking input, so the round's replies still reach the parser. Rounds run one at a time, and a request that arrives while one is already queued adds nothing, because the queued round has not asked yet and will see the newest colors. A terminal that does not know mode 2031 ignores it.
+- **Resume.** The session re-runs the color round on resume after a suspend, through `TerminalSession.resumeAfterSuspend()`. Tessera has no suspend handling yet, so nothing calls it today; the suspend path, when it lands, does. It does nothing unless the session ran its active generation.
 - **Evidence.** Replies fill `TerminalCapabilities.colorReport`. Nerd Font coverage has no adopted protocol-native query, so `nerdFontCoverage` reports `.notDetectable`.
-- **Parser.** The input parser, which has no OSC reply path today, gains one. It accepts `rgb:` and `rgba:` bodies (alpha ignored) with 1 to 4 hex digits per channel, terminated by BEL or ST; scales each channel to 8 bits as `round(v * 255 / (16^d - 1))` for `d` digits; and takes OSC 4 replies in any order. Replies are consumed as probe evidence and never reach the app as key events.
+- **Parser.** The input parser has an OSC reply path. It accepts `rgb:` and `rgba:` bodies (alpha ignored) with 1 to 4 hex digits per channel, terminated by BEL or ST; scales each channel to 8 bits as `round(v * 255 / (16^d - 1))` for `d` digits; and takes OSC 4 replies in any order. A reply is `InputEvent.colorReport`, never a key event. `ESC ]` is also Alt+`]` in the legacy keyboard encoding, so the parser buffers only what a color reply can contain, starting with a digit; any other byte abandons the reply (`.unknown`) and is parsed again, and a bare `ESC ]` that input idles on is Alt+`]`.
 - **Multiplexers.** A multiplexer may answer for the outer terminal, leave slots unanswered, or answer DA1 before a forwarded reply, which reads as unsupported. That failure is safe, and the late reply upgrades it. Tessera never wraps queries in DCS passthrough and never decides by terminal identity.
-- **Fixtures.** The application configuration may supply fixed colors, which skip the round; snapshot tests use them.
+- **Fixtures.** Not implemented: the application configuration may supply fixed colors, which skip the round, and snapshot tests use them. Phase 4's harness instead answers the round's queries from a scenario's `term` header, so the configuration field waits until a caller needs it, and its public name is chosen then.
 
-The color round is the one exception to [Slice 12](slice-12-runtime-protocol-control.md)'s single cached generation: notifications and resume re-run it, while DECRQM, Kitty keyboard, and Kitty graphics evidence stays cached. Until it is implemented, every color input is unknown and the view layer's roles resolve in the `slots` tier of [docs/design/tokens.md](../../design/tokens.md#tiers).
+The color round is the one exception to [Slice 12](slice-12-runtime-protocol-control.md)'s single cached generation: notifications and resume re-run it, while DECRQM, Kitty keyboard, and Kitty graphics evidence stays cached. A color input without a reply stays unknown, and a role that reads it resolves in the `slots` tier of [docs/design/tokens.md](../../design/tokens.md#tiers).
 
 ## Protocol enablement policy
 
@@ -168,9 +168,9 @@ Requirements:
 - Surface unexpected responses through the existing unknown/debug path only if useful.
 - Do not break bracketed paste, focus, mouse, or keyboard parsing.
 - Do not consume a user's real keypress because it happened while a capability query was pending.
-- Parse OSC 10, 11, and 4 color replies, terminated by BEL or ST, into probe evidence; the parser has no OSC reply path today ([Terminal color reports](#terminal-color-reports)).
+- Parse OSC 10, 11, and 4 color replies, terminated by BEL or ST, into `InputEvent.colorReport`, the way the other probe replies are events ([Terminal color reports](#terminal-color-reports)).
 
-This may require an internal event channel distinct from public `InputEvent`, or a parser result type that can carry both public input events and private protocol responses. Do not force capability-query responses into `InputEvent` just because they arrive on stdin.
+Query responses are semantic `InputEvent` cases (`primaryDeviceAttributes`, `privateModeStatus`, `kittyGraphicsResponse`, `kittyKeyboardEnhancementFlags`, and `colorReport`), distinct from `key`. The session observes each one as probe evidence before delivering it on the input queue, so a reply is never mistaken for a key press.
 
 ## Tests
 
@@ -190,7 +190,7 @@ If active queries are implemented, add tests for:
 - query timeout produces `.unknown`
 - user input interleaved with query handling is not lost
 - cleanup still runs if detection times out
-- the color round sends one write, parses `rgb:` and `rgba:` replies with 1 to 4 hex digits per channel and either terminator, ends on DA1 or timeout, applies late replies as updates, and sends only OSC 11 under `NO_COLOR`
+- the color round sends one write, parses `rgb:` and `rgba:` replies with 1 to 4 hex digits per channel and either terminator, ends on DA1 or timeout, applies late replies as updates, sends only OSC 11 under `NO_COLOR`, re-runs on a color-scheme notification and on resume, and sends nothing (and never enables mode 2031) under `.passive` and `.disabled` detection
 
 Add configuration tests for:
 

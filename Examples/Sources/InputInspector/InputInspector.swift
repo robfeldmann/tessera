@@ -87,9 +87,9 @@ enum InputInspector {
       terminal.invalidateRenderer()
       state.followLatest()
 
-    case .focusGained, .focusLost, .key, .kittyGraphicsResponse,
-      .kittyKeyboardEnhancementFlags, .mouse, .paste, .primaryDeviceAttributes,
-      .privateModeStatus, .unknown:
+    case .colorReport, .colorSchemeChanged, .focusGained, .focusLost, .key,
+      .kittyGraphicsResponse, .kittyKeyboardEnhancementFlags, .mouse, .paste,
+      .primaryDeviceAttributes, .privateModeStatus, .unknown:
       state.append(event)
       state.followLatest()
     }
@@ -247,6 +247,11 @@ private struct GridPosition: Equatable {
 
 private func describe(_ event: InputEvent) -> String {
   switch event {
+  case .colorReport(let reply):
+    let color = reply.color
+    return "color report \(reply.role) rgb=\(color.red),\(color.green),\(color.blue)"
+  case .colorSchemeChanged(let scheme):
+    return "color scheme changed to \(scheme)"
   case .focusGained:
     return "focus gained"
   case .focusLost:

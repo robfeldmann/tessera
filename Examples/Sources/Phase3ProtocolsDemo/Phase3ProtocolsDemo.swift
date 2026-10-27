@@ -132,6 +132,8 @@ enum Phase3ProtocolsDemo {
       }
       state.append(event)
 
+    case .colorReport, .colorSchemeChanged:
+      state.append(event)
     case .kittyKeyboardEnhancementFlags:
       state.append(event)
     case .primaryDeviceAttributes:
@@ -2304,6 +2306,11 @@ private func isMouseTrackingMode(_ mode: ModeLifecycle.Mode) -> Bool {
 
 private func describe(_ event: InputEvent) -> String {
   switch event {
+  case .colorReport(let reply):
+    let color = reply.color
+    return "color report \(reply.role) rgb=\(color.red),\(color.green),\(color.blue)"
+  case .colorSchemeChanged(let scheme):
+    return "color scheme changed to \(scheme)"
   case .focusGained:
     return "focus gained"
   case .focusLost:

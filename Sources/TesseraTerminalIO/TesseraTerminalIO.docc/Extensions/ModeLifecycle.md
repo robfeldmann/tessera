@@ -30,6 +30,7 @@ A terminal mode that the lifecycle can acquire.
 - ``ModeLifecycle/Mode/focusEvents``
 - ``ModeLifecycle/Mode/mouseTracking(_:)``
 - ``ModeLifecycle/Mode/kittyKeyboard``
+- ``ModeLifecycle/Mode/colorSchemeNotifications``
 
 ### Cursor styling
 
