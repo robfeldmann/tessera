@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-#MISE description="Fixture-grade dimension and geometry checks for the design catalog"
+#MISE description="Fixture-grade dimension and geometry checks for the design catalog and the tui-design skill"
 set -euo pipefail
 cd "$MISE_PROJECT_ROOT"
 python3 -m unittest scripts/test_check_wireframes.py
-python3 scripts/check-wireframes.py docs/design
+python3 scripts/check-wireframes.py docs/design .agents/skills/tui-design

@@ -48,3 +48,4 @@ Research records answer one question each: what was observed, with citations tha
 - 045 (2026-10-23) [Decision 9 (i): architect review](research/decision-9i-architect-review.md)
 - 046 (2026-10-23) [Runtime isolation: evidence and owner note](research/runtime-isolation-evidence.md)
 - 047 (2026-10-27) [Ghostty 1.4 and libghostty: what it means for Tessera](research/ghostty-1.4-review.md)
+- 048 (2026-10-27) [Intuitive TUI design](research/intuitive-tui-design.md)
