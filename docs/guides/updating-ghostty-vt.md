@@ -11,7 +11,7 @@ Nobody builds `libghostty-vt` to build or test Tessera. `.github/workflows/ghost
 
 ## When to update
 
-Update the pinned revision when Tessera needs a Ghostty VT bug fix, API change, or release validation. Prefer a released tag commit once the `libghostty-vt` APIs Tessera uses are stable in a Ghostty release. Until then, use a known-good commit from `ghostty-org/ghostty` `main`.
+Update the pinned revision when Tessera needs a Ghostty VT bug fix, API change, or release validation. libghostty-vt is versioned apart from the Ghostty app: a Ghostty tag such as `v1.4.0` is an app release, and libghostty-vt has no tag of its own yet. Upstream plans one more C API pass with an ABI break and then a libghostty 1.0 tag before Ghostty 1.5 ([Ghostty 1.4 release notes](https://ghostty.org/docs/install/release-notes/1-4-0)). The pin stays where it is until that tag exists (owner decision, 2026-10-27, after the [Ghostty 1.4 review](../research/ghostty-1.4-review.md)); from then on prefer libghostty-vt release tags, and use a known-good commit from `ghostty-org/ghostty` `main` only for a fix Tessera needs before the next tag.
 
 ## Update process
 
