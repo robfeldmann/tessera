@@ -192,7 +192,7 @@ Animate only to show that something is live or in progress: a spinner while wait
 
 ## Sketch mode
 
-Run before a screen is built. The output is short enough for the owner to take in at a glance and precise enough to review the built screen against.
+Run before a screen is built. The output is short enough for the owner to take in at a glance and precise enough to review the built screen against. Record it where the work is reviewed, so the owner can glance at it and the review can compare against it; [Sketching a demo](#sketching-a-demo) names the place for a Tessera slice. The owner's glance never blocks the build: when the owner is away, build against the sketch, and the owner approves or redirects it when reviewing the work.
 
 1. Write the subject in one sentence, for yourself and the owner, not for the screen: "a value that steps up and down and resets".
 2. List the states the screen can be in (including empty, error, and narrow) and every interaction: the key, and what visibly changes where.
@@ -200,7 +200,7 @@ Run before a screen is built. The output is short enough for the owner to take i
 4. Add a styled grid for each wireframe that carries emphasis: which cells are the subject, which recede, which are structure.
 5. Write the eye path: the first three things the eye lands on, in order, by region and cell (`r1 c19`). The subject must be first.
 6. Write the interaction table. Every "where" must be the subject, the region the eye is on, or the control the key is drawn in; a "where" in a status line elsewhere is a design bug.
-7. Run the checklist below against the sketch, then hand it over.
+7. Run the checklist below against the sketch, then record it.
 
 Output:
 
@@ -232,7 +232,7 @@ States not drawn: empty (as mobile with `0`), narrow (legend drops `q quit` firs
 
 ## Review mode
 
-Run after the screen is built. Inputs: the sketch, the screen at every viewport, the screen after each interaction, the styles, and a picture of the real terminal when one is available.
+Run after the screen is built, on the built screen, and before the work is handed off for review, so the findings are fixed or listed when a reviewer first sees it. Inputs: the sketch, the screen at every viewport, the screen after each interaction, the styles, and a picture of the real terminal when one is available.
 
 1. **Glance test.** Look at the shot for a moment, cover the legend, and write down what you are looking at and the three things the eye lands on, in order. Compare with the sketch's subject and eye path. If you cannot name the subject from the screen alone, that is the first finding.
 2. **Interaction test.** For each row of the interaction table, compare the screen before and after the key. Which cells changed? Are they the subject or the control, and is the change large enough to notice without comparing row by row? A key whose only visible effect is in a status line, or that has none, is a finding.
@@ -288,7 +288,7 @@ Run after the screen is built. Inputs: the sketch, the screen at every viewport,
 
 ### Sketching a demo
 
-A demo is an `Application` in `Examples/Sources/DemoSupport` that conforms to `Demo` (the [`tessera-contributing` skill](../tessera-contributing/SKILL.md) says how to add one). Sketch it before writing it, at `mobile` and `desktop`, and put the sketch where the owner will see it before the demo is built: the conversation, or the description of the slice's draft pull request when the owner is not present. Keep it in the pull request description so the review compares against it.
+A demo is an `Application` in `Examples/Sources/DemoSupport` that conforms to `Demo` (the [`tessera-contributing` skill](../tessera-contributing/SKILL.md) says how to add one). Every slice that adds or changes a demo has a designer agent with this skill sketch it before it is written, at `mobile` and `desktop`, and review it once it is built. Record the sketch in the slice's pull request description, under `## Demo sketch`, and, when the slice records its evidence on the plan's Progress line, cite the sketch there too. Run the review on the built demo before the slice's critic review hands the pull request to the owner, and put its findings, fixed or listed, in the pull request. The owner glances at the sketch when available; in an unattended run the slice builds against the sketch, and the owner approves or redirects in pull request review.
 
 ### Reviewing with the `tessera` commands
 
