@@ -92,7 +92,7 @@ let IssueReporting: Target.Dependency = .product(
 package.dependencies.append(
   .package(
     url: "https://github.com/pointfreeco/swift-snapshot-testing",
-    exact: "1.19.6"
+    exact: "1.19.7"
   )
 )
 
