@@ -59,40 +59,40 @@ One plan per piece of work, in order. This page is rendered from each plan's fro
 
 Plans written before the docs workspace were numbered (`.agents/plans/NNN-slug.md`) and are cited by number in commit messages, research records, and older plans. The number is now the plan's `order`; this table maps each number to its page.
 
-| Number | Plan | Stage |
-| --- | --- | --- |
-| 001 | [Terminal Ownership and Isolation Spec](plans/terminal-ownership-isolation-spec.md) | done |
-| 002 | [Redistribute Ownership and Isolation Material](plans/redistribute-ownership-isolation-material.md) | done |
-| 003 | [Local Linux Dev Loop](plans/local-linux-dev-loop.md) | done |
-| 004 | [GitHub Actions Phase 0](plans/github-actions-phase-0.md) | done |
-| 005 | [Phase 1 Walking Skeleton](plans/phase-1-walking-skeleton.md) | done |
-| 006 | [Phase 2 Slice 1 Ghostty Snapshot Harness](plans/phase-2-slice-1-snapshot-harness.md) | done |
-| 007 | [Phase 2 Slice 2 ANSI Encoder](plans/phase-2-slice-2-ansi-encoder.md) | done |
-| 008 | [Phase 2 Slice 3 Terminal Lifecycle](plans/phase-2-slice-3-terminal-lifecycle.md) | done |
-| 009 | [Risk-Driven Test Coverage](plans/risk-driven-test-coverage.md) | done |
-| 010 | [Phase 2 Slice 4 Width-Aware Renderer](plans/phase-2-slice-4-width-aware-renderer.md) | done |
-| 011 | [Phase 2 Slice 5 Legacy Input Parser](plans/phase-2-slice-5-legacy-input-parser.md) | done |
-| 012 | [Phase 2 Slice 6 Windows Terminal IO](plans/phase-2-slice-6-windows-terminal-io.md) | done |
-| 013 | [Frost Windows VM Prototype](plans/frost-windows-vm-prototype.md) | done |
-| 014 | [Windows Ghostty Snapshot Enablement](plans/windows-ghostty-snapshot-enablement.md) | done |
-| 015 | [Phase 3 Modern Terminal Protocols](plans/phase-3-modern-terminal-protocols.md) | done |
-| 016 | [Phase 3 Slice 1 Bracketed Paste Mode](plans/phase-3-slice-1-bracketed-paste-mode.md) | done |
-| 017 | [Phase 3 Slice 2 Focus Events](plans/phase-3-slice-2-focus-events.md) | done |
-| 018 | [Phase 3 Slice 3 SGR Mouse Tracking](plans/phase-3-slice-3-sgr-mouse-tracking.md) | done |
-| 019 | [Phase 3 Slice 4 Kitty Keyboard Protocol](plans/phase-3-slice-4-kitty-keyboard-protocol.md) | done |
-| 020 | [Phase 3 Slice 5 OSC 8 Hyperlinks](plans/phase-3-slice-5-osc-8-hyperlinks.md) | done |
-| 021 | [Phase 3 Slice 6 Terminal Capability Detection](plans/phase-3-slice-6-terminal-capability-detection.md) | done |
-| 022 | [Phase 3 Slice 7 Kitty Graphics Protocol](plans/phase-3-slice-7-kitty-graphics-protocol.md) | done |
-| 023 | [Kitty Keyboard Full Coverage](plans/kitty-keyboard-full-coverage.md) | done |
-| 024 | [Phase 3 Slice 8 Color Degradation Baseline](plans/phase-3-slice-8-color-degradation-baseline.md) | done |
-| 025 | [Phase 3 Slice 9 OSC 52 Clipboard](plans/phase-3-slice-9-osc-52-clipboard.md) | done |
-| 026 | [Phase 3 Slice 10 Cursor Styling](plans/phase-3-slice-10-cursor-styling.md) | done |
-| 027 | [Phase 3 Slice 11 Underline Extensions](plans/phase-3-slice-11-underline-extensions.md) | done |
-| 028 | [Phase 3 Slice 12 Runtime Protocol Control](plans/phase-3-runtime-protocol-control.md) | done |
-| 029 | [Tooling orchestration and Lefthook migration](plans/tooling-orchestration-and-lefthook.md) | done |
-| 030 | [Phase 4 View Layer and Tessera Showcase](plans/phase-4-view-layer-and-showcase.md) | cancelled |
-| 031 | [Tessera open-source readiness](plans/open-source-readiness.md) | done |
-| 032 | [Phase 4 view layer, redesigned from the omp2 reference](plans/omp2-reference-gallery-and-phase-4-redesign.md) | cancelled |
-| 033 | [Developer tooling for agents and humans](plans/developer-tooling.md) | cancelled |
-| 034 | [Terminal I/O concurrency review fixes](plans/terminal-io-concurrency-review-fixes.md) | done |
-| 035 | [Toolchain, repository conventions, and plan consolidation](plans/toolchain-conventions-and-plan-consolidation.md) | done |
+| Number | Plan                                                                                                               | Stage     |
+| ------ | ------------------------------------------------------------------------------------------------------------------ | --------- |
+| 001    | [Terminal Ownership and Isolation Spec](plans/terminal-ownership-isolation-spec.md)                                | done      |
+| 002    | [Redistribute Ownership and Isolation Material](plans/redistribute-ownership-isolation-material.md)                | done      |
+| 003    | [Local Linux Dev Loop](plans/local-linux-dev-loop.md)                                                              | done      |
+| 004    | [GitHub Actions Phase 0](plans/github-actions-phase-0.md)                                                          | done      |
+| 005    | [Phase 1 Walking Skeleton](plans/phase-1-walking-skeleton.md)                                                      | done      |
+| 006    | [Phase 2 Slice 1 Ghostty Snapshot Harness](plans/phase-2-slice-1-snapshot-harness.md)                              | done      |
+| 007    | [Phase 2 Slice 2 ANSI Encoder](plans/phase-2-slice-2-ansi-encoder.md)                                              | done      |
+| 008    | [Phase 2 Slice 3 Terminal Lifecycle](plans/phase-2-slice-3-terminal-lifecycle.md)                                  | done      |
+| 009    | [Risk-Driven Test Coverage](plans/risk-driven-test-coverage.md)                                                    | done      |
+| 010    | [Phase 2 Slice 4 Width-Aware Renderer](plans/phase-2-slice-4-width-aware-renderer.md)                              | done      |
+| 011    | [Phase 2 Slice 5 Legacy Input Parser](plans/phase-2-slice-5-legacy-input-parser.md)                                | done      |
+| 012    | [Phase 2 Slice 6 Windows Terminal IO](plans/phase-2-slice-6-windows-terminal-io.md)                                | done      |
+| 013    | [Frost Windows VM Prototype](plans/frost-windows-vm-prototype.md)                                                  | done      |
+| 014    | [Windows Ghostty Snapshot Enablement](plans/windows-ghostty-snapshot-enablement.md)                                | done      |
+| 015    | [Phase 3 Modern Terminal Protocols](plans/phase-3-modern-terminal-protocols.md)                                    | done      |
+| 016    | [Phase 3 Slice 1 Bracketed Paste Mode](plans/phase-3-slice-1-bracketed-paste-mode.md)                              | done      |
+| 017    | [Phase 3 Slice 2 Focus Events](plans/phase-3-slice-2-focus-events.md)                                              | done      |
+| 018    | [Phase 3 Slice 3 SGR Mouse Tracking](plans/phase-3-slice-3-sgr-mouse-tracking.md)                                  | done      |
+| 019    | [Phase 3 Slice 4 Kitty Keyboard Protocol](plans/phase-3-slice-4-kitty-keyboard-protocol.md)                        | done      |
+| 020    | [Phase 3 Slice 5 OSC 8 Hyperlinks](plans/phase-3-slice-5-osc-8-hyperlinks.md)                                      | done      |
+| 021    | [Phase 3 Slice 6 Terminal Capability Detection](plans/phase-3-slice-6-terminal-capability-detection.md)            | done      |
+| 022    | [Phase 3 Slice 7 Kitty Graphics Protocol](plans/phase-3-slice-7-kitty-graphics-protocol.md)                        | done      |
+| 023    | [Kitty Keyboard Full Coverage](plans/kitty-keyboard-full-coverage.md)                                              | done      |
+| 024    | [Phase 3 Slice 8 Color Degradation Baseline](plans/phase-3-slice-8-color-degradation-baseline.md)                  | done      |
+| 025    | [Phase 3 Slice 9 OSC 52 Clipboard](plans/phase-3-slice-9-osc-52-clipboard.md)                                      | done      |
+| 026    | [Phase 3 Slice 10 Cursor Styling](plans/phase-3-slice-10-cursor-styling.md)                                        | done      |
+| 027    | [Phase 3 Slice 11 Underline Extensions](plans/phase-3-slice-11-underline-extensions.md)                            | done      |
+| 028    | [Phase 3 Slice 12 Runtime Protocol Control](plans/phase-3-runtime-protocol-control.md)                             | done      |
+| 029    | [Tooling orchestration and Lefthook migration](plans/tooling-orchestration-and-lefthook.md)                        | done      |
+| 030    | [Phase 4 View Layer and Tessera Showcase](plans/phase-4-view-layer-and-showcase.md)                                | cancelled |
+| 031    | [Tessera open-source readiness](plans/open-source-readiness.md)                                                    | done      |
+| 032    | [Phase 4 view layer, redesigned from the omp2 reference](plans/omp2-reference-gallery-and-phase-4-redesign.md)     | cancelled |
+| 033    | [Developer tooling for agents and humans](plans/developer-tooling.md)                                              | cancelled |
+| 034    | [Terminal I/O concurrency review fixes](plans/terminal-io-concurrency-review-fixes.md)                             | done      |
+| 035    | [Toolchain, repository conventions, and plan consolidation](plans/toolchain-conventions-and-plan-consolidation.md) | done      |
