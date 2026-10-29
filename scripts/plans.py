@@ -7,9 +7,11 @@ plans), `description` (one line for the hub), `created`, and `completed` for don
 The hub groups plans as Active, Next (pending in order), Done (by completion date), and
 Cancelled, and keeps a one-time table from each old plan number to its slug, so "plan 032"
 in commit messages and older notes still resolves. Editing the hub by hand is pointless
-because the quality gate compares it with this rendering.
+because the quality gate compares it with this rendering. The rendering is run through
+`iwe normalize -k plans` (in a scratch copy of `docs/`) so the page is already in the form
+the docs workspace keeps; `iwe` comes from PATH, or through `mise exec` when it is not there.
 
-Usage: plans.py            rewrite docs/plans.md
+Usage: plans.py            rewrite docs/plans.md, normalized the way `iwe normalize` leaves it
        plans.py --check    exit 1 when docs/plans.md is stale or frontmatter is invalid
        plans.py --status   print the plans as a table
 """
@@ -18,13 +20,17 @@ from __future__ import annotations
 
 import argparse
 import re
+import shutil
+import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-PLANS = ROOT / "docs" / "plans"
-HUB = ROOT / "docs" / "plans.md"
+DOCS = ROOT / "docs"
+PLANS = DOCS / "plans"
+HUB = DOCS / "plans.md"
 PENDING = ("proposed", "planned")
 STAGES = ("active", *PENDING, "done", "cancelled")
 FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n", re.DOTALL)
@@ -179,6 +185,35 @@ def status(plans: list[Plan]) -> str:
     return "\n".join(lines) + f"\n{summary}"
 
 
+def iwe_command() -> list[str]:
+    """`iwe` when it is on PATH (inside `mise run` it is), else through `mise exec`."""
+    return ["iwe"] if shutil.which("iwe") else ["mise", "exec", "--", "iwe"]
+
+
+def normalized(rendered: str) -> str:
+    """The hub as `iwe normalize -k plans` leaves it, which is the form the docs workspace keeps.
+
+    The normalizing runs in a scratch copy of `docs/` so that rendering, and `--check`
+    above all, never touches the real workspace.
+    """
+    with tempfile.TemporaryDirectory(prefix="plans-") as scratch:
+        docs = Path(scratch) / DOCS.name
+        shutil.copytree(DOCS, docs)
+        (docs / HUB.name).write_text(rendered, encoding="utf-8")
+        try:
+            result = subprocess.run(
+                [*iwe_command(), "normalize", "-k", HUB.stem],
+                cwd=docs,
+                capture_output=True,
+                text=True,
+            )
+        except OSError as error:
+            raise SystemExit(f"plans: cannot run iwe to normalize the hub: {error}") from error
+        if result.returncode != 0:
+            raise SystemExit(f"plans: `iwe normalize -k {HUB.stem}` failed:\n{result.stderr}")
+        return (docs / HUB.name).read_text(encoding="utf-8")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     mode = parser.add_mutually_exclusive_group()
@@ -196,7 +231,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.status:
         print(status(plans))
         return 0
-    rendered = render(plans)
+    rendered = normalized(render(plans))
     current = HUB.read_text(encoding="utf-8") if HUB.is_file() else ""
     if args.check:
         if current != rendered:

@@ -60,27 +60,30 @@ url = "https://github.com/cirruslabs/tart/releases/download/2.41.1/tart.tar.gz"
 url_api = "https://api.github.com/repos/cirruslabs/tart/releases/assets/644183490"
 
 [[tools."github:iwe-org/iwe"]]
-version = "0.29.0"
+version = "0.29.3"
 backend = "github:iwe-org/iwe"
-specifiers = ["0.29.0"]
+specifiers = ["0.29.3"]
 
 [tools."github:iwe-org/iwe".options]
 version_prefix = "iwe-v"
 
 [tools."github:iwe-org/iwe"."platforms.linux-arm64"]
-checksum = "sha256:2a4dfbfed64a213902e289afdce179f3512233ef85d6c13f64cc28c01a6f79e1"
-url = "https://github.com/iwe-org/iwe/releases/download/iwe-v0.29.0/iwe-v0.29.0-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/iwe-org/iwe/releases/assets/660716335"
+checksum = "sha256:c50bafd3526103598cde298944cc9909d2187882ba3db5d57a08b901a1a933ff"
+checksum_source = "mise-versions"
+url = "https://github.com/iwe-org/iwe/releases/download/iwe-v0.29.3/iwe-v0.29.3-aarch64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/iwe-org/iwe/releases/assets/686960453"
 
 [tools."github:iwe-org/iwe"."platforms.linux-x64"]
-checksum = "sha256:69b6bf1be4dca8244d0cc96fde3fe07af6947bf7aa2d4773f856550e93b1ae83"
-url = "https://github.com/iwe-org/iwe/releases/download/iwe-v0.29.0/iwe-v0.29.0-x86_64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/iwe-org/iwe/releases/assets/660716313"
+checksum = "sha256:f8ddea58a0114dc2e3d3a2ad212be455ac3b7091bdc73bbb3a6c9d97ae6ab856"
+checksum_source = "mise-versions"
+url = "https://github.com/iwe-org/iwe/releases/download/iwe-v0.29.3/iwe-v0.29.3-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/iwe-org/iwe/releases/assets/686961370"
 
 [tools."github:iwe-org/iwe"."platforms.macos-arm64"]
-checksum = "sha256:58555e7c59efea02e8dc230f952336bc1cf99779c41f5dcdbd2d5f20a9a21264"
-url = "https://github.com/iwe-org/iwe/releases/download/iwe-v0.29.0/iwe-v0.29.0-aarch64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/iwe-org/iwe/releases/assets/660718352"
+checksum = "sha256:4df263c837fbddafa7b57afcd334f860ef10b8515ffcc3b532026675beabf02e"
+checksum_source = "mise-versions"
+url = "https://github.com/iwe-org/iwe/releases/download/iwe-v0.29.3/iwe-v0.29.3-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/iwe-org/iwe/releases/assets/686963515"
 
 [[tools.hk]]
 version = "2.8.0"

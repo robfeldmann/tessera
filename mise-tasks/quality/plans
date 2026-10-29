@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-#MISE description="Verify that docs/plans.md matches the plan frontmatter it is rendered from"
+#MISE description="Verify that docs/plans.md matches the plan frontmatter it is rendered from, in normalized form"
 set -euo pipefail
 cd "$MISE_PROJECT_ROOT"
+python3 -m unittest scripts/test_plans.py
 python3 scripts/plans.py --check

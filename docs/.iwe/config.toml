@@ -6,6 +6,7 @@ refs_extension = ".md"
 
 [markdown.formatting]
 preserve_newlines = true
+emphasis_token = "_"
 
 [workspace]
 path = ""

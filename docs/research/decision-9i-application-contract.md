@@ -191,9 +191,11 @@ Replace line 85 with:
 
 Insert after "### `tessera-dev`" section's last paragraph (after line 170) a new section:
 
-> ### Stability
->
-> `TesseraHarness`'s public names are `Application`, `ApplicationRegistry`, `Viewport`, `HarnessCLI`, `ScenarioRunner`, `ScenarioReport`, and `ScenarioFailure`; everything else is `package` or internal. Within a major version these stay as they are: the scenario grammar (statements, header keys, `term` options, locator keys, role names, and check rule ids; additions only, and an unknown statement stays a parse error); the exit codes; the JSON report's fields (added, never removed, renamed, or retyped; consumers ignore unknown fields); the commands `app list`, `app run`, `run`, `shot`, `tree`, `check`, and `help` and the flags `--record`, `--repeat N`, `--timing`, `--json`, and `--pretty`; and the `NAME.txt` and `NAME.grid.txt` formats. A check rule added in a minor version runs when named and joins bare `check` in the next major. The projection JSON from `tree` and `dump`, the trace and `replay`, the counts `expect cost` compares, SVG and PNG shots, `coverage`, `conform`, and the live-inspection socket may change in any release and carry a version field. A library rendering change can drift goldens in any release; that is the library's change, not the harness's.
+```markdown
+### Stability
+
+`TesseraHarness`'s public names are `Application`, `ApplicationRegistry`, `Viewport`, `HarnessCLI`, `ScenarioRunner`, `ScenarioReport`, and `ScenarioFailure`; everything else is `package` or internal. Within a major version these stay as they are: the scenario grammar (statements, header keys, `term` options, locator keys, role names, and check rule ids; additions only, and an unknown statement stays a parse error); the exit codes; the JSON report's fields (added, never removed, renamed, or retyped; consumers ignore unknown fields); the commands `app list`, `app run`, `run`, `shot`, `tree`, `check`, and `help` and the flags `--record`, `--repeat N`, `--timing`, `--json`, and `--pretty`; and the `NAME.txt` and `NAME.grid.txt` formats. A check rule added in a minor version runs when named and joins bare `check` in the next major. The projection JSON from `tree` and `dump`, the trace and `replay`, the counts `expect cost` compares, SVG and PNG shots, `coverage`, `conform`, and the live-inspection socket may change in any release and carry a version field. A library rendering change can drift goldens in any release; that is the library's change, not the harness's.
+```
 
 Replace the first bullet under "Open questions" (line 195) with:
 
