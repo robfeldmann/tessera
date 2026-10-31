@@ -344,8 +344,9 @@ Run after the screen is built, on the built screen, and before the work is hande
 
 A design sometimes needs a number or a component Tessera cannot give yet: no view can report the size it was given, and Box and KeyLegend are designed but not built. A screen may then use a stand-in, in this form only:
 
-- One small private view, named for what it stands in for, with a comment naming the library piece that replaces it.
-- It uses only public API. A measuring stand-in is a `LeafView` that renders the size it was offered (the cells the layout gave it); it never computes what the layout should give, because re-implementing the library's arithmetic would show the screen's arithmetic instead of the library's. A legend stand-in is `Text` in the KeyLegend look, with KeyLegend's drop-by-priority rule written out for the widths the screen supports.
+- One small view, named for what it stands in for, with a comment naming the library piece that replaces it.
+- It uses only public API. A measuring stand-in is a `LeafView` that renders the size it was offered (the cells the layout gave it); it never computes what the layout should give, because re-implementing the library's arithmetic would show the screen's arithmetic instead of the library's.
+- A key row in the KeyLegend look has exactly one stand-in for all of Tessera's demos (owner decision, 2026-10-30): a single shared view or function in `Examples/Sources/DemoSupport` that every demo calls with its entries and their priorities, with KeyLegend's drop-by-priority rule written once inside it, so that KeyLegend replaces it in one place. A demo never draws its own key row or keeps its own copy of the rule. The first slice whose demo needs a key row builds the shared stand-in; later demos call it.
 - The sketch and the pull request list each stand-in as the first thing to delete when the real piece lands.
 
 Anything larger, or anything that hides a library defect, is a workaround, not a stand-in: the library gets the fix.
@@ -353,6 +354,8 @@ Anything larger, or anything that hides a library defect, is a workaround, not a
 ### Demos are worked applications
 
 A demo is an `Application` in `Examples/Sources/DemoSupport` that conforms to `Demo` (the [`tessera-contributing` skill](../tessera-contributing/SKILL.md) says how to add one). It applies everything above: a demo is a small, concrete application with a goal, a task someone is doing, that the component serves, not a specimen sheet of the component's variants. The component's behaviour then shows as what happens to the task: panes narrowing as a window shrinks, a tag moving when a list is reordered, a message box growing as it wraps. Invent the application first, then make the component the thing that decides how it looks and behaves, with real content throughout. Abstract content (`A B C`, rows of dots, `Item 0`) is the failure this rule exists to prevent.
+
+Demos share one key row: until KeyLegend exists, every demo that shows its keys calls the single KeyLegend stand-in in `DemoSupport` described above, and none draws its own.
 
 The component's own quantities still show, as principle 2 asks, but on the application's own parts. A `Flex` demo as an editor window, with each pane's measured width under it and the constraint it asks for under that:
 
@@ -394,7 +397,7 @@ K  fg=secondary bold -- keys
 S  fg=border -- separators
 ```
 
-The window edge is the one control (`←` `→` change the width offered), `⇥` selects a pane, and `-` `+` change its length; `Editor`, the one `fill`, takes what is left, so its 19 is 40 less the two fixed panes and the two gaps. At the extremes the sketch draws the window just wide enough for the two fixed panes, where `Editor` gets 0 cells and stays named, with its `0`, in a pane list beside the window (principle 9), and a fixed pane wider than the window, cut where the window ends (principle 10's exception). A measuring stand-in draws the width rows, and the key row is a KeyLegend stand-in.
+The window edge is the one control (`←` `→` change the width offered), `⇥` selects a pane, and `-` `+` change its length; `Editor`, the one `fill`, takes what is left, so its 19 is 40 less the two fixed panes and the two gaps. At the extremes the sketch draws the window just wide enough for the two fixed panes, where `Editor` gets 0 cells and stays named, with its `0`, in a pane list beside the window (principle 9), and a fixed pane wider than the window, cut where the window ends (principle 10's exception). A measuring stand-in draws the width rows, and the key row comes from the shared KeyLegend stand-in in `DemoSupport`, like every demo's.
 
 For a layout component, the sketch's numbers come from the catalog doc's rules (for example [Flex](../../../docs/design/primitives/flex.md)), computed rather than eyeballed; they become the scenarios' `expect node … frame` values. When computing them is impractical, mark them approximate and read the exact frames from `tessera tree` once the demo builds.
 
