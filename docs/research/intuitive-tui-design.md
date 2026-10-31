@@ -2,7 +2,7 @@
 type: research
 observed: 2026-10-27
 status: resolved
-description: How good terminal UIs make "what am I looking at, and what can I do" obvious without saying it, and where Tessera's first demos fall short.
+description: How good terminal UIs make "what am I looking at, and what can I do" obvious without saying it, where Tessera's first demos fall short, and what a blind trial of the resulting skill showed.
 ---
 
 # Intuitive TUI design
@@ -164,10 +164,30 @@ M x     x        x      A
 - **The `Demo` contract pushes toward specimen sheets.** "it shows every style and variant that can differ" (`Examples/Sources/DemoSupport/Demo.swift:11-13`) has produced screens that are inventories, with every variant at once and no hierarchy among them.
 - **What works and should stay:** `frame-padding`'s dotted backdrop shows the size a modified view reports, which is the ratatui idea (draw the space) in Tessera's terms; `text`'s column ruler makes cell widths countable; `foreach`'s `r` reverses the list in place, which is state shown on the subject.
 
+### A blind trial of the skill
+
+On 2026-10-27 three agents were each given the skill (the version before this section was added) and asked to build a `flex` demo with it, without seeing each other's work: one revised the existing `FlexDemo`, two started from scratch. Each wrote a sketch before the code, built the demo with its scenarios, and ran review mode on the build. The write-ups were read for this record; the demos themselves are not in this repository.
+
+- **What each built.** The revision drew rows of familiar interface strips (an editor status line, mail columns, a tab row, a search bar), each with its constraints written above it and its measured widths under it, under one width knob, with a footer of only `q quit`. The first scratch design was an editor window: four full-height panes (Files, Editor, Preview, Outline) whose widths were drawn as rulers with numbers under an offered-width ruler, a list of each pane's constraint, and a key-hint footer. The second scratch design repeated one three-pane row (Files, Editor, Output) at five widths, a ladder that shows the row shrinking, with a short key-hint footer.
+- **What the owner preferred, and why.** The editor window. Its key-hint footer worked nearly as KeyLegend is designed, and its real panes made the kinds of layout constraint understandable. He wanted real content in place of its panes' rows of dots. Both scratch designs beat the revision of the existing demo.
+- **What the skill drove.** All three credited principle 2 (draw the invisible and label it with its measured value) for their designs, principle 6 for the one-scale structure, the eye-path and interaction tests for the findings on their first builds, and the scratch-scenario recipe (a `shot` per state, `--record`, then `colors=none`) for reviewing without a terminal.
+- **Gaps all three hit.**
+  - No way to get the number principle 2 asks for: Tessera cannot report a view's size. All three wrote a small demo-local `LeafView` that renders the size it was offered, and asked whether that is allowed; the skill did not say.
+  - "States not drawn" in the sketch template is where every first build failed: the minimum, maximum, and absent states of each interaction (a pane at 0 cells, at 4, spacing 0) were listed but not drawn.
+  - Keys before colour roles: "the key letter in the accent" collapses to bold under today's attributes-only styling, and bold already marks the subject. Two used an underline, the menu-accelerator convention.
+  - Principle 10 ("drop whole things rather than clip") conflicts with a screen whose subject is the cut.
+  - Focus and selection under attributes only: the skill reserved reverse for selection and the tokens make focus bold, but did not say which attribute carries which when both appear.
+  - The sketch template said `mobile (40x16)`, while the harness's `mobile` is 40 columns at natural height; the harness measures that height before the app's first resize, so an adaptive screen must start in its narrow layout.
+  - Layout numbers: the sketch's widths had to be computed from the catalog's rules (two wrote a throwaway copy of the resolver, and the build matched it), or else be marked approximate and read from `tessera tree`.
+  - Absence: a pane squeezed to zero cells has nothing to draw; the skill had no guidance for something that legitimately takes no space.
+- **Scope (owner, 2026-10-27).** The skill is about building useful TUIs that look good and work well, not about demos. A demo is one use of it: a small, concrete application with a goal that the component serves, because agents told to "make a demo" fell back on abstract content (rows of dots, `A B C`).
+
+The skill was revised for all of the above: applications first, demos as worked applications in its Tessera section, a stand-in rule for the measuring leaf and the key-hint footer, drawn extremes in sketch mode, underlined key letters, the clipping exception, focus and selection attributes, the natural-height template, computed sketch numbers, and absence.
+
 ## Conclusion
 
 The demos are hard to read because they describe instead of show, and they give the description, the samples, and the chrome the same weight. Good TUIs do the opposite: the subject is the most prominent thing; the invisible part of it (space, bounds, focus, selection) is drawn and labelled with its measured value; each frame names itself in its border; state changes where the eye already is; keys sit in one quiet line, or inside the control they act on, and follow focus; colour comes from a few roles and still reads in monochrome; empty and loading states are designed. None of this needs a "what to watch" sentence.
 
-These findings are written up as the [`tui-design` skill](../../.agents/skills/tui-design/SKILL.md): general principles, a sketch mode that produces a wireframe before a screen is built, and a review mode that judges the built screen from `tessera shot` and styled grids.
+These findings are written up as the [`tui-design` skill](../../.agents/skills/tui-design/SKILL.md), a skill for designing useful terminal applications: general principles, a sketch mode that produces a wireframe before a screen is built, and a review mode that judges the built screen from `tessera shot` and styled grids. The blind trial above confirmed that the principles produce better demos than the current ones and showed where the first version was silent; Tessera's demos use the skill by treating each demo as a small worked application.
 
-Two constraints on applying them to the demos now. Tessera has emphasis today (`Text(_:style:)` with bold, dim, reverse, and colours), but not yet the catalog's roles, Box, border styles, or KeyLegend, so a demo that follows the skill now uses attributes and layout, not frames or role colours. The demos also follow the `Demo` contract's "every style and variant" rule, which works against hierarchy; whether to keep it is for the owner.
+Two constraints on applying them to the demos now. Tessera has emphasis today (`Text(_:style:)` with bold, dim, reverse, underline, and colours), but not yet the catalog's roles, Box, border styles, or KeyLegend, and no view can report its size, so a demo that follows the skill now uses attributes, layout, and the skill's small, named stand-ins, not frames or role colours. The demos also follow the `Demo` contract's "every style and variant" rule, which works against hierarchy; whether to keep it is for the owner.

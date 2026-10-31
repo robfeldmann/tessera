@@ -56,7 +56,7 @@ func `the counter counts`() async throws {
 
 ## Add a demo
 
-Sketch the demo with the [`tui-design` skill](../tui-design/SKILL.md) before writing it, and review the built demo with the same skill; the same goes for a change to a demo's screen.
+A demo is a small worked application that its component serves, not a specimen sheet: sketch it with the [`tui-design` skill](../tui-design/SKILL.md) before writing it, and review the built demo with the same skill; the same goes for a change to a demo's screen.
 
 1. Write a `final class` conforming to `Demo` in `Examples/Sources/DemoSupport`: a kebab-case `name`, a `minimum` size, `viewports`, and `fixtures` (empty when there are none). None has a default. Name the class so it does not shadow a library view (`TextDemo`, not `Text`).
 2. Handle the quit key in `apply(_:)` with `isQuitKey`, and report it through `isFinished`.
