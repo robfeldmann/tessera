@@ -1,7 +1,7 @@
 ---
 name: tessera-contributing
 description: Use Tessera's own demos, scenario corpus, and developer tools while working in this repository. Use when running `mise run dev:*`, launching, picturing, checking, tracing, or snapshot-testing a demo, adding a demo and its scenarios, running `Examples/Scenarios`, or fixing a library defect a demo shows. Read with the `tessera` skill, which it extends.
-version: 0.3.0
+version: 0.3.1
 ---
 
 # Contributing to Tessera with the developer tools
@@ -55,6 +55,8 @@ func `the counter counts`() async throws {
 `withHeadlessHost` opens a terminal session over a headless device, steps the demo through the same driver as `launch`, and feeds every frame to one Ghostty virtual terminal, so `host.screenRows` is the screen a terminal would show. `host.projection` is the projection and `host.records` the trace. `@testable import TesseraHarness` reaches them; they are not API for app authors, who run their scenarios through the public `ScenarioRunner`. The viewport names are the ones the `tessera` skill lists.
 
 ## Add a demo
+
+A demo is a small worked application that its component serves, not a specimen sheet: sketch it with the [`tui-design` skill](../tui-design/SKILL.md) before writing it, and review the built demo with the same skill; the same goes for a change to a demo's screen.
 
 1. Write a `final class` conforming to `Demo` in `Examples/Sources/DemoSupport`: a kebab-case `name`, a `minimum` size, `viewports`, and `fixtures` (empty when there are none). None has a default. Name the class so it does not shadow a library view (`TextDemo`, not `Text`).
 2. Handle the quit key in `apply(_:)` with `isQuitKey`, and report it through `isFinished`.
