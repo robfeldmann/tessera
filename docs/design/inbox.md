@@ -32,7 +32,7 @@ Format: `- YYYY-MM-DD -- thought`
 
 ## Filed as Discussions
 
-Owner decision 9 (omp2 review, 2026-10-08): out-of-scope and post-1.0 ideas go to GitHub Discussions in the "Feature Requests, Ideas" category. Plan 032 step 4.2 filed these twelve on 2026-10-08. They are not inbox entries to triage; the assessment's parenthetical names are the omp2 components each idea came from.
+Owner decision 9 (omp2 review, 2026-10-08): out-of-scope and post-1.0 ideas go to GitHub Discussions in the "Feature Requests, Ideas" category. Plan 032 step 4.2 filed the first twelve of these on 2026-10-08, and later ideas that fit the rule join the list. They are not inbox entries to triage; the assessment's parenthetical names are the omp2 components each idea came from.
 
 - [#28](https://github.com/robfeldmann/tessera/discussions/28) -- Canvas view (Shader).
 - [#29](https://github.com/robfeldmann/tessera/discussions/29) -- Sub-cell raster: braille and half-block.
@@ -46,3 +46,4 @@ Owner decision 9 (omp2 review, 2026-10-08): out-of-scope and post-1.0 ideas go t
 - [#37](https://github.com/robfeldmann/tessera/discussions/37) -- Checklist and task-tree view (Todo).
 - [#38](https://github.com/robfeldmann/tessera/discussions/38) -- Value formatting through Foundation `FormatStyle`.
 - [#39](https://github.com/robfeldmann/tessera/discussions/39) -- Structured value inspector (JsonPreview).
+- [#76](https://github.com/robfeldmann/tessera/discussions/76) -- Interactive pixel UI through Kitty graphics.
