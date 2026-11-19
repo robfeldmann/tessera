@@ -1,5 +1,5 @@
 {
-  "originHash" : "c656a39916f8c137260235e973dddf9c99c5c1bf2ee112da99e5224e60a33ee5",
+  "originHash" : "d2ab2a191aa04f9a015c0a607351d92a5b52cfcee2b619a43624b978525b4b6e",
   "pins" : [
     {
       "identity" : "swift-argument-parser",
@@ -60,8 +60,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/pointfreeco/swift-snapshot-testing",
       "state" : {
-        "revision" : "28e5de025e3fd98991791bfbf83023ab3708da03",
-        "version" : "1.19.6"
+        "revision" : "1488390b0735e726564b948bf08b384398bdab5c",
+        "version" : "1.19.7"
       }
     },
     {
@@ -78,8 +78,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-system",
       "state" : {
-        "revision" : "869129b7bf4ecc57b97d0193ad29690ca2134750",
-        "version" : "1.8.1"
+        "revision" : "640e5755b5826f4437eaeedd366fd776737db62c",
+        "version" : "1.9.0"
       }
     },
     {
